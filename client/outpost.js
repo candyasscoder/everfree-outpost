@@ -134,7 +134,7 @@ Entity.prototype = {
     },
 
     'idle': function(idle_i, idle_j) {
-        this.anim = null;
+        this._anim = null;
         if (idle_i != null && idle_j != null) {
             this._idle.i = idle_i;
             this._idle.j = idle_j;
