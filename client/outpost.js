@@ -50,6 +50,29 @@ Sheet.prototype = {
 };
 
 
+function LayeredSheet(images, item_width, item_height) {
+    this.images = images;
+    this.item_width = item_width;
+    this.item_height = item_height;
+}
+
+LayeredSheet.prototype = {
+    'drawInto': function(ctx, i, j, x, y) {
+        for (var idx = 0; idx < this.images.length; ++idx) {
+            ctx.drawImage(this.images[idx],
+                    j * this.item_width,
+                    i * this.item_height,
+                    this.item_width,
+                    this.item_height,
+                    x,
+                    y,
+                    this.item_width,
+                    this.item_height);
+        }
+    },
+};
+
+
 function AssetLoader() {
     this.assets = {}
     this.pending = 0;
@@ -96,13 +119,15 @@ loader.addImage('pony_f_mane_1', 'assets/maremane1.png');
 loader.addImage('pony_f_tail_1', 'assets/maretail1.png');
 var assets = loader.assets;
 
-var sheet_f_base = new Sheet(assets.pony_f_base, 96, 96);
-var sheet_f_eyes_blue = new Sheet(assets.pony_f_eyes_blue, 96, 96);
-var sheet_f_horn = new Sheet(assets.pony_f_horn, 96, 96);
-var sheet_f_wing_front = new Sheet(assets.pony_f_wing_front, 96, 96);
-var sheet_f_wing_back = new Sheet(assets.pony_f_wing_back, 96, 96);
-var sheet_f_mane_1 = new Sheet(assets.pony_f_mane_1, 96, 96);
-var sheet_f_tail_1 = new Sheet(assets.pony_f_tail_1, 96, 96);
+var sheet = new LayeredSheet([
+        assets.pony_f_wing_back,
+        assets.pony_f_base,
+        assets.pony_f_eyes_blue,
+        assets.pony_f_horn,
+        assets.pony_f_mane_1,
+        assets.pony_f_tail_1,
+        assets.pony_f_wing_front,
+        ], 96, 96);
 
 var start_time = Date.now();
 loader.onload = function() {
@@ -115,14 +140,8 @@ loader.onload = function() {
 function frame() {
     var delta = Date.now() - start_time;
     var frame = Math.floor(delta / 100) % 6;
-    ctx.globalCompositeOperation = 'copy';
-    sheet_f_base.drawInto(ctx, 3, 12 + frame, 100, 100);
-    ctx.globalCompositeOperation = 'source-over';
-    sheet_f_eyes_blue.drawInto(ctx, 3, 12 + frame, 100, 100);
-    sheet_f_wing_front.drawInto(ctx, 3, 12 + frame, 100, 100);
-    sheet_f_horn.drawInto(ctx, 3, 12 + frame, 100, 100);
-    sheet_f_tail_1.drawInto(ctx, 3, 12 + frame, 100, 100);
-    sheet_f_mane_1.drawInto(ctx, 3, 12 + frame, 100, 100);
+    ctx.clearRect(100, 100, sheet.item_width, sheet.item_height);
+    sheet.drawInto(ctx, 3, 12 + frame, 100, 100);
 }
 
 console.log('startup done');
