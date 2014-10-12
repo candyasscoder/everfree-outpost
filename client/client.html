@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Everfree Outpost</title>
+        <style type='text/css'>
+            html {
+                width: 100%;
+                height: 100%;
+            }
+            body, canvas {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                position: absolute;
+            }
+
+            #banner-bg {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0,0,0,0.5);
+                z-index: 1;
+            }
+
+            #banner {
+                text-align: center;
+                position: absolute;
+                top: 50%;
+                width: 100%;
+                background-color: lightblue;
+                padding: 3px 0;
+                margin-top: -1ex;
+                border: solid black;
+                border-width: 1px 0;
+            }
+
+            #banner-bar {
+                position: absolute;
+                border: solid darkblue;
+                border-width: 0 0 3px;
+                left: 0;
+                bottom: 0;
+                width: 0%;
+                height: 100%;
+                min-height: 100%;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="banner-bg">
+            <div id="banner">
+                Loading...
+                <div id="banner-bar"></div>
+            </div>
+        </div>
+
+        <script type='text/javascript' src='outpost.js'></script>
+    </body>
+</html>
