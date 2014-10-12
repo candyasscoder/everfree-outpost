@@ -118,24 +118,65 @@ loader.addImage('pony_f_wing_back', 'assets/backwingmare.png');
 loader.addImage('pony_f_mane_1', 'assets/maremane1.png');
 loader.addImage('pony_f_tail_1', 'assets/maretail1.png');
 var assets = loader.assets;
+window.assets = assets;
 
-var sheet = new LayeredSheet([
-        assets.pony_f_wing_back,
-        assets.pony_f_base,
-        assets.pony_f_eyes_blue,
-        assets.pony_f_horn,
-        assets.pony_f_mane_1,
-        assets.pony_f_tail_1,
-        assets.pony_f_wing_front,
-        ], 96, 96);
+var sheet = null;
+
+function bake_sprite_sheet() {
+    var width = assets.pony_f_base.width;
+    var height = assets.pony_f_base.height;
+
+    var temp_canvas = document.createElement('canvas');
+    temp_canvas.width = width;
+    temp_canvas.height = height;
+    var temp_ctx = temp_canvas.getContext('2d');
+
+    var canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    var ctx = canvas.getContext('2d');
+
+    function copy(img) {
+        ctx.drawImage(img, 0, 0);
+    }
+
+    function tinted(img, color) {
+        temp_ctx.globalCompositeOperation = 'copy';
+        temp_ctx.drawImage(img, 0, 0);
+
+        temp_ctx.globalCompositeOperation = 'source-in';
+        temp_ctx.fillStyle = color;
+        temp_ctx.fillRect(0, 0, width, height);
+
+        temp_ctx.globalCompositeOperation = 'multiply';
+        temp_ctx.drawImage(img, 0, 0);
+
+        ctx.drawImage(temp_canvas, 0, 0);
+    }
+
+    var coat_color = '#c8f';
+    var hair_color = '#84c';
+    tinted(assets.pony_f_wing_back, coat_color);
+    tinted(assets.pony_f_base, coat_color);
+    copy(assets.pony_f_eyes_blue);
+    tinted(assets.pony_f_mane_1, hair_color);
+    tinted(assets.pony_f_tail_1, hair_color);
+    tinted(assets.pony_f_horn, coat_color);
+    tinted(assets.pony_f_wing_front, coat_color);
+
+    return canvas;
+}
 
 var start_time = Date.now();
 loader.onload = function() {
+    sheet = new Sheet(bake_sprite_sheet(), 96, 96);
+
     document.body.removeChild($('banner-bg'));
     start_time = Date.now();
     startAnimation();
-    console.log(this.loaded, 'assets loaded');
 };
+
+ctx.fillStyle = '#8cf';
 
 function frame() {
     var delta = Date.now() - start_time;
@@ -143,7 +184,5 @@ function frame() {
     ctx.clearRect(100, 100, sheet.item_width, sheet.item_height);
     sheet.drawInto(ctx, 3, 12 + frame, 100, 100);
 }
-
-console.log('startup done');
 
 })();
