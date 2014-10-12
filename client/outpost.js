@@ -87,12 +87,22 @@ AssetLoader.prototype = {
 
 
 var loader = new AssetLoader();
-loader.addImage('pony_base_f', 'assets/maresprite.png');
+loader.addImage('pony_f_base', 'assets/maresprite.png');
+loader.addImage('pony_f_eyes_blue', 'assets/type1blue.png');
+loader.addImage('pony_f_horn', 'assets/marehorn.png');
+loader.addImage('pony_f_wing_front', 'assets/frontwingmare.png');
+loader.addImage('pony_f_wing_back', 'assets/backwingmare.png');
+loader.addImage('pony_f_mane_1', 'assets/maremane1.png');
+loader.addImage('pony_f_tail_1', 'assets/maretail1.png');
 var assets = loader.assets;
 
-var sprite_sheet = new Sheet(assets.pony_base_f, 96, 96);
-
-ctx.globalCompositeOperation = 'copy';
+var sheet_f_base = new Sheet(assets.pony_f_base, 96, 96);
+var sheet_f_eyes_blue = new Sheet(assets.pony_f_eyes_blue, 96, 96);
+var sheet_f_horn = new Sheet(assets.pony_f_horn, 96, 96);
+var sheet_f_wing_front = new Sheet(assets.pony_f_wing_front, 96, 96);
+var sheet_f_wing_back = new Sheet(assets.pony_f_wing_back, 96, 96);
+var sheet_f_mane_1 = new Sheet(assets.pony_f_mane_1, 96, 96);
+var sheet_f_tail_1 = new Sheet(assets.pony_f_tail_1, 96, 96);
 
 var start_time = Date.now();
 loader.onload = function() {
@@ -105,7 +115,14 @@ loader.onload = function() {
 function frame() {
     var delta = Date.now() - start_time;
     var frame = Math.floor(delta / 100) % 6;
-    sprite_sheet.drawInto(ctx, 3, 12 + frame, 100, 100);
+    ctx.globalCompositeOperation = 'copy';
+    sheet_f_base.drawInto(ctx, 3, 12 + frame, 100, 100);
+    ctx.globalCompositeOperation = 'source-over';
+    sheet_f_eyes_blue.drawInto(ctx, 3, 12 + frame, 100, 100);
+    sheet_f_wing_front.drawInto(ctx, 3, 12 + frame, 100, 100);
+    sheet_f_horn.drawInto(ctx, 3, 12 + frame, 100, 100);
+    sheet_f_tail_1.drawInto(ctx, 3, 12 + frame, 100, 100);
+    sheet_f_mane_1.drawInto(ctx, 3, 12 + frame, 100, 100);
 }
 
 console.log('startup done');
