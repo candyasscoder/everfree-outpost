@@ -108,8 +108,15 @@ AssetLoader.prototype = {
 };
 
 
-function Entity(sheet, idle_i, idle_j) {
+function Entity(sheet, x, y, idle_i, idle_j) {
     this.sheet = sheet;
+    this._motion = {
+        'last_x': x,
+        'last_y': y,
+        'velocity_x': 0,
+        'velocity_y': 0,
+        'start': 0,
+    };
     this._anim = null;
     this._idle = { 'i': idle_i, 'j': idle_j };
 }
@@ -134,7 +141,30 @@ Entity.prototype = {
         }
     },
 
-    'drawInto': function(ctx, now, x, y) {
+    'move': function(vx, vy, now) {
+        var pos = this.position(now);
+        this._motion = {
+            'last_x': pos.x,
+            'last_y': pos.y,
+            'velocity_x': vx,
+            'velocity_y': vy,
+            'start': now,
+        };
+    },
+
+    'position': function(now) {
+        var motion = this._motion;
+        var delta = now - motion.start;
+        var x = motion.last_x + Math.floor(delta * motion.velocity_x / 1000);
+        var y = motion.last_y + Math.floor(delta * motion.velocity_y / 1000);
+        return { 'x': x, 'y': y }
+    },
+
+    'drawInto': function(ctx, now) {
+        var pos = this.position(now);
+        var x = pos.x;
+        var y = pos.y;
+
         if (this._anim == null) {
             this.sheet.drawInto(ctx, this._idle.i, this._idle.j, x, y);
         } else {
@@ -216,7 +246,7 @@ var pony;
 var start_time = Date.now();
 loader.onload = function() {
     sheet = new Sheet(bake_sprite_sheet(), 96, 96);
-    pony = new Entity(sheet, 0, 2);
+    pony = new Entity(sheet, 100, 100, 0, 2);
     window.pony = pony;
 
     document.body.removeChild($('banner-bg'));
@@ -227,8 +257,10 @@ loader.onload = function() {
 ctx.fillStyle = '#888';
 
 function frame() {
-    ctx.clearRect(100, 100, sheet.item_width, sheet.item_height);
-    pony.drawInto(ctx, Date.now(), 100, 100);
+    var now = Date.now();
+    var pos = pony.position(now);
+    ctx.clearRect(pos.x, pos.y, sheet.item_width, sheet.item_height);
+    pony.drawInto(ctx, now);
 }
 
 })();
