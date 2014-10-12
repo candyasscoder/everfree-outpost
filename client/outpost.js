@@ -108,6 +108,51 @@ AssetLoader.prototype = {
 };
 
 
+function Entity(sheet, idle_i, idle_j) {
+    this.sheet = sheet;
+    this._anim = null;
+    this._idle = { 'i': idle_i, 'j': idle_j };
+}
+
+Entity.prototype = {
+    'animate': function(i, j, len, fps, flip, now) {
+        this._anim = {
+            'i': i,
+            'j': j,
+            'len': len,
+            'fps': fps,
+            'flip': flip,
+            'start': now,
+        };
+    },
+
+    'idle': function(idle_i, idle_j) {
+        this.anim = null;
+        if (idle_i != null && idle_j != null) {
+            this._idle.i = idle_i;
+            this._idle.j = idle_j;
+        }
+    },
+
+    'drawInto': function(ctx, now, x, y) {
+        if (this._anim == null) {
+            this.sheet.drawInto(ctx, this._idle.i, this._idle.j, x, y);
+        } else {
+            var anim = this._anim;
+            if (anim.flip) {
+                ctx.scale(-1, 1);
+                x = -x - this.sheet.item_width;
+            }
+            var frame = Math.floor((now - anim.start) * anim.fps / 1000) % anim.len;
+            this.sheet.drawInto(ctx, anim.i, anim.j + frame, x, y);
+            if (anim.flip) {
+                ctx.scale(-1, 1);
+            }
+        }
+    },
+};
+
+
 
 var loader = new AssetLoader();
 loader.addImage('pony_f_base', 'assets/maresprite.png');
@@ -119,8 +164,6 @@ loader.addImage('pony_f_mane_1', 'assets/maremane1.png');
 loader.addImage('pony_f_tail_1', 'assets/maretail1.png');
 var assets = loader.assets;
 window.assets = assets;
-
-var sheet = null;
 
 function bake_sprite_sheet() {
     var width = assets.pony_f_base.width;
@@ -167,22 +210,25 @@ function bake_sprite_sheet() {
     return canvas;
 }
 
+var sheet;
+var pony;
+
 var start_time = Date.now();
 loader.onload = function() {
     sheet = new Sheet(bake_sprite_sheet(), 96, 96);
+    pony = new Entity(sheet, 0, 2);
+    window.pony = pony;
 
     document.body.removeChild($('banner-bg'));
     start_time = Date.now();
     startAnimation();
 };
 
-ctx.fillStyle = '#8cf';
+ctx.fillStyle = '#888';
 
 function frame() {
-    var delta = Date.now() - start_time;
-    var frame = Math.floor(delta / 100) % 6;
     ctx.clearRect(100, 100, sheet.item_width, sheet.item_height);
-    sheet.drawInto(ctx, 3, 12 + frame, 100, 100);
+    pony.drawInto(ctx, Date.now(), 100, 100);
 }
 
 })();
