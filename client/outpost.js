@@ -214,6 +214,7 @@ Pony.prototype = {
 
 
 var loader = new AssetLoader();
+
 loader.addImage('pony_f_base', 'assets/sprites/maresprite.png');
 loader.addImage('pony_f_eyes_blue', 'assets/sprites/type1blue.png');
 loader.addImage('pony_f_horn', 'assets/sprites/marehorn.png');
@@ -221,6 +222,9 @@ loader.addImage('pony_f_wing_front', 'assets/sprites/frontwingmare.png');
 loader.addImage('pony_f_wing_back', 'assets/sprites/backwingmare.png');
 loader.addImage('pony_f_mane_1', 'assets/sprites/maremane1.png');
 loader.addImage('pony_f_tail_1', 'assets/sprites/maretail1.png');
+
+loader.addImage('tiles1', 'assets/tiles/PathAndObjects_0.png');
+
 var assets = loader.assets;
 window.assets = assets;
 
@@ -269,6 +273,7 @@ function bake_sprite_sheet() {
     return canvas;
 }
 
+var tileSheet = new Sheet(assets.tiles1, 32, 32);
 var sheet;
 var pony;
 
@@ -285,10 +290,108 @@ loader.onload = function() {
 
 ctx.fillStyle = '#888';
 
+var grid = [];
+for (var y = 0; y < canvas.height; y += tileSheet.item_height) {
+    var row = [];
+    for (var x = 0; x < canvas.width; x += tileSheet.item_width) {
+        row.push(false);
+    }
+    grid.push(row);
+}
+
 function frame() {
     var now = Date.now();
     var pos = pony.position(now);
-    ctx.clearRect(pos.x, pos.y, sheet.item_width, sheet.item_height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    var tw = tileSheet.item_width;
+    var th = tileSheet.item_height;
+    var rows = Math.floor((canvas.height + th - 1) / th);
+    var cols = Math.floor((canvas.width + tw - 1) / tw);
+    function get(ii, jj) {
+        if (ii < 0 || ii >= rows || jj < 0 || jj >= cols) {
+            return false;
+        }
+        return grid[ii][jj] ? 1 : 0;
+    }
+    for (var i = 0; i < rows; ++i) {
+        for (var j = 0; j < cols; ++j) {
+            if (!get(i, j)) {
+                tileSheet.drawInto(ctx, 11, 1, j * tw, i * th);
+                continue;
+            }
+            var n  = get(i - 1, j);
+            var e  = get(i    , j + 1);
+            var s  = get(i + 1, j);
+            var w  = get(i    , j - 1);
+
+            var t = n + e + s + w;
+
+            var ti = null;
+            var tj = null;
+
+            if (t == 4) {
+                var ne = get(i - 1, j + 1);
+                var se = get(i + 1, j + 1);
+                var sw = get(i + 1, j - 1);
+                var nw = get(i - 1, j - 1);
+                var td = ne + se + sw + nw;
+                if (td == 4) {
+                    ti = 1;
+                    tj = 1;
+                } else if (td == 3) {
+                    if (!nw) {
+                        ti = 4;
+                        tj = 1;
+                    } else if (!sw) {
+                        ti = 3;
+                        tj = 1;
+                    } else if (!ne) {
+                        ti = 4;
+                        tj = 0;
+                    } else if (!se) {
+                        ti = 3;
+                        tj = 0;
+                    }
+                }
+            } else if (t == 3) {
+                if (!n) {
+                    ti = 0;
+                    tj = 1;
+                } else if (!s) {
+                    ti = 2;
+                    tj = 1;
+                } else if (!w) {
+                    ti = 1;
+                    tj = 0;
+                } else if (!e) {
+                    ti = 1;
+                    tj = 2;
+                }
+            } else if (t == 2) {
+                if (!n && !w) {
+                    ti = 0;
+                    tj = 0;
+                } else if (!n && !e) {
+                    ti = 0;
+                    tj = 2;
+                } else if (!s && !w) {
+                    ti = 2;
+                    tj = 0;
+                } else if (!s && !e) {
+                    ti = 2;
+                    tj = 2;
+                }
+            }
+
+            if (ti == null || tj == null) {
+                ti = 1;
+                tj = 1;
+            }
+            tileSheet.drawInto(ctx, ti, tj, j * tw, i * th);
+        }
+    }
+
     pony.drawInto(ctx, now);
 }
 
@@ -309,6 +412,8 @@ document.addEventListener('keydown', function(evt) {
             dirsHeld[evt.key] = true;
             updateWalkDir();
         }
+    } else if (evt.key == ' ') {
+        stompGrass();
     }
 });
 
@@ -345,6 +450,23 @@ function updateWalkDir() {
     }
 
     pony.walk(Date.now(), speed, dx, dy);
+}
+
+function stompGrass() {
+    var pos = pony.position(Date.now());
+    var w = tileSheet.item_width;
+    var h = tileSheet.item_height;
+    var base_x = Math.floor((pos.x + w) / w);
+    var base_y = Math.floor((pos.y + h) / h);
+    for (var i = 0; i < 2; ++i) {
+        for (var j = 0; j < 2; ++j) {
+            var ii = i + base_y;
+            var jj = j + base_x;
+            if (ii >= 0 && ii < grid.length && jj >= 0 && jj < grid[ii].length) {
+                grid[ii][jj] = true;
+            }
+        }
+    }
 }
 
 })();
