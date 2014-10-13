@@ -293,7 +293,13 @@ function frame() {
 }
 
 
-var dirsHeld = { 'Up': false, 'Down': false, 'Left': false, 'Right': false };
+var dirsHeld = {
+    'Up': false,
+    'Down': false,
+    'Left': false,
+    'Right': false,
+    'Shift': false,
+};
 
 document.addEventListener('keydown', function(evt) {
     if (dirsHeld.hasOwnProperty(evt.key)) {
@@ -318,6 +324,7 @@ document.addEventListener('keyup', function(evt) {
 function updateWalkDir() {
     var dx = 0;
     var dy = 0;
+    var speed = 1;
 
     if (dirsHeld['Left']) {
         dx -= 1;
@@ -333,7 +340,11 @@ function updateWalkDir() {
         dy += 1;
     }
 
-    pony.walk(Date.now(), 1, dx, dy);
+    if (dirsHeld['Shift']) {
+        speed = 3;
+    }
+
+    pony.walk(Date.now(), speed, dx, dy);
 }
 
 })();
