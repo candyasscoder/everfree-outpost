@@ -214,13 +214,13 @@ Pony.prototype = {
 
 
 var loader = new AssetLoader();
-loader.addImage('pony_f_base', 'assets/maresprite.png');
-loader.addImage('pony_f_eyes_blue', 'assets/type1blue.png');
-loader.addImage('pony_f_horn', 'assets/marehorn.png');
-loader.addImage('pony_f_wing_front', 'assets/frontwingmare.png');
-loader.addImage('pony_f_wing_back', 'assets/backwingmare.png');
-loader.addImage('pony_f_mane_1', 'assets/maremane1.png');
-loader.addImage('pony_f_tail_1', 'assets/maretail1.png');
+loader.addImage('pony_f_base', 'assets/sprites/maresprite.png');
+loader.addImage('pony_f_eyes_blue', 'assets/sprites/type1blue.png');
+loader.addImage('pony_f_horn', 'assets/sprites/marehorn.png');
+loader.addImage('pony_f_wing_front', 'assets/sprites/frontwingmare.png');
+loader.addImage('pony_f_wing_back', 'assets/sprites/backwingmare.png');
+loader.addImage('pony_f_mane_1', 'assets/sprites/maremane1.png');
+loader.addImage('pony_f_tail_1', 'assets/sprites/maretail1.png');
 var assets = loader.assets;
 window.assets = assets;
 
