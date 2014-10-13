@@ -320,68 +320,105 @@ function frame() {
                 tileSheet.drawInto(ctx, 11, 1, j * tw, i * th);
                 continue;
             }
-            var n  = get(i - 1, j);
-            var e  = get(i    , j + 1);
-            var s  = get(i + 1, j);
-            var w  = get(i    , j - 1);
 
-            var t = n + e + s + w;
+            // This algorithm operates on the grid points between tiles instead
+            // of the tiles themselves.  A grid intersection is marked as road
+            // if all four tiles that touch that intersection are road.  Then
+            // we choose a tile for this location based on the values of the
+            // four surrounding grid points.
+
+            var n  = get(i - 1, j);
+            var ne = get(i - 1, j + 1);
+            var e  = get(i    , j + 1);
+            var se = get(i + 1, j + 1);
+            var s  = get(i + 1, j);
+            var sw = get(i + 1, j - 1);
+            var w  = get(i    , j - 1);
+            var nw = get(i - 1, j - 1);
+
+            // Flags to indicate road/grass for the grid point at each corner
+            // of this tile.  The grid point is road if all four of its
+            // surrounding tiles are road, but we already know the current tile
+            // is road, so we only need to check three other tiles for each
+            // case.
+            var cnw = nw + n + w == 3;
+            var cne = ne + n + e == 3;
+            var csw = sw + s + w == 3;
+            var cse = se + s + e == 3;
+
+            // Number of corners that are road.
+            var ct = cnw + cne + csw + cse;
 
             var ti = null;
             var tj = null;
 
-            if (t == 4) {
-                var ne = get(i - 1, j + 1);
-                var se = get(i + 1, j + 1);
-                var sw = get(i + 1, j - 1);
-                var nw = get(i - 1, j - 1);
-                var td = ne + se + sw + nw;
-                if (td == 4) {
-                    ti = 1;
+            if (ct == 4) {
+                ti = 1;
+                tj = 1;
+            } else if (ct == 3) {
+                if (!cnw) {
+                    ti = 4;
                     tj = 1;
-                } else if (td == 3) {
-                    if (!nw) {
-                        ti = 4;
-                        tj = 1;
-                    } else if (!sw) {
-                        ti = 3;
-                        tj = 1;
-                    } else if (!ne) {
-                        ti = 4;
-                        tj = 0;
-                    } else if (!se) {
-                        ti = 3;
-                        tj = 0;
-                    }
+                } else if (!cne) {
+                    ti = 4;
+                    tj = 0;
+                } else if (!csw) {
+                    ti = 3;
+                    tj = 1;
+                } else if (!cse) {
+                    ti = 3;
+                    tj = 0;
+                } else {
+                    console.log('impossible case for ct == 3', cnw, cne, csw, cse);
                 }
-            } else if (t == 3) {
-                if (!n) {
-                    ti = 0;
-                    tj = 1;
-                } else if (!s) {
+            } else if (ct == 2) {
+                // The first two cases handle grass in two nonadjacent corners.
+                if (cnw && cse) {
+                    // not yet implemented
+                } else if (cne && csw) {
+                    // not yet implemented
+
+                // For the remaining cases, we are drawing a horizontal or
+                // vertical edge.
+                } else if (cnw && cne) {
                     ti = 2;
                     tj = 1;
-                } else if (!w) {
+                } else if (csw && cse) {
+                    ti = 0;
+                    tj = 1;
+                } else if (cnw && csw) {
+                    ti = 1;
+                    tj = 2;
+                } else if (cne && cse) {
                     ti = 1;
                     tj = 0;
-                } else if (!e) {
-                    ti = 1;
-                    tj = 2;
+                } else {
+                    console.log('impossible case for ct == 2', cnw, cne, csw, cse);
                 }
-            } else if (t == 2) {
-                if (!n && !w) {
-                    ti = 0;
-                    tj = 0;
-                } else if (!n && !e) {
-                    ti = 0;
-                    tj = 2;
-                } else if (!s && !w) {
-                    ti = 2;
-                    tj = 0;
-                } else if (!s && !e) {
+            } else if (ct == 1) {
+                if (cnw) {
                     ti = 2;
                     tj = 2;
+                } else if (cne) {
+                    ti = 2;
+                    tj = 0;
+                } else if (csw) {
+                    ti = 0;
+                    tj = 2;
+                } else if (cse) {
+                    ti = 0;
+                    tj = 0;
+                } else {
+                    console.log('impossible case for ct == 1', cnw, cne, csw, cse);
                 }
+            } else if (ct == 0) {
+                // The current tile is road, but enough of the surrounding
+                // tiles are grass that none of the corners are road.  Draw
+                // plain grass.
+                ti = 11;
+                tj = 1;
+            } else {
+                console.log('impossible value for ct', ct, cnw, cne, csw, cse);
             }
 
             if (ti == null || tj == null) {
