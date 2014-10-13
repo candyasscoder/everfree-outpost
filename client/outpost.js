@@ -178,11 +178,12 @@ function Pony(sheet, x, y) {
 
 Pony.prototype = {
     'walk': function(now, speed, dx, dy) {
-        if (dx != null && dy != null) {
+        if (dx != 0 || dy != 0) {
             this._last_dir = { 'x': dx, 'y': dy };
         } else {
             dx = this._last_dir.x;
             dy = this._last_dir.y;
+            speed = 0;
         }
 
         var entity = this._entity;
@@ -289,6 +290,50 @@ function frame() {
     var pos = pony.position(now);
     ctx.clearRect(pos.x, pos.y, sheet.item_width, sheet.item_height);
     pony.drawInto(ctx, now);
+}
+
+
+var dirsHeld = { 'Up': false, 'Down': false, 'Left': false, 'Right': false };
+
+document.addEventListener('keydown', function(evt) {
+    if (dirsHeld.hasOwnProperty(evt.key)) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        if (!evt.repeat) {
+            dirsHeld[evt.key] = true;
+            updateWalkDir();
+        }
+    }
+});
+
+document.addEventListener('keyup', function(evt) {
+    if (dirsHeld.hasOwnProperty(evt.key)) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        dirsHeld[evt.key] = false;
+        updateWalkDir();
+    }
+});
+
+function updateWalkDir() {
+    var dx = 0;
+    var dy = 0;
+
+    if (dirsHeld['Left']) {
+        dx -= 1;
+    }
+    if (dirsHeld['Right']) {
+        dx += 1;
+    }
+
+    if (dirsHeld['Up']) {
+        dy -= 1;
+    }
+    if (dirsHeld['Down']) {
+        dy += 1;
+    }
+
+    pony.walk(Date.now(), 1, dx, dy);
 }
 
 })();
