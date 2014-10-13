@@ -170,6 +170,47 @@ Entity.prototype = {
 };
 
 
+function Pony(sheet, x, y) {
+    this._entity = new Entity(sheet, x, y);
+    this._entity.animate(0, 2, 1, 1, false, 0);
+    this._last_dir = { 'x': 1, 'y': 0 };
+}
+
+Pony.prototype = {
+    'walk': function(now, speed, dx, dy) {
+        if (dx != null && dy != null) {
+            this._last_dir = { 'x': dx, 'y': dy };
+        } else {
+            dx = this._last_dir.x;
+            dy = this._last_dir.y;
+        }
+
+        var entity = this._entity;
+        var flip = dx < 0;
+        // Direction, in [0..4].  0 = north, 2 = east, 4 = south.  For western
+        // directions, we use [1..3] but also set `flip`.
+        var dir = (2 - Math.abs(dx)) * dy + 2;
+
+        if (speed == 0) {
+            entity.animate(0, dir, 1, 1, flip, now);
+        } else {
+            entity.animate(speed, 6 * dir, 6, 6 + 2 * speed, flip, now);
+        }
+
+        var pixel_speed = 30 * speed;
+        entity.move(dx * pixel_speed, dy * pixel_speed, now);
+    },
+
+    'position': function(now) {
+        return this._entity.position(now);
+    },
+
+    'drawInto': function(ctx, now) {
+        this._entity.drawInto(ctx, now);
+    },
+};
+
+
 
 var loader = new AssetLoader();
 loader.addImage('pony_f_base', 'assets/maresprite.png');
@@ -233,8 +274,7 @@ var pony;
 var start_time = Date.now();
 loader.onload = function() {
     sheet = new Sheet(bake_sprite_sheet(), 96, 96);
-    pony = new Entity(sheet, 100, 100, 0, 2);
-    pony.animate(0, 2, 1, 1, false, 0);
+    pony = new Pony(sheet, 100, 100);
     window.pony = pony;
 
     document.body.removeChild($('banner-bg'));
@@ -250,20 +290,5 @@ function frame() {
     ctx.clearRect(pos.x, pos.y, sheet.item_width, sheet.item_height);
     pony.drawInto(ctx, now);
 }
-
-function setWalkState(now, speed, dx, dy) {
-    var flip = dx < 0;
-    var dir = (2 - Math.abs(dx)) * dy + 2;
-    console.log(speed, dx, dy, flip, dir);
-    if (speed == 0) {
-        pony.animate(0, dir, 1, 1, flip, now);
-    } else {
-        pony.animate(speed, 6 * dir, 6, 6 + 2 * speed, flip, now);
-    }
-    var pixel_speed = 30 * speed;
-    pony.move(dx * pixel_speed, dy * pixel_speed, now);
-}
-
-window.ponyWalk = setWalkState;
 
 })();
