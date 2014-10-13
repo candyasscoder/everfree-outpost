@@ -108,7 +108,7 @@ AssetLoader.prototype = {
 };
 
 
-function Entity(sheet, x, y, idle_i, idle_j) {
+function Entity(sheet, x, y) {
     this.sheet = sheet;
     this._motion = {
         'last_x': x,
@@ -118,7 +118,6 @@ function Entity(sheet, x, y, idle_i, idle_j) {
         'start': 0,
     };
     this._anim = null;
-    this._idle = { 'i': idle_i, 'j': idle_j };
 }
 
 Entity.prototype = {
@@ -131,14 +130,6 @@ Entity.prototype = {
             'flip': flip,
             'start': now,
         };
-    },
-
-    'idle': function(idle_i, idle_j) {
-        this._anim = null;
-        if (idle_i != null && idle_j != null) {
-            this._idle.i = idle_i;
-            this._idle.j = idle_j;
-        }
     },
 
     'move': function(vx, vy, now) {
@@ -165,19 +156,15 @@ Entity.prototype = {
         var x = pos.x;
         var y = pos.y;
 
-        if (this._anim == null) {
-            this.sheet.drawInto(ctx, this._idle.i, this._idle.j, x, y);
-        } else {
-            var anim = this._anim;
-            if (anim.flip) {
-                ctx.scale(-1, 1);
-                x = -x - this.sheet.item_width;
-            }
-            var frame = Math.floor((now - anim.start) * anim.fps / 1000) % anim.len;
-            this.sheet.drawInto(ctx, anim.i, anim.j + frame, x, y);
-            if (anim.flip) {
-                ctx.scale(-1, 1);
-            }
+        var anim = this._anim;
+        if (anim.flip) {
+            ctx.scale(-1, 1);
+            x = -x - this.sheet.item_width;
+        }
+        var frame = Math.floor((now - anim.start) * anim.fps / 1000) % anim.len;
+        this.sheet.drawInto(ctx, anim.i, anim.j + frame, x, y);
+        if (anim.flip) {
+            ctx.scale(-1, 1);
         }
     },
 };
@@ -247,6 +234,7 @@ var start_time = Date.now();
 loader.onload = function() {
     sheet = new Sheet(bake_sprite_sheet(), 96, 96);
     pony = new Entity(sheet, 100, 100, 0, 2);
+    pony.animate(0, 2, 1, 1, false, 0);
     window.pony = pony;
 
     document.body.removeChild($('banner-bg'));
@@ -262,5 +250,20 @@ function frame() {
     ctx.clearRect(pos.x, pos.y, sheet.item_width, sheet.item_height);
     pony.drawInto(ctx, now);
 }
+
+function setWalkState(now, speed, dx, dy) {
+    var flip = dx < 0;
+    var dir = (2 - Math.abs(dx)) * dy + 2;
+    console.log(speed, dx, dy, flip, dir);
+    if (speed == 0) {
+        pony.animate(0, dir, 1, 1, flip, now);
+    } else {
+        pony.animate(speed, 6 * dir, 6, 6 + 2 * speed, flip, now);
+    }
+    var pixel_speed = 30 * speed;
+    pony.move(dx * pixel_speed, dy * pixel_speed, now);
+}
+
+window.ponyWalk = setWalkState;
 
 })();
