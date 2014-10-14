@@ -3,29 +3,36 @@
 var $ = document.getElementById.bind(document);
 
 
-var canvas = document.createElement('canvas');
-document.body.appendChild(canvas);
-canvas.width = canvas.clientWidth;
-canvas.height = canvas.clientHeight;
+function AnimCanvas(frame_callback) {
+    var canvas = document.createElement('canvas');
+    document.body.appendChild(canvas);
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    this.canvas = canvas;
 
-var ctx = canvas.getContext('2d');
+    this.ctx = canvas.getContext('2d');
+    this.animating = false;
 
-var animating = false;
-
-function frameWrapper() {
-    frame();
-    if (animating) {
-        window.requestAnimationFrame(frameWrapper);
+    var this_ = this;
+    function frameWrapper() {
+        frame_callback(this_.ctx, Date.now());
+        if (this_.animating) {
+            window.requestAnimationFrame(frameWrapper);
+        }
     }
+    // Save frameWrapper for calls to `start()`.
+    this._cb = frameWrapper;
 }
 
-function startAnimation() {
-    animating = true;
-    window.requestAnimationFrame(frameWrapper);
-}
+AnimCanvas.prototype = {
+    'start': function() {
+        this.animating = true;
+        window.requestAnimationFrame(this._cb);
+    },
 
-function stopAnimation() {
-    animating = false;
+    'stop': function() {
+        this.animating = false;
+    },
 }
 
 
@@ -212,6 +219,12 @@ Pony.prototype = {
 };
 
 
+var anim_canvas = new AnimCanvas(frame);
+
+anim_canvas.ctx.fillStyle = '#f0f';
+anim_canvas.ctx.imageSmoothingEnabled = false;
+anim_canvas.ctx.mozImageSmoothingEnabled = false;
+
 
 var loader = new AssetLoader();
 
@@ -277,39 +290,32 @@ var tileSheet = new Sheet(assets.tiles1, 32, 32);
 var sheet;
 var pony;
 
-var start_time = Date.now();
 loader.onload = function() {
     sheet = new Sheet(bake_sprite_sheet(), 96, 96);
     pony = new Pony(sheet, 100, 100);
     window.pony = pony;
 
     document.body.removeChild($('banner-bg'));
-    start_time = Date.now();
-    startAnimation();
+    anim_canvas.start();
 };
 
-ctx.fillStyle = '#888';
-ctx.imageSmoothingEnabled = false;
-ctx.mozImageSmoothingEnabled = false;
-
 var grid = [];
-for (var y = 0; y < canvas.height; y += tileSheet.item_height) {
+for (var y = 0; y < anim_canvas.canvas.height; y += tileSheet.item_height) {
     var row = [];
-    for (var x = 0; x < canvas.width; x += tileSheet.item_width) {
+    for (var x = 0; x < anim_canvas.canvas.width; x += tileSheet.item_width) {
         row.push(false);
     }
     grid.push(row);
 }
 
-function frame() {
-    var now = Date.now();
+function frame(ctx, now) {
     var pos = pony.position(now);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
     var tw = tileSheet.item_width;
     var th = tileSheet.item_height;
-    var rows = Math.floor((canvas.height + th - 1) / th);
-    var cols = Math.floor((canvas.width + tw - 1) / tw);
+    var rows = Math.floor((ctx.canvas.height + th - 1) / th);
+    var cols = Math.floor((ctx.canvas.width + tw - 1) / tw);
     function get(ii, jj) {
         if (ii < 0 || ii >= rows || jj < 0 || jj >= cols) {
             return false;
