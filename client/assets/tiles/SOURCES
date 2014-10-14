@@ -10,10 +10,19 @@ hyptosis_tile-art-batch-1.png: hyptosis-pack
 hyptosis_tile-art-batch-3.png: hyptosis-pack
 hyptosis_tile-art-batch-4.png: hyptosis-pack
 hyptosis_tile-art-batch-5.png: hyptosis-pack
+mountain_landscape_23.png: djszb
 rpg indoor tileset expansion 1 trans.png: redshrike2
 tilesetformattedupdate1.png: redshrike1
 tilesetformattedupdate1_0.png: jrpg-pack
 wood_tileset_3.png: jdz
+
+djszb:
+By Daniel Cook, Jetrel, Saphy (TMW), Zabin, Bertram; CC-BY 3.0
+http://opengameart.org/content/2d-lost-garden-zelda-style-tiles-resized-to-32x32-with-additions
+"Credit goes to Daniel Cook's 2d Circle Graphic Archive, Jetrel's mockups
+resized 32x32, Bertram's improvements, Zabin's modification and additions,
+Saphy (TMW) tall grass and please provide a link back to OGA and this
+submission."
 
 hyptosis-pack:
 By Hyptosis; CC-BY 3.0
