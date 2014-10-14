@@ -114,16 +114,21 @@ AssetLoader.prototype = {
     '_addPendingAsset': function(name, asset) {
         this.assets[name] = asset;
         this.pending += 1;
+        this._handleProgress();
     },
 
     '_handleAssetLoad': function() {
         this.pending -= 1;
         this.loaded += 1;
-        if (typeof this.onprogress == 'function') {
-            this.onprogress(this.loaded / (this.pending + this.loaded));
-        }
+        this._handleProgress();
         if (this.pending == 0 && typeof this.onload == 'function') {
             this.onload();
+        }
+    },
+
+    '_handleProgress': function() {
+        if (typeof this.onprogress == 'function') {
+            this.onprogress(this.loaded, this.pending + this.loaded);
         }
     },
 };
@@ -306,6 +311,11 @@ loader.onload = function() {
 
     document.body.removeChild($('banner-bg'));
     anim_canvas.start();
+};
+
+loader.onprogress = function(loaded, total) {
+    $('banner-text').textContent = 'Loading... (' + loaded + '/' + total + ')';
+    $('banner-bar').style.width = Math.floor(loaded / total * 100) + '%';
 };
 
 var grid = [];
