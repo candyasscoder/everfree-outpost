@@ -223,7 +223,7 @@ loader.addImage('pony_f_wing_back', 'assets/sprites/backwingmare.png');
 loader.addImage('pony_f_mane_1', 'assets/sprites/maremane1.png');
 loader.addImage('pony_f_tail_1', 'assets/sprites/maretail1.png');
 
-loader.addImage('tiles1', 'assets/tiles/PathAndObjects_0.png');
+loader.addImage('tiles1', 'assets/tiles/mountain_landscape_23.png');
 
 var assets = loader.assets;
 window.assets = assets;
@@ -289,6 +289,8 @@ loader.onload = function() {
 };
 
 ctx.fillStyle = '#888';
+ctx.imageSmoothingEnabled = false;
+ctx.mozImageSmoothingEnabled = false;
 
 var grid = [];
 for (var y = 0; y < canvas.height; y += tileSheet.item_height) {
@@ -316,8 +318,12 @@ function frame() {
     }
     for (var i = 0; i < rows; ++i) {
         for (var j = 0; j < cols; ++j) {
+            var rnd = (i * 7 + j * 13 + 31) >> 2;
+            var a = (rnd & 1);
+            var b = (rnd & 2) >> 1;
+
             if (!get(i, j)) {
-                tileSheet.drawInto(ctx, 11, 1, j * tw, i * th);
+                tileSheet.drawInto(ctx, 4 + a, 14 + b, j * tw, i * th);
                 continue;
             }
 
@@ -353,61 +359,63 @@ function frame() {
             var tj = null;
 
             if (ct == 4) {
-                ti = 1;
-                tj = 1;
+                ti = 0 + rnd % 3;
+                tj = 10;
             } else if (ct == 3) {
                 if (!cnw) {
-                    ti = 4;
-                    tj = 1;
+                    ti = 6;
+                    tj = 14;
                 } else if (!cne) {
-                    ti = 4;
-                    tj = 0;
+                    ti = 6;
+                    tj = 15;
                 } else if (!csw) {
-                    ti = 3;
-                    tj = 1;
+                    ti = 7;
+                    tj = 14;
                 } else if (!cse) {
-                    ti = 3;
-                    tj = 0;
+                    ti = 7;
+                    tj = 15;
                 } else {
                     console.log('impossible case for ct == 3', cnw, cne, csw, cse);
                 }
             } else if (ct == 2) {
                 // The first two cases handle grass in two nonadjacent corners.
                 if (cnw && cse) {
-                    // not yet implemented
+                    ti = 4;
+                    tj = 10;
                 } else if (cne && csw) {
-                    // not yet implemented
+                    ti = 3;
+                    tj = 10;
 
                 // For the remaining cases, we are drawing a horizontal or
                 // vertical edge.
                 } else if (cnw && cne) {
                     ti = 2;
-                    tj = 1;
+                    tj = 12;
                 } else if (csw && cse) {
                     ti = 0;
-                    tj = 1;
+                    tj = 12;
                 } else if (cnw && csw) {
                     ti = 1;
-                    tj = 2;
+                    tj = 13;
                 } else if (cne && cse) {
                     ti = 1;
-                    tj = 0;
+                    tj = 11;
                 } else {
                     console.log('impossible case for ct == 2', cnw, cne, csw, cse);
                 }
             } else if (ct == 1) {
                 if (cnw) {
                     ti = 2;
-                    tj = 2;
+                    tj = 13;
                 } else if (cne) {
                     ti = 2;
-                    tj = 0;
+                    tj = 11;
                 } else if (csw) {
                     ti = 0;
-                    tj = 2;
+                    tj = 13;
                 } else if (cse) {
                     ti = 0;
-                    tj = 0;
+                    tj = 11;
                 } else {
                     console.log('impossible case for ct == 1', cnw, cne, csw, cse);
                 }
@@ -415,16 +423,12 @@ function frame() {
                 // The current tile is road, but enough of the surrounding
                 // tiles are grass that none of the corners are road.  Draw
                 // plain grass.
-                ti = 11;
-                tj = 1;
+                ti = 4 + a;
+                tj = 14 + b;
             } else {
                 console.log('impossible value for ct', ct, cnw, cne, csw, cse);
             }
 
-            if (ti == null || tj == null) {
-                ti = 1;
-                tj = 1;
-            }
             tileSheet.drawInto(ctx, ti, tj, j * tw, i * th);
         }
     }
