@@ -42,6 +42,14 @@ AnimCanvas.prototype = {
 }
 
 
+function OffscreenContext(width, height) {
+    var canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    return canvas.getContext('2d');
+}
+
+
 function Sheet(image, item_width, item_height) {
     this.image = image;
     this.item_width = item_width;
@@ -253,32 +261,25 @@ function bake_sprite_sheet() {
     var width = assets.pony_f_base.width;
     var height = assets.pony_f_base.height;
 
-    var temp_canvas = document.createElement('canvas');
-    temp_canvas.width = width;
-    temp_canvas.height = height;
-    var temp_ctx = temp_canvas.getContext('2d');
-
-    var canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    var ctx = canvas.getContext('2d');
+    var temp = new OffscreenContext(width, height);
+    var baked = new OffscreenContext(width, height);
 
     function copy(img) {
-        ctx.drawImage(img, 0, 0);
+        baked.drawImage(img, 0, 0);
     }
 
     function tinted(img, color) {
-        temp_ctx.globalCompositeOperation = 'copy';
-        temp_ctx.drawImage(img, 0, 0);
+        temp.globalCompositeOperation = 'copy';
+        temp.drawImage(img, 0, 0);
 
-        temp_ctx.globalCompositeOperation = 'source-in';
-        temp_ctx.fillStyle = color;
-        temp_ctx.fillRect(0, 0, width, height);
+        temp.globalCompositeOperation = 'source-in';
+        temp.fillStyle = color;
+        temp.fillRect(0, 0, width, height);
 
-        temp_ctx.globalCompositeOperation = 'multiply';
-        temp_ctx.drawImage(img, 0, 0);
+        temp.globalCompositeOperation = 'multiply';
+        temp.drawImage(img, 0, 0);
 
-        ctx.drawImage(temp_canvas, 0, 0);
+        baked.drawImage(temp.canvas, 0, 0);
     }
 
     var coat_color = '#c8f';
@@ -291,7 +292,7 @@ function bake_sprite_sheet() {
     tinted(assets.pony_f_horn, coat_color);
     tinted(assets.pony_f_wing_front, coat_color);
 
-    return canvas;
+    return baked.canvas;
 }
 
 var tileSheet = new Sheet(assets.tiles1, 32, 32);
