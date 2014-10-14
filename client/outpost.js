@@ -134,6 +134,75 @@ AssetLoader.prototype = {
 };
 
 
+function BackgroundJobRunner() {
+    // (jobs_cur, jobs_new) form a standard "queue from two stacks" data
+    // structure.  New items are pushed into `jobs_new`; old items are popped
+    // from `jobs_cur`.
+    this.jobs_cur = [];
+    this.jobs_new = [];
+    // `subjobs` is a list of subjobs that were created by running the current
+    // job.  When the current job finishes, `subjobs` will be reversed and
+    // appended to `jobs_cur` (meaning subjobs automatically cut to the front
+    // of the queue).
+    this.subjobs = [];
+    this.current_job_name = null;
+}
+
+BackgroundJobRunner.prototype = {
+    'job': function(name, cb) {
+        var args = Array.prototype.slice.call(arguments, 2);
+        this.jobs_new.push({ 'name': name, 'cb': cb, 'args': args });
+    },
+
+    'subjob': function(name, cb) {
+        console.assert(this.current_job_name != null);
+        var args = Array.prototype.slice.call(arguments, 2);
+        var full_name = this.current_job_name + '/' + name;
+        this.subjobs.push({ 'name': full_name, 'cb': cb, 'args': args });
+    },
+
+    'run': function(start, max_dur) {
+        var end = start + max_dur;
+        var count = 0;
+        do {
+            var had_job = this.run_one();
+            if (had_job) {
+                ++count;
+            }
+        } while (had_job && Date.now() < end);
+        if (count > 0) {
+            console.log('ran', count, 'jobs in', Date.now() - start);
+        }
+    },
+
+    'run_one': function() {
+        if (this.jobs_cur.length == 0) {
+            while (this.jobs_new.length > 0) {
+                this.jobs_cur.push(this.jobs_new.pop());
+            }
+            if (this.jobs_cur.length == 0) {
+                return false;
+            }
+        }
+
+        var job = this.jobs_cur.pop();
+        this.current_job_name = job.name;
+        try {
+            var start = Date.now();
+            job.cb.apply(this, job.args);
+            var end = Date.now();
+            console.log('ran', job.name, 'in', end - start);
+        } finally {
+            this.current_job_name = null;
+            while (this.subjobs.length > 0) {
+                this.jobs_cur.push(this.subjobs.pop());
+            }
+        }
+        return true;
+    },
+};
+
+
 function Entity(sheet, x, y) {
     this.sheet = sheet;
     this._motion = {
@@ -262,7 +331,9 @@ loader.addImage('tiles1', 'assets/tiles/mountain_landscape_23.png');
 var assets = loader.assets;
 window.assets = assets;
 
-function bake_sprite_sheet() {
+var baking_done = 0;
+
+function bake_sprite_sheet(runner) {
     var width = assets.pony_f_base.width;
     var height = assets.pony_f_base.height;
 
@@ -274,28 +345,37 @@ function bake_sprite_sheet() {
     }
 
     function tinted(img, color) {
-        temp.globalCompositeOperation = 'copy';
-        temp.drawImage(img, 0, 0);
+        this.subjob('copy', function() {
+            temp.globalCompositeOperation = 'copy';
+            temp.drawImage(img, 0, 0);
+        });
 
-        temp.globalCompositeOperation = 'source-in';
-        temp.fillStyle = color;
-        temp.fillRect(0, 0, width, height);
+        this.subjob('color', function() {
+            temp.globalCompositeOperation = 'source-in';
+            temp.fillStyle = color;
+            temp.fillRect(0, 0, width, height);
+        });
 
-        temp.globalCompositeOperation = 'multiply';
-        temp.drawImage(img, 0, 0);
+        this.subjob('multiply', function() {
+            temp.globalCompositeOperation = 'multiply';
+            temp.drawImage(img, 0, 0);
+        });
 
-        baked.drawImage(temp.canvas, 0, 0);
+        this.subjob('draw', function() {
+            baked.drawImage(temp.canvas, 0, 0);
+        });
     }
 
     var coat_color = '#c8f';
     var hair_color = '#84c';
-    tinted(assets.pony_f_wing_back, coat_color);
-    tinted(assets.pony_f_base, coat_color);
-    copy(assets.pony_f_eyes_blue);
-    tinted(assets.pony_f_mane_1, hair_color);
-    tinted(assets.pony_f_tail_1, hair_color);
-    tinted(assets.pony_f_horn, coat_color);
-    tinted(assets.pony_f_wing_front, coat_color);
+    runner.job('wing_back',  tinted, assets.pony_f_wing_back, coat_color);
+    runner.job('base',       tinted, assets.pony_f_base, coat_color);
+    runner.job('eyes',       copy, assets.pony_f_eyes_blue);
+    runner.job('mane',       tinted, assets.pony_f_mane_1, hair_color);
+    runner.job('tail',       tinted, assets.pony_f_tail_1, hair_color);
+    runner.job('horn',       tinted, assets.pony_f_horn, coat_color);
+    runner.job('wing_front', tinted, assets.pony_f_wing_front, coat_color);
+    runner.job('done', function() { baking_done = 1; });
 
     return baked.canvas;
 }
@@ -304,8 +384,10 @@ var tileSheet = new Sheet(assets.tiles1, 32, 32);
 var sheet;
 var pony;
 
+var runner = new BackgroundJobRunner();
+
 loader.onload = function() {
-    sheet = new Sheet(bake_sprite_sheet(), 96, 96);
+    sheet = new Sheet(bake_sprite_sheet(runner), 96, 96);
     pony = new Pony(sheet, 100, 100);
     window.pony = pony;
 
@@ -330,6 +412,10 @@ for (var y = 0; y < anim_canvas.canvas.height; y += tileSheet.item_height) {
 function frame(ctx, now) {
     var pos = pony.position(now);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    if (!baking_done) {
+        console.log('baking not done yet', now);
+    }
 
     var tw = tileSheet.item_width;
     var th = tileSheet.item_height;
@@ -459,6 +545,8 @@ function frame(ctx, now) {
     }
 
     pony.drawInto(ctx, now);
+
+    runner.run(now, 10);
 }
 
 
