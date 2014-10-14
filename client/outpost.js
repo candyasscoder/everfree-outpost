@@ -4,16 +4,17 @@ var $ = document.getElementById.bind(document);
 
 
 function AnimCanvas(frame_callback) {
-    var canvas = document.createElement('canvas');
-    document.body.appendChild(canvas);
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-    this.canvas = canvas;
-
-    this.ctx = canvas.getContext('2d');
+    this.canvas = document.createElement('canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this._handleResize();
     this.animating = false;
 
     var this_ = this;
+
+    window.addEventListener('resize', function() {
+        this_._handleResize();
+    });
+
     function frameWrapper() {
         frame_callback(this_.ctx, Date.now());
         if (this_.animating) {
@@ -32,6 +33,11 @@ AnimCanvas.prototype = {
 
     'stop': function() {
         this.animating = false;
+    },
+
+    '_handleResize': function() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
     },
 }
 
@@ -220,6 +226,8 @@ Pony.prototype = {
 
 
 var anim_canvas = new AnimCanvas(frame);
+window.anim_canvas = anim_canvas;
+document.body.appendChild(anim_canvas.canvas);
 
 anim_canvas.ctx.fillStyle = '#f0f';
 anim_canvas.ctx.imageSmoothingEnabled = false;
