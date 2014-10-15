@@ -618,19 +618,22 @@ ChunkRendering.prototype = {
         }
     },
 
-    'drawBottom': function(ctx, z, dx, dy) {
-        var baked = this._bakedBottom[z];
-        if (baked == null) {
-            return;
-        }
-
-        var offset_x = baked.x * TILE_SIZE;
-        var offset_y = baked.y * TILE_SIZE;
-        ctx.drawImage(baked.ctx.canvas, dx + offset_x, dy + offset_y);
+    'drawBottom': function(ctx, z, min_y, max_y, dx, dy) {
+        this._drawLayer(ctx, this._bakedBottom, z, min_y, max_y, dx, dy);
     },
 
     'drawFront': function(ctx, z, min_y, max_y, dx, dy) {
-        var baked = this._bakedFront[z];
+        this._drawLayer(ctx, this._bakedFront, z, min_y, max_y, dx, dy);
+    },
+
+    'draw': function(ctx, z, min_y, max_y, dx, dy) {
+        // TODO: these calls can probably be merged together
+        this.drawBottom(ctx, z, min_y, max_y, dx, dy);
+        this.drawFront(ctx, z, min_y, max_y, dx, dy);
+    },
+
+    '_drawLayer': function(ctx, bakedArr, z, min_y, max_y, dx, dy) {
+        var baked = bakedArr[z];
         if (baked == null) {
             return;
         }
@@ -654,6 +657,285 @@ ChunkRendering.prototype = {
                 dx + dest_offset_x, dy + dest_offset_y, px_width, px_height);
     },
 };
+
+
+var PLAN_FULL_LAYERS = 1;
+var PLAN_PARTIAL_LAYERS = 2;
+var PLAN_FULL_LINES = 3;
+var PLAN_PARTIAL_LINE = 4;
+var PLAN_SPRITE = 5;
+
+function RenderPlanner() {
+    this.y_occupy = new Array(CHUNK_SIZE);
+    this.z_occupy = new Array(CHUNK_SIZE);
+    this.plan_ = [];
+    this.plan_len = 0;
+    this.sprites = null;
+    this.y_sprites = [];
+    this.y_sprites_len = 0;
+}
+
+RenderPlanner.prototype = {
+    '_init': function(sprites) {
+        this.sprites = sprites;
+        this.sprites.sort(function(a, b) {
+            return a.z - b.z;
+        });
+
+        for (var i = 0; i < CHUNK_SIZE; ++i) {
+            this.z_occupy[i] = 0;
+        }
+
+        this.plan_len = 0;
+        for (var i = 0; i < this.plan_.length; ++i) {
+            this.plan_[i] = null;
+        }
+    },
+
+    '_cleanup': function() {
+        this.sprites = null;
+        this._clearYSprites();
+    },
+
+    '_clearYSprites': function() {
+        for (var i = 0; i < this.y_sprites.length; ++i) {
+            this.y_sprites[i] = null;
+        }
+        this.y_sprites_len = 0;
+    },
+
+    '_recordYSprite': function(idx, sprite) {
+        if (this.y_sprites_len == this.y_sprites.length) {
+            this.y_sprites.push(sprite);
+        } else {
+            this.y_sprites[this.y_sprites_len] = sprite;
+        }
+        ++this.y_sprites_len;
+    },
+
+    '_sortYSprites': function() {
+        this.y_sprites.sort(function(a, b) {
+            if (a == null && b == null) {
+                return 0;
+            } else if (a == null) {
+                return -1;
+            } else if (b == null) {
+                return 1;
+            } else {
+                if (a.y != b.y) {
+                    return a.y - b.y;
+                } else {
+                    return a.z - b.z;
+                }
+            }
+        });
+    },
+
+    '_plan': function() {
+        var sprites = this.sprites;
+        var z_occupy = this.z_occupy;
+
+        for (var i = 0; i < sprites.length; ++i) {
+            var sprite = sprites[i];
+            var min_z = sprite.z;
+            var max_z = min_z + sprite.size_z;
+            for (var z = min_z; z < max_z; ++z) {
+                ++z_occupy[z];
+            }
+        }
+
+        var start = 0;
+        var cur_mode = z_occupy[0] != 0;
+
+        for (var i = 1; i < CHUNK_SIZE; ++i) {
+            var mode = z_occupy[i] != 0;
+            if (mode != cur_mode) {
+                this._planLayers(start, i, cur_mode);
+                cur_mode = mode;
+                start = i;
+            }
+        }
+
+        this._planLayers(start, CHUNK_SIZE, cur_mode);
+    },
+
+    '_planLayers': function(min_z, max_z, has_sprites) {
+        if (!has_sprites) {
+            this._planOne3(PLAN_FULL_LAYERS, min_z, max_z);
+            return;
+        }
+
+        var sprites = this.sprites;
+        var y_occupy = this.y_occupy;
+
+        for (var i = 0; i < CHUNK_SIZE; ++i) {
+            this.y_occupy[i] = 0;
+        }
+
+        this._clearYSprites();
+        // TODO: use binary search to find start
+        for (var i = 0; i < sprites.length; ++i) {
+            var sprite = sprites[i];
+            if (sprite.z < min_z) {
+                continue;
+            } else if (sprite.z >= max_z) {
+                break;
+            }
+            this._recordYSprite(i, sprite);
+            ++y_occupy[sprite.y];
+        }
+        this._sortYSprites();
+
+        var start = 0;
+
+        for (var i = 0; i < CHUNK_SIZE; ++i) {
+            if (y_occupy[i] != 0) {
+                if (start != i) {
+                    this._planPartialLayers(start, i, min_z, max_z);
+                }
+                this._planLinesWithSprites(i, min_z, max_z);
+                start = i + 1;
+            }
+        }
+
+        if (start != CHUNK_SIZE) {
+            this._planPartialLayers(start, CHUNK_SIZE, min_z, max_z);
+        }
+    },
+
+    '_planPartialLayers': function(min_y, max_y, min_z, max_z) {
+        this._planOne5(PLAN_PARTIAL_LAYERS, min_z, max_z, min_y, max_y);
+    },
+
+    '_planLinesWithSprites': function(y, min_z, max_z) {
+        if (y == CHUNK_SIZE) {
+            // This happens when the last y is occupied.
+            return;
+        }
+
+        // TODO: use binary search to find start
+        var start_i = 0;
+        var end_i = this.y_sprites_len;
+        for (var i = 0; i < this.y_sprites_len; ++i) {
+            var sprite = this.y_sprites[i];
+            if (sprite.y < y) {
+                start_i = i + 1;
+                continue;
+            } else if (sprite.y > y) {
+                end_i = i;
+                break;
+            }
+        }
+
+        // When open_z != -1, that means the line (*, y, open_z) has had the
+        // bottom rendered, but not the front.
+        var open_z = -1;
+
+        if (start_i < this.y_sprites_len && this.y_sprites[start_i].z == 0) {
+            open_z = 0;
+            this._planOne4(PLAN_PARTIAL_LINE, 0, y, 0);
+        }
+
+        for (var i = start_i; i < end_i; ++i) {
+            var sprite = this.y_sprites[i];
+            var z = sprite.z;
+            if (z != open_z) {
+                // Close open_z
+                this._planOne4(PLAN_PARTIAL_LINE, open_z, y, 1);
+                // Draw complete lines between open_z (exclusive) and z
+                if (open_z + 1 < z) {
+                    this._planOne4(PLAN_FULL_LINES, open_z + 1, z, y);
+                }
+                // Open the new z
+                open_z = z;
+                this._planOne(PLAN_PARTIAL_LINE, open_z, y, 0);
+            }
+            this._planOne2(PLAN_SPRITE, sprite.id);
+        }
+
+        // Close open_z if necessary.
+        if (open_z != -1) {
+            this._planOne4(PLAN_PARTIAL_LINE, open_z, y, 1);
+        }
+        // Draw remaining lines
+        if (open_z + 1 < CHUNK_SIZE) {
+            this._planOne4(PLAN_FULL_LINES, open_z + 1, CHUNK_SIZE, y);
+        }
+    },
+
+    '_planOne': function(item) {
+        if (this.plan_len == this.plan_.length) {
+            this.plan_.push(item);
+        } else {
+            this.plan_[this.plan_len] = item;
+        }
+        ++this.plan_len;
+    },
+
+    '_planOne2': function(a, b) {
+        this._planOne((a & 0xf) | (b & 0xf) << 4);
+    },
+
+    '_planOne3': function(a, b, c) {
+        this._planOne((a & 0xf) | (b & 0xf) << 4 | (c & 0xf) << 8);
+    },
+
+    '_planOne4': function(a, b, c, d) {
+        this._planOne((a & 0xf) | (b & 0xf) << 4 | (c & 0xf) << 8 | (d & 0xf) << 12);
+    },
+
+    '_planOne5': function(a, b, c, d, e) {
+        this._planOne((a & 0xf) | (b & 0xf) << 4 | (c & 0xf) << 8 | (d & 0xf) << 12 | (e & 0xf) << 16);
+    },
+
+    'plan': function(sprites) {
+        this._init(sprites);
+        this._plan();
+        this._cleanup();
+        return this.plan_;
+    },
+};
+
+function run_render_step(ctx, step, chunk, dx, dy, draw_sprite) {
+    var type = step & 0xf;
+    var arg0 = (step >> 4) & 0xf;
+    var arg1 = (step >> 8) & 0xf;
+    var arg2 = (step >> 12) & 0xf;
+    var arg3 = (step >> 16) & 0xf;
+    if (type == PLAN_FULL_LAYERS) {
+        var min_z = arg0;
+        var max_z = arg1 || 16;
+        for (var z = min_z; z < max_z; ++z) {
+            chunk.draw(ctx, z, 0, CHUNK_SIZE, dx, dy - z * TILE_SIZE);
+        }
+    } else if (type == PLAN_PARTIAL_LAYERS) {
+        var min_z = arg0;
+        var max_z = arg1 || 16;
+        for (var z = min_z; z < max_z; ++z) {
+            var min_y = arg2;
+            var max_y = arg3 || 16;
+            chunk.draw(ctx, z, min_y, max_y, dx, dy - z * TILE_SIZE);
+        }
+    } else if (type == PLAN_FULL_LINES) {
+        var min_z = arg0;
+        var max_z = arg1 || 16;
+        var y = arg2;
+        for (var z = min_z; z < max_z; ++z) {
+            chunk.draw(ctx, z, y, y + 1, dx, dy - z * TILE_SIZE);
+        }
+    } else if (type == PLAN_PARTIAL_LINE) {
+        var z = arg0;
+        var y = arg1;
+        var l = arg2;
+        if (l == 0) {
+            chunk.drawBottom(ctx, z, y, y + 1, dx, dy - z * TILE_SIZE);
+        } else {
+            chunk.drawFront(ctx, z, y, y + 1, dx, dy - z * TILE_SIZE);
+        }
+    } else if (type == PLAN_SPRITE) {
+        draw_sprite(arg0);
+    }
+}
 
 
 var anim_canvas = new AnimCanvas(frame);
@@ -781,19 +1063,26 @@ for (var i = 0; i < 3; ++i) {
     }
 }
 
+var planner = new RenderPlanner();
+
 function frame(ctx, now) {
     dbg.frameStart();
     var pos = pony.position(now);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    for (var i = 0; i < 2; ++i) {
-        for (var j = 0; j < 2; ++j) {
-            chunkRender[i * 2 + j].drawBottom(ctx, 0, i * 512, j * 512);
-            chunkRender[i * 2 + j].drawFront(ctx, 0, 0, 16, i * 512, j * 512);
-        }
-    }
+    var sprite_y = Math.floor((pos.y + 78) / 32);
 
-    pony.drawInto(ctx, now);
+
+    var sprites = [
+            {'y': sprite_y, 'z': 0, 'size_z': 2, 'id': 0},
+        ];
+    var plan = planner.plan(sprites);
+
+    for (var i = 0; i < plan.length; ++i) {
+        run_render_step(ctx, plan[i], chunkRender[0], 0, 0, function(i) {
+            pony.drawInto(ctx, now);
+        });
+    }
 
     dbg.frameEnd();
 
