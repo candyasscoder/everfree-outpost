@@ -2,6 +2,96 @@
 
 var $ = document.getElementById.bind(document);
 
+function fstr1(x) {
+    var y = Math.round(x * 10) / 10;
+    if (y % 1 == 0) {
+        return y + '.0';
+    } else {
+        return y + '';
+    }
+}
+
+
+function Deque() {
+    this._cur = [];
+    this._new = [];
+}
+
+Deque.prototype = {
+    'enqueue': function(x) {
+        this._new.push(x);
+    },
+
+    'dequeue': function() {
+        this._prepareRead();
+        return this._cur.pop();
+    },
+
+    '_prepareRead': function() {
+        if (this._cur.length == 0) {
+            while (this._new.length > 0) {
+                this._cur.push(this._new.pop());
+            }
+        }
+    },
+
+    'peek': function() {
+        this._prepareRead();
+        if (this._cur.length == 0) {
+            return null;
+        } else {
+            return this._cur[this._cur.length - 1];
+        }
+    },
+
+    'peek_back': function() {
+        if (this._new.length > 0) {
+            return this._new[this._new.length - 1];
+        } else if (this._cur.length > 0) {
+            return this._cur[0];
+        } else {
+            return null;
+        }
+    },
+}
+
+
+function TimeSeries(dur) {
+    this._q = new Deque();
+    this._dur = dur;
+    this.sum = 0;
+    this.count = 0;
+    this._last_popped_time = Date.now();
+}
+
+TimeSeries.prototype = {
+    'record': function(now, value) {
+        var start = now - this._dur;
+        while (true) {
+            var item = this._q.peek();
+            if (item == null) {
+                break;
+            }
+            if (item[0] >= start) {
+                break;
+            }
+
+            this._q.dequeue();
+            this.sum -= item[1];
+            --this.count;
+            this._last_popped_time = item[0];
+        }
+
+        this._q.enqueue([now, value]);
+        this.sum += value;
+        ++this.count;
+    },
+
+    'duration': function() {
+        return this._q.peek_back()[0] - this._last_popped_time;
+    },
+};
+
 
 function AnimCanvas(frame_callback) {
     this.canvas = document.createElement('canvas');
@@ -74,6 +164,62 @@ function calcScale(px) {
         return Math.round(px / target);
     }
 }
+
+
+function DebugMonitor() {
+    this.container = document.createElement('table');
+    this.container.setAttribute('class', 'debug-monitor');
+
+    this.fps = this._addRow('FPS');
+    this.load = this._addRow('Load');
+    this.jobs = this._addRow('Jobs');
+
+    this._frames = new TimeSeries(5000);
+    this._frame_start = 0;
+}
+
+DebugMonitor.prototype = {
+    '_addRow': function(label) {
+        var row = document.createElement('tr');
+        this.container.appendChild(row);
+
+        var left = document.createElement('td');
+        row.appendChild(left);
+        left.textContent = label;
+
+        var right = document.createElement('td');
+        row.appendChild(right);
+        return right;
+    },
+
+    'frameStart': function() {
+        this._frame_start = Date.now();
+    },
+
+    'frameEnd': function() {
+        var now = Date.now();
+        this._frames.record(now, now - this._frame_start);
+
+        var frames = this._frames.count;
+        var dur = this._frames.duration() / 1000;
+        var fps = frames / dur;
+        this.fps.textContent =
+            fstr1(fps) + ' fps (' + frames + ' in ' + fstr1(dur) + 's)';
+
+        var work = this._frames.sum;
+        var frame_work = work / frames;
+        var frame_target = 16.6;
+        var load = frame_work / frame_target * 100;
+        this.load.textContent =
+            fstr1(load) + '% (' + fstr1(frame_work) + ' / ' + fstr1(frame_target) + ')';
+    },
+
+    'updateJobs': function(runner) {
+        var counts = runner.count();
+        var total = counts[0] + counts[1];
+        this.jobs.textContent = total + ' (' + counts[0] + ' + ' + counts[1] + ')';
+    },
+};
 
 
 function OffscreenContext(width, height) {
@@ -180,6 +326,7 @@ function BackgroundJobRunner() {
     // of the queue).
     this.subjobs = [];
     this.current_job_name = null;
+    this.subjob_count = 0;
 }
 
 BackgroundJobRunner.prototype = {
@@ -220,6 +367,9 @@ BackgroundJobRunner.prototype = {
         }
 
         var job = this.jobs_cur.pop();
+        if (this.subjob_count > 0) {
+            --this.subjob_count;
+        }
         this.current_job_name = job.name;
         try {
             var start = Date.now();
@@ -228,11 +378,17 @@ BackgroundJobRunner.prototype = {
             console.log('ran', job.name, 'in', end - start);
         } finally {
             this.current_job_name = null;
+            this.subjob_count += this.subjobs.length;
             while (this.subjobs.length > 0) {
                 this.jobs_cur.push(this.subjobs.pop());
             }
         }
         return true;
+    },
+
+    'count': function() {
+        var total = this.jobs_cur.length + this.jobs_new.length;
+        return [total - this.subjob_count, this.subjob_count];
     },
 };
 
@@ -349,6 +505,10 @@ anim_canvas.ctx.fillStyle = '#f0f';
 anim_canvas.ctx.imageSmoothingEnabled = false;
 anim_canvas.ctx.mozImageSmoothingEnabled = false;
 
+var dbg = new DebugMonitor();
+window.dbg = dbg;
+document.body.appendChild(dbg.container);
+
 
 var loader = new AssetLoader();
 
@@ -402,14 +562,16 @@ function bake_sprite_sheet(runner) {
 
     var coat_color = '#c8f';
     var hair_color = '#84c';
-    runner.job('wing_back',  tinted, assets.pony_f_wing_back, coat_color);
-    runner.job('base',       tinted, assets.pony_f_base, coat_color);
-    runner.job('eyes',       copy, assets.pony_f_eyes_blue);
-    runner.job('mane',       tinted, assets.pony_f_mane_1, hair_color);
-    runner.job('tail',       tinted, assets.pony_f_tail_1, hair_color);
-    runner.job('horn',       tinted, assets.pony_f_horn, coat_color);
-    runner.job('wing_front', tinted, assets.pony_f_wing_front, coat_color);
-    runner.job('done', function() { baking_done = 1; });
+    runner.job('bake', function() {
+        runner.subjob('wing_back',  tinted, assets.pony_f_wing_back, coat_color);
+        runner.subjob('base',       tinted, assets.pony_f_base, coat_color);
+        runner.subjob('eyes',       copy, assets.pony_f_eyes_blue);
+        runner.subjob('mane',       tinted, assets.pony_f_mane_1, hair_color);
+        runner.subjob('tail',       tinted, assets.pony_f_tail_1, hair_color);
+        runner.subjob('horn',       tinted, assets.pony_f_horn, coat_color);
+        runner.subjob('wing_front', tinted, assets.pony_f_wing_front, coat_color);
+        runner.subjob('done',       function() { baking_done = 1; });
+    });
 
     return baked.canvas;
 }
@@ -444,6 +606,7 @@ for (var y = 0; y < 64; ++y) {
 }
 
 function frame(ctx, now) {
+    dbg.frameStart();
     var pos = pony.position(now);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
@@ -580,7 +743,11 @@ function frame(ctx, now) {
 
     pony.drawInto(ctx, now);
 
+    dbg.frameEnd();
+
     runner.run(now, 10);
+
+    dbg.updateJobs(runner);
 }
 
 
