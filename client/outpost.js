@@ -36,9 +36,43 @@ AnimCanvas.prototype = {
     },
 
     '_handleResize': function() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
+        var width = window.innerWidth;
+        var height = window.innerHeight;
+
+        this.scale = calcScale(Math.max(width, height));
+
+        var scale;
+        var invScale;
+        if (this.scale < 0) {
+            invScale = -this.scale;
+            scale = 1.0 / invScale;
+        } else {
+            scale = this.scale;
+            invScale = 1.0 / scale;
+        }
+
+        var virtWidth = Math.ceil(width * invScale);
+        var virtHeight = Math.ceil(height * invScale);
+
+        var physWidth = Math.round(virtWidth * scale);
+        var physHeight = Math.round(virtHeight * scale);
+
+        this.canvas.width = virtWidth;
+        this.canvas.height = virtHeight;
+        this.canvas.style.width = physWidth + 'px';
+        this.canvas.style.height = physHeight + 'px';
+
+        console.log('resize', width, height, this.scale, virtWidth, virtHeight, physWidth, physHeight);
     },
+}
+
+function calcScale(px) {
+    var target = 1024;
+    if (px < target) {
+        return -Math.round(target / px);
+    } else {
+        return Math.round(px / target);
+    }
 }
 
 
@@ -401,9 +435,9 @@ loader.onprogress = function(loaded, total) {
 };
 
 var grid = [];
-for (var y = 0; y < anim_canvas.canvas.height; y += tileSheet.item_height) {
+for (var y = 0; y < 64; ++y) {
     var row = [];
-    for (var x = 0; x < anim_canvas.canvas.width; x += tileSheet.item_width) {
+    for (var x = 0; x < 64; ++x) {
         row.push(false);
     }
     grid.push(row);
