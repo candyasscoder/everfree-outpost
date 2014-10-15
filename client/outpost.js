@@ -375,7 +375,6 @@ BackgroundJobRunner.prototype = {
             var start = Date.now();
             job.cb.apply(this, job.args);
             var end = Date.now();
-            console.log('ran', job.name, 'in', end - start);
         } finally {
             this.current_job_name = null;
             this.subjob_count += this.subjobs.length;
@@ -526,37 +525,133 @@ Chunk.prototype = {
         var cell = bottom | (front << 8);
         this._arr[((z) * CHUNK_SIZE + y) * CHUNK_SIZE + x] = cell;
     },
+
+    'setBottom': function(x, y, z, bottom) {
+        this.set(x, y, z, bottom, this.front(x, y, z));
+    },
+
+    'setFront': function(x, y, z, front) {
+        this.set(x, y, z, this.bottom(x, y, z), front);
+    },
 };
 
 
 function ChunkRendering(chunk, sheet) {
     this.chunk = chunk;
     this.sheet = sheet;
+    this._bakedBottom = [];
+    this._bakedFront = [];
+    for (var i = 0; i < CHUNK_SIZE; ++i) {
+        this._bakedBottom.push(null);
+        this._bakedFront.push(null);
+    }
 }
 
 ChunkRendering.prototype = {
-    'drawBottom': function(ctx, z, dx, dy) {
+    'bake': function() {
+        for (var z = 0; z < CHUNK_SIZE; ++z) {
+            var baked = this._prepareBaked(z, 0);
+            this._bakeLayer(z, 0, baked);
+            this._bakedBottom[z] = baked;
+
+            var baked = this._prepareBaked(z, 1);
+            this._bakeLayer(z, 1, baked);
+            this._bakedFront[z] = baked;
+        }
+    },
+
+    '_layerCell': function(x, y, z, l) {
+        if (l == 0) {
+            return this.chunk.bottom(x, y, z);
+        } else {
+            return this.chunk.front(x, y, z);
+        }
+    },
+
+    '_prepareBaked': function(z, l) {
+        var min_x = CHUNK_SIZE;
+        var max_x = 0;
+        var min_y = CHUNK_SIZE;
+        var max_y = 0;
         for (var y = 0; y < CHUNK_SIZE; ++y) {
             for (var x = 0; x < CHUNK_SIZE; ++x) {
-                var tile = this.chunk.bottom(x, y, z);
+                if (this._layerCell(x, y, z, l) == 0) {
+                    continue;
+                }
+                min_x = Math.min(x, min_x);
+                max_x = Math.max(x + 1, max_x);
+                min_y = Math.min(y, min_y);
+                max_y = Math.max(y + 1, max_y);
+            }
+        }
+
+        var size_x = Math.max(0, max_x - min_x);
+        var size_y = Math.max(0, max_y - min_y);
+
+        if (size_x == 0 || size_y == 0) {
+            return null;
+        } else {
+            return ({
+                'x': min_x,
+                'y': min_y,
+                'w': size_x,
+                'h': size_y,
+                'ctx': new OffscreenContext(size_x * TILE_SIZE, size_y * TILE_SIZE),
+            });
+        }
+    },
+
+    '_bakeLayer': function(z, l, baked) {
+        if (baked == null) {
+            return;
+        }
+        var base_x = baked.x;
+        var base_y = baked.y;
+        for (var y = 0; y < baked.h; ++y) {
+            for (var x = 0; x < baked.w; ++x) {
+                var tile = this._layerCell(x + base_x, y + base_y, z, l);
                 if (tile != 0) {
-                    this.sheet.drawInto(ctx, tile >> 4, tile & 15,
-                            dx + x * TILE_SIZE, dy + y * TILE_SIZE);
+                    this.sheet.drawInto(baked.ctx, tile >> 4, tile & 15,
+                            x * TILE_SIZE, y * TILE_SIZE);
                 }
             }
         }
     },
 
-    'drawFront': function(ctx, z, min_y, max_y, dx, dy) {
-        for (var y = min_y; y < max_y; ++y) {
-            for (var x = 0; x < CHUNK_SIZE; ++x) {
-                var tile = this.chunk.front(x, y, z);
-                if (tile != 0) {
-                    this.sheet.drawInto(ctx, tile >> 4, tile & 15,
-                            dx + x * TILE_SIZE, dy + y * TILE_SIZE);
-                }
-            }
+    'drawBottom': function(ctx, z, dx, dy) {
+        var baked = this._bakedBottom[z];
+        if (baked == null) {
+            return;
         }
+
+        var offset_x = baked.x * TILE_SIZE;
+        var offset_y = baked.y * TILE_SIZE;
+        ctx.drawImage(baked.ctx.canvas, dx + offset_x, dy + offset_y);
+    },
+
+    'drawFront': function(ctx, z, min_y, max_y, dx, dy) {
+        var baked = this._bakedFront[z];
+        if (baked == null) {
+            return;
+        }
+
+        var real_min_y = Math.max(min_y, baked.y);
+        var real_max_y = Math.min(max_y, baked.y + baked.h);
+
+        // Requested rows do not overlap the baked layer.
+        if (real_max_y <= real_min_y) {
+            return;
+        }
+
+        var src_offset_y = (real_min_y - baked.y) * TILE_SIZE;
+        var dest_offset_x = baked.x * TILE_SIZE;
+        var dest_offset_y = real_min_y * TILE_SIZE;
+        var px_width = baked.w * TILE_SIZE;
+        var px_height = (real_max_y - real_min_y) * TILE_SIZE;
+
+        ctx.drawImage(baked.ctx.canvas,
+                0, src_offset_y, px_width, px_height,
+                dx + dest_offset_x, dy + dest_offset_y, px_width, px_height);
     },
 };
 
@@ -651,6 +746,10 @@ loader.onload = function() {
 
     document.body.removeChild($('banner-bg'));
     anim_canvas.start();
+
+    for (var i = 0; i < 4; ++i) {
+        chunkRender[i].bake();
+    }
 };
 
 loader.onprogress = function(loaded, total) {
@@ -660,6 +759,7 @@ loader.onprogress = function(loaded, total) {
 
 var chunks = [];
 var chunkRender = [];
+window.chunkRender = chunkRender;
 for (var i = 0; i < 4; ++i) {
     var chunk = new Chunk();
     chunks.push(chunk);
@@ -675,6 +775,12 @@ for (var i = 0; i < 4; ++i) {
     chunkRender.push(new ChunkRendering(chunk, tileSheet));
 }
 
+for (var i = 0; i < 3; ++i) {
+    for (var j = 0; j < 2; ++j) {
+        chunks[0].setFront(10+j, 10, i, (15-i) * 16 + 7+j);
+    }
+}
+
 function frame(ctx, now) {
     dbg.frameStart();
     var pos = pony.position(now);
@@ -683,6 +789,7 @@ function frame(ctx, now) {
     for (var i = 0; i < 2; ++i) {
         for (var j = 0; j < 2; ++j) {
             chunkRender[i * 2 + j].drawBottom(ctx, 0, i * 512, j * 512);
+            chunkRender[i * 2 + j].drawFront(ctx, 0, 0, 16, i * 512, j * 512);
         }
     }
 
