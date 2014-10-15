@@ -559,15 +559,21 @@ var dirsHeld = {
 };
 
 document.addEventListener('keydown', function(evt) {
+    var known = true;
     if (dirsHeld.hasOwnProperty(evt.key)) {
-        evt.preventDefault();
-        evt.stopPropagation();
         if (!evt.repeat) {
             dirsHeld[evt.key] = true;
             updateWalkDir();
         }
     } else if (evt.key == ' ') {
         stompGrass();
+    } else {
+        known = false;
+    }
+
+    if (known) {
+        evt.preventDefault();
+        evt.stopPropagation();
     }
 });
 
