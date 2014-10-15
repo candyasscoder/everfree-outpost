@@ -497,11 +497,76 @@ Pony.prototype = {
 };
 
 
+var CHUNK_SIZE = 16;
+var TILE_SIZE = 32;
+
+function Chunk() {
+    this._arr = new Uint32Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
+}
+
+Chunk.prototype = {
+    '_cell': function(x, y, z) {
+        return this._arr[((z) * CHUNK_SIZE + y) * CHUNK_SIZE + x];
+    },
+
+    '_cellBits': function(x, y, z, start, count) {
+        var mask = (1 << count) - 1;
+        return (this._cell(x, y, z) >> start) & mask;
+    },
+
+    'bottom': function(x, y, z) {
+        return this._cellBits(x, y, z, 0, 8);
+    },
+
+    'front': function(x, y, z) {
+        return this._cellBits(x, y, z, 8, 8);
+    },
+
+    'set': function(x, y, z, bottom, front) {
+        var cell = bottom | (front << 8);
+        this._arr[((z) * CHUNK_SIZE + y) * CHUNK_SIZE + x] = cell;
+    },
+};
+
+
+function ChunkRendering(chunk, sheet) {
+    this.chunk = chunk;
+    this.sheet = sheet;
+}
+
+ChunkRendering.prototype = {
+    'drawBottom': function(ctx, z, dx, dy) {
+        for (var y = 0; y < CHUNK_SIZE; ++y) {
+            for (var x = 0; x < CHUNK_SIZE; ++x) {
+                var tile = this.chunk.bottom(x, y, z);
+                if (tile != 0) {
+                    this.sheet.drawInto(ctx, tile >> 4, tile & 15,
+                            dx + x * TILE_SIZE, dy + y * TILE_SIZE);
+                }
+            }
+        }
+    },
+
+    'drawFront': function(ctx, z, min_y, max_y, dx, dy) {
+        for (var y = min_y; y < max_y; ++y) {
+            for (var x = 0; x < CHUNK_SIZE; ++x) {
+                var tile = this.chunk.front(x, y, z);
+                if (tile != 0) {
+                    this.sheet.drawInto(ctx, tile >> 4, tile & 15,
+                            dx + x * TILE_SIZE, dy + y * TILE_SIZE);
+                }
+            }
+        }
+    },
+};
+
+
 var anim_canvas = new AnimCanvas(frame);
 window.anim_canvas = anim_canvas;
 document.body.appendChild(anim_canvas.canvas);
 
 anim_canvas.ctx.fillStyle = '#f0f';
+anim_canvas.ctx.strokeStyle = '#0ff';
 anim_canvas.ctx.imageSmoothingEnabled = false;
 anim_canvas.ctx.mozImageSmoothingEnabled = false;
 
@@ -524,8 +589,6 @@ loader.addImage('tiles1', 'assets/tiles/mountain_landscape_23.png');
 
 var assets = loader.assets;
 window.assets = assets;
-
-var baking_done = 0;
 
 function bake_sprite_sheet(runner) {
     var width = assets.pony_f_base.width;
@@ -570,7 +633,6 @@ function bake_sprite_sheet(runner) {
         runner.subjob('tail',       tinted, assets.pony_f_tail_1, hair_color);
         runner.subjob('horn',       tinted, assets.pony_f_horn, coat_color);
         runner.subjob('wing_front', tinted, assets.pony_f_wing_front, coat_color);
-        runner.subjob('done',       function() { baking_done = 1; });
     });
 
     return baked.canvas;
@@ -596,13 +658,21 @@ loader.onprogress = function(loaded, total) {
     $('banner-bar').style.width = Math.floor(loaded / total * 100) + '%';
 };
 
-var grid = [];
-for (var y = 0; y < 64; ++y) {
-    var row = [];
-    for (var x = 0; x < 64; ++x) {
-        row.push(false);
+var chunks = [];
+var chunkRender = [];
+for (var i = 0; i < 4; ++i) {
+    var chunk = new Chunk();
+    chunks.push(chunk);
+    for (var y = 0; y < CHUNK_SIZE; ++y) {
+        for (var x = 0; x < CHUNK_SIZE; ++x) {
+            var rnd = (x * 7 + y * 13 + 31) >> 2;
+            var a = (rnd & 1);
+            var b = (rnd & 2) >> 1;
+            var tile = (4 + a) * 16 + 14 + b;
+            chunk.set(x, y, 0, tile, 0);
+        }
     }
-    grid.push(row);
+    chunkRender.push(new ChunkRendering(chunk, tileSheet));
 }
 
 function frame(ctx, now) {
@@ -610,82 +680,9 @@ function frame(ctx, now) {
     var pos = pony.position(now);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    if (!baking_done) {
-        console.log('baking not done yet', now);
-    }
-
-    var tw = tileSheet.item_width;
-    var th = tileSheet.item_height;
-    var rows = Math.floor((ctx.canvas.height + th - 1) / th);
-    var cols = Math.floor((ctx.canvas.width + tw - 1) / tw);
-    function get(ii, jj) {
-        if (ii < 0 || ii >= rows || jj < 0 || jj >= cols) {
-            return false;
-        }
-        return grid[ii][jj] ? 1 : 0;
-    }
-    for (var i = 0; i < rows; ++i) {
-        for (var j = 0; j < cols; ++j) {
-            var rnd = (i * 7 + j * 13 + 31) >> 2;
-            var a = (rnd & 1);
-            var b = (rnd & 2) >> 1;
-
-            if (!get(i, j)) {
-                tileSheet.drawInto(ctx, 4 + a, 14 + b, j * tw, i * th);
-                continue;
-            }
-
-            // This algorithm operates on the grid points between tiles instead
-            // of the tiles themselves.  A grid intersection is marked as road
-            // if all four tiles that touch that intersection are road.  Then
-            // we choose a tile for this location based on the values of the
-            // four surrounding grid points.
-
-            var n  = get(i - 1, j);
-            var ne = get(i - 1, j + 1);
-            var e  = get(i    , j + 1);
-            var se = get(i + 1, j + 1);
-            var s  = get(i + 1, j);
-            var sw = get(i + 1, j - 1);
-            var w  = get(i    , j - 1);
-            var nw = get(i - 1, j - 1);
-
-            // Flags to indicate road/grass for the grid point at each corner
-            // of this tile.  The grid point is road if all four of its
-            // surrounding tiles are road, but we already know the current tile
-            // is road, so we only need to check three other tiles for each
-            // case.
-            var cnw = nw + n + w == 3;
-            var cne = ne + n + e == 3;
-            var csw = sw + s + w == 3;
-            var cse = se + s + e == 3;
-
-            var idx = cnw << 3 | cne << 2 | csw << 1 | cse;
-
-            var ti = null;
-            var tj = null;
-
-            if (idx == 15) {
-                ti = 0 + rnd % 3;
-                tj = 10;
-            } else if (idx == 0) {
-                // The current tile is road, but enough of the surrounding
-                // tiles are grass that none of the corners are road.  Draw
-                // plain grass.
-                ti = 4 + a;
-                tj = 14 + b;
-            } else {
-                var tile_arr = [
-                      0,  11,  13,  12,
-                     43,  27,  58, 110,
-                     45,  74,  29, 111,
-                     44, 126, 127,   0,
-                ];
-                ti = tile_arr[idx] >> 4;
-                tj = tile_arr[idx] & 15;
-            }
-
-            tileSheet.drawInto(ctx, ti, tj, j * tw, i * th);
+    for (var i = 0; i < 2; ++i) {
+        for (var j = 0; j < 2; ++j) {
+            chunkRender[i * 2 + j].drawBottom(ctx, 0, i * 512, j * 512);
         }
     }
 
@@ -694,7 +691,6 @@ function frame(ctx, now) {
     dbg.frameEnd();
 
     runner.run(now, 10);
-
     dbg.updateJobs(runner);
 }
 
@@ -714,8 +710,6 @@ document.addEventListener('keydown', function(evt) {
             dirsHeld[evt.key] = true;
             updateWalkDir();
         }
-    } else if (evt.key == ' ') {
-        stompGrass();
     } else {
         known = false;
     }
@@ -759,23 +753,6 @@ function updateWalkDir() {
     }
 
     pony.walk(Date.now(), speed, dx, dy);
-}
-
-function stompGrass() {
-    var pos = pony.position(Date.now());
-    var w = tileSheet.item_width;
-    var h = tileSheet.item_height;
-    var base_x = Math.floor((pos.x + w) / w);
-    var base_y = Math.floor((pos.y + h) / h);
-    for (var i = 0; i < 2; ++i) {
-        for (var j = 0; j < 2; ++j) {
-            var ii = i + base_y;
-            var jj = j + base_x;
-            if (ii >= 0 && ii < grid.length && jj >= 0 && jj < grid[ii].length) {
-                grid[ii][jj] = true;
-            }
-        }
-    }
 }
 
 })();
