@@ -397,7 +397,7 @@ BackgroundJobRunner.prototype = {
 };
 
 
-function Entity(sheet, x, y) {
+function Entity(sheet, ax, ay, x, y) {
     this.sheet = sheet;
     this._motion = {
         'last_x': x,
@@ -407,6 +407,7 @@ function Entity(sheet, x, y) {
         'start': 0,
     };
     this._anim = null;
+    this.anchor = { 'x': ax, 'y': ay };
 }
 
 Entity.prototype = {
@@ -442,8 +443,10 @@ Entity.prototype = {
 
     'drawInto': function(ctx, now) {
         var pos = this.position(now);
-        var x = pos.x;
-        var y = pos.y;
+        var x = pos.x - this.anchor.x;
+        var y = pos.y - this.anchor.y;
+
+        //ctx.strokeRect(pos.x - 16, pos.y - 16, 32, 32);
 
         var anim = this._anim;
         if (anim.flip) {
@@ -460,7 +463,7 @@ Entity.prototype = {
 
 
 function Pony(sheet, x, y) {
-    this._entity = new Entity(sheet, x, y);
+    this._entity = new Entity(sheet, 48, 74, x, y);
     this._entity.animate(0, 2, 1, 1, false, 0);
     this._last_dir = { 'x': 1, 'y': 0 };
 }
@@ -618,6 +621,7 @@ ChunkRendering.prototype = {
                 if (tile != 0) {
                     this.sheet.drawInto(baked.ctx, tile >> 4, tile & 15,
                             x * TILE_SIZE, y * TILE_SIZE);
+                    //baked.ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
                 }
             }
         }
@@ -1113,8 +1117,7 @@ function frame(ctx, now) {
     var pos = pony.position(now);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    var sprite_y = Math.floor((pos.y + 78) / 32);
-
+    var sprite_y = Math.floor((pos.y + 16) / 32);
 
     var sprites = [
             {'y': sprite_y, 'z': 0, 'size_z': 2, 'id': 0},
