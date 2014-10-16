@@ -173,6 +173,7 @@ function DebugMonitor() {
     this.fps = this._addRow('FPS');
     this.load = this._addRow('Load');
     this.jobs = this._addRow('Jobs');
+    this.plan = this._addRow('Plan');
 
     this._frames = new TimeSeries(5000);
     this._frame_start = 0;
@@ -218,6 +219,10 @@ DebugMonitor.prototype = {
         var counts = runner.count();
         var total = counts[0] + counts[1];
         this.jobs.textContent = total + ' (' + counts[0] + ' + ' + counts[1] + ')';
+    },
+
+    'updatePlan': function(plan) {
+        this.plan.innerHTML = plan.map(describe_render_step).join('<br>');
     },
 };
 
@@ -937,6 +942,37 @@ function run_render_step(ctx, step, chunk, dx, dy, draw_sprite) {
     }
 }
 
+function describe_render_step(step) {
+    var type = step & 0xf;
+    var arg0 = (step >> 4) & 0xf;
+    var arg1 = (step >> 8) & 0xf;
+    var arg2 = (step >> 12) & 0xf;
+    var arg3 = (step >> 16) & 0xf;
+    if (type == PLAN_FULL_LAYERS) {
+        var min_z = arg0;
+        var max_z = (arg1 || 16) - 1;
+        return 'FL: ' + ['_', '_', min_z + '..' + max_z].join(' x ');
+    } else if (type == PLAN_PARTIAL_LAYERS) {
+        var min_z = arg0;
+        var max_z = (arg1 || 16) - 1;
+        var min_y = arg2;
+        var max_y = (arg3 || 16) - 1;
+        return 'PL: ' + ['_', min_y + '..' + max_y, min_z + '..' + max_z].join(' x ');
+    } else if (type == PLAN_FULL_LINES) {
+        var min_z = arg0;
+        var max_z = (arg1 || 16) - 1;
+        var y = arg2;
+        return 'FN: ' + ['_', y, min_z + '..' + max_z].join(' x ');
+    } else if (type == PLAN_PARTIAL_LINE) {
+        var z = arg0;
+        var y = arg1;
+        var l = arg2;
+        return 'PN: ' + ['_', y, z].join(' x ') + (l == 0 ? ' (B)' : ' (F)');
+    } else if (type == PLAN_SPRITE) {
+        return 'Sprite: ' + arg0;
+    }
+}
+
 
 var anim_canvas = new AnimCanvas(frame);
 window.anim_canvas = anim_canvas;
@@ -1088,6 +1124,7 @@ function frame(ctx, now) {
 
     runner.run(now, 10);
     dbg.updateJobs(runner);
+    dbg.updatePlan(plan);
 }
 
 
