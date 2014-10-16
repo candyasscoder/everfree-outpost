@@ -11,6 +11,19 @@ function fstr1(x) {
     }
 }
 
+function gcd(a, b) {
+    while (b != 0) {
+        var t = b;
+        b = a % b;
+        a = t;
+    }
+    return a;
+}
+
+function lcm(a, b) {
+    return (a * b / gcd(a, b))|0;
+}
+
 
 function Deque() {
     this._cur = [];
@@ -978,6 +991,183 @@ function describe_render_step(step) {
 }
 
 
+function ChunkPhysics(chunk) {
+    this.chunk = chunk;
+}
+
+ChunkPhysics.prototype = {
+    'collide': function(x, y, z, sx, sy, sz, vx, vy, vz) {
+        var result = [];
+
+        if (vx == 0 && vy == 0 && vz == 0) {
+            return result;
+        }
+
+        // Arguments:
+        //  s - size
+        //  v - velocity
+
+        // u - units per pixel: We reason using `u` subpixels per pixel.  Since
+        // `u` is the LCM of all velocities, and since we start on a
+        // whole-pixel boundary, this guarantees that every point which is on a
+        // whole-pixel boundary along one axis, is also on a whole-unit
+        // boundary on all other axes.
+        var u = 1;
+        if (vx != 0) {
+            u = lcm(u, Math.abs(vx));
+        }
+        if (vy != 0) {
+            u = lcm(u, Math.abs(vy));
+        }
+        if (vz != 0) {
+            u = lcm(u, Math.abs(vz));
+        }
+
+        // _m - maximum axis velocity
+        var vm = Math.max(Math.abs(vx), Math.abs(vy), Math.abs(vz));
+
+        // d - direction: Direction of motion along each axis.
+        var dx = Math.sign(vx);
+        var dy = Math.sign(vy);
+        var dz = Math.sign(vz);
+
+        // From now on, all coordinates are in subpixel (1 / u) units unless
+        // noted otherwise.
+
+        // c - corner: Coordinates of the corner facing in the direction of
+        // motion.  If there is no motion along one or more axes, this may
+        // actually be the center of an edge or face.
+        var cx = u * (x + (sx * (dx + 1) / 2)|0);
+        var cy = u * (y + (sy * (dy + 1) / 2)|0);
+        var cz = u * (z + (sz * (dz + 1) / 2)|0);
+        result.push([cx, cy, cz]);
+
+        // n - next plane: Coordinates of the next plane in the direction of
+        // motion.
+        function next_plane(w, dw, spacing) {
+            if (dw == 0) {
+                return w;
+            } else if (dw == 1) {
+                return Math.floor((w + spacing - 1) / spacing) * spacing;
+            } else if (dw == -1) {
+                return Math.ceil((w - spacing + 1) / spacing) * spacing;
+            }
+        }
+        var nx = next_plane(cx, dx, u * TILE_SIZE);
+        var ny = next_plane(cy, dy, u * TILE_SIZE);
+        var nz = next_plane(cz, dz, u * TILE_SIZE);
+
+        // p - pre-step: Distance to next plane before the step.  -1 indicates
+        // that the plane will never be hit (because the velocity is zero).
+        var px = (nx - cx) * dx || 1;
+        var py = (ny - cy) * dy || 1;
+        var pz = (nz - cz) * dz || 1;
+
+        var info = [];
+
+        info.push('n: ' + [nx,ny,nz].join(','));
+        info.push('v: ' + [vx,vy,vz].join(','));
+        info.push('c: ' + [cx / u,cy/u,cz/u].join(','));
+        info.push('u = ' + u);
+
+        var ax = Math.abs(vx);
+        var ay = Math.abs(vy);
+        var az = Math.abs(vz);
+        info.push('a: ' + [ax,ay,az].join(','));
+
+        // s - steps: Number of 1-pixel steps taken in the highest-velocity
+        // direction.  The time spent is equal to `s / vm`.
+        for (var s = 0; ; ++s) {
+            var rxy = px * ay < py * ax;
+            var ryz = py * az < pz * ay;
+            var rzx = pz * ax < px * az;
+            info.push('\n' + s + ': ' + [px,py,pz].join(','));
+            info.push('c: ' + [cx / u,cy/u,cz/u].join(','));
+            info.push('r*: ' + [rxy,ryz,rzx].join(','));
+
+            var ox;
+            var oy;
+            var oz;
+
+            if (rxy && !rzx) {
+                info.push('hit x');
+                ox = (px * vx / ax)|0;
+                oy = (px * vy / ax)|0;
+                oz = (px * vz / ax)|0;
+            } else if (ryz) {
+                info.push('hit y');
+                ox = (py * vx / ay)|0;
+                oy = (py * vy / ay)|0;
+                oz = (py * vz / ay)|0;
+            } else {
+                info.push('hit z');
+                ox = (pz * vx / az)|0;
+                oy = (pz * vy / az)|0;
+                oz = (pz * vz / az)|0;
+            }
+
+            info.push('o: ' + [ox,oy,oz].join(','));
+
+                cx += ox;
+                px -= Math.abs(ox);
+                if (px == 0) {
+                    px = u * TILE_SIZE;
+                }
+
+                cy += oy;
+                py -= Math.abs(oy);
+                if (py == 0) {
+                    py = u * TILE_SIZE;
+                }
+
+                cz += oz;
+                pz -= Math.abs(oz);
+                if (pz == 0) {
+                    pz = u * TILE_SIZE;
+                }
+
+
+            result.push([cx / u, cy / u, cz / u]);
+
+            var limit = u * TILE_SIZE * CHUNK_SIZE;
+            if (s > 20 || cx < 0 || cx >= limit || cy < 0 || cy >= limit || cz < 0 || cz >= limit) {
+                break;
+            }
+        }
+
+//        console.log(info.join(' ; '));
+
+        return result;
+    },
+};
+
+window.timeit = function(f) {
+    var start = Date.now();
+    var i = 0;
+    while (Date.now() < start + 3000) {
+        f();
+        f();
+        f();
+        f();
+        f();
+        i += 5;
+    }
+    var end = Date.now();
+    console.log(i + ' iterations in ' + (end - start) + ' ms = ' +
+            fstr1((end - start) / i) + ' ms/iter');
+}
+
+
+/*
+        // w - relative unit velocity: `wab` is the number of units traveled
+        // along the `a` axis in `1 / vb` seconds.  In other words, the
+        // distance traveled on the `a` axis in the time it takes to move one
+        // pixel on the `b` axis.
+        var wx = (vx * u / vm)|0;
+        var wy = (vy * u / vm)|0;
+        var wz = (vz * u / vm)|0;
+        */
+
 var anim_canvas = new AnimCanvas(frame);
 window.anim_canvas = anim_canvas;
 document.body.appendChild(anim_canvas.canvas);
@@ -1111,6 +1301,8 @@ chunks[0].setBottom(10, 4, 2, 10 * 16 + 14);
 chunks[0].setBottom(11, 4, 2, 10 * 16 + 15);
 
 var planner = new RenderPlanner();
+var phys = new ChunkPhysics(chunks[0]);
+window.phys = phys;
 
 function frame(ctx, now) {
     dbg.frameStart();
@@ -1129,6 +1321,16 @@ function frame(ctx, now) {
             pony.drawInto(ctx, now);
         });
     }
+
+    var coll = phys.collide(pos.x - 16, pos.y - 16, pos.z,
+            32, 32, 32,
+            pony._entity._motion.velocity_x, pony._entity._motion.velocity_y, 0);
+    /*
+    for (var i = 0; i < coll.length; ++i) {
+        var p = coll[i];
+        ctx.fillRect(p[0] - 1, p[1] - 1, 2, 2);
+    }
+    */
 
     dbg.frameEnd();
 
