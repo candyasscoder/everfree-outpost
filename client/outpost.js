@@ -834,10 +834,10 @@ RenderPlanner.prototype = {
 
         // When open_z != -1, that means the line (*, y, open_z) has had the
         // bottom rendered, but not the front.
-        var open_z = -1;
+        var open_z = min_z - 1;
 
         if (start_i < this.y_sprites_len && this.y_sprites[start_i].z == 0) {
-            open_z = 0;
+            open_z = min_z;
             this._planOne4(PLAN_PARTIAL_LINE, 0, y, 0);
         }
 
@@ -864,7 +864,7 @@ RenderPlanner.prototype = {
         }
         // Draw remaining lines
         if (open_z + 1 < CHUNK_SIZE) {
-            this._planOne4(PLAN_FULL_LINES, open_z + 1, CHUNK_SIZE, y);
+            this._planOne4(PLAN_FULL_LINES, open_z + 1, max_z, y);
         }
     },
 
