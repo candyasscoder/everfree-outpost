@@ -1099,6 +1099,13 @@ for (var i = 0; i < 3; ++i) {
     }
 }
 
+chunks[0].setFront(10, 5, 1, 12 * 16 + 14);
+chunks[0].setFront(11, 5, 1, 12 * 16 + 15);
+chunks[0].setFront(10, 5, 2, 11 * 16 + 14);
+chunks[0].setFront(11, 5, 2, 11 * 16 + 15);
+chunks[0].setBottom(10, 4, 2, 10 * 16 + 14);
+chunks[0].setBottom(11, 4, 2, 10 * 16 + 15);
+
 var planner = new RenderPlanner();
 
 function frame(ctx, now) {
