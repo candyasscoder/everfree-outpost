@@ -446,7 +446,7 @@ Entity.prototype = {
         var x = pos.x - this.anchor.x;
         var y = pos.y - this.anchor.y;
 
-        //ctx.strokeRect(pos.x - 16, pos.y - 16, 32, 32);
+        ctx.strokeRect(pos.x - 16, pos.y - 16, 32, 32);
 
         var anim = this._anim;
         if (anim.flip) {
@@ -1046,10 +1046,10 @@ function bake_sprite_sheet(runner) {
         runner.subjob('wing_back',  tinted, assets.pony_f_wing_back, coat_color);
         runner.subjob('base',       tinted, assets.pony_f_base, coat_color);
         runner.subjob('eyes',       copy, assets.pony_f_eyes_blue);
-        runner.subjob('mane',       tinted, assets.pony_f_mane_1, hair_color);
-        runner.subjob('tail',       tinted, assets.pony_f_tail_1, hair_color);
-        runner.subjob('horn',       tinted, assets.pony_f_horn, coat_color);
         runner.subjob('wing_front', tinted, assets.pony_f_wing_front, coat_color);
+        runner.subjob('tail',       tinted, assets.pony_f_tail_1, hair_color);
+        runner.subjob('mane',       tinted, assets.pony_f_mane_1, hair_color);
+        runner.subjob('horn',       tinted, assets.pony_f_horn, coat_color);
     });
 
     return baked.canvas;
