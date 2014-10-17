@@ -1051,9 +1051,6 @@ Physics.prototype = {
         f.end_x = pos.x;
         f.end_y = pos.y;
         f.end_z = pos.z;
-        f.target_vx = 0;
-        f.target_vy = 0;
-        f.target_vz = 0;
         f.actual_vx = 0;
         f.actual_vy = 0;
         f.actual_vz = 0;
@@ -1064,28 +1061,47 @@ Physics.prototype = {
     // Project the time of the next collision starting from start_time, and set
     // velocities, end_time, and end position appropriately.
     '_forecast': function(f) {
-        var coll = this._chunk_phys.collide(
-                f.start_x, f.start_y, f.start_z,
-                f.size_x, f.size_y, f.size_z,
-                f.target_vx, f.target_vy, f.target_vz);
+        console.log('forecast', f.start_x, f.start_y, f.start_z);
+        f.actual_vx = f.target_vx;
+        f.actual_vy = f.target_vy;
+        f.actual_vz = f.target_vz;
 
-        f.end_x = coll.x;
-        f.end_y = coll.y;
-        f.end_z = coll.z;
+        // TODO: compute time limit for sliding
+        while (f.actual_vx != 0 || f.actual_vy != 0 || f.actual_vz != 0) {
+            var coll = this._chunk_phys.collide(
+                    f.start_x, f.start_y, f.start_z,
+                    f.size_x, f.size_y, f.size_z,
+                    f.actual_vx, f.actual_vy, f.actual_vz);
 
-        if (coll.t <= 0) {
-            f.end_time = INT_MAX * 1000;
+            console.log('  coll.t = ', coll.t);
+            if (coll.t == 0) {
+                console.assert((coll.d & 0x111) != 0,
+                        'immediate collision with no direction',
+                        f.actual_vx, f.actual_vy, f.actual_vz);
+                if (coll.d & 0x100) {
+                    f.actual_vx = 0;
+                }
+                if (coll.d & 0x010) {
+                    f.actual_vy = 0;
+                }
+                if (coll.d & 0x001) {
+                    f.actual_vz = 0;
+                }
+                continue;
+            }
 
-            f.actual_vx = 0;
-            f.actual_vy = 0;
-            f.actual_vz = 0;
-        } else {
+            // Otherwise, the collision hasn't happened yet, so set up the
+            // forecast for motion.
+
+            f.end_x = coll.x;
+            f.end_y = coll.y;
+            f.end_z = coll.z;
             f.end_time = f.start_time + coll.t;
-
-            f.actual_vx = f.target_vx;
-            f.actual_vy = f.target_vy;
-            f.actual_vz = f.target_vz;
+            break;
         }
+
+        // Can't move or slide along any axis.  Give up, and leave the forecast
+        // in its current state.
     },
 };
 
@@ -1173,6 +1189,7 @@ ChunkPhysics.prototype = {
                 'y': y,
                 'z': z,
                 't': -1,
+                'd': 0,
             });
         }
 
@@ -1312,12 +1329,13 @@ ChunkPhysics.prototype = {
                 return chunk.bottom(x, y, z) != 0 && chunk.front(x, y, z) == 0;
             }
 
-            function make_result() {
+            function make_result(dirs) {
                 return ({
                     'x': bx,
                     'y': by,
                     'z': bz,
                     't': (1000 * t / u)|0,
+                    'd': dirs,
                 });
             }
 
@@ -1326,7 +1344,7 @@ ChunkPhysics.prototype = {
                 for (var iz = min_z; iz < max_z; ++iz) {
                     for (var iy = min_y; iy < max_y; ++iy) {
                         if (!tile_ok(fx, iy, iz)) {
-                            return make_result();
+                            return make_result(0x100);
                         }
                     }
                 }
@@ -1337,7 +1355,7 @@ ChunkPhysics.prototype = {
                 for (var iz = min_z; iz < max_z; ++iz) {
                     for (var ix = min_x; ix < max_x; ++ix) {
                         if (!tile_ok(ix, fy, iz)) {
-                            return make_result();
+                            return make_result(0x010);
                         }
                     }
                 }
@@ -1348,7 +1366,7 @@ ChunkPhysics.prototype = {
                 for (var iy = min_y; iy < max_y; ++iy) {
                     for (var ix = min_x; ix < max_x; ++ix) {
                         if (!tile_ok(ix, iy, fz)) {
-                            return make_result();
+                            return make_result(0x001);
                         }
                     }
                 }
@@ -1357,7 +1375,7 @@ ChunkPhysics.prototype = {
             if (hx && hy) {
                 for (var iz = min_z; iz < max_z; ++iz) {
                     if (!tile_ok(fx, fy, iz)) {
-                        return make_result();
+                        return make_result(0x110);
                     }
                 }
             }
@@ -1365,7 +1383,7 @@ ChunkPhysics.prototype = {
             if (hy && hz) {
                 for (var ix = min_x; ix < max_x; ++ix) {
                     if (!tile_ok(ix, fy, fz)) {
-                        return make_result();
+                        return make_result(0x011);
                     }
                 }
             }
@@ -1373,20 +1391,24 @@ ChunkPhysics.prototype = {
             if (hz && hx) {
                 for (var iy = min_y; iy < max_y; ++iy) {
                     if (!tile_ok(fx, iy, fz)) {
-                        return make_result();
+                        return make_result(0x101);
                     }
                 }
             }
 
             if (hx && hy && hz) {
                 if (!tile_ok(fx, fy, fz)) {
-                    return make_result();
+                    return make_result(0x111);
                 }
             }
 
-            var limit = TILE_SIZE * CHUNK_SIZE;
-            if (cur_x <= 0 || cur_x >= limit || cur_y <= 0 || cur_y >= limit || cur_z <= 0 || cur_z >= limit) {
-                return make_result();
+            var LIMIT = TILE_SIZE * CHUNK_SIZE;
+            if (cur_x <= 0 || cur_x >= LIMIT) {
+                return make_result(0x100);
+            } else if (cur_y <= 0 || cur_y >= LIMIT) {
+                return make_result(0x010);
+            } else if (cur_z <= 0 || cur_z >= LIMIT) {
+                return make_result(0x100);
             }
         }
     },
