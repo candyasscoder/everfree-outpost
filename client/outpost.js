@@ -24,6 +24,9 @@ function lcm(a, b) {
     return (a * b / gcd(a, b))|0;
 }
 
+var INT_MAX = 0x7fffffff;
+var INT_MIN = -INT_MAX - 1;
+
 
 function Deque() {
     this._cur = [];
@@ -459,10 +462,14 @@ Entity.prototype = {
 
     'drawInto': function(ctx, now) {
         var pos = this.position(now);
-        var x = pos.x - this.anchor.x;
-        var y = pos.y - this.anchor.y;
+        this.drawAt(ctx, now, pos.x, pos.y);
+    },
 
-        ctx.strokeRect(pos.x - 16, pos.y - 16, 32, 32);
+    'drawAt': function(ctx, now, pos_x, pos_y) {
+        var x = pos_x - this.anchor.x;
+        var y = pos_y - this.anchor.y;
+
+        ctx.strokeRect(pos_x - 16, pos_y - 16, 32, 32);
 
         var anim = this._anim;
         if (anim.flip) {
@@ -482,6 +489,8 @@ function Pony(sheet, x, y) {
     this._entity = new Entity(sheet, 48, 74, x, y);
     this._entity.animate(0, 2, 1, 1, false, 0);
     this._last_dir = { 'x': 1, 'y': 0 };
+    this._forecast = new Forecast(x - 16, y - 16, 0, 32, 32, 32);
+    phys.resetForecast(0, this._forecast, 0, 0, 0);
 }
 
 Pony.prototype = {
@@ -508,17 +517,20 @@ Pony.prototype = {
 
         var pixel_speed = 30 * speed;
         var pos = entity.position(now);
-        var dur = phys.collide(pos.x - 16, pos.y - 16, 0, 32, 32, 32,
-                dx * pixel_speed, dy * pixel_speed, 0);
-        entity.move(dx * pixel_speed, dy * pixel_speed, now, now + dur);
+        phys.resetForecast(now, this._forecast, dx * pixel_speed, dy * pixel_speed, 0);
     },
 
     'position': function(now) {
-        return this._entity.position(now);
+        phys.updateForecast(now, this._forecast);
+        var pos = this._forecast.position(now);
+        pos.x += 16;
+        pos.y += 16;
+        return pos;
     },
 
     'drawInto': function(ctx, now) {
-        this._entity.drawInto(ctx, now);
+        var pos = this.position(now);
+        this._entity.drawAt(ctx, now, pos.x, pos.y);
     },
 };
 
@@ -997,6 +1009,155 @@ function describe_render_step(step) {
 }
 
 
+function Physics(chunk_phys) {
+    this._chunk_phys = chunk_phys;
+}
+
+Physics.prototype = {
+    'resetForecast': function(now, f, vx, vy, vz) {
+        this._step(now, f);
+        f.target_vx = vx;
+        f.target_vy = vy;
+        f.target_vz = vz;
+        this._forecast(f);
+    },
+
+    'updateForecast': function(now, f) {
+        var i;
+        var LIMIT = 5;
+        for (i = 0; i < LIMIT && !f.live(now); ++i) {
+            var old_end_time = f.end_time;
+
+            var time = Math.min(now, f.end_time);
+            this._step(time, f);
+            this._forecast(f);
+
+            if (f.end_time == old_end_time) {
+                // No progress has been made.
+                return;
+            }
+        }
+        if (i == LIMIT) {
+            console.assert(false, "BUG: updateForecast got stuck but kept incrementing time");
+        }
+    },
+
+    // Step the forecast forward to the given time, and set all velocities to zero.
+    '_step': function(time, f) {
+        var pos = f.position(time);
+        f.start_x = pos.x;
+        f.start_y = pos.y;
+        f.start_z = pos.z;
+        f.end_x = pos.x;
+        f.end_y = pos.y;
+        f.end_z = pos.z;
+        f.target_vx = 0;
+        f.target_vy = 0;
+        f.target_vz = 0;
+        f.actual_vx = 0;
+        f.actual_vy = 0;
+        f.actual_vz = 0;
+        f.start_time = time;
+        f.end_time = INT_MAX * 1000;
+    },
+
+    // Project the time of the next collision starting from start_time, and set
+    // velocities, end_time, and end position appropriately.
+    '_forecast': function(f) {
+        var coll = this._chunk_phys.collide(
+                f.start_x, f.start_y, f.start_z,
+                f.size_x, f.size_y, f.size_z,
+                f.target_vx, f.target_vy, f.target_vz);
+
+        f.end_x = coll.x;
+        f.end_y = coll.y;
+        f.end_z = coll.z;
+
+        if (coll.t <= 0) {
+            f.end_time = INT_MAX * 1000;
+
+            f.actual_vx = 0;
+            f.actual_vy = 0;
+            f.actual_vz = 0;
+        } else {
+            f.end_time = f.start_time + coll.t;
+
+            f.actual_vx = f.target_vx;
+            f.actual_vy = f.target_vy;
+            f.actual_vz = f.target_vz;
+        }
+    },
+};
+
+
+function Forecast(x, y, z, sx, sy, sz) {
+    this.start_x = x;
+    this.start_y = y;
+    this.start_z = z;
+    this.end_x = x;
+    this.end_y = y;
+    this.end_z = z;
+    this.size_x = sx;
+    this.size_y = sy;
+    this.size_z = sz;
+    this.target_vx = 0;
+    this.target_vy = 0;
+    this.target_vz = 0;
+    this.actual_vx = 0;
+    this.actual_vy = 0;
+    this.actual_vz = 0;
+    // Timestamps are unix time in milliseconds.  This works because javascript
+    // numbers have 53 bits of precision.
+    this.start_time = INT_MIN * 1000;
+    this.end_time = INT_MAX * 1000;
+}
+
+Forecast.prototype = {
+    'position': function(now) {
+        if (now < this.start_time) {
+            return ({
+                'x': this.start_x,
+                'y': this.start_y,
+                'z': this.start_z,
+            });
+        } else if (now >= this.end_time) {
+            return ({
+                'x': this.end_x,
+                'y': this.end_y,
+                'z': this.end_z,
+            });
+        } else {
+            var delta = now - this.start_time;
+            return ({
+                'x': this.start_x + (this.actual_vx * delta / 1000)|0,
+                'y': this.start_y + (this.actual_vy * delta / 1000)|0,
+                'z': this.start_z + (this.actual_vz * delta / 1000)|0,
+            });
+        }
+    },
+
+    'velocity': function() {
+        return ({
+            'x': this.actual_vx,
+            'y': this.actual_vy,
+            'z': this.actual_vz,
+        });
+    },
+
+    'target_velocity': function() {
+        return ({
+            'x': this.target_vx,
+            'y': this.target_vy,
+            'z': this.target_vz,
+        });
+    },
+
+    'live': function(now) {
+        return now >= this.start_time && now < this.end_time;
+    }
+};
+
+
 function ChunkPhysics(chunk) {
     this.chunk = chunk;
 }
@@ -1007,7 +1168,12 @@ ChunkPhysics.prototype = {
         window.physTrace = [];
 
         if (vx == 0 && vy == 0 && vz == 0) {
-            return 0;
+            return ({
+                'x': x,
+                'y': y,
+                'z': z,
+                't': -1,
+            });
         }
 
         // Arguments:
@@ -1146,12 +1312,21 @@ ChunkPhysics.prototype = {
                 return chunk.bottom(x, y, z) != 0 && chunk.front(x, y, z) == 0;
             }
 
+            function make_result() {
+                return ({
+                    'x': bx,
+                    'y': by,
+                    'z': bz,
+                    't': (1000 * t / u)|0,
+                });
+            }
+
             if (hx) {
                 fx = ((cur_x + dx) / TILE_SIZE)|0;
                 for (var iz = min_z; iz < max_z; ++iz) {
                     for (var iy = min_y; iy < max_y; ++iy) {
                         if (!tile_ok(fx, iy, iz)) {
-                            return (1000 * t / u)|0;
+                            return make_result();
                         }
                     }
                 }
@@ -1162,7 +1337,7 @@ ChunkPhysics.prototype = {
                 for (var iz = min_z; iz < max_z; ++iz) {
                     for (var ix = min_x; ix < max_x; ++ix) {
                         if (!tile_ok(ix, fy, iz)) {
-                            return (1000 * t / u)|0;
+                            return make_result();
                         }
                     }
                 }
@@ -1173,7 +1348,7 @@ ChunkPhysics.prototype = {
                 for (var iy = min_y; iy < max_y; ++iy) {
                     for (var ix = min_x; ix < max_x; ++ix) {
                         if (!tile_ok(ix, iy, fz)) {
-                            return (1000 * t / u)|0;
+                            return make_result();
                         }
                     }
                 }
@@ -1182,7 +1357,7 @@ ChunkPhysics.prototype = {
             if (hx && hy) {
                 for (var iz = min_z; iz < max_z; ++iz) {
                     if (!tile_ok(fx, fy, iz)) {
-                        return (1000 * t / u)|0;
+                        return make_result();
                     }
                 }
             }
@@ -1190,7 +1365,7 @@ ChunkPhysics.prototype = {
             if (hy && hz) {
                 for (var ix = min_x; ix < max_x; ++ix) {
                     if (!tile_ok(ix, fy, fz)) {
-                        return (1000 * t / u)|0;
+                        return make_result();
                     }
                 }
             }
@@ -1198,23 +1373,20 @@ ChunkPhysics.prototype = {
             if (hz && hx) {
                 for (var iy = min_y; iy < max_y; ++iy) {
                     if (!tile_ok(fx, iy, fz)) {
-                        return (1000 * t / u)|0;
+                        return make_result();
                     }
                 }
             }
 
             if (hx && hy && hz) {
                 if (!tile_ok(fx, fy, fz)) {
-                    return (1000 * t / u)|0;
+                    return make_result();
                 }
             }
 
-            //result.push([cur_x, cur_y, cur_z]);
-            //result.push([min_x, min_y, max_x, max_y]);
-
             var limit = TILE_SIZE * CHUNK_SIZE;
             if (cur_x <= 0 || cur_x >= limit || cur_y <= 0 || cur_y >= limit || cur_z <= 0 || cur_z >= limit) {
-                return (1000 * t / u)|0;
+                return make_result();
             }
         }
     },
@@ -1372,7 +1544,7 @@ chunks[0].setBottom(11, 4, 2, 10 * 16 + 15);
 chunks[0].setBottom(5, 10, 0, 0);
 
 var planner = new RenderPlanner();
-var phys = new ChunkPhysics(chunks[0]);
+var phys = new Physics(new ChunkPhysics(chunks[0]));
 window.phys = phys;
 window.planner = planner;
 window.physTrace = [];
