@@ -418,6 +418,7 @@ function Entity(sheet, ax, ay, x, y) {
         'velocity_x': 0,
         'velocity_y': 0,
         'start': 0,
+        'dur': 0,
     };
     this._anim = null;
     this.anchor = { 'x': ax, 'y': ay };
@@ -435,7 +436,7 @@ Entity.prototype = {
         };
     },
 
-    'move': function(vx, vy, now) {
+    'move': function(vx, vy, now, end) {
         var pos = this.position(now);
         this._motion = {
             'last_x': pos.x,
@@ -443,12 +444,14 @@ Entity.prototype = {
             'velocity_x': vx,
             'velocity_y': vy,
             'start': now,
+            'dur': end - now,
         };
     },
 
     'position': function(now) {
         var motion = this._motion;
         var delta = now - motion.start;
+        delta = Math.min(delta, motion.dur);
         var x = motion.last_x + Math.floor(delta * motion.velocity_x / 1000);
         var y = motion.last_y + Math.floor(delta * motion.velocity_y / 1000);
         return { 'x': x, 'y': y }
@@ -482,7 +485,7 @@ function Pony(sheet, x, y) {
 }
 
 Pony.prototype = {
-    'walk': function(now, speed, dx, dy) {
+    'walk': function(now, speed, dx, dy, phys) {
         if (dx != 0 || dy != 0) {
             this._last_dir = { 'x': dx, 'y': dy };
         } else {
@@ -504,7 +507,10 @@ Pony.prototype = {
         }
 
         var pixel_speed = 30 * speed;
-        entity.move(dx * pixel_speed, dy * pixel_speed, now);
+        var pos = entity.position(now);
+        var dur = phys.collide(pos.x - 16, pos.y - 16, 0, 32, 32, 32,
+                dx * pixel_speed, dy * pixel_speed, 0);
+        entity.move(dx * pixel_speed, dy * pixel_speed, now, now + dur);
     },
 
     'position': function(now) {
@@ -998,9 +1004,10 @@ function ChunkPhysics(chunk) {
 ChunkPhysics.prototype = {
     'collide': function(x, y, z, sx, sy, sz, vx, vy, vz) {
         var result = [];
+        window.physTrace = [];
 
         if (vx == 0 && vy == 0 && vz == 0) {
-            return result;
+            return 0;
         }
 
         // Arguments:
@@ -1132,36 +1139,73 @@ ChunkPhysics.prototype = {
             //record('s', [sx, sy, sz]);
             //record('range', [min_x, max_x, min_y, max_y, min_z, max_z]);
 
+            var fx, fy, fz;
+
+            var chunk = this.chunk;
+            function tile_ok(x, y, z) {
+                return chunk.bottom(x, y, z) != 0 && chunk.front(x, y, z) == 0;
+            }
+
             if (hx) {
-                var fx = ((cur_x + dx) / TILE_SIZE)|0;
-                for (var fz = min_z; fz < max_z; ++fz) {
-                    for (var fy = min_y; fy < max_y; ++fy) {
-                        if (this.chunk.front(fx, fy, fz) != 0) {
-                            result.push([fx, fy, 0, s]);
+                fx = ((cur_x + dx) / TILE_SIZE)|0;
+                for (var iz = min_z; iz < max_z; ++iz) {
+                    for (var iy = min_y; iy < max_y; ++iy) {
+                        if (!tile_ok(fx, iy, iz)) {
+                            return (1000 * t / u)|0;
                         }
                     }
                 }
             }
 
             if (hy) {
-                var fy = ((cur_y + dy) / TILE_SIZE)|0;
-                for (var fz = min_z; fz < max_z; ++fz) {
-                    for (var fx = min_x; fx < max_x; ++fx) {
-                        if (this.chunk.front(fx, fy, fz) != 0) {
-                            result.push([fx, fy, 1, s]);
+                fy = ((cur_y + dy) / TILE_SIZE)|0;
+                for (var iz = min_z; iz < max_z; ++iz) {
+                    for (var ix = min_x; ix < max_x; ++ix) {
+                        if (!tile_ok(ix, fy, iz)) {
+                            return (1000 * t / u)|0;
                         }
                     }
                 }
             }
 
             if (hz) {
-                var fz = ((cur_z + dz) / TILE_SIZE)|0;
-                for (var fy = min_y; fy < max_y; ++fy) {
-                    for (var fx = min_x; fx < max_x; ++fx) {
-                        if (this.chunk.front(fx, fy, fz) != 0) {
-                            result.push([fx, fy, 2, s]);
+                fz = ((cur_z + dz) / TILE_SIZE)|0;
+                for (var iy = min_y; iy < max_y; ++iy) {
+                    for (var ix = min_x; ix < max_x; ++ix) {
+                        if (!tile_ok(ix, iy, fz)) {
+                            return (1000 * t / u)|0;
                         }
                     }
+                }
+            }
+
+            if (hx && hy) {
+                for (var iz = min_z; iz < max_z; ++iz) {
+                    if (!tile_ok(fx, fy, iz)) {
+                        return (1000 * t / u)|0;
+                    }
+                }
+            }
+
+            if (hy && hz) {
+                for (var ix = min_x; ix < max_x; ++ix) {
+                    if (!tile_ok(ix, fy, fz)) {
+                        return (1000 * t / u)|0;
+                    }
+                }
+            }
+
+            if (hz && hx) {
+                for (var iy = min_y; iy < max_y; ++iy) {
+                    if (!tile_ok(fx, iy, fz)) {
+                        return (1000 * t / u)|0;
+                    }
+                }
+            }
+
+            if (hx && hy && hz) {
+                if (!tile_ok(fx, fy, fz)) {
+                    return (1000 * t / u)|0;
                 }
             }
 
@@ -1169,14 +1213,10 @@ ChunkPhysics.prototype = {
             //result.push([min_x, min_y, max_x, max_y]);
 
             var limit = TILE_SIZE * CHUNK_SIZE;
-            if (cur_x < 0 || cur_x >= limit || cur_y < 0 || cur_y >= limit || cur_z < 0 || cur_z >= limit) {
-                break;
+            if (cur_x <= 0 || cur_x >= limit || cur_y <= 0 || cur_y >= limit || cur_z <= 0 || cur_z >= limit) {
+                return (1000 * t / u)|0;
             }
         }
-
-        //console.log(info.join(' ; '));
-
-        return result;
     },
 };
 
@@ -1329,10 +1369,13 @@ chunks[0].setFront(11, 5, 2, 11 * 16 + 15);
 chunks[0].setBottom(10, 4, 2, 10 * 16 + 14);
 chunks[0].setBottom(11, 4, 2, 10 * 16 + 15);
 
+chunks[0].setBottom(5, 10, 0, 0);
+
 var planner = new RenderPlanner();
 var phys = new ChunkPhysics(chunks[0]);
 window.phys = phys;
 window.planner = planner;
+window.physTrace = [];
 
 function frame(ctx, now) {
     dbg.frameStart();
@@ -1353,14 +1396,20 @@ function frame(ctx, now) {
         });
     }
 
+    /*
     var coll = phys.collide(pos.x - 16, pos.y - 16, 0,
     //var coll = phys.collide(16, 16, pos.z,
             32, 32, 32,
             //1, 1, 0);
             pony._entity._motion.velocity_x, pony._entity._motion.velocity_y, 0);
     //console.log(coll.length);
+    //*/
+    var coll = window.physTrace;
     for (var i = 0; i < coll.length; ++i) {
         var p = coll[i];
+        if (i == coll.length - 1) {
+            ctx.fillRect(p[0] * 32, p[1] * 32, 32, 32);
+        }
         ctx.strokeRect(p[0] * 32, p[1] * 32, 32, 32);
         ctx.fillText(p[2] + ', ' + p[3], p[0] * 32, p[1] * 32 + p[2] * 10);
         //ctx.fillRect(p[0] - 1, p[1] - 1, 2, 2);
@@ -1432,7 +1481,7 @@ function updateWalkDir() {
         speed = 3;
     }
 
-    pony.walk(Date.now(), speed, dx, dy);
+    pony.walk(Date.now(), speed, dx, dy, phys);
 }
 
 })();
