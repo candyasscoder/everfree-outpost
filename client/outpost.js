@@ -1007,40 +1007,17 @@ ChunkPhysics.prototype = {
         //  s - size
         //  v - velocity
 
-        // u - units per pixel: We reason using `u` subpixels per pixel.  Since
-        // `u` is the LCM of all velocities, and since we start on a
-        // whole-pixel boundary, this guarantees that every point which is on a
-        // whole-pixel boundary along one axis, is also on a whole-unit
-        // boundary on all other axes.
-        var u = 1;
-        if (vx != 0) {
-            u = lcm(u, Math.abs(vx));
-        }
-        if (vy != 0) {
-            u = lcm(u, Math.abs(vy));
-        }
-        if (vz != 0) {
-            u = lcm(u, Math.abs(vz));
-        }
-
-        // _m - maximum axis velocity
-        var vm = Math.max(Math.abs(vx), Math.abs(vy), Math.abs(vz));
-
         // d - direction: Direction of motion along each axis.
         var dx = Math.sign(vx);
         var dy = Math.sign(vy);
         var dz = Math.sign(vz);
 
-        // From now on, all coordinates are in subpixel (1 / u) units unless
-        // noted otherwise.
-
         // c - corner: Coordinates of the corner facing in the direction of
         // motion.  If there is no motion along one or more axes, this may
         // actually be the center of an edge or face.
-        var cx = u * (x + (sx * (dx + 1) / 2)|0);
-        var cy = u * (y + (sy * (dy + 1) / 2)|0);
-        var cz = u * (z + (sz * (dz + 1) / 2)|0);
-        result.push([cx, cy, cz]);
+        var cx = x + (sx * (dx + 1) / 2)|0;
+        var cy = y + (sy * (dy + 1) / 2)|0;
+        var cz = z + (sz * (dz + 1) / 2)|0;
 
         // n - next plane: Coordinates of the next plane in the direction of
         // motion.
@@ -1053,89 +1030,151 @@ ChunkPhysics.prototype = {
                 return Math.ceil((w - spacing + 1) / spacing) * spacing;
             }
         }
-        var nx = next_plane(cx, dx, u * TILE_SIZE);
-        var ny = next_plane(cy, dy, u * TILE_SIZE);
-        var nz = next_plane(cz, dz, u * TILE_SIZE);
+        var nx = next_plane(cx, dx, TILE_SIZE);
+        var ny = next_plane(cy, dy, TILE_SIZE);
+        var nz = next_plane(cz, dz, TILE_SIZE);
 
-        // p - pre-step: Distance to next plane before the step.  -1 indicates
-        // that the plane will never be hit (because the velocity is zero).
-        var px = (nx - cx) * dx || 1;
-        var py = (ny - cy) * dy || 1;
-        var pz = (nz - cz) * dz || 1;
 
         var info = [];
-
-        info.push('n: ' + [nx,ny,nz].join(','));
-        info.push('v: ' + [vx,vy,vz].join(','));
-        info.push('c: ' + [cx / u,cy/u,cz/u].join(','));
-        info.push('u = ' + u);
-
-        var ax = Math.abs(vx);
-        var ay = Math.abs(vy);
-        var az = Math.abs(vz);
-        info.push('a: ' + [ax,ay,az].join(','));
-
-        // s - steps: Number of 1-pixel steps taken in the highest-velocity
-        // direction.  The time spent is equal to `s / vm`.
-        for (var s = 0; ; ++s) {
-            var rxy = px * ay < py * ax;
-            var ryz = py * az < pz * ay;
-            var rzx = pz * ax < px * az;
-            info.push('\n' + s + ': ' + [px,py,pz].join(','));
-            info.push('c: ' + [cx / u,cy/u,cz/u].join(','));
-            info.push('r*: ' + [rxy,ryz,rzx].join(','));
-
-            var ox;
-            var oy;
-            var oz;
-
-            if (rxy && !rzx) {
-                info.push('hit x');
-                ox = (px * vx / ax)|0;
-                oy = (px * vy / ax)|0;
-                oz = (px * vz / ax)|0;
-            } else if (ryz) {
-                info.push('hit y');
-                ox = (py * vx / ay)|0;
-                oy = (py * vy / ay)|0;
-                oz = (py * vz / ay)|0;
+        function record(a) {
+            var args = Array.prototype.slice.call(arguments, 1);
+            if (args.length > 0) {
+                info.push(a + ': ' + args.join(','));
             } else {
-                info.push('hit z');
-                ox = (pz * vx / az)|0;
-                oy = (pz * vy / az)|0;
-                oz = (pz * vz / az)|0;
+                info.push(a);
+            }
+        }
+
+
+        // u - units: We subdivide both time and space into `u` subpixels and
+        // `u` timesteps per second.  The result is that all interesting events
+        // occur at an integer number of subpixels and timesteps.
+        var u = 1;
+        if (vx != 0) {
+            u = lcm(u, Math.abs(vx));
+        }
+        if (vy != 0) {
+            u = lcm(u, Math.abs(vy));
+        }
+        if (vz != 0) {
+            u = lcm(u, Math.abs(vz));
+        }
+
+        // p - time per pixel: Number of timesteps to advance one pixel along
+        // each axis.
+        var px = vx != 0 ? Math.abs((u / vx)|0) : 0;
+        var py = vy != 0 ? Math.abs((u / vy)|0) : 0;
+        var pz = vz != 0 ? Math.abs((u / vz)|0) : 0;
+
+        // t - time of next collision: Timestep number of the next collision
+        // along each axis.
+        var inf = 999999999;
+        var tx = vx != 0 ? px * Math.abs(nx - cx) : inf;
+        var ty = vy != 0 ? py * Math.abs(ny - cy) : inf;
+        var tz = vz != 0 ? pz * Math.abs(nz - cz) : inf;
+
+        // t - time: The current simulation time (in `1/u` timesteps).
+        var t = 0;
+
+        for (var s = 0; s < 20; ++s) {
+            var next_t = Math.min(tx, ty, tz);
+            var delta = next_t - t;
+            t = next_t;
+
+            // h - hit: True if we hit an event along this axis.
+            var hx = t == tx;
+            var hy = t == ty;
+            var hz = t == tz;
+
+            // cur - current: The position at time `t`.
+            var cur_x, cur_y, cur_z;
+
+            if (hx) {
+                tx += px * TILE_SIZE;
+                cur_x = nx;
+                nx += dx * TILE_SIZE;
+            } else {
+                cur_x = cx + (t * vx / u)|0;
             }
 
-            info.push('o: ' + [ox,oy,oz].join(','));
+            if (hy) {
+                ty += py * TILE_SIZE;
+                cur_y = ny;
+                ny += dy * TILE_SIZE;
+            } else {
+                cur_y = cy + (t * vy / u)|0;
+            }
 
-                cx += ox;
-                px -= Math.abs(ox);
-                if (px == 0) {
-                    px = u * TILE_SIZE;
+            if (hz) {
+                tz += pz * TILE_SIZE;
+                cur_z = nz;
+                nz += dz * TILE_SIZE;
+            } else {
+                cur_z = cz + (t * vz / u)|0;
+            }
+
+
+            // b - base: pixel coordinates of the -x,-y,-z corner.
+            var bx = cur_x - (cx - x);
+            var by = cur_y - (cy - y);
+            var bz = cur_z - (cz - z);
+
+            // min, max: Tile coordinate range of the volume the entity
+            // occupies.
+            var min_x = (bx / TILE_SIZE)|0;
+            var max_x = ((bx + sx + TILE_SIZE - 1) / TILE_SIZE)|0;
+            var min_y = (by / TILE_SIZE)|0;
+            var max_y = ((by + sy + TILE_SIZE - 1) / TILE_SIZE)|0;
+            var min_z = (bz / TILE_SIZE)|0;
+            var max_z = ((bz + sz + TILE_SIZE - 1) / TILE_SIZE)|0;
+
+            //record('b', [bx, by, bz]);
+            //record('s', [sx, sy, sz]);
+            //record('range', [min_x, max_x, min_y, max_y, min_z, max_z]);
+
+            if (hx) {
+                var fx = ((cur_x + dx) / TILE_SIZE)|0;
+                for (var fz = min_z; fz < max_z; ++fz) {
+                    for (var fy = min_y; fy < max_y; ++fy) {
+                        if (this.chunk.front(fx, fy, fz) != 0) {
+                            result.push([fx, fy, 0, s]);
+                        }
+                    }
                 }
+            }
 
-                cy += oy;
-                py -= Math.abs(oy);
-                if (py == 0) {
-                    py = u * TILE_SIZE;
+            if (hy) {
+                var fy = ((cur_y + dy) / TILE_SIZE)|0;
+                for (var fz = min_z; fz < max_z; ++fz) {
+                    for (var fx = min_x; fx < max_x; ++fx) {
+                        if (this.chunk.front(fx, fy, fz) != 0) {
+                            result.push([fx, fy, 1, s]);
+                        }
+                    }
                 }
+            }
 
-                cz += oz;
-                pz -= Math.abs(oz);
-                if (pz == 0) {
-                    pz = u * TILE_SIZE;
+            if (hz) {
+                var fz = ((cur_z + dz) / TILE_SIZE)|0;
+                for (var fy = min_y; fy < max_y; ++fy) {
+                    for (var fx = min_x; fx < max_x; ++fx) {
+                        if (this.chunk.front(fx, fy, fz) != 0) {
+                            result.push([fx, fy, 2, s]);
+                        }
+                    }
                 }
+            }
 
+            //result.push([cur_x, cur_y, cur_z]);
+            //result.push([min_x, min_y, max_x, max_y]);
 
-            result.push([cx / u, cy / u, cz / u]);
-
-            var limit = u * TILE_SIZE * CHUNK_SIZE;
-            if (s > 20 || cx < 0 || cx >= limit || cy < 0 || cy >= limit || cz < 0 || cz >= limit) {
+            var limit = TILE_SIZE * CHUNK_SIZE;
+            if (cur_x < 0 || cur_x >= limit || cur_y < 0 || cur_y >= limit || cur_z < 0 || cur_z >= limit) {
                 break;
             }
         }
 
-//        console.log(info.join(' ; '));
+        //console.log(info.join(' ; '));
 
         return result;
     },
@@ -1157,16 +1196,6 @@ window.timeit = function(f) {
             fstr1((end - start) / i) + ' ms/iter');
 }
 
-
-/*
-        // w - relative unit velocity: `wab` is the number of units traveled
-        // along the `a` axis in `1 / vb` seconds.  In other words, the
-        // distance traveled on the `a` axis in the time it takes to move one
-        // pixel on the `b` axis.
-        var wx = (vx * u / vm)|0;
-        var wy = (vy * u / vm)|0;
-        var wz = (vz * u / vm)|0;
-        */
 
 var anim_canvas = new AnimCanvas(frame);
 window.anim_canvas = anim_canvas;
@@ -1293,8 +1322,8 @@ for (var i = 0; i < 3; ++i) {
     }
 }
 
-chunks[0].setFront(10, 5, 1, 12 * 16 + 14);
-chunks[0].setFront(11, 5, 1, 12 * 16 + 15);
+chunks[0].setFront(10, 4, 0, 12 * 16 + 14);
+chunks[0].setFront(11, 4, 0, 12 * 16 + 15);
 chunks[0].setFront(10, 5, 2, 11 * 16 + 14);
 chunks[0].setFront(11, 5, 2, 11 * 16 + 15);
 chunks[0].setBottom(10, 4, 2, 10 * 16 + 14);
@@ -1303,6 +1332,7 @@ chunks[0].setBottom(11, 4, 2, 10 * 16 + 15);
 var planner = new RenderPlanner();
 var phys = new ChunkPhysics(chunks[0]);
 window.phys = phys;
+window.planner = planner;
 
 function frame(ctx, now) {
     dbg.frameStart();
@@ -1314,6 +1344,7 @@ function frame(ctx, now) {
     var sprites = [
             {'y': sprite_y, 'z': 0, 'size_z': 2, 'id': 0},
         ];
+    window.sprites = sprites;
     var plan = planner.plan(sprites);
 
     for (var i = 0; i < plan.length; ++i) {
@@ -1322,15 +1353,19 @@ function frame(ctx, now) {
         });
     }
 
-    var coll = phys.collide(pos.x - 16, pos.y - 16, pos.z,
+    var coll = phys.collide(pos.x - 16, pos.y - 16, 0,
+    //var coll = phys.collide(16, 16, pos.z,
             32, 32, 32,
+            //1, 1, 0);
             pony._entity._motion.velocity_x, pony._entity._motion.velocity_y, 0);
-    /*
+    //console.log(coll.length);
     for (var i = 0; i < coll.length; ++i) {
         var p = coll[i];
-        ctx.fillRect(p[0] - 1, p[1] - 1, 2, 2);
+        ctx.strokeRect(p[0] * 32, p[1] * 32, 32, 32);
+        ctx.fillText(p[2] + ', ' + p[3], p[0] * 32, p[1] * 32 + p[2] * 10);
+        //ctx.fillRect(p[0] - 1, p[1] - 1, 2, 2);
+        //ctx.strokeRect(p[0] * 32, p[1] * 32, (p[2] - p[0]) * 32, (p[3] - p[1]) * 32);
     }
-    */
 
     dbg.frameEnd();
 
