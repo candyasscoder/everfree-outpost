@@ -1042,7 +1042,7 @@ Physics.prototype = {
         }
     },
 
-    // Step the forecast forward to the given time, and set all velocities to zero.
+    // Step the forecast forward to the given time, and set actual velocity to zero.
     '_step': function(time, f) {
         var pos = f.position(time);
         f.start_x = pos.x;
@@ -1066,12 +1066,17 @@ Physics.prototype = {
         f.actual_vy = f.target_vy;
         f.actual_vz = f.target_vz;
 
+        var slide_x = 0;
+        var slide_y = 0;
+        var slide_z = 0;
+
         // TODO: compute time limit for sliding
         while (f.actual_vx != 0 || f.actual_vy != 0 || f.actual_vz != 0) {
             var coll = this._chunk_phys.collide(
                     f.start_x, f.start_y, f.start_z,
                     f.size_x, f.size_y, f.size_z,
-                    f.actual_vx, f.actual_vy, f.actual_vz);
+                    f.actual_vx, f.actual_vy, f.actual_vz,
+                    slide_x, slide_y, slide_z);
 
             console.log('  coll.t = ', coll.t);
             if (coll.t == 0) {
@@ -1079,12 +1084,15 @@ Physics.prototype = {
                         'immediate collision with no direction',
                         f.actual_vx, f.actual_vy, f.actual_vz);
                 if (coll.d & 0x100) {
+                    slide_x = Math.sign(f.actual_vx);
                     f.actual_vx = 0;
                 }
                 if (coll.d & 0x010) {
+                    slide_y = Math.sign(f.actual_vy);
                     f.actual_vy = 0;
                 }
                 if (coll.d & 0x001) {
+                    slide_z = Math.sign(f.actual_vz);
                     f.actual_vz = 0;
                 }
                 continue;
@@ -1178,13 +1186,22 @@ function ChunkPhysics(chunk) {
     this.chunk = chunk;
 }
 
+var COLLIDE_ZERO_VELOCITY = 1;
+var COLLIDE_TILE = 2;
+var COLLIDE_SLIDE_END = 3;
+
 ChunkPhysics.prototype = {
-    'collide': function(x, y, z, sx, sy, sz, vx, vy, vz) {
+    'collide': function(
+            x, y, z,
+            sx, sy, sz,
+            vx, vy, vz,
+            slide_x, slide_y, slide_z) {
         var result = [];
         window.physTrace = [];
 
         if (vx == 0 && vy == 0 && vz == 0) {
             return ({
+                'type': COLLIDE_ZERO_VELOCITY,
                 'x': x,
                 'y': y,
                 'z': z,
@@ -1271,15 +1288,13 @@ ChunkPhysics.prototype = {
             var delta = next_t - t;
             t = next_t;
 
-            // h - hit: True if we hit an event along this axis.
-            var hx = t == tx;
-            var hy = t == ty;
-            var hz = t == tz;
+            var hit_x = t == tx;
+            var hit_y = t == ty;
+            var hit_z = t == tz;
 
-            // cur - current: The position at time `t`.
             var cur_x, cur_y, cur_z;
 
-            if (hx) {
+            if (hit_x) {
                 tx += px * TILE_SIZE;
                 cur_x = nx;
                 nx += dx * TILE_SIZE;
@@ -1287,7 +1302,7 @@ ChunkPhysics.prototype = {
                 cur_x = cx + (t * vx / u)|0;
             }
 
-            if (hy) {
+            if (hit_y) {
                 ty += py * TILE_SIZE;
                 cur_y = ny;
                 ny += dy * TILE_SIZE;
@@ -1295,7 +1310,7 @@ ChunkPhysics.prototype = {
                 cur_y = cy + (t * vy / u)|0;
             }
 
-            if (hz) {
+            if (hit_z) {
                 tz += pz * TILE_SIZE;
                 cur_z = nz;
                 nz += dz * TILE_SIZE;
@@ -1318,19 +1333,19 @@ ChunkPhysics.prototype = {
             var min_z = (bz / TILE_SIZE)|0;
             var max_z = ((bz + sz + TILE_SIZE - 1) / TILE_SIZE)|0;
 
-            //record('b', [bx, by, bz]);
-            //record('s', [sx, sy, sz]);
-            //record('range', [min_x, max_x, min_y, max_y, min_z, max_z]);
-
+            // f - facing: Tile coordinates for the opposite side of the
+            // collision plane.
             var fx, fy, fz;
 
             var chunk = this.chunk;
             function tile_ok(x, y, z) {
+                //console.assert(x >= 0 && x < CHUNK_SIZE);
                 return chunk.bottom(x, y, z) != 0 && chunk.front(x, y, z) == 0;
             }
 
-            function make_result(dirs) {
+            function make_result(dirs, type) {
                 return ({
+                    'type': type,
                     'x': bx,
                     'y': by,
                     'z': bz,
@@ -1339,66 +1354,97 @@ ChunkPhysics.prototype = {
                 });
             }
 
-            if (hx) {
-                fx = ((cur_x + dx) / TILE_SIZE)|0;
+            function hit_obstacles(min_x, max_x, min_y, max_y, min_z, max_z) {
+                /*
+                min_x = Math.max(min_x, 0);
+                max_x = Math.min(max_x, CHUNK_SIZE);
+                min_y = Math.max(min_y, 0);
+                max_y = Math.min(max_y, CHUNK_SIZE);
+                min_z = Math.max(min_z, 0);
+                max_z = Math.min(max_z, CHUNK_SIZE);
+                */
                 for (var iz = min_z; iz < max_z; ++iz) {
                     for (var iy = min_y; iy < max_y; ++iy) {
-                        if (!tile_ok(fx, iy, iz)) {
-                            return make_result(0x100);
+                        for (var ix = min_x; ix < max_x; ++ix) {
+                            if (!tile_ok(ix, iy, iz)) {
+                                return true;
+                            }
                         }
                     }
                 }
+                return false;
             }
 
-            if (hy) {
+            function in_bounds(w) {
+                return w >= 0 && w < CHUNK_SIZE;
+            }
+
+            if (hit_x) {
+                fx = ((cur_x + dx) / TILE_SIZE)|0;
+                if (hit_obstacles(fx, fx + 1, min_y, max_y, min_z, max_z)) {
+                    return make_result(0x100, COLLIDE_TILE);
+                }
+            }
+
+            if (hit_y) {
                 fy = ((cur_y + dy) / TILE_SIZE)|0;
-                for (var iz = min_z; iz < max_z; ++iz) {
-                    for (var ix = min_x; ix < max_x; ++ix) {
-                        if (!tile_ok(ix, fy, iz)) {
-                            return make_result(0x010);
-                        }
-                    }
+                if (hit_obstacles(min_x, max_x, fy, fy + 1, min_z, max_z)) {
+                    return make_result(0x010, COLLIDE_TILE);
                 }
             }
 
-            if (hz) {
+            if (hit_z) {
                 fz = ((cur_z + dz) / TILE_SIZE)|0;
-                for (var iy = min_y; iy < max_y; ++iy) {
-                    for (var ix = min_x; ix < max_x; ++ix) {
-                        if (!tile_ok(ix, iy, fz)) {
-                            return make_result(0x001);
-                        }
-                    }
+                if (hit_obstacles(min_x, max_x, min_y, max_y, fz, fz + 1)) {
+                    return make_result(0x001, COLLIDE_TILE);
                 }
             }
 
-            if (hx && hy) {
-                for (var iz = min_z; iz < max_z; ++iz) {
-                    if (!tile_ok(fx, fy, iz)) {
-                        return make_result(0x110);
-                    }
+            if (hit_x && hit_y) {
+                if (hit_obstacles(fx, fx + 1, fy, fy + 1, min_z, max_z)) {
+                    return make_result(0x110, COLLIDE_TILE);
                 }
             }
 
-            if (hy && hz) {
-                for (var ix = min_x; ix < max_x; ++ix) {
-                    if (!tile_ok(ix, fy, fz)) {
-                        return make_result(0x011);
-                    }
+            if (hit_y && hit_z) {
+                if (hit_obstacles(min_x, max_x, fy, fy + 1, fz, fz + 1)) {
+                    return make_result(0x011, COLLIDE_TILE);
                 }
             }
 
-            if (hz && hx) {
-                for (var iy = min_y; iy < max_y; ++iy) {
-                    if (!tile_ok(fx, iy, fz)) {
-                        return make_result(0x101);
-                    }
+            if (hit_z && hit_x) {
+                if (hit_obstacles(fx, fx + 1, min_y, max_y, fz, fz + 1)) {
+                    return make_result(0x101, COLLIDE_TILE);
                 }
             }
 
-            if (hx && hy && hz) {
-                if (!tile_ok(fx, fy, fz)) {
-                    return make_result(0x111);
+            if (hit_x && hit_y && hit_z) {
+                if (hit_obstacles(fx, fx + 1, fy, fy + 1, fz, fz + 1)) {
+                    return make_result(0x111, COLLIDE_TILE);
+                }
+            }
+
+            if (slide_x != 0) {
+                var wall_x = slide_x == 1 ? max_x : min_x - 1;
+                if (in_bounds(wall_x) &&
+                        !hit_obstacles(wall_x, wall_x + 1, min_y, max_y, min_z, max_z)) {
+                    return make_result(0x100, COLLIDE_SLIDE_END);
+                }
+            }
+
+            if (slide_y != 0) {
+                var wall_y = slide_y == 1 ? max_y : min_y - 1;
+                if (in_bounds(wall_y) &&
+                        !hit_obstacles(min_x, max_x, wall_y, wall_y + 1, min_z, max_z)) {
+                    return make_result(0x010, COLLIDE_SLIDE_END);
+                }
+            }
+
+            if (slide_z != 0) {
+                var wall_z = slide_z == 1 ? max_z : min_z - 1;
+                if (in_bounds(wall_z) &&
+                        !hit_obstacles(min_x, max_x, min_y, max_y, wall_z, wall_z + 1)) {
+                    return make_result(0x001, COLLIDE_SLIDE_END);
                 }
             }
 
@@ -1609,6 +1655,11 @@ function frame(ctx, now) {
         //ctx.fillRect(p[0] - 1, p[1] - 1, 2, 2);
         //ctx.strokeRect(p[0] * 32, p[1] * 32, (p[2] - p[0]) * 32, (p[3] - p[1]) * 32);
     }
+
+    ctx.beginPath();
+    ctx.moveTo(pony._forecast.start_x + 16, pony._forecast.start_y + 16);
+    ctx.lineTo(pony._forecast.end_x + 16, pony._forecast.end_y + 16);
+    ctx.stroke();
 
     dbg.frameEnd();
 
