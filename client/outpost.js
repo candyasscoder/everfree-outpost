@@ -469,8 +469,6 @@ Entity.prototype = {
         var x = pos_x - this.anchor.x;
         var y = pos_y - this.anchor.y;
 
-        ctx.strokeRect(pos_x - 16, pos_y - 16, 32, 32);
-
         var anim = this._anim;
         if (anim.flip) {
             ctx.scale(-1, 1);
@@ -531,6 +529,8 @@ Pony.prototype = {
     'drawInto': function(ctx, now) {
         var pos = this.position(now);
         this._entity.drawAt(ctx, now, pos.x, pos.y);
+        ctx.strokeRect(pos.x - 16, pos.y - 16, this._forecast.size_x, this._forecast.size_y);
+
     },
 };
 
@@ -1061,7 +1061,6 @@ Physics.prototype = {
     // Project the time of the next collision starting from start_time, and set
     // velocities, end_time, and end position appropriately.
     '_forecast': function(f) {
-        console.log('forecast', f.start_x, f.start_y, f.start_z);
         f.actual_vx = f.target_vx;
         f.actual_vy = f.target_vy;
         f.actual_vz = f.target_vz;
@@ -1078,7 +1077,6 @@ Physics.prototype = {
                     f.actual_vx, f.actual_vy, f.actual_vz,
                     slide_x, slide_y, slide_z);
 
-            console.log('  coll.t = ', coll.t);
             if (coll.t == 0) {
                 console.assert((coll.d & 0x111) != 0,
                         'immediate collision with no direction',
@@ -1153,9 +1151,13 @@ Forecast.prototype = {
         } else {
             var delta = now - this.start_time;
             return ({
-                'x': this.start_x + (this.actual_vx * delta / 1000)|0,
-                'y': this.start_y + (this.actual_vy * delta / 1000)|0,
-                'z': this.start_z + (this.actual_vz * delta / 1000)|0,
+                // Round instead of truncating.  Otherwise repeated calls to
+                // Physics._step will introduce bias.  (This can be seen by
+                // rendering a line from start_* to end_* and then tapping
+                // shift while running northeast or southwest.)
+                'x': this.start_x + ((this.actual_vx * delta + 500) / 1000)|0,
+                'y': this.start_y + ((this.actual_vy * delta + 500) / 1000)|0,
+                'z': this.start_z + ((this.actual_vz * delta + 500) / 1000)|0,
             });
         }
     },
@@ -1283,7 +1285,7 @@ ChunkPhysics.prototype = {
         // t - time: The current simulation time (in `1/u` timesteps).
         var t = 0;
 
-        for (var s = 0; s < 20; ++s) {
+        for (var s = 0; s < CHUNK_SIZE * 3; ++s) {
             var next_t = Math.min(tx, ty, tz);
             var delta = next_t - t;
             t = next_t;
@@ -1379,6 +1381,42 @@ ChunkPhysics.prototype = {
                 return w >= 0 && w < CHUNK_SIZE;
             }
 
+            function slide_rewind(dirs) {
+                // Opposite corner of the entity from cur.
+                var opposite_x = cur_x - sx * dx;
+                var opposite_y = cur_y - sy * dy;
+                var opposite_z = cur_z - sz * dz;
+
+                // Next plane in the opposite direction of the velocity.
+                var plane_x = next_plane(opposite_x, -dx, TILE_SIZE);
+                var plane_y = next_plane(opposite_y, -dy, TILE_SIZE);
+                var plane_z = next_plane(opposite_z, -dz, TILE_SIZE);
+
+                // How far back in time to we have to go to hit the previous
+                // plane?
+                var back_x = vx != 0 ? px * Math.abs(plane_x - opposite_x) : inf;
+                var back_y = vy != 0 ? py * Math.abs(plane_y - opposite_y) : inf;
+                var back_z = vz != 0 ? pz * Math.abs(plane_z - opposite_z) : inf;
+                var back_min = Math.min(back_x, back_y, back_z);
+
+                // Time that we're rewinding to.
+                var rewind_t = t - back_min;
+                // Coordinates of the -x,-y,-z corner at that time.
+                var rewind_x = x + (rewind_t * vx / u)|0;
+                var rewind_y = y + (rewind_t * vy / u)|0;
+                var rewind_z = z + (rewind_t * vz / u)|0;
+                console.log('rewound by', back_min, cx, opposite_x, plane_x);
+
+                return ({
+                    'type': COLLIDE_SLIDE_END,
+                    'x': rewind_x,
+                    'y': rewind_y,
+                    'z': rewind_z,
+                    't': (1000 * rewind_t / u)|0,
+                    'd': dirs,
+                });
+            }
+
             if (hit_x) {
                 fx = ((cur_x + dx) / TILE_SIZE)|0;
                 if (hit_obstacles(fx, fx + 1, min_y, max_y, min_z, max_z)) {
@@ -1428,7 +1466,7 @@ ChunkPhysics.prototype = {
                 var wall_x = slide_x == 1 ? max_x : min_x - 1;
                 if (in_bounds(wall_x) &&
                         !hit_obstacles(wall_x, wall_x + 1, min_y, max_y, min_z, max_z)) {
-                    return make_result(0x100, COLLIDE_SLIDE_END);
+                    return slide_rewind(0x100);
                 }
             }
 
@@ -1436,7 +1474,7 @@ ChunkPhysics.prototype = {
                 var wall_y = slide_y == 1 ? max_y : min_y - 1;
                 if (in_bounds(wall_y) &&
                         !hit_obstacles(min_x, max_x, wall_y, wall_y + 1, min_z, max_z)) {
-                    return make_result(0x010, COLLIDE_SLIDE_END);
+                    return slide_rewind(0x010);
                 }
             }
 
@@ -1444,17 +1482,17 @@ ChunkPhysics.prototype = {
                 var wall_z = slide_z == 1 ? max_z : min_z - 1;
                 if (in_bounds(wall_z) &&
                         !hit_obstacles(min_x, max_x, min_y, max_y, wall_z, wall_z + 1)) {
-                    return make_result(0x001, COLLIDE_SLIDE_END);
+                    return slide_rewind(0x001);
                 }
             }
 
             var LIMIT = TILE_SIZE * CHUNK_SIZE;
             if (cur_x <= 0 || cur_x >= LIMIT) {
-                return make_result(0x100);
+                return make_result(0x100, COLLIDE_TILE);
             } else if (cur_y <= 0 || cur_y >= LIMIT) {
-                return make_result(0x010);
+                return make_result(0x010, COLLIDE_TILE);
             } else if (cur_z <= 0 || cur_z >= LIMIT) {
-                return make_result(0x100);
+                return make_result(0x100, COLLIDE_TILE);
             }
         }
     },
