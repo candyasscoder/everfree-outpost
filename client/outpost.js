@@ -1410,12 +1410,11 @@ ChunkPhysics.prototype = {
 
         //window.physTrace = [];
 
-        // `this.checkPlane.bind(this)` is about 15x slower on Firefox (wtf)
+        // `this.checkPlane.bind(this)` is about 50% slower on Firefox
         var this_ = this;
         function check_plane(min, max, dir) {
-            this_.checkPlane(min, max, dir);
+            return this_.checkPlane(min, max, dir);
         }
-        //var check_plane = this.checkPlane.bind(this);
 
         return this.walk(corner, velocity, function(cur, time, hit) {
             var base = cur.sub(side.mul(size));
@@ -1499,11 +1498,11 @@ window.timeit = function(f) {
     }
     var end = Date.now();
     console.log(i + ' iterations in ' + (end - start) + ' ms = ' +
-            fstr1((end - start) / i) + ' ms/iter');
+            fstr1((end - start) * 1000 / i) + ' us/iter');
 }
 
 window.physBenchmark = function() {
-    phys._chunk_phys.collide(new Vec(10, 10, 10), new Vec(32, 32, 32), new Vec(30, 30, 0));
+    phys._chunk_phys.collide(new Vec(10, 10, 0), new Vec(32, 32, 32), new Vec(30, 30, 0));
 };
 
 
