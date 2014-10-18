@@ -1648,6 +1648,7 @@ chunks[0].setBottom(10, 4, 2, 10 * 16 + 14);
 chunks[0].setBottom(11, 4, 2, 10 * 16 + 15);
 
 chunks[0].setBottom(5, 10, 0, 0);
+chunks[0].setBottom(7, 10, 0, 0);
 
 var planner = new RenderPlanner();
 var phys = new Physics(new ChunkPhysics(chunks[0]));
