@@ -669,6 +669,7 @@ var TILE_SIZE = 32;
 var SHAPE_EMPTY = 0;
 var SHAPE_FLOOR = 1;
 var SHAPE_SOLID = 2;
+var SHAPE_RAMP_E = 3;
 
 function Chunk() {
     var count = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
@@ -1224,27 +1225,38 @@ Physics.prototype = {
                     new Vec(f.actual_vx, f.actual_vy, f.actual_vz));
 
             if (coll.t == 0) {
-                console.assert((coll.d & 0x111) != 0,
-                        'immediate collision with no direction',
-                        f.actual_vx, f.actual_vy, f.actual_vz);
-                if (coll.d & 0x100) {
-                    slide_x = Math.sign(f.actual_vx);
-                    f.actual_vx = 0;
-                }
-                if (coll.d & 0x010) {
-                    slide_y = Math.sign(f.actual_vy);
-                    f.actual_vy = 0;
-                }
-                if (coll.d & 0x001) {
-                    slide_z = Math.sign(f.actual_vz);
-                    f.actual_vz = 0;
-                }
-                continue;
-            }
+                console.log('immediate collision with reason', coll.type);
 
-            console.log('collision reason', coll.type, coll.t,
-                    coll.x, coll.y, coll.z,
-                    !!(coll.d & 0x100), !!(coll.d & 0x010), !!(coll.d & 0x001));
+                if (coll.type == COLLIDE_WALL || coll.type == COLLIDE_NO_FLOOR ||
+                        coll.type == COLLIDE_CHUNK_BORDER) {
+                    console.assert((coll.d & 0x111) != 0,
+                            'immediate collision with no direction',
+                            f.actual_vx, f.actual_vy, f.actual_vz);
+                    if (coll.d & 0x100) {
+                        slide_x = Math.sign(f.actual_vx);
+                        f.actual_vx = 0;
+                    }
+                    if (coll.d & 0x010) {
+                        slide_y = Math.sign(f.actual_vy);
+                        f.actual_vy = 0;
+                    }
+                    if (coll.d & 0x001) {
+                        slide_z = Math.sign(f.actual_vz);
+                        f.actual_vz = 0;
+                    }
+                    continue;
+                } else if (coll.type == COLLIDE_RAMP_BOTTOM) {
+                    // Only ramp type at the moment is RAMP_E
+                    f.actual_vz = f.actual_vx;
+                    console.log('RAMP');
+                    coll = this._chunk_phys.collide(
+                            new Vec(f.start_x, f.start_y, f.start_z),
+                            new Vec(f.size_x, f.size_y, f.size_z),
+                            new Vec(f.actual_vx, f.actual_vy, f.actual_vz));
+                } else {
+                    console.assert('unknown collision type', coll.type);
+                }
+            }
 
             // Otherwise, the collision hasn't happened yet, so set up the
             // forecast for motion.
@@ -1343,6 +1355,7 @@ var COLLIDE_NO_FLOOR = 2;
 var COLLIDE_WALL = 3;
 var COLLIDE_SLIDE_END = 4;
 var COLLIDE_CHUNK_BORDER = 5;
+var COLLIDE_RAMP_BOTTOM = 6;
 
 ChunkPhysics.prototype = {
     'walk': function(pos, velocity, callback) {
@@ -1460,16 +1473,23 @@ ChunkPhysics.prototype = {
         min = min.sub(dir.isNegative()).clamp(0, CHUNK_SIZE);
         max = max.add(dir.isPositive()).clamp(0, CHUNK_SIZE);
 
+        var seen_ramp_bottom = false;
+        var seen_floor = false;
+
         for (var z = min.z; z < max.z; ++z) {
             for (var y = min.y; y < max.y; ++y) {
                 for (var x = min.x; x < max.x; ++x) {
                     //window.physTrace.push([x,y,z]);
                     var shape = this.chunk.shape(x, y, z);
                     if (z == min.z) {
-                        if (shape == SHAPE_SOLID) {
-                            return COLLIDE_WALL;
-                        } else if (shape == SHAPE_EMPTY) {
+                        if (shape == SHAPE_EMPTY) {
                             return COLLIDE_NO_FLOOR;
+                        } else if (shape == SHAPE_RAMP_E && dir.x == 1 && dir.y == 0 && dir.z == 0) {
+                            seen_ramp_bottom = true;
+                        } else if (shape == SHAPE_FLOOR) {
+                            seen_floor = true;
+                        } else {
+                            return COLLIDE_WALL;
                         }
                     } else {
                         if (shape != SHAPE_EMPTY) {
@@ -1480,7 +1500,15 @@ ChunkPhysics.prototype = {
             }
         }
 
-        return 0;
+        if (seen_ramp_bottom) {
+            if (!seen_floor) {
+                return COLLIDE_RAMP_BOTTOM;
+            } else {
+                return COLLIDE_WALL;
+            }
+        } else {
+            return 0;
+        }
     },
 };
 
@@ -1643,6 +1671,15 @@ chunks[0].setBottom(11, 4, 2, 10 * 16 + 15);
 chunks[0].set(5, 10, 0, 0, 0, SHAPE_EMPTY);
 chunks[0].set(7, 10, 0, 0, 0, SHAPE_EMPTY);
 
+chunks[0].setShape(5, 3, 0, SHAPE_RAMP_E);
+chunks[0].setShape(5, 4, 0, SHAPE_RAMP_E);
+chunks[0].setShape(6, 3, 1, SHAPE_RAMP_E);
+chunks[0].setShape(6, 4, 1, SHAPE_RAMP_E);
+chunks[0].setShape(7, 3, 2, SHAPE_FLOOR);
+chunks[0].setShape(7, 4, 2, SHAPE_FLOOR);
+chunks[0].setShape(8, 3, 2, SHAPE_FLOOR);
+chunks[0].setShape(8, 4, 2, SHAPE_FLOOR);
+
 var planner = new RenderPlanner();
 var phys = new Physics(new ChunkPhysics(chunks[0]));
 window.phys = phys;
@@ -1681,8 +1718,25 @@ function frame(ctx, now) {
 
     ctx.strokeStyle = '#cc0';
     ctx.beginPath();
-    ctx.moveTo(pony._forecast.start_x + 16, pony._forecast.start_y + 16);
-    ctx.lineTo(pony._forecast.end_x + 16, pony._forecast.end_y + 16);
+    var fc = pony._forecast;
+    ctx.moveTo(fc.start_x + 16, fc.start_y + 16 - fc.start_z);
+    ctx.lineTo(fc.end_x + 16, fc.end_y + 16 - fc.start_z);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#888';
+    ctx.beginPath();
+    ctx.moveTo(5*32, 3*32);
+    ctx.lineTo(7*32, 1*32);
+    ctx.lineTo(9*32, 1*32);
+    ctx.lineTo(9*32, 3*32);
+    ctx.lineTo(7*32, 3*32);
+    ctx.lineTo(5*32, 5*32);
+    ctx.closePath();
+    ctx.moveTo(7*32, 1*32);
+    ctx.lineTo(7*32, 3*32);
+    ctx.moveTo(9*32, 3*32);
+    ctx.lineTo(9*32, 5*32);
+    ctx.lineTo(5*32, 5*32);
     ctx.stroke();
 
     dbg.frameEnd();
