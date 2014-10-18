@@ -80,6 +80,24 @@ Vec.prototype = {
         return new Vec(this.x < 0 ? 1 : 0, this.y < 0 ? 1 : 0, this.z < 0 ? 1 : 0);
     },
 
+    'isZero': function() {
+        return new Vec(this.x == 0 ? 1 : 0, this.y == 0 ? 1 : 0, this.z == 0 ? 1 : 0);
+    },
+
+    'choose': function(a, b) {
+        return new Vec(
+                this.x ? a.x : b.x,
+                this.y ? a.y : b.y,
+                this.z ? a.z : b.z);
+    },
+
+    'clamp': function(min, max) {
+        return new Vec(
+                Math.min(max, Math.max(min, this.x)),
+                Math.min(max, Math.max(min, this.y)),
+                Math.min(max, Math.max(min, this.z)));
+    },
+
     'map': function(f) {
         return new Vec(f(this.x), f(this.y), f(this.z));
     },
@@ -1374,7 +1392,7 @@ ChunkPhysics.prototype = {
 
     'collide': function(pos, size, velocity) {
         var side = velocity.isPositive();
-        var inv_side = velocity.isNegative();
+        var dir = velocity.sign();
         var corner = pos.add(side.mul(size));
 
         var chunk = this.chunk;
@@ -1392,70 +1410,19 @@ ChunkPhysics.prototype = {
 
         //window.physTrace = [];
 
-        function check_region(min, max, facing, dirs, result_callback) {
-            var min_x = !(dirs & 0x100) ? min.x : facing.x;
-            var max_x = !(dirs & 0x100) ? max.x : facing.x + 1;
-            var min_y = !(dirs & 0x010) ? min.y : facing.y;
-            var max_y = !(dirs & 0x010) ? max.y : facing.y + 1;
-            var min_z = !(dirs & 0x001) ? min.z : facing.z;
-            var max_z = !(dirs & 0x001) ? max.z : facing.z + 1;
-
-            for (var z = min_z; z < max_z; ++z) {
-                if (z < 0 || z >= CHUNK_SIZE) {
-                    continue;
-                }
-                for (var y = min_y; y < max_y; ++y) {
-                    if (y < 0 || y >= CHUNK_SIZE) {
-                        continue;
-                    }
-                    for (var x = min_x; x < max_x; ++x) {
-                        if (x < 0 || x >= CHUNK_SIZE) {
-                            continue;
-                        }
-
-                        //window.physTrace.push([x, y, z])
-
-                        var shape = chunk.shape(x, y, z);
-                        if (z == min_z) {
-                            if (shape == SHAPE_SOLID) {
-                                return result_callback(dirs, COLLIDE_WALL);
-                            }
-                            if (shape == SHAPE_EMPTY) {
-                                return result_callback(dirs, COLLIDE_NO_FLOOR);
-                            }
-                        } else {
-                            if (shape != SHAPE_EMPTY) {
-                                return result_callback(dirs, COLLIDE_WALL);
-                            }
-                        }
-                    }
-                }
-            }
-
-            return null;
+        // `this.checkPlane.bind(this)` is about 15x slower on Firefox (wtf)
+        var this_ = this;
+        function check_plane(min, max, dir) {
+            this_.checkPlane(min, max, dir);
         }
+        //var check_plane = this.checkPlane.bind(this);
 
         return this.walk(corner, velocity, function(cur, time, hit) {
             var base = cur.sub(side.mul(size));
             var min = base.divScalar(TILE_SIZE);
             var max = base.add(size).addScalar(TILE_SIZE - 1).divScalar(TILE_SIZE);
-            // Coordinates of the tiles on the far side of the plane(s) we
-            // collided with.
-            var facing = cur.divScalar(TILE_SIZE).sub(inv_side);
-
-            if (hit.x && cur.x == side.x * CHUNK_SIZE * TILE_SIZE) {
-                return make_result(base, 0x100, time, COLLIDE_CHUNK_BORDER);
-            }
-            if (hit.y && cur.y == side.y * CHUNK_SIZE * TILE_SIZE) {
-                return make_result(base, 0x010, time, COLLIDE_CHUNK_BORDER);
-            }
-            if (hit.z && cur.z == side.z * CHUNK_SIZE * TILE_SIZE) {
-                return make_result(base, 0x001, time, COLLIDE_CHUNK_BORDER);
-            }
-
-            function result_callback(dirs, reason) {
-                return make_result(base, dirs, time, reason);
-            }
+            // Tile coordinates of the plane(s) we collided with.
+            var facing = cur.divScalar(TILE_SIZE);
 
             var DIRS = [0x100, 0x010, 0x001, 0x110, 0x011, 0x101, 0x111];
             var all_dirs = (hit.x << 8) | (hit.y << 4) | (hit.z);
@@ -1465,14 +1432,56 @@ ChunkPhysics.prototype = {
                     continue;
                 }
 
-                var result = check_region(min, max, facing, dirs, result_callback);
-                if (result != null) {
-                    return result;
+                var cur_hit = new Vec(!!(dirs & 0x100), !!(dirs & 0x010), !!(dirs & 0x001));
+
+                var reason = check_plane(
+                        cur_hit.choose(facing, min),
+                        cur_hit.choose(facing, max),
+                        dir.mul(cur_hit));
+                if (reason != 0) {
+                    return make_result(base, dirs, time, reason);
                 }
             }
 
             return null;
         });
+    },
+
+    'checkPlane': function(min, max, dir) {
+        if (dir.x != 0 && min.x == (dir.x > 0) * CHUNK_SIZE) {
+            return COLLIDE_CHUNK_BORDER;
+        }
+        if (dir.y != 0 && min.y == (dir.y > 0) * CHUNK_SIZE) {
+            return COLLIDE_CHUNK_BORDER;
+        }
+        if (dir.z != 0 && min.z == (dir.z > 0) * CHUNK_SIZE) {
+            return COLLIDE_CHUNK_BORDER;
+        }
+
+        min = min.sub(dir.isNegative()).clamp(0, CHUNK_SIZE);
+        max = max.add(dir.isPositive()).clamp(0, CHUNK_SIZE);
+
+        for (var z = min.z; z < max.z; ++z) {
+            for (var y = min.y; y < max.y; ++y) {
+                for (var x = min.x; x < max.x; ++x) {
+                    //window.physTrace.push([x,y,z]);
+                    var shape = this.chunk.shape(x, y, z);
+                    if (z == min.z) {
+                        if (shape == SHAPE_SOLID) {
+                            return COLLIDE_WALL;
+                        } else if (shape == SHAPE_EMPTY) {
+                            return COLLIDE_NO_FLOOR;
+                        }
+                    } else {
+                        if (shape != SHAPE_EMPTY) {
+                            return COLLIDE_WALL;
+                        }
+                    }
+                }
+            }
+        }
+
+        return 0;
     },
 };
 
@@ -1492,6 +1501,10 @@ window.timeit = function(f) {
     console.log(i + ' iterations in ' + (end - start) + ' ms = ' +
             fstr1((end - start) / i) + ' ms/iter');
 }
+
+window.physBenchmark = function() {
+    phys._chunk_phys.collide(new Vec(10, 10, 10), new Vec(32, 32, 32), new Vec(30, 30, 0));
+};
 
 
 var anim_canvas = new AnimCanvas(frame);
