@@ -639,41 +639,55 @@ Pony.prototype = {
 var CHUNK_SIZE = 16;
 var TILE_SIZE = 32;
 
+var SHAPE_EMPTY = 0;
+var SHAPE_FLOOR = 1;
+var SHAPE_SOLID = 2;
+
 function Chunk() {
-    this._arr = new Uint32Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
+    var count = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+    this._storage = new ArrayBuffer(count * 3);
+    this._bottom = new Uint8Array(this._storage, count * 0, count);
+    this._front = new Uint8Array(this._storage, count * 1, count);
+    this._shape = new Uint8Array(this._storage, count * 2, count);
 }
 
-Chunk.prototype = {
-    '_cell': function(x, y, z) {
-        return this._arr[((z) * CHUNK_SIZE + y) * CHUNK_SIZE + x];
-    },
+(function() {
+    function index(x, y, z) {
+        return ((z) * CHUNK_SIZE + y) * CHUNK_SIZE + x;
+    }
 
-    '_cellBits': function(x, y, z, start, count) {
-        var mask = (1 << count) - 1;
-        return (this._cell(x, y, z) >> start) & mask;
-    },
+    Chunk.prototype = {
+        'bottom': function(x, y, z) {
+            return this._bottom[index(x,y,z)];
+        },
 
-    'bottom': function(x, y, z) {
-        return this._cellBits(x, y, z, 0, 8);
-    },
+        'setBottom': function(x, y, z, bottom) {
+            this._bottom[index(x,y,z)] = bottom;
+        },
 
-    'front': function(x, y, z) {
-        return this._cellBits(x, y, z, 8, 8);
-    },
+        'front': function(x, y, z) {
+            return this._front[index(x,y,z)];
+        },
 
-    'set': function(x, y, z, bottom, front) {
-        var cell = bottom | (front << 8);
-        this._arr[((z) * CHUNK_SIZE + y) * CHUNK_SIZE + x] = cell;
-    },
+        'setFront': function(x, y, z, front) {
+            this._front[index(x,y,z)] = front;
+        },
 
-    'setBottom': function(x, y, z, bottom) {
-        this.set(x, y, z, bottom, this.front(x, y, z));
-    },
+        'shape': function(x, y, z) {
+            return this._shape[index(x,y,z)];
+        },
 
-    'setFront': function(x, y, z, front) {
-        this.set(x, y, z, this.bottom(x, y, z), front);
-    },
-};
+        'setShape': function(x, y, z, shape) {
+            this._shape[index(x, y, z)] = shape;
+        },
+
+        'set': function(x, y, z, bottom, front, shape) {
+            this.setBottom(x, y, z, bottom);
+            this.setFront(x, y, z, front);
+            this.setShape(x, y, z, shape);
+        },
+    };
+})();
 
 
 function ChunkRendering(chunk, sheet) {
@@ -1356,9 +1370,6 @@ ChunkPhysics.prototype = {
 
         var chunk = this.chunk;
 
-        window.physTrace = [];
-        var idx = 0;
-
         function make_result(pos, dirs, time, reason) {
             return ({
                 'x': pos.x,
@@ -1378,8 +1389,6 @@ ChunkPhysics.prototype = {
             var min_z = !(dirs & 0x001) ? min.z : facing.z;
             var max_z = !(dirs & 0x001) ? max.z : facing.z + 1;
 
-            var wants_floor = !(dirs & 0x001);
-
             for (var z = min_z; z < max_z; ++z) {
                 if (z < 0 || z >= CHUNK_SIZE) {
                     continue;
@@ -1393,19 +1402,16 @@ ChunkPhysics.prototype = {
                             continue;
                         }
 
-                        //window.physTrace.push([x, y, idx++]);
-
-                        if (chunk.front(x, y, z) != 0) {
-                            return result_callback(dirs, COLLIDE_WALL);
-                        }
-
-                        var has_bottom = chunk.bottom(x, y, z) != 0;
+                        var shape = chunk.shape(x, y, z);
                         if (z == min_z) {
-                            if (wants_floor && !has_bottom) {
+                            if (shape == SHAPE_SOLID) {
+                                return result_callback(dirs, COLLIDE_WALL);
+                            }
+                            if (shape == SHAPE_EMPTY) {
                                 return result_callback(dirs, COLLIDE_NO_FLOOR);
                             }
                         } else {
-                            if (has_bottom) {
+                            if (shape != SHAPE_EMPTY) {
                                 return result_callback(dirs, COLLIDE_WALL);
                             }
                         }
@@ -1456,6 +1462,7 @@ ChunkPhysics.prototype = {
         });
     },
 };
+
 
 window.timeit = function(f) {
     var start = Date.now();
@@ -1587,7 +1594,7 @@ for (var i = 0; i < 4; ++i) {
             var a = (rnd & 1);
             var b = (rnd & 2) >> 1;
             var tile = (4 + a) * 16 + 14 + b;
-            chunk.set(x, y, 0, tile, 0);
+            chunk.set(x, y, 0, tile, 0, SHAPE_FLOOR);
         }
     }
     chunkRender.push(new ChunkRendering(chunk, tileSheet));
@@ -1596,6 +1603,7 @@ for (var i = 0; i < 4; ++i) {
 for (var i = 0; i < 3; ++i) {
     for (var j = 0; j < 2; ++j) {
         chunks[0].setFront(10+j, 10, i, (15-i) * 16 + 7+j);
+        chunks[0].setShape(10+j, 10, i, SHAPE_SOLID);
     }
 }
 
@@ -1606,8 +1614,8 @@ chunks[0].setFront(11, 5, 2, 11 * 16 + 15);
 chunks[0].setBottom(10, 4, 2, 10 * 16 + 14);
 chunks[0].setBottom(11, 4, 2, 10 * 16 + 15);
 
-chunks[0].setBottom(5, 10, 0, 0);
-chunks[0].setBottom(7, 10, 0, 0);
+chunks[0].set(5, 10, 0, 0, 0, SHAPE_EMPTY);
+chunks[0].set(7, 10, 0, 0, 0, SHAPE_EMPTY);
 
 var planner = new RenderPlanner();
 var phys = new Physics(new ChunkPhysics(chunks[0]));
@@ -1649,7 +1657,7 @@ function frame(ctx, now) {
             ctx.fillRect(p[0] * 32, p[1] * 32, 32, 32);
         }
         ctx.strokeRect(p[0] * 32, p[1] * 32, 32, 32);
-        ctx.fillText(p[2], p[0] * 32, p[1] * 32 + 10);
+        ctx.fillText(i, p[0] * 32, p[1] * 32 + 10);
         //ctx.fillRect(p[0] - 1, p[1] - 1, 2, 2);
         //ctx.strokeRect(p[0] * 32, p[1] * 32, (p[2] - p[0]) * 32, (p[3] - p[1]) * 32);
     }
