@@ -1430,13 +1430,13 @@ ChunkPhysics.prototype = {
             // collided with.
             var facing = cur.divScalar(TILE_SIZE).sub(inv_side);
 
-            if (hit.x && (facing.x < 0 || facing.x >= CHUNK_SIZE)) {
+            if (hit.x && cur.x == side.x * CHUNK_SIZE * TILE_SIZE) {
                 return make_result(base, 0x100, time, COLLIDE_CHUNK_BORDER);
             }
-            if (hit.y && (facing.y < 0 || facing.y >= CHUNK_SIZE)) {
+            if (hit.y && cur.y == side.y * CHUNK_SIZE * TILE_SIZE) {
                 return make_result(base, 0x010, time, COLLIDE_CHUNK_BORDER);
             }
-            if (hit.z && (facing.z < 0 || facing.z >= CHUNK_SIZE)) {
+            if (hit.z && cur.z == side.z * CHUNK_SIZE * TILE_SIZE) {
                 return make_result(base, 0x001, time, COLLIDE_CHUNK_BORDER);
             }
 
