@@ -57,15 +57,15 @@ Vec.prototype = {
     },
 
     'mul': function(other) {
-        return new Vec(this.x * other.x, this.y * other.y, this.z * other.z);
+        return new Vec((this.x * other.x)|0, (this.y * other.y)|0, (this.z * other.z)|0);
     },
 
     'mulScalar': function(c) {
-        return new Vec(this.x * c, this.y * c, this.z * c);
+        return new Vec((this.x * c)|0, (this.y * c)|0, (this.z * c)|0);
     },
 
     'div': function(other) {
-        return new Vec(this.x / other.x, this.y / other.y, this.z / other.z);
+        return new Vec((this.x / other.x)|0, (this.y / other.y)|0, (this.z / other.z)|0);
     },
 
     'divScalar': function(c) {
@@ -1373,14 +1373,52 @@ ChunkPhysics.prototype = {
 
         //window.physTrace = [];
 
-        // `this.checkPlane.bind(this)` is about 50% slower on Firefox
         var this_ = this;
+
         function check_plane(min, max, dir) {
-            return this_.checkPlane(min, max, dir);
+            var seen_ramp_bottom = false;
+            var seen_floor = false;
+
+            var reason = this_.checkPlane(min, max, dir, function(x, y, z) {
+                //window.physTrace.push([x,y,z]);
+                var shape = this_.chunk.shape(x, y, z);
+                if (z == min.z) {
+                    if (shape == SHAPE_EMPTY) {
+                        return COLLIDE_NO_FLOOR;
+                    } else if (shape == SHAPE_RAMP_E && dir.x == 1 && dir.y == 0 && dir.z == 0) {
+                        seen_ramp_bottom = true;
+                    } else if (shape == SHAPE_FLOOR) {
+                        seen_floor = true;
+                    } else {
+                        return COLLIDE_WALL;
+                    }
+                } else {
+                    if (shape != SHAPE_EMPTY) {
+                        return COLLIDE_WALL;
+                    }
+                }
+                return 0;
+            });
+
+            if (reason == 0 && seen_ramp_bottom) {
+                if (!seen_floor) {
+                    return COLLIDE_RAMP_BOTTOM;
+                } else {
+                    return COLLIDE_WALL;
+                }
+            } else {
+                return reason;
+            }
         }
 
         return this.walk(corner, velocity, function(cur, time, hit) {
             var base = cur.sub(side.mul(size));
+
+            var bounds = this_.hitChunkBoundaries(cur, hit, side);
+            if (bounds != 0) {
+                return make_result(base, bounds, time, COLLIDE_CHUNK_BORDER);
+            }
+
             var min = base.divScalar(TILE_SIZE);
             var max = base.add(size).addScalar(TILE_SIZE - 1).divScalar(TILE_SIZE);
             // Tile coordinates of the plane(s) we collided with.
@@ -1409,56 +1447,29 @@ ChunkPhysics.prototype = {
         });
     },
 
-    'checkPlane': function(min, max, dir) {
-        if (dir.x != 0 && min.x == (dir.x > 0) * CHUNK_SIZE) {
-            return COLLIDE_CHUNK_BORDER;
-        }
-        if (dir.y != 0 && min.y == (dir.y > 0) * CHUNK_SIZE) {
-            return COLLIDE_CHUNK_BORDER;
-        }
-        if (dir.z != 0 && min.z == (dir.z > 0) * CHUNK_SIZE) {
-            return COLLIDE_CHUNK_BORDER;
-        }
+    'hitChunkBoundaries': function(cur, hit, side) {
+        var bound_x = hit.x && cur.x == side.x * CHUNK_SIZE * TILE_SIZE;
+        var bound_y = hit.y && cur.y == side.y * CHUNK_SIZE * TILE_SIZE;
+        var bound_z = hit.z && cur.z == side.z * CHUNK_SIZE * TILE_SIZE;
+        return (bound_x << 8) | (bound_y << 4) | (bound_z);
+    },
 
+    'checkPlane': function(min, max, dir, callback) {
         min = min.sub(dir.isNegative()).clamp(0, CHUNK_SIZE);
         max = max.add(dir.isPositive()).clamp(0, CHUNK_SIZE);
-
-        var seen_ramp_bottom = false;
-        var seen_floor = false;
 
         for (var z = min.z; z < max.z; ++z) {
             for (var y = min.y; y < max.y; ++y) {
                 for (var x = min.x; x < max.x; ++x) {
-                    //window.physTrace.push([x,y,z]);
-                    var shape = this.chunk.shape(x, y, z);
-                    if (z == min.z) {
-                        if (shape == SHAPE_EMPTY) {
-                            return COLLIDE_NO_FLOOR;
-                        } else if (shape == SHAPE_RAMP_E && dir.x == 1 && dir.y == 0 && dir.z == 0) {
-                            seen_ramp_bottom = true;
-                        } else if (shape == SHAPE_FLOOR) {
-                            seen_floor = true;
-                        } else {
-                            return COLLIDE_WALL;
-                        }
-                    } else {
-                        if (shape != SHAPE_EMPTY) {
-                            return COLLIDE_WALL;
-                        }
+                    var reason = callback(x, y, z);
+                    if (reason != 0) {
+                        return reason;
                     }
                 }
             }
         }
 
-        if (seen_ramp_bottom) {
-            if (!seen_floor) {
-                return COLLIDE_RAMP_BOTTOM;
-            } else {
-                return COLLIDE_WALL;
-            }
-        } else {
-            return 0;
-        }
+        return 0;
     },
 };
 
