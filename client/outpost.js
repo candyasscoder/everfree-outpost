@@ -584,11 +584,11 @@ Entity.prototype = {
 };
 
 
-function Pony(sheet, x, y) {
+function Pony(sheet, x, y, z) {
     this._entity = new Entity(sheet, 48, 74, x, y);
     this._entity.animate(0, 2, 1, 1, false, 0);
     this._last_dir = { 'x': 1, 'y': 0 };
-    this._forecast = new Forecast(x - 16, y - 16, 0, 32, 32, 32);
+    this._forecast = new Forecast(x - 16, y - 16, z, 32, 32, 32);
     phys.resetForecast(0, this._forecast, 0, 0, 0);
 }
 
@@ -629,9 +629,18 @@ Pony.prototype = {
 
     'drawInto': function(ctx, now) {
         var pos = this.position(now);
-        this._entity.drawAt(ctx, now, pos.x, pos.y);
-        ctx.strokeRect(pos.x - 16, pos.y - 16, this._forecast.size_x, this._forecast.size_y);
 
+        ctx.strokeStyle = '#0aa';
+        ctx.strokeRect(pos.x - 16, pos.y - 16, this._forecast.size_x, this._forecast.size_y);
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+        ctx.lineTo(pos.x, pos.y - pos.z);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#0ff';
+        ctx.strokeRect(pos.x - 16, pos.y - 16 - pos.z, this._forecast.size_x, this._forecast.size_y);
+
+        this._entity.drawAt(ctx, now, pos.x, pos.y - pos.z);
     },
 };
 
@@ -1381,6 +1390,8 @@ ChunkPhysics.prototype = {
             });
         }
 
+        //window.physTrace = [];
+
         function check_region(min, max, facing, dirs, result_callback) {
             var min_x = !(dirs & 0x100) ? min.x : facing.x;
             var max_x = !(dirs & 0x100) ? max.x : facing.x + 1;
@@ -1401,6 +1412,8 @@ ChunkPhysics.prototype = {
                         if (x < 0 || x >= CHUNK_SIZE) {
                             continue;
                         }
+
+                        //window.physTrace.push([x, y, z])
 
                         var shape = chunk.shape(x, y, z);
                         if (z == min_z) {
@@ -1487,6 +1500,7 @@ document.body.appendChild(anim_canvas.canvas);
 
 anim_canvas.ctx.fillStyle = '#f0f';
 anim_canvas.ctx.strokeStyle = '#0ff';
+anim_canvas.ctx.lineWidth = 2;
 anim_canvas.ctx.imageSmoothingEnabled = false;
 anim_canvas.ctx.mozImageSmoothingEnabled = false;
 
@@ -1566,7 +1580,7 @@ var runner = new BackgroundJobRunner();
 
 loader.onload = function() {
     sheet = new Sheet(bake_sprite_sheet(runner), 96, 96);
-    pony = new Pony(sheet, 100, 100);
+    pony = new Pony(sheet, 100, 100, 0);
     window.pony = pony;
 
     document.body.removeChild($('banner-bg'));
@@ -1642,26 +1656,18 @@ function frame(ctx, now) {
         });
     }
 
-    /*
-    var coll = phys.collide(pos.x - 16, pos.y - 16, 0,
-    //var coll = phys.collide(16, 16, pos.z,
-            32, 32, 32,
-            //1, 1, 0);
-            pony._entity._motion.velocity_x, pony._entity._motion.velocity_y, 0);
-    //console.log(coll.length);
-    //*/
     var coll = window.physTrace;
+    ctx.strokeStyle = '#00f';
     for (var i = 0; i < coll.length; ++i) {
         var p = coll[i];
         if (i == coll.length - 1) {
-            ctx.fillRect(p[0] * 32, p[1] * 32, 32, 32);
+            ctx.strokeStyle = '#a00';
         }
         ctx.strokeRect(p[0] * 32, p[1] * 32, 32, 32);
         ctx.fillText(i, p[0] * 32, p[1] * 32 + 10);
-        //ctx.fillRect(p[0] - 1, p[1] - 1, 2, 2);
-        //ctx.strokeRect(p[0] * 32, p[1] * 32, (p[2] - p[0]) * 32, (p[3] - p[1]) * 32);
     }
 
+    ctx.strokeStyle = '#cc0';
     ctx.beginPath();
     ctx.moveTo(pony._forecast.start_x + 16, pony._forecast.start_y + 16);
     ctx.lineTo(pony._forecast.end_x + 16, pony._forecast.end_y + 16);
