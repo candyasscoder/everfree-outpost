@@ -36,6 +36,10 @@ function Vec(x, y, z) {
 window.Vec = Vec;
 
 Vec.prototype = {
+    'clone': function() {
+        return new Vec(this.x, this.y, this.z);
+    },
+
     'add': function(other) {
         return new Vec(this.x + other.x, this.y + other.y, this.z + other.z);
     },
@@ -606,8 +610,8 @@ function Pony(sheet, x, y, z) {
     this._entity = new Entity(sheet, 48, 74, x, y);
     this._entity.animate(0, 2, 1, 1, false, 0);
     this._last_dir = { 'x': 1, 'y': 0 };
-    this._forecast = new Forecast(x - 16, y - 16, z, 32, 32, 32);
-    phys.resetForecast(0, this._forecast, 0, 0, 0);
+    this._forecast = new Forecast(new Vec(x - 16, y - 16, z), new Vec(32, 32, 32));
+    phys.resetForecast(0, this._forecast, new Vec(0, 0, 0));
 }
 
 Pony.prototype = {
@@ -634,7 +638,8 @@ Pony.prototype = {
 
         var pixel_speed = 30 * speed;
         var pos = entity.position(now);
-        phys.resetForecast(now, this._forecast, dx * pixel_speed, dy * pixel_speed, 0);
+        var target_v = new Vec(dx * pixel_speed, dy * pixel_speed, 0);
+        phys.resetForecast(now, this._forecast, target_v);
     },
 
     'position': function(now) {
@@ -649,14 +654,14 @@ Pony.prototype = {
         var pos = this.position(now);
 
         ctx.strokeStyle = '#0aa';
-        ctx.strokeRect(pos.x - 16, pos.y - 16, this._forecast.size_x, this._forecast.size_y);
+        ctx.strokeRect(pos.x - 16, pos.y - 16, this._forecast.size.x, this._forecast.size.y);
         ctx.beginPath();
         ctx.moveTo(pos.x, pos.y);
         ctx.lineTo(pos.x, pos.y - pos.z);
         ctx.stroke();
 
         ctx.strokeStyle = '#0ff';
-        ctx.strokeRect(pos.x - 16, pos.y - 16 - pos.z, this._forecast.size_x, this._forecast.size_y);
+        ctx.strokeRect(pos.x - 16, pos.y - 16 - pos.z, this._forecast.size.x, this._forecast.size.y);
 
         this._entity.drawAt(ctx, now, pos.x, pos.y - pos.z);
     },
@@ -1157,11 +1162,9 @@ function Physics(chunk_phys) {
 }
 
 Physics.prototype = {
-    'resetForecast': function(now, f, vx, vy, vz) {
+    'resetForecast': function(now, f, v) {
         this._step(now, f);
-        f.target_vx = vx;
-        f.target_vy = vy;
-        f.target_vz = vz;
+        f.target_v = v;
         this._forecast(f);
     },
 
@@ -1188,15 +1191,9 @@ Physics.prototype = {
     // Step the forecast forward to the given time, and set actual velocity to zero.
     '_step': function(time, f) {
         var pos = f.position(time);
-        f.start_x = pos.x;
-        f.start_y = pos.y;
-        f.start_z = pos.z;
-        f.end_x = pos.x;
-        f.end_y = pos.y;
-        f.end_z = pos.z;
-        f.actual_vx = 0;
-        f.actual_vy = 0;
-        f.actual_vz = 0;
+        f.start = pos;
+        f.end = pos;
+        f.actual_v = new Vec(0, 0, 0);
         f.start_time = time;
         f.end_time = INT_MAX * 1000;
     },
@@ -1204,25 +1201,15 @@ Physics.prototype = {
     // Project the time of the next collision starting from start_time, and set
     // velocities, end_time, and end position appropriately.
     '_forecast': function(f) {
-        f.actual_vx = f.target_vx;
-        f.actual_vy = f.target_vy;
-        f.actual_vz = f.target_vz;
+        var actual_v = f.target_v.clone();
 
         var slide_x = 0;
         var slide_y = 0;
         var slide_z = 0;
 
         // TODO: compute time limit for sliding
-        while (f.actual_vx != 0 || f.actual_vy != 0 || f.actual_vz != 0) {
-            //var coll = this._chunk_phys.collide(
-            //        f.start_x, f.start_y, f.start_z,
-            //        f.size_x, f.size_y, f.size_z,
-            //        f.actual_vx, f.actual_vy, f.actual_vz,
-            //        slide_x, slide_y, slide_z);
-            var coll = this._chunk_phys.collide(
-                    new Vec(f.start_x, f.start_y, f.start_z),
-                    new Vec(f.size_x, f.size_y, f.size_z),
-                    new Vec(f.actual_vx, f.actual_vy, f.actual_vz));
+        while (actual_v.x != 0 || actual_v.y != 0 || actual_v.z != 0) {
+            var coll = this._chunk_phys.collide(f.start, f.size, actual_v);
 
             if (coll.t == 0) {
                 console.log('immediate collision with reason', coll.type);
@@ -1231,28 +1218,25 @@ Physics.prototype = {
                         coll.type == COLLIDE_CHUNK_BORDER) {
                     console.assert((coll.d & 0x111) != 0,
                             'immediate collision with no direction',
-                            f.actual_vx, f.actual_vy, f.actual_vz);
+                            actual_v.x, actual_v.y, actual_v.z);
                     if (coll.d & 0x100) {
-                        slide_x = Math.sign(f.actual_vx);
-                        f.actual_vx = 0;
+                        slide_x = Math.sign(actual_v.x);
+                        actual_v.x = 0;
                     }
                     if (coll.d & 0x010) {
-                        slide_y = Math.sign(f.actual_vy);
-                        f.actual_vy = 0;
+                        slide_y = Math.sign(actual_v.y);
+                        actual_v.y = 0;
                     }
                     if (coll.d & 0x001) {
-                        slide_z = Math.sign(f.actual_vz);
-                        f.actual_vz = 0;
+                        slide_z = Math.sign(actual_v.z);
+                        actual_v.z = 0;
                     }
                     continue;
                 } else if (coll.type == COLLIDE_RAMP_BOTTOM) {
                     // Only ramp type at the moment is RAMP_E
-                    f.actual_vz = f.actual_vx;
+                    actual_v.z = actual_v.x;
                     console.log('RAMP');
-                    coll = this._chunk_phys.collide(
-                            new Vec(f.start_x, f.start_y, f.start_z),
-                            new Vec(f.size_x, f.size_y, f.size_z),
-                            new Vec(f.actual_vx, f.actual_vy, f.actual_vz));
+                    coll = this._chunk_phys.collide(f.start, f.size, actual_v);
                 } else {
                     console.assert('unknown collision type', coll.type);
                 }
@@ -1261,10 +1245,9 @@ Physics.prototype = {
             // Otherwise, the collision hasn't happened yet, so set up the
             // forecast for motion.
 
-            f.end_x = coll.x;
-            f.end_y = coll.y;
-            f.end_z = coll.z;
+            f.end = new Vec(coll.x, coll.y, coll.z);
             f.end_time = f.start_time + coll.t;
+            f.actual_v = actual_v;
             break;
         }
 
@@ -1274,22 +1257,12 @@ Physics.prototype = {
 };
 
 
-function Forecast(x, y, z, sx, sy, sz) {
-    this.start_x = x;
-    this.start_y = y;
-    this.start_z = z;
-    this.end_x = x;
-    this.end_y = y;
-    this.end_z = z;
-    this.size_x = sx;
-    this.size_y = sy;
-    this.size_z = sz;
-    this.target_vx = 0;
-    this.target_vy = 0;
-    this.target_vz = 0;
-    this.actual_vx = 0;
-    this.actual_vy = 0;
-    this.actual_vz = 0;
+function Forecast(pos, size) {
+    this.start = pos;
+    this.end = pos;
+    this.size = size;
+    this.target_v = new Vec(0, 0, 0);
+    this.actual_v = new Vec(0, 0, 0);
     // Timestamps are unix time in milliseconds.  This works because javascript
     // numbers have 53 bits of precision.
     this.start_time = INT_MIN * 1000;
@@ -1299,45 +1272,22 @@ function Forecast(x, y, z, sx, sy, sz) {
 Forecast.prototype = {
     'position': function(now) {
         if (now < this.start_time) {
-            return ({
-                'x': this.start_x,
-                'y': this.start_y,
-                'z': this.start_z,
-            });
+            return this.start.clone();
         } else if (now >= this.end_time) {
-            return ({
-                'x': this.end_x,
-                'y': this.end_y,
-                'z': this.end_z,
-            });
+            return this.end.clone();
         } else {
             var delta = now - this.start_time;
-            return ({
-                // Round instead of truncating.  Otherwise repeated calls to
-                // Physics._step will introduce bias.  (This can be seen by
-                // rendering a line from start_* to end_* and then tapping
-                // shift while running northeast or southwest.)
-                'x': this.start_x + ((this.actual_vx * delta + 500) / 1000)|0,
-                'y': this.start_y + ((this.actual_vy * delta + 500) / 1000)|0,
-                'z': this.start_z + ((this.actual_vz * delta + 500) / 1000)|0,
-            });
+            var offset = this.actual_v.mulScalar(delta).addScalar(500).divScalar(1000);
+            return this.start.add(offset);
         }
     },
 
     'velocity': function() {
-        return ({
-            'x': this.actual_vx,
-            'y': this.actual_vy,
-            'z': this.actual_vz,
-        });
+        return this.actual_v;
     },
 
     'target_velocity': function() {
-        return ({
-            'x': this.target_vx,
-            'y': this.target_vy,
-            'z': this.target_vz,
-        });
+        return this.target_v;
     },
 
     'live': function(now) {
@@ -1719,8 +1669,8 @@ function frame(ctx, now) {
     ctx.strokeStyle = '#cc0';
     ctx.beginPath();
     var fc = pony._forecast;
-    ctx.moveTo(fc.start_x + 16, fc.start_y + 16 - fc.start_z);
-    ctx.lineTo(fc.end_x + 16, fc.end_y + 16 - fc.start_z);
+    ctx.moveTo(fc.start.x + 16, fc.start.y + 16 - fc.start.z);
+    ctx.lineTo(fc.end.x + 16, fc.end.y + 16 - fc.start.z);
     ctx.stroke();
 
     ctx.strokeStyle = '#888';
