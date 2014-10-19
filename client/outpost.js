@@ -1217,7 +1217,7 @@ Physics.prototype = {
         adjust_velocity_for_ramp(actual_v, ramp_mode);
 
         // TODO: compute time limit for sliding
-        while (limit > 0 && actual_v.x != 0 || actual_v.y != 0 || actual_v.z != 0) {
+        while (limit > 0 && (actual_v.x != 0 || actual_v.y != 0 || actual_v.z != 0)) {
             --limit;
             var coll;
             if (ramp_mode == RAMP_NONE) {
