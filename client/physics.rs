@@ -340,7 +340,7 @@ fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
 
         // Otherwise, check_plane returned None.
         if seen_ramp_bottom.get() {
-            if seen_floor.get() {
+            if !seen_floor.get() {
                 Some(RampBottom)
             } else {
                 Some(Wall)
@@ -350,12 +350,12 @@ fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
         }
     };
 
-    try_return!(walk(corner, velocity, |cur, time, hit| {
+    for (time, cur, hit) in PlaneCollisions::new(corner, velocity).take(3 * CHUNK_SIZE as uint) {
         let base = cur - side * size;
 
         let bounds = hit_chunk_boundaries(cur, hit, side);
         if (bounds != 0) {
-            return Some(CollideResult::new(base, time, bounds, ChunkBorder));
+            return CollideResult::new(base, time, bounds, ChunkBorder);
         }
 
         let min = base / scalar(TILE_SIZE);
@@ -363,18 +363,14 @@ fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
         let facing = cur / scalar(TILE_SIZE);
 
         for (cur_hit, dirs) in HitComboIter::new(hit) {
-            //trace(cur_hit);
-            //trace(scalar(dirs));
             match my_check_plane(cur_hit.choose(&facing, &min),
                                  cur_hit.choose(&facing, &max),
                                  dir * cur_hit) {
-                Some(reason) => return Some(CollideResult::new(base, time, dirs, reason)),
+                Some(reason) => return CollideResult::new(base, time, dirs, reason),
                 None => {},
             }
         }
-
-        None
-    }));
+    }
 
     CollideResult {
         pos: pos,
@@ -409,7 +405,7 @@ fn hit_chunk_boundaries(cur: V3, hit: V3, side: V3) -> i32 {
 }
 
 
-struct CollisionIter {
+struct PlaneCollisions {
     units: i32,
     start: V3,
     velocity: V3,
@@ -417,8 +413,8 @@ struct CollisionIter {
     pixel_time: V3,
 }
 
-impl CollisionIter {
-    fn new(start: V3, velocity: V3) -> CollisionIter {
+impl PlaneCollisions {
+    fn new(start: V3, velocity: V3) -> PlaneCollisions {
         assert!(velocity != scalar(0));
 
         // We subdivide both time and space into `u` subpixels and `u` timesteps per second.  The
@@ -440,7 +436,7 @@ impl CollisionIter {
         let next = pixel_time.zip(&(first_plane - start).abs(),
             |&: p: i32, d: i32| if p != 0 { p * d } else { core::i32::MAX });
 
-        CollisionIter {
+        PlaneCollisions {
             units: units,
             start: start,
             velocity: velocity,
@@ -450,7 +446,7 @@ impl CollisionIter {
     }
 }
 
-impl Iterator<(i32, V3, V3)> for CollisionIter {
+impl Iterator<(i32, V3, V3)> for PlaneCollisions {
     #[inline]
     fn next(&mut self) -> Option<(i32, V3, V3)> {
         let time = min(self.next.x, min(self.next.y, self.next.z));
@@ -465,14 +461,6 @@ impl Iterator<(i32, V3, V3)> for CollisionIter {
 
         Some((time_ms, cur_pos, hit))
     }
-}
-
-fn walk(start: V3, velocity: V3,
-        callback: |V3, i32, V3| -> Option<CollideResult>) -> Option<CollideResult> {
-    for (time, pos, hit) in CollisionIter::new(start, velocity).take(3 * CHUNK_SIZE as uint) {
-        try_return_some!(callback(pos, time, hit));
-    }
-    None
 }
 
 
