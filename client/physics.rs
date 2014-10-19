@@ -310,7 +310,7 @@ fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
     let dir = velocity.signum();
     let corner = pos + side * size;
 
-    let my_check_plane = |min, max, dir| {
+    let my_check_plane = |&: min, max, dir| {
         let seen_ramp_bottom = Cell::new(false);
         let seen_floor = Cell::new(false);
 
@@ -358,15 +358,11 @@ fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
             return CollideResult::new(base, time, bounds, ChunkBorder);
         }
 
-        let min = base / scalar(TILE_SIZE);
-        let max = (base + size + scalar(TILE_SIZE - 1)) / scalar(TILE_SIZE);
-        let facing = cur / scalar(TILE_SIZE);
-
-        for (cur_hit, dirs) in HitComboIter::new(hit) {
-            match my_check_plane(cur_hit.choose(&facing, &min),
-                                 cur_hit.choose(&facing, &max),
-                                 dir * cur_hit) {
-                Some(reason) => return CollideResult::new(base, time, dirs, reason),
+        for (min, max, dir) in ContactPlanes::new(base, size, dir, hit) {
+            let min = min / scalar(TILE_SIZE);
+            let max = (max + scalar(TILE_SIZE - 1)) / scalar(TILE_SIZE);
+            match my_check_plane(min, max, dir) {
+                Some(reason) => return CollideResult::new(base, time, bits_from_hit(dir.abs()), reason),
                 None => {},
             }
         }
@@ -504,6 +500,10 @@ fn hit_from_bits(bits: i32) -> V3 {
             (bits) & 1)
 }
 
+fn bits_from_hit(hit: V3) -> i32 {
+    (hit.x << 2) | (hit.y << 1) | hit.z
+}
+
 
 
 struct Interleaving<A, B, I, J, F> {
@@ -549,5 +549,41 @@ impl<A, B, I, J, F> Iterator<(A, B)> for Interleaving<A, B, I, J, F>
                 Some((t, (self.combine)(a, b)))
             },
         }
+    }
+}
+
+
+struct ContactPlanes {
+    box_min: V3,
+    box_max: V3,
+    facing: V3,
+    dir_signs: V3,
+    hits: HitComboIter,
+}
+
+impl ContactPlanes {
+    fn new(base: V3, size: V3, dir_signs: V3, hit: V3) -> ContactPlanes {
+        ContactPlanes {
+            box_min: base,
+            box_max: base + size,
+            facing: base + size * dir_signs.is_positive(),
+            dir_signs: dir_signs,
+            hits: HitComboIter::new(hit),
+        }
+    }
+}
+
+impl Iterator<(V3, V3, V3)> for ContactPlanes {
+    fn next(&mut self) -> Option<(V3, V3, V3)> {
+        let cur_hit = match self.hits.next() {
+            None => return None,
+            Some((h, _)) => h,
+        };
+
+        let min = cur_hit.choose(&self.facing, &self.box_min);
+        let max = cur_hit.choose(&self.facing, &self.box_max);
+        let dir = cur_hit * self.dir_signs;
+
+        Some((min, max, dir))
     }
 }
