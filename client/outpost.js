@@ -1209,16 +1209,28 @@ Physics.prototype = {
 
         var limit = 5;
 
+        var ramp_mode = this._chunk_phys.is_on_ramp(f.start, f.size);
+        if (ramp_mode) {
+            actual_v.z = actual_v.x;
+        }
+
         // TODO: compute time limit for sliding
         while (limit > 0 && actual_v.x != 0 || actual_v.y != 0 || actual_v.z != 0) {
             --limit;
-            var coll = this._chunk_phys.collide(f.start, f.size, actual_v);
+            var coll;
+            if (!ramp_mode) {
+                coll = this._chunk_phys.collide(f.start, f.size, actual_v);
+            } else {
+                coll = this._chunk_phys.collide_ramp(f.start, f.size, actual_v);
+            }
 
             if (coll.t == 0) {
                 console.log('immediate collision with reason', coll.type);
 
-                if (coll.type == COLLIDE_WALL || coll.type == COLLIDE_NO_FLOOR ||
-                        coll.type == COLLIDE_CHUNK_BORDER) {
+                if (coll.type == COLLIDE_WALL ||
+                        coll.type == COLLIDE_NO_FLOOR ||
+                        coll.type == COLLIDE_CHUNK_BORDER ||
+                        coll.type == COLLIDE_RAMP_DYSFUNCTION) {
                     console.assert((coll.d & 7) != 0,
                             'immediate collision with no direction',
                             actual_v.x, actual_v.y, actual_v.z);
@@ -1230,18 +1242,19 @@ Physics.prototype = {
                         slide_y = Math.sign(actual_v.y);
                         actual_v.y = 0;
                     }
-                    if (coll.d & 1) {
-                        slide_z = Math.sign(actual_v.z);
-                        actual_v.z = 0;
-                    }
+                    // Can't slide against z-planes.
                     continue;
-                } else if (coll.type == COLLIDE_RAMP_BOTTOM) {
+                } else if (coll.type == COLLIDE_RAMP_ENTRY) {
                     // Only ramp type at the moment is RAMP_E
                     actual_v.z = actual_v.x;
-                    console.log('RAMP');
-                    coll = this._chunk_phys.collide(f.start, f.size, actual_v);
+                    ramp_mode = 1;
+                    continue;
+                } else if (coll.type == COLLIDE_RAMP_EXIT) {
+                    actual_v.z = 0;
+                    ramp_mode = 0;
+                    continue;
                 } else {
-                    console.assert('unknown collision type', coll.type);
+                    console.assert(false, 'unknown collision type', coll.type);
                 }
             }
 
@@ -1251,6 +1264,7 @@ Physics.prototype = {
             f.end = new Vec(coll.x, coll.y, coll.z);
             f.end_time = f.start_time + coll.t;
             f.actual_v = actual_v;
+            console.log('final reason:', coll.type);
             break;
         }
 
@@ -1308,7 +1322,11 @@ var COLLIDE_NO_FLOOR = 2;
 var COLLIDE_WALL = 3;
 var COLLIDE_SLIDE_END = 4;
 var COLLIDE_CHUNK_BORDER = 5;
-var COLLIDE_RAMP_BOTTOM = 6;
+var COLLIDE_TIMEOUT = 6;
+var COLLIDE_RAMP_ENTRY = 7;
+var COLLIDE_RAMP_EXIT = 8;
+var COLLIDE_RAMP_DYSFUNCTION = 9;
+var COLLIDE_RAMP_ANGLE_CHANGE = 10;
 
 function ChunkPhysics(chunk) {
     return new ChunkPhysicsAsm(chunk._shape);
@@ -1518,13 +1536,32 @@ function frame(ctx, now) {
         ctx.fillText(i, p[0] * 32, p[1] * 32 + 10);
     }
 
+    // Draw pony motion forecast
+    var fc = pony._forecast;
+
+    if (fc.start.z != 0) {
+        ctx.strokeStyle = '#880';
+        ctx.beginPath();
+        ctx.moveTo(fc.start.x + 16, fc.start.y + 16);
+        ctx.lineTo(fc.start.x + 16, fc.start.y + 16 - fc.start.z);
+        ctx.stroke();
+    }
+
+    if (fc.end.z != 0) {
+        ctx.strokeStyle = '#880';
+        ctx.beginPath();
+        ctx.moveTo(fc.end.x + 16, fc.end.y + 16);
+        ctx.lineTo(fc.end.x + 16, fc.end.y + 16 - fc.end.z);
+        ctx.stroke();
+    }
+
     ctx.strokeStyle = '#cc0';
     ctx.beginPath();
-    var fc = pony._forecast;
     ctx.moveTo(fc.start.x + 16, fc.start.y + 16 - fc.start.z);
-    ctx.lineTo(fc.end.x + 16, fc.end.y + 16 - fc.start.z);
+    ctx.lineTo(fc.end.x + 16, fc.end.y + 16 - fc.end.z);
     ctx.stroke();
 
+    // Draw ramp
     ctx.strokeStyle = '#888';
     ctx.beginPath();
     ctx.moveTo(5*32, 3*32);

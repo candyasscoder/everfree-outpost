@@ -233,7 +233,23 @@ pub extern fn collide_wrapper(input: &CollideArgs, output: &mut CollideResult) {
     *output = collide(input.pos, input.size, input.velocity);
 }
 
+#[export_name = "collide_ramp"]
+pub extern fn collide_ramp_wrapper(input: &CollideArgs, output: &mut CollideResult) {
+    *output = collide_ramp(input.pos, input.size, input.velocity);
+}
 
+pub struct IsOnRampArgs {
+    pos: V3,
+    size: V3,
+}
+
+#[export_name = "is_on_ramp"]
+pub extern fn is_on_ramp_wrapper(input: &IsOnRampArgs, output: &mut i32) {
+    *output = is_on_ramp(input.pos, input.size) as i32;
+}
+
+
+#[deriving(Eq, PartialEq)]
 #[repr(u8)]
 pub enum Shape {
     Empty = 0,
@@ -256,13 +272,42 @@ fn get_shape(pos: V3) -> Shape {
     unsafe { *SHAPE_BUFFER.offset(index as int) }
 }
 
+fn get_shape_below(mut pos: V3) -> Shape {
+    while pos.z >= 0 {
+        match get_shape(pos) {
+            Empty => {},
+            s => return s,
+        }
+        pos.z -= 1;
+    }
+    Empty
+}
+
 
 extern {
+    fn trace_ints(ptr: *const i32, len: i32);
     fn phys_trace(x: i32, y: i32, z: i32);
+    fn reset_phys_trace();
 }
 
 fn trace(p: V3) {
     unsafe { phys_trace(p.x, p.y, p.z) };
+}
+
+fn reset_trace() {
+    unsafe { reset_phys_trace() };
+}
+
+fn log(i: i32) {
+    unsafe { trace_ints(&i as *const i32, 1) };
+}
+
+fn log_v3(v: V3) {
+    log_arr(&[v.x, v.y, v.z]);
+}
+
+fn log_arr(ints: &[i32]) {
+    unsafe { trace_ints(ints.as_ptr(), ints.len() as i32) };
 }
 
 
@@ -291,7 +336,11 @@ pub enum CollideReason {
     Wall = 3,
     SlideEnd = 4,
     ChunkBorder = 5,
-    RampBottom = 6,
+    Timeout = 6,
+    RampEntry = 7,
+    RampExit = 8,
+    RampDysfunction = 9,
+    RampAngleChange = 10,
 }
 
 
@@ -346,7 +395,7 @@ fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
 
             if seen_ramp_bottom {
                 if !seen_floor {
-                    return collided(RampBottom);
+                    return collided(RampEntry);
                 } else {
                     return collided(Wall)
                 }
@@ -356,9 +405,9 @@ fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
 
     CollideResult {
         pos: pos,
-        time: 0,
+        time: 0,    // TODO: should set
         dirs: 0,
-        reason: ZeroVelocity,
+        reason: Timeout,
     }
 }
 
@@ -370,6 +419,74 @@ fn hit_chunk_boundaries(cur: V3, hit: V3, side: V3) -> i32 {
     
     (bound_x as i32 << 2) | (bound_y as i32 << 1) | (bound_z as i32)
 }
+
+
+fn collide_ramp(pos: V3, size: V3, velocity: V3) -> CollideResult {
+    if velocity == scalar(0) {
+        return CollideResult {
+            pos: pos,
+            time: 0,
+            dirs: 0,
+            reason: ZeroVelocity,
+        }
+    }
+
+    let downward = velocity.x < 0;
+    let down_sign = if downward { scalar(-1) } else { scalar(1) };
+
+    let side = if !downward { velocity.is_positive() } else { velocity.is_negative() };
+    let corner = pos + side * size;
+    let velocity_sign = velocity.signum();
+
+    reset_trace();
+
+    for (time, cur, hit) in PlaneCollisions::new(corner, velocity).take(3 * CHUNK_SIZE as uint) {
+        let base = cur - side * size;
+        let hit = hit * V3::new(1, 1, 0);
+        for (min, mut max, dir) in ContactPlanes::new(base, size, velocity_sign * down_sign, hit) {
+            let collided = |&:reason| {
+                CollideResult::new(base, time, bits_from_hit(dir.abs()), reason)
+            };
+
+            max.z = min.z;
+
+            let mut any_ramp = false;
+            let mut all_ramp = true;
+            for pos in plane_side(min, max, velocity_sign) {
+                trace(pos);
+                let shape = get_shape_below(pos);
+                if shape != RampE {
+                    all_ramp = false;
+                } else {
+                    any_ramp = true;
+                }
+            }
+
+            if downward && !any_ramp {
+                return collided(RampExit);
+            } else if !downward && !all_ramp {
+                return collided(RampAngleChange);
+            }
+        }
+    }
+
+    CollideResult {
+        pos: pos,
+        time: 0,
+        dirs: 0,
+        reason: Timeout,
+    }
+}
+
+fn is_on_ramp(pos: V3, size: V3) -> bool {
+    for pos in plane_side(pos, pos + size * V3::new(1, 1, 0), V3::new(0, 0, 1)) {
+        if get_shape_below(pos) == RampE {
+            return true;
+        }
+    }
+    false
+}
+
 
 
 struct PlaneCollisions {

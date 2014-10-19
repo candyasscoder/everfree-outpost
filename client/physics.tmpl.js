@@ -35,30 +35,51 @@
 
         var abort = env.abort;
         var _llvm_trap = env.abort;
+        var _trace_ints = env.traceInts;
         var _phys_trace = env.physTrace;
+        var _reset_phys_trace = env.resetPhysTrace;
         var Math_imul = global.Math.imul;
 
         // INSERT_EMSCRIPTEN_FUNCTIONS
 
         return ({
             collide: _collide,
+            collide_ramp: _collide_ramp,
+            is_on_ramp: _is_on_ramp,
         });
     });
 
-    var module_env = {
-        abort: function() {
-            console.assert(false, 'abort');
-            throw 'abort';
-        },
-        physTrace: function(x, y, z) {
-            window.physTrace.push([x,y,z]);
-        },
-        STACK_START: STACK_START,
-        STACK_END: STACK_END,
+    var module_env = function(buffer) {
+        return ({
+            abort: function() {
+                console.assert(false, 'abort');
+                throw 'abort';
+            },
+
+            traceInts: function(ptr, len) {
+                var arr = [];
+                var view = new Int32Array(buffer);
+                for (var i = 0; i < len; ++i) {
+                    arr.push(view[(ptr >> 2) + i]);
+                }
+                console.log(arr);
+            },
+
+            physTrace: function(x, y, z) {
+                window.physTrace.push([x,y,z]);
+            },
+
+            resetPhysTrace: function() {
+                window.physTrace = [];
+            },
+
+            STACK_START: STACK_START,
+            STACK_END: STACK_END,
+        });
     };
 
     var init_module = (function(buffer) {
-        return module(window, module_env, buffer);
+        return module(window, module_env(buffer), buffer);
     });
 
 
@@ -95,16 +116,16 @@
     }
 
     ChunkPhysicsAsm.prototype = {
+        '_storeVec': function(index, v) {
+            this.input[index + 0] = v.x;
+            this.input[index + 1] = v.y;
+            this.input[index + 2] = v.z;
+        },
+
         'collide': function(pos, size, velocity) {
-            this.input[0] = pos.x;
-            this.input[1] = pos.y;
-            this.input[2] = pos.z;
-            this.input[3] = size.x;
-            this.input[4] = size.y;
-            this.input[5] = size.z;
-            this.input[6] = velocity.x;
-            this.input[7] = velocity.y;
-            this.input[8] = velocity.z;
+            this._storeVec(0, pos);
+            this._storeVec(3, size);
+            this._storeVec(6, velocity);
 
             this.asm.collide(INPUT_START, OUTPUT_START);
 
@@ -118,6 +139,34 @@
             });
             //console.log(result);
             return result;
+        },
+
+        'collide_ramp': function(pos, size, velocity) {
+            this._storeVec(0, pos);
+            this._storeVec(3, size);
+            this._storeVec(6, velocity);
+
+            this.asm.collide_ramp(INPUT_START, OUTPUT_START);
+
+            var result = ({
+                x: this.output[0],
+                y: this.output[1],
+                z: this.output[2],
+                t: this.output[3],
+                d: this.output[4],
+                type: this.output[5],
+            });
+            //console.log(result);
+            return result;
+        },
+
+        'is_on_ramp': function(pos, size) {
+            this._storeVec(0, pos);
+            this._storeVec(3, size);
+
+            this.asm.is_on_ramp(INPUT_START, OUTPUT_START);
+
+            return this.output[0] != 0;
         },
     };
 
