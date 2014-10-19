@@ -243,9 +243,14 @@ pub struct IsOnRampArgs {
     size: V3,
 }
 
-#[export_name = "is_on_ramp"]
-pub extern fn is_on_ramp_wrapper(input: &IsOnRampArgs, output: &mut i32) {
-    *output = is_on_ramp(input.pos, input.size) as i32;
+#[export_name = "get_ramp_angle"]
+pub extern fn get_ramp_angle_wrapper(input: &IsOnRampArgs, output: &mut i32) {
+    *output = get_ramp_angle(input.pos, input.size) as i32;
+}
+
+#[export_name = "get_next_ramp_angle"]
+pub extern fn get_next_ramp_angle_wrapper(input: &CollideArgs, output: &mut i32) {
+    *output = get_next_ramp_angle(input.pos, input.size, input.velocity) as i32;
 }
 
 
@@ -256,6 +261,21 @@ pub enum Shape {
     Floor = 1,
     Solid = 2,
     RampE = 3,
+    RampW = 4,
+    RampS = 5,
+    RampN = 6,
+    RampTop = 7,
+}
+
+#[deriving(Eq, PartialEq)]
+#[repr(i32)]
+pub enum RampAngle {
+    NoRamp = 0,
+    Flat = 1,
+    XPos = 2,
+    XNeg = 3,
+    YPos = 4,
+    YNeg = 5,
 }
 
 static TILE_SIZE: i32 = 32;
@@ -272,15 +292,44 @@ fn get_shape(pos: V3) -> Shape {
     unsafe { *SHAPE_BUFFER.offset(index as int) }
 }
 
-fn get_shape_below(mut pos: V3) -> Shape {
+fn get_shape_below(mut pos: V3) -> (Shape, i32) {
     while pos.z >= 0 {
         match get_shape(pos) {
-            Empty => {},
-            s => return s,
+            Empty | RampTop => {},
+            s => return (s, pos.z),
         }
         pos.z -= 1;
     }
-    Empty
+    (Empty, 0)
+}
+
+impl Shape {
+    fn is_ramp(&self) -> bool {
+        match *self {
+            RampE | RampW | RampS | RampN => true,
+            _ => false,
+        }
+    }
+
+    fn ramp_angle(&self) -> RampAngle {
+        match *self {
+            RampE => XPos,
+            RampW => XNeg,
+            RampS => YPos,
+            RampN => YNeg,
+            _ => NoRamp,
+        }
+    }
+
+    fn ramp_entry_dir(&self) -> V3 {
+        match *self {
+            RampE => V3::new( 1,  0,  0),
+            RampW => V3::new(-1,  0,  0),
+            RampS => V3::new( 0,  1,  0),
+            RampN => V3::new( 0, -1,  0),
+            _ => fail!(),
+        }
+    }
 }
 
 
@@ -367,7 +416,7 @@ fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
         }
 
         for (min, max, dir) in ContactPlanes::new(base, size, velocity.signum(), hit) {
-            let mut seen_ramp_bottom = false;
+            let mut seen_ramp = NoRamp;
             let mut seen_floor = false;
 
             let collided = |&:reason| {
@@ -381,19 +430,22 @@ fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
                 if pos.z == min_z {
                     match shape {
                         Floor => { seen_floor = true; },
-                        RampE if dir == V3::new(1, 0, 0) => { seen_ramp_bottom = true; },
+                        RampTop => { seen_ramp = Flat; },
                         Empty => return collided(NoFloor),
+                        s if s.is_ramp() && dir == s.ramp_entry_dir() => {
+                            seen_ramp = s.ramp_angle();
+                        },
                         _ => return collided(Wall),
                     }
                 } else {
                     match shape {
-                        Empty => {},
+                        Empty | RampTop => {},
                         _ => return collided(Wall),
                     }
                 }
             }
 
-            if seen_ramp_bottom {
+            if seen_ramp != NoRamp {
                 if !seen_floor {
                     return collided(RampEntry);
                 } else {
@@ -431,41 +483,58 @@ fn collide_ramp(pos: V3, size: V3, velocity: V3) -> CollideResult {
         }
     }
 
-    let downward = velocity.x < 0;
-    let down_sign = if downward { scalar(-1) } else { scalar(1) };
+    // When moving on a ramp:
+    //  - When moving downward, detect moving OUT of ramp, and indicate RampExit
+    //  - When moving upward, detect moving IN to the flat region, and indicate RampAngleChange
+    // When moving on a flat region (ramp top):
+    //  - Detect moving OUT of the ramp, and indicate RampExit
+    //  - Detect moving OUT of the flat region, and indicate RampAngleChange
 
-    let side = if !downward { velocity.is_positive() } else { velocity.is_negative() };
+    let downward = velocity.z < 0;
+    let on_flat = velocity.z == 0;
+
+    // True if we're watching for moving OUT of a region.
+    let watch_out = downward || on_flat;
+    let out_sign = if downward || on_flat { scalar(-1) } else { scalar(1) };
+
+    let side = if !watch_out { velocity.is_positive() } else { velocity.is_negative() };
     let corner = pos + side * size;
     let velocity_sign = velocity.signum();
-
-    reset_trace();
 
     for (time, cur, hit) in PlaneCollisions::new(corner, velocity).take(3 * CHUNK_SIZE as uint) {
         let base = cur - side * size;
         let hit = hit * V3::new(1, 1, 0);
-        for (min, mut max, dir) in ContactPlanes::new(base, size, velocity_sign * down_sign, hit) {
+        for (min, mut max, dir) in ContactPlanes::new(base, size, velocity_sign * out_sign, hit) {
             let collided = |&:reason| {
                 CollideResult::new(base, time, bits_from_hit(dir.abs()), reason)
             };
 
-            max.z = min.z;
+            max.z = min.z + 1;
 
-            let mut any_ramp = false;
-            let mut all_ramp = true;
-            for pos in plane_side(min, max, velocity_sign) {
-                trace(pos);
-                let shape = get_shape_below(pos);
-                if shape != RampE {
-                    all_ramp = false;
-                } else {
-                    any_ramp = true;
+            if !on_flat {
+                let mut any_ramp = false;
+                let mut all_ramp = true;
+                for pos in plane_side(min, max, velocity_sign) {
+                    let (shape, _) = get_shape_below(pos);
+                    if !shape.is_ramp() {
+                        all_ramp = false;
+                    } else {
+                        any_ramp = true;
+                    }
                 }
-            }
 
-            if downward && !any_ramp {
-                return collided(RampExit);
-            } else if !downward && !all_ramp {
-                return collided(RampAngleChange);
+                if downward && !any_ramp {
+                    return collided(RampExit);
+                } else if !downward && !all_ramp {
+                    return collided(RampAngleChange);
+                }
+            } else {
+                // TODO: on_flat handling is pretty hacky at the moment.
+                match get_next_ramp_angle(base, size, velocity) {
+                    NoRamp => return collided(RampExit),
+                    Flat => {},
+                    _ => return collided(RampAngleChange),
+                }
             }
         }
     }
@@ -478,13 +547,48 @@ fn collide_ramp(pos: V3, size: V3, velocity: V3) -> CollideResult {
     }
 }
 
-fn is_on_ramp(pos: V3, size: V3) -> bool {
+// Get the ramp angle below a region.
+//  - NoRamp if over only Floor, or over tiles other than Floor or Ramp
+//  - Flat if over some Floor, with some Ramp at a lower z-level
+//  - XPos/YPos/etc if over Ramp, possibly with some Floor at a lower z-level
+fn get_ramp_angle(pos: V3, size: V3) -> RampAngle {
+    let mut top_ramp_z = -1;
+    let mut top_ramp = NoRamp;
+    let mut top_floor_z = -1;
+
     for pos in plane_side(pos, pos + size * V3::new(1, 1, 0), V3::new(0, 0, 1)) {
-        if get_shape_below(pos) == RampE {
-            return true;
+        match get_shape_below(pos) {
+            (Floor, z) => {
+                if z > top_floor_z {
+                    top_floor_z = z;
+                }
+            },
+            (s, z) if s.is_ramp() => {
+                if z > top_ramp_z {
+                    top_ramp_z = z;
+                    top_ramp = s.ramp_angle();
+                }
+            },
+            _ => return NoRamp,
         }
     }
-    false
+
+    if top_floor_z > top_ramp_z {
+        if top_ramp == NoRamp {
+            NoRamp
+        } else {
+            Flat
+        }
+    } else {
+        top_ramp
+    }
+}
+
+// Get the ramp angle opposite the plane in the direction of travel.  This should be used only when
+// the region defined by `pos` and `size` is adjacent to a ramp entry in the direction of travel.
+fn get_next_ramp_angle(pos: V3, size: V3, velocity: V3) -> RampAngle {
+    // TODO: this could probably be made more efficient.
+    get_ramp_angle(pos + velocity.signum(), size)
 }
 
 

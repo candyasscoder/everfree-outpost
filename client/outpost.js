@@ -675,6 +675,10 @@ var SHAPE_EMPTY = 0;
 var SHAPE_FLOOR = 1;
 var SHAPE_SOLID = 2;
 var SHAPE_RAMP_E = 3;
+var SHAPE_RAMP_W = 4;
+var SHAPE_RAMP_S = 6;
+var SHAPE_RAMP_N = 5;
+var SHAPE_RAMP_TOP = 7;
 
 function Chunk() {
     var count = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
@@ -1209,16 +1213,14 @@ Physics.prototype = {
 
         var limit = 5;
 
-        var ramp_mode = this._chunk_phys.is_on_ramp(f.start, f.size);
-        if (ramp_mode) {
-            actual_v.z = actual_v.x;
-        }
+        var ramp_mode = this._chunk_phys.get_ramp_angle(f.start, f.size);
+        adjust_velocity_for_ramp(actual_v, ramp_mode);
 
         // TODO: compute time limit for sliding
         while (limit > 0 && actual_v.x != 0 || actual_v.y != 0 || actual_v.z != 0) {
             --limit;
             var coll;
-            if (!ramp_mode) {
+            if (ramp_mode == RAMP_NONE) {
                 coll = this._chunk_phys.collide(f.start, f.size, actual_v);
             } else {
                 coll = this._chunk_phys.collide_ramp(f.start, f.size, actual_v);
@@ -1242,16 +1244,23 @@ Physics.prototype = {
                         slide_y = Math.sign(actual_v.y);
                         actual_v.y = 0;
                     }
-                    // Can't slide against z-planes.
+                    if (coll.d == 1) {
+                        // The only thing we hit was a z-plane, which we can't
+                        // slide against.
+                        break;
+                    }
                     continue;
-                } else if (coll.type == COLLIDE_RAMP_ENTRY) {
+                } else if (coll.type == COLLIDE_RAMP_ENTRY ||
+                        coll.type == COLLIDE_RAMP_ANGLE_CHANGE) {
                     // Only ramp type at the moment is RAMP_E
-                    actual_v.z = actual_v.x;
-                    ramp_mode = 1;
+                    ramp_mode = this._chunk_phys.get_next_ramp_angle(f.start, f.size, actual_v);
+                    console.assert(!(coll.type == COLLIDE_RAMP_ENTRY && ramp_mode == RAMP_NONE),
+                            'collided with a ramp entry, but there is no ramp here');
+                    adjust_velocity_for_ramp(actual_v, ramp_mode);
                     continue;
                 } else if (coll.type == COLLIDE_RAMP_EXIT) {
-                    actual_v.z = 0;
-                    ramp_mode = 0;
+                    ramp_mode = RAMP_NONE;
+                    adjust_velocity_for_ramp(actual_v, ramp_mode);
                     continue;
                 } else {
                     console.assert(false, 'unknown collision type', coll.type);
@@ -1264,7 +1273,6 @@ Physics.prototype = {
             f.end = new Vec(coll.x, coll.y, coll.z);
             f.end_time = f.start_time + coll.t;
             f.actual_v = actual_v;
-            console.log('final reason:', coll.type);
             break;
         }
 
@@ -1328,8 +1336,31 @@ var COLLIDE_RAMP_EXIT = 8;
 var COLLIDE_RAMP_DYSFUNCTION = 9;
 var COLLIDE_RAMP_ANGLE_CHANGE = 10;
 
+var RAMP_NONE = 0;
+var RAMP_FLAT = 1;
+var RAMP_X_POS = 2;
+var RAMP_X_NEG = 3;
+var RAMP_Y_POS = 4;
+var RAMP_Y_NEG = 5;
+
 function ChunkPhysics(chunk) {
     return new ChunkPhysicsAsm(chunk._shape);
+}
+
+function adjust_velocity_for_ramp(velocity, ramp) {
+    if (ramp == RAMP_NONE || ramp == RAMP_FLAT) {
+        velocity.z = 0;
+    } else if (ramp == RAMP_X_POS) {
+        velocity.z = velocity.x;
+    } else if (ramp == RAMP_X_NEG) {
+        velocity.z = -velocity.x;
+    } else if (ramp == RAMP_Y_POS) {
+        velocity.z = velocity.y;
+    } else if (ramp == RAMP_Y_NEG) {
+        velocity.z = -velocity.y;
+    } else {
+        console.assert(false, 'bad ramp angle', ramp);
+    }
 }
 
 
@@ -1495,10 +1526,19 @@ chunks[0].setShape(5, 3, 0, SHAPE_RAMP_E);
 chunks[0].setShape(5, 4, 0, SHAPE_RAMP_E);
 chunks[0].setShape(6, 3, 1, SHAPE_RAMP_E);
 chunks[0].setShape(6, 4, 1, SHAPE_RAMP_E);
+chunks[0].setShape(6, 3, 2, SHAPE_RAMP_TOP);
+chunks[0].setShape(6, 4, 2, SHAPE_RAMP_TOP);
 chunks[0].setShape(7, 3, 2, SHAPE_FLOOR);
 chunks[0].setShape(7, 4, 2, SHAPE_FLOOR);
 chunks[0].setShape(8, 3, 2, SHAPE_FLOOR);
 chunks[0].setShape(8, 4, 2, SHAPE_FLOOR);
+
+chunks[0].setShape(7, 6, 0, SHAPE_RAMP_S);
+chunks[0].setShape(8, 6, 0, SHAPE_RAMP_S);
+chunks[0].setShape(7, 5, 1, SHAPE_RAMP_S);
+chunks[0].setShape(8, 5, 1, SHAPE_RAMP_S);
+chunks[0].setShape(7, 5, 2, SHAPE_RAMP_TOP);
+chunks[0].setShape(8, 5, 2, SHAPE_RAMP_TOP);
 
 var planner = new RenderPlanner();
 var phys = new Physics(new ChunkPhysics(chunks[0]));
@@ -1574,7 +1614,10 @@ function frame(ctx, now) {
     ctx.moveTo(7*32, 1*32);
     ctx.lineTo(7*32, 3*32);
     ctx.moveTo(9*32, 3*32);
-    ctx.lineTo(9*32, 5*32);
+    ctx.lineTo(9*32, 7*32);
+    ctx.lineTo(7*32, 7*32);
+    ctx.lineTo(7*32, 3*32);
+    ctx.moveTo(7*32, 5*32);
     ctx.lineTo(5*32, 5*32);
     ctx.stroke();
 

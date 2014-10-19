@@ -43,7 +43,7 @@ $EMSCRIPTEN_HOME/bin/llvm-as build/physics.clean.ll -o build/physics.bc
 $EMSCRIPTEN_HOME/bin/opt build/physics.bc \
     -strip-debug \
     -internalize \
-    -internalize-public-api-list=collide,collide_ramp,is_on_ramp \
+    -internalize-public-api-list=collide,collide_ramp,get_ramp_angle,get_next_ramp_angle \
     -globaldce \
     -pnacl-abi-simplify-preopt -pnacl-abi-simplify-postopt \
     -enable-emscripten-cxx-exceptions \
@@ -66,6 +66,14 @@ awk '
                 break;
             print;
         }
+    }
+    /INSERT_EMSCRIPTEN_STATIC/ {
+        getline < "build/physics.o.js";
+        getline < "build/physics.o.js";
+        start = index($0, "[");
+        end = index($0, "]");
+        print substr($0, start, end - start + 1);
+        getline;
     }
     { print }
     ' physics.tmpl.js >build/physics.js
