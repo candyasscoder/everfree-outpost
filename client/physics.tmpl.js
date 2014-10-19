@@ -1,20 +1,22 @@
 (function() {
-    var buffer = new ArrayBuffer(8192);
+    // Memory layout
 
-    var STACK_SIZE = 3072;
-    var IO_SIZE = 512;
-    var INPUT_ADDR = STACK_SIZE;
-    var OUTPUT_ADDR = STACK_SIZE + IO_SIZE;
-    var PREFIX_SIZE = STACK_SIZE + 2 * IO_SIZE;
+    var STACK_START = 8;    // Must avoid storing data at address 0
+    var STACK_END = 3 * 1024;
+    var STACK_SIZE = STACK_END - STACK_START;
 
-    function abort() {
-        console.assert(false, 'abort');
-        throw 'abort';
-    }
+    var OUTPUT_START = STACK_END;
+    var OUTPUT_SIZE = 512;
+    var OUTPUT_END = OUTPUT_START + OUTPUT_SIZE;
 
-    function physTrace(x, y, z) {
-        window.physTrace.push([x,y,z]);
-    }
+    var INPUT_START = OUTPUT_END;
+    var INPUT_SIZE = 512;
+    var INPUT_END = INPUT_START + INPUT_SIZE;
+
+    var HEAP_START = INPUT_END;
+
+
+    // asm.js module
 
     var module = (function(global, env, buffer) {
         'use asm';
@@ -28,8 +30,8 @@
         var HEAPF32 = new global.Float32Array(buffer);
         var HEAPF64 = new global.Float64Array(buffer);
 
-        var STACKTOP = 0;
-        var STACK_MAX = 3072;
+        var STACKTOP = env.STACK_START|0;
+        var STACK_MAX = env.STACK_END|0;
 
         var abort = env.abort;
         var _llvm_trap = env.abort;
@@ -43,26 +45,53 @@
         });
     });
 
+    var module_env = {
+        abort: function() {
+            console.assert(false, 'abort');
+            throw 'abort';
+        },
+        physTrace: function(x, y, z) {
+            window.physTrace.push([x,y,z]);
+        },
+        STACK_START: STACK_START,
+        STACK_END: STACK_END,
+    };
+
+    var init_module = (function(buffer) {
+        return module(window, module_env, buffer);
+    });
+
+
+    // Helper functions
+
+    function memcpy(dest_buffer, dest_offset, src_buffer, src_offset, len) {
+        console.log(dest_buffer, dest_offset, len);
+        var dest = new Int8Array(dest_buffer, dest_offset, len);
+        var src = new Int8Array(src_buffer, src_offset, len);
+        dest.set(src);
+    }
+
+    function make_region(type, buffer, offset, byte_len) {
+        var elem_bytes = type.BYTES_PER_ELEMENT;
+        console.assert(byte_len % elem_bytes == 0,
+                'make_region: byte_len must be a multiple of BYTES_PER_ELEMENT');
+        var len = (byte_len / elem_bytes)|0;
+        return new type(buffer, offset, len);
+    }
+
+
+    // Main ChunkPhysicsAsm implementation
 
     function ChunkPhysicsAsm(shapes) {
-        var byteLen = shapes.byteLength;
-        console.assert(byteLen % 4 == 0,
-                'ChunkPhysicsAsm: shape buffer must be a multiple of 4 bytes');
-        var wordLen = (byteLen / 4)|0;
+        // Buffer size must be a multiple of 8 (for HEAPF64).
+        var heap_size = (shapes.byteLength + 7) & ~7;
+        this.buffer = new ArrayBuffer(HEAP_START + heap_size);
 
-        // Buffer size must be a multiple of 8.
-        var bufferLen = (byteLen + 7) & ~7;
-        this.buffer = new ArrayBuffer(PREFIX_SIZE + bufferLen);
+        this.asm = init_module(this.buffer);
 
-        var input_array = new Int32Array(shapes.buffer, shapes.byteOffset, wordLen);
-        var output_array = new Int32Array(this.buffer, PREFIX_SIZE, wordLen);
-        for (var i = 0; i < output_array.length; ++i) {
-            output_array[i] = input_array[i];
-        }
-
-        this.asm = module(window, {abort: abort, physTrace: physTrace}, this.buffer);
-        this.input = new Int32Array(this.buffer, INPUT_ADDR, IO_SIZE);
-        this.output = new Int32Array(this.buffer, OUTPUT_ADDR, IO_SIZE);
+        this.input = make_region(Int32Array, this.buffer, INPUT_START, INPUT_SIZE);
+        this.output = make_region(Int32Array, this.buffer, OUTPUT_START, OUTPUT_SIZE);
+        memcpy(this.buffer, HEAP_START, shapes.buffer, shapes.byteOffset, shapes.byteLength);
     }
 
     ChunkPhysicsAsm.prototype = {
@@ -77,7 +106,7 @@
             this.input[7] = velocity.y;
             this.input[8] = velocity.z;
 
-            this.asm.collide(INPUT_ADDR, OUTPUT_ADDR);
+            this.asm.collide(INPUT_START, OUTPUT_START);
 
             var result = ({
                 x: this.output[0],
