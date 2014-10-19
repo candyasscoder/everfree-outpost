@@ -403,7 +403,7 @@ fn hit_chunk_boundaries(cur: V3, hit: V3, side: V3) -> i32 {
     let bound_y = hit.y != 0 && cur.y == chunk_side.y;
     let bound_z = hit.z != 0 && cur.z == chunk_side.z;
     
-    (bound_x as i32 << 8) | (bound_y as i32 << 4) | (bound_z as i32)
+    (bound_x as i32 << 2) | (bound_y as i32 << 1) | (bound_z as i32)
 }
 
 
