@@ -1207,8 +1207,11 @@ Physics.prototype = {
         var slide_y = 0;
         var slide_z = 0;
 
+        var limit = 5;
+
         // TODO: compute time limit for sliding
-        while (actual_v.x != 0 || actual_v.y != 0 || actual_v.z != 0) {
+        while (limit > 0 && actual_v.x != 0 || actual_v.y != 0 || actual_v.z != 0) {
+            --limit;
             var coll = this._chunk_phys.collide(f.start, f.size, actual_v);
 
             if (coll.t == 0) {
@@ -1216,18 +1219,18 @@ Physics.prototype = {
 
                 if (coll.type == COLLIDE_WALL || coll.type == COLLIDE_NO_FLOOR ||
                         coll.type == COLLIDE_CHUNK_BORDER) {
-                    console.assert((coll.d & 0x111) != 0,
+                    console.assert((coll.d & 7) != 0,
                             'immediate collision with no direction',
                             actual_v.x, actual_v.y, actual_v.z);
-                    if (coll.d & 0x100) {
+                    if (coll.d & 4) {
                         slide_x = Math.sign(actual_v.x);
                         actual_v.x = 0;
                     }
-                    if (coll.d & 0x010) {
+                    if (coll.d & 2) {
                         slide_y = Math.sign(actual_v.y);
                         actual_v.y = 0;
                     }
-                    if (coll.d & 0x001) {
+                    if (coll.d & 1) {
                         slide_z = Math.sign(actual_v.z);
                         actual_v.z = 0;
                     }
@@ -1249,6 +1252,10 @@ Physics.prototype = {
             f.end_time = f.start_time + coll.t;
             f.actual_v = actual_v;
             break;
+        }
+
+        if (limit == 0) {
+            console.log('hit limit!!');
         }
 
         // Can't move or slide along any axis.  Give up, and leave the forecast

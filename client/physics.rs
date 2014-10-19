@@ -292,6 +292,8 @@ pub enum CollideReason {
     RampBottom = 6,
 }
 
+
+
 fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
     if velocity == scalar(0) {
         return CollideResult {
@@ -358,13 +360,9 @@ fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
         let max = (base + size + scalar(TILE_SIZE - 1)) / scalar(TILE_SIZE);
         let facing = cur / scalar(TILE_SIZE);
 
-        let all_dirs = (hit.x << 8) | (hit.y << 4) | (hit.z);
-        for &dirs in [0x100_i32, 0x010, 0x001, 0x110, 0x011, 0x101, 0x111].iter() {
-            if (dirs & !all_dirs) != 0 {
-                continue;
-            }
-
-            let cur_hit = V3::new((dirs >> 8) & 1, (dirs >> 4) & 1, (dirs >> 0) & 1);
+        for (cur_hit, dirs) in HitComboIter::new(hit) {
+            //trace(cur_hit);
+            //trace(scalar(dirs));
             match my_check_plane(cur_hit.choose(&facing, &min),
                                  cur_hit.choose(&facing, &max),
                                  dir * cur_hit) {
@@ -408,43 +406,107 @@ fn hit_chunk_boundaries(cur: V3, hit: V3, side: V3) -> i32 {
     (bound_x as i32 << 8) | (bound_y as i32 << 4) | (bound_z as i32)
 }
 
-fn walk(pos: V3, velocity: V3,
-        callback: |V3, i32, V3| -> Option<CollideResult>) -> Option<CollideResult> {
-    assert!(velocity != scalar(0));
 
-    // We subdivide both time and space into `u` subpixels and `u` timesteps per second.  The
-    // result is that all interesting events occur at an integer number of subpixels and timesteps.
-    let units =
-        lcm(if velocity.x != 0 { velocity.x.abs() } else { 1 },
-        lcm(if velocity.y != 0 { velocity.y.abs() } else { 1 },
-            if velocity.z != 0 { velocity.z.abs() } else { 1 }));
+struct CollisionIter {
+    units: i32,
+    start: V3,
+    velocity: V3,
+    next: V3,
+    pixel_time: V3,
+}
 
-    // Find the coordinates of the first plane we will hit in each direction.
-    let side = velocity.is_positive();
-    let first_plane =
-        (pos + side * scalar(TILE_SIZE - 1)) / scalar(TILE_SIZE) * scalar(TILE_SIZE);
+impl CollisionIter {
+    fn new(start: V3, velocity: V3) -> CollisionIter {
+        assert!(velocity != scalar(0));
 
-    // For each axis, the time (in `1/u`-second timesteps) to move one pixel.
-    let pixel_time = velocity.map(|&: a: i32| if a != 0 { units / a.abs() } else { 0 });
+        // We subdivide both time and space into `u` subpixels and `u` timesteps per second.  The
+        // result is that all interesting events occur at an integer number of subpixels and timesteps.
+        let units =
+            lcm(if velocity.x != 0 { velocity.x.abs() } else { 1 },
+            lcm(if velocity.y != 0 { velocity.y.abs() } else { 1 },
+                if velocity.z != 0 { velocity.z.abs() } else { 1 }));
 
-    // For each axis, the timestapm of the next collision.
-    let mut next = pixel_time.zip(&(first_plane - pos).abs(),
-        |&: p: i32, d: i32| if p != 0 { p * d } else { core::i32::MAX });
-    // The amount of time spent so far.
-    let mut time = 0;
+        // Find the coordinates of the first plane we will hit in each direction.
+        let side = velocity.is_positive();
+        let first_plane =
+            (start + side * scalar(TILE_SIZE - 1)) / scalar(TILE_SIZE) * scalar(TILE_SIZE);
 
-    for step in range(0, CHUNK_SIZE * 3) {
-        time = min(next.x, min(next.y, next.z));
+        // For each axis, the time (in `1/u`-second timesteps) to move one pixel.
+        let pixel_time = velocity.map(|&: a: i32| if a != 0 { units / a.abs() } else { 0 });
+
+        // For each axis, the timestapm of the next collision.
+        let next = pixel_time.zip(&(first_plane - start).abs(),
+            |&: p: i32, d: i32| if p != 0 { p * d } else { core::i32::MAX });
+
+        CollisionIter {
+            units: units,
+            start: start,
+            velocity: velocity,
+            next: next,
+            pixel_time: pixel_time,
+        }
+    }
+}
+
+impl Iterator<(i32, V3, V3)> for CollisionIter {
+    #[inline]
+    fn next(&mut self) -> Option<(i32, V3, V3)> {
+        let time = min(self.next.x, min(self.next.y, self.next.z));
         // Check which axes have a collision (may be more than one).
-        let hit = next.map(|&: a: i32| (a == time) as i32);
+        let hit = self.next.map(|&: a: i32| (a == time) as i32);
         // Advance the next collision time by `pixel_time * TILE_SIZE` steps for each axis that is
         // currently colliding.
-        next = next + hit * pixel_time * scalar(TILE_SIZE);
+        self.next = self.next + hit * self.pixel_time * scalar(TILE_SIZE);
 
-        let cur_pos = pos + velocity * scalar(time) / scalar(units);
-        let cur_time = 1000 * time / units;
-        try_return_some!(callback(cur_pos, cur_time, hit));
+        let cur_pos = self.start + self.velocity * scalar(time) / scalar(self.units);
+        let time_ms = 1000 * time / self.units;
+
+        Some((time_ms, cur_pos, hit))
     }
+}
 
+fn walk(start: V3, velocity: V3,
+        callback: |V3, i32, V3| -> Option<CollideResult>) -> Option<CollideResult> {
+    for (time, pos, hit) in CollisionIter::new(start, velocity).take(3 * CHUNK_SIZE as uint) {
+        try_return_some!(callback(pos, time, hit));
+    }
     None
+}
+
+
+static HIT_COMBO_ORDER: u32 = 0b111_110_011_101_100_010_001_000;
+
+struct HitComboIter {
+    cur: u32,
+    mask: u8,
+}
+
+impl HitComboIter {
+    fn new(hit: V3) -> HitComboIter {
+        HitComboIter {
+            cur: HIT_COMBO_ORDER,
+            mask: ((hit.x << 2) | (hit.y << 1) | (hit.z)) as u8,
+        }
+    }
+}
+
+impl Iterator<(V3, i32)> for HitComboIter {
+    #[inline]
+    fn next(&mut self) -> Option<(V3, i32)> {
+        self.cur >>= 3;
+        let inv_mask = !self.mask as u32 & 0b111;
+        while (self.cur & inv_mask) != 0 {
+            self.cur >>= 3;
+        }
+
+        if self.cur == 0 {
+            return None;
+        }
+
+        let cur_bits = (self.cur & 0b111) as i32;
+        Some((V3::new((cur_bits & 0b100) >> 2,
+                      (cur_bits & 0b010) >> 1,
+                      (cur_bits & 0b001)),
+              cur_bits))
+    }
 }
