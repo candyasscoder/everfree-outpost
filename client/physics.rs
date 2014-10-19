@@ -307,48 +307,7 @@ fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
     }
 
     let side = velocity.is_positive();
-    let dir = velocity.signum();
     let corner = pos + side * size;
-
-    let my_check_plane = |&: min, max, dir| {
-        let seen_ramp_bottom = Cell::new(false);
-        let seen_floor = Cell::new(false);
-
-        try_return_some!(check_plane(min, max, dir, |pos| {
-            //trace(pos);
-            let shape = get_shape(pos);
-            if pos.z == min.z {
-                match shape {
-                    Floor => {
-                        seen_floor.set(true);
-                        None
-                    },
-                    RampE if dir == V3::new(1, 0, 0) => {
-                        seen_ramp_bottom.set(true);
-                        None
-                    },
-                    Empty => Some(NoFloor),
-                    _ => Some(Wall),
-                }
-            } else {
-                match shape {
-                    Empty => None,
-                    _ => Some(Wall),
-                }
-            }
-        }));
-
-        // Otherwise, check_plane returned None.
-        if seen_ramp_bottom.get() {
-            if !seen_floor.get() {
-                Some(RampBottom)
-            } else {
-                Some(Wall)
-            }
-        } else {
-            None
-        }
-    };
 
     for (time, cur, hit) in PlaneCollisions::new(corner, velocity).take(3 * CHUNK_SIZE as uint) {
         let base = cur - side * size;
@@ -358,12 +317,39 @@ fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
             return CollideResult::new(base, time, bounds, ChunkBorder);
         }
 
-        for (min, max, dir) in ContactPlanes::new(base, size, dir, hit) {
-            let min = min / scalar(TILE_SIZE);
-            let max = (max + scalar(TILE_SIZE - 1)) / scalar(TILE_SIZE);
-            match my_check_plane(min, max, dir) {
-                Some(reason) => return CollideResult::new(base, time, bits_from_hit(dir.abs()), reason),
-                None => {},
+        for (min, max, dir) in ContactPlanes::new(base, size, velocity.signum(), hit) {
+            let mut seen_ramp_bottom = false;
+            let mut seen_floor = false;
+
+            let collided = |&:reason| {
+                CollideResult::new(base, time, bits_from_hit(dir.abs()), reason)
+            };
+
+            let min_z = min.z / TILE_SIZE;
+
+            for pos in plane_side(min, max, dir) {
+                let shape = get_shape(pos);
+                if pos.z == min_z {
+                    match shape {
+                        Floor => { seen_floor = true; },
+                        RampE if dir == V3::new(1, 0, 0) => { seen_ramp_bottom = true; },
+                        Empty => return collided(NoFloor),
+                        _ => return collided(Wall),
+                    }
+                } else {
+                    match shape {
+                        Empty => {},
+                        _ => return collided(Wall),
+                    }
+                }
+            }
+
+            if seen_ramp_bottom {
+                if !seen_floor {
+                    return collided(RampBottom);
+                } else {
+                    return collided(Wall)
+                }
             }
         }
     }
@@ -374,21 +360,6 @@ fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
         dirs: 0,
         reason: ZeroVelocity,
     }
-}
-
-fn check_plane(min: V3, max: V3, dir: V3, callback: |V3| -> Option<CollideReason>) -> Option<CollideReason> {
-    let min = (min - dir.is_negative()).clamp(0, CHUNK_SIZE);
-    let max = (max + dir.is_positive()).clamp(0, CHUNK_SIZE);
-
-    for z in range(min.z, max.z) {
-        for y in range(min.y, max.y) {
-            for x in range(min.x, max.x) {
-                try_return_some!(callback(V3::new(x, y, z)));
-            }
-        }
-    }
-
-    None
 }
 
 fn hit_chunk_boundaries(cur: V3, hit: V3, side: V3) -> i32 {
@@ -586,4 +557,55 @@ impl Iterator<(V3, V3, V3)> for ContactPlanes {
 
         Some((min, max, dir))
     }
+}
+
+
+struct RegionPoints {
+    cur: V3,
+    min: V3,
+    max: V3,
+}
+
+impl RegionPoints {
+    fn new(min: V3, max: V3) -> RegionPoints {
+        let empty = max.x <= min.x || max.y <= min.y || max.z <= min.z;
+
+        RegionPoints {
+            cur: min - V3::new(1, 0, 0),
+            min: min,
+            max: if !empty { max } else { min },
+        }
+    }
+}
+
+impl Iterator<V3> for RegionPoints {
+    fn next(&mut self) -> Option<V3> {
+        self.cur.x += 1;
+        if self.cur.x >= self.max.x {
+            self.cur.x = self.min.x;
+            self.cur.y += 1;
+            if self.cur.y >= self.max.y {
+                self.cur.y = self.min.y;
+                self.cur.z += 1;
+                if self.cur.z >= self.max.z {
+                    return None;
+                }
+            }
+        }
+        Some(self.cur)
+    }
+}
+
+// Iterate over all tiles touching one side of the plane.  `dir` points from the plane toward the
+// tiles.
+fn plane_side(min: V3, max: V3, dir: V3) -> RegionPoints {
+    // Plane bounds in tile coordinates.
+    let tile_min = min / scalar(TILE_SIZE);
+    let tile_max = (max + scalar(TILE_SIZE - 1)) / scalar(TILE_SIZE);
+
+    // Bounds of the region on the `dir` side of the plane.
+    let region_min = (tile_min - dir.is_negative()).clamp(0, CHUNK_SIZE);
+    let region_max = (tile_max + dir.is_positive()).clamp(0, CHUNK_SIZE);
+
+    RegionPoints::new(region_min, region_max)
 }
