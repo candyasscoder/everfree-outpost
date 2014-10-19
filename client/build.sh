@@ -27,7 +27,7 @@ fi
 "$RUST_HOME/bin/rustc" \
     --emit=ir -o build/physics.ll \
     --crate-type=staticlib physics.rs \
-    -O --target=i686-unknown-linux-gnu -L build \
+    --opt-level=2 --target=i686-unknown-linux-gnu -L build \
     -C lto -Z no-landing-pads -C no-stack-check
 
 # Hack up the IR to account for LLVM version mismatch between rust and

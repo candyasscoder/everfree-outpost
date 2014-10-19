@@ -7,6 +7,8 @@
 use core::prelude::*;
 use core::cmp::{min, max};
 use core::cell::Cell;
+use core::iter;
+use core::iter::Peekable;
 
 
 macro_rules! try_return {
@@ -503,10 +505,61 @@ impl Iterator<(V3, i32)> for HitComboIter {
             return None;
         }
 
-        let cur_bits = (self.cur & 0b111) as i32;
-        Some((V3::new((cur_bits & 0b100) >> 2,
-                      (cur_bits & 0b010) >> 1,
-                      (cur_bits & 0b001)),
-              cur_bits))
+        let bits = (self.cur & 0b111) as i32;
+        Some((hit_from_bits(bits), bits))
+    }
+}
+
+fn hit_from_bits(bits: i32) -> V3 {
+    V3::new((bits >> 2) & 1,
+            (bits >> 1) & 1,
+            (bits) & 1)
+}
+
+
+
+struct Interleaving<A, B, I, J, F> {
+    i: Peekable<(A, B), I>,
+    j: Peekable<(A, B), J>,
+    combine: F,
+}
+
+impl<A, B, I, J, F> Interleaving<A, B, I, J, F>
+        where I: Iterator<(A, B)>,
+              J: Iterator<(A, B)>,
+              A: Ord,
+              F: FnMut(B, B) -> B {
+    fn new(i: I, j: J, combine: F) -> Interleaving<A, B, I, J, F> {
+        Interleaving {
+            i: i.peekable(),
+            j: j.peekable(),
+            combine: combine,
+        }
+    }
+}
+
+impl<A, B, I, J, F> Iterator<(A, B)> for Interleaving<A, B, I, J, F>
+        where I: Iterator<(A, B)>,
+              J: Iterator<(A, B)>,
+              A: Ord,
+              F: FnMut(B, B) -> B {
+    #[inline]
+    fn next(&mut self) -> Option<(A, B)> {
+        let ordering = match (self.i.peek(), self.j.peek()) {
+            (Some(&(ref t1, _)), Some(&(ref t2, _))) => t1.cmp(t2),
+            (Some(_), None) => Less,
+            (None, Some(_)) => Greater,
+            (None, None) => return None,
+        };
+
+        match ordering {
+            Less => self.i.next(),
+            Greater => self.j.next(),
+            Equal => {
+                let (t, a) = self.i.next().unwrap();
+                let (_, b) = self.i.next().unwrap();
+                Some((t, (self.combine)(a, b)))
+            },
+        }
     }
 }

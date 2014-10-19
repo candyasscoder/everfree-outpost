@@ -79,7 +79,7 @@
 
             this.asm.collide(INPUT_ADDR, OUTPUT_ADDR);
 
-            return ({
+            var result = ({
                 x: this.output[0],
                 y: this.output[1],
                 z: this.output[2],
@@ -87,6 +87,8 @@
                 d: this.output[4],
                 type: this.output[5],
             });
+            //console.log(result);
+            return result;
         },
     };
 
