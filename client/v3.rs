@@ -76,6 +76,18 @@ impl V3 {
     pub fn clamp(&self, low: i32, high: i32) -> V3 {
         self.map(|&: a: i32| max(low, min(high, a)))
     }
+
+    pub fn with_x(&self, new_x: i32) -> V3 {
+        V3::new(new_x, self.y, self.z)
+    }
+
+    pub fn with_y(&self, new_y: i32) -> V3 {
+        V3::new(self.x, new_y, self.z)
+    }
+
+    pub fn with_z(&self, new_z: i32) -> V3 {
+        V3::new(self.x, self.y, new_z)
+    }
 }
 
 pub struct V3Items<'a> {
@@ -160,6 +172,95 @@ impl Shl<uint, V3> for V3 {
 impl Shr<uint, V3> for V3 {
     fn shr(&self, rhs: &uint) -> V3 {
         self.map(|&:a: i32| a << *rhs)
+    }
+}
+
+
+pub struct Region {
+    pub min: V3,
+    pub max: V3,
+}
+
+impl Region {
+    pub fn new(min: V3, max: V3) -> Region {
+        Region { min: min, max: max }
+    }
+
+    pub fn points(&self) -> RegionPoints {
+        RegionPoints::new(self.min, self.max)
+    }
+
+    pub fn contains(&self, point: &V3) -> bool {
+        point.x >= self.min.x && point.x < self.max.x &&
+        point.y >= self.min.y && point.y < self.max.y &&
+        point.z >= self.min.z && point.z < self.max.z
+    }
+
+    pub fn join(&self, other: &Region) -> Region {
+        Region::new(self.min.zip(&other.min, |&:a:i32, b: i32| min(a, b)),
+                    self.max.zip(&other.max, |&:a:i32, b: i32| max(a, b)))
+    }
+
+    pub fn intersect(&self, other: &Region) -> Region {
+        Region::new(self.min.zip(&other.min, |&:a:i32, b: i32| max(a, b)),
+                    self.max.zip(&other.max, |&:a:i32, b: i32| min(a, b)))
+    }
+
+    pub fn div_round(&self, rhs: i32) -> Region {
+        Region::new(self.min / scalar(rhs),
+                    (self.max + scalar(rhs - 1)) / scalar(rhs))
+    }
+
+    pub fn flatten(&self, depth: i32) -> Region {
+        Region::new(self.min, self.max.with_z(self.min.z + depth))
+    }
+}
+
+impl Add<V3, Region> for Region {
+    fn add(&self, other: &V3) -> Region {
+        Region::new(self.min + *other, self.max + *other)
+    }
+}
+
+impl Sub<V3, Region> for Region {
+    fn sub(&self, other: &V3) -> Region {
+        Region::new(self.min - *other, self.max - *other)
+    }
+}
+
+impl Mul<V3, Region> for Region {
+    fn mul(&self, other: &V3) -> Region {
+        Region::new(self.min * *other, self.max * *other)
+    }
+}
+
+impl Div<V3, Region> for Region {
+    fn div(&self, other: &V3) -> Region {
+        Region::new(self.min / *other, self.max / *other)
+    }
+}
+
+impl Rem<V3, Region> for Region {
+    fn rem(&self, other: &V3) -> Region {
+        Region::new(self.min % *other, self.max % *other)
+    }
+}
+
+impl Neg<Region> for Region {
+    fn neg(&self) -> Region {
+        Region::new(-self.min, -self.max)
+    }
+}
+
+impl Shl<uint, Region> for Region {
+    fn shl(&self, rhs: &uint) -> Region {
+        Region::new(self.min << *rhs, self.max << *rhs)
+    }
+}
+
+impl Shr<uint, Region> for Region {
+    fn shr(&self, rhs: &uint) -> Region {
+        Region::new(self.min >> *rhs, self.max >> *rhs)
     }
 }
 

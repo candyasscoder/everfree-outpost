@@ -1,20 +1,30 @@
 use core::prelude::*;
 use core::cmp;
 
-use v3::{V3, RegionPoints, scalar};
+use v3::{V3, Region, scalar};
 use super::{Shape, get_shape, get_shape_below};
 use super::{TILE_SIZE, CHUNK_SIZE};
 use super::{gcd, lcm};
-use super::{Empty, Floor};
+use super::{Empty, Floor, RampTop};
 use super::{trace, trace_rect, reset_trace, log, log_arr, log_v3};
 
 
 #[export_name = "test"]
 pub extern fn test(input: &::asmjs::CollideArgs, output: &mut ::CollideResult) {
-    *output = collide(input.pos, input.size, input.velocity);
+    let region = Region::new(input.pos, input.pos + input.size);
+    output.time = check_region_ramp(region, region + input.velocity) as i32;
 }
 
-fn collide(pos: V3, size: V3, velocity: V3) -> ::CollideResult {
+pub fn collide(pos: V3, size: V3, velocity: V3) -> ::CollideResult {
+    if velocity == scalar(0) {
+        return ::CollideResult {
+            pos: pos,
+            time: 0,
+            dirs: 0,
+            reason: ::Wall,
+        };
+    }
+
     let end_pos = walk_path(pos, size, velocity);
 
     let abs = velocity.abs();
@@ -38,7 +48,9 @@ fn collide(pos: V3, size: V3, velocity: V3) -> ::CollideResult {
 
 struct State;
 
-fn check_region(min: V3, max: V3) -> bool {
+fn check_region(old: Region, new: Region) -> bool {
+    let Region { min, max } = old.join(&new);
+
     if min.x < 0 || min.y < 0 || min.z < 0 {
         return false;
     }
@@ -54,7 +66,7 @@ fn check_region(min: V3, max: V3) -> bool {
     // Check that the bottom layer is all floor.
     let bottom_min = tile_min;
     let bottom_max = V3::new(tile_max.x, tile_max.y, tile_min.z + 1);
-    for pos in RegionPoints::new(bottom_min, bottom_max) {
+    for pos in Region::new(bottom_min, bottom_max).points() {
         if get_shape(pos) != Floor {
             return false;
         }
@@ -63,13 +75,83 @@ fn check_region(min: V3, max: V3) -> bool {
     // Check that the rest of the region is all empty.
     let top_min = V3::new(tile_min.x, tile_min.y, tile_min.z + 1);
     let top_max = tile_max;
-    for pos in RegionPoints::new(top_min, top_max) {
-        if get_shape(pos) != Empty {
-            return false;
+    for pos in Region::new(top_min, top_max).points() {
+        match get_shape(pos) {
+            Empty | RampTop => {},
+            _ => return false,
         }
     }
 
     true
+}
+
+fn check_region_ramp(old: Region, new: Region) -> bool {
+    use {Empty, Floor, Solid, RampE, RampS, RampW, RampN, RampTop};
+
+    if new.min.x < 0 || new.min.y < 0 || new.min.z < 0 {
+        return false;
+    }
+
+    // Check that we stand at an appropriate altitude.
+    // Look both above and below the bottom plane of `min`.  This handles the case where we stand
+    // at the very top of a ramp.
+    let bottom = new.flatten(2) - V3::new(0, 0, 1);
+    trace_rect(new.min, new.max - new.min);
+    log_arr(&[new.min.z, max_altitude(bottom)]);
+    if new.min.z != max_altitude(bottom) {
+        return false;
+    }
+
+    // Check that there are no collisions.
+    let outer = old.join(&new).div_round(TILE_SIZE);
+    for pos in outer.points() {
+        // The lowest level was implicitly checked for collisions by the altitude code.
+        if pos.z == outer.min.z {
+            continue;
+        }
+        log_v3(pos);
+        log(get_shape(pos) as i32);
+        match get_shape(pos) {
+            Empty | RampTop => {},
+            _ => return false,
+        }
+    }
+
+    // Check for continuity of the ramp.
+
+    true
+}
+
+fn max_altitude(region: Region) -> i32 {
+    let tile_region = region.div_round(TILE_SIZE);
+    let inner_region = Region::new(tile_region.min + V3::new(1, 1, 0),
+                                   tile_region.max - V3::new(1, 1, 0));
+    let mut max_alt = -1;
+    for point in tile_region.points() {
+        let shape = get_shape(point);
+
+        let tile_alt = {
+            use {Empty, Floor, Solid, RampE, RampS, RampW, RampN, RampTop};
+            let tile_volume = Region::new(point, point + scalar(1)) * scalar(TILE_SIZE);
+            let subregion = region.intersect(&tile_volume) - point * scalar(TILE_SIZE);
+            match shape {
+                Empty | RampTop => continue,
+                Floor => 0,
+                Solid => TILE_SIZE,
+                RampE => subregion.max.x,
+                RampW => TILE_SIZE - subregion.min.x,
+                RampS => subregion.max.y,
+                RampN => TILE_SIZE - subregion.min.y,
+            }
+        };
+
+        let alt = tile_alt + point.z * TILE_SIZE;
+        if alt > max_alt {
+            max_alt = alt;
+        }
+    }
+
+    max_alt
 }
 
 static DEFAULT_STEP: uint = 5;
@@ -87,14 +169,13 @@ fn walk_path(pos: V3, size: V3, velocity: V3) -> V3 {
 
     for i in range(0u, 20) {
         let step = rel_velocity << step_size;
-        // Use + instead of - for min because the components of `step` we're selecting are already
-        // negative.
-        let mut min = cur + step.is_negative() * step;
-        let mut max = cur + step.is_positive() * step + rel_size;
+        let next = cur + step;
+        let old = Region::new(cur, cur + rel_size);
+        let new = Region::new(next, next + rel_size);
 
-        trace_rect(min, max - min);
+        trace_rect(new.min, new.max - new.min);
 
-        if check_region(min / scalar(units), max / scalar(units)) {
+        if check_region(old, new) {
             cur = cur + step;
             if step_size < DEFAULT_STEP {
                 step_size += 1;

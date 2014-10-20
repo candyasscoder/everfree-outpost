@@ -9,7 +9,7 @@ pub struct CollideArgs {
 
 #[export_name = "collide"]
 pub extern fn collide_wrapper(input: &CollideArgs, output: &mut CollideResult) {
-    *output = super::collide(input.pos, input.size, input.velocity);
+    *output = super::physics2::collide(input.pos, input.size, input.velocity);
 }
 
 #[export_name = "collide_ramp"]

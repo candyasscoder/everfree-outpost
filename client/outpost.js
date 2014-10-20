@@ -1205,83 +1205,16 @@ Physics.prototype = {
     // Project the time of the next collision starting from start_time, and set
     // velocities, end_time, and end position appropriately.
     '_forecast': function(f) {
-        var actual_v = f.target_v.clone();
-
-        var slide_x = 0;
-        var slide_y = 0;
-        var slide_z = 0;
-
-        var limit = 5;
-
-        var ramp_mode = this._chunk_phys.get_ramp_angle(f.start, f.size);
-        adjust_velocity_for_ramp(actual_v, ramp_mode);
-
-        // TODO: compute time limit for sliding
-        while (limit > 0 && (actual_v.x != 0 || actual_v.y != 0 || actual_v.z != 0)) {
-            --limit;
-            var coll;
-            if (ramp_mode == RAMP_NONE) {
-                coll = this._chunk_phys.collide(f.start, f.size, actual_v);
-            } else {
-                coll = this._chunk_phys.collide_ramp(f.start, f.size, actual_v);
-            }
-
-            if (coll.t == 0) {
-                console.log('immediate collision with reason', coll.type);
-
-                if (coll.type == COLLIDE_WALL ||
-                        coll.type == COLLIDE_NO_FLOOR ||
-                        coll.type == COLLIDE_CHUNK_BORDER ||
-                        coll.type == COLLIDE_RAMP_DYSFUNCTION) {
-                    console.assert((coll.d & 7) != 0,
-                            'immediate collision with no direction',
-                            actual_v.x, actual_v.y, actual_v.z);
-                    if (coll.d & 4) {
-                        slide_x = Math.sign(actual_v.x);
-                        actual_v.x = 0;
-                    }
-                    if (coll.d & 2) {
-                        slide_y = Math.sign(actual_v.y);
-                        actual_v.y = 0;
-                    }
-                    if (coll.d == 1) {
-                        // The only thing we hit was a z-plane, which we can't
-                        // slide against.
-                        break;
-                    }
-                    continue;
-                } else if (coll.type == COLLIDE_RAMP_ENTRY ||
-                        coll.type == COLLIDE_RAMP_ANGLE_CHANGE) {
-                    // Only ramp type at the moment is RAMP_E
-                    ramp_mode = this._chunk_phys.get_next_ramp_angle(f.start, f.size, actual_v);
-                    console.assert(!(coll.type == COLLIDE_RAMP_ENTRY && ramp_mode == RAMP_NONE),
-                            'collided with a ramp entry, but there is no ramp here');
-                    adjust_velocity_for_ramp(actual_v, ramp_mode);
-                    continue;
-                } else if (coll.type == COLLIDE_RAMP_EXIT) {
-                    ramp_mode = RAMP_NONE;
-                    adjust_velocity_for_ramp(actual_v, ramp_mode);
-                    continue;
-                } else {
-                    console.assert(false, 'unknown collision type', coll.type);
-                }
-            }
-
-            // Otherwise, the collision hasn't happened yet, so set up the
-            // forecast for motion.
-
-            f.end = new Vec(coll.x, coll.y, coll.z);
-            f.end_time = f.start_time + coll.t;
-            f.actual_v = actual_v;
-            break;
+        var result = this._chunk_phys.collide(f.start, f.size, f.target_v);
+        if (result.t == 0) {
+            console.log(f);
+            return;
         }
-
-        if (limit == 0) {
-            console.log('hit limit!!');
-        }
-
-        // Can't move or slide along any axis.  Give up, and leave the forecast
-        // in its current state.
+        f.end = new Vec(result.x, result.y, result.z);
+        console.log(f.end.sub(f.start).toString(), result.t);
+        f.actual_v = f.end.sub(f.start).mulScalar(1000).divScalar(result.t);
+        f.end_time = f.start_time + result.t;
+        console.log(f);
     },
 };
 
@@ -1687,6 +1620,10 @@ function updateWalkDir() {
     }
 
     pony.walk(Date.now(), speed, dx, dy, phys);
+}
+
+window.physTest = function(a, b, c, d, e, f, g, h, i) {
+    return phys._chunk_phys.test(new Vec(a, b, c), new Vec(d, e, f), new Vec(g, h, i));
 }
 
 })();

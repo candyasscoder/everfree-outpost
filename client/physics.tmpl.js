@@ -149,7 +149,7 @@
             this._storeVec(6, velocity);
 
             //this.asm.collide(INPUT_START, OUTPUT_START);
-            this.asm.test(INPUT_START, OUTPUT_START);
+            this.asm.collide(INPUT_START, OUTPUT_START);
 
             var result = ({
                 x: this.output[0],
