@@ -1381,7 +1381,7 @@ window.timeit = function(f) {
 }
 
 window.physBenchmark = function() {
-    phys._chunk_phys.collide(new Vec(0, 0, 0), new Vec(32, 32, 32), new Vec(30, 0, 0));
+    return phys._chunk_phys.collide(new Vec(0, 0, 0), new Vec(32, 32, 32), new Vec(30, 0, 0));
 };
 
 

@@ -151,6 +151,18 @@ impl Neg<V3> for V3 {
     }
 }
 
+impl Shl<uint, V3> for V3 {
+    fn shl(&self, rhs: &uint) -> V3 {
+        self.map(|&:a: i32| a << *rhs)
+    }
+}
+
+impl Shr<uint, V3> for V3 {
+    fn shr(&self, rhs: &uint) -> V3 {
+        self.map(|&:a: i32| a << *rhs)
+    }
+}
+
 
 pub struct RegionPoints {
     cur: V3,

@@ -39,6 +39,7 @@ mod std {
 mod lang_items;
 mod v3;
 pub mod asmjs;
+pub mod physics2;
 
 
 fn gcd(mut a: i32, mut b: i32) -> i32 {
@@ -162,10 +163,10 @@ fn log_arr(ints: &[i32]) {
 
 
 pub struct CollideResult {
-    pos: V3,
-    time: i32,
-    dirs: i32,
-    reason: CollideReason,
+    pub pos: V3,
+    pub time: i32,
+    pub dirs: i32,
+    pub reason: CollideReason,
 }
 
 impl CollideResult {

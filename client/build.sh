@@ -43,7 +43,7 @@ $EMSCRIPTEN_HOME/bin/llvm-as build/physics.clean.ll -o build/physics.bc
 $EMSCRIPTEN_HOME/bin/opt build/physics.bc \
     -strip-debug \
     -internalize \
-    -internalize-public-api-list=collide,collide_ramp,get_ramp_angle,get_next_ramp_angle \
+    -internalize-public-api-list=collide,collide_ramp,get_ramp_angle,get_next_ramp_angle,test \
     -globaldce \
     -pnacl-abi-simplify-preopt -pnacl-abi-simplify-postopt \
     -enable-emscripten-cxx-exceptions \

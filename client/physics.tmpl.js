@@ -31,6 +31,7 @@
             collide_ramp: _collide_ramp,
             get_ramp_angle: _get_ramp_angle,
             get_next_ramp_angle: _get_next_ramp_angle,
+            test: _test,
         });
     });
 
@@ -147,7 +148,8 @@
             this._storeVec(3, size);
             this._storeVec(6, velocity);
 
-            this.asm.collide(INPUT_START, OUTPUT_START);
+            //this.asm.collide(INPUT_START, OUTPUT_START);
+            this.asm.test(INPUT_START, OUTPUT_START);
 
             var result = ({
                 x: this.output[0],
@@ -167,6 +169,25 @@
             this._storeVec(6, velocity);
 
             this.asm.collide_ramp(INPUT_START, OUTPUT_START);
+
+            var result = ({
+                x: this.output[0],
+                y: this.output[1],
+                z: this.output[2],
+                t: this.output[3],
+                d: this.output[4],
+                type: this.output[5],
+            });
+            //console.log(result);
+            return result;
+        },
+
+        'test': function(pos, size, velocity) {
+            this._storeVec(0, pos);
+            this._storeVec(3, size);
+            this._storeVec(6, velocity);
+
+            this.asm.test(INPUT_START, OUTPUT_START);
 
             var result = ({
                 x: this.output[0],

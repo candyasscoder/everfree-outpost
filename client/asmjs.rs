@@ -2,9 +2,9 @@ use v3::V3;
 use super::CollideResult;
 
 pub struct CollideArgs {
-    pos: V3,
-    size: V3,
-    velocity: V3,
+    pub pos: V3,
+    pub size: V3,
+    pub velocity: V3,
 }
 
 #[export_name = "collide"]
@@ -18,8 +18,8 @@ pub extern fn collide_ramp_wrapper(input: &CollideArgs, output: &mut CollideResu
 }
 
 pub struct IsOnRampArgs {
-    pos: V3,
-    size: V3,
+    pub pos: V3,
+    pub size: V3,
 }
 
 #[export_name = "get_ramp_angle"]
