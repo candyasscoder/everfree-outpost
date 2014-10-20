@@ -1572,8 +1572,8 @@ function frame(ctx, now) {
         if (i == coll.length - 1) {
             ctx.strokeStyle = '#a00';
         }
-        ctx.strokeRect(p[0] * 32, p[1] * 32, 32, 32);
-        ctx.fillText(i, p[0] * 32, p[1] * 32 + 10);
+        ctx.strokeRect(p[0], p[1], p[2], p[3]);
+        ctx.fillText(i, p[0], p[1] + 10);
     }
 
     // Draw pony motion forecast

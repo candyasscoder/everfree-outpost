@@ -137,12 +137,17 @@ impl Shape {
 
 extern {
     fn trace_ints(ptr: *const i32, len: i32);
-    fn phys_trace(x: i32, y: i32, z: i32);
+    fn phys_trace(x: i32, y: i32, w: i32, h: i32);
     fn reset_phys_trace();
 }
 
 fn trace(p: V3) {
-    unsafe { phys_trace(p.x, p.y, p.z) };
+    //unsafe { phys_trace(p.x, p.y, p.z) };
+    trace_rect(p * scalar(32), scalar(32));
+}
+
+fn trace_rect(pos: V3, size: V3) {
+    unsafe { phys_trace(pos.x, pos.y, size.x, size.y) };
 }
 
 fn reset_trace() {

@@ -6,7 +6,7 @@ use super::{Shape, get_shape, get_shape_below};
 use super::{TILE_SIZE, CHUNK_SIZE};
 use super::{gcd, lcm};
 use super::{Empty, Floor};
-use super::{trace, reset_trace, log, log_arr, log_v3};
+use super::{trace, trace_rect, reset_trace, log, log_arr, log_v3};
 
 
 #[export_name = "test"]
@@ -83,12 +83,16 @@ fn walk_path(pos: V3, size: V3, velocity: V3) -> V3 {
     let rel_size = size * scalar(units);
     let mut step_size = DEFAULT_STEP;
 
+    reset_trace();
+
     for i in range(0u, 20) {
         let step = rel_velocity << step_size;
         // Use + instead of - for min because the components of `step` we're selecting are already
         // negative.
         let mut min = cur + step.is_negative() * step;
         let mut max = cur + step.is_positive() * step + rel_size;
+
+        trace_rect(min, max - min);
 
         if check_region(min / scalar(units), max / scalar(units)) {
             cur = cur + step;

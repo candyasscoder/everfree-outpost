@@ -83,8 +83,8 @@
                 console.log(arr);
             },
 
-            physTrace: function(x, y, z) {
-                window.physTrace.push([x,y,z]);
+            physTrace: function(x, y, w, h) {
+                window.physTrace.push([x, y, w, h]);
             },
 
             resetPhysTrace: function() {
