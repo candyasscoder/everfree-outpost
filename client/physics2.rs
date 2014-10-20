@@ -11,8 +11,9 @@ use super::{trace, trace_rect, reset_trace, log, log_arr, log_v3};
 
 #[export_name = "test"]
 pub extern fn test(input: &::asmjs::CollideArgs, output: &mut ::CollideResult) {
-    let region = Region::new(input.pos, input.pos + input.size);
-    output.time = check_region_ramp(region, region + input.velocity) as i32;
+    //let region = Region::new(input.pos, input.pos + input.size);
+    //output.time = check_region_ramp(region, region + input.velocity) as i32;
+    output.time = corner_smooth(input.pos) as i32;
 }
 
 pub fn collide(pos: V3, size: V3, velocity: V3) -> ::CollideResult {
@@ -37,6 +38,8 @@ pub fn collide(pos: V3, size: V3, velocity: V3) -> ::CollideResult {
     if end_pos == pos {
         end_pos = walk_path(pos, size, velocity.with_z(-max_velocity), |&:old, new| check_region_ramp(old, new));
     }
+    let r = Region::new(end_pos, end_pos + size);
+    check_region_ramp(r, r);
 
     let abs = velocity.abs();
     let max = cmp::max(cmp::max(abs.x, abs.y), abs.z);
@@ -107,7 +110,6 @@ fn check_region_ramp(old: Region, new: Region) -> bool {
     // Look both above and below the bottom plane of `min`.  This handles the case where we stand
     // at the very top of a ramp.
     let bottom = new.flatten(2) - V3::new(0, 0, 1);
-    trace_rect(new.min, new.max - new.min);
     if new.min.z != max_altitude(bottom) {
         return false;
     }
@@ -120,7 +122,8 @@ fn check_region_ramp(old: Region, new: Region) -> bool {
     }
 
     // Check that there are no collisions.
-    let outer = old.join(&new).div_round(TILE_SIZE);
+    let outer_px = old.join(&new);
+    let outer = outer_px.div_round(TILE_SIZE);
     for pos in outer.points() {
         // The lowest level was implicitly checked for collisions by the altitude code.
         if pos.z == outer.min.z {
@@ -132,7 +135,22 @@ fn check_region_ramp(old: Region, new: Region) -> bool {
         }
     }
 
-    // TODO: Check for continuity of the ramp.
+    // Check for continuity of the ramp.
+    // TODO: need to check lines instead of points, in order to handle trying to walk up a ramp
+    // while halfway off of it (currently lets you go up 1px, since the bottom corner is
+    // technically continuous)
+    let inner_footprint = outer_px.expand(&scalar(-1)).flatten(1);
+    let footprint_z = cmp::max(old.min.z, new.min.z);
+    let mut corner_footprint = inner_footprint.div_round(TILE_SIZE);
+    corner_footprint.max.x += 1;
+    corner_footprint.max.y += 1;
+    let corner_footprint = corner_footprint;
+    for point in corner_footprint.points().map(|p| p * scalar(TILE_SIZE)) {
+        let clamped = inner_footprint.clamp_point(&point).with_z(footprint_z);
+        if !corner_smooth(clamped) {
+            return false;
+        }
+    }
 
     true
 }
@@ -169,6 +187,45 @@ fn max_altitude(region: Region) -> i32 {
     max_alt
 }
 
+fn altitude_at_pixel(shape: Shape, x: i32, y: i32) -> i32 {
+    use {Empty, Floor, Solid, RampE, RampS, RampW, RampN, RampTop};
+    match shape {
+        Empty | RampTop => -1,
+        Floor => 0,
+        Solid => TILE_SIZE,
+        RampE => x,
+        RampW => TILE_SIZE - x,
+        RampS => y,
+        RampN => TILE_SIZE - y,
+    }
+}
+
+fn corner_smooth(point: V3) -> bool {
+    fn altitude_modified(point: V3, dir: V3) -> i32 {
+        let base = (point - dir) / scalar(TILE_SIZE);
+        let offset = point - base * scalar(TILE_SIZE);
+
+        let (shape, z) = get_shape_below(base);
+        let alt = altitude_at_pixel(shape, offset.x, offset.y);
+        //log_arr(&[999, point.x, point.y, point.z, dir.x, dir.y, dir.z, alt]);
+        //log_arr(&[999, base.x, base.y, base.z, offset.x, offset.y, offset.z, z]);
+        if alt == -1 {
+            -1
+        } else {
+            z * TILE_SIZE + alt
+        }
+    }
+
+    let a = altitude_modified(point, V3::new(0, 0, 0));
+    let b = altitude_modified(point, V3::new(0, 1, 0));
+    let c = altitude_modified(point, V3::new(1, 0, 0));
+    let d = altitude_modified(point, V3::new(1, 1, 0));
+
+    //log_arr(&[point.x, point.y, point.z, a, b, c, d]);
+
+    a == b && b == c && c == d
+}
+
 static DEFAULT_STEP: uint = 5;
 
 fn walk_path<F>(pos: V3, size: V3, velocity: V3,
@@ -182,7 +239,7 @@ fn walk_path<F>(pos: V3, size: V3, velocity: V3,
     let rel_size = size * scalar(units);
     let mut step_size = DEFAULT_STEP;
 
-    reset_trace();
+    //reset_trace();
 
     for i in range(0u, 20) {
         let step = rel_velocity << step_size;
@@ -190,7 +247,7 @@ fn walk_path<F>(pos: V3, size: V3, velocity: V3,
         let old = Region::new(cur, cur + rel_size);
         let new = Region::new(next, next + rel_size);
 
-        trace_rect(new.min, new.max - new.min);
+        //trace_rect(new.min, new.max - new.min);
 
         if check_region(old, new) {
             cur = cur + step;

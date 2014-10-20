@@ -214,6 +214,17 @@ impl Region {
     pub fn flatten(&self, depth: i32) -> Region {
         Region::new(self.min, self.max.with_z(self.min.z + depth))
     }
+
+    pub fn expand(&self, amount: &V3) -> Region {
+        Region::new(self.min - *amount, self.max + *amount)
+    }
+
+    pub fn clamp_point(&self, point: &V3) -> V3 {
+        let x = max(self.min.x, min(self.max.x, point.x));
+        let y = max(self.min.y, min(self.max.y, point.y));
+        let z = max(self.min.z, min(self.max.z, point.z));
+        V3::new(x, y, z)
+    }
 }
 
 impl Add<V3, Region> for Region {
