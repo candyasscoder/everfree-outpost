@@ -24,8 +24,19 @@ pub fn collide(pos: V3, size: V3, velocity: V3) -> ::CollideResult {
             reason: ::Wall,
         };
     }
+    
+    let max_velocity = cmp::max(velocity.x.abs(), velocity.y.abs());
 
-    let end_pos = walk_path(pos, size, velocity);
+    let mut end_pos = walk_path(pos, size, velocity, |&:old, new| check_region(old, new));
+    if end_pos == pos {
+        end_pos = walk_path(pos, size, velocity, |&:old, new| check_region_ramp(old, new));
+    }
+    if end_pos == pos {
+        end_pos = walk_path(pos, size, velocity.with_z(max_velocity), |&:old, new| check_region_ramp(old, new));
+    }
+    if end_pos == pos {
+        end_pos = walk_path(pos, size, velocity.with_z(-max_velocity), |&:old, new| check_region_ramp(old, new));
+    }
 
     let abs = velocity.abs();
     let max = cmp::max(cmp::max(abs.x, abs.y), abs.z);
@@ -97,8 +108,14 @@ fn check_region_ramp(old: Region, new: Region) -> bool {
     // at the very top of a ramp.
     let bottom = new.flatten(2) - V3::new(0, 0, 1);
     trace_rect(new.min, new.max - new.min);
-    log_arr(&[new.min.z, max_altitude(bottom)]);
     if new.min.z != max_altitude(bottom) {
+        return false;
+    }
+
+    // Check that we are actually over (or adjacent to) some amount of ramp.
+    let expanded = Region::new(bottom.min - V3::new(1, 1, 0),
+                               bottom.max + V3::new(1, 1, 0));
+    if !expanded.div_round(TILE_SIZE).points().any(|p| get_shape(p).is_ramp()) {
         return false;
     }
 
@@ -109,15 +126,13 @@ fn check_region_ramp(old: Region, new: Region) -> bool {
         if pos.z == outer.min.z {
             continue;
         }
-        log_v3(pos);
-        log(get_shape(pos) as i32);
         match get_shape(pos) {
             Empty | RampTop => {},
             _ => return false,
         }
     }
 
-    // Check for continuity of the ramp.
+    // TODO: Check for continuity of the ramp.
 
     true
 }
@@ -156,7 +171,9 @@ fn max_altitude(region: Region) -> i32 {
 
 static DEFAULT_STEP: uint = 5;
 
-fn walk_path(pos: V3, size: V3, velocity: V3) -> V3 {
+fn walk_path<F>(pos: V3, size: V3, velocity: V3,
+                check_region: F) -> V3
+        where F: Fn(Region, Region) -> bool {
     let velocity_gcd = gcd(gcd(velocity.x.abs(), velocity.y.abs()), velocity.z.abs());
     let rel_velocity = velocity / scalar(velocity_gcd);
     let units = cmp::max(cmp::max(rel_velocity.x.abs(), rel_velocity.y.abs()), rel_velocity.z.abs());

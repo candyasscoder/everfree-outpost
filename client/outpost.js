@@ -1207,14 +1207,11 @@ Physics.prototype = {
     '_forecast': function(f) {
         var result = this._chunk_phys.collide(f.start, f.size, f.target_v);
         if (result.t == 0) {
-            console.log(f);
             return;
         }
         f.end = new Vec(result.x, result.y, result.z);
-        console.log(f.end.sub(f.start).toString(), result.t);
         f.actual_v = f.end.sub(f.start).mulScalar(1000).divScalar(result.t);
         f.end_time = f.start_time + result.t;
-        console.log(f);
     },
 };
 
