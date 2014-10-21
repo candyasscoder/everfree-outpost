@@ -676,8 +676,8 @@ var SHAPE_FLOOR = 1;
 var SHAPE_SOLID = 2;
 var SHAPE_RAMP_E = 3;
 var SHAPE_RAMP_W = 4;
-var SHAPE_RAMP_S = 6;
-var SHAPE_RAMP_N = 5;
+var SHAPE_RAMP_S = 5;
+var SHAPE_RAMP_N = 6;
 var SHAPE_RAMP_TOP = 7;
 
 function Chunk() {
@@ -1236,7 +1236,7 @@ Forecast.prototype = {
             return this.end.clone();
         } else {
             var delta = now - this.start_time;
-            var offset = this.actual_v.mulScalar(delta).addScalar(500).divScalar(1000);
+            var offset = this.actual_v.mulScalar(delta).divScalar(1000);
             return this.start.add(offset);
         }
     },
@@ -1463,10 +1463,10 @@ chunks[0].setShape(7, 4, 2, SHAPE_FLOOR);
 chunks[0].setShape(8, 3, 2, SHAPE_FLOOR);
 chunks[0].setShape(8, 4, 2, SHAPE_FLOOR);
 
-chunks[0].setShape(7, 6, 0, SHAPE_RAMP_S);
-chunks[0].setShape(8, 6, 0, SHAPE_RAMP_S);
-chunks[0].setShape(7, 5, 1, SHAPE_RAMP_S);
-chunks[0].setShape(8, 5, 1, SHAPE_RAMP_S);
+chunks[0].setShape(7, 6, 0, SHAPE_RAMP_N);
+chunks[0].setShape(8, 6, 0, SHAPE_RAMP_N);
+chunks[0].setShape(7, 5, 1, SHAPE_RAMP_N);
+chunks[0].setShape(8, 5, 1, SHAPE_RAMP_N);
 chunks[0].setShape(7, 5, 2, SHAPE_RAMP_TOP);
 chunks[0].setShape(8, 5, 2, SHAPE_RAMP_TOP);
 

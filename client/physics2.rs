@@ -11,9 +11,9 @@ use super::{trace, trace_rect, reset_trace, log, log_arr, log_v3};
 
 #[export_name = "test"]
 pub extern fn test(input: &::asmjs::CollideArgs, output: &mut ::CollideResult) {
-    //let region = Region::new(input.pos, input.pos + input.size);
+    let region = Region::new(input.pos, input.pos + input.size);
     //output.time = check_region_ramp(region, region + input.velocity) as i32;
-    output.time = corner_smooth(input.pos) as i32;
+    output.time = check_ramp_continuity(region) as i32;
 }
 
 pub fn collide(pos: V3, size: V3, velocity: V3) -> ::CollideResult {
@@ -136,20 +136,10 @@ fn check_region_ramp(old: Region, new: Region) -> bool {
     }
 
     // Check for continuity of the ramp.
-    // TODO: need to check lines instead of points, in order to handle trying to walk up a ramp
-    // while halfway off of it (currently lets you go up 1px, since the bottom corner is
-    // technically continuous)
-    let inner_footprint = outer_px.expand(&scalar(-1)).flatten(1);
-    let footprint_z = cmp::max(old.min.z, new.min.z);
-    let mut corner_footprint = inner_footprint.div_round(TILE_SIZE);
-    corner_footprint.max.x += 1;
-    corner_footprint.max.y += 1;
-    let corner_footprint = corner_footprint;
-    for point in corner_footprint.points().map(|p| p * scalar(TILE_SIZE)) {
-        let clamped = inner_footprint.clamp_point(&point).with_z(footprint_z);
-        if !corner_smooth(clamped) {
-            return false;
-        }
+    let mut footprint_px = outer_px;
+    footprint_px.min.z = cmp::max(old.min.z, new.min.z);
+    if !check_ramp_continuity(footprint_px) {
+        return false;
     }
 
     true
@@ -200,30 +190,86 @@ fn altitude_at_pixel(shape: Shape, x: i32, y: i32) -> i32 {
     }
 }
 
-fn corner_smooth(point: V3) -> bool {
-    fn altitude_modified(point: V3, dir: V3) -> i32 {
-        let base = (point - dir) / scalar(TILE_SIZE);
-        let offset = point - base * scalar(TILE_SIZE);
+fn check_ramp_continuity(region: Region) -> bool {
+    let Region { min, max } = region.div_round(TILE_SIZE);
+    let top_z = min.z;
 
-        let (shape, z) = get_shape_below(base);
-        let alt = altitude_at_pixel(shape, offset.x, offset.y);
-        //log_arr(&[999, point.x, point.y, point.z, dir.x, dir.y, dir.z, alt]);
-        //log_arr(&[999, base.x, base.y, base.z, offset.x, offset.y, offset.z, z]);
-        if alt == -1 {
-            -1
-        } else {
-            z * TILE_SIZE + alt
+    let mut next_z_x = -1;
+    let mut next_z_y = -1;
+
+    for y in range(min.y, max.y) {
+        for x in range(min.x, max.x) {
+            // Get z-level to inspect for the current tile.
+            let (shape_here, z_here) = get_shape_below(V3::new(x, y, top_z));
+            if x > min.x && next_z_x != z_here {
+                return false;
+            } else if x == min.x && y > min.y && next_z_y != z_here {
+                return false;
+            }
+
+            let shape_here = get_shape(V3::new(x, y, z_here));
+            // Coordinates within the tile of the intersection of the tile region and the footprint
+            // region.  That means these range from [0..32], with numbers other than 0 and 32
+            // appearing only at the edges.
+            let x0 = if x > min.x { 0 } else { region.min.x - min.x * TILE_SIZE };
+            let y0 = if y > min.y { 0 } else { region.min.y - min.y * TILE_SIZE };
+            let x1 = if x < max.x - 1 { TILE_SIZE } else { region.max.x - (max.x - 1) * TILE_SIZE};
+            let y1 = if y < max.y - 1 { TILE_SIZE } else { region.max.y - (max.y - 1) * TILE_SIZE};
+            let alt_here_11 = altitude_at_pixel(shape_here, x1, y1);
+            let look_up = alt_here_11 == TILE_SIZE && z_here < top_z;
+
+            // Check the line between this tile and the one to the east, but only the parts that
+            // lie within `region`.
+            if x < max.x - 1 {
+                let (shape_right, z_right) = adjacent_shape(x + 1, y, z_here, look_up);
+                let alt_here_10 = altitude_at_pixel(shape_here, TILE_SIZE, y0);
+                let alt_right_00 = altitude_at_pixel(shape_right, 0, y0);
+                let alt_right_01 = altitude_at_pixel(shape_right, 0, y1);
+                if z_here * TILE_SIZE + alt_here_10 != z_right * TILE_SIZE + alt_right_00 ||
+                   z_here * TILE_SIZE + alt_here_11 != z_right * TILE_SIZE + alt_right_01 {
+                    return false;
+                }
+                // Save the z that we expect to see when visiting the tile to the east.  If we see
+                // a different z, then there's a problem like this:
+                //   _ /
+                //    \_
+                // The \ ramp is properly connected to the rightmost _, but the / ramp is actually
+                // the topmost tile in that column.
+                next_z_x = z_right;
+            }
+
+            // Check the line between this tile and the one to the south.
+            if y < max.y - 1 {
+                let (shape_down, z_down) = adjacent_shape(x, y + 1, z_here, look_up);
+                let alt_here_01 = altitude_at_pixel(shape_here, x0, TILE_SIZE);
+                let alt_down_00 = altitude_at_pixel(shape_down, x0, 0);
+                let alt_down_10 = altitude_at_pixel(shape_down, x1, 0);
+                if z_here * TILE_SIZE + alt_here_01 != z_down * TILE_SIZE + alt_down_00 ||
+                   z_here * TILE_SIZE + alt_here_11 != z_down * TILE_SIZE + alt_down_10 {
+                    return false;
+                }
+                if x == min.x {
+                    next_z_y = z_down;
+                }
+            }
         }
     }
 
-    let a = altitude_modified(point, V3::new(0, 0, 0));
-    let b = altitude_modified(point, V3::new(0, 1, 0));
-    let c = altitude_modified(point, V3::new(1, 0, 0));
-    let d = altitude_modified(point, V3::new(1, 1, 0));
+    return true;
 
-    //log_arr(&[point.x, point.y, point.z, a, b, c, d]);
+    fn adjacent_shape(x: i32, y: i32, z: i32, look_up: bool) -> (Shape, i32) {
+        if look_up {
+            match get_shape(V3::new(x, y, z + 1)) {
+                Empty | RampTop => {},
+                s => return (s, z + 1),
+            }
+        }
 
-    a == b && b == c && c == d
+        match get_shape(V3::new(x, y, z)) {
+            Empty | RampTop => (get_shape(V3::new(x, y, z - 1)), z - 1),
+            s => return (s, z),
+        }
+    }
 }
 
 static DEFAULT_STEP: uint = 5;
