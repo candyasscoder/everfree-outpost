@@ -1,5 +1,6 @@
 use core::prelude::*;
 use core::cmp::{min, max};
+use core::fmt;
 
 
 #[deriving(Eq, PartialEq)]
@@ -7,6 +8,12 @@ pub struct V3 {
     pub x: i32,
     pub y: i32,
     pub z: i32,
+}
+
+impl fmt::Show for V3 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
+        (self.x, self.y, self.z).fmt(f)
+    }
 }
 
 impl V3 {
@@ -179,6 +186,12 @@ impl Shr<uint, V3> for V3 {
 pub struct Region {
     pub min: V3,
     pub max: V3,
+}
+
+impl fmt::Show for Region {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
+        (self.min, self.max).fmt(f)
+    }
 }
 
 impl Region {

@@ -11,9 +11,21 @@ use super::{trace, trace_rect, reset_trace, log, log_arr, log_v3};
 
 #[export_name = "test"]
 pub extern fn test(input: &::asmjs::CollideArgs, output: &mut ::CollideResult) {
-    let region = Region::new(input.pos, input.pos + input.size);
+    format_args!(::lang_items::println, "hello {}", 17u);
+    format_args!(::lang_items::println, "input: {}", input as *const _ as uint);
+    format_args!(::lang_items::println, "output: {}", output as *mut _ as uint);
+    let ptr = input as *const _ as *const i32;
+    unsafe {
+        for i in range(0, 10) {
+            println!("  {}: {}", i, *ptr.offset(i));
+        }
+    }
+    println!("input pos: {}", input.pos);
+    println!("input size: {}", input.size);
+    output.time = 1234567;
+    //let region = Region::new(input.pos, input.pos + input.size);
     //output.time = check_region_ramp(region, region + input.velocity) as i32;
-    output.time = check_ramp_continuity(region) as i32;
+    //output.time = check_ramp_continuity(region) as i32;
 }
 
 pub fn collide(pos: V3, size: V3, velocity: V3) -> ::CollideResult {

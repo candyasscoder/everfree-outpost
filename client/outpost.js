@@ -1188,7 +1188,7 @@ Physics.prototype = {
             }
         }
         if (i == LIMIT) {
-            console.assert(false, "BUG: updateForecast got stuck but kept incrementing time");
+            //console.assert(false, "BUG: updateForecast got stuck but kept incrementing time");
         }
     },
 

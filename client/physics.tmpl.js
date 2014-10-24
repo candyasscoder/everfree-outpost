@@ -22,11 +22,35 @@
         var _trace_ints = env.traceInts;
         var _phys_trace = env.physTrace;
         var _reset_phys_trace = env.resetPhysTrace;
+        var _write_str = env.writeStr;
+        var _flush_str = env.flushStr;
         var Math_imul = global.Math.imul;
+
+        var tempRet0 = 0;
+
+        function __adjust_stack(offset) {
+            offset = offset|0;
+            STACKTOP = STACKTOP + offset|0;
+            if ((STACKTOP|0) >= (STACK_MAX|0)) abort();
+            return (STACKTOP - offset)|0;
+        }
+
+        function _bitshift64Lshr(low, high, bits) {
+            low = low|0; high = high|0; bits = bits|0;
+            var ander = 0;
+            if ((bits|0) < 32) {
+                ander = ((1 << bits) - 1)|0;
+                tempRet0 = high >>> bits;
+                return (low >>> bits) | ((high&ander) << (32 - bits));
+            }
+            tempRet0 = 0;
+            return (high >>> (bits - 32))|0;
+        }
 
         // INSERT_EMSCRIPTEN_FUNCTIONS
 
         return ({
+            __adjust_stack: __adjust_stack,
             collide: _collide,
             collide_ramp: _collide_ramp,
             get_ramp_angle: _get_ramp_angle,
@@ -47,25 +71,23 @@
 
     // Memory layout
 
-    var STATIC_START = 8;  // Must avoid storing data at address 0
+    // Emscripten puts the first static at address 8 to  avoid storing data at
+    // address 0.
+    var STATIC_START = 8;  
     var STATIC_SIZE = static_data.byteLength;
     var STATIC_END = STATIC_START + STATIC_SIZE;
 
+    // Align STACK_START to an 8-byte boundary.
     var STACK_START = (STATIC_END + 7) & ~7;
-    var STACK_END = 3 * 1024;
+    // Give at least 4k for stack, and align to 4k boundary.
+    var STACK_END = (STACK_START + 0x1000 + 0x0fff) & ~0x0fff;
     var STACK_SIZE = STACK_END - STACK_START;
-    console.assert(STACK_SIZE >= 2048, 'want at least 2kb for stack');
+    console.assert(STACK_SIZE >= 0x1000, 'want at least 4kb for stack');
 
-    var OUTPUT_START = STACK_END;
-    var OUTPUT_SIZE = 512;
-    var OUTPUT_END = OUTPUT_START + OUTPUT_SIZE;
+    var HEAP_START = STACK_END;
 
-    var INPUT_START = OUTPUT_END;
-    var INPUT_SIZE = 512;
-    var INPUT_END = INPUT_START + INPUT_SIZE;
 
-    var HEAP_START = INPUT_END;
-
+    var msg_buffer = '';
 
     var module_env = function(buffer) {
         return ({
@@ -89,6 +111,29 @@
 
             resetPhysTrace: function() {
                 window.physTrace = [];
+            },
+
+            writeStr: function(ptr, len) {
+                var utf8_buffer = '';
+                var saw_utf8 = false;
+                var view = new Uint8Array(buffer, ptr, len);
+                for (var i = 0; i < len; ++i) {
+                    var byte_ = view[i];
+                    utf8_buffer += String.fromCharCode(byte_);
+                    if (byte_ >= 0x80) {
+                        saw_utf8 = true;
+                    }
+                }
+
+                if (saw_utf8) {
+                    utf8_buffer = decodeURIComponent(escape(utf8_buffer));
+                }
+                msg_buffer += utf8_buffer;
+            },
+
+            flushStr: function() {
+                console.log(msg_buffer);
+                msg_buffer = '';
             },
 
             STACK_START: STACK_START,
@@ -125,99 +170,83 @@
     // Main ChunkPhysicsAsm implementation
 
     function ChunkPhysicsAsm(shapes) {
-        // Buffer size must be a multiple of 8 (for HEAPF64).
-        var heap_size = (shapes.byteLength + 7) & ~7;
-        this.buffer = new ArrayBuffer(HEAP_START + heap_size);
+        // Buffer size must be a multiple of 4k.
+        var min_size = HEAP_START + shapes.byteLength 
+        var buffer_size = (min_size + 0x0fff) & ~0x0fff;
+        this.buffer = new ArrayBuffer(buffer_size);
 
         this.asm = init_module(this.buffer);
 
-        this.input = make_region(Int32Array, this.buffer, INPUT_START, INPUT_SIZE);
-        this.output = make_region(Int32Array, this.buffer, OUTPUT_START, OUTPUT_SIZE);
+        this.heap32 = new Int32Array(this.buffer);
         memcpy(this.buffer, HEAP_START, shapes.buffer, shapes.byteOffset, shapes.byteLength);
     }
 
     ChunkPhysicsAsm.prototype = {
-        '_storeVec': function(index, v) {
-            this.input[index + 0] = v.x;
-            this.input[index + 1] = v.y;
-            this.input[index + 2] = v.z;
+        '_stackAlloc': function(type, count) {
+            var size = count * type.BYTES_PER_ELEMENT;
+            var base = this.asm.__adjust_stack((size + 7) & ~7);
+            return new type(this.buffer, base, count);
+        },
+
+        '_stackFree': function(view) {
+            var size = view.byteLength;
+            this.asm.__adjust_stack(-((size + 7) & ~7));
+        },
+
+        '_storeVec': function(view, offset, v) {
+            view[offset + 0] = v.x;
+            view[offset + 1] = v.y;
+            view[offset + 2] = v.z;
         },
 
         'collide': function(pos, size, velocity) {
-            this._storeVec(0, pos);
-            this._storeVec(3, size);
-            this._storeVec(6, velocity);
+            var input = this._stackAlloc(Int32Array, 9);
+            var output = this._stackAlloc(Int32Array, 6);
 
-            //this.asm.collide(INPUT_START, OUTPUT_START);
-            this.asm.collide(INPUT_START, OUTPUT_START);
+            this._storeVec(input, 0, pos);
+            this._storeVec(input, 3, size);
+            this._storeVec(input, 6, velocity);
 
-            var result = ({
-                x: this.output[0],
-                y: this.output[1],
-                z: this.output[2],
-                t: this.output[3],
-                d: this.output[4],
-                type: this.output[5],
-            });
-            //console.log(result);
-            return result;
-        },
-
-        'collide_ramp': function(pos, size, velocity) {
-            this._storeVec(0, pos);
-            this._storeVec(3, size);
-            this._storeVec(6, velocity);
-
-            this.asm.collide_ramp(INPUT_START, OUTPUT_START);
+            this.asm.collide(input.byteOffset, output.byteOffset);
 
             var result = ({
-                x: this.output[0],
-                y: this.output[1],
-                z: this.output[2],
-                t: this.output[3],
-                d: this.output[4],
-                type: this.output[5],
+                x: output[0],
+                y: output[1],
+                z: output[2],
+                t: output[3],
+                d: output[4],
+                type: output[5],
             });
-            //console.log(result);
+
+            this._stackFree(input);
+            this._stackFree(output);
+
             return result;
         },
 
         'test': function(pos, size, velocity) {
-            this._storeVec(0, pos);
-            this._storeVec(3, size);
-            this._storeVec(6, velocity);
+            var input = this._stackAlloc(Int32Array, 9);
+            var output = this._stackAlloc(Int32Array, 6);
 
-            this.asm.test(INPUT_START, OUTPUT_START);
+            this._storeVec(input, 0, pos);
+            this._storeVec(input, 3, size);
+            this._storeVec(input, 6, velocity);
+
+            this.asm.test(input.byteOffset, output.byteOffset);
 
             var result = ({
-                x: this.output[0],
-                y: this.output[1],
-                z: this.output[2],
-                t: this.output[3],
-                d: this.output[4],
-                type: this.output[5],
+                x: output[0],
+                y: output[1],
+                z: output[2],
+                t: output[3],
+                d: output[4],
+                type: output[5],
             });
-            //console.log(result);
+
+            this._stackFree(input);
+            this._stackFree(output);
+
             return result;
-        },
-
-        'get_ramp_angle': function(pos, size) {
-            this._storeVec(0, pos);
-            this._storeVec(3, size);
-
-            this.asm.get_ramp_angle(INPUT_START, OUTPUT_START);
-
-            return this.output[0];
-        },
-
-        'get_next_ramp_angle': function(pos, size, velocity) {
-            this._storeVec(0, pos);
-            this._storeVec(3, size);
-            this._storeVec(6, velocity);
-
-            this.asm.get_next_ramp_angle(INPUT_START, OUTPUT_START);
-
-            return this.output[0];
         },
     };
 

@@ -82,7 +82,7 @@ pub enum RampAngle {
 
 static TILE_SIZE: i32 = 32;
 static CHUNK_SIZE: i32 = 16;
-static SHAPE_BUFFER: *const Shape = 4096 as *const Shape;
+static SHAPE_BUFFER: *const Shape = 8192 as *const Shape;
 
 fn get_shape(pos: V3) -> Shape {
     let V3 { x, y, z } = pos;

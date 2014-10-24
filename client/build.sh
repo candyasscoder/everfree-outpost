@@ -5,6 +5,12 @@ if [[ -z "$EMSCRIPTEN_HOME" ]]; then
     echo "must set EMSCRIPTEN_HOME with the prefix for emscripten-fastcomp" 1>&2
     exit 1
 fi
+
+if [[ -z "$EMSCRIPTEN_EXTRA_PLUGINS" ]]; then
+    echo "must set EMSCRIPTEN_EXTRA_PLUGINS with directory containing extra plugins" 1>&2
+    exit 1
+fi
+
 if [[ -z "$RUST_HOME" ]]; then
     echo "must set RUST_HOME with the prefix for Rust" 1>&2
     exit 1
@@ -41,9 +47,11 @@ $EMSCRIPTEN_HOME/bin/llvm-as build/physics.clean.ll -o build/physics.bc
 
 # Apply some emscripted-specific transformations
 $EMSCRIPTEN_HOME/bin/opt build/physics.bc \
+    -load=$EMSCRIPTEN_EXTRA_PLUGINS/BreakStructArguments.so \
     -strip-debug \
     -internalize \
     -internalize-public-api-list=collide,collide_ramp,get_ramp_angle,get_next_ramp_angle,test \
+    -break-struct-arguments \
     -globaldce \
     -pnacl-abi-simplify-preopt -pnacl-abi-simplify-postopt \
     -enable-emscripten-cxx-exceptions \
@@ -58,18 +66,20 @@ $EMSCRIPTEN_HOME/bin/llc build/physics.opt.bc \
     -O0 \
     -o build/physics.o.js
 
+python handle_function_tables.py <build/physics.o.js >build/physics.o2.js
+
 # Paste the javascript functions into the physics.js template
 awk '
     /INSERT_EMSCRIPTEN_FUNCTIONS/ {
-        while ((getline < "build/physics.o.js") > 0) {
+        while ((getline < "build/physics.o2.js") > 0) {
             if ($0 == "// EMSCRIPTEN_END_FUNCTIONS")
                 break;
             print;
         }
     }
     /INSERT_EMSCRIPTEN_STATIC/ {
-        getline < "build/physics.o.js";
-        getline < "build/physics.o.js";
+        getline < "build/physics.o2.js";
+        getline < "build/physics.o2.js";
         start = index($0, "[");
         end = index($0, "]");
         print substr($0, start, end - start + 1);
