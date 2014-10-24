@@ -55,7 +55,6 @@
             collide_ramp: _collide_ramp,
             get_ramp_angle: _get_ramp_angle,
             get_next_ramp_angle: _get_next_ramp_angle,
-            test: _test,
         });
     });
 

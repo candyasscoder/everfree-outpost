@@ -1,0 +1,4 @@
+collide
+collide_ramp
+get_ramp_angle
+get_next_ramp_angle

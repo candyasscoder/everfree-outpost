@@ -1,9 +1,15 @@
+#![crate_name = "physics"]
 #![no_std]
 #![feature(globs, phase)]
 #![feature(overloaded_calls, unboxed_closures)]
-#![feature(lang_items)]
 #![feature(macro_rules)]
+
 #[phase(plugin, link)] extern crate core;
+#[cfg(asmjs)]
+#[phase(plugin, link)] extern crate asmrt;
+#[cfg(not(asmjs))]
+#[phase(plugin, link)] extern crate std;
+
 use core::prelude::*;
 use core::cmp::{min, max};
 use core::cell::Cell;
@@ -31,14 +37,15 @@ macro_rules! try_return_some {
 }
 
 
+// Some macros in `core` rely on names within `::std`.
+#[cfg(asmjs)]
 mod std {
     pub use core::cmp;
     pub use core::fmt;
 }
 
-mod lang_items;
-mod v3;
-pub mod asmjs;
+
+pub mod v3;
 pub mod physics2;
 
 
@@ -279,7 +286,7 @@ fn hit_chunk_boundaries(cur: V3, hit: V3, side: V3) -> i32 {
 }
 
 
-fn collide_ramp(pos: V3, size: V3, velocity: V3) -> CollideResult {
+pub fn collide_ramp(pos: V3, size: V3, velocity: V3) -> CollideResult {
     if velocity == scalar(0) {
         return CollideResult {
             pos: pos,
@@ -357,7 +364,7 @@ fn collide_ramp(pos: V3, size: V3, velocity: V3) -> CollideResult {
 //  - NoRamp if over only Floor, or over tiles other than Floor or Ramp
 //  - Flat if over some Floor, with some Ramp at a lower z-level
 //  - XPos/YPos/etc if over Ramp, possibly with some Floor at a lower z-level
-fn get_ramp_angle(pos: V3, size: V3) -> RampAngle {
+pub fn get_ramp_angle(pos: V3, size: V3) -> RampAngle {
     let mut top_ramp_z = -1;
     let mut top_ramp = NoRamp;
     let mut top_floor_z = -1;
@@ -392,7 +399,7 @@ fn get_ramp_angle(pos: V3, size: V3) -> RampAngle {
 
 // Get the ramp angle opposite the plane in the direction of travel.  This should be used only when
 // the region defined by `pos` and `size` is adjacent to a ramp entry in the direction of travel.
-fn get_next_ramp_angle(pos: V3, size: V3, velocity: V3) -> RampAngle {
+pub fn get_next_ramp_angle(pos: V3, size: V3, velocity: V3) -> RampAngle {
     // TODO: this could probably be made more efficient.
     get_ramp_angle(pos + velocity.signum(), size)
 }
