@@ -105,11 +105,11 @@ pub struct V3Items<'a> {
 impl<'a> Iterator<i32> for V3Items<'a> {
     fn next(&mut self) -> Option<i32> {
         self.i += 1;
-        if (self.i == 1) {
+        if self.i == 1 {
             Some(self.v.x)
-        } else if (self.i == 2) {
+        } else if self.i == 2 {
             Some(self.v.y)
-        } else if (self.i == 3) {
+        } else if self.i == 3 {
             Some(self.v.z)
         } else {
             None

@@ -1,10 +1,30 @@
 #![crate_name = "asmlibs"]
 #![no_std]
 
+extern crate core;
 extern crate physics;
 
+use core::ptr::RawPtr;
 use physics::v3::V3;
-use physics::CollideResult;
+use physics::{Shape, Empty, ShapeSource, CHUNK_SIZE};
+
+
+struct AsmJsShapeSource;
+
+impl ShapeSource for AsmJsShapeSource {
+    fn get_shape(&self, pos: V3) -> Shape {
+        const SHAPE_BUFFER: *const Shape = 0x2000 as *const Shape;
+
+        let V3 { x, y, z } = pos;
+        if x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_SIZE || z < 0 || z >= CHUNK_SIZE {
+            return Empty;
+        }
+
+        let index = ((z) * CHUNK_SIZE + y) * CHUNK_SIZE + x;
+        unsafe { *SHAPE_BUFFER.offset(index as int) }
+    }
+}
+
 
 pub struct CollideArgs {
     pub pos: V3,
@@ -12,27 +32,15 @@ pub struct CollideArgs {
     pub velocity: V3,
 }
 
+pub struct CollideResult {
+    pub pos: V3,
+    pub time: i32,
+}
+
 #[export_name = "collide"]
 pub extern fn collide_wrapper(input: &CollideArgs, output: &mut CollideResult) {
-    *output = physics::physics2::collide(input.pos, input.size, input.velocity);
-}
-
-#[export_name = "collide_ramp"]
-pub extern fn collide_ramp_wrapper(input: &CollideArgs, output: &mut CollideResult) {
-    *output = physics::collide_ramp(input.pos, input.size, input.velocity);
-}
-
-pub struct IsOnRampArgs {
-    pub pos: V3,
-    pub size: V3,
-}
-
-#[export_name = "get_ramp_angle"]
-pub extern fn get_ramp_angle_wrapper(input: &IsOnRampArgs, output: &mut i32) {
-    *output = physics::get_ramp_angle(input.pos, input.size) as i32;
-}
-
-#[export_name = "get_next_ramp_angle"]
-pub extern fn get_next_ramp_angle_wrapper(input: &CollideArgs, output: &mut i32) {
-    *output = physics::get_next_ramp_angle(input.pos, input.size, input.velocity) as i32;
+    let (pos, time) = physics::collide(&AsmJsShapeSource,
+                                       input.pos, input.size, input.velocity);
+    output.pos = pos;
+    output.time = time;
 }

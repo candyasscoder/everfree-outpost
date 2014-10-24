@@ -11,12 +11,9 @@
 #[phase(plugin, link)] extern crate std;
 
 use core::prelude::*;
-use core::cmp::{min, max};
-use core::cell::Cell;
-use core::iter;
-use core::iter::Peekable;
+use core::cmp;
 
-use v3::{V3, RegionPoints, scalar};
+use v3::{V3, Region, scalar};
 
 macro_rules! try_return {
     ($e:expr) => {
@@ -46,11 +43,10 @@ mod std {
 
 
 pub mod v3;
-pub mod physics2;
 
 
 fn gcd(mut a: i32, mut b: i32) -> i32 {
-    while (b != 0) {
+    while b != 0 {
         let t = b;
         b = a % b;
         a = t;
@@ -58,9 +54,14 @@ fn gcd(mut a: i32, mut b: i32) -> i32 {
     a
 }
 
+#[allow(dead_code)]
 fn lcm(a: i32, b: i32) -> i32 {
     a * b / gcd(a, b)
 }
+
+
+pub const TILE_SIZE: i32 = 32;
+pub const CHUNK_SIZE: i32 = 16;
 
 
 #[deriving(Eq, PartialEq)]
@@ -76,42 +77,6 @@ pub enum Shape {
     RampTop = 7,
 }
 
-#[deriving(Eq, PartialEq)]
-#[repr(i32)]
-pub enum RampAngle {
-    NoRamp = 0,
-    Flat = 1,
-    XPos = 2,
-    XNeg = 3,
-    YPos = 4,
-    YNeg = 5,
-}
-
-static TILE_SIZE: i32 = 32;
-static CHUNK_SIZE: i32 = 16;
-static SHAPE_BUFFER: *const Shape = 8192 as *const Shape;
-
-fn get_shape(pos: V3) -> Shape {
-    let V3 { x, y, z } = pos;
-    if x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_SIZE || z < 0 || z >= CHUNK_SIZE {
-        return Empty;
-    }
-
-    let index = ((z) * CHUNK_SIZE + y) * CHUNK_SIZE + x;
-    unsafe { *SHAPE_BUFFER.offset(index as int) }
-}
-
-fn get_shape_below(mut pos: V3) -> (Shape, i32) {
-    while pos.z >= 0 {
-        match get_shape(pos) {
-            Empty | RampTop => {},
-            s => return (s, pos.z),
-        }
-        pos.z -= 1;
-    }
-    (Empty, 0)
-}
-
 impl Shape {
     fn is_ramp(&self) -> bool {
         match *self {
@@ -119,492 +84,296 @@ impl Shape {
             _ => false,
         }
     }
+}
 
-    fn ramp_angle(&self) -> RampAngle {
-        match *self {
-            RampE => XPos,
-            RampW => XNeg,
-            RampS => YPos,
-            RampN => YNeg,
-            _ => NoRamp,
-        }
-    }
 
-    fn ramp_entry_dir(&self) -> V3 {
-        match *self {
-            RampE => V3::new( 1,  0,  0),
-            RampW => V3::new(-1,  0,  0),
-            RampS => V3::new( 0,  1,  0),
-            RampN => V3::new( 0, -1,  0),
-            _ => fail!(),
+pub trait ShapeSource {
+    fn get_shape(&self, pos: V3) -> Shape;
+
+    fn get_shape_below(&self, mut pos: V3) -> (Shape, i32) {
+        while pos.z >= 0 {
+            match self.get_shape(pos) {
+                Empty | RampTop => {},
+                s => return (s, pos.z),
+            }
+            pos.z -= 1;
         }
+        (Empty, 0)
     }
 }
 
-
-extern {
-    fn trace_ints(ptr: *const i32, len: i32);
-    fn phys_trace(x: i32, y: i32, w: i32, h: i32);
-    fn reset_phys_trace();
-}
-
-fn trace(p: V3) {
-    //unsafe { phys_trace(p.x, p.y, p.z) };
-    trace_rect(p * scalar(32), scalar(32));
-}
-
-fn trace_rect(pos: V3, size: V3) {
-    unsafe { phys_trace(pos.x, pos.y, size.x, size.y) };
-}
-
-fn reset_trace() {
-    unsafe { reset_phys_trace() };
-}
-
-fn log(i: i32) {
-    unsafe { trace_ints(&i as *const i32, 1) };
-}
-
-fn log_v3(v: V3) {
-    log_arr(&[v.x, v.y, v.z]);
-}
-
-fn log_arr(ints: &[i32]) {
-    unsafe { trace_ints(ints.as_ptr(), ints.len() as i32) };
-}
-
-
-pub struct CollideResult {
-    pub pos: V3,
-    pub time: i32,
-    pub dirs: i32,
-    pub reason: CollideReason,
-}
-
-impl CollideResult {
-    pub fn new(pos: V3, time: i32, dirs: i32, reason: CollideReason) -> CollideResult {
-        CollideResult {
-            pos: pos,
-            time: time,
-            dirs: dirs,
-            reason: reason,
-        }
-    }
-}
-
-#[repr(i32)]
-pub enum CollideReason {
-    ZeroVelocity = 1,
-    NoFloor = 2,
-    Wall = 3,
-    SlideEnd = 4,
-    ChunkBorder = 5,
-    Timeout = 6,
-    RampEntry = 7,
-    RampExit = 8,
-    RampDysfunction = 9,
-    RampAngleChange = 10,
-}
-
-
-fn collide(pos: V3, size: V3, velocity: V3) -> CollideResult {
+pub fn collide<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> (V3, i32) {
     if velocity == scalar(0) {
-        return CollideResult {
-            pos: pos,
-            time: 0,
-            dirs: 0,
-            reason: ZeroVelocity,
-        }
+        return (pos, core::i32::MAX);
     }
-
-    let side = velocity.is_positive();
-    let corner = pos + side * size;
-
-    for (time, cur, hit) in PlaneCollisions::new(corner, velocity).take(3 * CHUNK_SIZE as uint) {
-        let base = cur - side * size;
-
-        let bounds = hit_chunk_boundaries(cur, hit, side);
-        if (bounds != 0) {
-            return CollideResult::new(base, time, bounds, ChunkBorder);
-        }
-
-        for (min, max, dir) in ContactPlanes::new(base, size, velocity.signum(), hit) {
-            let mut seen_ramp = NoRamp;
-            let mut seen_floor = false;
-
-            let collided = |&:reason| {
-                CollideResult::new(base, time, bits_from_hit(dir.abs()), reason)
-            };
-
-            let min_z = min.z / TILE_SIZE;
-
-            for pos in plane_side(min, max, dir) {
-                let shape = get_shape(pos);
-                if pos.z == min_z {
-                    match shape {
-                        Floor => { seen_floor = true; },
-                        RampTop => { seen_ramp = Flat; },
-                        Empty => return collided(NoFloor),
-                        s if s.is_ramp() && dir == s.ramp_entry_dir() => {
-                            seen_ramp = s.ramp_angle();
-                        },
-                        _ => return collided(Wall),
-                    }
-                } else {
-                    match shape {
-                        Empty | RampTop => {},
-                        _ => return collided(Wall),
-                    }
-                }
-            }
-
-            if seen_ramp != NoRamp {
-                if !seen_floor {
-                    return collided(RampEntry);
-                } else {
-                    return collided(Wall)
-                }
-            }
-        }
-    }
-
-    CollideResult {
-        pos: pos,
-        time: 0,    // TODO: should set
-        dirs: 0,
-        reason: Timeout,
-    }
-}
-
-fn hit_chunk_boundaries(cur: V3, hit: V3, side: V3) -> i32 {
-    let chunk_side = side * scalar(CHUNK_SIZE * TILE_SIZE);
-    let bound_x = hit.x != 0 && cur.x == chunk_side.x;
-    let bound_y = hit.y != 0 && cur.y == chunk_side.y;
-    let bound_z = hit.z != 0 && cur.z == chunk_side.z;
     
-    (bound_x as i32 << 2) | (bound_y as i32 << 1) | (bound_z as i32)
-}
+    let max_velocity = cmp::max(velocity.x.abs(), velocity.y.abs());
 
-
-pub fn collide_ramp(pos: V3, size: V3, velocity: V3) -> CollideResult {
-    if velocity == scalar(0) {
-        return CollideResult {
-            pos: pos,
-            time: 0,
-            dirs: 0,
-            reason: ZeroVelocity,
-        }
+    let mut end_pos = walk_path(chunk, pos, size, velocity, check_region);
+    if end_pos == pos {
+        end_pos = walk_path(chunk, pos, size, velocity, check_region_ramp);
+    }
+    if end_pos == pos {
+        end_pos = walk_path(chunk, pos, size, velocity.with_z(max_velocity), check_region_ramp);
+    }
+    if end_pos == pos {
+        end_pos = walk_path(chunk, pos, size, velocity.with_z(-max_velocity), check_region_ramp);
     }
 
-    // When moving on a ramp:
-    //  - When moving downward, detect moving OUT of ramp, and indicate RampExit
-    //  - When moving upward, detect moving IN to the flat region, and indicate RampAngleChange
-    // When moving on a flat region (ramp top):
-    //  - Detect moving OUT of the ramp, and indicate RampExit
-    //  - Detect moving OUT of the flat region, and indicate RampAngleChange
-
-    let downward = velocity.z < 0;
-    let on_flat = velocity.z == 0;
-
-    // True if we're watching for moving OUT of a region.
-    let watch_out = downward || on_flat;
-    let out_sign = if downward || on_flat { scalar(-1) } else { scalar(1) };
-
-    let side = if !watch_out { velocity.is_positive() } else { velocity.is_negative() };
-    let corner = pos + side * size;
-    let velocity_sign = velocity.signum();
-
-    for (time, cur, hit) in PlaneCollisions::new(corner, velocity).take(3 * CHUNK_SIZE as uint) {
-        let base = cur - side * size;
-        let hit = hit * V3::new(1, 1, 0);
-        for (min, mut max, dir) in ContactPlanes::new(base, size, velocity_sign * out_sign, hit) {
-            let collided = |&:reason| {
-                CollideResult::new(base, time, bits_from_hit(dir.abs()), reason)
-            };
-
-            max.z = min.z + 1;
-
-            if !on_flat {
-                let mut any_ramp = false;
-                let mut all_ramp = true;
-                for pos in plane_side(min, max, velocity_sign) {
-                    let (shape, _) = get_shape_below(pos);
-                    if !shape.is_ramp() {
-                        all_ramp = false;
-                    } else {
-                        any_ramp = true;
-                    }
-                }
-
-                if downward && !any_ramp {
-                    return collided(RampExit);
-                } else if !downward && !all_ramp {
-                    return collided(RampAngleChange);
-                }
-            } else {
-                // TODO: on_flat handling is pretty hacky at the moment.
-                match get_next_ramp_angle(base, size, velocity) {
-                    NoRamp => return collided(RampExit),
-                    Flat => {},
-                    _ => return collided(RampAngleChange),
-                }
-            }
-        }
-    }
-
-    CollideResult {
-        pos: pos,
-        time: 0,
-        dirs: 0,
-        reason: Timeout,
-    }
-}
-
-// Get the ramp angle below a region.
-//  - NoRamp if over only Floor, or over tiles other than Floor or Ramp
-//  - Flat if over some Floor, with some Ramp at a lower z-level
-//  - XPos/YPos/etc if over Ramp, possibly with some Floor at a lower z-level
-pub fn get_ramp_angle(pos: V3, size: V3) -> RampAngle {
-    let mut top_ramp_z = -1;
-    let mut top_ramp = NoRamp;
-    let mut top_floor_z = -1;
-
-    for pos in plane_side(pos, pos + size * V3::new(1, 1, 0), V3::new(0, 0, 1)) {
-        match get_shape_below(pos) {
-            (Floor, z) => {
-                if z > top_floor_z {
-                    top_floor_z = z;
-                }
-            },
-            (s, z) if s.is_ramp() => {
-                if z > top_ramp_z {
-                    top_ramp_z = z;
-                    top_ramp = s.ramp_angle();
-                }
-            },
-            _ => return NoRamp,
-        }
-    }
-
-    if top_floor_z > top_ramp_z {
-        if top_ramp == NoRamp {
-            NoRamp
+    let abs = velocity.abs();
+    let max = cmp::max(cmp::max(abs.x, abs.y), abs.z);
+    let t =
+        if max == abs.x {
+            (end_pos.x - pos.x) * 1000 / velocity.x
+        } else if max == abs.y {
+            (end_pos.y - pos.y) * 1000 / velocity.y
         } else {
-            Flat
-        }
-    } else {
-        top_ramp
-    }
-}
-
-// Get the ramp angle opposite the plane in the direction of travel.  This should be used only when
-// the region defined by `pos` and `size` is adjacent to a ramp entry in the direction of travel.
-pub fn get_next_ramp_angle(pos: V3, size: V3, velocity: V3) -> RampAngle {
-    // TODO: this could probably be made more efficient.
-    get_ramp_angle(pos + velocity.signum(), size)
-}
-
-
-
-struct PlaneCollisions {
-    units: i32,
-    start: V3,
-    velocity: V3,
-    next: V3,
-    pixel_time: V3,
-}
-
-impl PlaneCollisions {
-    fn new(start: V3, velocity: V3) -> PlaneCollisions {
-        assert!(velocity != scalar(0));
-
-        // We subdivide both time and space into `u` subpixels and `u` timesteps per second.  The
-        // result is that all interesting events occur at an integer number of subpixels and timesteps.
-        let units =
-            lcm(if velocity.x != 0 { velocity.x.abs() } else { 1 },
-            lcm(if velocity.y != 0 { velocity.y.abs() } else { 1 },
-                if velocity.z != 0 { velocity.z.abs() } else { 1 }));
-
-        // Find the coordinates of the first plane we will hit in each direction.
-        let side = velocity.is_positive();
-        let first_plane =
-            (start + side * scalar(TILE_SIZE - 1)) / scalar(TILE_SIZE) * scalar(TILE_SIZE);
-
-        // For each axis, the time (in `1/u`-second timesteps) to move one pixel.
-        let pixel_time = velocity.map(|&: a: i32| if a != 0 { units / a.abs() } else { 0 });
-
-        // For each axis, the timestapm of the next collision.
-        let next = pixel_time.zip(&(first_plane - start).abs(),
-            |&: p: i32, d: i32| if p != 0 { p * d } else { core::i32::MAX });
-
-        PlaneCollisions {
-            units: units,
-            start: start,
-            velocity: velocity,
-            next: next,
-            pixel_time: pixel_time,
-        }
-    }
-}
-
-impl Iterator<(i32, V3, V3)> for PlaneCollisions {
-    #[inline]
-    fn next(&mut self) -> Option<(i32, V3, V3)> {
-        let time = min(self.next.x, min(self.next.y, self.next.z));
-        // Check which axes have a collision (may be more than one).
-        let hit = self.next.map(|&: a: i32| (a == time) as i32);
-        // Advance the next collision time by `pixel_time * TILE_SIZE` steps for each axis that is
-        // currently colliding.
-        self.next = self.next + hit * self.pixel_time * scalar(TILE_SIZE);
-
-        let cur_pos = self.start + self.velocity * scalar(time) / scalar(self.units);
-        let time_ms = 1000 * time / self.units;
-
-        Some((time_ms, cur_pos, hit))
-    }
-}
-
-
-static HIT_COMBO_ORDER: u32 = 0b111_110_011_101_100_010_001_000;
-
-struct HitComboIter {
-    cur: u32,
-    mask: u8,
-}
-
-impl HitComboIter {
-    fn new(hit: V3) -> HitComboIter {
-        HitComboIter {
-            cur: HIT_COMBO_ORDER,
-            mask: ((hit.x << 2) | (hit.y << 1) | (hit.z)) as u8,
-        }
-    }
-}
-
-impl Iterator<(V3, i32)> for HitComboIter {
-    #[inline]
-    fn next(&mut self) -> Option<(V3, i32)> {
-        self.cur >>= 3;
-        let inv_mask = !self.mask as u32 & 0b111;
-        while (self.cur & inv_mask) != 0 {
-            self.cur >>= 3;
-        }
-
-        if self.cur == 0 {
-            return None;
-        }
-
-        let bits = (self.cur & 0b111) as i32;
-        Some((hit_from_bits(bits), bits))
-    }
-}
-
-fn hit_from_bits(bits: i32) -> V3 {
-    V3::new((bits >> 2) & 1,
-            (bits >> 1) & 1,
-            (bits) & 1)
-}
-
-fn bits_from_hit(hit: V3) -> i32 {
-    (hit.x << 2) | (hit.y << 1) | hit.z
-}
-
-
-
-struct Interleaving<A, B, I, J, F> {
-    i: Peekable<(A, B), I>,
-    j: Peekable<(A, B), J>,
-    combine: F,
-}
-
-impl<A, B, I, J, F> Interleaving<A, B, I, J, F>
-        where I: Iterator<(A, B)>,
-              J: Iterator<(A, B)>,
-              A: Ord,
-              F: FnMut(B, B) -> B {
-    fn new(i: I, j: J, combine: F) -> Interleaving<A, B, I, J, F> {
-        Interleaving {
-            i: i.peekable(),
-            j: j.peekable(),
-            combine: combine,
-        }
-    }
-}
-
-impl<A, B, I, J, F> Iterator<(A, B)> for Interleaving<A, B, I, J, F>
-        where I: Iterator<(A, B)>,
-              J: Iterator<(A, B)>,
-              A: Ord,
-              F: FnMut(B, B) -> B {
-    #[inline]
-    fn next(&mut self) -> Option<(A, B)> {
-        let ordering = match (self.i.peek(), self.j.peek()) {
-            (Some(&(ref t1, _)), Some(&(ref t2, _))) => t1.cmp(t2),
-            (Some(_), None) => Less,
-            (None, Some(_)) => Greater,
-            (None, None) => return None,
+            (end_pos.z - pos.z) * 1000 / velocity.z
         };
 
-        match ordering {
-            Less => self.i.next(),
-            Greater => self.j.next(),
-            Equal => {
-                let (t, a) = self.i.next().unwrap();
-                let (_, b) = self.i.next().unwrap();
-                Some((t, (self.combine)(a, b)))
-            },
-        }
+    (end_pos, t)
+}
+
+
+fn check_region<S: ShapeSource>(chunk: &S, old: Region, new: Region) -> bool {
+    let Region { min, max } = old.join(&new);
+
+    if min.x < 0 || min.y < 0 || min.z < 0 {
+        return false;
     }
-}
 
-
-struct ContactPlanes {
-    box_min: V3,
-    box_max: V3,
-    facing: V3,
-    dir_signs: V3,
-    hits: HitComboIter,
-}
-
-impl ContactPlanes {
-    fn new(base: V3, size: V3, dir_signs: V3, hit: V3) -> ContactPlanes {
-        ContactPlanes {
-            box_min: base,
-            box_max: base + size,
-            facing: base + size * dir_signs.is_positive(),
-            dir_signs: dir_signs,
-            hits: HitComboIter::new(hit),
-        }
-    }
-}
-
-impl Iterator<(V3, V3, V3)> for ContactPlanes {
-    fn next(&mut self) -> Option<(V3, V3, V3)> {
-        let cur_hit = match self.hits.next() {
-            None => return None,
-            Some((h, _)) => h,
-        };
-
-        let min = cur_hit.choose(&self.facing, &self.box_min);
-        let max = cur_hit.choose(&self.facing, &self.box_max);
-        let dir = cur_hit * self.dir_signs;
-
-        Some((min, max, dir))
-    }
-}
-
-
-
-// Iterate over all tiles touching one side of the plane.  `dir` points from the plane toward the
-// tiles.
-fn plane_side(min: V3, max: V3, dir: V3) -> RegionPoints {
-    // Plane bounds in tile coordinates.
     let tile_min = min / scalar(TILE_SIZE);
     let tile_max = (max + scalar(TILE_SIZE - 1)) / scalar(TILE_SIZE);
 
-    // Bounds of the region on the `dir` side of the plane.
-    let region_min = (tile_min - dir.is_negative()).clamp(0, CHUNK_SIZE);
-    let region_max = (tile_max + dir.is_positive()).clamp(0, CHUNK_SIZE);
+    // Check that the bottom of the region touches the bottom of the tiles.
+    if min.z % TILE_SIZE != 0 {
+        return false;
+    }
 
-    RegionPoints::new(region_min, region_max)
+    // Check that the bottom layer is all floor.
+    let bottom_min = tile_min;
+    let bottom_max = V3::new(tile_max.x, tile_max.y, tile_min.z + 1);
+    for pos in Region::new(bottom_min, bottom_max).points() {
+        if chunk.get_shape(pos) != Floor {
+            return false;
+        }
+    }
+
+    // Check that the rest of the region is all empty.
+    let top_min = V3::new(tile_min.x, tile_min.y, tile_min.z + 1);
+    let top_max = tile_max;
+    for pos in Region::new(top_min, top_max).points() {
+        match chunk.get_shape(pos) {
+            Empty | RampTop => {},
+            _ => return false,
+        }
+    }
+
+    true
+}
+
+fn check_region_ramp<S: ShapeSource>(chunk: &S, old: Region, new: Region) -> bool {
+    if new.min.x < 0 || new.min.y < 0 || new.min.z < 0 {
+        return false;
+    }
+
+    // Check that we stand at an appropriate altitude.
+    // Look both above and below the bottom plane of `min`.  This handles the case where we stand
+    // at the very top of a ramp.
+    let bottom = new.flatten(2) - V3::new(0, 0, 1);
+    if new.min.z != max_altitude(chunk, bottom) {
+        return false;
+    }
+
+    // Check that we are actually over (or adjacent to) some amount of ramp.
+    let expanded = Region::new(bottom.min - V3::new(1, 1, 0),
+                               bottom.max + V3::new(1, 1, 0));
+    if !expanded.div_round(TILE_SIZE).points().any(|p| chunk.get_shape(p).is_ramp()) {
+        return false;
+    }
+
+    // Check that there are no collisions.
+    let outer_px = old.join(&new);
+    let outer = outer_px.div_round(TILE_SIZE);
+    for pos in outer.points() {
+        // The lowest level was implicitly checked for collisions by the altitude code.
+        if pos.z == outer.min.z {
+            continue;
+        }
+        match chunk.get_shape(pos) {
+            Empty | RampTop => {},
+            _ => return false,
+        }
+    }
+
+    // Check for continuity of the ramp.
+    let mut footprint_px = outer_px;
+    footprint_px.min.z = cmp::max(old.min.z, new.min.z);
+    if !check_ramp_continuity(chunk, footprint_px) {
+        return false;
+    }
+
+    true
+}
+
+fn max_altitude<S: ShapeSource>(chunk: &S, region: Region) -> i32 {
+    let tile_region = region.div_round(TILE_SIZE);
+    let mut max_alt = -1;
+    for point in tile_region.points() {
+        let shape = chunk.get_shape(point);
+
+        let tile_alt = {
+            let tile_volume = Region::new(point, point + scalar(1)) * scalar(TILE_SIZE);
+            let subregion = region.intersect(&tile_volume) - point * scalar(TILE_SIZE);
+            match shape {
+                Empty | RampTop => continue,
+                Floor => 0,
+                Solid => TILE_SIZE,
+                RampE => subregion.max.x,
+                RampW => TILE_SIZE - subregion.min.x,
+                RampS => subregion.max.y,
+                RampN => TILE_SIZE - subregion.min.y,
+            }
+        };
+
+        let alt = tile_alt + point.z * TILE_SIZE;
+        if alt > max_alt {
+            max_alt = alt;
+        }
+    }
+
+    max_alt
+}
+
+fn altitude_at_pixel(shape: Shape, x: i32, y: i32) -> i32 {
+    match shape {
+        Empty | RampTop => -1,
+        Floor => 0,
+        Solid => TILE_SIZE,
+        RampE => x,
+        RampW => TILE_SIZE - x,
+        RampS => y,
+        RampN => TILE_SIZE - y,
+    }
+}
+
+fn check_ramp_continuity<S: ShapeSource>(chunk: &S, region: Region) -> bool {
+    let Region { min, max } = region.div_round(TILE_SIZE);
+    let top_z = min.z;
+
+    let mut next_z_x = -1;
+    let mut next_z_y = -1;
+
+    for y in range(min.y, max.y) {
+        for x in range(min.x, max.x) {
+            // Get z-level to inspect for the current tile.
+            let (shape_here, z_here) = chunk.get_shape_below(V3::new(x, y, top_z));
+            if x > min.x && next_z_x != z_here {
+                return false;
+            } else if x == min.x && y > min.y && next_z_y != z_here {
+                return false;
+            }
+
+            // Coordinates within the tile of the intersection of the tile region and the footprint
+            // region.  That means these range from [0..32], with numbers other than 0 and 32
+            // appearing only at the edges.
+            let x0 = if x > min.x { 0 } else { region.min.x - min.x * TILE_SIZE };
+            let y0 = if y > min.y { 0 } else { region.min.y - min.y * TILE_SIZE };
+            let x1 = if x < max.x - 1 { TILE_SIZE } else { region.max.x - (max.x - 1) * TILE_SIZE};
+            let y1 = if y < max.y - 1 { TILE_SIZE } else { region.max.y - (max.y - 1) * TILE_SIZE};
+            let alt_here_11 = altitude_at_pixel(shape_here, x1, y1);
+            let look_up = alt_here_11 == TILE_SIZE && z_here < top_z;
+
+            // Check the line between this tile and the one to the east, but only the parts that
+            // lie within `region`.
+            if x < max.x - 1 {
+                let (shape_right, z_right) = adjacent_shape(chunk, x + 1, y, z_here, look_up);
+                let alt_here_10 = altitude_at_pixel(shape_here, TILE_SIZE, y0);
+                let alt_right_00 = altitude_at_pixel(shape_right, 0, y0);
+                let alt_right_01 = altitude_at_pixel(shape_right, 0, y1);
+                if z_here * TILE_SIZE + alt_here_10 != z_right * TILE_SIZE + alt_right_00 ||
+                   z_here * TILE_SIZE + alt_here_11 != z_right * TILE_SIZE + alt_right_01 {
+                    return false;
+                }
+                // Save the z that we expect to see when visiting the tile to the east.  If we see
+                // a different z, then there's a problem like this:
+                //   _ /
+                //    \_
+                // The \ ramp is properly connected to the rightmost _, but the / ramp is actually
+                // the topmost tile in that column.
+                next_z_x = z_right;
+            }
+
+            // Check the line between this tile and the one to the south.
+            if y < max.y - 1 {
+                let (shape_down, z_down) = adjacent_shape(chunk, x, y + 1, z_here, look_up);
+                let alt_here_01 = altitude_at_pixel(shape_here, x0, TILE_SIZE);
+                let alt_down_00 = altitude_at_pixel(shape_down, x0, 0);
+                let alt_down_10 = altitude_at_pixel(shape_down, x1, 0);
+                if z_here * TILE_SIZE + alt_here_01 != z_down * TILE_SIZE + alt_down_00 ||
+                   z_here * TILE_SIZE + alt_here_11 != z_down * TILE_SIZE + alt_down_10 {
+                    return false;
+                }
+                if x == min.x {
+                    next_z_y = z_down;
+                }
+            }
+        }
+    }
+
+    return true;
+
+    fn adjacent_shape<S: ShapeSource>(chunk: &S, x: i32, y: i32, z: i32,
+                                      look_up: bool) -> (Shape, i32) {
+        if look_up {
+            match chunk.get_shape(V3::new(x, y, z + 1)) {
+                Empty | RampTop => {},
+                s => return (s, z + 1),
+            }
+        }
+
+        match chunk.get_shape(V3::new(x, y, z)) {
+            Empty | RampTop => (chunk.get_shape(V3::new(x, y, z - 1)), z - 1),
+            s => return (s, z),
+        }
+    }
+}
+
+const DEFAULT_STEP: uint = 5;
+
+fn walk_path<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3,
+                             check_region: |&S, Region, Region| -> bool) -> V3 {
+    let velocity_gcd = gcd(gcd(velocity.x.abs(), velocity.y.abs()), velocity.z.abs());
+    let rel_velocity = velocity / scalar(velocity_gcd);
+    let units = cmp::max(cmp::max(rel_velocity.x.abs(), rel_velocity.y.abs()), rel_velocity.z.abs());
+
+    let mut cur = pos * scalar(units);
+    let rel_size = size * scalar(units);
+    let mut step_size = DEFAULT_STEP;
+
+    //reset_trace();
+
+    for _ in range(0u, 20) {
+        let step = rel_velocity << step_size;
+        let next = cur + step;
+        let old = Region::new(cur, cur + rel_size);
+        let new = Region::new(next, next + rel_size);
+
+        //trace_rect(new.min, new.max - new.min);
+
+        if check_region(chunk, old, new) {
+            cur = cur + step;
+            if step_size < DEFAULT_STEP {
+                step_size += 1;
+            }
+        } else {
+            if step_size > 0 {
+                step_size -= 1;
+            } else {
+                break;
+            }
+        }
+    }
+
+    cur / scalar(units)
 }

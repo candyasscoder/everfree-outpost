@@ -23,6 +23,8 @@ def make_cast(val, ty):
         return '+%s' % val
     elif ty == 'f':
         return 'fround(%s)' % val
+    elif ty == 'v':
+        return ''
     else:
         raise ValueError('unknown type: %s' % ty)
 
@@ -32,7 +34,8 @@ def make_abort_func(sig, name):
     args = ', '.join('$%d' % i for i in range(len(arg_tys)))
     body = ' '.join('$%d = %s;' % (i, make_cast('$%d' % i, arg_tys[i]))
             for i in range(len(arg_tys)))
-    return 'function %s(%s) { %s abort(); return; }' % (name, args, body)
+    ret = make_cast(0, ret_ty)
+    return 'function %s(%s) { %s abort(); return %s; }' % (name, args, body, ret)
 
 abort_funcs_str = ''
 fn_tables_str = ''
