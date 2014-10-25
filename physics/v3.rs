@@ -178,7 +178,31 @@ impl Shl<uint, V3> for V3 {
 
 impl Shr<uint, V3> for V3 {
     fn shr(&self, rhs: &uint) -> V3 {
-        self.map(|&:a: i32| a << *rhs)
+        self.map(|&:a: i32| a >> *rhs)
+    }
+}
+
+impl BitAnd<V3, V3> for V3 {
+    fn bitand(&self, other: &V3) -> V3 {
+        self.zip(other, |&:a: i32, b: i32| a & b)
+    }
+}
+
+impl BitOr<V3, V3> for V3 {
+    fn bitor(&self, other: &V3) -> V3 {
+        self.zip(other, |&:a: i32, b: i32| a | b)
+    }
+}
+
+impl BitXor<V3, V3> for V3 {
+    fn bitxor(&self, other: &V3) -> V3 {
+        self.zip(other, |&:a: i32, b: i32| a ^ b)
+    }
+}
+
+impl Not<V3> for V3 {
+    fn not(&self) -> V3 {
+        self.map(|&:a: i32| !a)
     }
 }
 

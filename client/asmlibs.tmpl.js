@@ -52,6 +52,7 @@
         return ({
             __adjust_stack: __adjust_stack,
             collide: _collide,
+            test: _test,
         });
     });
 
@@ -167,7 +168,7 @@
 
     function ChunkPhysicsAsm(shapes) {
         // Buffer size must be a multiple of 4k.
-        var min_size = HEAP_START + shapes.byteLength 
+        var min_size = HEAP_START + 16 * 16 * 16 * 8 * 8
         var buffer_size = (min_size + 0x0fff) & ~0x0fff;
         this.buffer = new ArrayBuffer(buffer_size);
 

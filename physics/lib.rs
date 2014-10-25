@@ -61,7 +61,16 @@ fn lcm(a: i32, b: i32) -> i32 {
 
 
 pub const TILE_SIZE: i32 = 32;
+pub const TILE_BITS: uint = 5;
+pub const TILE_MASK: i32 = TILE_SIZE - 1;
+#[allow(dead_code)] #[static_assert]
+static TILE_SIZE_BITS: bool = TILE_SIZE == 1 << TILE_BITS as uint;
+
 pub const CHUNK_SIZE: i32 = 16;
+pub const CHUNK_BITS: uint = 4;
+pub const CHUNK_MASK: i32 = CHUNK_SIZE - 1;
+#[allow(dead_code)] #[static_assert]
+static CHUNK_SIZE_BITS: bool = CHUNK_SIZE == 1 << CHUNK_BITS as uint;
 
 
 #[deriving(Eq, PartialEq)]
