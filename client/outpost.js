@@ -536,22 +536,20 @@ BackgroundJobRunner.prototype = {
 };
 
 
-function Entity(sheet, ax, ay, x, y) {
+function Animation(sheet) {
     this.sheet = sheet;
-    this._motion = {
-        'last_x': x,
-        'last_y': y,
-        'velocity_x': 0,
-        'velocity_y': 0,
-        'start': 0,
-        'dur': 0,
-    };
     this._anim = null;
-    this.anchor = { 'x': ax, 'y': ay };
 }
 
-Entity.prototype = {
+Animation.prototype = {
     'animate': function(i, j, len, fps, flip, now) {
+        if (this._anim != null && i == this._anim.i && j == this._anim.j &&
+                len == this._anim.len && fps == this._anim.fps && flip == this._anim.flip) {
+            // The new animation is identical to the current one.  Let the
+            // current one keep running so that the user doesn't see a skip.
+            return;
+        }
+
         this._anim = {
             'i': i,
             'j': j,
@@ -562,36 +560,7 @@ Entity.prototype = {
         };
     },
 
-    'move': function(vx, vy, now, end) {
-        var pos = this.position(now);
-        this._motion = {
-            'last_x': pos.x,
-            'last_y': pos.y,
-            'velocity_x': vx,
-            'velocity_y': vy,
-            'start': now,
-            'dur': end - now,
-        };
-    },
-
-    'position': function(now) {
-        var motion = this._motion;
-        var delta = now - motion.start;
-        delta = Math.min(delta, motion.dur);
-        var x = motion.last_x + Math.floor(delta * motion.velocity_x / 1000);
-        var y = motion.last_y + Math.floor(delta * motion.velocity_y / 1000);
-        return { 'x': x, 'y': y }
-    },
-
-    'drawInto': function(ctx, now) {
-        var pos = this.position(now);
-        this.drawAt(ctx, now, pos.x, pos.y);
-    },
-
-    'drawAt': function(ctx, now, pos_x, pos_y) {
-        var x = pos_x - this.anchor.x;
-        var y = pos_y - this.anchor.y;
-
+    'drawAt': function(ctx, now, x, y) {
         var anim = this._anim;
         if (anim.flip) {
             ctx.scale(-1, 1);
@@ -607,8 +576,8 @@ Entity.prototype = {
 
 
 function Pony(sheet, x, y, z) {
-    this._entity = new Entity(sheet, 48, 74, x, y);
-    this._entity.animate(0, 2, 1, 1, false, 0);
+    this._anim = new Animation(sheet);
+    this._anim.animate(0, 2, 1, 1, false, 0);
     this._last_dir = { 'x': 1, 'y': 0 };
     this._forecast = new Forecast(new Vec(x - 16, y - 16, z), new Vec(32, 32, 32));
     phys.resetForecast(0, this._forecast, new Vec(0, 0, 0));
@@ -624,20 +593,19 @@ Pony.prototype = {
             speed = 0;
         }
 
-        var entity = this._entity;
+        var anim = this._anim;
         var flip = dx < 0;
         // Direction, in [0..4].  0 = north, 2 = east, 4 = south.  For western
         // directions, we use [1..3] but also set `flip`.
         var dir = (2 - Math.abs(dx)) * dy + 2;
 
         if (speed == 0) {
-            entity.animate(0, dir, 1, 1, flip, now);
+            anim.animate(0, dir, 1, 1, flip, now);
         } else {
-            entity.animate(speed, 6 * dir, 6, 6 + 2 * speed, flip, now);
+            anim.animate(speed, 6 * dir, 6, 6 + 2 * speed, flip, now);
         }
 
         var pixel_speed = 30 * speed;
-        var pos = entity.position(now);
         var target_v = new Vec(dx * pixel_speed, dy * pixel_speed, 0);
         phys.resetForecast(now, this._forecast, target_v);
     },
@@ -663,7 +631,7 @@ Pony.prototype = {
         ctx.strokeStyle = '#0ff';
         ctx.strokeRect(pos.x - 16, pos.y - 16 - pos.z, this._forecast.size.x, this._forecast.size.y);
 
-        this._entity.drawAt(ctx, now, pos.x, pos.y - pos.z);
+        this._anim.drawAt(ctx, now, pos.x - 48, pos.y - pos.z - 74);
     },
 };
 
