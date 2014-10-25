@@ -309,6 +309,7 @@ function DebugMonitor() {
     this.container = document.createElement('table');
     this.container.setAttribute('class', 'debug-monitor');
 
+    this.pos = this._addRow('Pos');
     this.fps = this._addRow('FPS');
     this.load = this._addRow('Load');
     this.jobs = this._addRow('Jobs');
@@ -362,6 +363,10 @@ DebugMonitor.prototype = {
 
     'updatePlan': function(plan) {
         this.plan.innerHTML = plan.map(describe_render_step).join('<br>');
+    },
+
+    'updatePos': function(pos) {
+        this.pos.innerHTML = pos.x + ', ' + pos.y + ', ' + pos.z;
     },
 };
 
@@ -605,7 +610,7 @@ Pony.prototype = {
             anim.animate(speed, 6 * dir, 6, 6 + 2 * speed, flip, now);
         }
 
-        var pixel_speed = 30 * speed;
+        var pixel_speed = 50 * speed;
         var target_v = new Vec(dx * pixel_speed, dy * pixel_speed, 0);
         phys.resetForecast(now, this._forecast, target_v);
     },
@@ -638,6 +643,8 @@ Pony.prototype = {
 
 var CHUNK_SIZE = 16;
 var TILE_SIZE = 32;
+var LOCAL_SIZE = 8;
+var LOCAL_TOTAL_SIZE = CHUNK_SIZE * TILE_SIZE * LOCAL_SIZE;
 
 var SHAPE_EMPTY = 0;
 var SHAPE_FLOOR = 1;
@@ -1242,9 +1249,19 @@ var RAMP_Y_POS = 4;
 var RAMP_Y_NEG = 5;
 
 function ChunkPhysics(chunk) {
-    var result = new Asm(chunk._shape.byteLength);
-    result.memcpy(0x2000, chunk._shape);
-    return result;
+    var asm = new Asm(0x1000 * 8 * 8);
+    asm.memcpy(0x2000, chunk._shape);
+    console.log(asm.buffer);
+    var view = new Uint8Array(asm.buffer, 0x2000);
+    console.log(view);
+    for (var cx = 1; cx < 8; ++cx) {
+        var base = cx * 16 * 16 * 16;
+        for (var x = 0; x < 16; ++x) {
+            view[base + 32 + x] = 1;
+            view[base + 48 + x] = 1;
+        }
+    }
+    return asm;
 }
 
 
@@ -1361,7 +1378,7 @@ loader.onload = function() {
     document.body.removeChild($('banner-bg'));
     anim_canvas.start();
 
-    for (var i = 0; i < 4; ++i) {
+    for (var i = 0; i < chunkRender.length; ++i) {
         chunkRender[i].bake();
     }
 };
@@ -1374,7 +1391,7 @@ loader.onprogress = function(loaded, total) {
 var chunks = [];
 var chunkRender = [];
 window.chunkRender = chunkRender;
-for (var i = 0; i < 4; ++i) {
+for (var i = 0; i < LOCAL_SIZE * LOCAL_SIZE; ++i) {
     var chunk = new Chunk();
     chunks.push(chunk);
     for (var y = 0; y < CHUNK_SIZE; ++y) {
@@ -1433,21 +1450,92 @@ window.physTrace = [];
 function frame(ctx, now) {
     dbg.frameStart();
     var pos = pony.position(now);
+
+    if (pos.x < LOCAL_TOTAL_SIZE / 2) {
+        pony._forecast.start.x += LOCAL_TOTAL_SIZE;
+        pony._forecast.end.x += LOCAL_TOTAL_SIZE;
+    } else if (pos.x >= LOCAL_TOTAL_SIZE * 3 / 2) {
+        pony._forecast.start.x -= LOCAL_TOTAL_SIZE;
+        pony._forecast.end.x -= LOCAL_TOTAL_SIZE;
+    }
+
+    if (pos.y < LOCAL_TOTAL_SIZE / 2) {
+        pony._forecast.start.y += LOCAL_TOTAL_SIZE;
+        pony._forecast.end.y += LOCAL_TOTAL_SIZE;
+    } else if (pos.y >= LOCAL_TOTAL_SIZE * 3 / 2) {
+        pony._forecast.start.y -= LOCAL_TOTAL_SIZE;
+        pony._forecast.end.y -= LOCAL_TOTAL_SIZE;
+    }
+
+    pos = pony.position(now);
+    dbg.updatePos(pos);
+
+    var camera_size = new Vec(ctx.canvas.width|0, ctx.canvas.height|0, 0);
+    var camera_pos = pos.sub(camera_size.divScalar(2));
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    var sprite_y = Math.floor((pos.y + 16) / 32);
+    ctx.translate(-camera_pos.x, -camera_pos.y);
 
-    var sprites = [
-            {'y': sprite_y, 'z': 0, 'size_z': 2, 'id': 0},
-        ];
-    window.sprites = sprites;
-    var plan = planner.plan(sprites);
 
-    for (var i = 0; i < plan.length; ++i) {
-        run_render_step(ctx, plan[i], chunkRender[0], 0, 0, function(i) {
-            pony.drawInto(ctx, now);
-        });
+    var chunk_px = CHUNK_SIZE * TILE_SIZE;
+    var chunk_min = camera_pos.divScalar(chunk_px);
+    var chunk_max = camera_pos.add(camera_size).addScalar(chunk_px - 1).divScalar(chunk_px);
+
+    for (var raw_cy = chunk_min.y; raw_cy < chunk_max.y; ++raw_cy) {
+        for (var raw_cx = chunk_min.x; raw_cx < chunk_max.x; ++raw_cx) {
+            var cx = raw_cx % LOCAL_SIZE;
+            var cy = raw_cy % LOCAL_SIZE;
+            var ci = cy * LOCAL_SIZE + cx;
+
+            var base_x = raw_cx * chunk_px;
+            var base_y = raw_cy * chunk_px;
+            ctx.save();
+            ctx.translate(base_x, base_y);
+
+            var sprites = [];
+            if (pos.x + 32 >= base_x && pos.x < base_x + chunk_px &&
+                    pos.y + 32 >= base_y && pos.y < base_y + chunk_px) {
+                var sprite_y = ((pos.y + 16 - base_y) / TILE_SIZE)|0;
+                sprites.push({ y: sprite_y, z: (pos.z / TILE_SIZE)|0, size_z: 2, id: 0 });
+            }
+
+            var plan = planner.plan(sprites);
+            for (var i = 0; i < plan.length; ++i) {
+                run_render_step(ctx, plan[i], chunkRender[ci], 0, 0, function(i) {
+                    pony._anim.drawAt(ctx, now, pos.x - base_x - 48, pos.y - base_y - 74 - pos.z);
+                });
+            }
+
+            if (ci == 0) {
+                // Draw ramp
+                ctx.strokeStyle = '#888';
+                ctx.beginPath();
+                ctx.moveTo(5*32, 3*32);
+                ctx.lineTo(7*32, 1*32);
+                ctx.lineTo(9*32, 1*32);
+                ctx.lineTo(9*32, 3*32);
+                ctx.lineTo(7*32, 3*32);
+                ctx.lineTo(5*32, 5*32);
+                ctx.closePath();
+                ctx.moveTo(7*32, 1*32);
+                ctx.lineTo(7*32, 3*32);
+                ctx.moveTo(9*32, 3*32);
+                ctx.lineTo(9*32, 7*32);
+                ctx.lineTo(7*32, 7*32);
+                ctx.lineTo(7*32, 3*32);
+                ctx.moveTo(7*32, 5*32);
+                ctx.lineTo(5*32, 5*32);
+                ctx.stroke();
+            }
+
+
+            ctx.restore();
+        }
     }
+
+
 
     var coll = window.physTrace;
     ctx.strokeStyle = '#00f';
@@ -1483,26 +1571,6 @@ function frame(ctx, now) {
     ctx.beginPath();
     ctx.moveTo(fc.start.x + 16, fc.start.y + 16 - fc.start.z);
     ctx.lineTo(fc.end.x + 16, fc.end.y + 16 - fc.end.z);
-    ctx.stroke();
-
-    // Draw ramp
-    ctx.strokeStyle = '#888';
-    ctx.beginPath();
-    ctx.moveTo(5*32, 3*32);
-    ctx.lineTo(7*32, 1*32);
-    ctx.lineTo(9*32, 1*32);
-    ctx.lineTo(9*32, 3*32);
-    ctx.lineTo(7*32, 3*32);
-    ctx.lineTo(5*32, 5*32);
-    ctx.closePath();
-    ctx.moveTo(7*32, 1*32);
-    ctx.lineTo(7*32, 3*32);
-    ctx.moveTo(9*32, 3*32);
-    ctx.lineTo(9*32, 7*32);
-    ctx.lineTo(7*32, 7*32);
-    ctx.lineTo(7*32, 3*32);
-    ctx.moveTo(7*32, 5*32);
-    ctx.lineTo(5*32, 5*32);
     ctx.stroke();
 
     dbg.frameEnd();
