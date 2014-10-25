@@ -13,10 +13,6 @@ OP_REMOVE_CLIENT = 0xff01
 OP_CLIENT_REMOVED = 0xff02
 
 
-class MainHandler(tornado.web.RequestHandler):
-    def get(self):
-        self.write("Hello, world")
-
 class WSHandler(tornado.websocket.WebSocketHandler):
     def open(self):
         self.id = backend.add_client(self)
@@ -27,9 +23,16 @@ class WSHandler(tornado.websocket.WebSocketHandler):
     def on_close(self):
         backend.remove_client(self.id)
 
+class FileHandler(tornado.web.StaticFileHandler):
+    @classmethod
+    def get_absolute_path(cls, root, path):
+        if path == '':
+            return super(FileHandler, cls).get_absolute_path(root, 'client.html')
+        return super(FileHandler, cls).get_absolute_path(root, path)
+
 application = tornado.web.Application([
     (r'/ws', WSHandler),
-    (r"/", MainHandler),
+    (r'/(.*)', FileHandler, { 'path': './dist' }),
 ], debug=True)
 
 
