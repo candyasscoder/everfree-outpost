@@ -1,5 +1,6 @@
 RUSTC ?= rustc
 PYTHON ?= python
+PYTHON3 ?= python3
 RUST_SRC ?= ../rust
 EM_FASTCOMP ?= /usr
 EM_PLUGINS ?= 
@@ -108,6 +109,12 @@ $(ASMLIBS).js: client/asmlibs.tmpl.js $(ASMLIBS).1.js util/asmjs_insert_function
 	awk -f util/asmjs_insert_functions.awk <$< >$@
 
 
+# Rules for misc files
+
+build/tiles.json: client/assets/tiles.yaml util/make_tiles_json.py
+	$(PYTHON3) util/make_tiles_json.py <$< >$@
+
+
 # Rules for copying files into dist/
 
 define DIST_FILE_
@@ -121,6 +128,7 @@ DIST_FILE = $(call DIST_FILE_,$(strip $(1)),$(strip $(2)))
 $(eval $(call DIST_FILE, client.html, 	client/client.html))
 $(eval $(call DIST_FILE, outpost.js, 	client/outpost.js))
 $(eval $(call DIST_FILE, asmlibs.js, 	build/asmlibs/asmlibs.js))
+$(eval $(call DIST_FILE, tiles.json, 	build/tiles.json))
 
 $(DIST)/assets/%: client/assets/%
 	mkdir -p $$(dirname $@)

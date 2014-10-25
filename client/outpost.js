@@ -29,9 +29,9 @@ var INT_MIN = -INT_MAX - 1;
 
 
 function Vec(x, y, z) {
-    this.x = x || 0;
-    this.y = y || 0;
-    this.z = z || 0;
+    this.x = x | 0;
+    this.y = y | 0;
+    this.z = z | 0;
 }
 window.Vec = Vec;
 
@@ -430,18 +430,45 @@ function AssetLoader() {
 }
 
 AssetLoader.prototype = {
-    'addImage': function(name, url) {
+    'addImage': function(name, url, callback) {
         var img = new Image();
 
         var this_ = this;
-        img.onload = function() { this_._handleAssetLoad(); };
+        img.onload = function() {
+            if (callback != null) {
+                callback(img);
+            }
+            this_._handleAssetLoad();
+        };
 
         img.src = url;
         this._addPendingAsset(name, img);
     },
 
+    'addJson': function(name, url, callback) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url);
+
+        xhr.responseType = 'json';
+
+        var this_ = this;
+        xhr.onreadystatechange = function() {
+            if (this.readyState == XMLHttpRequest.DONE) {
+                if (callback != null) {
+                    callback(this.response);
+                }
+                this_._handleAssetLoad();
+            }
+        };
+
+        xhr.send();
+        this._addPendingAsset(name, xhr);
+    },
+
     '_addPendingAsset': function(name, asset) {
-        this.assets[name] = asset;
+        if (name != null) {
+            this.assets[name] = asset;
+        }
         this.pending += 1;
         this._handleProgress();
     },
@@ -673,30 +700,24 @@ function Chunk() {
             return this._bottom[index(x,y,z)];
         },
 
-        'setBottom': function(x, y, z, bottom) {
-            this._bottom[index(x,y,z)] = bottom;
-        },
-
         'front': function(x, y, z) {
             return this._front[index(x,y,z)];
-        },
-
-        'setFront': function(x, y, z, front) {
-            this._front[index(x,y,z)] = front;
         },
 
         'shape': function(x, y, z) {
             return this._shape[index(x,y,z)];
         },
 
-        'setShape': function(x, y, z, shape) {
-            this._shape[index(x, y, z)] = shape;
-        },
+        'set': function(x, y, z, tile) {
+            if (typeof tile === 'string') {
+                tile = TileDef.by_name[tile];
+            } else if (typeof tile === 'number') {
+                tile = TileDef.by_id[tile];
+            }
 
-        'set': function(x, y, z, bottom, front, shape) {
-            this.setBottom(x, y, z, bottom);
-            this.setFront(x, y, z, front);
-            this.setShape(x, y, z, shape);
+            this._bottom[index(x,y,z)] = tile.bottom;
+            this._front[index(x,y,z)] = tile.front;
+            this._shape[index(x,y,z)] = tile.shape;
         },
     };
 })();
@@ -823,6 +844,40 @@ ChunkRendering.prototype = {
                 0, src_offset_y, px_width, px_height,
                 dx + dest_offset_x, dy + dest_offset_y, px_width, px_height);
     },
+};
+
+
+function TileDef(id, info) {
+    this.id = id;
+    this.name = info.name;
+    this.shape = info.shape;
+
+    if (info.front != null) {
+        this.front = info.front[1] * 16 + info.front[0];
+    } else {
+        this.front = 0;
+    }
+
+    if (info.bottom != null) {
+        this.bottom = info.bottom[1] * 16 + info.bottom[0];
+    } else {
+        this.bottom = 0;
+    }
+}
+
+window.TileDef = TileDef;
+
+TileDef.by_id = {};
+TileDef.by_name = {};
+
+TileDef.register = function(id, info) {
+    if (info == null) {
+        return;
+    }
+
+    var tile = new TileDef(id, info);
+    TileDef.by_id[tile.id] = tile;
+    TileDef.by_name[tile.name] = tile;
 };
 
 
@@ -1248,19 +1303,8 @@ var RAMP_X_NEG = 3;
 var RAMP_Y_POS = 4;
 var RAMP_Y_NEG = 5;
 
-function ChunkPhysics(chunk) {
-    var asm = new Asm(0x1000 * 8 * 8);
-    asm.memcpy(0x2000, chunk._shape);
-    console.log(asm.buffer);
-    var view = new Uint8Array(asm.buffer, 0x2000);
-    console.log(view);
-    for (var cx = 1; cx < 8; ++cx) {
-        var base = cx * 16 * 16 * 16;
-        for (var x = 0; x < 16; ++x) {
-            view[base + 32 + x] = 1;
-            view[base + 48 + x] = 1;
-        }
-    }
+function ChunkPhysics() {
+    var asm = new Asm(0x1000 * LOCAL_SIZE * LOCAL_SIZE);
     return asm;
 }
 
@@ -1312,6 +1356,13 @@ loader.addImage('pony_f_mane_1', 'assets/sprites/maremane1.png');
 loader.addImage('pony_f_tail_1', 'assets/sprites/maretail1.png');
 
 loader.addImage('tiles1', 'assets/tiles/mountain_landscape_23.png');
+
+loader.addJson(null, 'tiles.json', function(json) {
+    console.log('register tiles', json.tiles.length);
+    for (var i = 0; i < json.tiles.length; ++i) {
+        TileDef.register(i, json.tiles[i]);
+    }
+});
 
 var assets = loader.assets;
 window.assets = assets;
@@ -1378,6 +1429,8 @@ loader.onload = function() {
     document.body.removeChild($('banner-bg'));
     anim_canvas.start();
 
+    initTerrain();
+
     for (var i = 0; i < chunkRender.length; ++i) {
         chunkRender[i].bake();
     }
@@ -1394,52 +1447,39 @@ window.chunkRender = chunkRender;
 for (var i = 0; i < LOCAL_SIZE * LOCAL_SIZE; ++i) {
     var chunk = new Chunk();
     chunks.push(chunk);
-    for (var y = 0; y < CHUNK_SIZE; ++y) {
-        for (var x = 0; x < CHUNK_SIZE; ++x) {
-            var rnd = (x * 7 + y * 13 + 31) >> 2;
-            var a = (rnd & 1);
-            var b = (rnd & 2) >> 1;
-            var tile = (4 + a) * 16 + 14 + b;
-            chunk.set(x, y, 0, tile, 0, SHAPE_FLOOR);
-        }
-    }
     chunkRender.push(new ChunkRendering(chunk, tileSheet));
 }
 
-for (var i = 0; i < 3; ++i) {
-    for (var j = 0; j < 2; ++j) {
-        chunks[0].setFront(10+j, 10, i, (15-i) * 16 + 7+j);
-        chunks[0].setShape(10+j, 10, i, SHAPE_SOLID);
+function initTerrain() {
+    for (var i = 0; i < LOCAL_SIZE * LOCAL_SIZE; ++i) {
+        var chunk = chunks[i];
+        for (var y = 0; y < CHUNK_SIZE; ++y) {
+            for (var x = 0; x < CHUNK_SIZE; ++x) {
+                var rnd = (x * 7 + y * 13 + i * 31 + 59) >> 2;
+                chunk.set(x, y, 0, 'grass/' + (rnd & 3));
+            }
+        }
+
+        var rnd = i;
+        function next() {
+            rnd = (Math.imul(rnd, 1103515245) + 12345)|0;
+            return rnd & 0x7fffffff;
+        }
+        for (var y = 0; y < 2; ++y) {
+            for (var x = 0; x < 2; ++x) {
+                var ox = next() % 3;
+                var oy = next() % 4;
+                for (var j = 0; j < 2; ++j) {
+                    for (var k = 0; k < 3; ++k) {
+                        chunk.set(x * 8 + ox + j, y * 8 + oy, k, 'tree/small/' + j + k);
+                    }
+                }
+            }
+        }
+
+        phys._chunk_phys.memcpy(0x2000 + i * 0x1000, chunk._shape);
     }
 }
-
-chunks[0].setFront(10, 4, 0, 12 * 16 + 14);
-chunks[0].setFront(11, 4, 0, 12 * 16 + 15);
-chunks[0].setFront(10, 5, 2, 11 * 16 + 14);
-chunks[0].setFront(11, 5, 2, 11 * 16 + 15);
-chunks[0].setBottom(10, 4, 2, 10 * 16 + 14);
-chunks[0].setBottom(11, 4, 2, 10 * 16 + 15);
-
-chunks[0].set(5, 10, 0, 0, 0, SHAPE_EMPTY);
-chunks[0].set(7, 10, 0, 0, 0, SHAPE_EMPTY);
-
-chunks[0].setShape(5, 3, 0, SHAPE_RAMP_E);
-chunks[0].setShape(5, 4, 0, SHAPE_RAMP_E);
-chunks[0].setShape(6, 3, 1, SHAPE_RAMP_E);
-chunks[0].setShape(6, 4, 1, SHAPE_RAMP_E);
-chunks[0].setShape(6, 3, 2, SHAPE_RAMP_TOP);
-chunks[0].setShape(6, 4, 2, SHAPE_RAMP_TOP);
-chunks[0].setShape(7, 3, 2, SHAPE_FLOOR);
-chunks[0].setShape(7, 4, 2, SHAPE_FLOOR);
-chunks[0].setShape(8, 3, 2, SHAPE_FLOOR);
-chunks[0].setShape(8, 4, 2, SHAPE_FLOOR);
-
-chunks[0].setShape(7, 6, 0, SHAPE_RAMP_N);
-chunks[0].setShape(8, 6, 0, SHAPE_RAMP_N);
-chunks[0].setShape(7, 5, 1, SHAPE_RAMP_N);
-chunks[0].setShape(8, 5, 1, SHAPE_RAMP_N);
-chunks[0].setShape(7, 5, 2, SHAPE_RAMP_TOP);
-chunks[0].setShape(8, 5, 2, SHAPE_RAMP_TOP);
 
 var planner = new RenderPlanner();
 var phys = new Physics(new ChunkPhysics(chunks[0]));

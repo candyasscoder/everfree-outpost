@@ -143,7 +143,6 @@
     // Helper functions
 
     function memcpy(dest_buffer, dest_offset, src_buffer, src_offset, len) {
-        console.log(dest_buffer, dest_offset, len);
         var dest = new Int8Array(dest_buffer, dest_offset, len);
         var src = new Int8Array(src_buffer, src_offset, len);
         dest.set(src);

@@ -1,0 +1,50 @@
+_.sheet: mountain_landscape
+
+empty.shape: empty
+empty.id: 0
+
+/grass:
+    _.shape: floor
+
+    0.bottom: [14, 4]
+    1.bottom: [14, 5]
+    2.bottom: [15, 4]
+    3.bottom: [15, 5]
+
+/tree:
+    _.shape: solid
+
+    /small:
+        00.front: [7, 15]
+        00.bottom: [14, 4]
+        10.front: [8, 15]
+        10.bottom: [14, 5]
+        01.front: [7, 14]
+        11.front: [8, 14]
+        02.front: [7, 13]
+        12.front: [8, 13]
+
+    /medium:
+        00.front: [9,  15]
+        10.front: [10, 15]
+        01.front: [9,  14]
+        11.front: [10, 14]
+        02.front: [9,  13]
+        12.front: [10, 13]
+        03.front: [9,  12]
+        13.front: [10, 12]
+
+    /large:
+        00.front: [4, 15]
+        10.front: [5, 15]
+        20.front: [6, 15]
+        01.front: [4, 14]
+        11.front: [5, 14]
+        21.front: [6, 14]
+        02.front: [4, 13]
+        12.front: [5, 13]
+        22.front: [6, 13]
+        03.front: [4, 12]
+        13.front: [5, 12]
+        23.front: [6, 12]
+        back:
