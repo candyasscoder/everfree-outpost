@@ -1274,23 +1274,9 @@ var RAMP_Y_POS = 4;
 var RAMP_Y_NEG = 5;
 
 function ChunkPhysics(chunk) {
-    return new ChunkPhysicsAsm(chunk._shape);
-}
-
-function adjust_velocity_for_ramp(velocity, ramp) {
-    if (ramp == RAMP_NONE || ramp == RAMP_FLAT) {
-        velocity.z = 0;
-    } else if (ramp == RAMP_X_POS) {
-        velocity.z = velocity.x;
-    } else if (ramp == RAMP_X_NEG) {
-        velocity.z = -velocity.x;
-    } else if (ramp == RAMP_Y_POS) {
-        velocity.z = velocity.y;
-    } else if (ramp == RAMP_Y_NEG) {
-        velocity.z = -velocity.y;
-    } else {
-        console.assert(false, 'bad ramp angle', ramp);
-    }
+    var result = new Asm(chunk._shape.byteLength);
+    result.memcpy(0x2000, chunk._shape);
+    return result;
 }
 
 

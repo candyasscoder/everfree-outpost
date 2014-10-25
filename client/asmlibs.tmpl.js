@@ -1,5 +1,4 @@
 (function() {
-
     // asm.js module
 
     var module = (function(global, env, buffer) {
@@ -84,6 +83,8 @@
     var HEAP_START = STACK_END;
 
 
+    // External functions
+
     var msg_buffer = '';
 
     var module_env = function(buffer) {
@@ -138,13 +139,6 @@
         });
     };
 
-    var init_module = (function(buffer) {
-        // memcpy the statics into the buffer.
-        memcpy(buffer, STATIC_START,
-                static_data.buffer, static_data.byteOffset, static_data.byteLength);
-        return module(window, module_env(buffer), buffer);
-    });
-
 
     // Helper functions
 
@@ -155,39 +149,31 @@
         dest.set(src);
     }
 
-    function make_region(type, buffer, offset, byte_len) {
-        var elem_bytes = type.BYTES_PER_ELEMENT;
-        console.assert(byte_len % elem_bytes == 0,
-                'make_region: byte_len must be a multiple of BYTES_PER_ELEMENT');
-        var len = (byte_len / elem_bytes)|0;
-        return new type(buffer, offset, len);
-    }
 
+    // window.Asm wrapper
 
-    // Main ChunkPhysicsAsm implementation
-
-    function ChunkPhysicsAsm(shapes) {
+    function Asm(heap_size) {
         // Buffer size must be a multiple of 4k.
-        var min_size = HEAP_START + 16 * 16 * 16 * 8 * 8
+        var min_size = HEAP_START + heap_size;
         var buffer_size = (min_size + 0x0fff) & ~0x0fff;
         this.buffer = new ArrayBuffer(buffer_size);
 
-        this.asm = init_module(this.buffer);
-
-        this.heap32 = new Int32Array(this.buffer);
-        memcpy(this.buffer, HEAP_START, shapes.buffer, shapes.byteOffset, shapes.byteLength);
+        this.memcpy(STATIC_START, static_data);
+        this._raw = module(window, module_env(this.buffer), this.buffer);
     }
 
-    ChunkPhysicsAsm.prototype = {
+    window.Asm = Asm;
+
+    Asm.prototype = {
         '_stackAlloc': function(type, count) {
             var size = count * type.BYTES_PER_ELEMENT;
-            var base = this.asm.__adjust_stack((size + 7) & ~7);
+            var base = this._raw.__adjust_stack((size + 7) & ~7);
             return new type(this.buffer, base, count);
         },
 
         '_stackFree': function(view) {
             var size = view.byteLength;
-            this.asm.__adjust_stack(-((size + 7) & ~7));
+            this._raw.__adjust_stack(-((size + 7) & ~7));
         },
 
         '_storeVec': function(view, offset, v) {
@@ -196,23 +182,25 @@
             view[offset + 2] = v.z;
         },
 
+        'memcpy': function(dest_offset, data) {
+            memcpy(this.buffer, dest_offset, data.buffer, data.byteOffset, data.byteLength);
+        },
+
         'collide': function(pos, size, velocity) {
             var input = this._stackAlloc(Int32Array, 9);
-            var output = this._stackAlloc(Int32Array, 6);
+            var output = this._stackAlloc(Int32Array, 4);
 
             this._storeVec(input, 0, pos);
             this._storeVec(input, 3, size);
             this._storeVec(input, 6, velocity);
 
-            this.asm.collide(input.byteOffset, output.byteOffset);
+            this._raw.collide(input.byteOffset, output.byteOffset);
 
             var result = ({
                 x: output[0],
                 y: output[1],
                 z: output[2],
                 t: output[3],
-                d: output[4],
-                type: output[5],
             });
 
             this._stackFree(input);
@@ -223,21 +211,19 @@
 
         'test': function(pos, size, velocity) {
             var input = this._stackAlloc(Int32Array, 9);
-            var output = this._stackAlloc(Int32Array, 6);
+            var output = this._stackAlloc(Int32Array, 4);
 
             this._storeVec(input, 0, pos);
             this._storeVec(input, 3, size);
             this._storeVec(input, 6, velocity);
 
-            this.asm.test(input.byteOffset, output.byteOffset);
+            this._raw.test(input.byteOffset, output.byteOffset);
 
             var result = ({
                 x: output[0],
                 y: output[1],
                 z: output[2],
                 t: output[3],
-                d: output[4],
-                type: output[5],
             });
 
             this._stackFree(input);
@@ -245,7 +231,6 @@
 
             return result;
         },
-    };
 
-    window.ChunkPhysicsAsm = ChunkPhysicsAsm;
+    };
 })();
