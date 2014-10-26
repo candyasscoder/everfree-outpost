@@ -689,10 +689,11 @@ var SHAPE_RAMP_TOP = 7;
 
 function Chunk() {
     var count = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
-    this._storage = new ArrayBuffer(count * 3);
+    this._storage = new ArrayBuffer(count * 5);
     this._bottom = new Uint8Array(this._storage, count * 0, count);
     this._front = new Uint8Array(this._storage, count * 1, count);
     this._shape = new Uint8Array(this._storage, count * 2, count);
+    this._tiles = new Uint16Array(this._storage, count * 3, count);
 }
 
 (function() {
@@ -723,6 +724,7 @@ function Chunk() {
             this._bottom[index(x,y,z)] = tile.bottom;
             this._front[index(x,y,z)] = tile.front;
             this._shape[index(x,y,z)] = tile.shape;
+            this._tiles[index(x,y,z)] = tile.id;
         },
     };
 })();
@@ -872,7 +874,7 @@ function TileDef(id, info) {
 
 window.TileDef = TileDef;
 
-TileDef.by_id = {};
+TileDef.by_id = [];
 TileDef.by_name = {};
 
 TileDef.register = function(id, info) {
@@ -881,6 +883,9 @@ TileDef.register = function(id, info) {
     }
 
     var tile = new TileDef(id, info);
+    while (TileDef.by_id.length <= tile.id) {
+        TileDef.by_id.push(null);
+    }
     TileDef.by_id[tile.id] = tile;
     TileDef.by_name[tile.name] = tile;
 };
@@ -1196,11 +1201,23 @@ function describe_render_step(step) {
 }
 
 
-function Physics(chunk_phys) {
-    this._chunk_phys = chunk_phys;
+function Physics() {
+    var chunk_total = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+    var local_total = LOCAL_SIZE * LOCAL_SIZE;
+    this._asm = new Asm(chunk_total * local_total);
 }
 
 Physics.prototype = {
+    'loadChunk': function(ci, cj, tiles) {
+        var view = this._asm.chunkShapeView(ci * LOCAL_SIZE + cj);
+        console.assert(tiles.length == view.length,
+                'expected ' + view.length + ' tiles, but got ' + tiles.length);
+
+        for (var i = 0; i < tiles.length; ++i) {
+            view[i] = TileDef.by_id[tiles[i]].shape;
+        }
+    },
+
     'resetForecast': function(now, f, v) {
         this._step(now, f);
         f.target_v = v;
@@ -1240,7 +1257,7 @@ Physics.prototype = {
     // Project the time of the next collision starting from start_time, and set
     // velocities, end_time, and end position appropriately.
     '_forecast': function(f) {
-        var result = this._chunk_phys.collide(f.start, f.size, f.target_v);
+        var result = this._asm.collide(f.start, f.size, f.target_v);
         if (result.t == 0) {
             return;
         }
@@ -1308,11 +1325,6 @@ var RAMP_X_NEG = 3;
 var RAMP_Y_POS = 4;
 var RAMP_Y_NEG = 5;
 
-function ChunkPhysics() {
-    var asm = new Asm(0x1000 * LOCAL_SIZE * LOCAL_SIZE);
-    return asm;
-}
-
 
 window.timeit = function(f) {
     var start = Date.now();
@@ -1331,7 +1343,7 @@ window.timeit = function(f) {
 }
 
 window.physBenchmark = function() {
-    return phys._chunk_phys.collide(new Vec(0, 0, 0), new Vec(32, 32, 32), new Vec(30, 0, 0));
+    return phys._asm.collide(new Vec(0, 0, 0), new Vec(32, 32, 32), new Vec(30, 0, 0));
 };
 
 
@@ -1484,7 +1496,7 @@ function initTerrain() {
             }
         }
 
-        phys._chunk_phys.memcpy(0x2000 + i * 0x1000, chunk._shape);
+        phys.loadChunk(0, i, chunk._tiles);
 
         if (i == 0) {
             window.chunkFlags = new Uint8Array(0x1000);
@@ -1504,7 +1516,7 @@ function initTerrain() {
 }
 
 var planner = new RenderPlanner();
-var phys = new Physics(new ChunkPhysics(chunks[0]));
+var phys = new Physics();
 window.phys = phys;
 window.planner = planner;
 window.physTrace = [];

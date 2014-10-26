@@ -251,6 +251,11 @@
             return result;
         },
 
+        'chunkShapeView': function(idx) {
+            var size = 16 * 16 * 16;
+            return new Uint8Array(this.buffer, HEAP_START + idx * size, size);
+        },
+
         'bakeChunk': function(flags) {
             this.memcpy(HEAP_START, flags);
             var counts = this._stackAlloc(Int32Array, 2);
