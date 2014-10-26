@@ -655,22 +655,6 @@ Pony.prototype = {
         return pos;
     },
 
-    'drawInto': function(ctx, now) {
-        var pos = this.position(now);
-
-        ctx.strokeStyle = '#0aa';
-        ctx.strokeRect(pos.x - 16, pos.y - 16, this._forecast.size.x, this._forecast.size.y);
-        ctx.beginPath();
-        ctx.moveTo(pos.x, pos.y);
-        ctx.lineTo(pos.x, pos.y - pos.z);
-        ctx.stroke();
-
-        ctx.strokeStyle = '#0ff';
-        ctx.strokeRect(pos.x - 16, pos.y - 16 - pos.z, this._forecast.size.x, this._forecast.size.y);
-
-        this._anim.drawAt(ctx, now, pos.x - 48, pos.y - pos.z - 74);
-    },
-
     'getSprite': function(now, base_x, base_y) {
         var pos = this.position(now).sub(new Vec(base_x, base_y, 0));
         var anim = this._anim;
@@ -686,10 +670,7 @@ Pony.prototype = {
 
         return ({
             draw: function(ctx) {
-                ctx.strokeStyle = 'cyan',
-                ctx.strokeRect(pos.x - 16 + 0.5, pos.y - 16 + 0.5, 31, 31);
                 anim.drawAt(ctx, now, dst_x, dst_y);
-                ctx.strokeRect(pos.x - 0.5, pos.y - 0.5, 1, 1);
             },
             pos_x: pos_x,
             pos_u: pos_y + pos_z,
@@ -706,6 +687,39 @@ var TILE_SIZE = 32;
 var LOCAL_SIZE = 8;
 var LOCAL_TOTAL_SIZE = CHUNK_SIZE * TILE_SIZE * LOCAL_SIZE;
 
+function Chunk() {
+    var count = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+    this._tiles = new Uint16Array(count);
+}
+
+Chunk.prototype = {
+    'getId': function(x, y, z) {
+        var idx = (z * CHUNK_SIZE + y) * CHUNK_SIZE + x;
+        return this._tiles[idx];
+    },
+
+    'get': function(x, y, z) {
+        return TileDef.by_id[this.getId(x, y, z)];
+    },
+
+    'set': function(x, y, z, tile) {
+        var tile_id;
+        if (typeof tile === 'number') {
+            tile_id = tile;
+        } else if (typeof tile === 'string') {
+            tile_id = TileDef.by_name[tile].id;
+        } else if (typeof tile === 'object') {
+            tile_id = tile.id;
+        } else {
+            console.assert(false, "Chunk.set: invalid tile", tile);
+        }
+
+        var idx = (z * CHUNK_SIZE + y) * CHUNK_SIZE + x;
+        this._tiles[idx] = tile_id;
+    },
+};
+
+
 var SHAPE_EMPTY = 0;
 var SHAPE_FLOOR = 1;
 var SHAPE_SOLID = 2;
@@ -715,172 +729,59 @@ var SHAPE_RAMP_S = 5;
 var SHAPE_RAMP_N = 6;
 var SHAPE_RAMP_TOP = 7;
 
-function Chunk() {
-    var count = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
-    this._storage = new ArrayBuffer(count * 5);
-    this._bottom = new Uint8Array(this._storage, count * 0, count);
-    this._front = new Uint8Array(this._storage, count * 1, count);
-    this._shape = new Uint8Array(this._storage, count * 2, count);
-    this._tiles = new Uint16Array(this._storage, count * 3, count);
-}
+function TileDef(id, info) {
+    this.id = id;
+    this.name = info.name;
+    this.shape = info.shape;
 
-(function() {
-    function index(x, y, z) {
-        return ((z) * CHUNK_SIZE + y) * CHUNK_SIZE + x;
+    if (info.front != null) {
+        this.front = info.front[1] * 16 + info.front[0];
+    } else {
+        this.front = 0;
     }
 
-    Chunk.prototype = {
-        'bottom': function(x, y, z) {
-            return this._bottom[index(x,y,z)];
-        },
+    if (info.back != null) {
+        this.back = info.back[1] * 16 + info.back[0];
+    } else {
+        this.back = 0;
+    }
 
-        'front': function(x, y, z) {
-            return this._front[index(x,y,z)];
-        },
+    if (info.top != null) {
+        this.top = info.top[1] * 16 + info.top[0];
+    } else {
+        this.top = 0;
+    }
 
-        'shape': function(x, y, z) {
-            return this._shape[index(x,y,z)];
-        },
-
-        'set': function(x, y, z, tile) {
-            if (typeof tile === 'string') {
-                tile = TileDef.by_name[tile];
-            } else if (typeof tile === 'number') {
-                tile = TileDef.by_id[tile];
-            }
-
-            this._bottom[index(x,y,z)] = tile.bottom;
-            this._front[index(x,y,z)] = tile.front;
-            this._shape[index(x,y,z)] = tile.shape;
-            this._tiles[index(x,y,z)] = tile.id;
-        },
-    };
-})();
-
-
-function ChunkRendering(chunk, sheet) {
-    this.chunk = chunk;
-    this.sheet = sheet;
-    this._bakedBottom = [];
-    this._bakedFront = [];
-    for (var i = 0; i < CHUNK_SIZE; ++i) {
-        this._bakedBottom.push(null);
-        this._bakedFront.push(null);
+    if (info.bottom != null) {
+        this.bottom = info.bottom[1] * 16 + info.bottom[0];
+    } else {
+        this.bottom = 0;
     }
 }
 
-ChunkRendering.prototype = {
-    'bake': function() {
-        for (var z = 0; z < CHUNK_SIZE; ++z) {
-            var baked = this._prepareBaked(z, 0);
-            this._bakeLayer(z, 0, baked);
-            this._bakedBottom[z] = baked;
+window.TileDef = TileDef;
 
-            var baked = this._prepareBaked(z, 1);
-            this._bakeLayer(z, 1, baked);
-            this._bakedFront[z] = baked;
-        }
-    },
+TileDef.by_id = [];
+TileDef.by_name = {};
 
-    '_layerCell': function(x, y, z, l) {
-        if (l == 0) {
-            return this.chunk.bottom(x, y, z);
-        } else {
-            return this.chunk.front(x, y, z);
-        }
-    },
+TileDef.register = function(id, info) {
+    if (info == null) {
+        return;
+    }
 
-    '_prepareBaked': function(z, l) {
-        var min_x = CHUNK_SIZE;
-        var max_x = 0;
-        var min_y = CHUNK_SIZE;
-        var max_y = 0;
-        for (var y = 0; y < CHUNK_SIZE; ++y) {
-            for (var x = 0; x < CHUNK_SIZE; ++x) {
-                if (this._layerCell(x, y, z, l) == 0) {
-                    continue;
-                }
-                min_x = Math.min(x, min_x);
-                max_x = Math.max(x + 1, max_x);
-                min_y = Math.min(y, min_y);
-                max_y = Math.max(y + 1, max_y);
-            }
-        }
-
-        var size_x = Math.max(0, max_x - min_x);
-        var size_y = Math.max(0, max_y - min_y);
-
-        if (size_x == 0 || size_y == 0) {
-            return null;
-        } else {
-            return ({
-                'x': min_x,
-                'y': min_y,
-                'w': size_x,
-                'h': size_y,
-                'ctx': new OffscreenContext(size_x * TILE_SIZE, size_y * TILE_SIZE),
-            });
-        }
-    },
-
-    '_bakeLayer': function(z, l, baked) {
-        if (baked == null) {
-            return;
-        }
-        var base_x = baked.x;
-        var base_y = baked.y;
-        for (var y = 0; y < baked.h; ++y) {
-            for (var x = 0; x < baked.w; ++x) {
-                var tile = this._layerCell(x + base_x, y + base_y, z, l);
-                if (tile != 0) {
-                    this.sheet.drawInto(baked.ctx, tile >> 4, tile & 15,
-                            x * TILE_SIZE, y * TILE_SIZE);
-                    //baked.ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                }
-            }
-        }
-    },
-
-    'drawBottom': function(ctx, z, min_y, max_y, dx, dy) {
-        this._drawLayer(ctx, this._bakedBottom, z, min_y, max_y, dx, dy);
-    },
-
-    'drawFront': function(ctx, z, min_y, max_y, dx, dy) {
-        this._drawLayer(ctx, this._bakedFront, z, min_y, max_y, dx, dy);
-    },
-
-    'draw': function(ctx, z, min_y, max_y, dx, dy) {
-        // TODO: these calls can probably be merged together
-        this.drawBottom(ctx, z, min_y, max_y, dx, dy);
-        this.drawFront(ctx, z, min_y, max_y, dx, dy);
-    },
-
-    '_drawLayer': function(ctx, bakedArr, z, min_y, max_y, dx, dy) {
-        var baked = bakedArr[z];
-        if (baked == null) {
-            return;
-        }
-
-        var real_min_y = Math.max(min_y, baked.y);
-        var real_max_y = Math.min(max_y, baked.y + baked.h);
-
-        // Requested rows do not overlap the baked layer.
-        if (real_max_y <= real_min_y) {
-            return;
-        }
-
-        var src_offset_y = (real_min_y - baked.y) * TILE_SIZE;
-        var dest_offset_x = baked.x * TILE_SIZE;
-        var dest_offset_y = real_min_y * TILE_SIZE;
-        var px_width = baked.w * TILE_SIZE;
-        var px_height = (real_max_y - real_min_y) * TILE_SIZE;
-
-        ctx.drawImage(baked.ctx.canvas,
-                0, src_offset_y, px_width, px_height,
-                dx + dest_offset_x, dy + dest_offset_y, px_width, px_height);
-    },
+    var tile = new TileDef(id, info);
+    while (TileDef.by_id.length <= tile.id) {
+        TileDef.by_id.push(null);
+    }
+    TileDef.by_id[tile.id] = tile;
+    TileDef.by_name[tile.name] = tile;
 };
 
+
+var HAS_TOP     = 0x01;
+var HAS_BOTTOM  = 0x02;
+var HAS_FRONT   = 0x04;
+var HAS_BACK    = 0x08;
 
 function TerrainGraphics(sheet) {
     this.sheet = sheet;
@@ -894,12 +795,6 @@ function TerrainGraphics(sheet) {
         this._chunks.push(null);
     }
 }
-window.TerrainGraphics = TerrainGraphics;
-
-var HAS_TOP     = 0x01;
-var HAS_BOTTOM  = 0x02;
-var HAS_FRONT   = 0x04;
-var HAS_BACK    = 0x08;
 
 TerrainGraphics.prototype = {
     'loadChunk': function(ci, cj, tiles) {
@@ -1004,7 +899,6 @@ ChunkGraphics.prototype = {
     '_initLayerHoriz': function(layer, page, sheet) {
         var z = layer.min.z;
 
-        page.strokeStyle = 'darkgreen';
         if (z > 0) {
             for (var y = layer.min.y; y < layer.max.y; ++y) {
                 for (var x = layer.min.x; x < layer.max.x; ++x) {
@@ -1016,12 +910,10 @@ ChunkGraphics.prototype = {
 
                     sheet.drawInto(page, image >> 4, image & 0xf,
                             x_out * TILE_SIZE, y_out * TILE_SIZE);
-                    page.strokeRect(x_out * TILE_SIZE + 0.5, y_out * TILE_SIZE + 0.5, 31, 31);
                 }
             }
         }
 
-        page.strokeStyle = 'green';
         if (z < CHUNK_SIZE) {
             for (var y = layer.min.y; y < layer.max.y; ++y) {
                 for (var x = layer.min.x; x < layer.max.x; ++x) {
@@ -1033,7 +925,6 @@ ChunkGraphics.prototype = {
 
                     sheet.drawInto(page, image >> 4, image & 0xf,
                             x_out * TILE_SIZE, y_out * TILE_SIZE);
-                    page.strokeRect(x_out * TILE_SIZE + 0.5, y_out * TILE_SIZE + 0.5, 31, 31);
                 }
             }
         }
@@ -1042,7 +933,6 @@ ChunkGraphics.prototype = {
     '_initLayerVert': function(layer, page, sheet) {
         var y = layer.min.y;
 
-        page.strokeStyle = 'darkblue';
         if (y > 0) {
             for (var z = layer.min.z; z < layer.max.z; ++z) {
                 for (var x = layer.min.x; x < layer.max.x; ++x) {
@@ -1054,12 +944,10 @@ ChunkGraphics.prototype = {
 
                     sheet.drawInto(page, image >> 4, image & 0xf,
                             x_out * TILE_SIZE, y_out * TILE_SIZE);
-                    page.strokeRect(x_out * TILE_SIZE + 0.5, y_out * TILE_SIZE + 0.5, 31, 31);
                 }
             }
         }
 
-        page.strokeStyle = 'blue';
         if (y < CHUNK_SIZE) {
             for (var z = layer.min.z; z < layer.max.z; ++z) {
                 for (var x = layer.min.x; x < layer.max.x; ++x) {
@@ -1071,7 +959,6 @@ ChunkGraphics.prototype = {
 
                     sheet.drawInto(page, image >> 4, image & 0xf,
                             x_out * TILE_SIZE, y_out * TILE_SIZE);
-                    page.strokeRect(x_out * TILE_SIZE + 0.5, y_out * TILE_SIZE + 0.5, 31, 31);
                 }
             }
         }
@@ -1112,365 +999,6 @@ ChunkGraphics.prototype = {
         }
     },
 };
-
-
-function TileDef(id, info) {
-    this.id = id;
-    this.name = info.name;
-    this.shape = info.shape;
-
-    if (info.front != null) {
-        this.front = info.front[1] * 16 + info.front[0];
-    } else {
-        this.front = 0;
-    }
-
-    if (info.back != null) {
-        this.back = info.back[1] * 16 + info.back[0];
-    } else {
-        this.back = 0;
-    }
-
-    if (info.top != null) {
-        this.top = info.top[1] * 16 + info.top[0];
-    } else {
-        this.top = 0;
-    }
-
-    if (info.bottom != null) {
-        this.bottom = info.bottom[1] * 16 + info.bottom[0];
-    } else {
-        this.bottom = 0;
-    }
-}
-
-window.TileDef = TileDef;
-
-TileDef.by_id = [];
-TileDef.by_name = {};
-
-TileDef.register = function(id, info) {
-    if (info == null) {
-        return;
-    }
-
-    var tile = new TileDef(id, info);
-    while (TileDef.by_id.length <= tile.id) {
-        TileDef.by_id.push(null);
-    }
-    TileDef.by_id[tile.id] = tile;
-    TileDef.by_name[tile.name] = tile;
-};
-
-
-var PLAN_FULL_LAYERS = 1;
-var PLAN_PARTIAL_LAYERS = 2;
-var PLAN_FULL_LINES = 3;
-var PLAN_PARTIAL_LINE = 4;
-var PLAN_SPRITE = 5;
-
-function RenderPlanner() {
-    this.y_occupy = new Array(CHUNK_SIZE);
-    this.z_occupy = new Array(CHUNK_SIZE);
-    this.plan_ = [];
-    this.plan_len = 0;
-    this.sprites = null;
-    this.y_sprites = [];
-    this.y_sprites_len = 0;
-}
-
-RenderPlanner.prototype = {
-    '_init': function(sprites) {
-        this.sprites = sprites;
-        this.sprites.sort(function(a, b) {
-            return a.z - b.z;
-        });
-
-        for (var i = 0; i < CHUNK_SIZE; ++i) {
-            this.z_occupy[i] = 0;
-        }
-
-        this.plan_len = 0;
-        for (var i = 0; i < this.plan_.length; ++i) {
-            this.plan_[i] = null;
-        }
-    },
-
-    '_cleanup': function() {
-        this.sprites = null;
-        this._clearYSprites();
-    },
-
-    '_clearYSprites': function() {
-        for (var i = 0; i < this.y_sprites.length; ++i) {
-            this.y_sprites[i] = null;
-        }
-        this.y_sprites_len = 0;
-    },
-
-    '_recordYSprite': function(idx, sprite) {
-        if (this.y_sprites_len == this.y_sprites.length) {
-            this.y_sprites.push(sprite);
-        } else {
-            this.y_sprites[this.y_sprites_len] = sprite;
-        }
-        ++this.y_sprites_len;
-    },
-
-    '_sortYSprites': function() {
-        this.y_sprites.sort(function(a, b) {
-            if (a == null && b == null) {
-                return 0;
-            } else if (a == null) {
-                return -1;
-            } else if (b == null) {
-                return 1;
-            } else {
-                if (a.y != b.y) {
-                    return a.y - b.y;
-                } else {
-                    return a.z - b.z;
-                }
-            }
-        });
-    },
-
-    '_plan': function() {
-        var sprites = this.sprites;
-        var z_occupy = this.z_occupy;
-
-        for (var i = 0; i < sprites.length; ++i) {
-            var sprite = sprites[i];
-            var min_z = sprite.z;
-            var max_z = min_z + sprite.size_z;
-            for (var z = min_z; z < max_z; ++z) {
-                ++z_occupy[z];
-            }
-        }
-
-        var start = 0;
-        var cur_mode = z_occupy[0] != 0;
-
-        for (var i = 1; i < CHUNK_SIZE; ++i) {
-            var mode = z_occupy[i] != 0;
-            if (mode != cur_mode) {
-                this._planLayers(start, i, cur_mode);
-                cur_mode = mode;
-                start = i;
-            }
-        }
-
-        this._planLayers(start, CHUNK_SIZE, cur_mode);
-    },
-
-    '_planLayers': function(min_z, max_z, has_sprites) {
-        if (!has_sprites) {
-            this._planOne3(PLAN_FULL_LAYERS, min_z, max_z);
-            return;
-        }
-
-        var sprites = this.sprites;
-        var y_occupy = this.y_occupy;
-
-        for (var i = 0; i < CHUNK_SIZE; ++i) {
-            this.y_occupy[i] = 0;
-        }
-
-        this._clearYSprites();
-        // TODO: use binary search to find start
-        for (var i = 0; i < sprites.length; ++i) {
-            var sprite = sprites[i];
-            if (sprite.z < min_z) {
-                continue;
-            } else if (sprite.z >= max_z) {
-                break;
-            }
-            this._recordYSprite(i, sprite);
-            ++y_occupy[sprite.y];
-        }
-        this._sortYSprites();
-
-        var start = 0;
-
-        for (var i = 0; i < CHUNK_SIZE; ++i) {
-            if (y_occupy[i] != 0) {
-                if (start != i) {
-                    this._planPartialLayers(start, i, min_z, max_z);
-                }
-                this._planLinesWithSprites(i, min_z, max_z);
-                start = i + 1;
-            }
-        }
-
-        if (start != CHUNK_SIZE) {
-            this._planPartialLayers(start, CHUNK_SIZE, min_z, max_z);
-        }
-    },
-
-    '_planPartialLayers': function(min_y, max_y, min_z, max_z) {
-        this._planOne5(PLAN_PARTIAL_LAYERS, min_z, max_z, min_y, max_y);
-    },
-
-    '_planLinesWithSprites': function(y, min_z, max_z) {
-        if (y == CHUNK_SIZE) {
-            // This happens when the last y is occupied.
-            return;
-        }
-
-        // TODO: use binary search to find start
-        var start_i = 0;
-        var end_i = this.y_sprites_len;
-        for (var i = 0; i < this.y_sprites_len; ++i) {
-            var sprite = this.y_sprites[i];
-            if (sprite.y < y) {
-                start_i = i + 1;
-                continue;
-            } else if (sprite.y > y) {
-                end_i = i;
-                break;
-            }
-        }
-
-        // When open_z != -1, that means the line (*, y, open_z) has had the
-        // bottom rendered, but not the front.
-        var open_z = min_z - 1;
-
-        if (start_i < this.y_sprites_len && this.y_sprites[start_i].z == 0) {
-            open_z = min_z;
-            this._planOne4(PLAN_PARTIAL_LINE, 0, y, 0);
-        }
-
-        for (var i = start_i; i < end_i; ++i) {
-            var sprite = this.y_sprites[i];
-            var z = sprite.z;
-            if (z != open_z) {
-                // Close open_z
-                this._planOne4(PLAN_PARTIAL_LINE, open_z, y, 1);
-                // Draw complete lines between open_z (exclusive) and z
-                if (open_z + 1 < z) {
-                    this._planOne4(PLAN_FULL_LINES, open_z + 1, z, y);
-                }
-                // Open the new z
-                open_z = z;
-                this._planOne(PLAN_PARTIAL_LINE, open_z, y, 0);
-            }
-            this._planOne2(PLAN_SPRITE, sprite.id);
-        }
-
-        // Close open_z if necessary.
-        if (open_z != -1) {
-            this._planOne4(PLAN_PARTIAL_LINE, open_z, y, 1);
-        }
-        // Draw remaining lines
-        if (open_z + 1 < CHUNK_SIZE) {
-            this._planOne4(PLAN_FULL_LINES, open_z + 1, max_z, y);
-        }
-    },
-
-    '_planOne': function(item) {
-        if (this.plan_len == this.plan_.length) {
-            this.plan_.push(item);
-        } else {
-            this.plan_[this.plan_len] = item;
-        }
-        ++this.plan_len;
-    },
-
-    '_planOne2': function(a, b) {
-        this._planOne((a & 0xf) | (b & 0xf) << 4);
-    },
-
-    '_planOne3': function(a, b, c) {
-        this._planOne((a & 0xf) | (b & 0xf) << 4 | (c & 0xf) << 8);
-    },
-
-    '_planOne4': function(a, b, c, d) {
-        this._planOne((a & 0xf) | (b & 0xf) << 4 | (c & 0xf) << 8 | (d & 0xf) << 12);
-    },
-
-    '_planOne5': function(a, b, c, d, e) {
-        this._planOne((a & 0xf) | (b & 0xf) << 4 | (c & 0xf) << 8 | (d & 0xf) << 12 | (e & 0xf) << 16);
-    },
-
-    'plan': function(sprites) {
-        this._init(sprites);
-        this._plan();
-        this._cleanup();
-        return this.plan_;
-    },
-};
-
-function run_render_step(ctx, step, chunk, dx, dy, draw_sprite) {
-    var type = step & 0xf;
-    var arg0 = (step >> 4) & 0xf;
-    var arg1 = (step >> 8) & 0xf;
-    var arg2 = (step >> 12) & 0xf;
-    var arg3 = (step >> 16) & 0xf;
-    if (type == PLAN_FULL_LAYERS) {
-        var min_z = arg0;
-        var max_z = arg1 || 16;
-        for (var z = min_z; z < max_z; ++z) {
-            chunk.draw(ctx, z, 0, CHUNK_SIZE, dx, dy - z * TILE_SIZE);
-        }
-    } else if (type == PLAN_PARTIAL_LAYERS) {
-        var min_z = arg0;
-        var max_z = arg1 || 16;
-        for (var z = min_z; z < max_z; ++z) {
-            var min_y = arg2;
-            var max_y = arg3 || 16;
-            chunk.draw(ctx, z, min_y, max_y, dx, dy - z * TILE_SIZE);
-        }
-    } else if (type == PLAN_FULL_LINES) {
-        var min_z = arg0;
-        var max_z = arg1 || 16;
-        var y = arg2;
-        for (var z = min_z; z < max_z; ++z) {
-            chunk.draw(ctx, z, y, y + 1, dx, dy - z * TILE_SIZE);
-        }
-    } else if (type == PLAN_PARTIAL_LINE) {
-        var z = arg0;
-        var y = arg1;
-        var l = arg2;
-        if (l == 0) {
-            chunk.drawBottom(ctx, z, y, y + 1, dx, dy - z * TILE_SIZE);
-        } else {
-            chunk.drawFront(ctx, z, y, y + 1, dx, dy - z * TILE_SIZE);
-        }
-    } else if (type == PLAN_SPRITE) {
-        draw_sprite(arg0);
-    }
-}
-
-function describe_render_step(step) {
-    var type = step & 0xf;
-    var arg0 = (step >> 4) & 0xf;
-    var arg1 = (step >> 8) & 0xf;
-    var arg2 = (step >> 12) & 0xf;
-    var arg3 = (step >> 16) & 0xf;
-    if (type == PLAN_FULL_LAYERS) {
-        var min_z = arg0;
-        var max_z = (arg1 || 16) - 1;
-        return 'FL: ' + ['_', '_', min_z + '..' + max_z].join(' x ');
-    } else if (type == PLAN_PARTIAL_LAYERS) {
-        var min_z = arg0;
-        var max_z = (arg1 || 16) - 1;
-        var min_y = arg2;
-        var max_y = (arg3 || 16) - 1;
-        return 'PL: ' + ['_', min_y + '..' + max_y, min_z + '..' + max_z].join(' x ');
-    } else if (type == PLAN_FULL_LINES) {
-        var min_z = arg0;
-        var max_z = (arg1 || 16) - 1;
-        var y = arg2;
-        return 'FN: ' + ['_', y, min_z + '..' + max_z].join(' x ');
-    } else if (type == PLAN_PARTIAL_LINE) {
-        var z = arg0;
-        var y = arg1;
-        var l = arg2;
-        return 'PN: ' + ['_', y, z].join(' x ') + (l == 0 ? ' (B)' : ' (F)');
-    } else if (type == PLAN_SPRITE) {
-        return 'Sprite: ' + arg0;
-    }
-}
 
 
 function Physics() {
@@ -1577,25 +1105,6 @@ Forecast.prototype = {
         return now >= this.start_time && now < this.end_time;
     }
 };
-
-
-var COLLIDE_ZERO_VELOCITY = 1;
-var COLLIDE_NO_FLOOR = 2;
-var COLLIDE_WALL = 3;
-var COLLIDE_SLIDE_END = 4;
-var COLLIDE_CHUNK_BORDER = 5;
-var COLLIDE_TIMEOUT = 6;
-var COLLIDE_RAMP_ENTRY = 7;
-var COLLIDE_RAMP_EXIT = 8;
-var COLLIDE_RAMP_DYSFUNCTION = 9;
-var COLLIDE_RAMP_ANGLE_CHANGE = 10;
-
-var RAMP_NONE = 0;
-var RAMP_FLAT = 1;
-var RAMP_X_POS = 2;
-var RAMP_X_NEG = 3;
-var RAMP_Y_POS = 4;
-var RAMP_Y_NEG = 5;
 
 
 window.timeit = function(f) {
@@ -1719,10 +1228,6 @@ loader.onload = function() {
     anim_canvas.start();
 
     initTerrain();
-
-    for (var i = 0; i < chunkRender.length; ++i) {
-        chunkRender[i].bake();
-    }
 };
 
 loader.onprogress = function(loaded, total) {
@@ -1731,12 +1236,9 @@ loader.onprogress = function(loaded, total) {
 };
 
 var chunks = [];
-var chunkRender = [];
-window.chunkRender = chunkRender;
 for (var i = 0; i < LOCAL_SIZE * LOCAL_SIZE; ++i) {
     var chunk = new Chunk();
     chunks.push(chunk);
-    chunkRender.push(new ChunkRendering(chunk, tileSheet));
 }
 
 function initTerrain() {
@@ -1770,28 +1272,11 @@ function initTerrain() {
 
         phys.loadChunk(0, i, chunk._tiles);
         gfx2.loadChunk(0, i, chunk._tiles);
-
-        if (i == 0) {
-            window.chunkFlags = new Uint8Array(0x1000);
-            var view = window.chunkFlags;
-            for (var z = 0; z < CHUNK_SIZE; ++z) {
-                for (var y = 0; y < CHUNK_SIZE; ++y) {
-                    for (var x = 0; x < CHUNK_SIZE; ++x) {
-                        var idx = (z * CHUNK_SIZE + y) * CHUNK_SIZE + x;
-                        var has_front = chunk.front(x, y, z) != 0;
-                        var has_bottom = chunk.bottom(x, y, z) != 0;
-                        view[idx] = has_front << 2 | has_bottom << 1;
-                    }
-                }
-            }
-        }
     }
 }
 
-var planner = new RenderPlanner();
 var phys = new Physics();
 window.phys = phys;
-window.planner = planner;
 window.physTrace = [];
 
 var gfx2 = new TerrainGraphics(tileSheet);
