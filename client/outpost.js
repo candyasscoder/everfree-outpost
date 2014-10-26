@@ -670,6 +670,34 @@ Pony.prototype = {
 
         this._anim.drawAt(ctx, now, pos.x - 48, pos.y - pos.z - 74);
     },
+
+    'getSprite': function(now, base_x, base_y) {
+        var pos = this.position(now).sub(new Vec(base_x, base_y, 0));
+        var anim = this._anim;
+
+        // Reference point for determining rendering order.
+        var pos_x = pos.x;
+        var pos_y = pos.y + 16;
+        var pos_z = pos.z;
+
+        // Actual point on the screen where the sprite will be rendered.
+        var dst_x = pos.x - 48;
+        var dst_y = pos.y - pos.z - 74;
+
+        return ({
+            draw: function(ctx) {
+                ctx.strokeStyle = 'cyan',
+                ctx.strokeRect(pos.x - 16 + 0.5, pos.y - 16 + 0.5, 31, 31);
+                anim.drawAt(ctx, now, dst_x, dst_y);
+                ctx.strokeRect(pos.x - 0.5, pos.y - 0.5, 1, 1);
+            },
+            pos_x: pos_x,
+            pos_u: pos_y + pos_z,
+            pos_v: pos_y - pos_z,
+            dst_x: dst_x,
+            dst_y: dst_y,
+        });
+    },
 };
 
 
@@ -975,6 +1003,8 @@ ChunkGraphics.prototype = {
 
     '_initLayerHoriz': function(layer, page, sheet) {
         var z = layer.min.z;
+
+        page.strokeStyle = 'darkgreen';
         if (z > 0) {
             for (var y = layer.min.y; y < layer.max.y; ++y) {
                 for (var x = layer.min.x; x < layer.max.x; ++x) {
@@ -986,9 +1016,12 @@ ChunkGraphics.prototype = {
 
                     sheet.drawInto(page, image >> 4, image & 0xf,
                             x_out * TILE_SIZE, y_out * TILE_SIZE);
+                    page.strokeRect(x_out * TILE_SIZE + 0.5, y_out * TILE_SIZE + 0.5, 31, 31);
                 }
             }
         }
+
+        page.strokeStyle = 'green';
         if (z < CHUNK_SIZE) {
             for (var y = layer.min.y; y < layer.max.y; ++y) {
                 for (var x = layer.min.x; x < layer.max.x; ++x) {
@@ -1000,6 +1033,7 @@ ChunkGraphics.prototype = {
 
                     sheet.drawInto(page, image >> 4, image & 0xf,
                             x_out * TILE_SIZE, y_out * TILE_SIZE);
+                    page.strokeRect(x_out * TILE_SIZE + 0.5, y_out * TILE_SIZE + 0.5, 31, 31);
                 }
             }
         }
@@ -1007,6 +1041,8 @@ ChunkGraphics.prototype = {
 
     '_initLayerVert': function(layer, page, sheet) {
         var y = layer.min.y;
+
+        page.strokeStyle = 'darkblue';
         if (y > 0) {
             for (var z = layer.min.z; z < layer.max.z; ++z) {
                 for (var x = layer.min.x; x < layer.max.x; ++x) {
@@ -1018,9 +1054,12 @@ ChunkGraphics.prototype = {
 
                     sheet.drawInto(page, image >> 4, image & 0xf,
                             x_out * TILE_SIZE, y_out * TILE_SIZE);
+                    page.strokeRect(x_out * TILE_SIZE + 0.5, y_out * TILE_SIZE + 0.5, 31, 31);
                 }
             }
         }
+
+        page.strokeStyle = 'blue';
         if (y < CHUNK_SIZE) {
             for (var z = layer.min.z; z < layer.max.z; ++z) {
                 for (var x = layer.min.x; x < layer.max.x; ++x) {
@@ -1032,6 +1071,7 @@ ChunkGraphics.prototype = {
 
                     sheet.drawInto(page, image >> 4, image & 0xf,
                             x_out * TILE_SIZE, y_out * TILE_SIZE);
+                    page.strokeRect(x_out * TILE_SIZE + 0.5, y_out * TILE_SIZE + 0.5, 31, 31);
                 }
             }
         }
@@ -1059,7 +1099,6 @@ ChunkGraphics.prototype = {
             if (which == 0) {
                 var layer = layers[i];
                 ++i;
-                console.log('layer', i, layer.pos_u, layer.pos_v);
 
                 ctx.drawImage(this._pages[layer.page].canvas,
                         layer.src_x, layer.src_y, layer.src_w, layer.src_h,
@@ -1067,7 +1106,6 @@ ChunkGraphics.prototype = {
             } else {
                 var sprite = sprites[j];
                 ++j;
-                console.log('sprite', j, sprite.pos_u, sprite.pos_v);
 
                 sprite.draw(ctx);
             }
@@ -1587,7 +1625,7 @@ document.body.appendChild(anim_canvas.canvas);
 
 anim_canvas.ctx.fillStyle = '#f0f';
 anim_canvas.ctx.strokeStyle = '#0ff';
-anim_canvas.ctx.lineWidth = 2;
+//anim_canvas.ctx.lineWidth = 2;
 anim_canvas.ctx.imageSmoothingEnabled = false;
 anim_canvas.ctx.mozImageSmoothingEnabled = false;
 
@@ -1809,39 +1847,10 @@ function frame(ctx, now) {
             var sprites = [];
             if (pos.x + 32 >= base_x && pos.x < base_x + chunk_px &&
                     pos.y + 32 >= base_y && pos.y < base_y + chunk_px) {
-                var sprite_y = ((pos.y + 16 - base_y) / TILE_SIZE)|0;
-                sprites.push({ y: sprite_y, z: (pos.z / TILE_SIZE)|0, size_z: 2, id: 0 });
+                sprites.push(pony.getSprite(now, base_x, base_y));
             }
 
-            var plan = planner.plan(sprites);
-            for (var i = 0; i < plan.length; ++i) {
-                run_render_step(ctx, plan[i], chunkRender[ci], 0, 0, function(i) {
-                    pony._anim.drawAt(ctx, now, pos.x - base_x - 48, pos.y - base_y - 74 - pos.z);
-                });
-            }
-
-            if (ci == 0) {
-                // Draw ramp
-                ctx.strokeStyle = '#888';
-                ctx.beginPath();
-                ctx.moveTo(5*32, 3*32);
-                ctx.lineTo(7*32, 1*32);
-                ctx.lineTo(9*32, 1*32);
-                ctx.lineTo(9*32, 3*32);
-                ctx.lineTo(7*32, 3*32);
-                ctx.lineTo(5*32, 5*32);
-                ctx.closePath();
-                ctx.moveTo(7*32, 1*32);
-                ctx.lineTo(7*32, 3*32);
-                ctx.moveTo(9*32, 3*32);
-                ctx.lineTo(9*32, 7*32);
-                ctx.lineTo(7*32, 7*32);
-                ctx.lineTo(7*32, 3*32);
-                ctx.moveTo(7*32, 5*32);
-                ctx.lineTo(5*32, 5*32);
-                ctx.stroke();
-            }
-
+            gfx2.render(ctx, cy, cx, sprites);
 
             ctx.restore();
         }
@@ -1889,7 +1898,6 @@ function frame(ctx, now) {
 
     runner.run(now, 10);
     dbg.updateJobs(runner);
-    dbg.updatePlan(plan);
 }
 
 
@@ -1993,20 +2001,7 @@ window.gfxTest3 = function() {
     dbg.gfxCtx.scale(128 / 512, 128 / 512);
 
     var now = Date.now();
-    var pos = pony.position(now).sub(new Vec(4096, 4096, 0));
-    var s = {
-        draw: function(ctx) {
-            ctx.save();
-            ctx.translate(-4096, -4096);
-            console.log('draw', pony, 'into', ctx, 'at', now);
-            pony.drawInto(ctx, now);
-            ctx.restore();
-        },
-        pos_x: pos.x,
-        pos_u: pos.y + pos.z,
-        pos_v: pos.y - pos.z,
-    };
-
+    var s = pony.getSprite(now, 4096, 4096);
     gfx2.render(dbg.gfxCtx, 0, 0, [s]);
 }
 
