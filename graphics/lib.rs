@@ -13,6 +13,7 @@ extern crate physics;
 
 use core::prelude::*;
 use core::cmp;
+use core::fmt;
 use core::iter::range_inclusive;
 
 use physics::v3::V3;
@@ -37,6 +38,7 @@ pub const OPAQUE_FRONT: u8  = 0x40;
 pub const OPAQUE_BACK: u8   = 0x80;
 
 
+#[deriving(Show)]
 pub struct Layer {
     x_min: u8,
     y_min: u8,
@@ -44,6 +46,7 @@ pub struct Layer {
     x_max: u8,
     y_max: u8,
     z_max: u8,
+    pos: u16,
 }
 
 impl Layer {
@@ -55,16 +58,32 @@ impl Layer {
             x_max: max.x as u8,
             y_max: max.y as u8,
             z_max: max.z as u8,
+            pos: 0,
         }
     }
 
-    pub fn expand(&mut self, pos: V3) {
-        self.x_min = cmp::min(self.x_min, pos.x as u8);
-        self.x_max = cmp::max(self.x_max, pos.x as u8);
-        self.y_min = cmp::min(self.y_min, pos.y as u8);
-        self.y_max = cmp::max(self.y_max, pos.y as u8);
-        self.z_min = cmp::min(self.z_min, pos.z as u8);
-        self.z_max = cmp::max(self.z_max, pos.z as u8);
+    pub fn expand(&mut self, min: V3, max: V3) {
+        self.x_min = cmp::min(self.x_min, min.x as u8);
+        self.y_min = cmp::min(self.y_min, min.y as u8);
+        self.z_min = cmp::min(self.z_min, min.z as u8);
+
+        self.x_max = cmp::max(self.x_max, max.x as u8);
+        self.y_max = cmp::max(self.y_max, max.y as u8);
+        self.z_max = cmp::max(self.z_max, max.z as u8);
+    }
+
+    pub fn width(&self) -> u8 {
+        self.x_max - self.x_min
+    }
+
+    pub fn height(&self) -> u8 {
+        let y_size = self.y_max - self.y_min;
+        let z_size = self.z_max - self.z_min;
+        if y_size != 0 {
+            y_size
+        } else {
+            z_size
+        }
     }
 }
 
@@ -90,10 +109,12 @@ impl<'a> BakerState<'a> {
         }
     }
 
-    pub fn bake(&mut self) -> i32 {
+    pub fn bake(&mut self) -> (i32, i32) {
         self.bake_z();
         self.bake_y();
-        self.next_layer
+        let layers = self.next_layer;
+        let pages = pack_layers(self.layers.slice_to_mut(self.next_layer as uint));
+        (layers, pages)
     }
 
     pub fn bake_z(&mut self) {
@@ -114,7 +135,8 @@ impl<'a> BakerState<'a> {
                           |&: y, x| { self.has_horiz_plane(V3::new(x, y, z)) },
                           |&mut: y, x| {
                               count += 1;
-                              layer.expand(V3::new(x, y, z));
+                              layer.expand(V3::new(x, y, z),
+                                           V3::new(x + 1, y + 1, z));
                           });
                     if count > 0 {
                         self.add_layer(layer);
@@ -142,7 +164,8 @@ impl<'a> BakerState<'a> {
                           |&: z, x| { self.has_vert_plane(V3::new(x, y, z)) },
                           |&mut: z, x| {
                               count += 1;
-                              layer.expand(V3::new(x, y, z));
+                              layer.expand(V3::new(x, y, z),
+                                           V3::new(x + 1, y, z + 1));
                           });
                     if count > 0 {
                         self.add_layer(layer);
@@ -237,5 +260,126 @@ fn flood<F1, F2>(seen: &mut [bool, ..1 << (2 * CHUNK_BITS)],
 
         stack[*top] = idx as u8;
         *top += 1;
+    }
+}
+
+
+/// Pack layers into pages, so that the baked chunk can use a few large offscreen buffers instead
+/// of many small ones.  Sets `pos` for each layer to indicate its page and position on the page.
+/// Layers do not overlap each other or the page boundaries.
+pub fn pack_layers(layers: &mut [Layer]) -> i32 {
+    quicksort(layers, LayerWH);
+
+    // Dimensions of a page.
+    const WIDTH: uint = 16;
+    const HEIGHT: uint = 32;
+
+    let mut skyline = [0, ..HEIGHT];
+
+    let mut large = layers.len() - 1;
+    let mut small = 0;
+
+    let mut page = 0;
+
+    'a: loop {
+        // If we need more than one page per layer, there is a bug.
+        assert!(page < layers.len());
+
+        // Place large items down the left side.
+        let mut y = 0;
+        loop {
+            let layer = &mut layers[large];
+            if layer.width() as uint <= WIDTH / 2 || y + layer.height() as uint > HEIGHT {
+                break;
+            }
+
+            layer.pos = ((page * HEIGHT + y) * WIDTH) as u16;
+            for i in range(0, layer.height() as uint) {
+                skyline[y + i] = WIDTH as u8 - layer.width();
+            }
+            y += layer.height() as uint;
+
+            if large == small {
+                break 'a;
+            }
+            large -= 1;
+        }
+        for i in range(y, HEIGHT) {
+            skyline[i] = WIDTH as u8;
+        }
+
+        // Place small items down the right side.
+        let mut y = 0;
+        loop {
+            let layer = &mut layers[small];
+
+            while y < HEIGHT && skyline[y] < layer.width() {
+                y += 1;
+            }
+
+            if y + layer.height() as uint > HEIGHT {
+                break;
+            }
+
+            let x = 16 - skyline[y];
+            layer.pos = ((page * HEIGHT + y) * WIDTH + x as uint) as u16;
+            for i in range(0, layer.height() as uint) {
+                skyline[y + i] = 16 - (x + layer.width());
+            }
+
+            if large == small {
+                break 'a;
+            }
+            small += 1;
+        }
+
+        page += 1;
+    }
+
+    (page + 1) as i32
+}
+
+pub trait Compare<T> {
+    fn is_less(&self, a: &T, b: &T) -> bool;
+}
+
+struct LayerWH;
+impl Compare<Layer> for LayerWH {
+    fn is_less(&self, a: &Layer, b: &Layer) -> bool {
+        if a.width() != b.width() {
+            a.width() < b.width()
+        } else {
+            // For large items, we don't care how they're ordered by height.  For small items, we
+            // want to pack taller items to the left of shorter ones, so sort in descending order
+            // by height.
+            a.height() > b.height()
+        }
+    }
+}
+
+fn quicksort<T, C>(xs: &mut [T], comp: C)
+        where C: Compare<T> + Copy {
+    // Based on pseudocode from wikipedia: https://en.wikipedia.org/wiki/Quicksort
+    if xs.len() <= 1 {
+        return;
+    }
+
+    let pivot = partition(xs, comp);
+    quicksort(xs.slice_to_mut(pivot), comp);
+    quicksort(xs.slice_from_mut(pivot + 1), comp);
+
+    fn partition<T, C>(xs: &mut [T], comp: C) -> uint
+            where C: Compare<T> + Copy {
+        // Always choose rightmost element as the pivot.
+        let pivot = xs.len() - 1;
+        let mut store_index = 0;
+        for i in range(0, xs.len() - 1) {
+            if comp.is_less(&xs[i], &xs[pivot]) {
+                xs.swap(i, store_index);
+                store_index += 1;
+            }
+        }
+        xs.swap(store_index, pivot);
+        store_index
     }
 }

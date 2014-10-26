@@ -34,6 +34,7 @@
             return (STACKTOP - offset)|0;
         }
 
+
         function _bitshift64Lshr(low, high, bits) {
             low = low|0; high = high|0; bits = bits|0;
             var ander = 0;
@@ -44,6 +45,18 @@
             }
             tempRet0 = 0;
             return (high >>> (bits - 32))|0;
+        }
+
+        function _bitshift64Shl(low, high, bits) {
+            low = low|0; high = high|0; bits = bits|0;
+            var ander = 0;
+            if ((bits|0) < 32) {
+                ander = ((1 << bits) - 1)|0;
+                tempRet0 = (high << bits) | ((low&(ander << (32 - bits))) >>> (32 - bits));
+                return low << bits;
+            }
+            tempRet0 = low << (bits - 32);
+            return 0;
         }
 
         function _memset(ptr, value, num) {
@@ -80,6 +93,7 @@
         return ({
             __adjust_stack: __adjust_stack,
             collide: _collide,
+            bake_chunk: _bake_chunk,
             test: _test,
         });
     });
@@ -235,6 +249,35 @@
             this._stackFree(output);
 
             return result;
+        },
+
+        'bakeChunk': function(flags) {
+            this.memcpy(HEAP_START, flags);
+            var counts = this._stackAlloc(Int32Array, 2);
+
+            var layers_start = HEAP_START + ((flags.byteLength + 0x0fff) & ~0x0fff);
+            this._raw.bake_chunk(HEAP_START, layers_start, counts.byteOffset);
+
+            var layer_count = counts[0];
+            var page_count = counts[1];
+            this._stackFree(counts);
+
+            var view8 = new Uint8Array(this.buffer, layers_start);
+            var view16 = new Uint16Array(this.buffer, layers_start);
+            var layers = [];
+            for (var i = 0; i < layer_count; ++i) {
+                var base8 = i * 8;
+                var pos = view16[i * 4 + 3];
+                layers.push({
+                    'min': new Vec(view8[base8 + 0], view8[base8 + 1], view8[base8 + 2]),
+                    'max': new Vec(view8[base8 + 3], view8[base8 + 4], view8[base8 + 5]),
+                    'pos_x': pos & 0xf,
+                    'pos_y': (pos >> 4) & 0x1f,
+                    'page': pos >> 9,
+                });
+            }
+
+            return { 'layers': layers, 'pages': page_count };
         },
 
         'test': function(pos, size, velocity) {

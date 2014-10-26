@@ -1,2 +1,3 @@
 collide
 test
+bake_chunk

@@ -1474,9 +1474,11 @@ function initTerrain() {
             for (var x = 0; x < 2; ++x) {
                 var ox = next() % 3;
                 var oy = next() % 4;
+                var big = next() % 2;
                 for (var j = 0; j < 2; ++j) {
-                    for (var k = 0; k < 3; ++k) {
-                        chunk.set(x * 8 + ox + j, y * 8 + oy, k, 'tree/small/' + j + k);
+                    for (var k = 0; k < (big ? 4 : 3); ++k) {
+                        chunk.set(x * 8 + ox + j, y * 8 + oy, k,
+                                'tree/' + (big ? 'medium' : 'small') + '/' + j + k);
                     }
                 }
             }
@@ -1485,7 +1487,8 @@ function initTerrain() {
         phys._chunk_phys.memcpy(0x2000 + i * 0x1000, chunk._shape);
 
         if (i == 0) {
-            var view = new Uint8Array(gfxAsm.buffer, 0x2000, 0x1000);
+            window.chunkFlags = new Uint8Array(0x1000);
+            var view = window.chunkFlags;
             for (var z = 0; z < CHUNK_SIZE; ++z) {
                 for (var y = 0; y < CHUNK_SIZE; ++y) {
                     for (var x = 0; x < CHUNK_SIZE; ++x) {
@@ -1496,7 +1499,6 @@ function initTerrain() {
                     }
                 }
             }
-            console.log(view);
         }
     }
 }
@@ -1713,8 +1715,24 @@ window.gfxTest = function(a, b, c, d, e, f, g, h, i) {
 window.gfxTest2 = function() {
     var count = gfxTest().t;
     console.log('got layers', count);
-    for (var i = 0; i < Math.min(count, 20); ++i) {
-        console.log(new Uint8Array(gfxAsm.buffer, 0x3000 + 6 * i, 6));
+    var ctx = dbg.gfxCtx;
+    var colors = ['black', 'red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple'];
+    for (var i = 0; i < count; ++i) {
+        ctx.fillStyle = colors[i % colors.length];
+        var view = new Uint8Array(gfxAsm.buffer, 0x3000 + 8 * i, 8);
+        var pos = view[7] * 256 + view[6];
+        var x = pos % 16;
+        var y = (pos / 16)|0;
+        if (y > 64) {
+            break;
+        } else if (y >= 32) {
+            y -= 32;
+            x += 16;
+        }
+        var w = view[3] - view[0];
+        var h = Math.max(view[4] - view[1], view[5] - view[2]);
+        console.log(x, y, w, h);
+        ctx.fillRect(x * 4, y * 4, w * 4, h * 4);
     }
 }
 
