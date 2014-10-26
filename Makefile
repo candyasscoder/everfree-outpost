@@ -27,7 +27,9 @@ endef
 
 DEPS_physics_asmjs = core asmrt
 DEPS_physics_native =
-ALL_LIBS = asmrt physics
+DEPS_graphics_asmjs = core asmrt physics
+DEPS_graphics_native = physics
+ALL_LIBS = asmrt physics graphics
 
 $(foreach mode,asmjs native, \
  $(eval $(foreach lib,$(ALL_LIBS), \
@@ -36,7 +38,7 @@ $(foreach mode,asmjs native, \
 
 # Dependencies of client/asmlibs.rs
 
-DEPS_asmlibs = physics core asmrt
+DEPS_asmlibs = core asmrt physics graphics
 
 
 # Rules for building Rust libraries

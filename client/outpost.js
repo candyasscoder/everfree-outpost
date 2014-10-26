@@ -313,7 +313,12 @@ function DebugMonitor() {
     this.fps = this._addRow('FPS');
     this.load = this._addRow('Load');
     this.jobs = this._addRow('Jobs');
-    this.plan = this._addRow('Plan');
+    //this.plan = this._addRow('Plan');
+    this.gfxDebug = this._addRow('Gfx');
+
+    this.gfxDebug.innerHTML = '<canvas width="128" height="128" style="border: solid 1px black">';
+    this.gfxCanvas = this.gfxDebug.getElementsByTagName('canvas')[0];
+    this.gfxCtx = this.gfxCanvas.getContext('2d');
 
     this._frames = new TimeSeries(5000);
     this._frame_start = 0;
@@ -362,7 +367,7 @@ DebugMonitor.prototype = {
     },
 
     'updatePlan': function(plan) {
-        this.plan.innerHTML = plan.map(describe_render_step).join('<br>');
+        //this.plan.innerHTML = plan.map(describe_render_step).join('<br>');
     },
 
     'updatePos': function(pos) {
@@ -1478,6 +1483,21 @@ function initTerrain() {
         }
 
         phys._chunk_phys.memcpy(0x2000 + i * 0x1000, chunk._shape);
+
+        if (i == 0) {
+            var view = new Uint8Array(gfxAsm.buffer, 0x2000, 0x1000);
+            for (var z = 0; z < CHUNK_SIZE; ++z) {
+                for (var y = 0; y < CHUNK_SIZE; ++y) {
+                    for (var x = 0; x < CHUNK_SIZE; ++x) {
+                        var idx = (z * CHUNK_SIZE + y) * CHUNK_SIZE + x;
+                        var has_front = chunk.front(x, y, z) != 0;
+                        var has_bottom = chunk.bottom(x, y, z) != 0;
+                        view[idx] = has_front << 2 | has_bottom << 1;
+                    }
+                }
+            }
+            console.log(view);
+        }
     }
 }
 
@@ -1683,6 +1703,19 @@ function updateWalkDir() {
 
 window.physTest = function(a, b, c, d, e, f, g, h, i) {
     return phys._chunk_phys.test(new Vec(a, b, c), new Vec(d, e, f), new Vec(g, h, i));
+}
+
+window.gfxAsm = new Asm(0x10000);
+window.gfxTest = function(a, b, c, d, e, f, g, h, i) {
+    return window.gfxAsm.test(new Vec(a, b, c), new Vec(d, e, f), new Vec(g, h, i));
+}
+
+window.gfxTest2 = function() {
+    var count = gfxTest().t;
+    console.log('got layers', count);
+    for (var i = 0; i < Math.min(count, 20); ++i) {
+        console.log(new Uint8Array(gfxAsm.buffer, 0x3000 + 6 * i, 6));
+    }
 }
 
 })();

@@ -1,12 +1,14 @@
 #![crate_name = "asmlibs"]
 #![no_std]
 #![feature(phase)]
+#![feature(globs)]
 
 extern crate core;
 extern crate physics;
+extern crate graphics;
 #[phase(plugin, link)] extern crate asmrt;
 
-use core::ptr::RawPtr;
+use core::prelude::*;
 use physics::v3::{V3, scalar};
 use physics::{Shape, ShapeSource};
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK};
@@ -67,5 +69,16 @@ pub extern fn collide_wrapper(input: &CollideArgs, output: &mut CollideResult) {
 
 #[export_name = "test"]
 pub extern fn test_wrapper(input: &CollideArgs, output: &mut CollideResult) {
-    output.time = AsmJsShapeSource.get_shape(input.pos) as i32;
+    //output.time = AsmJsShapeSource.get_shape(input.pos) as i32;
+    //let ptr: &FlagArray = unsafe { core::mem::transmute(0x2000u) };
+    //let xuv = XUV::new(input.pos.x as u8, input.pos.y as u8, input.pos.z as u8);
+    //output.time = ptr.get_face(xuv) as i32;
+
+    use graphics::BakerState;
+    use core::mem;
+
+    let mut baker = BakerState::new(
+        unsafe { mem::transmute(0x2000u) },
+        unsafe { mem::transmute(0x3000u) });
+    output.time = baker.bake();
 }

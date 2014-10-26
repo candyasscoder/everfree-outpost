@@ -12,13 +12,19 @@ use core::prelude::*;
 use core::fmt;
 
 
+mod std {
+    pub use core::fmt;
+}
+
+
 // Essential lang items.  These would normally be provided by librustrt.
 
 #[inline(always)] #[cold]
 #[lang = "fail_fmt"]
-extern fn lang_fail_fmt(_args: &core::fmt::Arguments,
-                        _file: &'static str,
-                        _line: uint) -> ! {
+extern fn lang_fail_fmt(args: &core::fmt::Arguments,
+                        file: &'static str,
+                        line: uint) -> ! {
+    format_args!(raw_println, "task failed at {}:{}: {}", file, line, args);
     unsafe { core::intrinsics::abort() };
 }
 
