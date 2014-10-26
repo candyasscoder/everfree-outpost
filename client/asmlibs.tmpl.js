@@ -256,11 +256,11 @@
             return new Uint8Array(this.buffer, HEAP_START + idx * size, size);
         },
 
-        'bakeChunk': function(flags) {
-            this.memcpy(HEAP_START, flags);
+        'bakeChunk': function() {
             var counts = this._stackAlloc(Int32Array, 2);
 
-            var layers_start = HEAP_START + ((flags.byteLength + 0x0fff) & ~0x0fff);
+            var flags_size = 16 * 16 * 16;
+            var layers_start = HEAP_START + flags_size;
             this._raw.bake_chunk(HEAP_START, layers_start, counts.byteOffset);
 
             var layer_count = counts[0];
@@ -283,6 +283,11 @@
             }
 
             return { 'layers': layers, 'pages': page_count };
+        },
+
+        'chunkFlagsView': function() {
+            var size = 16 * 16 * 16;
+            return new Uint8Array(this.buffer, HEAP_START, size);
         },
 
         'test': function(pos, size, velocity) {
