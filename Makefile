@@ -4,6 +4,7 @@ PYTHON3 ?= python3
 RUST_SRC ?= ../rust
 EM_FASTCOMP ?= /usr
 EM_PLUGINS ?= 
+CLOSURE_COMPILER ?= closure-compiler
 
 HOST = x86_64-unknown-linux-gnu
 TARGET = i686-unknown-linux-gnu
@@ -11,8 +12,12 @@ TARGET = i686-unknown-linux-gnu
 ASMJS_OUT = build/asmjs
 NATIVE_OUT = build/native
 ASMLIBS_OUT = build/asmlibs
+MIN_OUT = build/min
 DIST = dist
-$(shell mkdir -p $(ASMJS_OUT) $(NATIVE_OUT) $(ASMLIBS_OUT) $(DIST))
+$(shell mkdir -p $(ASMJS_OUT) $(NATIVE_OUT) $(ASMLIBS_OUT) $(MIN_OUT) $(DIST))
+
+
+JS_SRCS = $(wildcard client/js/*.js)
 
 
 all: $(DIST)/all
@@ -111,6 +116,22 @@ $(ASMLIBS).js: client/asmlibs.tmpl.js $(ASMLIBS).1.js util/asmjs_insert_function
 	awk -f util/asmjs_insert_functions.awk <$< >$@
 
 
+# Rules for running closure compiler
+
+CLOSURE_FLAGS=--language_in=ECMASCRIPT5_STRICT \
+			  --output_wrapper='(function(){%output%})();'
+
+$(MIN_OUT)/asmlibs.js: $(ASMLIBS_OUT)/asmlibs.js
+	$(CLOSURE_COMPILER) $(CLOSURE_FLAGS) \
+		$< --js_output_file=$@ --compilation_level=WHITESPACE_ONLY
+
+$(MIN_OUT)/outpost.js: $(JS_SRCS)
+	$(CLOSURE_COMPILER) $(CLOSURE_FLAGS) \
+		$^ --js_output_file=$@ --compilation_level=ADVANCED_OPTIMIZATIONS \
+		--process_common_js_modules --common_js_entry_module=main \
+		--common_js_module_path_prefix=client/js/ --externs=util/closure_externs.js
+
+
 # Rules for misc files
 
 build/tiles.json: client/assets/tiles.yaml util/make_tiles_json.py
@@ -128,9 +149,10 @@ endef
 DIST_FILE = $(call DIST_FILE_,$(strip $(1)),$(strip $(2)))
 
 $(eval $(call DIST_FILE, client.html, 	client/client.html))
-$(eval $(call DIST_FILE, outpost.js, 	client/outpost.js))
-$(eval $(call DIST_FILE, asmlibs.js, 	build/asmlibs/asmlibs.js))
 $(eval $(call DIST_FILE, tiles.json, 	build/tiles.json))
+
+$(eval $(call DIST_FILE, outpost.js, 	build/min/outpost.js))
+$(eval $(call DIST_FILE, asmlibs.js, 	build/min/asmlibs.js))
 
 $(DIST)/assets/%: client/assets/%
 	mkdir -p $$(dirname $@)
@@ -139,4 +161,3 @@ $(DIST)/assets/%: client/assets/%
 $(DIST)/all:
 
 .PHONY: all $(DIST)/all
-
