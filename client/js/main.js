@@ -168,7 +168,7 @@ AssetLoader.prototype.addImage = function(name, url, callback) {
 
 AssetLoader.prototype.addJson = function(name, url, callback) {
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', url);
+    xhr.open('GET', url, true);
 
     xhr.responseType = 'json';
 

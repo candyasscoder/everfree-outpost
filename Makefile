@@ -137,6 +137,11 @@ $(MIN_OUT)/outpost.js: $(JS_SRCS)
 build/tiles.json: client/assets/tiles.yaml util/make_tiles_json.py
 	$(PYTHON3) util/make_tiles_json.py <$< >$@
 
+build/client.debug.html: client/client.html \
+	util/collect_js_deps.py util/patch_script_tags.py $(JS_SRCS)
+	$(PYTHON3) util/collect_js_deps.py client/js/main.js | \
+		$(PYTHON3) util/patch_script_tags.py $< >$@
+
 
 # Rules for copying files into dist/
 
@@ -148,14 +153,27 @@ $(DIST)/all: $(DIST)/$(1)
 endef
 DIST_FILE = $(call DIST_FILE_,$(strip $(1)),$(strip $(2)))
 
-$(eval $(call DIST_FILE, client.html, 	client/client.html))
 $(eval $(call DIST_FILE, tiles.json, 	build/tiles.json))
 
+ifeq ($(RELEASE),)
+$(eval $(call DIST_FILE, client.html, 	build/client.debug.html))
+$(eval $(call DIST_FILE, shim.js, 		client/shim.js))
+$(eval $(call DIST_FILE, asmlibs.js, 	build/asmlibs/asmlibs.js))
+dist/all: $(patsubst client/js/%,dist/js/%,$(JS_SRCS))
+
+$(shell mkdir -p $(DIST)/js)
+else
+$(eval $(call DIST_FILE, client.html, 	client/client.html))
 $(eval $(call DIST_FILE, outpost.js, 	build/min/outpost.js))
 $(eval $(call DIST_FILE, asmlibs.js, 	build/min/asmlibs.js))
+endif
+
 
 $(DIST)/assets/%: client/assets/%
 	mkdir -p $$(dirname $@)
+	cp -v $< $@
+
+$(DIST)/js/%: client/js/%
 	cp -v $< $@
 
 $(DIST)/all:
