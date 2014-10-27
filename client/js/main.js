@@ -152,6 +152,8 @@ var chunks;
 var physics;
 var graphics;
 
+var socket;
+
 function init() {
     canvas = new AnimCanvas(frame);
     document.body.appendChild(canvas.canvas);
@@ -285,46 +287,34 @@ function postInit() {
     document.body.removeChild($('banner-bg'));
     canvas.start();
 
-    generateTerrain();
+    socket = new WebSocket('ws://' + window.location.host + '/ws');
+    socket.binaryType = 'arraybuffer';
+    socket.onopen = socketOpen;
+    socket.onmessage = socketMessage;
 }
 
-function generateTerrain() {
-    var rnd = 0;
-    function next() {
-        rnd = (Math.imul(rnd, 1103515245) + 12345)|0;
-        return rnd & 0x7fffffff;
-    }
+function socketOpen() {
+    var buf = new Uint16Array(1);
+    buf[0] = 0x0001;
+    socket.send(buf);
+    console.log('sent request');
+}
 
-    for (var i = 0; i < LOCAL_SIZE * LOCAL_SIZE; ++i) {
+function socketMessage(evt) {
+    var buf = new Uint16Array(evt.data);
+
+    if (buf[0] == 0x8001) {
+        if (buf.length != 2 + CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
+            console.assert(false, 'bad length for message:', buf.length);
+            return;
+        }
+        var i = buf[1];
         var chunk = chunks[i];
-        for (var y = 0; y < CHUNK_SIZE; ++y) {
-            for (var x = 0; x < CHUNK_SIZE; ++x) {
-                var rnd = (x * 7 + y * 13 + i * 31 + 59) >> 2;
-                chunk.set(x, y, 0, 'grass/' + (rnd & 3));
-            }
-        }
-
-        rnd = i;
-        for (var y = 0; y < 2; ++y) {
-            for (var x = 0; x < 2; ++x) {
-                var ox = next() % 3;
-                var oy = next() % 4;
-                var big = next() % 2;
-                for (var j = 0; j < 2; ++j) {
-                    for (var k = 0; k < (big ? 4 : 3); ++k) {
-                        chunk.set(x * 8 + ox + j, y * 8 + oy, k,
-                                'tree/' + (big ? 'medium' : 'small') + '/' + j + k);
-                    }
-                }
-            }
-        }
-
-        (function(i) {
-            runner.job('load-chunk-' + i, function() {
-                physics.loadChunk(0, i, chunks[i]._tiles);
-                graphics.loadChunk(0, i, chunks[i]._tiles);
-            });
-        })(i);
+        chunk._tiles.set(buf.subarray(2));
+        runner.job('load-chunk-' + i, function() {
+            physics.loadChunk(0, i, chunk._tiles);
+            graphics.loadChunk(0, i, chunk._tiles);
+        });
     }
 }
 
