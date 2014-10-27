@@ -5,6 +5,7 @@ RUST_SRC ?= ../rust
 EM_FASTCOMP ?= /usr
 EM_PLUGINS ?= 
 CLOSURE_COMPILER ?= closure-compiler
+YUI_COMPRESSOR ?= yui-compressor
 
 HOST = x86_64-unknown-linux-gnu
 TARGET = i686-unknown-linux-gnu
@@ -122,8 +123,8 @@ CLOSURE_FLAGS=--language_in=ECMASCRIPT5_STRICT \
 			  --output_wrapper='(function(){%output%})();'
 
 $(MIN_OUT)/asmlibs.js: $(ASMLIBS_OUT)/asmlibs.js
-	$(CLOSURE_COMPILER) $(CLOSURE_FLAGS) \
-		$< --js_output_file=$@ --compilation_level=WHITESPACE_ONLY
+	$(YUI_COMPRESSOR) --disable-optimizations --line-break 200 $< | \
+		sed -e '1s/{/{"use asm";/' >$@
 
 $(MIN_OUT)/outpost.js: $(JS_SRCS)
 	$(CLOSURE_COMPILER) $(CLOSURE_FLAGS) \
