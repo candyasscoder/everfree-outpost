@@ -1,0 +1,8 @@
+sprites/maresprite.png
+sprites/type1blue.png
+sprites/marehorn.png
+sprites/frontwingmare.png
+sprites/backwingmare.png
+sprites/maremane1.png
+sprites/maretail1.png
+tiles/mountain_landscape_23.png

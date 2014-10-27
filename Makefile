@@ -23,6 +23,12 @@ JS_SRCS = $(wildcard client/js/*.js)
 
 all: $(DIST)/all
 
+redist:
+	rm -r dist
+	$(MAKE) dist/all
+
+clean:
+	rm -rf build dist
 
 # Dependencies of Rust libraries
 
@@ -169,6 +175,7 @@ $(eval $(call DIST_FILE, outpost.js, 	build/min/outpost.js))
 $(eval $(call DIST_FILE, asmlibs.js, 	build/min/asmlibs.js))
 endif
 
+$(DIST)/all: $(patsubst %,dist/assets/%,$(shell cat client/assets/used.txt))
 
 $(DIST)/assets/%: client/assets/%
 	mkdir -p $$(dirname $@)
@@ -179,4 +186,4 @@ $(DIST)/js/%: client/js/%
 
 $(DIST)/all:
 
-.PHONY: all $(DIST)/all
+.PHONY: all clean $(DIST)/all
