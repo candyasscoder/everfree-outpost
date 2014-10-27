@@ -13,7 +13,6 @@ def collect_deps(path):
 
 def main(root_path):
     order = ['shim.js'] + ['js/%s.js' % line.strip() for line in sys.stdin]
-    print(order)
 
     with open(root_path, 'r') as f:
         for line in f:
