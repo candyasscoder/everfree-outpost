@@ -1,5 +1,3 @@
-(function() {
-
 var $ = document.getElementById.bind(document);
 
 
@@ -23,15 +21,16 @@ var Physics = require('physics').Physics;
 var Forecast = require('physics').Forecast;
 
 
-function Pony(sheet, x, y, z) {
+function Pony(sheet, x, y, z, physics) {
     this._anim = new Animation(sheet);
     this._anim.animate(0, 2, 1, 1, false, 0);
     this._last_dir = { x: 1, y: 0 };
     this._forecast = new Forecast(new Vec(x - 16, y - 16, z), new Vec(32, 32, 32));
-    phys.resetForecast(0, this._forecast, new Vec(0, 0, 0));
+    this._phys = physics;
+    this._phys.resetForecast(0, this._forecast, new Vec(0, 0, 0));
 }
 
-Pony.prototype.walk = function(now, speed, dx, dy, phys) {
+Pony.prototype.walk = function(now, speed, dx, dy) {
     if (dx != 0 || dy != 0) {
         this._last_dir = { x: dx, y: dy };
     } else {
@@ -54,11 +53,11 @@ Pony.prototype.walk = function(now, speed, dx, dy, phys) {
 
     var pixel_speed = 50 * speed;
     var target_v = new Vec(dx * pixel_speed, dy * pixel_speed, 0);
-    phys.resetForecast(now, this._forecast, target_v);
+    this._phys.resetForecast(now, this._forecast, target_v);
 };
 
 Pony.prototype.position = function(now) {
-    phys.updateForecast(now, this._forecast);
+    this._phys.updateForecast(now, this._forecast);
     var pos = this._forecast.position(now);
     pos.x += 16;
     pos.y += 16;
@@ -91,48 +90,7 @@ Pony.prototype.getSprite = function(now, base_x, base_y) {
 };
 
 
-
-
-
-
-
-
-var anim_canvas = new AnimCanvas(frame);
-document.body.appendChild(anim_canvas.canvas);
-
-anim_canvas.ctx.fillStyle = '#f0f';
-anim_canvas.ctx.strokeStyle = '#0ff';
-anim_canvas.ctx.imageSmoothingEnabled = false;
-anim_canvas.ctx.mozImageSmoothingEnabled = false;
-
-var dbg = new DebugMonitor();
-document.body.appendChild(dbg.container);
-
-
-var loader = new AssetLoader();
-
-loader.addImage('pony_f_base', 'assets/sprites/maresprite.png');
-loader.addImage('pony_f_eyes_blue', 'assets/sprites/type1blue.png');
-loader.addImage('pony_f_horn', 'assets/sprites/marehorn.png');
-loader.addImage('pony_f_wing_front', 'assets/sprites/frontwingmare.png');
-loader.addImage('pony_f_wing_back', 'assets/sprites/backwingmare.png');
-loader.addImage('pony_f_mane_1', 'assets/sprites/maremane1.png');
-loader.addImage('pony_f_tail_1', 'assets/sprites/maretail1.png');
-
-loader.addImage('tiles1', 'assets/tiles/mountain_landscape_23.png');
-
-loader.addJson(null, 'tiles.json', function(json) {
-    var tiles = json['tiles'];
-    console.log('register tiles', tiles.length);
-    for (var i = 0; i < tiles.length; ++i) {
-        TileDef.register(i, tiles[i]);
-    }
-});
-
-var assets = loader.assets;
-window.assets = assets;
-
-function bake_sprite_sheet(runner) {
+function bakeSpriteSheet(runner, assets) {
     var width = assets['pony_f_base'].width;
     var height = assets['pony_f_base'].height;
 
@@ -170,7 +128,7 @@ function bake_sprite_sheet(runner) {
     runner.job('bake', function() {
         runner.subjob('wing_back',  tinted, assets['pony_f_wing_back'], coat_color);
         runner.subjob('base',       tinted, assets['pony_f_base'], coat_color);
-        runner.subjob('eyes',       copy, assets['pony_f_eyes_blue']);
+        runner.subjob('eyes',       copy,   assets['pony_f_eyes_blue']);
         runner.subjob('wing_front', tinted, assets['pony_f_wing_front'], coat_color);
         runner.subjob('tail',       tinted, assets['pony_f_tail_1'], hair_color);
         runner.subjob('mane',       tinted, assets['pony_f_mane_1'], hair_color);
@@ -180,35 +138,157 @@ function bake_sprite_sheet(runner) {
     return baked.canvas;
 }
 
-var tileSheet = new Sheet(assets['tiles1'], 32, 32);
-var sheet;
+
+var canvas;
+var ctx;
+var debug;
+var runner;
+var loader;
+var assets;
+
 var pony;
 
-var runner = new BackgroundJobRunner();
+var chunks;
+var physics;
+var graphics;
 
-loader.onload = function() {
-    sheet = new Sheet(bake_sprite_sheet(runner), 96, 96);
-    pony = new Pony(sheet, 100, 100, 0);
-    window.pony = pony;
+function init() {
+    canvas = new AnimCanvas(frame);
+    document.body.appendChild(canvas.canvas);
 
-    document.body.removeChild($('banner-bg'));
-    anim_canvas.start();
+    ctx = canvas.ctx;
+    ctx.fillStyle = '#f0f';
+    ctx.strokeStyle = '#0ff';
+    ctx.imageSmoothingEnabled = false;
+    ctx.mozImageSmoothingEnabled = false;
 
-    initTerrain();
-};
+    debug = new DebugMonitor();
+    document.body.appendChild(debug.container);
 
-loader.onprogress = function(loaded, total) {
+    runner = new BackgroundJobRunner();
+
+    loader = new AssetLoader();
+    assets = loader.assets;
+    loader.onprogress = assetProgress;
+    loader.onload = postInit;
+    initAssets(loader);
+
+    pony = null;
+
+    chunks = initChunks();
+    physics = new Physics();
+    var tile_sheet = new Sheet(assets['tiles1'], 32, 32);
+    graphics = new TerrainGraphics(tile_sheet);
+
+    initInput();
+}
+document.addEventListener('DOMContentLoaded', init);
+
+function initAssets() {
+    loader.addImage('pony_f_base', 'assets/sprites/maresprite.png');
+    loader.addImage('pony_f_eyes_blue', 'assets/sprites/type1blue.png');
+    loader.addImage('pony_f_horn', 'assets/sprites/marehorn.png');
+    loader.addImage('pony_f_wing_front', 'assets/sprites/frontwingmare.png');
+    loader.addImage('pony_f_wing_back', 'assets/sprites/backwingmare.png');
+    loader.addImage('pony_f_mane_1', 'assets/sprites/maremane1.png');
+    loader.addImage('pony_f_tail_1', 'assets/sprites/maretail1.png');
+
+    loader.addImage('tiles1', 'assets/tiles/mountain_landscape_23.png');
+
+    loader.addJson(null, 'tiles.json', function(json) {
+        var tiles = json['tiles'];
+        for (var i = 0; i < tiles.length; ++i) {
+            TileDef.register(i, tiles[i]);
+        }
+    });
+}
+
+function initChunks() {
+    var chunks = [];
+    for (var i = 0; i < LOCAL_SIZE * LOCAL_SIZE; ++i) {
+        chunks.push(new Chunk());
+    }
+    return chunks;
+}
+
+function initInput() {
+    var dirs_held = {
+        'Up': false,
+        'Down': false,
+        'Left': false,
+        'Right': false,
+        'Shift': false,
+    };
+
+    document.addEventListener('keydown', function(evt) {
+        var known = true;
+        if (dirs_held.hasOwnProperty(evt.key)) {
+            if (!evt.repeat) {
+                dirs_held[evt.key] = true;
+                updateWalkDir();
+            }
+        } else {
+            known = false;
+        }
+
+        if (known) {
+            evt.preventDefault();
+            evt.stopPropagation();
+        }
+    });
+
+    document.addEventListener('keyup', function(evt) {
+        if (dirs_held.hasOwnProperty(evt.key)) {
+            evt.preventDefault();
+            evt.stopPropagation();
+            dirs_held[evt.key] = false;
+            updateWalkDir();
+        }
+    });
+
+    function updateWalkDir() {
+        var dx = 0;
+        var dy = 0;
+        var speed = 1;
+
+        if (dirs_held['Left']) {
+            dx -= 1;
+        }
+        if (dirs_held['Right']) {
+            dx += 1;
+        }
+
+        if (dirs_held['Up']) {
+            dy -= 1;
+        }
+        if (dirs_held['Down']) {
+            dy += 1;
+        }
+
+        if (dirs_held['Shift']) {
+            speed = 3;
+        }
+
+        pony.walk(Date.now(), speed, dx, dy, physics);
+    }
+}
+
+function assetProgress(loaded, total) {
     $('banner-text').textContent = 'Loading... (' + loaded + '/' + total + ')';
     $('banner-bar').style.width = Math.floor(loaded / total * 100) + '%';
 };
 
-var chunks = [];
-for (var i = 0; i < LOCAL_SIZE * LOCAL_SIZE; ++i) {
-    var chunk = new Chunk();
-    chunks.push(chunk);
+function postInit() {
+    var pony_sheet = new Sheet(bakeSpriteSheet(runner, assets), 96, 96);
+    pony = new Pony(pony_sheet, 100, 100, 0, physics);
+
+    document.body.removeChild($('banner-bg'));
+    canvas.start();
+
+    generateTerrain();
 }
 
-function initTerrain() {
+function generateTerrain() {
     var rnd = 0;
     function next() {
         rnd = (Math.imul(rnd, 1103515245) + 12345)|0;
@@ -239,19 +319,20 @@ function initTerrain() {
             }
         }
 
-        phys.loadChunk(0, i, chunk._tiles);
-        gfx2.loadChunk(0, i, chunk._tiles);
+        (function(i) {
+            runner.job('load-chunk-' + i, function() {
+                physics.loadChunk(0, i, chunk._tiles);
+                graphics.loadChunk(0, i, chunk._tiles);
+            });
+        })(i);
     }
 }
 
-var phys = new Physics();
-var gfx2 = new TerrainGraphics(tileSheet);
-
 function frame(ctx, now) {
-    dbg.frameStart();
+    debug.frameStart();
     var pos = pony.position(now);
 
-    var local_total_size = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE * LOCAL_SIZE * LOCAL_SIZE;
+    var local_total_size = CHUNK_SIZE * TILE_SIZE * LOCAL_SIZE;
 
     if (pos.x < local_total_size / 2) {
         pony._forecast.start.x += local_total_size;
@@ -270,7 +351,7 @@ function frame(ctx, now) {
     }
 
     pos = pony.position(now);
-    dbg.updatePos(pos);
+    debug.updatePos(pos);
 
     var camera_size = new Vec(ctx.canvas.width|0, ctx.canvas.height|0, 0);
     var camera_pos = pos.sub(camera_size.divScalar(2));
@@ -302,12 +383,11 @@ function frame(ctx, now) {
                 sprites.push(pony.getSprite(now, base_x, base_y));
             }
 
-            gfx2.render(ctx, cy, cx, sprites);
+            graphics.render(ctx, cy, cx, sprites);
 
             ctx.restore();
         }
     }
-
 
 
     // Draw pony motion forecast
@@ -335,75 +415,9 @@ function frame(ctx, now) {
     ctx.lineTo(fc.end.x + 16, fc.end.y + 16 - fc.end.z);
     ctx.stroke();
 
-    dbg.frameEnd();
+
+    debug.frameEnd();
 
     runner.run(now, 10);
-    dbg.updateJobs(runner);
-
-    dbg.gfxCtx.drawImage(gfx2._chunks[0]._pages[0].canvas,
-            0, 0, 512, 1024,
-            0, 0, 64, 128);
+    debug.updateJobs(runner);
 }
-
-
-var dirsHeld = {
-    'Up': false,
-    'Down': false,
-    'Left': false,
-    'Right': false,
-    'Shift': false,
-};
-
-document.addEventListener('keydown', function(evt) {
-    var known = true;
-    if (dirsHeld.hasOwnProperty(evt.key)) {
-        if (!evt.repeat) {
-            dirsHeld[evt.key] = true;
-            updateWalkDir();
-        }
-    } else {
-        known = false;
-    }
-
-    if (known) {
-        evt.preventDefault();
-        evt.stopPropagation();
-    }
-});
-
-document.addEventListener('keyup', function(evt) {
-    if (dirsHeld.hasOwnProperty(evt.key)) {
-        evt.preventDefault();
-        evt.stopPropagation();
-        dirsHeld[evt.key] = false;
-        updateWalkDir();
-    }
-});
-
-function updateWalkDir() {
-    var dx = 0;
-    var dy = 0;
-    var speed = 1;
-
-    if (dirsHeld['Left']) {
-        dx -= 1;
-    }
-    if (dirsHeld['Right']) {
-        dx += 1;
-    }
-
-    if (dirsHeld['Up']) {
-        dy -= 1;
-    }
-    if (dirsHeld['Down']) {
-        dy += 1;
-    }
-
-    if (dirsHeld['Shift']) {
-        speed = 3;
-    }
-
-    pony.walk(Date.now(), speed, dx, dy, phys);
-}
-
-})();

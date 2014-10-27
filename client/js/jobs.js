@@ -36,9 +36,6 @@ BackgroundJobRunner.prototype.run = function(start, max_dur) {
             ++count;
         }
     } while (had_job && Date.now() < end);
-    if (count > 0) {
-        console.log('ran', count, 'jobs in', Date.now() - start);
-    }
 };
 
 BackgroundJobRunner.prototype.run_one = function() {
