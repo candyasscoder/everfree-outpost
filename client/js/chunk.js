@@ -26,8 +26,6 @@ Chunk.prototype.set = function(x, y, z, tile) {
     var tile_id;
     if (typeof tile === 'number') {
         tile_id = tile;
-    } else if (typeof tile === 'string') {
-        tile_id = TileDef.by_name[tile].id;
     } else if (typeof tile === 'object') {
         tile_id = tile.id;
     } else {
@@ -42,36 +40,11 @@ Chunk.prototype.set = function(x, y, z, tile) {
 /** @constructor */
 function TileDef_(id, info) {
     this.id = id;
-    this.name = info['name'];
     this.shape = info['shape'];
-
-    var front = info['front'];
-    if (front != null) {
-        this.front = front[1] * 16 + front[0];
-    } else {
-        this.front = 0;
-    }
-
-    var back = info['back'];
-    if (back != null) {
-        this.back = back[1] * 16 + back[0];
-    } else {
-        this.back = 0;
-    }
-
-    var top = info['top'];
-    if (top != null) {
-        this.top = top[1] * 16 + top[0];
-    } else {
-        this.top = 0;
-    }
-
-    var bottom = info['bottom'];
-    if (bottom != null) {
-        this.bottom = bottom[1] * 16 + bottom[0];
-    } else {
-        this.bottom = 0;
-    }
+    this.top = info['top'];
+    this.bottom = info['bottom'];
+    this.front = info['front'];
+    this.back = info['back'];
 }
 
 // Closure compiler doesn't like having static items on functions.
@@ -79,7 +52,6 @@ var TileDef = {};
 exports.TileDef = TileDef;
 
 TileDef.by_id = [];
-TileDef.by_name = {};
 
 TileDef.register = function(id, info) {
     if (info == null) {
@@ -91,5 +63,4 @@ TileDef.register = function(id, info) {
         TileDef.by_id.push(null);
     }
     TileDef.by_id[tile.id] = tile;
-    TileDef.by_name[tile.name] = tile;
 };

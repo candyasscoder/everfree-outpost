@@ -68,6 +68,8 @@ TerrainGraphics.prototype.render = function(ctx, ci, cj, sprites) {
 var PAGE_WIDTH = 16;
 var PAGE_HEIGHT = 32;
 
+var ATLAS_WIDTH = 32;
+
 /** @constructor */
 function ChunkGraphics(tiles, bake_result, sheet) {
     this._tiles = tiles;
@@ -136,7 +138,7 @@ ChunkGraphics.prototype._initLayerHoriz = function(layer, page, sheet) {
                 var x_out = x - layer.min.x + layer.pos_x;
                 var y_out = y - layer.min.y + layer.pos_y;
 
-                sheet.drawInto(page, image >> 4, image & 0xf,
+                sheet.drawInto(page, (image / ATLAS_WIDTH)|0, image % ATLAS_WIDTH,
                         x_out * TILE_SIZE, y_out * TILE_SIZE);
             }
         }

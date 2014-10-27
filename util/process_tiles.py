@@ -1,8 +1,10 @@
 from collections import defaultdict
+import os
 import sys
 
 import json
 import yaml
+from PIL import Image
 
 from pprint import pprint
 
@@ -61,10 +63,8 @@ def process_group(g):
 
     return tiles
 
-def generate(tiles):
-    sheets = sorted(set(t['sheet'] for t in tiles.values() if 'sheet' in t))
-    sheet_id = dict((sheets[i], i) for i in range(len(sheets)))
-
+def build_array(tiles):
+    tiles = dict((k, dict(v)) for k,v in tiles.items())
     names = sorted(tiles.keys())
 
     # Assign ids for tiles with `id_base` set, and check for id collisions.
@@ -106,9 +106,6 @@ def generate(tiles):
         tile = tiles[name]
 
         tile['name'] = name
-        del tile['id']
-        if 'sheet' in tile:
-            tile['sheet'] = sheet_id[tile['sheet']]
         if 'shape' in tile:
             tile['shape'] = SHAPE_ID[tile['shape']]
 
@@ -119,11 +116,96 @@ def generate(tiles):
         sys.stderr.write('warning: low tile array occupancy (%.1f%%)\n' %
                 (occupancy * 100))
 
-    return (sheets, tile_array)
+    return tile_array
+
+def compute_atlas(tiles):
+    order = [(None, 0, 0)]
+    rev = {}
+
+    for tile in tiles:
+        for k in ('top', 'bottom', 'front', 'back'):
+            if k not in tile:
+                continue
+            j, i = tile[k]
+            sheet = tile['sheet']
+            display = (sheet, j, i)
+            if display in rev:
+                continue
+            order.append(display)
+            rev[display] = len(order) - 1
+
+    return (order, rev)
+
+TILE_SIZE = 32
+ATLAS_WIDTH = 32
+
+def build_atlas(order, in_dir, out_file):
+    sheets = dict((s, None) for s,_,_ in order)
+    for s in sheets:
+        if s is None:
+            continue
+        sheets[s] = Image.open(os.path.join(in_dir, s))
+
+    atlas_height = (len(order) + ATLAS_WIDTH - 1) // ATLAS_WIDTH
+    px_width = ATLAS_WIDTH * TILE_SIZE
+    px_height = atlas_height * TILE_SIZE
+    output = Image.new('RGBA', (px_width, px_height))
+
+    for idx, (s, j, i) in enumerate(order):
+        if sheets[s] is None:
+            continue
+        out_j = idx % ATLAS_WIDTH
+        out_i = idx // ATLAS_WIDTH
+
+        in_x = j * TILE_SIZE
+        in_y = i * TILE_SIZE
+        display = sheets[s].crop((in_x, in_y, in_x + TILE_SIZE, in_y + TILE_SIZE))
+        output.paste(display, (out_j * TILE_SIZE, out_i * TILE_SIZE))
+
+    output.save(out_file)
+    
+def build_json(tiles, atlas_rev):
+    result = []
+    for tile in tiles:
+        def get(side):
+            if side not in tile:
+                return 0
+            j,i = tile[side]
+            return atlas_rev[(tile['sheet'], j, i)]
+
+        item = {'shape': tile['shape']}
+        for side in ('top', 'bottom', 'front', 'back'):
+            item[side] = get(side)
+        result.append(item)
+    return result
 
 if __name__ == '__main__':
+    atlas_file = None
+    atlas_input_dir = None
+    for opt in sys.argv[1:]:
+        name, _, value = opt.partition('=')
+        if name == '--gen-atlas-file':
+            atlas_file = value
+        elif name == '--atlas-input-dir':
+            atlas_input_dir = value
+        else:
+            sys.stderr.write('unrecognized option: %r' % name)
+            sys.exit(1)
+
+    if atlas_file is not None and atlas_input_dir is None:
+        sys.stderr.write('--gen-atlas-file requires --atlas-input-dir')
+        sys.exit(1)
+
     raw_yaml = yaml.load(sys.stdin)
     tiles = process_group(raw_yaml)
-    sheets, tile_array = generate(tiles)
-    raw_json = { 'sheets': sheets, 'tiles': tile_array }
+    tile_array = build_array(tiles)
+    atlas_order, atlas_rev = compute_atlas(tile_array)
+
+    if atlas_file is not None:
+        build_atlas(atlas_order, atlas_input_dir, atlas_file)
+
+    raw_json = {
+            'tiles': build_json(tile_array, atlas_rev),
+            'atlas_width': ATLAS_WIDTH,
+            }
     json.dump(raw_json, sys.stdout)

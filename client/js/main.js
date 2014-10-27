@@ -179,7 +179,7 @@ function init() {
 
     chunks = initChunks();
     physics = new Physics();
-    var tile_sheet = new Sheet(assets['tiles1'], 32, 32);
+    var tile_sheet = new Sheet(assets['tiles'], 32, 32);
     graphics = new TerrainGraphics(tile_sheet);
 
     initInput();
@@ -195,7 +195,7 @@ function initAssets() {
     loader.addImage('pony_f_mane_1', 'assets/sprites/maremane1.png');
     loader.addImage('pony_f_tail_1', 'assets/sprites/maretail1.png');
 
-    loader.addImage('tiles1', 'assets/tiles/mountain_landscape_23.png');
+    loader.addImage('tiles', 'assets/tiles.png');
 
     loader.addJson(null, 'tiles.json', function(json) {
         var tiles = json['tiles'];

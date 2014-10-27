@@ -15,7 +15,8 @@ NATIVE_OUT = build/native
 ASMLIBS_OUT = build/asmlibs
 MIN_OUT = build/min
 DIST = dist
-$(shell mkdir -p $(ASMJS_OUT) $(NATIVE_OUT) $(ASMLIBS_OUT) $(MIN_OUT) $(DIST))
+$(shell mkdir -p $(ASMJS_OUT) $(NATIVE_OUT) $(ASMLIBS_OUT) $(MIN_OUT) \
+	$(DIST) $(DIST)/assets)
 
 
 JS_SRCS = $(wildcard client/js/*.js)
@@ -141,8 +142,9 @@ $(MIN_OUT)/outpost.js: $(JS_SRCS)
 
 # Rules for misc files
 
-build/tiles.json: client/assets/tiles.yaml util/make_tiles_json.py
-	$(PYTHON3) util/make_tiles_json.py <$< >$@
+build/tiles.json build/tiles.png: client/assets/tiles.yaml util/process_tiles.py
+	$(PYTHON3) util/process_tiles.py <$< >build/tiles.json \
+		--gen-atlas-file=build/tiles.png --atlas-input-dir=client/assets/tiles
 
 build/client.debug.html: client/client.html \
 	util/collect_js_deps.py util/patch_script_tags.py $(JS_SRCS)
@@ -161,6 +163,7 @@ endef
 DIST_FILE = $(call DIST_FILE_,$(strip $(1)),$(strip $(2)))
 
 $(eval $(call DIST_FILE, tiles.json, 	build/tiles.json))
+$(eval $(call DIST_FILE, assets/tiles.png, 	build/tiles.png))
 
 ifeq ($(RELEASE),)
 $(eval $(call DIST_FILE, client.html, 	build/client.debug.html))
