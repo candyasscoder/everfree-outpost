@@ -12,12 +12,40 @@ function BackgroundJobRunner() {
     this.subjobs = [];
     this.current_job_name = null;
     this.subjob_count = 0;
+
+    this._message_pending = false;
+
+    var this_ = this;
+    window.addEventListener('message', function(evt) {
+        if (evt.origin != window.location.origin || evt.data != 'run_jobs') {
+            return;
+        }
+        this_._handleMessage();
+    });
 }
 exports.BackgroundJobRunner = BackgroundJobRunner;
+
+BackgroundJobRunner.prototype._sendMessage = function() {
+    if (this._message_pending) {
+        return;
+    }
+    this._message_pending = true;
+    window.postMessage('run_jobs', window.location.origin);
+};
+
+BackgroundJobRunner.prototype._handleMessage = function() {
+    this._message_pending = false;
+
+    var had_job = this.runOne();
+    if (had_job) {
+        this._sendMessage();
+    }
+};
 
 BackgroundJobRunner.prototype.job = function(name, cb) {
     var args = Array.prototype.slice.call(arguments, 2);
     this.jobs_new.push({ name: name, cb: cb, args: args });
+    this._sendMessage();
 };
 
 BackgroundJobRunner.prototype.subjob = function(name, cb) {
@@ -25,20 +53,10 @@ BackgroundJobRunner.prototype.subjob = function(name, cb) {
     var args = Array.prototype.slice.call(arguments, 2);
     var full_name = this.current_job_name + '/' + name;
     this.subjobs.push({ name: full_name, cb: cb, args: args });
+    this._sendMessage();
 };
 
-BackgroundJobRunner.prototype.run = function(start, max_dur) {
-    var end = start + max_dur;
-    var count = 0;
-    do {
-        var had_job = this.run_one();
-        if (had_job) {
-            ++count;
-        }
-    } while (had_job && Date.now() < end);
-};
-
-BackgroundJobRunner.prototype.run_one = function() {
+BackgroundJobRunner.prototype.runOne = function() {
     if (this.jobs_cur.length == 0) {
         while (this.jobs_new.length > 0) {
             this.jobs_cur.push(this.jobs_new.pop());
@@ -54,9 +72,7 @@ BackgroundJobRunner.prototype.run_one = function() {
     }
     this.current_job_name = job.name;
     try {
-        var start = Date.now();
         job.cb.apply(this, job.args);
-        var end = Date.now();
     } finally {
         this.current_job_name = null;
         this.subjob_count += this.subjobs.length;

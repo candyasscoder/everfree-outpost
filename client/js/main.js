@@ -321,8 +321,8 @@ function generateTerrain() {
 
         (function(i) {
             runner.job('load-chunk-' + i, function() {
-                physics.loadChunk(0, i, chunk._tiles);
-                graphics.loadChunk(0, i, chunk._tiles);
+                physics.loadChunk(0, i, chunks[i]._tiles);
+                graphics.loadChunk(0, i, chunks[i]._tiles);
             });
         })(i);
     }
@@ -418,6 +418,5 @@ function frame(ctx, now) {
 
     debug.frameEnd();
 
-    runner.run(now, 10);
     debug.updateJobs(runner);
 }
