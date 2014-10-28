@@ -65,7 +65,8 @@ fn real_main() -> IoResult<()> {
         match Opcode(opcode) {
             GetTerrain => {
                 for c in range(0, 8 * 8) {
-                    let mut data = Vec::from_elem(1 + 16 * 16 * 16, 0u16);
+                    let mut data = Vec::from_elem(1 + 16 * 16 + 2, 0u16);
+                    let len = data.len();
                     data[0] = c;
                     for i in range(0, 16 * 16) {
                         if rng.gen_range(0, 10) == 0u8 {
@@ -74,6 +75,8 @@ fn real_main() -> IoResult<()> {
                             data[1 + i] = 1;
                         }
                     }
+                    data[len - 2] = 0xf000 | (16 * 16 * 15);
+                    data[len - 1] = 0;
                     try!(write_msg(id, TerrainChunk, convert(data.as_slice())));
                 }
             },

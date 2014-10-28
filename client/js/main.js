@@ -22,6 +22,8 @@ var Forecast = require('physics').Forecast;
 
 var Connection = require('net').Connection;
 
+var rle16Decode = require('util').rle16Decode;
+
 
 function Pony(sheet, x, y, z, physics) {
     this._anim = new Animation(sheet);
@@ -300,12 +302,14 @@ function connOpen() {
 }
 
 function handleTerrainChunk(i, data) {
-    if (data.length != CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
-        console.assert(false, 'bad length for message:', buf.length);
-        return;
-    }
     var chunk = chunks[i];
-    chunk._tiles.set(data);
+    var raw_length = rle16Decode(data, chunk._tiles);
+
+    if (raw_length != CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
+        console.assert(false,
+                'chunk data contained wrong number of tiles:', raw_length);
+    }
+
     runner.job('load-chunk-' + i, function() {
         physics.loadChunk(0, i, chunk._tiles);
         graphics.loadChunk(0, i, chunk._tiles);
