@@ -20,6 +20,8 @@ var TerrainGraphics = require('graphics').TerrainGraphics;
 var Physics = require('physics').Physics;
 var Forecast = require('physics').Forecast;
 
+var Connection = require('net').Connection;
+
 
 function Pony(sheet, x, y, z, physics) {
     this._anim = new Animation(sheet);
@@ -152,7 +154,7 @@ var chunks;
 var physics;
 var graphics;
 
-var socket;
+var conn;
 
 function init() {
     canvas = new AnimCanvas(frame);
@@ -287,35 +289,27 @@ function postInit() {
     document.body.removeChild($('banner-bg'));
     canvas.start();
 
-    socket = new WebSocket('ws://' + window.location.host + '/ws');
-    socket.binaryType = 'arraybuffer';
-    socket.onopen = socketOpen;
-    socket.onmessage = socketMessage;
+
+    conn = new Connection('ws://' + window.location.host + '/ws');
+    conn.onOpen = connOpen;
+    conn.onTerrainChunk = handleTerrainChunk;
 }
 
-function socketOpen() {
-    var buf = new Uint16Array(1);
-    buf[0] = 0x0001;
-    socket.send(buf);
-    console.log('sent request');
+function connOpen() {
+    conn.sendGetTerrain();
 }
 
-function socketMessage(evt) {
-    var buf = new Uint16Array(evt.data);
-
-    if (buf[0] == 0x8001) {
-        if (buf.length != 2 + CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
-            console.assert(false, 'bad length for message:', buf.length);
-            return;
-        }
-        var i = buf[1];
-        var chunk = chunks[i];
-        chunk._tiles.set(buf.subarray(2));
-        runner.job('load-chunk-' + i, function() {
-            physics.loadChunk(0, i, chunk._tiles);
-            graphics.loadChunk(0, i, chunk._tiles);
-        });
+function handleTerrainChunk(i, data) {
+    if (data.length != CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
+        console.assert(false, 'bad length for message:', buf.length);
+        return;
     }
+    var chunk = chunks[i];
+    chunk._tiles.set(data);
+    runner.job('load-chunk-' + i, function() {
+        physics.loadChunk(0, i, chunk._tiles);
+        graphics.loadChunk(0, i, chunk._tiles);
+    });
 }
 
 function frame(ctx, now) {
