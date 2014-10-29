@@ -1,9 +1,11 @@
 import socket
 import struct
 
+import tornado.autoreload
 import tornado.gen
 import tornado.ioloop
 import tornado.iostream
+import tornado.process
 import tornado.web
 import tornado.websocket
 
@@ -36,18 +38,21 @@ application = tornado.web.Application([
 ], debug=True)
 
 
-class BackendStream(tornado.iostream.IOStream):
-    def __init__(self, path, *args, **kwargs):
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
-        sock.connect(path)
-        super(BackendStream, self).__init__(sock, *args, **kwargs)
+class BackendStream(object):
+    def __init__(self, path, io_loop=None):
+        self.io_loop = io_loop or tornado.ioloop.IOLoop.current()
+        self.impl = tornado.process.Subprocess(
+                [path],
+                stdout=tornado.process.Subprocess.STREAM,
+                stdin=tornado.process.Subprocess.STREAM,
+                io_loop=self.io_loop)
 
         self.clients = {}
         self.unused_ids = set()
         self.closed_ids = set()
 
         self.io_loop.add_future(self.do_read(), lambda f: print('read done?', f.result()))
-        self.set_close_callback(self.on_close)
+        self.impl.set_exit_callback(self.on_close)
 
     def add_client(self, conn):
         if len(self.unused_ids) > 0:
@@ -74,20 +79,20 @@ class BackendStream(tornado.iostream.IOStream):
             msg = msg.encode()
 
         header = struct.pack('HH', id, len(msg))
-        self.write(header)
-        self.write(msg)
+        self.impl.stdin.write(header)
+        self.impl.stdin.write(msg)
         print('send %d: %d bytes' % (id, len(msg)))
 
     def send_special_client_message(self, id, opcode):
-        self.write(struct.pack('HHH', id, 2, opcode))
+        self.impl.stdin.write(struct.pack('HHH', id, 2, opcode))
         print('send %d: special %x' % (id, opcode))
 
     @tornado.gen.coroutine
     def do_read(self):
         while True:
-            header = yield tornado.gen.Task(self.read_bytes, 4)
+            header = yield tornado.gen.Task(self.impl.stdout.read_bytes, 4)
             id, size = struct.unpack('HH', header)
-            body = yield tornado.gen.Task(self.read_bytes, size)
+            body = yield tornado.gen.Task(self.impl.stdout.read_bytes, size)
 
             print('recv %d: %d bytes' % (id, size))
 
@@ -110,6 +115,7 @@ class BackendStream(tornado.iostream.IOStream):
         print('closed!')
 
 if __name__ == "__main__":
-    backend = BackendStream('outpost-backend')
+    tornado.autoreload.watch('./backend')
+    backend = BackendStream('./backend')
     application.listen(8888)
     tornado.ioloop.IOLoop.instance().start()
