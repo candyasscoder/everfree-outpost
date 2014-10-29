@@ -57,7 +57,7 @@ $(foreach mode,asmjs native, \
 
 
 DEPS_asmlibs = core asmrt physics graphics
-DEPS_backend =
+DEPS_backend = physics
 
 
 # Rules for building Rust libraries
@@ -153,7 +153,7 @@ $(BUILD_MIN)/outpost.js: $(JS_SRCS)
 # Rules for building the server
 
 $(BUILD)/backend: $(SRC)/server/backend.rs \
-		$(foreach dep,$(DEPS_server),$(BUILD_NATIVE)/lib$(dep).rlib)
+		$(foreach dep,$(DEPS_backend),$(BUILD_NATIVE)/lib$(dep).rlib)
 	$(RUSTC) $< -o $@ $(RUSTFLAGS_native)
 
 
@@ -205,6 +205,7 @@ $(DIST_WWW)/js/%: $(SRC)/client/js/%
 	cp -v $< $@
 
 $(DIST_BIN)/backend: $(BUILD)/backend
+	rm -fv $@
 	cp -v $< $@
 
 $(DIST_BIN)/wrapper.py: $(SRC)/server/wrapper.py

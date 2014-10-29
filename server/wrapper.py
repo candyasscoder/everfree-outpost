@@ -81,11 +81,9 @@ class BackendStream(object):
         header = struct.pack('HH', id, len(msg))
         self.impl.stdin.write(header)
         self.impl.stdin.write(msg)
-        print('send %d: %d bytes' % (id, len(msg)))
 
     def send_special_client_message(self, id, opcode):
         self.impl.stdin.write(struct.pack('HHH', id, 2, opcode))
-        print('send %d: special %x' % (id, opcode))
 
     @tornado.gen.coroutine
     def do_read(self):
@@ -93,8 +91,6 @@ class BackendStream(object):
             header = yield tornado.gen.Task(self.impl.stdout.read_bytes, 4)
             id, size = struct.unpack('HH', header)
             body = yield tornado.gen.Task(self.impl.stdout.read_bytes, size)
-
-            print('recv %d: %d bytes' % (id, size))
 
             if size == 2:
                 # It might be a control message.

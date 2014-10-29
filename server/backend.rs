@@ -1,8 +1,18 @@
+#![feature(phase)]
 #![feature(macro_rules)]
 #![allow(non_upper_case_globals)]
+
+#[phase(plugin, link)]
+extern crate log;
+
+extern crate physics;
+
+use std::collections::HashSet;
 use std::io;
 use std::io::IoResult;
 use std::rand::{StdRng, Rng};
+
+use physics::CHUNK_BITS;
 
 fn main() {
     real_main().unwrap()
@@ -39,30 +49,46 @@ opcodes! {
 }
 
 
+fn read_msg<R: Reader>(r: &mut R) -> IoResult<(u16, Opcode, Vec<u8>)> {
+    let id = try!(r.read_le_u16());
+    let size = try!(r.read_le_u16());
+    let opcode = try!(r.read_le_u16());
+    let body = try!(r.read_exact(size as uint - 2));
+    Ok((id, Opcode(opcode), body))
+}
+
+fn write_msg<W: Writer>(w: &mut W, id: u16, opcode: Opcode, body: &[u8]) -> IoResult<()> {
+    assert!(body.len() + 2 < std::u16::MAX as uint);
+    let size = body.len() as u16 + 2;
+    try!(w.write_le_u16(id));
+    try!(w.write_le_u16(size));
+    try!(w.write_le_u16(opcode.unwrap()));
+    try!(w.write(body));
+    try!(w.flush());
+    Ok(())
+}
+
+
+type Chunk = [u16, ..1 << (3 * CHUNK_BITS)];
+
+const LOCAL_BITS: uint = 3;
+
+struct State {
+    map: [Chunk, ..1 << (2 * LOCAL_BITS)],
+    clients: HashSet<u16>,
+}
+
+
 fn real_main() -> IoResult<()> {
     let mut stdin = io::stdin();
     let mut stdout = io::BufferedWriter::new(io::stdout().unwrap());
-    let mut stderr = io::stderr().unwrap();
 
-    let write_msg = |client: u16, opcode: Opcode, data: &[u8]| {
-        try!(stdout.write_le_u16(client));
-        try!(stdout.write_le_u16(2 + data.len() as u16));
-        try!(stdout.write_le_u16(opcode.unwrap()));
-        try!(stdout.write(data));
-        try!(stdout.flush());
-        Ok(())
-    };
-
-    try!(stderr.write_str("start\n"));
     let mut rng = try!(StdRng::new());
 
     loop {
-        let id = try!(stdin.read_le_u16());
-        let size = try!(stdin.read_le_u16());
-        let opcode = try!(stdin.read_le_u16());
-        let body = try!(stdin.read_exact(size as uint - 2));
+        let (id, opcode, body) = try!(read_msg(&mut stdin));
 
-        match Opcode(opcode) {
+        match opcode {
             GetTerrain => {
                 for c in range(0, 8 * 8) {
                     let mut data = Vec::from_elem(1 + 16 * 16 + 2, 0u16);
@@ -77,20 +103,16 @@ fn real_main() -> IoResult<()> {
                     }
                     data[len - 2] = 0xf000 | (16 * 16 * 15);
                     data[len - 1] = 0;
-                    try!(write_msg(id, TerrainChunk, convert(data.as_slice())));
+                    try!(write_msg(&mut stdout, id, TerrainChunk, convert(data.as_slice())));
                 }
             },
-            AddClient => {
-                try!(stderr.write_str(format!("add client: {}\n", id).as_slice()));
-            },
+            AddClient => {},
             RemoveClient => {
-                try!(stderr.write_str(format!("remove client: {}\n", id).as_slice()));
-                try!(write_msg(id, ClientRemoved, &[]));
+                try!(write_msg(&mut stdout, id, ClientRemoved, &[]));
             },
-            opcode => {
-                try!(stderr.write_str(format!(
-                            "echo message [{}]: {:x} ({} bytes)\n", id, opcode.unwrap(), size - 2).as_slice()));
-                try!(write_msg(id, opcode, body.as_slice()));
+            _ => {
+                warning!("unrecognized opcode from client {}: {:x} ({} bytes)",
+                         id, opcode.unwrap(), body.len());
             },
         }
     }
