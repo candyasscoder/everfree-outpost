@@ -34,7 +34,7 @@ class FileHandler(tornado.web.StaticFileHandler):
 
 application = tornado.web.Application([
     (r'/ws', WSHandler),
-    (r'/(.*)', FileHandler, { 'path': './dist' }),
+    (r'/(.*)', FileHandler, { 'path': './dist/www' }),
 ], debug=True)
 
 
@@ -115,7 +115,7 @@ class BackendStream(object):
         print('closed!')
 
 if __name__ == "__main__":
-    tornado.autoreload.watch('./backend')
-    backend = BackendStream('./backend')
+    tornado.autoreload.watch('./dist/bin/backend')
+    backend = BackendStream('./dist/bin/backend')
     application.listen(8888)
     tornado.ioloop.IOLoop.instance().start()

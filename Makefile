@@ -19,9 +19,8 @@ BUILD_NATIVE = $(BUILD)/native
 BUILD_ASMLIBS = $(BUILD)/asmlibs
 BUILD_MIN = $(BUILD)/min
 
-#DIST_BIN = $(DIST)/bin
-#DIST_WWW = $(DIST)/www
-DIST_WWW = $(DIST)
+DIST_BIN = $(DIST)/bin
+DIST_WWW = $(DIST)/www
 
 $(shell mkdir -p $(BUILD_ASMJS) $(BUILD_NATIVE) $(BUILD_ASMLIBS) $(BUILD_MIN) \
 	$(DIST) $(DIST_BIN) $(DIST_WWW) $(DIST_WWW)/assets)
@@ -57,9 +56,8 @@ $(foreach mode,asmjs native, \
   $(eval $(call LIB_DEPS,$(mode),$(lib),$(DEPS_$(lib)_$(mode)))))))
 
 
-# Dependencies of client/asmlibs.rs
-
 DEPS_asmlibs = core asmrt physics graphics
+DEPS_backend =
 
 
 # Rules for building Rust libraries
@@ -134,6 +132,7 @@ $(ASMLIBS).js: $(SRC)/client/asmlibs.tmpl.js $(ASMLIBS).1.js \
 	awk -f $(SRC)/util/asmjs_insert_functions.awk <$< >$@
 
 
+
 # Rules for running closure compiler
 
 CLOSURE_FLAGS=--language_in=ECMASCRIPT5_STRICT \
@@ -147,8 +146,15 @@ $(BUILD_MIN)/outpost.js: $(JS_SRCS)
 	$(CLOSURE_COMPILER) $(CLOSURE_FLAGS) \
 		$^ --js_output_file=$@ --compilation_level=ADVANCED_OPTIMIZATIONS \
 		--process_common_js_modules --common_js_entry_module=main \
-		--common_js_module_path_prefix=$(SRC)/client/js/ \
+		--common_js_module_path_prefix=$$(dirname $<) \
 		--externs=$(SRC)/util/closure_externs.js
+
+
+# Rules for building the server
+
+$(BUILD)/backend: $(SRC)/server/backend.rs \
+		$(foreach dep,$(DEPS_server),$(BUILD_NATIVE)/lib$(dep).rlib)
+	$(RUSTC) $< -o $@ $(RUSTFLAGS_native)
 
 
 # Rules for misc files
@@ -181,9 +187,8 @@ ifeq ($(RELEASE),)
 $(eval $(call WWW_FILE, client.html, 	$(BUILD)/client.debug.html))
 $(eval $(call WWW_FILE, shim.js, 		$(SRC)/client/shim.js))
 $(eval $(call WWW_FILE, asmlibs.js, 	$(BUILD_ASMLIBS)/asmlibs.js))
+$(shell mkdir -p $(DIST_WWW)/js)
 dist/all: $(patsubst $(SRC)/client/js/%,$(DIST_WWW)/js/%,$(JS_SRCS))
-
-$(shell mkdir -p $(DIST)/js)
 else
 $(eval $(call WWW_FILE, client.html, 	$(SRC)/client/client.html))
 $(eval $(call WWW_FILE, outpost.js, 	$(BUILD_MIN)/outpost.js))
@@ -196,9 +201,15 @@ $(DIST_WWW)/assets/%: $(SRC)/client/assets/%
 	mkdir -p $$(dirname $@)
 	cp -v $< $@
 
-$(DIST)/js/%: $(SRC)/client/js/%
+$(DIST_WWW)/js/%: $(SRC)/client/js/%
 	cp -v $< $@
 
-$(DIST)/all:
+$(DIST_BIN)/backend: $(BUILD)/backend
+	cp -v $< $@
+
+$(DIST_BIN)/wrapper.py: $(SRC)/server/wrapper.py
+	cp -v $< $@
+
+$(DIST)/all: $(DIST_BIN)/backend $(DIST_BIN)/wrapper.py
 
 .PHONY: all clean $(DIST)/all
