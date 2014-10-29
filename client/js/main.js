@@ -31,6 +31,7 @@ function Pony(sheet, x, y, z, physics) {
     this._last_dir = { x: 1, y: 0 };
     this._forecast = new Forecast(new Vec(x - 16, y - 16, z), new Vec(32, 32, 32));
     this._phys = physics;
+    this.onMotionChange = null;
     this._phys.resetForecast(0, this._forecast, new Vec(0, 0, 0));
 }
 
@@ -58,10 +59,18 @@ Pony.prototype.walk = function(now, speed, dx, dy) {
     var pixel_speed = 50 * speed;
     var target_v = new Vec(dx * pixel_speed, dy * pixel_speed, 0);
     this._phys.resetForecast(now, this._forecast, target_v);
+    if (this.onMotionChange != null) {
+        this.onMotionChange(this._forecast);
+    }
 };
 
 Pony.prototype.position = function(now) {
+    var old_start = this._forecast.start_time;
     this._phys.updateForecast(now, this._forecast);
+    if (this._forecast.start_time != old_start && this.onMotionChange != null) {
+        this.onMotionChange(this._forecast);
+    }
+
     var pos = this._forecast.position(now);
     pos.x += 16;
     pos.y += 16;
@@ -287,6 +296,7 @@ function assetProgress(loaded, total) {
 function postInit() {
     var pony_sheet = new Sheet(bakeSpriteSheet(runner, assets), 96, 96);
     pony = new Pony(pony_sheet, 100, 100, 0, physics);
+    pony.onMotionChange = sendMotionChange;
 
     document.body.removeChild($('banner-bg'));
     canvas.start();
@@ -314,6 +324,19 @@ function handleTerrainChunk(i, data) {
         physics.loadChunk(0, i, chunk._tiles);
         graphics.loadChunk(0, i, chunk._tiles);
     });
+}
+
+function sendMotionChange(forecast) {
+    var data = new Uint16Array(8);
+    data[0] = forecast.start.x;
+    data[1] = forecast.start.y;
+    data[2] = forecast.start.z;
+    data[3] = forecast.start_time & 0xffff;
+    data[4] = forecast.end.x;
+    data[5] = forecast.end.y;
+    data[6] = forecast.end.z;
+    data[7] = forecast.end_time & 0xffff;
+    conn.sendUpdateMotion(data);
 }
 
 function frame(ctx, now) {

@@ -1,4 +1,5 @@
 var OP_GET_TERRAIN =        0x0001;
+var OP_UPDATE_MOTION =      0x0002;
 
 var OP_TERRAIN_CHUNK =      0x8001;
 
@@ -51,5 +52,17 @@ Connection.prototype._handleMessage = function(evt) {
 Connection.prototype.sendGetTerrain = function() {
     var buf = new Uint16Array(1);
     buf[0] = OP_GET_TERRAIN;
+    this.socket.send(buf);
+};
+
+Connection.prototype.sendUpdateMotion = function(data) {
+    if (this.socket.readyState != WebSocket.OPEN) {
+        return;
+    }
+    console.log('sending');
+
+    var buf = new Uint16Array(1 + data.length);
+    buf[0] = OP_UPDATE_MOTION;
+    buf.subarray(1).set(data);
     this.socket.send(buf);
 };
