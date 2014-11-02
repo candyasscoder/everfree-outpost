@@ -1,4 +1,4 @@
-window.asmlibs_code = function(global, env, buffer) {
+var asmlibs_code_raw = function(global, env, buffer) {
     'use asm';
 
     var HEAP8 = new global.Int8Array(buffer);
@@ -20,7 +20,9 @@ window.asmlibs_code = function(global, env, buffer) {
     var _reset_phys_trace = env.resetPhysTrace;
     var _write_str = env.writeStr;
     var _flush_str = env.flushStr;
+    var _run_callback = env.runCallback;
     var Math_imul = global.Math.imul;
+    var _emscripten_memcpy_big = env._emscripten_memcpy_big;
 
     var tempRet0 = 0;
 
@@ -85,14 +87,76 @@ window.asmlibs_code = function(global, env, buffer) {
         return (ptr-num)|0;
     }
 
+    function _memmove(dest, src, num) {
+        dest = dest|0; src = src|0; num = num|0;
+        var ret = 0;
+        if (((src|0) < (dest|0)) & ((dest|0) < ((src + num)|0))) {
+            // Unlikely case: Copy backwards in a safe manner
+            ret = dest;
+            src = (src + num)|0;
+            dest = (dest + num)|0;
+            while ((num|0) > 0) {
+                dest = (dest - 1)|0;
+                src = (src - 1)|0;
+                num = (num - 1)|0;
+                HEAP8[((dest)>>0)]=((HEAP8[((src)>>0)])|0);
+            }
+            dest = ret;
+        } else {
+            _memcpy(dest, src, num) | 0;
+        }
+        return dest | 0;
+    }
+
+    function _memcpy(dest, src, num) {
+        dest = dest|0; src = src|0; num = num|0;
+        var ret = 0;
+        if ((num|0) >= 4096) return _emscripten_memcpy_big(dest|0, src|0, num|0)|0;
+        ret = dest|0;
+        if ((dest&3) == (src&3)) {
+            while (dest & 3) {
+                if ((num|0) == 0) return ret|0;
+                HEAP8[((dest)>>0)]=((HEAP8[((src)>>0)])|0);
+                dest = (dest+1)|0;
+                src = (src+1)|0;
+                num = (num-1)|0;
+            }
+            while ((num|0) >= 4) {
+                HEAP32[((dest)>>2)]=((HEAP32[((src)>>2)])|0);
+                dest = (dest+4)|0;
+                src = (src+4)|0;
+                num = (num-4)|0;
+            }
+        }
+        while ((num|0) > 0) {
+            HEAP8[((dest)>>0)]=((HEAP8[((src)>>0)])|0);
+            dest = (dest+1)|0;
+            src = (src+1)|0;
+            num = (num-1)|0;
+        }
+        return ret|0;
+    }
+
     // INSERT_EMSCRIPTEN_FUNCTIONS
 
     return ({
         __adjust_stack: __adjust_stack,
         collide: _collide,
-        bake_chunk: _bake_chunk,
+        render: _render,
+        update_xv_data: _update_xv_data,
         test: _test,
     });
+};
+
+window.asmlibs_code = function(global, env, buffer) {
+    var heap_u8 = new Uint8Array(buffer);
+
+    env._emscripten_memcpy_big = function(dest, src, num) {
+        heap_u8.set(heap_u8.subarray(src, src+num), dest);
+        return dest;
+    };
+
+    return asmlibs_code_raw(global, env, buffer);
 };
 
 window.asmlibs_data = new Uint8Array(

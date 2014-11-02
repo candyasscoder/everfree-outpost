@@ -1,3 +1,4 @@
 collide
 test
-bake_chunk
+render
+update_xv_data

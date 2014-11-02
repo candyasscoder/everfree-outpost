@@ -17,7 +17,7 @@ use core::fmt;
 use core::iter::range_inclusive;
 
 use physics::v3::V3;
-use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK};
+use physics::{TILE_BITS, CHUNK_BITS};
 
 
 #[cfg(asmjs)]
@@ -27,332 +27,326 @@ mod std {
 }
 
 
+const ATLAS_SIZE: u16 = 32;
 
-pub const HAS_TOP: u8       = 0x01;
-pub const HAS_BOTTOM: u8    = 0x02;
-pub const HAS_FRONT: u8     = 0x04;
-pub const HAS_BACK: u8      = 0x08;
-pub const OPAQUE_TOP: u8    = 0x10;
-pub const OPAQUE_BOTTOM: u8 = 0x20;
-pub const OPAQUE_FRONT: u8  = 0x40;
-pub const OPAQUE_BACK: u8   = 0x80;
+const TILE_SIZE: u16 = 1 << TILE_BITS;
+const CHUNK_SIZE: u16 = 1 << CHUNK_BITS;
 
+const LOCAL_BITS: uint = 3;
+const LOCAL_SIZE: u16 = 1 << LOCAL_BITS;
 
-#[deriving(Show)]
-pub struct Layer {
-    x_min: u8,
-    y_min: u8,
-    z_min: u8,
-    x_max: u8,
-    y_max: u8,
-    z_max: u8,
-    pos: u16,
+pub struct BlockDisplay {
+    front: u16,
+    back: u16,
+    top: u16,
+    bottom: u16,
 }
 
-impl Layer {
-    pub fn new(min: V3, max: V3) -> Layer {
-        Layer {
-            x_min: min.x as u8,
-            y_min: min.y as u8,
-            z_min: min.z as u8,
-            x_max: max.x as u8,
-            y_max: max.y as u8,
-            z_max: max.z as u8,
-            pos: 0,
+pub type BlockData = [BlockDisplay, ..(ATLAS_SIZE * ATLAS_SIZE) as uint];
+
+pub type ChunkData = [u16, ..1 << (3 * CHUNK_BITS)];
+pub type LocalData = [ChunkData, ..1 << (2 * LOCAL_BITS)];
+
+
+/*
+pub enum Surface {
+    Empty,
+    Output,
+    TileAtlas,
+    RenderCache(u8),
+    ChunkCache(u8),
+}
+*/
+pub type Surface = u16;
+#[allow(non_upper_case_globals)]
+pub const Empty: Surface = 0;
+#[allow(non_upper_case_globals)]
+pub const Output: Surface = 1;
+#[allow(non_upper_case_globals)]
+pub const TileAtlas: Surface = 2;
+#[allow(non_snake_case)]
+pub fn RenderCache(i: u8) -> Surface { 8 + i as u16 }
+#[allow(non_snake_case)]
+pub fn ChunkCache(i: u8) -> Surface { 64 + i as u16 }
+#[allow(non_snake_case)]
+pub fn SpriteImage(i: u16) -> Surface { 128 + i as u16 }
+
+
+enum Side {
+    Front,
+    Back,
+    Top,
+    Bottom,
+}
+
+pub struct RenderContext<'a> {
+    pub block_data: &'a BlockData,
+    pub local_data: &'a LocalData,
+}
+
+impl<'a> RenderContext<'a> {
+    fn get_tile(&self, x: u16, y: u16, z: u16, side: Side) -> u16 {
+        if z >= CHUNK_SIZE {
+            return 0;
+        }
+
+        let i = y / CHUNK_SIZE % LOCAL_SIZE;
+        let j = x / CHUNK_SIZE % LOCAL_SIZE;
+        let chunk_idx = i * LOCAL_SIZE + j;
+
+        let tx = x % CHUNK_SIZE;
+        let ty = y % CHUNK_SIZE;
+        let tile_idx = (z * CHUNK_SIZE + ty) * CHUNK_SIZE + tx;
+
+        let block_id = self.local_data[chunk_idx as uint][tile_idx as uint];
+        let block = &self.block_data[block_id as uint];
+        match side {
+            Front => block.front,
+            Back => block.back,
+            Top => block.top,
+            Bottom => block.bottom,
         }
     }
+}
 
-    pub fn expand(&mut self, min: V3, max: V3) {
-        self.x_min = cmp::min(self.x_min, min.x as u8);
-        self.y_min = cmp::min(self.y_min, min.y as u8);
-        self.z_min = cmp::min(self.z_min, min.z as u8);
 
-        self.x_max = cmp::max(self.x_max, max.x as u8);
-        self.y_max = cmp::max(self.y_max, max.y as u8);
-        self.z_max = cmp::max(self.z_max, max.z as u8);
+struct XvItem {
+    tiles: [u16, ..(CHUNK_SIZE * 4) as uint],
+}
+
+pub type XvData = [XvItem, ..1 << (2 * (CHUNK_BITS + LOCAL_BITS))];
+
+unsafe fn _static_assert() {
+    use core::mem;
+    let _ = mem::transmute::<XvItem, [u16, ..(CHUNK_SIZE * 4) as uint]>(mem::zeroed());
+}
+
+pub fn update_xv(xv: &mut XvData, blocks: &BlockData, chunk: &ChunkData, i: u8, j: u8) {
+    let base_v = i as u16 * CHUNK_SIZE;
+    let base_x = j as u16 * CHUNK_SIZE;
+
+    fn get_chunk_idx(x: u16, u: u16, v: u16) -> uint {
+        let y = (u + v) / 2;
+        let z = (u - v) / 2;
+        ((z * CHUNK_SIZE + y) * CHUNK_SIZE + x) as uint
     }
 
-    pub fn width(&self) -> u8 {
-        self.x_max - self.x_min
+    fn get_xv_idx(x: u16, v: u16) -> uint {
+        (v as uint << (CHUNK_BITS + LOCAL_BITS)) + x as uint
     }
 
-    pub fn height(&self) -> u8 {
-        let y_size = self.y_max - self.y_min;
-        let z_size = self.z_max - self.z_min;
-        if y_size != 0 {
-            y_size
+    let mut copy = |&mut: lower, local_x, local_u: u16, local_v, chunk_x, chunk_u, chunk_v| {
+        let chunk_idx = get_chunk_idx(chunk_x, chunk_u, chunk_v);
+        let xv_idx = get_xv_idx(local_x, local_v);
+        if lower {
+            xv[xv_idx].tiles[local_u as uint * 2 + 0] = blocks[chunk[chunk_idx] as uint].bottom;
+            xv[xv_idx].tiles[local_u as uint * 2 + 1] = blocks[chunk[chunk_idx] as uint].front;
         } else {
-            z_size
+            xv[xv_idx].tiles[local_u as uint * 2 + 0] = blocks[chunk[chunk_idx] as uint].back;
+            xv[xv_idx].tiles[local_u as uint * 2 + 1] = blocks[chunk[chunk_idx] as uint].top;
         }
-    }
-}
+    };
 
-// Maximum possible number of horizontal layers occurs when all CHUNK_SIZE + 1 planes are
-// checkerboard tiled.  Checkerboard tiling produces CHUNK_SIZE * CHUNK_SIZE / 2 layers, since half
-// the tiles are filled, and every layer is a single tile.  Finally, multiply by 2, since the same
-// can occur along the vertical plane.
-pub const MAX_LAYERS: i32 = (CHUNK_SIZE + 1) * (CHUNK_SIZE * CHUNK_SIZE / 2) * 2;
+    for chunk_v_base in range(0, CHUNK_SIZE) {
+        for chunk_x in range(0, CHUNK_SIZE) {
+            let local_x = (base_x + chunk_x) % (CHUNK_SIZE * LOCAL_SIZE);
+            let local_v0 = (base_v + chunk_v_base) % (CHUNK_SIZE * LOCAL_SIZE);
+            let local_v1 = (base_v - chunk_v_base - 1) % (CHUNK_SIZE * LOCAL_SIZE);
 
-pub struct BakerState<'a> {
-    flags: &'a [u8, ..1 << (3 * CHUNK_BITS)],
-    layers: &'a mut [Layer, ..MAX_LAYERS as uint],
-    next_layer: i32,
-}
+            let num_blocks = 2 * (CHUNK_SIZE - chunk_v_base) - 1;
+            for offset_u in range(0, num_blocks) {
+                let lower = offset_u % 2 == 0;
+                let local_u0 = offset_u;
+                let local_u1 = 2 * CHUNK_SIZE - num_blocks + offset_u;
 
-impl<'a> BakerState<'a> {
-    pub fn new(flags: &'a [u8, ..1 << (3 * CHUNK_BITS)],
-               layers: &'a mut [Layer, ..MAX_LAYERS as uint]) -> BakerState<'a> {
-        BakerState {
-            flags: flags,
-            layers: layers,
-            next_layer: 0,
-        }
-    }
+                let chunk_x = chunk_x;
+                let chunk_u = chunk_v_base + offset_u;
+                let chunk_v = chunk_v_base + (!lower) as u16;
 
-    pub fn bake(&mut self) -> (i32, i32) {
-        self.bake_z();
-        self.bake_y();
-        let layers = self.next_layer;
-        let pages = pack_layers(self.layers.slice_to_mut(self.next_layer as uint));
-        (layers, pages)
-    }
-
-    pub fn bake_z(&mut self) {
-        for z in range_inclusive(0, CHUNK_SIZE) {
-            let mut seen = [false, ..1 << (2 * CHUNK_BITS)];
-
-            for y in range(0, CHUNK_SIZE) {
-                for x in range(0, CHUNK_SIZE) {
-                    if seen[(y * CHUNK_SIZE + x) as uint] ||
-                       !self.has_horiz_plane(V3::new(x, y, z)) {
-                        continue;
-                    }
-
-                    let mut layer = Layer::new(V3::new(-1, -1, z), V3::new(0, 0, z));
-                    let mut count = 0u;
-
-                    flood(&mut seen, y, x,
-                          |&: y, x| { self.has_horiz_plane(V3::new(x, y, z)) },
-                          |&mut: y, x| {
-                              count += 1;
-                              layer.expand(V3::new(x, y, z),
-                                           V3::new(x + 1, y + 1, z));
-                          });
-                    if count > 0 {
-                        self.add_layer(layer);
-                    }
-                }
+                copy(lower, local_x, local_u0, local_v0, chunk_x, chunk_u, chunk_v);
+                copy(!lower, local_x, local_u1, local_v1, chunk_x, chunk_u, -chunk_v);
             }
         }
     }
+}
 
-    fn bake_y(&mut self) {
-        for y in range_inclusive(0, CHUNK_SIZE) {
-            let mut seen = [false, ..1 << (2 * CHUNK_BITS)];
 
-            for z in range(0, CHUNK_SIZE) {
-                for x in range(0, CHUNK_SIZE) {
-                    if seen[(z * CHUNK_SIZE + x) as uint] ||
-                       !self.has_vert_plane(V3::new(x, y, z)) {
-                        continue;
-                    }
+pub struct Sprite {
+    id: u16,
+    ref_x: u16,
+    ref_y: u16,
+    ref_z: u16,
+    width: u16,
+    height: u16,
+    anchor_x: u16,
+    anchor_y: u16,
+}
 
-                    let mut layer = Layer::new(V3::new(-1, y, -1), V3::new(0, y, 0));
-                    let mut count = 0u;
-
-                    flood(&mut seen, z, x,
-                          |&: z, x| { self.has_vert_plane(V3::new(x, y, z)) },
-                          |&mut: z, x| {
-                              count += 1;
-                              layer.expand(V3::new(x, y, z),
-                                           V3::new(x + 1, y, z + 1));
-                          });
-                    if count > 0 {
-                        self.add_layer(layer);
-                    }
-                }
-            }
-        }
+impl Sprite {
+    fn screen_pos(&self) -> (u16, u16) {
+        (self.ref_x - self.anchor_x,
+         self.ref_y - self.ref_z - self.anchor_y)
     }
 
-    fn get_flags(&self, pos: V3) -> u8 {
-        let index = (pos.z * CHUNK_SIZE + pos.y) * CHUNK_SIZE + pos.x;
-        self.flags[index as uint]
-    }
-
-    fn has_flag(&self, pos: V3, flags: u8) -> bool {
-        self.get_flags(pos) & flags != 0
-    }
-
-    fn has_horiz_plane(&self, pos: V3) -> bool {
-        let below = pos - V3::new(0, 0, 1);
-        pos.z > 0 && self.has_flag(below, HAS_TOP) ||
-        pos.z < CHUNK_SIZE && self.has_flag(pos, HAS_BOTTOM)
-    }
-
-    fn has_vert_plane(&self, pos: V3) -> bool {
-        let behind = pos - V3::new(0, 1, 0);
-        pos.y > 0 && self.has_flag(behind, HAS_FRONT) ||
-        pos.y < CHUNK_SIZE && self.has_flag(pos, HAS_BACK)
-    }
-
-    fn add_layer(&mut self, layer: Layer) {
-        self.layers[self.next_layer as uint] = layer;
-        self.next_layer += 1;
+    fn ref_uv(&self) -> (u16, u16) {
+        (self.ref_y + self.ref_z,
+         self.ref_y - self.ref_z)
     }
 }
 
-#[inline]
-fn flood<F1, F2>(seen: &mut [bool, ..1 << (2 * CHUNK_BITS)],
-                 i: i32, j: i32,
-                 is_valid: F1,
-                 mut process: F2)
-        where F1: Fn(i32, i32) -> bool,
-              F2: FnMut(i32, i32) {
-    let mut stack = [0, ..1 << (2 * CHUNK_BITS)];
-    let mut top;
 
-    let idx = i * CHUNK_SIZE + j;
-    if seen[idx as uint] {
+pub fn render(xv: &XvData,
+              x: u16,
+              y: u16,
+              width: u16,
+              height: u16,
+              sprites: &mut [Sprite],
+              callback: |Surface, u16, u16, Surface, u16, u16, u16, u16|) {
+    let chunk_px = CHUNK_SIZE * TILE_SIZE;
+
+    let min_i = y / chunk_px;
+    let max_i = (y + height + chunk_px - 1) / chunk_px;
+    let min_j = x / chunk_px;
+    let max_j = (x + width + chunk_px - 1) / chunk_px;
+
+    for raw_i in range(min_i, max_i) {
+        for raw_j in range(min_j, max_j) {
+            let i = raw_i % LOCAL_SIZE;
+            let j = raw_j % LOCAL_SIZE;
+            let idx = i * LOCAL_SIZE + j;
+
+            callback(ChunkCache(idx as u8), 0, 0,
+                     Output, raw_j * chunk_px, (raw_i - 1) * chunk_px,
+                     chunk_px, chunk_px * 2);
+        }
+    }
+
+    quicksort(sprites, SpriteUV);
+    render_sprites(xv, x, y, width, height, sprites, callback);
+}
+
+const LEVEL_BUFFER_SIZE: uint = 1024;
+
+fn render_sprites(xv: &XvData,
+                  x: u16,
+                  y: u16,
+                  width: u16,
+                  height: u16,
+                  sprites: &mut [Sprite],
+                  mut callback: |Surface, u16, u16, Surface, u16, u16, u16, u16|) {
+    let screen_min_row = y / TILE_SIZE;
+    let screen_min_col = x / TILE_SIZE;
+    let screen_max_row = (y + height + TILE_SIZE - 1) / TILE_SIZE;
+    let screen_max_col = (x + width + TILE_SIZE - 1) / TILE_SIZE;
+    let screen_rows = screen_max_row - screen_min_row;
+    let screen_cols = screen_max_col - screen_min_col;
+
+    if screen_rows as uint * screen_cols as uint > LEVEL_BUFFER_SIZE {
+        let split =
+            if width > height {
+                let left = width / 2;
+                ((x, y, left, height),
+                 (x + left, y, width - left, height))
+            } else {
+                let top = height / 2;
+                ((x, y, width, top),
+                 (x, y + top, width, height - top))
+            };
+        let ((x0, y0, w0, h0), (x1, y1, w1, h1)) = split;
+
+        // TODO: set clip?
+        render_sprites(xv, x0, y0, w0, h0, sprites,
+                       |src, sx, sy, dst, dx, dy, w, h|
+                       callback(src, sx, sy, dst, dx, dy, w, h));
+        render_sprites(xv, x1, y1, w1, h1, sprites,
+                       |src, sx, sy, dst, dx, dy, w, h|
+                       callback(src, sx, sy, dst, dx, dy, w, h));
         return;
     }
-    seen[idx as uint] = true;
-    stack[0] = idx as u8;
-    top = 1;
 
-    while top > 0 {
-        top -= 1;
-        let idx = stack[top];
+    let mut draw_level = [0_u8, ..LEVEL_BUFFER_SIZE];
+    let get_index = |&: row: u16, col: u16| {
+        let i = row - screen_min_row;
+        let j = col - screen_min_col;
+        (i * screen_cols + j) as uint
+    };
 
-        let j = idx as i32 & CHUNK_MASK;
-        let i = (idx >> CHUNK_BITS) as i32 & CHUNK_MASK;
+    let mut draw_stack = |&mut: row: u16, col: u16, min_u: u8, max_u: u8,
+                          callback: &mut |Surface, u16, u16, Surface, u16, u16, u16, u16|| {
+        let x = col % (CHUNK_SIZE * LOCAL_SIZE);
+        let v = row % (CHUNK_SIZE * LOCAL_SIZE);
+        let xv_idx = v * CHUNK_SIZE * LOCAL_SIZE + x;
 
-        if !is_valid(i, j) {
-            continue;
+        for u in range(min_u, max_u) {
+            let t = xv[xv_idx as uint].tiles[u as uint];
+            if t != 0 {
+                (*callback)(TileAtlas,
+                            (t % ATLAS_SIZE) * TILE_SIZE,
+                            (t / ATLAS_SIZE) * TILE_SIZE,
+                            Output,
+                            col * TILE_SIZE,
+                            row * TILE_SIZE,
+                            TILE_SIZE,
+                            TILE_SIZE);
+            }
+        }
+    };
+
+    for sprite in sprites.iter() {
+        let (screen_x, screen_y) = sprite.screen_pos();
+        let min_row = screen_y / TILE_SIZE;
+        let min_col = screen_x / TILE_SIZE;
+        let max_row = (screen_y + sprite.height + TILE_SIZE - 1) / TILE_SIZE;
+        let max_col = (screen_x + sprite.width + TILE_SIZE - 1) / TILE_SIZE;
+
+        callback(Empty, 0, 0,
+                 Output, min_col * TILE_SIZE, min_row * TILE_SIZE,
+                 (max_col - min_col) * TILE_SIZE, (max_row - min_row) * TILE_SIZE);
+
+        for row in range(min_row, max_row) {
+            // Number of surfaces in each x,v position on this row that are entirely behind or
+            // entirely below the sprite.  These counts use the same units as XvData.tiles indices,
+            // so the front of one tile and the back of the adjacent tile are counted separately.
+            let behind = 4 * (sprite.ref_y / TILE_SIZE - row) - 1;
+            let below = 4 * (sprite.ref_z / TILE_SIZE) + 1;
+            let limit = cmp::max(0, cmp::max(behind as i16, below as i16)) as u8;
+
+            for col in range(min_col, max_col) {
+                let start = draw_level[get_index(row, col)];
+                draw_stack(row, col, start, limit, &mut callback);
+                draw_level[get_index(row, col)] = limit;
+            }
         }
 
-        process(i, j);
-
-        if i > 0 {
-            maybe_push(&mut stack, &mut top, seen, i - 1, j);
-        }
-        if i < CHUNK_SIZE - 1 {
-            maybe_push(&mut stack, &mut top, seen, i + 1, j);
-        }
-        if j > 0 {
-            maybe_push(&mut stack, &mut top, seen, i, j - 1);
-        }
-        if j < CHUNK_SIZE - 1 {
-            maybe_push(&mut stack, &mut top, seen, i, j + 1);
-        }
+        callback(SpriteImage(sprite.id), 0, 0,
+                 Output, screen_x, screen_y,
+                 sprite.width, sprite.height);
     }
 
-    #[inline]
-    fn maybe_push(stack: &mut [u8, ..1 << (2 * CHUNK_BITS)],
-                  top: &mut uint,
-                  seen: &mut [bool, ..1 << (2 * CHUNK_BITS)],
-                  i: i32, j: i32) {
-        let idx = i * CHUNK_SIZE + j;
-        if seen[idx as uint] {
-            return;
+    for row in range(screen_min_row, screen_max_row) {
+        for col in range(screen_min_col, screen_max_col) {
+            let start = draw_level[get_index(row, col)];
+            if start != 0 {
+                draw_stack(row, col, start, (CHUNK_SIZE * 4) as u8, &mut callback);
+            }
         }
-        seen[idx as uint] = true;
-
-        stack[*top] = idx as u8;
-        *top += 1;
     }
 }
 
-
-/// Pack layers into pages, so that the baked chunk can use a few large offscreen buffers instead
-/// of many small ones.  Sets `pos` for each layer to indicate its page and position on the page.
-/// Layers do not overlap each other or the page boundaries.
-pub fn pack_layers(layers: &mut [Layer]) -> i32 {
-    quicksort(layers, LayerWH);
-
-    // Dimensions of a page.
-    const WIDTH: uint = 16;
-    const HEIGHT: uint = 32;
-
-    let mut skyline = [0, ..HEIGHT];
-
-    let mut large = layers.len() - 1;
-    let mut small = 0;
-
-    let mut page = 0;
-
-    'a: loop {
-        // If we need more than one page per layer, there is a bug.
-        assert!(page < layers.len());
-
-        // Place large items down the left side.
-        let mut y = 0;
-        loop {
-            let layer = &mut layers[large];
-            if layer.width() as uint <= WIDTH / 2 || y + layer.height() as uint > HEIGHT {
-                break;
-            }
-
-            layer.pos = ((page * HEIGHT + y) * WIDTH) as u16;
-            for i in range(0, layer.height() as uint) {
-                skyline[y + i] = WIDTH as u8 - layer.width();
-            }
-            y += layer.height() as uint;
-
-            if large == small {
-                break 'a;
-            }
-            large -= 1;
-        }
-        for i in range(y, HEIGHT) {
-            skyline[i] = WIDTH as u8;
-        }
-
-        // Place small items down the right side.
-        let mut y = 0;
-        loop {
-            let layer = &mut layers[small];
-
-            while y < HEIGHT && skyline[y] < layer.width() {
-                y += 1;
-            }
-
-            if y + layer.height() as uint > HEIGHT {
-                break;
-            }
-
-            let x = 16 - skyline[y];
-            layer.pos = ((page * HEIGHT + y) * WIDTH + x as uint) as u16;
-            for i in range(0, layer.height() as uint) {
-                skyline[y + i] = 16 - (x + layer.width());
-            }
-
-            if large == small {
-                break 'a;
-            }
-            small += 1;
-        }
-
-        page += 1;
-    }
-
-    (page + 1) as i32
-}
 
 pub trait Compare<T> {
     fn is_less(&self, a: &T, b: &T) -> bool;
 }
 
-struct LayerWH;
-impl Compare<Layer> for LayerWH {
-    fn is_less(&self, a: &Layer, b: &Layer) -> bool {
-        if a.width() != b.width() {
-            a.width() < b.width()
+struct SpriteUV;
+impl Compare<Sprite> for SpriteUV {
+    fn is_less(&self, a: &Sprite, b: &Sprite) -> bool {
+        let (au, av) = a.ref_uv();
+        let (bu, bv) = b.ref_uv();
+        if au != bu {
+            au < bu
         } else {
-            // For large items, we don't care how they're ordered by height.  For small items, we
-            // want to pack taller items to the left of shorter ones, so sort in descending order
-            // by height.
-            a.height() > b.height()
+            av < bv
         }
     }
 }

@@ -59,7 +59,6 @@ Connection.prototype.sendUpdateMotion = function(data) {
     if (this.socket.readyState != WebSocket.OPEN) {
         return;
     }
-    console.log('sending');
 
     var buf = new Uint16Array(1 + data.length);
     buf[0] = OP_UPDATE_MOTION;

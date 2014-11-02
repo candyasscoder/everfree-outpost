@@ -9,10 +9,12 @@ extern crate graphics;
 #[phase(plugin, link)] extern crate asmrt;
 
 use core::prelude::*;
+use core::mem;
+use core::raw;
 use physics::v3::{V3, scalar};
 use physics::{Shape, ShapeSource};
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK};
-use graphics::{BakerState, Layer, MAX_LAYERS};
+use graphics::{BlockData, ChunkData, XvData, Sprite};
 
 mod std {
     pub use core::fmt;
@@ -68,16 +70,51 @@ pub extern fn collide_wrapper(input: &CollideArgs, output: &mut CollideResult) {
     output.time = time;
 }
 
-#[export_name = "bake_chunk"]
-pub extern fn bake_chunk(flags: &[u8, ..1 << (3 * CHUNK_BITS)],
-                         layers: &mut [Layer, ..MAX_LAYERS as uint],
-                         counts: &mut (i32, i32)) {
-    let mut baker = BakerState::new(flags, layers);
-    *counts = baker.bake();
+#[export_name = "render"]
+pub extern fn render(xv_data: &XvData,
+                     x: u16, y: u16, w: u16, h: u16,
+                     sprites_ptr: *mut Sprite, sprites_len: i32) {
+    extern {
+        fn run_callback(src: u16, sx: u16, sy: u16,
+                        dst: u16, dx: u16, dy: u16,
+                        width: u16, height: u16);
+    }
+
+    let cb = |src, sx, sy, dst, dx, dy, w, h| {
+        unsafe {
+            run_callback(src, sx, sy,
+                         dst, dx, dy,
+                         w, h);
+        }
+    };
+
+    let sprites = unsafe {
+        mem::transmute(raw::Slice {
+            data: sprites_ptr as *const Sprite,
+            len: sprites_len as uint,
+        })
+    };
+
+    graphics::render(xv_data, x, y, w, h, sprites, cb);
+}
+
+#[export_name = "update_xv_data"]
+pub extern fn update_xv_data(xv_data: &mut XvData,
+                             block_data: &BlockData,
+                             chunk_data: &ChunkData,
+                             i: u8,
+                             j: u8) {
+    graphics::update_xv(xv_data, block_data, chunk_data, i, j);
 }
 
 #[export_name = "test"]
 pub extern fn test_wrapper(input: &CollideArgs, output: &mut CollideResult) {
+    use core::mem;
     let _ = input;
     let _ = output;
+    graphics::update_xv(
+        unsafe { mem::transmute(input.pos.x) },
+        unsafe { mem::transmute(input.pos.y) },
+        unsafe { mem::transmute(input.pos.z) },
+        input.size.x as u8, input.size.y as u8);
 }

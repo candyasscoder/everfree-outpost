@@ -18,6 +18,15 @@ Sheet.prototype.drawInto = function(ctx, i, j, x, y) {
             this.item_height);
 };
 
+Sheet.prototype.updateSprite = function(sprite, i, j) {
+    sprite.setSource(
+            this.image,
+            j * this.item_width,
+            i * this.item_height,
+            this.item_width,
+            this.item_height);
+};
+
 
 /** @constructor */
 function LayeredSheet(images, item_width, item_height) {
@@ -40,6 +49,8 @@ LayeredSheet.prototype.drawInto = function(ctx, i, j, x, y) {
                 this.item_height);
     }
 };
+
+LayeredSheet.prototype.updateSprite = Sheet.prototype.updateSprite;
 
 
 /** @constructor */
@@ -78,4 +89,11 @@ Animation.prototype.drawAt = function(ctx, now, x, y) {
     if (anim.flip) {
         ctx.scale(-1, 1);
     }
+};
+
+Animation.prototype.updateSprite = function(now, sprite) {
+    var anim = this._anim;
+    var frame = Math.floor((now - anim.start) * anim.fps / 1000) % anim.len;
+    this.sheet.updateSprite(sprite, anim.i, anim.j + frame);
+    sprite.setFlip(anim.flip);
 };

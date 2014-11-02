@@ -31,6 +31,11 @@ extern fn lang_fail_fmt(args: &core::fmt::Arguments,
 #[inline(always)] #[cold]
 #[lang = "stack_exhausted"]
 extern fn lang_stack_exhausted() -> ! {
+    unsafe {
+        let s = "task failed - stack exhausted";
+        write_str(s.as_ptr(), s.len() as i32);
+        flush_str();
+    }
     unsafe { core::intrinsics::abort() };
 }
 

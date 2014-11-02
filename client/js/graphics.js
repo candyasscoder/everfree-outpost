@@ -1,4 +1,3 @@
-var Asm = require('asmlibs').Asm;
 var OffscreenContext = require('canvas').OffscreenContext;
 var TileDef = require('chunk').TileDef;
 var CHUNK_SIZE = require('chunk').CHUNK_SIZE;
@@ -6,225 +5,186 @@ var TILE_SIZE = require('chunk').TILE_SIZE;
 var LOCAL_SIZE = require('chunk').LOCAL_SIZE;
 
 
-var HAS_TOP     = 0x01;
-var HAS_BOTTOM  = 0x02;
-var HAS_FRONT   = 0x04;
-var HAS_BACK    = 0x08;
-
 /** @constructor */
-function TerrainGraphics(sheet) {
-    this.sheet = sheet;
+function Renderer(tile_sheet) {
+    this.tile_sheet = tile_sheet;
 
     var chunk_total = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
-    this._asm = new Asm(chunk_total * 9);
-
     var local_total = LOCAL_SIZE * LOCAL_SIZE;
+
+    var this_ = this;
+    function handler(src, sx, sy, dst, dx, dy, w, h) {
+        this_._renderCallback(src, sx, sy, dst, dx, dy, w, h);
+    }
+    this._asm = new Asm(Asm.getRendererHeapSize(), handler);
+
     this._chunks = [];
-    for (var i = 0; i < local_total; ++i) {
-        this._chunks.push(null);
+    this._chunk_images = [];
+    for (var i = 0; i < LOCAL_SIZE * LOCAL_SIZE; ++i) {
+        this._chunk_images[i] = null;
     }
 }
-exports.TerrainGraphics = TerrainGraphics;
+exports.Renderer = Renderer;
 
-TerrainGraphics.prototype.loadChunk = function(ci, cj, tiles) {
-    var view = this._asm.chunkFlagsView();
-    console.assert(tiles.length == view.length,
-            'expected ' + view.length + ' tiles, but got ' + tiles.length);
 
-    for (var i = 0; i < tiles.length; ++i) {
-        var tile = TileDef.by_id[tiles[i]];
-        var flags = 0;
-        if (tile.front != 0) {
-            flags |= HAS_FRONT;
-        }
-        if (tile.back != 0) {
-            flags |= HAS_BACK;
-        }
-        if (tile.top != 0) {
-            flags |= HAS_TOP;
-        }
-        if (tile.bottom != 0) {
-            flags |= HAS_BOTTOM;
-        }
-        view[i] = flags;
-    }
-
-    var result = this._asm.bakeChunk();
-    this._chunks[ci * LOCAL_SIZE + cj] = new ChunkGraphics(tiles, result, this.sheet);
-};
-
-TerrainGraphics.prototype.unloadChunk = function(ci, cj) {
-    this._chunks[ci * LOCAL_SIZE * cj] = null;
-};
-
-TerrainGraphics.prototype.render = function(ctx, ci, cj, sprites) {
-    var chunk = this._chunks[ci * LOCAL_SIZE + cj];
-    if (chunk != null) {
-        chunk.render(ctx, sprites);
+Renderer.prototype.loadBlockData = function(blocks) {
+    var view = this._asm.blockDataView();
+    for (var i = 0; i < blocks.length; ++i) {
+        var block = blocks[i];
+        var base = i * 4;
+        view[base + 0] = block.front;
+        view[base + 1] = block.back;
+        view[base + 2] = block.top;
+        view[base + 3] = block.bottom;
     }
 };
 
+Renderer.prototype.loadChunk = function(i, j, chunk) {
+    var idx = i * LOCAL_SIZE + j;
 
-var PAGE_WIDTH = 16;
-var PAGE_HEIGHT = 32;
+    this._chunks[idx] = chunk;
+    if (this._chunk_images[idx] == null) {
+        var width = CHUNK_SIZE * TILE_SIZE;
+        var height = CHUNK_SIZE * TILE_SIZE * 2;
+        this._chunk_images[idx] = new OffscreenContext(width, height);
+    }
+    this._renderChunkImage(chunk, this._chunk_images[idx]);
 
-var ATLAS_WIDTH = 32;
+    this._asm.chunkDataView().set(chunk._tiles);
+    i = (idx / LOCAL_SIZE)|0;
+    j = (idx % LOCAL_SIZE);
+    this._asm.updateXvData(i, j);
+};
+
+Renderer.prototype._renderChunkImage = function(chunk, ctx) {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    var sheet = this.tile_sheet;
+    function maybe_draw(display, sx, sy) {
+        if (display == 0) {
+            return;
+        }
+        sheet.drawInto(ctx, display >> 5, display & 0x1f, sx, sy);
+    }
+
+    for (var z = 0; z < CHUNK_SIZE; ++z) {
+        for (var y = 0; y < CHUNK_SIZE; ++y) {
+            for (var x = 0; x < CHUNK_SIZE; ++x) {
+                var sx = x * TILE_SIZE;
+                var sy_offset = (y - z) * TILE_SIZE;
+                var sy1 = sy_offset + CHUNK_SIZE * TILE_SIZE;
+                var sy0 = sy1 - TILE_SIZE;
+
+                var tile = chunk.get(x, y, z);
+                maybe_draw(tile.back, sx, sy0);
+                maybe_draw(tile.bottom, sx, sy1);
+                maybe_draw(tile.top, sx, sy0);
+                maybe_draw(tile.front, sx, sy1);
+            }
+        }
+    }
+};
+
+Renderer.prototype._renderCallback = function(src, sx, sy, dst, dx, dy, w, h) {
+    var src_img;
+    var flip = false;
+    if (src == 0) {
+        src_img = null;
+    } else if (src == 1) {
+        src_img = this._cur_ctx.canvas;
+    } else if (src == 2) {
+        src_img = this.tile_sheet.image;
+    } else if (8 <= src && src < 64) {
+        console.assert(false, 'render caches are not supported yet');
+    } else if (64 <= src && src < 128) {
+        var img_ctx = this._chunk_images[src - 64];
+        src_img = img_ctx != null ? img_ctx.canvas : null;
+    } else if (128 <= src) {
+        var sprite = this._cur_sprites[src - 128];
+        src_img = sprite.image;
+        sx += sprite.offset_x;
+        sy += sprite.offset_y;
+        flip = sprite.flip;
+    } else {
+        console.assert(false, 'bad source ID', src);
+    }
+
+    var dst_ctx;
+    if (dst == 0) {
+        return;
+    } else if (dst == 1) {
+        dst_ctx = this._cur_ctx;
+    } else if (dst == 2) {
+        console.assert(false, 'tile atlas is read-only');
+    } else if (8 <= dst && dst < 64) {
+        console.assert(false, 'render caches are not supported yet');
+    } else if (64 <= dst && dst < 128) {
+        dst_ctx = this._chunk_images[dst - 64];
+    } else if (128 <= dst) {
+        console.assert(false, 'sprite images are read-only');
+    } else {
+        console.assert(false, 'bad destination ID', dst);
+    }
+
+    if (dst_ctx == null) {
+        return;
+    }
+
+    if (src_img == null) {
+        dst_ctx.clearRect(dx, dy, w, h);
+    } else {
+        if (flip) {
+            dst_ctx.save();
+            dst_ctx.scale(-1, 1);
+            dx = -dx - w;
+        }
+        dst_ctx.drawImage(src_img, sx, sy, w, h, dx, dy, w, h);
+        dst_ctx.strokeRect(dx, dy, w, h);
+        if (flip) {
+            dst_ctx.restore();
+        }
+    }
+};
+
+Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
+    this._cur_ctx = ctx;
+    this._cur_sprites = sprites;
+    this._asm.render(sx, sy, sw, sh, sprites);
+};
+
 
 /** @constructor */
-function ChunkGraphics(tiles, bake_result, sheet) {
-    this._tiles = tiles;
+function Sprite() {
+    this.image = null;
+    this.offset_x = 0;
+    this.offset_y = 0;
+    this.width = 0;
+    this.height = 0;
+    this.flip = false;
 
-    this._pages = [];
-    for (var i = 0; i < bake_result.pages; ++i) {
-        this._pages.push(new OffscreenContext(PAGE_WIDTH * TILE_SIZE, PAGE_HEIGHT * TILE_SIZE));
-    }
-
-    this._layers = [];
-    for (var i = 0; i < bake_result.layers.length; ++i) {
-        var layer = this._initLayer(bake_result.layers[i], sheet);
-        this._layers.push(layer);
-    }
-    this._layers.sort(function(a, b) {
-        if (a.pos_u != b.pos_u) {
-            return a.pos_u - b.pos_u;
-        } else if (a.pos_v != b.pos_v) {
-            return a.pos_v - b.pos_v;
-        } else {
-            return a.pos_x - b.pos_x;
-        }
-    });
+    this.ref_x = 0;
+    this.ref_y = 0;
+    this.ref_z = 0;
+    this.anchor_x = 0;
+    this.anchor_y = 0;
 }
+exports.Sprite = Sprite;
 
-ChunkGraphics.prototype._initLayer = function(layer, sheet) {
-    var page = this._pages[layer.page];
-    var horiz = layer.min.z == layer.max.z;
-
-    var height;
-    if (horiz) {
-        this._initLayerHoriz(layer, page, sheet);
-        height = layer.max.y - layer.min.y;
-    } else {
-        this._initLayerVert(layer, page, sheet);
-        height = layer.max.z - layer.min.z;
-    }
-
-    return ({
-        page: layer.page,
-
-        src_x: TILE_SIZE * layer.pos_x,
-        src_y: TILE_SIZE * layer.pos_y,
-        src_w: TILE_SIZE * (layer.max.x - layer.min.x),
-        src_h: TILE_SIZE * height,
-
-        // Output position in XUV space, used to determine ordering.
-        pos_x: TILE_SIZE * layer.min.x,
-        pos_u: TILE_SIZE * (layer.min.y + layer.min.z),
-        pos_v: TILE_SIZE * (layer.min.y - layer.min.z),
-
-        // Y-coordinate to use when rendering.
-        dst_y: TILE_SIZE * (layer.min.y - layer.min.z - (horiz ? 0 : height)),
-    });
+Sprite.prototype.setSource = function(image, offset_x, offset_y, width, height) {
+    this.image = image;
+    this.offset_x = offset_x;
+    this.offset_y = offset_y;
+    this.width = width;
+    this.height = height;
 };
 
-ChunkGraphics.prototype._initLayerHoriz = function(layer, page, sheet) {
-    var z = layer.min.z;
-
-    if (z > 0) {
-        for (var y = layer.min.y; y < layer.max.y; ++y) {
-            for (var x = layer.min.x; x < layer.max.x; ++x) {
-                var idx = ((z - 1) * CHUNK_SIZE + y) * CHUNK_SIZE + x;
-                var image = TileDef.by_id[this._tiles[idx]].top;
-
-                var x_out = x - layer.min.x + layer.pos_x;
-                var y_out = y - layer.min.y + layer.pos_y;
-
-                sheet.drawInto(page, (image / ATLAS_WIDTH)|0, image % ATLAS_WIDTH,
-                        x_out * TILE_SIZE, y_out * TILE_SIZE);
-            }
-        }
-    }
-
-    if (z < CHUNK_SIZE) {
-        for (var y = layer.min.y; y < layer.max.y; ++y) {
-            for (var x = layer.min.x; x < layer.max.x; ++x) {
-                var idx = (z * CHUNK_SIZE + y) * CHUNK_SIZE + x;
-                var image = TileDef.by_id[this._tiles[idx]].bottom;
-
-                var x_out = x - layer.min.x + layer.pos_x;
-                var y_out = y - layer.min.y + layer.pos_y;
-
-                sheet.drawInto(page, image >> 4, image & 0xf,
-                        x_out * TILE_SIZE, y_out * TILE_SIZE);
-            }
-        }
-    }
+Sprite.prototype.setFlip = function(flip) {
+    this.flip = flip;
 };
 
-ChunkGraphics.prototype._initLayerVert = function(layer, page, sheet) {
-    var y = layer.min.y;
-
-    if (y > 0) {
-        for (var z = layer.min.z; z < layer.max.z; ++z) {
-            for (var x = layer.min.x; x < layer.max.x; ++x) {
-                var idx = (z * CHUNK_SIZE + (y - 1)) * CHUNK_SIZE + x;
-                var image = TileDef.by_id[this._tiles[idx]].front;
-
-                var x_out = x - layer.min.x + layer.pos_x;
-                var y_out = layer.max.z - 1 - z + layer.pos_y;
-
-                sheet.drawInto(page, image >> 4, image & 0xf,
-                        x_out * TILE_SIZE, y_out * TILE_SIZE);
-            }
-        }
-    }
-
-    if (y < CHUNK_SIZE) {
-        for (var z = layer.min.z; z < layer.max.z; ++z) {
-            for (var x = layer.min.x; x < layer.max.x; ++x) {
-                var idx = (z * CHUNK_SIZE + y) * CHUNK_SIZE + x;
-                var image = TileDef.by_id[this._tiles[idx]].front;
-
-                var x_out = x - layer.min.x + layer.pos_x;
-                var y_out = layer.max.z - 1 - z + layer.pos_y;
-
-                sheet.drawInto(page, image >> 4, image & 0xf,
-                        x_out * TILE_SIZE, y_out * TILE_SIZE);
-            }
-        }
-    }
-};
-
-ChunkGraphics.prototype.render = function(ctx, sprites) {
-    var layers = this._layers;
-
-    var i = 0;
-    var j = 0;
-    while (i < layers.length || j < sprites.length) {
-        var which;
-        if (i == layers.length) {
-            which = 1;
-        } else if (j == sprites.length) {
-            which = 0;
-        } else if (layers[i].pos_u > sprites[j].pos_u) {
-            which = 1;
-        } else if (layers[i].pos_v > sprites[j].pos_v) {
-            which = 1;
-        } else {
-            which = 0;
-        }
-
-        if (which == 0) {
-            var layer = layers[i];
-            ++i;
-
-            ctx.drawImage(this._pages[layer.page].canvas,
-                    layer.src_x, layer.src_y, layer.src_w, layer.src_h,
-                    layer.pos_x, layer.dst_y, layer.src_w, layer.src_h);
-        } else {
-            var sprite = sprites[j];
-            ++j;
-
-            sprite.draw(ctx);
-        }
-    }
+Sprite.prototype.setDestination = function(ref_pos, anchor_x, anchor_y) {
+    this.ref_x = ref_pos.x;
+    this.ref_y = ref_pos.y;
+    this.ref_z = ref_pos.z;
+    this.anchor_x = anchor_x;
+    this.anchor_y = anchor_y;
 };

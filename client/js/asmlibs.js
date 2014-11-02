@@ -26,7 +26,7 @@ var HEAP_START = STACK_END;
 
 var msg_buffer = '';
 
-var module_env = function(buffer) {
+var module_env = function(buffer, callback_handler) {
     return ({
         'abort': function() {
             console.assert(false, 'abort');
@@ -73,6 +73,11 @@ var module_env = function(buffer) {
             msg_buffer = '';
         },
 
+        'runCallback': callback_handler || (function() {
+            console.assert(false, 'tried to use callback, but there was no callback handler');
+            throw 'no callback handler';
+        }),
+
         'STACK_START': STACK_START,
         'STACK_END': STACK_END,
     });
@@ -91,14 +96,15 @@ function memcpy(dest_buffer, dest_offset, src_buffer, src_offset, len) {
 // window.RawAsm wrapper
 
 /** @constructor */
-function Asm(heap_size) {
+function Asm(heap_size, callback_handler) {
     // Buffer size must be a multiple of 4k.
     var min_size = HEAP_START + heap_size;
-    var buffer_size = (min_size + 0x0fff) & ~0x0fff;
+    // TODO: properly implement the actual asm.js heap size rules
+    var buffer_size = (min_size + 0x0ffff) & ~0x0ffff;
     this.buffer = new ArrayBuffer(buffer_size);
 
     this.memcpy(STATIC_START, static_data);
-    this._raw = module(window, module_env(this.buffer), this.buffer);
+    this._raw = module(window, module_env(this.buffer, callback_handler), this.buffer);
 }
 exports.Asm = Asm;
 
@@ -140,8 +146,8 @@ Asm.prototype.collide = function(pos, size, velocity) {
         t: output[3],
     });
 
-    this._stackFree(input);
     this._stackFree(output);
+    this._stackFree(input);
 
     return result;
 };
@@ -151,39 +157,69 @@ Asm.prototype.chunkShapeView = function(idx) {
     return new Uint8Array(this.buffer, HEAP_START + idx * size, size);
 };
 
-Asm.prototype.bakeChunk = function() {
-    var counts = this._stackAlloc(Int32Array, 2);
 
-    var flags_size = 16 * 16 * 16;
-    var layers_start = HEAP_START + flags_size;
-    this._raw['bake_chunk'](HEAP_START, layers_start, counts.byteOffset);
+var BLOCKS_START = HEAP_START;
+var BLOCKS_LEN = 1024 * 4;
+var BLOCKS_SIZE = BLOCKS_LEN * 2;
+var BLOCKS_END = BLOCKS_START + BLOCKS_SIZE;
 
-    var layer_count = counts[0];
-    var page_count = counts[1];
-    this._stackFree(counts);
+var CHUNK_START = BLOCKS_END;
+var CHUNK_LEN = 16 * 16 * 16;
+var CHUNK_SIZE = CHUNK_LEN * 2;
+var CHUNK_END = CHUNK_START + CHUNK_SIZE;
 
-    var view8 = new Uint8Array(this.buffer, layers_start);
-    var view16 = new Uint16Array(this.buffer, layers_start);
-    var layers = [];
-    for (var i = 0; i < layer_count; ++i) {
-        var base8 = i * 8;
-        var pos = view16[i * 4 + 3];
-        layers.push({
-            min: new Vec(view8[base8 + 0], view8[base8 + 1], view8[base8 + 2]),
-            max: new Vec(view8[base8 + 3], view8[base8 + 4], view8[base8 + 5]),
-            pos_x: pos & 0xf,
-            pos_y: (pos >> 4) & 0x1f,
-            page: pos >> 9,
-        });
+var XV_START = CHUNK_END;
+var XV_LEN = 8 * 8 * 16 * 16 * 16 * 4;
+var XV_SIZE = XV_LEN * 2;
+var XV_END = XV_START + XV_SIZE;
+
+var SPRITES_START = XV_END;
+var SPRITES_LEN = 8 * 1024;
+var SPRITES_SIZE = SPRITES_LEN * 2;
+var SPRITES_END = SPRITES_START + SPRITES_SIZE;
+
+Asm.prototype.render = function(x, y, w, h, sprites) {
+    var view = this.spritesView();
+    for (var i = 0; i < sprites.length; ++i) {
+        var base = i * 8;
+        var sprite = sprites[i];
+        view[base + 0] = i;
+        view[base + 1] = sprite.ref_x;
+        view[base + 2] = sprite.ref_y;
+        view[base + 3] = sprite.ref_z;
+        view[base + 4] = sprite.width;
+        view[base + 5] = sprite.height;
+        view[base + 6] = sprite.anchor_x;
+        view[base + 7] = sprite.anchor_y;
     }
 
-    return { layers: layers, pages: page_count };
+    this._raw['render'](XV_START, x, y, w, h, SPRITES_START, sprites.length);
 };
 
-Asm.prototype.chunkFlagsView = function() {
-    var size = 16 * 16 * 16;
-    return new Uint8Array(this.buffer, HEAP_START, size);
+Asm.prototype.updateXvData = function(i, j) {
+    this._raw['update_xv_data'](XV_START, BLOCKS_START, CHUNK_START, i, j);
 };
+
+Asm.getRendererHeapSize = function() {
+    return BLOCKS_SIZE + CHUNK_SIZE + XV_SIZE + SPRITES_SIZE;
+};
+
+Asm.prototype.xvDataView = function() {
+    return new Uint16Array(this.buffer, XV_START, XV_LEN);
+};
+
+Asm.prototype.blockDataView = function() {
+    return new Uint16Array(this.buffer, BLOCKS_START, BLOCKS_LEN);
+};
+
+Asm.prototype.chunkDataView = function() {
+    return new Uint16Array(this.buffer, CHUNK_START, CHUNK_LEN);
+};
+
+Asm.prototype.spritesView = function() {
+    return new Uint16Array(this.buffer, SPRITES_START, SPRITES_LEN);
+};
+
 
 Asm.prototype.test = function(pos, size, velocity) {
     var input = this._stackAlloc(Int32Array, 9);
@@ -202,8 +238,8 @@ Asm.prototype.test = function(pos, size, velocity) {
         t: output[3],
     });
 
-    this._stackFree(input);
     this._stackFree(output);
+    this._stackFree(input);
 
     return result;
 };

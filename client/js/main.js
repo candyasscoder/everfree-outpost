@@ -16,7 +16,7 @@ var CHUNK_SIZE = require('chunk').CHUNK_SIZE;
 var TILE_SIZE = require('chunk').TILE_SIZE;
 var LOCAL_SIZE = require('chunk').LOCAL_SIZE;
 
-var TerrainGraphics = require('graphics').TerrainGraphics;
+var Renderer = require('graphics').Renderer;
 var Physics = require('physics').Physics;
 var Forecast = require('physics').Forecast;
 
@@ -77,29 +77,14 @@ Pony.prototype.position = function(now) {
     return pos;
 };
 
-Pony.prototype.getSprite = function(now, base_x, base_y) {
-    var pos = this.position(now).sub(new Vec(base_x, base_y, 0));
-    var anim = this._anim;
+Pony.prototype.getSprite = function(now) {
+    var sprite = new Sprite();
+    this._anim.updateSprite(now, sprite);
 
-    // Reference point for determining rendering order.
-    var pos_x = pos.x;
-    var pos_y = pos.y + 16;
-    var pos_z = pos.z;
+    var pos = this.position(now).add(new Vec(0, 16, 0));
+    sprite.setDestination(pos, 48, 74 + 16);
 
-    // Actual point on the screen where the sprite will be rendered.
-    var dst_x = pos.x - 48;
-    var dst_y = pos.y - pos.z - 74;
-
-    return ({
-        draw: function(ctx) {
-            anim.drawAt(ctx, now, dst_x, dst_y);
-        },
-        pos_x: pos_x,
-        pos_u: pos_y + pos_z,
-        pos_v: pos_y - pos_z,
-        dst_x: dst_x,
-        dst_y: dst_y,
-    });
+    return sprite;
 };
 
 
@@ -163,7 +148,7 @@ var pony;
 
 var chunks;
 var physics;
-var graphics;
+var renderer;
 
 var conn;
 
@@ -193,7 +178,7 @@ function init() {
     chunks = initChunks();
     physics = new Physics();
     var tile_sheet = new Sheet(assets['tiles'], 32, 32);
-    graphics = new TerrainGraphics(tile_sheet);
+    renderer = new Renderer(tile_sheet);
 
     initInput();
 }
@@ -215,6 +200,7 @@ function initAssets() {
         for (var i = 0; i < tiles.length; ++i) {
             TileDef.register(i, tiles[i]);
         }
+        renderer.loadBlockData(TileDef.by_id);
     });
 }
 
@@ -320,9 +306,18 @@ function handleTerrainChunk(i, data) {
                 'chunk data contained wrong number of tiles:', raw_length);
     }
 
+    if (i == 0) {
+        chunk.set(0, 0, 0, 26);
+        chunk.set(0, 0, 1, 27);
+        chunk.set(0, 0, 2, 28);
+        chunk.set(1, 0, 0, 29);
+        chunk.set(1, 0, 1, 30);
+        chunk.set(1, 0, 2, 31);
+    }
+
     runner.job('load-chunk-' + i, function() {
         physics.loadChunk(0, i, chunk._tiles);
-        graphics.loadChunk(0, i, chunk._tiles);
+        renderer.loadChunk(0, i, chunk);
     });
 }
 
@@ -373,32 +368,12 @@ function frame(ctx, now) {
     ctx.translate(-camera_pos.x, -camera_pos.y);
 
 
-    var chunk_px = CHUNK_SIZE * TILE_SIZE;
-    var chunk_min = camera_pos.divScalar(chunk_px);
-    var chunk_max = camera_pos.add(camera_size).addScalar(chunk_px - 1).divScalar(chunk_px);
+    var sprites = [pony.getSprite(now)];
 
-    for (var raw_cy = chunk_min.y; raw_cy < chunk_max.y; ++raw_cy) {
-        for (var raw_cx = chunk_min.x; raw_cx < chunk_max.x; ++raw_cx) {
-            var cx = raw_cx % LOCAL_SIZE;
-            var cy = raw_cy % LOCAL_SIZE;
-            var ci = cy * LOCAL_SIZE + cx;
-
-            var base_x = raw_cx * chunk_px;
-            var base_y = raw_cy * chunk_px;
-            ctx.save();
-            ctx.translate(base_x, base_y);
-
-            var sprites = [];
-            if (pos.x + 32 >= base_x && pos.x < base_x + chunk_px &&
-                    pos.y + 32 >= base_y && pos.y < base_y + chunk_px) {
-                sprites.push(pony.getSprite(now, base_x, base_y));
-            }
-
-            graphics.render(ctx, cy, cx, sprites);
-
-            ctx.restore();
-        }
-    }
+    renderer.render(ctx,
+            camera_pos.x, camera_pos.y,
+            ctx.canvas.width, ctx.canvas.height,
+            sprites);
 
 
     // Draw pony motion forecast
