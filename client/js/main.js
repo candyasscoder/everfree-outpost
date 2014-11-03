@@ -23,6 +23,7 @@ var Physics = require('physics').Physics;
 var Forecast = require('physics').Forecast;
 
 var Connection = require('net').Connection;
+var Timing = require('time').Timing;
 
 var rle16Decode = require('util').rle16Decode;
 
@@ -180,6 +181,7 @@ var physics;
 var renderer;
 
 var conn;
+var timing;
 
 function init() {
     canvas = new AnimCanvas(frame);
@@ -310,6 +312,17 @@ function assetProgress(loaded, total) {
 };
 
 function postInit() {
+    $('banner-text').textContent = 'Connecting to server...';
+    conn = new Connection('ws://' + window.location.host + '/ws');
+    conn.onOpen = connOpen;
+    conn.onTerrainChunk = handleTerrainChunk;
+    conn.onPlayerMotion = handlePlayerMotion;
+}
+
+function connOpen() {
+    timing = new Timing(conn);
+    conn.sendGetTerrain();
+
     var pony_sheet = new Sheet(bakeSpriteSheet(runner, assets), 96, 96);
     pony = new Pony(pony_sheet, 100, 100, 0, physics);
     pony.onMotionChange = sendMotionChange;
@@ -318,16 +331,6 @@ function postInit() {
 
     document.body.removeChild($('banner-bg'));
     canvas.start();
-
-
-    conn = new Connection('ws://' + window.location.host + '/ws');
-    conn.onOpen = connOpen;
-    conn.onTerrainChunk = handleTerrainChunk;
-    conn.onPlayerMotion = handlePlayerMotion;
-}
-
-function connOpen() {
-    conn.sendGetTerrain();
 }
 
 function handleTerrainChunk(i, data) {
@@ -358,10 +361,9 @@ function handlePlayerMotion(id, motion) {
     var m = new Motion(motion.start_pos);
     m.end_pos = motion.end_pos;
 
-    var offset = Date.now() - motion.start_time;
-
-    m.start_time = motion.start_time + offset;
-    m.end_time = motion.end_time + offset;
+    var now = Date.now();
+    m.start_time = timing.decodeRecv(motion.start_time, now);
+    m.end_time = timing.decodeRecv(motion.end_time, now);
     if (m.end_time < m.start_time) {
         m.end_time += 0x10000;
     }
@@ -373,11 +375,11 @@ function sendMotionChange(forecast) {
     data[0] = forecast.start.x;
     data[1] = forecast.start.y;
     data[2] = forecast.start.z;
-    data[3] = forecast.start_time & 0xffff;
+    data[3] = timing.encodeSend(forecast.start_time);
     data[4] = forecast.end.x;
     data[5] = forecast.end.y;
     data[6] = forecast.end.z;
-    data[7] = forecast.end_time & 0xffff;
+    data[7] = timing.encodeSend(forecast.end_time);
     conn.sendUpdateMotion(data);
 }
 

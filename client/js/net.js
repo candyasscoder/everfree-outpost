@@ -66,7 +66,7 @@ Connection.prototype._handleMessage = function(evt) {
             if (this.onPong != null) {
                 var msg = view[1];
                 var server_time = view[2];
-                this.onPong(msg, server_time);
+                this.onPong(msg, server_time, evt.timeStamp);
             }
             break;
         default:
