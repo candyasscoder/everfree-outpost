@@ -1,14 +1,16 @@
 #![feature(phase)]
-#![feature(tuple_indexing)]
+#![feature(tuple_indexing, if_let)]
 #![feature(macro_rules)]
 #![allow(non_upper_case_globals)]
 
 #[phase(plugin, link)]
 extern crate log;
+extern crate time;
 
 extern crate physics;
 
 use std::collections::HashMap;
+use std::collections::hashmap::Occupied;
 use std::io;
 use std::io::{BufReader, BufWriter};
 use std::io::IoResult;
@@ -49,9 +51,11 @@ macro_rules! opcodes {
 opcodes! {
     GetTerrain = 0x0001,
     UpdateMotion = 0x0002,
+    Ping = 0x0003,
 
     TerrainChunk = 0x8001,
     PlayerMotion = 0x8002,
+    Pong = 0x8003,
 
     AddClient = 0xff00,
     RemoveClient = 0xff01,
@@ -127,14 +131,34 @@ fn real_main() -> IoResult<()> {
             },
 
             UpdateMotion => {
-                let wire_motion: WireMotion = try!(Struct::decode_from(body.as_slice()));
-                let motion = state.clients.find(&id).unwrap()
-                                  .decode_wire_motion(wire_motion.start_time, &wire_motion);
-                log!(10, "client {} reports motion: {} @ {} -> {} @ +{}",
-                     id,
-                     motion.start_pos, motion.start_time,
-                     motion.end_pos, motion.end_time - motion.start_time);
-                state.clients.get_mut(&id).motion = motion;
+                if let Occupied(mut entry) = state.clients.entry(id) {
+                    let wire_motion: WireMotion = try!(Struct::decode_from(body.as_slice()));
+                    let motion = entry.get().decode_wire_motion(wire_motion.start_time,
+                                                                &wire_motion);
+                    log!(10, "client {} reports motion: {} @ {} -> {} @ +{}",
+                         id,
+                         motion.start_pos, motion.start_time,
+                         motion.end_pos, motion.end_time - motion.start_time);
+                    entry.get_mut().motion = motion;
+
+                    let mut motion = motion;
+                    motion.start_pos = motion.start_pos + V3::new(100, 0, 0);
+                    motion.end_pos = motion.end_pos + V3::new(100, 0, 0);
+                    let wire_motion2 = entry.get().encode_wire_motion(wire_motion.start_time,
+                                                                      &motion);
+                    let mut msg = Vec::from_elem(0u16.size() + wire_motion2.size(), 0);
+                    try!((0u16, wire_motion2).encode_to(msg.as_mut_slice()));
+                    try!(write_msg(&mut stdout, id, PlayerMotion, msg.as_slice()));
+                } else {
+                    warn!("got UpdateMotion for nonexistent client {}", id);
+                }
+            },
+
+            Ping => {
+                let cookie: u16 = try!(Struct::decode_from(body.as_slice()));
+                let mut msg = Vec::from_elem(4, 0);
+                try!((cookie, now()).encode_to(msg.as_mut_slice()));
+                try!(write_msg(&mut stdout, id, Pong, msg.as_slice()));
             },
 
             AddClient => {
@@ -160,6 +184,11 @@ fn real_main() -> IoResult<()> {
             },
         }
     }
+}
+
+fn now() -> u16 {
+    let timespec = time::get_time();
+    (timespec.sec as u16 * 1000) + (timespec.nsec / 1000000) as u16
 }
 
 fn convert(s: &[u16]) -> &[u8] {

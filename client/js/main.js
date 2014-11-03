@@ -203,6 +203,7 @@ function init() {
     initAssets(loader);
 
     pony = null;
+    otherEntity = null;
 
     chunks = initChunks();
     physics = new Physics();
@@ -322,6 +323,7 @@ function postInit() {
     conn = new Connection('ws://' + window.location.host + '/ws');
     conn.onOpen = connOpen;
     conn.onTerrainChunk = handleTerrainChunk;
+    conn.onPlayerMotion = handlePlayerMotion;
 }
 
 function connOpen() {
@@ -350,6 +352,20 @@ function handleTerrainChunk(i, data) {
         physics.loadChunk(0, i, chunk._tiles);
         renderer.loadChunk(0, i, chunk);
     });
+}
+
+function handlePlayerMotion(id, motion) {
+    var m = new Motion(motion.start_pos);
+    m.end_pos = motion.end_pos;
+
+    var offset = Date.now() - motion.start_time;
+
+    m.start_time = motion.start_time + offset;
+    m.end_time = motion.end_time + offset;
+    if (m.end_time < m.start_time) {
+        m.end_time += 0x10000;
+    }
+    otherEntity.setMotion(m);
 }
 
 function sendMotionChange(forecast) {
