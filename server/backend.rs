@@ -52,6 +52,7 @@ opcodes! {
     GetTerrain = 0x0001,
     UpdateMotion = 0x0002,
     Ping = 0x0003,
+    Input = 0x0004,
 
     TerrainChunk = 0x8001,
     PlayerMotion = 0x8002,
@@ -159,6 +160,12 @@ fn real_main() -> IoResult<()> {
                 let mut msg = Vec::from_elem(4, 0);
                 try!((cookie, now()).encode_to(msg.as_mut_slice()));
                 try!(write_msg(&mut stdout, id, Pong, msg.as_slice()));
+            },
+
+            Input => {
+                let (time, input): (u16, u16) = try!(Struct::decode_from(body.as_slice()));
+                log!(10, "client {} sends input {:x} at time {}",
+                     id, input, time);
             },
 
             AddClient => {

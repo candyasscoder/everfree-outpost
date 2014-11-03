@@ -244,6 +244,12 @@ function initChunks() {
     return chunks;
 }
 
+var INPUT_LEFT =    0x0001;
+var INPUT_RIGHT =   0x0002;
+var INPUT_UP =      0x0004;
+var INPUT_DOWN =    0x0008;
+var INPUT_RUN =     0x0010;
+
 function initInput() {
     var dirs_held = {
         'Up': false,
@@ -284,25 +290,34 @@ function initInput() {
         var dy = 0;
         var speed = 1;
 
+        var bits = 0;
+
         if (dirs_held['Left']) {
             dx -= 1;
+            bits |= INPUT_LEFT;
         }
         if (dirs_held['Right']) {
             dx += 1;
+            bits |= INPUT_RIGHT;
         }
 
         if (dirs_held['Up']) {
             dy -= 1;
+            bits |= INPUT_UP;
         }
         if (dirs_held['Down']) {
             dy += 1;
+            bits |= INPUT_DOWN;
         }
 
         if (dirs_held['Shift']) {
             speed = 3;
+            bits |= INPUT_RUN;
         }
 
-        pony.walk(Date.now(), speed, dx, dy, physics);
+        var now = Date.now();
+        pony.walk(now, speed, dx, dy, physics);
+        conn.sendInput(timing.encodeSend(now + 10), bits);
     }
 }
 

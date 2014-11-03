@@ -3,6 +3,7 @@ var Vec = require('vec').Vec;
 var OP_GET_TERRAIN =        0x0001;
 var OP_UPDATE_MOTION =      0x0002;
 var OP_PING =               0x0003;
+var OP_INPUT =              0x0004;
 
 var OP_TERRAIN_CHUNK =      0x8001;
 var OP_PLAYER_MOTION =      0x8002;
@@ -75,13 +76,6 @@ Connection.prototype._handleMessage = function(evt) {
     }
 };
 
-Connection.prototype.sendPing = function(msg) {
-    var buf = new Uint16Array(2);
-    buf[0] = OP_PING;
-    buf[1] = msg;
-    this.socket.send(buf);
-};
-
 Connection.prototype.sendGetTerrain = function() {
     var buf = new Uint16Array(1);
     buf[0] = OP_GET_TERRAIN;
@@ -96,5 +90,20 @@ Connection.prototype.sendUpdateMotion = function(data) {
     var buf = new Uint16Array(1 + data.length);
     buf[0] = OP_UPDATE_MOTION;
     buf.subarray(1).set(data);
+    this.socket.send(buf);
+};
+
+Connection.prototype.sendPing = function(msg) {
+    var buf = new Uint16Array(2);
+    buf[0] = OP_PING;
+    buf[1] = msg;
+    this.socket.send(buf);
+};
+
+Connection.prototype.sendInput = function(time, input) {
+    var buf = new Uint16Array(3);
+    buf[0] = OP_INPUT;
+    buf[1] = time;
+    buf[2] = input;
     this.socket.send(buf);
 };
