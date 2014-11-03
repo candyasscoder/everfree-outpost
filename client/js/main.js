@@ -92,7 +92,7 @@ Pony.prototype.walk = function(now, speed, dx, dy) {
     this._phys.resetForecast(now, this._forecast, target_v);
     if (this.onMotionChange != null) {
         this.onMotionChange(this._forecast);
-        this._entity.setMotion(Motion.fromForecast(this._forecast, new Vec(16, 32, 16)));
+        this._entity.setMotion(Motion.fromForecast(this._forecast, new Vec(16, 32, 0)));
     }
 };
 
@@ -101,7 +101,7 @@ Pony.prototype.position = function(now) {
     this._phys.updateForecast(now, this._forecast);
     if (this._forecast.start_time != old_start && this.onMotionChange != null) {
         this.onMotionChange(this._forecast);
-        this._entity.setMotion(Motion.fromForecast(this._forecast, new Vec(16, 32, 16)));
+        this._entity.setMotion(Motion.fromForecast(this._forecast, new Vec(16, 32, 0)));
     }
 
     var pos = this._forecast.position(now);
@@ -173,6 +173,7 @@ var loader;
 var assets;
 
 var pony;
+var otherEntity;
 
 var chunks;
 var physics;
@@ -312,6 +313,8 @@ function postInit() {
     pony = new Pony(pony_sheet, 100, 100, 0, physics);
     pony.onMotionChange = sendMotionChange;
 
+    otherEntity = new Entity(pony_sheet, pony_anims, new Vec(4000, 4000, 0), {x: 48, y: 74});
+
     document.body.removeChild($('banner-bg'));
     canvas.start();
 
@@ -404,7 +407,7 @@ function frame(ctx, now) {
     ctx.translate(-camera_pos.x, -camera_pos.y);
 
 
-    var sprites = [pony.getSprite(now)];
+    var sprites = [pony.getSprite(now), otherEntity.getSprite(now)];
 
     renderer.render(ctx,
             camera_pos.x, camera_pos.y,

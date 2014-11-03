@@ -34,6 +34,8 @@ function Entity(sheet, anim_info, pos, anchor) {
     this._motion = new Motion(pos);
     this._anchor_x = anchor.x;
     this._anchor_y = anchor.y;
+
+    this.setAnimation(0, 0);
 }
 exports.Entity = Entity;
 

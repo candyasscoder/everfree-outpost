@@ -299,11 +299,8 @@ fn render_sprites(xv: &XvData,
         let max_row = (screen_y + sprite.height + TILE_SIZE - 1) / TILE_SIZE;
         let max_col = (screen_x + sprite.width + TILE_SIZE - 1) / TILE_SIZE;
 
-        callback(Empty, 0, 0,
-                 Output, min_col * TILE_SIZE, min_row * TILE_SIZE,
-                 (max_col - min_col) * TILE_SIZE, (max_row - min_row) * TILE_SIZE);
-
-        for row in range(min_row, max_row) {
+        for row in range(cmp::max(min_row, screen_min_row),
+                         cmp::min(max_row, screen_max_row)) {
             // Number of surfaces in each x,v position on this row that are entirely behind or
             // entirely below the sprite.  These counts use the same units as XvData.tiles indices,
             // so the front of one tile and the back of the adjacent tile are counted separately.
@@ -311,8 +308,15 @@ fn render_sprites(xv: &XvData,
             let below = 4 * (sprite.ref_z / TILE_SIZE) + 1;
             let limit = cmp::max(0, cmp::max(behind as i16, below as i16)) as u8;
 
-            for col in range(min_col, max_col) {
+            for col in range(cmp::max(min_col, screen_min_col),
+                             cmp::min(max_col, screen_max_col)) {
                 let start = draw_level[get_index(row, col)];
+                if start == 0 {
+                    callback(Empty, 0, 0,
+                             Output, col * TILE_SIZE, row * TILE_SIZE,
+                             TILE_SIZE, TILE_SIZE);
+                }
+
                 draw_stack(row, col, start, limit, &mut callback);
                 draw_level[get_index(row, col)] = limit;
             }
@@ -321,6 +325,9 @@ fn render_sprites(xv: &XvData,
         callback(SpriteImage(sprite.id), 0, 0,
                  Output, screen_x, screen_y,
                  sprite.width, sprite.height);
+        callback(Empty, 0, 0,
+                 Output, sprite.ref_x - 4, sprite.ref_y - sprite.ref_z - 4,
+                 8, 8);
     }
 
     for row in range(screen_min_row, screen_max_row) {
