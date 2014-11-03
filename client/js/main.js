@@ -9,6 +9,8 @@ var Sheet = require('sheet').Sheet;
 var Animation = require('sheet').Animation;
 var AssetLoader = require('loader').AssetLoader;
 var BackgroundJobRunner = require('jobs').BackgroundJobRunner;
+var Entity = require('entity').Entity;
+var Motion = require('entity').Motion;
 
 var Chunk = require('chunk').Chunk;
 var TileDef = require('chunk').TileDef;
@@ -25,9 +27,46 @@ var Connection = require('net').Connection;
 var rle16Decode = require('util').rle16Decode;
 
 
+var anim_dirs = [
+    // Start facing in +x, then cycle toward +y (clockwise, since y points
+    // downward).
+    {idx: 2, flip: false},
+    {idx: 3, flip: false},
+    {idx: 4, flip: false},
+    {idx: 3, flip: true},
+    {idx: 2, flip: true},
+    {idx: 1, flip: true},
+    {idx: 0, flip: false},
+    {idx: 1, flip: false},
+];
+
+var pony_anims = new Array(4 * anim_dirs.length);
+for (var i = 0; i < anim_dirs.length; ++i) {
+    var idx = anim_dirs[i].idx;
+    var flip = anim_dirs[i].flip;
+
+    pony_anims[i] = {
+        i: 0,
+        j: idx,
+        len: 1,
+        fps: 1,
+        flip: flip,
+    };
+
+    for (var speed = 1; speed < 4; ++speed) {
+        pony_anims[speed * anim_dirs.length + i] = {
+            i: speed,
+            j: idx * 6,
+            len: 6,
+            fps: 6 + 2 * speed,
+            flip: flip,
+        };
+    }
+}
+
 function Pony(sheet, x, y, z, physics) {
-    this._anim = new Animation(sheet);
-    this._anim.animate(0, 2, 1, 1, false, 0);
+    this._entity = new Entity(sheet, pony_anims, new Vec(x, y + 16, z), {x: 48, y: 74});
+    this._entity.setAnimation(0, 0);
     this._last_dir = { x: 1, y: 0 };
     this._forecast = new Forecast(new Vec(x - 16, y - 16, z), new Vec(32, 32, 32));
     this._phys = physics;
@@ -44,23 +83,16 @@ Pony.prototype.walk = function(now, speed, dx, dy) {
         speed = 0;
     }
 
-    var anim = this._anim;
-    var flip = dx < 0;
-    // Direction, in [0..4].  0 = north, 2 = east, 4 = south.  For western
-    // directions, we use [1..3] but also set `flip`.
-    var dir = (2 - Math.abs(dx)) * dy + 2;
-
-    if (speed == 0) {
-        anim.animate(0, dir, 1, 1, flip, now);
-    } else {
-        anim.animate(speed, 6 * dir, 6, 6 + 2 * speed, flip, now);
-    }
+    var idx = 3 * (dx + 1) + (dy + 1);
+    var dir = [5, 4, 3, 6, -1, 2, 7, 0, 1][idx];
+    this._entity.setAnimation(now, speed * anim_dirs.length + dir);
 
     var pixel_speed = 50 * speed;
     var target_v = new Vec(dx * pixel_speed, dy * pixel_speed, 0);
     this._phys.resetForecast(now, this._forecast, target_v);
     if (this.onMotionChange != null) {
         this.onMotionChange(this._forecast);
+        this._entity.setMotion(Motion.fromForecast(this._forecast, new Vec(16, 32, 16)));
     }
 };
 
@@ -69,6 +101,7 @@ Pony.prototype.position = function(now) {
     this._phys.updateForecast(now, this._forecast);
     if (this._forecast.start_time != old_start && this.onMotionChange != null) {
         this.onMotionChange(this._forecast);
+        this._entity.setMotion(Motion.fromForecast(this._forecast, new Vec(16, 32, 16)));
     }
 
     var pos = this._forecast.position(now);
@@ -78,13 +111,8 @@ Pony.prototype.position = function(now) {
 };
 
 Pony.prototype.getSprite = function(now) {
-    var sprite = new Sprite();
-    this._anim.updateSprite(now, sprite);
-
-    var pos = this.position(now).add(new Vec(0, 16, 0));
-    sprite.setDestination(pos, 48, 74 + 16);
-
-    return sprite;
+    this.position(now); // update forecast, then ignore result
+    return this._entity.getSprite(now);
 };
 
 
@@ -343,17 +371,25 @@ function frame(ctx, now) {
     if (pos.x < local_total_size / 2) {
         pony._forecast.start.x += local_total_size;
         pony._forecast.end.x += local_total_size;
+        pony._entity._motion.start_pos.x += local_total_size;
+        pony._entity._motion.end_pos.x += local_total_size;
     } else if (pos.x >= local_total_size * 3 / 2) {
         pony._forecast.start.x -= local_total_size;
         pony._forecast.end.x -= local_total_size;
+        pony._entity._motion.start_pos.x -= local_total_size;
+        pony._entity._motion.end_pos.x -= local_total_size;
     }
 
     if (pos.y < local_total_size / 2) {
         pony._forecast.start.y += local_total_size;
         pony._forecast.end.y += local_total_size;
+        pony._entity._motion.start_pos.y += local_total_size;
+        pony._entity._motion.end_pos.y += local_total_size;
     } else if (pos.y >= local_total_size * 3 / 2) {
         pony._forecast.start.y -= local_total_size;
         pony._forecast.end.y -= local_total_size;
+        pony._entity._motion.start_pos.y -= local_total_size;
+        pony._entity._motion.end_pos.y -= local_total_size;
     }
 
     pos = pony.position(now);
