@@ -152,9 +152,10 @@ $(BUILD_MIN)/outpost.js: $(JS_SRCS)
 
 # Rules for building the server
 
-$(BUILD)/backend: $(SRC)/server/backend.rs \
+$(BUILD)/backend: $(SRC)/server/main.rs \
 		$(foreach dep,$(DEPS_backend),$(BUILD_NATIVE)/lib$(dep).rlib)
-	$(RUSTC) $< -o $@ $(RUSTFLAGS_native)
+	$(RUSTC) $< -o $@ $(RUSTFLAGS_native) \
+		--dep-info $(BUILD_NATIVE)/backend.d
 
 
 # Rules for misc files

@@ -1,3 +1,4 @@
+#![crate_name = "backend"]
 #![feature(phase)]
 #![feature(tuple_indexing, if_let)]
 #![feature(macro_rules)]
@@ -21,66 +22,16 @@ use std::u16;
 use physics::{CHUNK_SIZE, CHUNK_BITS, TILE_SIZE};
 use physics::v3::{V3, scalar};
 
-fn main() {
-    real_main().unwrap()
-}
+use wire::{WireReader, WireWriter};
+use msg::Motion as WireMotion;
 
+mod msg;
+mod wire;
 
 pub type Time = u16;
 
-
-#[deriving(PartialEq, Eq, Show)]
-struct Opcode(u16);
-
-impl Opcode {
-    pub fn unwrap(self) -> u16 {
-        let Opcode(v) = self;
-        v
-    }
-}
-
-macro_rules! opcodes {
-    ($($name:ident = $value:expr,)*) => {
-        $(
-            #[allow(non_upper_case_globals, dead_code)]
-            const $name: Opcode = Opcode($value);
-        )*
-    }
-}
-
-opcodes! {
-    GetTerrain = 0x0001,
-    UpdateMotion = 0x0002,
-    Ping = 0x0003,
-    Input = 0x0004,
-
-    TerrainChunk = 0x8001,
-    PlayerMotion = 0x8002,
-    Pong = 0x8003,
-
-    AddClient = 0xff00,
-    RemoveClient = 0xff01,
-    ClientRemoved = 0xff02,
-}
-
-
-fn read_msg<R: Reader>(r: &mut R) -> IoResult<(u16, Opcode, Vec<u8>)> {
-    let id = try!(r.read_le_u16());
-    let size = try!(r.read_le_u16());
-    let opcode = try!(r.read_le_u16());
-    let body = try!(r.read_exact(size as uint - 2));
-    Ok((id, Opcode(opcode), body))
-}
-
-fn write_msg<W: Writer>(w: &mut W, id: u16, opcode: Opcode, body: &[u8]) -> IoResult<()> {
-    assert!(body.len() + 2 < std::u16::MAX as uint);
-    let size = body.len() as u16 + 2;
-    try!(w.write_le_u16(id));
-    try!(w.write_le_u16(size));
-    try!(w.write_le_u16(opcode.unwrap()));
-    try!(w.write(body));
-    try!(w.flush());
-    Ok(())
+fn main() {
+    real_main().unwrap()
 }
 
 
@@ -99,8 +50,8 @@ struct State {
 
 
 fn real_main() -> IoResult<()> {
-    let mut stdin = io::stdin();
-    let mut stdout = io::BufferedWriter::new(io::stdout().unwrap());
+    let mut input = WireReader::new(io::stdin());
+    let mut output = WireWriter::new(io::BufferedWriter::new(io::stdout().unwrap()));
 
     let mut rng = try!(StdRng::new());
 
@@ -110,30 +61,29 @@ fn real_main() -> IoResult<()> {
     };
 
     loop {
-        let (id, opcode, body) = try!(read_msg(&mut stdin));
-
-        match opcode {
-            GetTerrain => {
+        let (id, req) = try!(msg::Request::read_from(&mut input));
+        match req {
+            msg::GetTerrain => {
                 for c in range(0, 8 * 8) {
-                    let mut data = Vec::from_elem(1 + 16 * 16 + 2, 0u16);
+                    let mut data = Vec::from_elem(16 * 16 + 2, 0u16);
                     let len = data.len();
-                    data[0] = c;
                     for i in range(0, 16 * 16) {
                         if rng.gen_range(0, 10) == 0u8 {
-                            data[1 + i] = 0;
+                            data[i] = 0;
                         } else {
-                            data[1 + i] = 1;
+                            data[i] = 1;
                         }
                     }
                     data[len - 2] = 0xf000 | (16 * 16 * 15);
                     data[len - 1] = 0;
-                    try!(write_msg(&mut stdout, id, TerrainChunk, convert(data.as_slice())));
+
+                    let resp = msg::TerrainChunk(c, data);
+                    try!(resp.write_to(id, &mut output));
                 }
             },
 
-            UpdateMotion => {
+            msg::UpdateMotion(wire_motion) => {
                 if let Occupied(mut entry) = state.clients.entry(id) {
-                    let wire_motion: WireMotion = try!(Struct::decode_from(body.as_slice()));
                     let motion = entry.get().decode_wire_motion(wire_motion.start_time,
                                                                 &wire_motion);
                     log!(10, "client {} reports motion: {} @ {} -> {} @ +{}",
@@ -147,28 +97,25 @@ fn real_main() -> IoResult<()> {
                     motion.end_pos = motion.end_pos + V3::new(100, 0, 0);
                     let wire_motion2 = entry.get().encode_wire_motion(wire_motion.start_time,
                                                                       &motion);
-                    let mut msg = Vec::from_elem(0u16.size() + wire_motion2.size(), 0);
-                    try!((0u16, wire_motion2).encode_to(msg.as_mut_slice()));
-                    try!(write_msg(&mut stdout, id, PlayerMotion, msg.as_slice()));
+
+                    log!(10, "  recv: {}", wire_motion);
+                    log!(10, "  send: {}", wire_motion2);
+                    try!(msg::PlayerMotion(0, wire_motion2).write_to(id, &mut output));
                 } else {
                     warn!("got UpdateMotion for nonexistent client {}", id);
                 }
             },
 
-            Ping => {
-                let cookie: u16 = try!(Struct::decode_from(body.as_slice()));
-                let mut msg = Vec::from_elem(4, 0);
-                try!((cookie, now()).encode_to(msg.as_mut_slice()));
-                try!(write_msg(&mut stdout, id, Pong, msg.as_slice()));
+            msg::Ping(cookie) => {
+                try!(msg::Pong(cookie, now()).write_to(id, &mut output));
             },
 
-            Input => {
-                let (time, input): (u16, u16) = try!(Struct::decode_from(body.as_slice()));
+            msg::Input(time, input) => {
                 log!(10, "client {} sends input {:x} at time {}",
                      id, input, time);
             },
 
-            AddClient => {
+            msg::AddClient => {
                 let client = Client::new(id, scalar(0));
 
                 let inserted = state.clients.insert(id, client);
@@ -177,17 +124,17 @@ fn real_main() -> IoResult<()> {
                 }
             },
 
-            RemoveClient => {
+            msg::RemoveClient => {
                 let removed = state.clients.remove(&id);
                 if !removed {
                     warn!("tried to remove client {}, but that client is not connected", id);
                 }
-                try!(write_msg(&mut stdout, id, ClientRemoved, &[]));
+                msg::ClientRemoved.write_to(id, &mut output);
             },
 
-            _ => {
-                warn!("unrecognized opcode from client {}: {:x} ({} bytes)",
-                      id, opcode.unwrap(), body.len());
+            msg::BadMessage(opcode) => {
+                warn!("unrecognized opcode from client {}: {:x}",
+                      id, opcode.unwrap());
             },
         }
     }
@@ -334,129 +281,4 @@ fn world_to_local(world: V3, world_base_chunk: V3, local_base_chunk: V3) -> V3 {
 
     let offset = world - world_base;
     local_base + offset
-}
-
-
-struct WireMotion {
-    start_pos: (u16, u16, u16),
-    start_time: u16,
-    end_pos: (u16, u16, u16),
-    end_time: u16,
-}
-
-impl Struct for WireMotion {
-    fn read_from<R: Reader>(r: &mut R) -> IoResult<WireMotion> {
-        let start_pos = try!(Struct::read_from(r));
-        let start_time = try!(Struct::read_from(r));
-        let end_pos = try!(Struct::read_from(r));
-        let end_time = try!(Struct::read_from(r));
-        Ok(WireMotion {
-            start_pos: start_pos,
-            start_time: start_time,
-            end_pos: end_pos,
-            end_time: end_time,
-        })
-    }
-
-    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
-        (self.start_pos, self.start_time, self.end_pos, self.end_time).write_to(w)
-    }
-
-    fn size(&self) -> uint {
-        (self.start_pos, self.start_time, self.end_pos, self.end_time).size()
-    }
-}
-
-
-
-trait Struct {
-    fn read_from<R: Reader>(r: &mut R) -> IoResult<Self>;
-    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()>;
-    fn size(&self) -> uint;
-
-    fn decode_from(buf: &[u8]) -> IoResult<Self> {
-        Struct::read_from(&mut BufReader::new(buf))
-    }
-
-    fn encode_to(&self, buf: &mut [u8]) -> IoResult<()> {
-        self.write_to(&mut BufWriter::new(buf))
-    }
-}
-
-impl Struct for u16 {
-    fn read_from<R: Reader>(r: &mut R) -> IoResult<u16> {
-        r.read_le_u16()
-    }
-
-    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
-        w.write_le_u16(*self)
-    }
-
-    fn size(&self) -> uint { mem::size_of::<u16>() }
-}
-
-impl<A: Struct, B: Struct> Struct for (A, B) {
-    fn read_from<R: Reader>(r: &mut R) -> IoResult<(A, B)> {
-        let a = try!(Struct::read_from(r));
-        let b = try!(Struct::read_from(r));
-        Ok((a, b))
-    }
-
-    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
-        let (ref a, ref b) = *self;
-        try!(a.write_to(w));
-        try!(b.write_to(w));
-        Ok(())
-    }
-
-    fn size(&self) -> uint {
-        let (ref a, ref b) = *self;
-        a.size() + b.size()
-    }
-}
-
-impl<A: Struct, B: Struct, C: Struct> Struct for (A, B, C) {
-    fn read_from<R: Reader>(r: &mut R) -> IoResult<(A, B, C)> {
-        let a = try!(Struct::read_from(r));
-        let b = try!(Struct::read_from(r));
-        let c = try!(Struct::read_from(r));
-        Ok((a, b, c))
-    }
-
-    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
-        let (ref a, ref b, ref c) = *self;
-        try!(a.write_to(w));
-        try!(b.write_to(w));
-        try!(c.write_to(w));
-        Ok(())
-    }
-
-    fn size(&self) -> uint {
-        let (ref a, ref b, ref c) = *self;
-        a.size() + b.size() + c.size()
-    }
-}
-
-impl<A: Struct, B: Struct, C: Struct, D: Struct> Struct for (A, B, C, D) {
-    fn read_from<R: Reader>(r: &mut R) -> IoResult<(A, B, C, D)> {
-        let a = try!(Struct::read_from(r));
-        let b = try!(Struct::read_from(r));
-        let c = try!(Struct::read_from(r));
-        let d = try!(Struct::read_from(r));
-        Ok((a, b, c, d))
-    }
-
-    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
-        let (ref a, ref b, ref c, ref d) = *self;
-        try!(a.write_to(w));
-        try!(b.write_to(w));
-        try!(c.write_to(w));
-        try!(d.write_to(w));
-        Ok(())
-    }
-
-    fn size(&self) -> uint {
-        let (ref a, ref b, ref c, ref d) = *self;
-        a.size() + b.size() + c.size() + d.size()
-    }
 }
