@@ -24,14 +24,29 @@ use physics::v3::{V3, scalar};
 
 use wire::{WireReader, WireWriter};
 use msg::Motion as WireMotion;
+use msg::{Request, Response, ClientId};
 
 mod msg;
 mod wire;
+mod tasks;
 
 pub type Time = u16;
 
 fn main() {
-    real_main().unwrap()
+    let (req_send, req_recv) = channel();
+    let (resp_send, resp_recv) = channel();
+
+    spawn(proc() {
+        let reader = io::stdin();
+        tasks::run_input(reader, req_send).unwrap();
+    });
+
+    spawn(proc() {
+        let writer = io::BufferedWriter::new(io::stdout().unwrap());
+        tasks::run_output(writer, resp_recv).unwrap();
+    });
+
+    real_main(req_recv, resp_send)
 }
 
 
@@ -49,19 +64,16 @@ struct State {
 }
 
 
-fn real_main() -> IoResult<()> {
-    let mut input = WireReader::new(io::stdin());
-    let mut output = WireWriter::new(io::BufferedWriter::new(io::stdout().unwrap()));
-
-    let mut rng = try!(StdRng::new());
+fn real_main(reqs: Receiver<(ClientId, Request)>,
+             resps: Sender<(ClientId, Response)>) {
+    let mut rng = StdRng::new().unwrap();
 
     let mut state = State {
         map: [[0, ..CHUNK_TOTAL], ..LOCAL_TOTAL],
         clients: HashMap::new(),
     };
 
-    loop {
-        let (id, req) = try!(msg::Request::read_from(&mut input));
+    for (id, req) in reqs.iter() {
         match req {
             msg::GetTerrain => {
                 for c in range(0, 8 * 8) {
@@ -77,8 +89,7 @@ fn real_main() -> IoResult<()> {
                     data[len - 2] = 0xf000 | (16 * 16 * 15);
                     data[len - 1] = 0;
 
-                    let resp = msg::TerrainChunk(c, data);
-                    try!(resp.write_to(id, &mut output));
+                    resps.send((id, msg::TerrainChunk(c, data)));
                 }
             },
 
@@ -100,14 +111,14 @@ fn real_main() -> IoResult<()> {
 
                     log!(10, "  recv: {}", wire_motion);
                     log!(10, "  send: {}", wire_motion2);
-                    try!(msg::PlayerMotion(0, wire_motion2).write_to(id, &mut output));
+                    resps.send((id, msg::PlayerMotion(0, wire_motion2)));
                 } else {
                     warn!("got UpdateMotion for nonexistent client {}", id);
                 }
             },
 
             msg::Ping(cookie) => {
-                try!(msg::Pong(cookie, now()).write_to(id, &mut output));
+                resps.send((id, msg::Pong(cookie, now())));
             },
 
             msg::Input(time, input) => {
@@ -129,7 +140,7 @@ fn real_main() -> IoResult<()> {
                 if !removed {
                     warn!("tried to remove client {}, but that client is not connected", id);
                 }
-                msg::ClientRemoved.write_to(id, &mut output);
+                resps.send((id, msg::ClientRemoved));
             },
 
             msg::BadMessage(opcode) => {
