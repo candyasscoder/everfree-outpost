@@ -20,11 +20,11 @@ mod std {
 // Essential lang items.  These would normally be provided by librustrt.
 
 #[inline(always)] #[cold]
-#[lang = "fail_fmt"]
-extern fn lang_fail_fmt(args: &core::fmt::Arguments,
+#[lang = "panic_fmt"]
+extern fn lang_panic_fmt(args: &core::fmt::Arguments,
                         file: &'static str,
                         line: uint) -> ! {
-    format_args!(raw_println, "task failed at {}:{}: {}", file, line, args);
+    format_args!(raw_println, "task panicked at {}:{}: {}", file, line, args);
     unsafe { core::intrinsics::abort() };
 }
 
@@ -32,7 +32,7 @@ extern fn lang_fail_fmt(args: &core::fmt::Arguments,
 #[lang = "stack_exhausted"]
 extern fn lang_stack_exhausted() -> ! {
     unsafe {
-        let s = "task failed - stack exhausted";
+        let s = "task panicked - stack exhausted";
         write_str(s.as_ptr(), s.len() as i32);
         flush_str();
     }
