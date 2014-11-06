@@ -111,6 +111,12 @@ Pony.prototype.getSprite = function(now) {
     return this._entity.getSprite(now);
 };
 
+Pony.prototype.translateMotion = function(offset) {
+    this._entity.translateMotion(offset);
+    this._forecast.start = this._forecast.start.add(offset);
+    this._forecast.end = this._forecast.end.add(offset);
+};
+
 
 function bakeSpriteSheet(runner, assets) {
     var width = assets['pony_f_base'].width;
@@ -379,37 +385,46 @@ function handlePlayerMotion(id, motion) {
     otherEntity.setMotion(m);
 }
 
+function localSprite(now, entity, camera_mid) {
+    var local_px = CHUNK_SIZE * TILE_SIZE * LOCAL_SIZE;
+    if (camera_mid == null) {
+        camera_mid = new Vec(local_px, local_px, 0);
+    }
+    var min = camera_mid.subScalar((local_px / 2)|0);
+    var max = camera_mid.addScalar((local_px / 2)|0);
+
+    var sprite = entity.getSprite(now);
+
+    var adjusted = false;
+
+    if (sprite.ref_x < min.x) {
+        entity.translateMotion(new Vec(local_px, 0, 0));
+        adjusted = true;
+    } else if (sprite.ref_x >= max.x) {
+        entity.translateMotion(new Vec(-local_px, 0, 0));
+        adjusted = true;
+    }
+
+    if (sprite.ref_y < min.y) {
+        entity.translateMotion(new Vec(0, local_px, 0));
+        adjusted = true;
+    } else if (sprite.ref_y >= max.y) {
+        entity.translateMotion(new Vec(0, -local_px, 0));
+        adjusted = true;
+    }
+
+    if (adjusted) {
+        sprite = entity.getSprite(now);
+    }
+    return sprite;
+}
+
 function frame(ctx, now) {
     debug.frameStart();
-    var pos = pony.position(now);
 
-    var local_total_size = CHUNK_SIZE * TILE_SIZE * LOCAL_SIZE;
-
-    if (pos.x < local_total_size / 2) {
-        pony._forecast.start.x += local_total_size;
-        pony._forecast.end.x += local_total_size;
-        pony._entity._motion.start_pos.x += local_total_size;
-        pony._entity._motion.end_pos.x += local_total_size;
-    } else if (pos.x >= local_total_size * 3 / 2) {
-        pony._forecast.start.x -= local_total_size;
-        pony._forecast.end.x -= local_total_size;
-        pony._entity._motion.start_pos.x -= local_total_size;
-        pony._entity._motion.end_pos.x -= local_total_size;
-    }
-
-    if (pos.y < local_total_size / 2) {
-        pony._forecast.start.y += local_total_size;
-        pony._forecast.end.y += local_total_size;
-        pony._entity._motion.start_pos.y += local_total_size;
-        pony._entity._motion.end_pos.y += local_total_size;
-    } else if (pos.y >= local_total_size * 3 / 2) {
-        pony._forecast.start.y -= local_total_size;
-        pony._forecast.end.y -= local_total_size;
-        pony._entity._motion.start_pos.y -= local_total_size;
-        pony._entity._motion.end_pos.y -= local_total_size;
-    }
-
-    pos = pony.position(now);
+    pony.position(now); // update physics
+    var pony_sprite = localSprite(now, pony);
+    var pos = pony_sprite.refPosition();
     debug.updatePos(pos);
 
     var camera_size = new Vec(ctx.canvas.width|0, ctx.canvas.height|0, 0);
@@ -421,7 +436,7 @@ function frame(ctx, now) {
     ctx.translate(-camera_pos.x, -camera_pos.y);
 
 
-    var sprites = [pony.getSprite(now), otherEntity.getSprite(now)];
+    var sprites = [pony_sprite, localSprite(now, otherEntity, pos)];
 
     renderer.render(ctx,
             camera_pos.x, camera_pos.y,

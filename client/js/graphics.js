@@ -169,6 +169,10 @@ function Sprite() {
 }
 exports.Sprite = Sprite;
 
+Sprite.prototype.refPosition = function() {
+    return new Vec(this.ref_x, this.ref_y, this.ref_z);
+};
+
 Sprite.prototype.setSource = function(image, offset_x, offset_y, width, height) {
     this.image = image;
     this.offset_x = offset_x;

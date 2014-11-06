@@ -26,6 +26,11 @@ Motion.fromForecast = function(forecast, offset) {
     return m;
 };
 
+Motion.prototype.translate = function(offset) {
+    this.start_pos = this.start_pos.add(offset);
+    this.end_pos = this.end_pos.add(offset);
+};
+
 
 /** @constructor */
 function Entity(sheet, anim_info, pos, anchor) {
@@ -38,6 +43,10 @@ function Entity(sheet, anim_info, pos, anchor) {
     this.setAnimation(0, 0);
 }
 exports.Entity = Entity;
+
+Entity.prototype.position = function(now) {
+    return this._motion.position(now);
+};
 
 Entity.prototype.getSprite = function(now) {
     var sprite = new Sprite();
@@ -58,4 +67,8 @@ Entity.prototype.setAnimation = function(now, anim_id) {
 
 Entity.prototype.setMotion = function(motion) {
     this._motion = motion;
+};
+
+Entity.prototype.translateMotion = function(offset) {
+    this._motion.translate(offset);
 };
