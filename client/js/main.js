@@ -71,7 +71,6 @@ function Pony(sheet, x, y, z, physics) {
     this._last_dir = { x: 1, y: 0 };
     this._forecast = new Forecast(new Vec(x - 16, y - 16, z), new Vec(32, 32, 32));
     this._phys = physics;
-    this.onMotionChange = null;
     this._phys.resetForecast(0, this._forecast, new Vec(0, 0, 0));
 }
 
@@ -91,17 +90,13 @@ Pony.prototype.walk = function(now, speed, dx, dy) {
     var pixel_speed = 50 * speed;
     var target_v = new Vec(dx * pixel_speed, dy * pixel_speed, 0);
     this._phys.resetForecast(now, this._forecast, target_v);
-    if (this.onMotionChange != null) {
-        this.onMotionChange(this._forecast);
-        this._entity.setMotion(Motion.fromForecast(this._forecast, new Vec(16, 32, 0)));
-    }
+    this._entity.setMotion(Motion.fromForecast(this._forecast, new Vec(16, 32, 0)));
 };
 
 Pony.prototype.position = function(now) {
     var old_start = this._forecast.start_time;
     this._phys.updateForecast(now, this._forecast);
-    if (this._forecast.start_time != old_start && this.onMotionChange != null) {
-        this.onMotionChange(this._forecast);
+    if (this._forecast.start_time != old_start) {
         this._entity.setMotion(Motion.fromForecast(this._forecast, new Vec(16, 32, 0)));
     }
 
@@ -340,7 +335,6 @@ function connOpen() {
 
     var pony_sheet = new Sheet(bakeSpriteSheet(runner, assets), 96, 96);
     pony = new Pony(pony_sheet, 100, 100, 0, physics);
-    pony.onMotionChange = sendMotionChange;
 
     otherEntity = new Entity(pony_sheet, pony_anims, new Vec(4000, 4000, 0), {x: 48, y: 74});
 
@@ -383,19 +377,6 @@ function handlePlayerMotion(id, motion) {
         m.end_time += 0x10000;
     }
     otherEntity.setMotion(m);
-}
-
-function sendMotionChange(forecast) {
-    var data = new Uint16Array(8);
-    data[0] = forecast.start.x;
-    data[1] = forecast.start.y;
-    data[2] = forecast.start.z;
-    data[3] = timing.encodeSend(forecast.start_time);
-    data[4] = forecast.end.x;
-    data[5] = forecast.end.y;
-    data[6] = forecast.end.z;
-    data[7] = timing.encodeSend(forecast.end_time);
-    conn.sendUpdateMotion(data);
 }
 
 function frame(ctx, now) {
