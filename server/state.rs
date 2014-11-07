@@ -266,6 +266,9 @@ impl State {
     }
 
     pub fn update_input(&mut self, now: Time, id: ClientId, input: u16) -> bool {
+        if !self.clients.contains_key(&id) {
+            return false;
+        }
         let client = &mut self.clients[id];
         if client.current_input == input {
             return false;

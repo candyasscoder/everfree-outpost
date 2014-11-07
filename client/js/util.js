@@ -62,3 +62,21 @@ exports.rle16Decode = function(input, output) {
     }
     return j;
 };
+
+
+exports.decodeUtf8 = function(view) {
+    var utf8_buffer = '';
+    var saw_utf8 = false;
+    for (var i = 0; i < len; ++i) {
+        var byte_ = view[i];
+        utf8_buffer += String.fromCharCode(byte_);
+        if (byte_ >= 0x80) {
+            saw_utf8 = true;
+        }
+    }
+
+    if (saw_utf8) {
+        utf8_buffer = decodeURIComponent(escape(utf8_buffer));
+    }
+    return utf8_buffer;
+};

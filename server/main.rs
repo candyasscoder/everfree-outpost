@@ -25,6 +25,7 @@ use physics::v3::{V3, scalar};
 use wire::{WireReader, WireWriter};
 use msg::Motion as WireMotion;
 use msg::{Request, Response, ClientId};
+use state::EntityId;
 
 mod msg;
 mod wire;
@@ -83,11 +84,7 @@ fn handle_req(state: &mut state::State,
               req: Request) {
     match req {
         msg::GetTerrain => {
-            for c in range(0, 8 * 8) {
-                let data = state.get_terrain_rle16(c);
-                log!(9, "  data for chunk {}: {} x u16", c, data.len());
-                resps.send((id, msg::TerrainChunk(c as u16, data)));
-            }
+            warn!("client {} used deprecated opcode GetTerrain", id);
         },
 
         msg::UpdateMotion(wire_motion) => {
@@ -100,13 +97,40 @@ fn handle_req(state: &mut state::State,
 
         msg::Input(time, input) => {
             let now = now();
-            state.update_input(now, id, input);
-            let motion = entity_motion(now, state.client_entity(id).unwrap());
-            resps.send((id, msg::PlayerMotion(0, motion)));
+            let updated = state.update_input(now, id, input);
+            if updated {
+                let ce = state.client_entity(id).unwrap();
+                let motion = entity_motion(now, ce);
+                let anim = ce.entity.anim;
+                resps.send((id, msg::EntityUpdate(ce.client.entity_id, motion, anim)));
+            }
+        },
+
+        msg::Login(secret, name) => {
+            log!(10, "login request for {}", name);
+            state.add_client(now(), id);
+
+            let info = msg::InitData {
+                entity_id: id as EntityId,
+                camera_pos: (0, 0),
+                chunks: 8 * 8,
+                entities: 1,
+            };
+            resps.send((id, msg::Init(info)));
+
+            for c in range(0, 8 * 8) {
+                let data = state.get_terrain_rle16(c);
+                resps.send((id, msg::TerrainChunk(c as u16, data)));
+            }
+
+            let ce = state.client_entity(id).unwrap();
+            let motion = entity_motion(now(), ce);
+            let anim = ce.entity.anim;
+            resps.send((id, msg::EntityUpdate(ce.client.entity_id, motion, anim)));
         },
 
         msg::AddClient => {
-            state.add_client(now(), id);
+            //state.add_client(now(), id);
         },
 
         msg::RemoveClient => {

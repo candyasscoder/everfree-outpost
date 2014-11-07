@@ -4,6 +4,7 @@ use super::Time;
 
 use wire;
 use wire::{WireReader, WireWriter};
+use state::EntityId;
 
 
 pub type ClientId = u16;
@@ -50,10 +51,15 @@ pub mod op {
         UpdateMotion = 0x0002,
         Ping = 0x0003,
         Input = 0x0004,
+        Login = 0x0005,
 
         TerrainChunk = 0x8001,
         PlayerMotion = 0x8002,
         Pong = 0x8003,
+        EntityUpdate = 0x8004,
+        Init = 0x8005,
+        KickReason = 0x8006,
+        // TODO: EntityAdd, EntityRemove
 
         AddClient = 0xff00,
         RemoveClient = 0xff01,
@@ -68,6 +74,7 @@ pub enum Request {
     UpdateMotion(Motion),
     Ping(u16),
     Input(Time, u16),
+    Login([u32, ..4], String),
 
     // Control messages
     AddClient,
@@ -90,6 +97,10 @@ impl Request {
                 let (a, b): (Time, u16) = try!(wr.read());
                 Input(a, b)
             },
+            op::Login => {
+                let ((a0, a1, a2, a3), b): ((u32, u32, u32, u32), String) = try!(wr.read());
+                Login([a0, a1, a2, a3], b)
+            },
             op::AddClient => AddClient,
             op::RemoveClient => RemoveClient,
             _ => BadMessage(opcode),
@@ -108,6 +119,9 @@ pub enum Response {
     TerrainChunk(u16, Vec<u16>),
     PlayerMotion(u16, Motion),
     Pong(u16, Time),
+    EntityUpdate(EntityId, Motion, u16),
+    Init(InitData),
+    KickReason(String),
 
     ClientRemoved,
 }
@@ -115,12 +129,38 @@ pub enum Response {
 impl Response {
     pub fn write_to<W: Writer>(&self, id: ClientId, ww: &mut WireWriter<W>) -> IoResult<()> {
         try!(match *self {
-            TerrainChunk(idx, ref data) => ww.write_msg(id, (op::TerrainChunk, idx, data.as_slice())),
-            PlayerMotion(entity, ref motion) => ww.write_msg(id, (op::PlayerMotion, entity, motion)),
-            Pong(data, time) => ww.write_msg(id, (op::Pong, data, time)),
-            ClientRemoved => ww.write_msg(id, (op::ClientRemoved)),
+            TerrainChunk(idx, ref data) =>
+                ww.write_msg(id, (op::TerrainChunk, idx, data.as_slice())),
+            PlayerMotion(entity, ref motion) =>
+                ww.write_msg(id, (op::PlayerMotion, entity, motion)),
+            Pong(data, time) =>
+                ww.write_msg(id, (op::Pong, data, time)),
+            EntityUpdate(entity_id, motion, anim) =>
+                ww.write_msg(id, (op::EntityUpdate, entity_id, motion, anim)),
+            Init(ref data) =>
+                ww.write_msg(id, (op::Init, data.flatten())),
+            KickReason(ref msg) =>
+                ww.write_msg(id, (op::KickReason, msg)),
+
+            ClientRemoved =>
+                ww.write_msg(id, (op::ClientRemoved)),
         })
         ww.flush()
+    }
+}
+
+
+pub struct InitData {
+    pub entity_id: EntityId,
+    pub camera_pos: (u16, u16),
+    pub chunks: u8,
+    pub entities: u8,
+}
+
+impl InitData {
+    fn flatten(self) -> (EntityId, (u16, u16), u8, u8) {
+        let InitData { entity_id, camera_pos, chunks, entities } = self;
+        (entity_id, camera_pos, chunks, entities)
     }
 }
 

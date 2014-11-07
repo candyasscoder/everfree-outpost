@@ -174,8 +174,9 @@ var runner;
 var loader;
 var assets;
 
-var pony;
-var otherEntity;
+var pony_sheet;
+var entities;
+var player_entity;
 
 var chunks;
 var physics;
@@ -205,8 +206,8 @@ function init() {
     loader.onload = postInit;
     initAssets(loader);
 
-    pony = null;
-    otherEntity = null;
+    entities = {};
+    player_entity = -1;
 
     chunks = initChunks();
     physics = new Physics();
@@ -287,37 +288,27 @@ function initInput() {
     });
 
     function updateWalkDir() {
-        var dx = 0;
-        var dy = 0;
-        var speed = 1;
-
         var bits = 0;
 
         if (dirs_held['Left']) {
-            dx -= 1;
             bits |= INPUT_LEFT;
         }
         if (dirs_held['Right']) {
-            dx += 1;
             bits |= INPUT_RIGHT;
         }
 
         if (dirs_held['Up']) {
-            dy -= 1;
             bits |= INPUT_UP;
         }
         if (dirs_held['Down']) {
-            dy += 1;
             bits |= INPUT_DOWN;
         }
 
         if (dirs_held['Shift']) {
-            speed = 3;
             bits |= INPUT_RUN;
         }
 
         var now = Date.now();
-        pony.walk(now, speed, dx, dy, physics);
         conn.sendInput(timing.encodeSend(now + 10), bits);
     }
 }
@@ -331,21 +322,25 @@ function postInit() {
     $('banner-text').textContent = 'Connecting to server...';
     conn = new Connection('ws://' + window.location.host + '/ws');
     conn.onOpen = connOpen;
+    conn.onInit = handleInit;
     conn.onTerrainChunk = handleTerrainChunk;
-    conn.onPlayerMotion = handlePlayerMotion;
+    conn.onEntityUpdate = handleEntityUpdate;
 }
 
 function connOpen() {
     timing = new Timing(conn);
-    conn.sendGetTerrain();
+    conn.sendLogin([1, 2, 3, 4], "Pony");
 
-    var pony_sheet = new Sheet(bakeSpriteSheet(runner, assets), 96, 96);
-    pony = new Pony(pony_sheet, 100, 100, 0, physics);
+    pony_sheet = new Sheet(bakeSpriteSheet(runner, assets), 96, 96);
 
     otherEntity = new Entity(pony_sheet, pony_anims, new Vec(4000, 4000, 0), {x: 48, y: 74});
 
     document.body.removeChild($('banner-bg'));
     canvas.start();
+}
+
+function handleInit(entity_id, camera_x, camera_y, chunks, entities) {
+    player_entity = entity_id;
 }
 
 function handleTerrainChunk(i, data) {
@@ -372,9 +367,10 @@ function handleTerrainChunk(i, data) {
     });
 }
 
-function handlePlayerMotion(id, motion) {
-    var m = new Motion(motion.start_pos);
-    m.end_pos = motion.end_pos;
+function handleEntityUpdate(id, motion, anim) {
+    var offset = new Vec(16, 32, 0);
+    var m = new Motion(motion.start_pos.add(offset));
+    m.end_pos = motion.end_pos.add(offset);
 
     var now = Date.now();
     m.start_time = timing.decodeRecv(motion.start_time, now);
@@ -382,7 +378,12 @@ function handlePlayerMotion(id, motion) {
     if (m.end_time < m.start_time) {
         m.end_time += 0x10000;
     }
-    otherEntity.setMotion(m);
+
+    if (entities[id] == null) {
+        entities[id] = new Entity(pony_sheet, pony_anims, motion.start_pos, {x: 48, y: 90});
+    }
+    entities[id].setMotion(m);
+    entities[id].setAnimation(m.start_time, anim);
 }
 
 function localSprite(now, entity, camera_mid) {
@@ -422,9 +423,12 @@ function localSprite(now, entity, camera_mid) {
 function frame(ctx, now) {
     debug.frameStart();
 
-    pony.position(now); // update physics
-    var pony_sprite = localSprite(now, pony);
-    var pos = pony_sprite.refPosition();
+    var pos = new Vec(4096, 4096, 0);
+    var pony = null;
+    if (player_entity >= 0 && entities[player_entity] != null) {
+        pos = entities[player_entity].position(now);
+        pony = entities[player_entity];
+    }
     debug.updatePos(pos);
 
     var camera_size = new Vec(ctx.canvas.width|0, ctx.canvas.height|0, 0);
@@ -436,7 +440,12 @@ function frame(ctx, now) {
     ctx.translate(-camera_pos.x, -camera_pos.y);
 
 
-    var sprites = [pony_sprite, localSprite(now, otherEntity, pos)];
+    var entity_ids = Object.getOwnPropertyNames(entities);
+    var sprites = new Array(entity_ids.length);
+    for (var i = 0; i < entity_ids.length; ++i) {
+        var entity = entities[entity_ids[i]];
+        sprites[i] = localSprite(now, entity, pos);
+    }
 
     renderer.render(ctx,
             camera_pos.x, camera_pos.y,
@@ -444,31 +453,33 @@ function frame(ctx, now) {
             sprites);
 
 
-    // Draw pony motion forecast
-    var fc = pony._forecast;
+    if (pony != null) {
+        // Draw pony motion forecast
+        //var fc = pony._forecast;
+        var fc = pony._motion;
 
-    if (fc.start.z != 0) {
-        ctx.strokeStyle = '#880';
+        if (fc.start_pos.z != 0) {
+            ctx.strokeStyle = '#880';
+            ctx.beginPath();
+            ctx.moveTo(fc.start_pos.x, fc.start_pos.y);
+            ctx.lineTo(fc.start_pos.x, fc.start_pos.y - fc.start_pos.z);
+            ctx.stroke();
+        }
+
+        if (fc.end_pos.z != 0) {
+            ctx.strokeStyle = '#880';
+            ctx.beginPath();
+            ctx.moveTo(fc.end_pos.x, fc.end_pos.y);
+            ctx.lineTo(fc.end_pos.x, fc.end_pos.y - fc.end_pos.z);
+            ctx.stroke();
+        }
+
+        ctx.strokeStyle = '#cc0';
         ctx.beginPath();
-        ctx.moveTo(fc.start.x + 16, fc.start.y + 16);
-        ctx.lineTo(fc.start.x + 16, fc.start.y + 16 - fc.start.z);
+        ctx.moveTo(fc.start_pos.x, fc.start_pos.y - fc.start_pos.z);
+        ctx.lineTo(fc.end_pos.x, fc.end_pos.y - fc.end_pos.z);
         ctx.stroke();
     }
-
-    if (fc.end.z != 0) {
-        ctx.strokeStyle = '#880';
-        ctx.beginPath();
-        ctx.moveTo(fc.end.x + 16, fc.end.y + 16);
-        ctx.lineTo(fc.end.x + 16, fc.end.y + 16 - fc.end.z);
-        ctx.stroke();
-    }
-
-    ctx.strokeStyle = '#cc0';
-    ctx.beginPath();
-    ctx.moveTo(fc.start.x + 16, fc.start.y + 16 - fc.start.z);
-    ctx.lineTo(fc.end.x + 16, fc.end.y + 16 - fc.end.z);
-    ctx.stroke();
-
 
     debug.frameEnd();
 

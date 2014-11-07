@@ -283,3 +283,25 @@ impl<'a, A: WriteToFixed> WriteToFixed for &'a A {
         WriteToFixed::size_fixed(None::<A>)
     }
 }
+
+
+impl ReadFrom for String {
+    fn read_from<R: Reader>(r: &mut R, bytes: uint) -> IoResult<String> {
+        let bytes: Vec<u8> = try!(ReadFrom::read_from(r, bytes));
+        Ok(String::from_utf8_lossy(bytes.as_slice()).into_string())
+    }
+
+    fn size(_: Option<String>) -> (uint, uint) {
+        (0, 1)
+    }
+}
+
+impl WriteTo for String {
+    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
+        self.as_bytes().write_to(w)
+    }
+
+    fn size(&self) -> uint {
+        self.len()
+    }
+}

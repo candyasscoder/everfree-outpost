@@ -93,7 +93,14 @@ Animation.prototype.drawAt = function(ctx, now, x, y) {
 
 Animation.prototype.updateSprite = function(now, sprite) {
     var anim = this._anim;
-    var frame = Math.floor((now - anim.start) * anim.fps / 1000) % anim.len;
+
+    var delta = now - anim.start;
+    var raw_frame = ((delta * anim.fps + (delta < 0 ? -999 : 0)) / 1000)|0;
+    var frame = raw_frame % anim.len;
+    if (frame < 0) {
+        frame = (frame + anim.len) % anim.len;
+    }
+
     this.sheet.updateSprite(sprite, anim.i, anim.j + frame);
     sprite.setFlip(anim.flip);
 };
