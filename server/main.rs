@@ -99,10 +99,15 @@ fn handle_req(state: &mut state::State,
             let now = now();
             let updated = state.update_input(now, id, input);
             if updated {
-                let ce = state.client_entity(id).unwrap();
-                let motion = entity_motion(now, ce);
-                let anim = ce.entity.anim;
-                resps.send((id, msg::EntityUpdate(ce.client.entity_id, motion, anim)));
+                let (entity_id, motion, anim) = {
+                    let ce = state.client_entity(id).unwrap();
+                    (ce.client.entity_id,
+                     entity_motion(now, ce),
+                     ce.entity.anim)
+                };
+                for &send_id in state.clients.keys() {
+                    resps.send((send_id, msg::EntityUpdate(entity_id, motion, anim)));
+                }
             }
         },
 
