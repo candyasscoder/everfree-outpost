@@ -5,3 +5,6 @@ sprites/frontwingmare.png
 sprites/backwingmare.png
 sprites/maremane1.png
 sprites/maretail1.png
+
+shaders/terrain.vert
+shaders/terrain.frag
