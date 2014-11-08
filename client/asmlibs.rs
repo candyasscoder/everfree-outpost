@@ -11,6 +11,7 @@ extern crate graphics;
 use core::prelude::*;
 use core::mem;
 use core::raw;
+use asmrt::run_callback;
 use physics::v3::{V3, scalar};
 use physics::{Shape, ShapeSource};
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK};
@@ -77,19 +78,16 @@ pub extern fn collide_wrapper(input: &CollideArgs, output: &mut CollideResult) {
 #[export_name = "render"]
 pub extern fn render(xv_data: &XvData,
                      x: u16, y: u16, w: u16, h: u16,
-                     sprites_ptr: *mut Sprite, sprites_len: i32) {
-    extern {
-        fn run_callback(src: u16, sx: u16, sy: u16,
-                        dst: u16, dx: u16, dy: u16,
-                        width: u16, height: u16);
-    }
+                     sprites_ptr: *mut Sprite, sprites_len: i32,
+                     draw_terrain_idx: i32,
+                     draw_sprite_idx: i32) {
+    let draw_terrain = |cx: u16, cy: u16, begin: u16, end: u16| {
+        let args = [cx as i32, cy as i32, begin as i32, end as i32];
+        run_callback(draw_terrain_idx, args.as_slice());
+    };
 
-    let cb = |src, sx, sy, dst, dx, dy, w, h| {
-        unsafe {
-            run_callback(src, sx, sy,
-                         dst, dx, dy,
-                         w, h);
-        }
+    let draw_sprite = |id: u16, x: u16, y: u16| {
+        run_callback(draw_sprite_idx, [id as i32, x as i32, y as i32].as_slice());
     };
 
     let sprites = unsafe {
@@ -99,7 +97,7 @@ pub extern fn render(xv_data: &XvData,
         })
     };
 
-    graphics::render(xv_data, x, y, w, h, sprites, cb);
+    graphics::render(xv_data, x, y, w, h, sprites, draw_terrain, draw_sprite);
 }
 
 #[export_name = "update_xv_data"]

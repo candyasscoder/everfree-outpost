@@ -247,39 +247,40 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
     this.terrain_program.setUniform2f('cameraPos', sx, sy);
     this.terrain_program.setUniform2f('cameraSize', sw, sh);
 
-    var chunk_px = CHUNK_SIZE * TILE_SIZE;
-    var cx0 = (sx / chunk_px)|0;
-    var cy0 = (sy / chunk_px)|0;
-    var cx1 = ((sx + sw + chunk_px - 1) / chunk_px)|0;
-    var cy1 = ((sy + sh + chunk_px - 1) / chunk_px)|0;
+    var log = [];
 
-    gl.enableVertexAttribArray(posAttr);
-    gl.enableVertexAttribArray(texAttr);
-    this.atlas_texture.bind();
+    var this_ = this;
 
-    for (var cy = cy0; cy < cy1; ++cy) {
-        for (var cx = cx0; cx < cx1; ++cx) {
-            var i = cy % LOCAL_SIZE;
-            var j = cx % LOCAL_SIZE;
-            var idx = i * LOCAL_SIZE + j;
+    function draw_terrain(cx, cy, begin, end) {
+        log.push(['terrain', cx, cy, begin, end]);
+        gl.enableVertexAttribArray(posAttr);
+        gl.enableVertexAttribArray(texAttr);
+        this_.atlas_texture.bind();
 
-            if (this._chunk_points[idx] == 0) {
-                continue;
-            }
+        this_.terrain_program.setUniform2f('chunkPos', cx, cy);
 
-            this.terrain_program.setUniform2f('chunkPos', cx, cy);
+        var i = cy % LOCAL_SIZE;
+        var j = cx % LOCAL_SIZE;
+        var idx = i * LOCAL_SIZE + j;
 
-            this._chunk_buffer[idx].bind();
-            gl.vertexAttribPointer(posAttr, 2, gl.UNSIGNED_BYTE, false, 4, 0);
-            gl.vertexAttribPointer(texAttr, 2, gl.UNSIGNED_BYTE, false, 4, 2);
-            gl.drawArrays(gl.TRIANGLES, 0, this._chunk_points[idx]);
-            this._chunk_buffer[idx].unbind();
-        }
+        this_._chunk_buffer[idx].bind();
+        gl.vertexAttribPointer(posAttr, 2, gl.UNSIGNED_BYTE, false, 4, 0);
+        gl.vertexAttribPointer(texAttr, 2, gl.UNSIGNED_BYTE, false, 4, 2);
+        gl.drawArrays(gl.TRIANGLES, 0, this_._chunk_points[idx]);
+        this_._chunk_buffer[idx].unbind();
+
+        this_.atlas_texture.unbind();
+        gl.disableVertexAttribArray(posAttr);
+        gl.disableVertexAttribArray(texAttr);
     }
 
-    this.atlas_texture.unbind();
-    gl.disableVertexAttribArray(posAttr);
-    gl.disableVertexAttribArray(texAttr);
+    function draw_sprite(id, x, y) {
+        log.push(['sprite', id, x, y]);
+    }
+
+    this._asm.render(sx, sy, sw, sh, sprites, draw_terrain, draw_sprite);
+
+    console.log(log.join(' ; '));
 };
 
 

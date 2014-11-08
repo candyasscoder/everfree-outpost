@@ -276,7 +276,8 @@ pub fn render(xv: &XvData,
               width: u16,
               height: u16,
               sprites: &mut [Sprite],
-              callback: |Surface, u16, u16, Surface, u16, u16, u16, u16|) {
+              draw_terrain: |u16, u16, u16, u16|,
+              draw_sprite: |u16, u16, u16|) {
     let chunk_px = CHUNK_SIZE * TILE_SIZE;
 
     let min_i = y / chunk_px;
@@ -288,16 +289,19 @@ pub fn render(xv: &XvData,
         for raw_j in range(min_j, max_j) {
             let i = raw_i % LOCAL_SIZE;
             let j = raw_j % LOCAL_SIZE;
-            let idx = i * LOCAL_SIZE + j;
+            let idx = (i * LOCAL_SIZE + j) as uint;
 
-            callback(ChunkCache(idx as u8), 0, 0,
-                     Output, raw_j * chunk_px, (raw_i - 1) * chunk_px,
-                     chunk_px, chunk_px * 2);
+            let chunk = &xv.chunks[idx];
+            let xv_idx = (CHUNK_SIZE * CHUNK_SIZE - 1) as uint;
+            let u_idx = (CHUNK_SIZE * 4 - 1) as uint;
+            let base = chunk.bases[xv_idx];
+            let offset = chunk.offsets[xv_idx][u_idx];
+            draw_terrain(raw_j, raw_i, 0, base + offset as u16);
         }
     }
 
-    quicksort(sprites, SpriteUV);
-    render_sprites(xv, x, y, width, height, sprites, callback);
+    //quicksort(sprites, SpriteUV);
+    //render_sprites(xv, x, y, width, height, sprites, callback);
 }
 
 const LEVEL_BUFFER_SIZE: uint = 1024;

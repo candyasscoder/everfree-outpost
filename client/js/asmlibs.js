@@ -27,7 +27,7 @@ var HEAP_START = STACK_END;
 
 var msg_buffer = '';
 
-var module_env = function(buffer, callback_handler) {
+var module_env = function(buffer, callback_array) {
     return ({
         'abort': function() {
             console.assert(false, 'abort');
@@ -61,10 +61,13 @@ var module_env = function(buffer, callback_handler) {
             msg_buffer = '';
         },
 
-        'runCallback': callback_handler || (function() {
-            console.assert(false, 'tried to use callback, but there was no callback handler');
-            throw 'no callback handler';
-        }),
+        'runCallback': function(index, arg_base, arg_len) {
+            var cb = callback_array[index];
+            console.assert(cb != null, 'bad callback index: ', index);
+
+            var args = new Int32Array(buffer, arg_base, arg_len);
+            return cb.apply(window, args);
+        },
 
         'STACK_START': STACK_START,
         'STACK_END': STACK_END,
@@ -113,15 +116,17 @@ var SIZEOF = (function() {
 // window.Asm wrapper
 
 /** @constructor */
-function Asm(heap_size, callback_handler) {
+function Asm(heap_size) {
     // Buffer size must be a multiple of 4k.
     var min_size = HEAP_START + heap_size;
     // TODO: properly implement the actual asm.js heap size rules
     var buffer_size = (min_size + 0x0ffff) & ~0x0ffff;
     this.buffer = new ArrayBuffer(buffer_size);
 
+    this._callbacks = [];
+
     this.memcpy(STATIC_START, static_data);
-    this._raw = module(window, module_env(this.buffer, callback_handler), this.buffer);
+    this._raw = module(window, module_env(this.buffer, this._callbacks), this.buffer);
 }
 exports.Asm = Asm;
 
@@ -136,6 +141,16 @@ Asm.prototype._stackFree = function(view) {
     this._raw['__adjust_stack'](-((size + 7) & ~7));
 };
 
+Asm.prototype._callbackAlloc = function(cb) {
+    this._callbacks.push(cb);
+    return this._callbacks.length - 1;
+};
+
+Asm.prototype._callbackFree = function(idx) {
+    console.assert(idx == this._callbacks.length - 1);
+    this._callbacks.pop();
+};
+
 Asm.prototype._storeVec = function(view, offset, v) {
     view[offset + 0] = v.x;
     view[offset + 1] = v.y;
@@ -145,6 +160,7 @@ Asm.prototype._storeVec = function(view, offset, v) {
 Asm.prototype.memcpy = function(dest_offset, data) {
     memcpy(this.buffer, dest_offset, data.buffer, data.byteOffset, data.byteLength);
 };
+
 
 Asm.prototype.collide = function(pos, size, velocity) {
     var input = this._stackAlloc(Int32Array, 9);
@@ -194,7 +210,10 @@ var XV_END = XV_START + SIZEOF.XvData;
 
 var RENDER_HEAP_END = XV_END;
 
-Asm.prototype.render = function(x, y, w, h, sprites) {
+Asm.prototype.render = function(x, y, w, h, sprites, draw_terrain, draw_sprite) {
+    var draw_terrain_idx = this._callbackAlloc(draw_terrain);
+    var draw_sprite_idx = this._callbackAlloc(draw_sprite);
+
     var view = this.spritesView();
     for (var i = 0; i < sprites.length; ++i) {
         var base = i * 8;
@@ -209,7 +228,11 @@ Asm.prototype.render = function(x, y, w, h, sprites) {
         view[base + 7] = sprite.anchor_y;
     }
 
-    this._raw['render'](XV_START, x, y, w, h, SPRITES_START, sprites.length);
+    this._raw['render'](XV_START, x, y, w, h, SPRITES_START, sprites.length,
+            draw_terrain_idx, draw_sprite_idx);
+
+    this._callbackFree(draw_sprite_idx);
+    this._callbackFree(draw_terrain_idx);
 };
 
 Asm.prototype.updateXvData = function(i, j) {

@@ -73,3 +73,13 @@ macro_rules! println {
         format_args!(::asmrt::raw_println, $str $($rest)*)
     }
 }
+
+
+// Generic interface for calling back into Javascript code.
+
+pub fn run_callback(idx: i32, args: &[i32]) -> i32 {
+    extern {
+        fn run_callback(idx: i32, arg_base: *const i32, arg_len: i32) -> i32;
+    }
+    unsafe { run_callback(idx, args.as_ptr(), args.len() as i32) }
+}
