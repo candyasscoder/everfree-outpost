@@ -168,7 +168,6 @@ function bakeSpriteSheet(runner, assets) {
 
 
 var canvas;
-var ctx;
 var debug;
 var runner;
 var loader;
@@ -180,20 +179,14 @@ var player_entity;
 
 var chunks;
 var physics;
-var renderer;
+var renderer = null;
 
 var conn;
 var timing;
 
 function init() {
-    canvas = new AnimCanvas(frame);
+    canvas = new AnimCanvas(frame, 'webgl');
     document.body.appendChild(canvas.canvas);
-
-    ctx = canvas.ctx;
-    ctx.fillStyle = '#f0f';
-    ctx.strokeStyle = '#0ff';
-    ctx.imageSmoothingEnabled = false;
-    ctx.mozImageSmoothingEnabled = false;
 
     debug = new DebugMonitor();
     document.body.appendChild(debug.container);
@@ -212,7 +205,8 @@ function init() {
     chunks = initChunks();
     physics = new Physics();
     var tile_sheet = new Sheet(assets['tiles'], 32, 32);
-    renderer = new Renderer(tile_sheet);
+
+    renderer = new Renderer(canvas.ctx);
 
     initInput();
 }
@@ -236,6 +230,9 @@ function initAssets() {
         }
         renderer.loadBlockData(TileDef.by_id);
     });
+
+    loader.addText('terrain.frag', 'assets/shaders/terrain.frag');
+    loader.addText('terrain.vert', 'assets/shaders/terrain.vert');
 }
 
 function initChunks() {
@@ -325,6 +322,8 @@ function postInit() {
     conn.onInit = handleInit;
     conn.onTerrainChunk = handleTerrainChunk;
     conn.onEntityUpdate = handleEntityUpdate;
+
+    renderer.initGl(assets);
 }
 
 function connOpen() {
@@ -420,7 +419,46 @@ function localSprite(now, entity, camera_mid) {
     return sprite;
 }
 
-function frame(ctx, now) {
+
+function frame(gl, now) {
+    debug.frameStart();
+
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+
+    var pos = new Vec(4096, 4096, 0);
+    var pony = null;
+    if (player_entity >= 0 && entities[player_entity] != null) {
+        pos = entities[player_entity].position(now);
+        pony = entities[player_entity];
+    }
+    debug.updatePos(pos);
+
+    var camera_size = new Vec(gl.canvas.width|0, gl.canvas.height|0, 0);
+    var camera_pos = pos.sub(camera_size.divScalar(2));
+
+
+    var entity_ids = Object.getOwnPropertyNames(entities);
+    var sprites = new Array(entity_ids.length);
+    for (var i = 0; i < entity_ids.length; ++i) {
+        var entity = entities[entity_ids[i]];
+        sprites[i] = localSprite(now, entity, pos);
+    }
+
+    renderer.render(gl,
+            camera_pos.x, camera_pos.y,
+            gl.canvas.width, gl.canvas.height,
+            sprites);
+
+    debug.frameEnd();
+    debug.updateJobs(runner);
+}
+
+
+
+
+function frame_2d(ctx, now) {
     debug.frameStart();
 
     var pos = new Vec(4096, 4096, 0);

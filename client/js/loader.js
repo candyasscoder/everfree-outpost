@@ -18,33 +18,65 @@ AssetLoader.prototype.addImage = function(name, url, callback) {
     };
 
     img.src = url;
-    this._addPendingAsset(name, img);
+    if (name != null) {
+        this.assets[name] = img;
+    }
+    this._addPendingAsset();
 };
 
 AssetLoader.prototype.addJson = function(name, url, callback) {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-
-    xhr.responseType = 'json';
-
-    var this_ = this;
-    xhr.onreadystatechange = function() {
-        if (this.readyState == XMLHttpRequest.DONE) {
-            if (callback != null) {
-                callback(this.response);
-            }
-            this_._handleAssetLoad();
-        }
-    };
-
-    xhr.send();
-    this._addPendingAsset(name, xhr);
+    this._addXhr(name, url, 'json', callback);
 };
 
-AssetLoader.prototype._addPendingAsset = function(name, asset) {
+AssetLoader.prototype._addXhr = function(name, url, type, callback) {
+    var elt = null;
     if (name != null) {
-        this.assets[name] = asset;
+        elt = document.getElementById('asset-' + name);
     }
+
+    if (elt == null) {
+        console.log('send xhr for', name, url);
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+
+        xhr.responseType = type;
+
+        var this_ = this;
+        xhr.onreadystatechange = function() {
+            if (this.readyState == XMLHttpRequest.DONE) {
+                if (name != null) {
+                    this_.assets[name] = this.response;
+                }
+                if (callback != null) {
+                    callback(this.response);
+                }
+                this_._handleAssetLoad();
+            }
+        };
+
+        xhr.send();
+        this._addPendingAsset();
+    } else {
+        console.log('read element for', name, url);
+        var value = elt.textContent;
+        if (type == 'json') {
+            value = JSON.parse(value);
+        }
+
+        if (name != null) {
+            this.assets[name] = value;
+        }
+        if (callback != null) {
+            callback(value);
+        }
+    }
+};
+
+AssetLoader.prototype.addText = function(name, url, callback) {
+    this._addXhr(name, url, 'text', callback);
+};
+
+AssetLoader.prototype._addPendingAsset = function() {
     this.pending += 1;
     this._handleProgress();
 };

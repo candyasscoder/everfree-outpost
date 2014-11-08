@@ -81,7 +81,36 @@ function memcpy(dest_buffer, dest_offset, src_buffer, src_offset, len) {
 }
 
 
-// window.RawAsm wrapper
+// Buffer size computations
+var SIZEOF = (function() {
+    var buffer = new ArrayBuffer((HEAP_START + 0xffff) & ~0xffff);
+    memcpy(buffer, STATIC_START,
+            static_data.buffer, static_data.byteOffset, static_data.byteLength);
+    var asm = module(window, module_env(buffer), buffer);
+
+    var EXPECT_SIZES = 5;
+    var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
+    var base = asm['__adjust_stack'](alloc);
+
+    asm['get_sizes'](base + 4, base);
+
+    var view = new Int32Array(buffer, base, 1 + EXPECT_SIZES);
+    console.assert(view[0] == EXPECT_SIZES,
+            'expected sizes for ' + EXPECT_SIZES + ' types, but got ' + view[0]);
+
+    console.log(view);
+
+    return ({
+        XvData: view[1],
+        Sprite: view[2],
+        BlockData: view[3],
+        ChunkData: view[4],
+        GeometryBuffer: view[5],
+    });
+})();
+
+
+// window.Asm wrapper
 
 /** @constructor */
 function Asm(heap_size, callback_handler) {
@@ -146,25 +175,24 @@ Asm.prototype.chunkShapeView = function(idx) {
 };
 
 
+var RENDER_HEAP_START = HEAP_START;
+
 var BLOCKS_START = HEAP_START;
-var BLOCKS_LEN = 1024 * 4;
-var BLOCKS_SIZE = BLOCKS_LEN * 2;
-var BLOCKS_END = BLOCKS_START + BLOCKS_SIZE;
+var BLOCKS_END = BLOCKS_START + SIZEOF.BlockData;
 
 var CHUNK_START = BLOCKS_END;
-var CHUNK_LEN = 16 * 16 * 16;
-var CHUNK_SIZE = CHUNK_LEN * 2;
-var CHUNK_END = CHUNK_START + CHUNK_SIZE;
+var CHUNK_END = CHUNK_START + SIZEOF.ChunkData;
 
-var XV_START = CHUNK_END;
-var XV_LEN = 8 * 8 * 16 * 16 * 16 * 4;
-var XV_SIZE = XV_LEN * 2;
-var XV_END = XV_START + XV_SIZE;
+var SPRITES_START = CHUNK_END;
+var SPRITES_END = SPRITES_START + SIZEOF.Sprite * 1024;
 
-var SPRITES_START = XV_END;
-var SPRITES_LEN = 8 * 1024;
-var SPRITES_SIZE = SPRITES_LEN * 2;
-var SPRITES_END = SPRITES_START + SPRITES_SIZE;
+var GEOM_START = SPRITES_END;
+var GEOM_END = GEOM_START + SIZEOF.GeometryBuffer;
+
+var XV_START = GEOM_END;
+var XV_END = XV_START + SIZEOF.XvData;
+
+var RENDER_HEAP_END = XV_END;
 
 Asm.prototype.render = function(x, y, w, h, sprites) {
     var view = this.spritesView();
@@ -188,24 +216,32 @@ Asm.prototype.updateXvData = function(i, j) {
     this._raw['update_xv_data'](XV_START, BLOCKS_START, CHUNK_START, i, j);
 };
 
-Asm.getRendererHeapSize = function() {
-    return BLOCKS_SIZE + CHUNK_SIZE + XV_SIZE + SPRITES_SIZE;
+Asm.prototype.generateGeometry = function(i, j) {
+    var count = this._stackAlloc(Int32Array, 1);
+    this._raw['generate_geometry'](XV_START, GEOM_START, i, j, count.byteOffset);
+    var result = this.geomView().subarray(0, 4 * count[0]);
+    this._stackFree(count);
+    return result;
 };
 
-Asm.prototype.xvDataView = function() {
-    return new Uint16Array(this.buffer, XV_START, XV_LEN);
+Asm.getRendererHeapSize = function() {
+    return RENDER_HEAP_END - RENDER_HEAP_START;
 };
 
 Asm.prototype.blockDataView = function() {
-    return new Uint16Array(this.buffer, BLOCKS_START, BLOCKS_LEN);
+    return new Uint16Array(this.buffer, BLOCKS_START, SIZEOF.BlockData >> 1);
 };
 
 Asm.prototype.chunkDataView = function() {
-    return new Uint16Array(this.buffer, CHUNK_START, CHUNK_LEN);
+    return new Uint16Array(this.buffer, CHUNK_START, SIZEOF.ChunkData >> 1);
 };
 
 Asm.prototype.spritesView = function() {
-    return new Uint16Array(this.buffer, SPRITES_START, SPRITES_LEN);
+    return new Uint16Array(this.buffer, SPRITES_START, (SIZEOF.Sprite * 1024) >> 1);
+};
+
+Asm.prototype.geomView = function() {
+    return new Uint8Array(this.buffer, GEOM_START, SIZEOF.GeometryBuffer);
 };
 
 

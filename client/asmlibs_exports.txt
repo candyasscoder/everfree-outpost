@@ -1,4 +1,6 @@
-collide
+get_sizes
 test
+collide
 render
 update_xv_data
+generate_geometry

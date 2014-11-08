@@ -12,6 +12,7 @@
 extern crate physics;
 
 use core::prelude::*;
+use core::cell::Cell;
 use core::cmp;
 use core::fmt;
 use core::iter::range_inclusive;
@@ -110,64 +111,138 @@ impl<'a> RenderContext<'a> {
 }
 
 
-struct XvItem {
-    tiles: [u16, ..(CHUNK_SIZE * 4) as uint],
+type XvOffsets = [u8, ..(CHUNK_SIZE * 4) as uint];
+type XvTiles = [u16, ..(CHUNK_SIZE * 4) as uint];
+
+struct XvChunk {
+    bases: [u16, ..1 << (2 * CHUNK_BITS)],
+    offsets: [XvOffsets, ..1 << (2 * CHUNK_BITS)],
+    tiles: [XvTiles, ..1 << (2 * CHUNK_BITS)],
 }
 
-pub type XvData = [XvItem, ..1 << (2 * (CHUNK_BITS + LOCAL_BITS))];
-
-unsafe fn _static_assert() {
-    use core::mem;
-    let _ = mem::transmute::<XvItem, [u16, ..(CHUNK_SIZE * 4) as uint]>(mem::zeroed());
+pub struct XvData {
+    chunks: [XvChunk, ..1 << (2 * LOCAL_BITS)],
 }
 
 pub fn update_xv(xv: &mut XvData, blocks: &BlockData, chunk: &ChunkData, i: u8, j: u8) {
-    let base_v = i as u16 * CHUNK_SIZE;
-    let base_x = j as u16 * CHUNK_SIZE;
+    let i = i as uint;
+    let j = j as uint;
+    let chunk_idx0 = (i << LOCAL_BITS) + j;
+    let i1 = (i + LOCAL_SIZE as uint - 1) % LOCAL_SIZE as uint;
+    let chunk_idx1 = (i1 << LOCAL_BITS) + j;
 
-    fn get_chunk_idx(x: u16, u: u16, v: u16) -> uint {
-        let y = (u + v) / 2;
-        let z = (u - v) / 2;
-        ((z * CHUNK_SIZE + y) * CHUNK_SIZE + x) as uint
-    }
+    let mut counter = 10u;
 
-    fn get_xv_idx(x: u16, v: u16) -> uint {
-        (v as uint << (CHUNK_BITS + LOCAL_BITS)) + x as uint
-    }
+    let mut copy = |&mut: x: u16, u: u16, v: u16,
+                          chunk_idx: uint,
+                          cx: u16, cu: u16, cv: u16,
+                          upper: bool| {
+        let tiles_idx = ((v << CHUNK_BITS) + x) as uint;
+        let stack = &mut xv.chunks[chunk_idx].tiles[tiles_idx];
 
-    let mut copy = |&mut: lower, local_x, local_u: u16, local_v, chunk_x, chunk_u, chunk_v| {
-        let chunk_idx = get_chunk_idx(chunk_x, chunk_u, chunk_v);
-        let xv_idx = get_xv_idx(local_x, local_v);
-        if lower {
-            xv[xv_idx].tiles[local_u as uint * 2 + 0] = blocks[chunk[chunk_idx] as uint].bottom;
-            xv[xv_idx].tiles[local_u as uint * 2 + 1] = blocks[chunk[chunk_idx] as uint].front;
+        let cy = (cu + cv) / 2;
+        let cz = (cu - cv) / 2;
+        let tile = chunk[((cz * CHUNK_SIZE + cy) * CHUNK_SIZE + cx) as uint];
+        let block = &blocks[tile as uint];
+
+        if upper {
+            stack[2 * u as uint + 0] = block.back;
+            stack[2 * u as uint + 1] = block.top;
         } else {
-            xv[xv_idx].tiles[local_u as uint * 2 + 0] = blocks[chunk[chunk_idx] as uint].back;
-            xv[xv_idx].tiles[local_u as uint * 2 + 1] = blocks[chunk[chunk_idx] as uint].top;
+            stack[2 * u as uint + 0] = block.bottom;
+            stack[2 * u as uint + 1] = block.front;
         }
     };
 
-    for chunk_v_base in range(0, CHUNK_SIZE) {
-        for chunk_x in range(0, CHUNK_SIZE) {
-            let local_x = (base_x + chunk_x) % (CHUNK_SIZE * LOCAL_SIZE);
-            let local_v0 = (base_v + chunk_v_base) % (CHUNK_SIZE * LOCAL_SIZE);
-            let local_v1 = (base_v - chunk_v_base - 1) % (CHUNK_SIZE * LOCAL_SIZE);
+    for v in range(0, CHUNK_SIZE) {
+        let base_cu = CHUNK_SIZE - v - 1;
+        let base_cv = -base_cu;
+        for x in range(0, CHUNK_SIZE) {
+            for k in range(0, 2 * v + 1) {
+                let odd = k % 2 == 1;
 
-            let num_blocks = 2 * (CHUNK_SIZE - chunk_v_base) - 1;
-            for offset_u in range(0, num_blocks) {
-                let lower = offset_u % 2 == 0;
-                let local_u0 = offset_u;
-                let local_u1 = 2 * CHUNK_SIZE - num_blocks + offset_u;
+                let u = k + 2 * (CHUNK_SIZE - v) - 1;
 
-                let chunk_x = chunk_x;
-                let chunk_u = chunk_v_base + offset_u;
-                let chunk_v = chunk_v_base + (!lower) as u16;
+                let cx = x;
+                let cu = base_cu + k;
+                let cv = base_cv - (odd as u16);
 
-                copy(lower, local_x, local_u0, local_v0, chunk_x, chunk_u, chunk_v);
-                copy(!lower, local_x, local_u1, local_v1, chunk_x, chunk_u, -chunk_v);
+                copy(x, u, v, chunk_idx1, cx, cu, cv, !odd);
             }
         }
     }
+
+    for v in range(0, CHUNK_SIZE) {
+        let base_cu = v;
+        let base_cv = v;
+        for x in range(0, CHUNK_SIZE) {
+            for k in range(0, 2 * (CHUNK_SIZE - v) - 1) {
+                let odd = k % 2 == 1;
+
+                let u = k;
+
+                let cx = x;
+                let cu = base_cu + k;
+                let cv = base_cv + (odd as u16);
+
+                copy(x, u, v, chunk_idx0, cx, cu, cv, odd);
+            }
+        }
+    }
+}
+
+pub struct VertexData {
+    x: u8,
+    y: u8,
+    s: u8,
+    t: u8,
+}
+// Each chunk has CHUNK_SIZE^3 blocks, each block has 4 faces, each face has 6 vertices.
+const FACE_VERTS: uint = 6;
+pub type GeometryBuffer = [VertexData, ..(4 * FACE_VERTS) << (3 * CHUNK_BITS)];
+
+
+pub fn generate_geometry(xv: &mut XvData,
+                         geom: &mut GeometryBuffer,
+                         i: u8, j: u8) -> uint {
+    let mut pos = Cell::new(0);
+
+    let mut push = |&mut: x, y, s, t| {
+        geom[pos.get()] = VertexData { x: x, y: y, s: s, t: t };
+        pos.set(pos.get() + 1);
+    };
+    let mut push_face = |&mut: x: u16, y: u16, tile: u16| {
+        let (x, y) = (x as u8, y as u8);
+        let s = (tile % ATLAS_SIZE) as u8;
+        let t = (tile / ATLAS_SIZE) as u8;
+
+        push(x,     y,     s,     t    );
+        push(x,     y + 1, s,     t + 1);
+        push(x + 1, y + 1, s + 1, t + 1);
+
+        push(x,     y,     s,     t    );
+        push(x + 1, y + 1, s + 1, t + 1);
+        push(x + 1, y,     s + 1, t    );
+
+    };
+
+    let chunk = &mut xv.chunks[((i << LOCAL_BITS) + j) as uint];
+
+    for v in range(0, CHUNK_SIZE) {
+        for x in range(0, CHUNK_SIZE) {
+            let idx = (v * CHUNK_SIZE + x) as uint;
+            chunk.bases[idx] = (pos.get() / FACE_VERTS) as u16;
+            for u in range(0, 4 * CHUNK_SIZE) {
+                let tile = chunk.tiles[idx][u as uint];
+                if tile != 0 {
+                    push_face(x, v, tile);
+                }
+                chunk.offsets[idx][u as uint] = (pos.get() / FACE_VERTS) as u8;
+            }
+        }
+    }
+
+    pos.get()
 }
 
 
@@ -234,6 +309,7 @@ fn render_sprites(xv: &XvData,
                   height: u16,
                   sprites: &mut [Sprite],
                   mut callback: |Surface, u16, u16, Surface, u16, u16, u16, u16|) {
+    /*
     let screen_min_row = y / TILE_SIZE;
     let screen_min_col = x / TILE_SIZE;
     let screen_max_row = (y + height + TILE_SIZE - 1) / TILE_SIZE;
@@ -338,6 +414,7 @@ fn render_sprites(xv: &XvData,
             }
         }
     }
+    */
 }
 
 

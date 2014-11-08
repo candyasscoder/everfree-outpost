@@ -5,27 +5,213 @@ var TILE_SIZE = require('chunk').TILE_SIZE;
 var LOCAL_SIZE = require('chunk').LOCAL_SIZE;
 
 
-/** @constructor */
-function Renderer(tile_sheet) {
-    this.tile_sheet = tile_sheet;
+function compile_shader(gl, type, src) {
+    var shader = gl.createShader(type);
 
-    var chunk_total = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
-    var local_total = LOCAL_SIZE * LOCAL_SIZE;
+    gl.shaderSource(shader, src);
+    gl.compileShader(shader);
 
-    var this_ = this;
-    function handler(src, sx, sy, dst, dx, dy, w, h) {
-        this_._renderCallback(src, sx, sy, dst, dx, dy, w, h);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.log('shader error', gl.getShaderInfoLog(shader));
+        return null;
     }
-    this._asm = new Asm(Asm.getRendererHeapSize(), handler);
 
-    this._chunks = [];
-    this._chunk_images = [];
+    return shader;
+}
+
+/** @constructor */
+function Program(gl, vert_src, frag_src) {
+    var vert = compile_shader(gl, gl.VERTEX_SHADER, vert_src);
+    var frag = compile_shader(gl, gl.FRAGMENT_SHADER, frag_src);
+
+    this.gl = gl;
+
+    this.program = gl.createProgram();
+    gl.attachShader(this.program, vert);
+    gl.attachShader(this.program, frag);
+    gl.linkProgram(this.program);
+
+    this._locations = {};
+}
+
+Program.prototype.use = function() {
+    this.gl.useProgram(this.program);
+};
+
+Program.prototype.getUniformLocation = function(name) {
+    if (!(name in this._locations)) {
+        this._locations[name] = this.gl.getUniformLocation(this.program, name);
+    }
+    return this._locations[name];
+};
+
+Program.prototype.getAttributeLocation = function(name) {
+    if (!(name in this._locations)) {
+        this._locations[name] = this.gl.getAttribLocation(this.program, name);
+    }
+    return this._locations[name];
+};
+
+Program.prototype.setUniform1i = function(name, v0) {
+    var loc = this.getUniformLocation(name);
+    if (loc == null) {
+        return;
+    }
+    this.use();
+    this.gl.uniform1i(loc, v0);
+};
+
+Program.prototype.setUniform2i = function(name, v0, v1) {
+    var loc = this.getUniformLocation(name);
+    if (loc == null) {
+        return;
+    }
+    this.use();
+    this.gl.uniform2i(loc, v0, v1);
+};
+
+Program.prototype.setUniform3i = function(name, v0, v1, v2) {
+    var loc = this.getUniformLocation(name);
+    if (loc == null) {
+        return;
+    }
+    this.use();
+    this.gl.uniform3i(loc, v0, v1, v2);
+};
+
+Program.prototype.setUniform4i = function(name, v0, v1, v2, v3) {
+    var loc = this.getUniformLocation(name);
+    if (loc == null) {
+        return;
+    }
+    this.use();
+    this.gl.uniform4i(loc, v0, v1, v2, v3);
+};
+
+Program.prototype.setUniform1f = function(name, v0) {
+    var loc = this.getUniformLocation(name);
+    if (loc == null) {
+        return;
+    }
+    this.use();
+    this.gl.uniform1f(loc, v0);
+};
+
+Program.prototype.setUniform2f = function(name, v0, v1) {
+    var loc = this.getUniformLocation(name);
+    if (loc == null) {
+        return;
+    }
+    this.use();
+    this.gl.uniform2f(loc, v0, v1);
+};
+
+Program.prototype.setUniform3f = function(name, v0, v1, v2) {
+    var loc = this.getUniformLocation(name);
+    if (loc == null) {
+        return;
+    }
+    this.use();
+    this.gl.uniform3f(loc, v0, v1, v2);
+};
+
+Program.prototype.setUniform4f = function(name, v0, v1, v2, v3) {
+    var loc = this.getUniformLocation(name);
+    if (loc == null) {
+        return;
+    }
+    this.use();
+    this.gl.uniform4f(loc, v0, v1, v2, v3);
+};
+
+
+/** @constructor */
+function Texture(gl) {
+    this.gl = gl;
+    this.texture = gl.createTexture();
+}
+
+Texture.prototype.bind = function() {
+    this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+};
+
+Texture.prototype.unbind = function() {
+    this.gl.bindTexture(this.gl.TEXTURE_2D, null);
+};
+
+Texture.prototype.loadImage = function(image) {
+    this.bind();
+
+    var gl = this.gl;
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    this.unbind();
+};
+
+
+/** @constructor */
+function Buffer(gl) {
+    this.gl = gl;
+    this.buffer = gl.createBuffer();
+}
+
+Buffer.prototype.bind = function() {
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer);
+};
+
+Buffer.prototype.unbind = function() {
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
+};
+
+Buffer.prototype.loadData = function(data) {
+    var gl = this.gl;
+    this.bind();
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    this.unbind();
+};
+
+
+/** @constructor */
+function Renderer(gl) {
+    this.gl = gl;
+    this._asm = new Asm(Asm.getRendererHeapSize());
+
+    this._chunk_buffer = new Array(LOCAL_SIZE * LOCAL_SIZE);
+    this._chunk_points = new Array(LOCAL_SIZE * LOCAL_SIZE);
     for (var i = 0; i < LOCAL_SIZE * LOCAL_SIZE; ++i) {
-        this._chunk_images[i] = null;
+        this._chunk_buffer[i] = new Buffer(gl);
+        this._chunk_points[i] = 0;
     }
 }
 exports.Renderer = Renderer;
 
+Renderer.prototype.initGl = function(assets) {
+    var gl = this.gl;
+
+    gl.clearColor(0, 0, 0, 1);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+    var terrain_vert = assets['terrain.vert'];
+    var terrain_frag = assets['terrain.frag'];
+    this.terrain_program = new Program(gl, terrain_vert, terrain_frag);
+
+    var atlas = assets['tiles'];
+    this.atlas_texture = new Texture(gl);
+    this.atlas_texture.loadImage(atlas);
+
+    this.terrain_program.setUniform2f('atlasSize',
+            (atlas.width / TILE_SIZE)|0,
+            (atlas.height / TILE_SIZE)|0);
+    console.log('atlas size = ',
+            (atlas.width / TILE_SIZE)|0,
+            (atlas.height / TILE_SIZE)|0);
+    this.terrain_program.setUniform1i('atlasSampler', 0);
+};
 
 Renderer.prototype.loadBlockData = function(blocks) {
     var view = this._asm.blockDataView();
@@ -42,113 +228,58 @@ Renderer.prototype.loadBlockData = function(blocks) {
 Renderer.prototype.loadChunk = function(i, j, chunk) {
     var idx = i * LOCAL_SIZE + j;
 
-    this._chunks[idx] = chunk;
-    if (this._chunk_images[idx] == null) {
-        var width = CHUNK_SIZE * TILE_SIZE;
-        var height = CHUNK_SIZE * TILE_SIZE * 2;
-        this._chunk_images[idx] = new OffscreenContext(width, height);
-    }
-    this._renderChunkImage(chunk, this._chunk_images[idx]);
-
     this._asm.chunkDataView().set(chunk._tiles);
     i = (idx / LOCAL_SIZE)|0;
     j = (idx % LOCAL_SIZE);
     this._asm.updateXvData(i, j);
-};
 
-Renderer.prototype._renderChunkImage = function(chunk, ctx) {
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    var sheet = this.tile_sheet;
-    function maybe_draw(display, sx, sy) {
-        if (display == 0) {
-            return;
-        }
-        sheet.drawInto(ctx, display >> 5, display & 0x1f, sx, sy);
-    }
-
-    for (var z = 0; z < CHUNK_SIZE; ++z) {
-        for (var y = 0; y < CHUNK_SIZE; ++y) {
-            for (var x = 0; x < CHUNK_SIZE; ++x) {
-                var sx = x * TILE_SIZE;
-                var sy_offset = (y - z) * TILE_SIZE;
-                var sy1 = sy_offset + CHUNK_SIZE * TILE_SIZE;
-                var sy0 = sy1 - TILE_SIZE;
-
-                var tile = chunk.get(x, y, z);
-                maybe_draw(tile.back, sx, sy0);
-                maybe_draw(tile.bottom, sx, sy1);
-                maybe_draw(tile.top, sx, sy0);
-                maybe_draw(tile.front, sx, sy1);
-            }
-        }
-    }
-};
-
-Renderer.prototype._renderCallback = function(src, sx, sy, dst, dx, dy, w, h) {
-    var src_img;
-    var flip = false;
-    if (src == 0) {
-        src_img = null;
-    } else if (src == 1) {
-        src_img = this._cur_ctx.canvas;
-    } else if (src == 2) {
-        src_img = this.tile_sheet.image;
-    } else if (8 <= src && src < 64) {
-        console.assert(false, 'render caches are not supported yet');
-    } else if (64 <= src && src < 128) {
-        var img_ctx = this._chunk_images[src - 64];
-        src_img = img_ctx != null ? img_ctx.canvas : null;
-    } else if (128 <= src) {
-        var sprite = this._cur_sprites[src - 128];
-        src_img = sprite.image;
-        sx += sprite.offset_x;
-        sy += sprite.offset_y;
-        flip = sprite.flip;
-    } else {
-        console.assert(false, 'bad source ID', src);
-    }
-
-    var dst_ctx;
-    if (dst == 0) {
-        return;
-    } else if (dst == 1) {
-        dst_ctx = this._cur_ctx;
-    } else if (dst == 2) {
-        console.assert(false, 'tile atlas is read-only');
-    } else if (8 <= dst && dst < 64) {
-        console.assert(false, 'render caches are not supported yet');
-    } else if (64 <= dst && dst < 128) {
-        dst_ctx = this._chunk_images[dst - 64];
-    } else if (128 <= dst) {
-        console.assert(false, 'sprite images are read-only');
-    } else {
-        console.assert(false, 'bad destination ID', dst);
-    }
-
-    if (dst_ctx == null) {
-        return;
-    }
-
-    if (src_img == null) {
-        dst_ctx.clearRect(dx, dy, w, h);
-    } else {
-        if (flip) {
-            dst_ctx.save();
-            dst_ctx.scale(-1, 1);
-            dx = -dx - w;
-        }
-        dst_ctx.drawImage(src_img, sx, sy, w, h, dx, dy, w, h);
-        dst_ctx.strokeRect(dx, dy, w, h);
-        if (flip) {
-            dst_ctx.restore();
-        }
-    }
+    var geom = this._asm.generateGeometry(i, j);
+    this._chunk_buffer[idx].loadData(geom);
+    this._chunk_points[idx] = (geom.length / 4)|0;
 };
 
 Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
-    this._cur_ctx = ctx;
-    this._cur_sprites = sprites;
-    this._asm.render(sx, sy, sw, sh, sprites);
+    var gl = this.gl;
+
+    var posAttr = this.terrain_program.getAttributeLocation('position');
+    var texAttr = this.terrain_program.getAttributeLocation('texCoord');
+
+    this.terrain_program.setUniform2f('cameraPos', sx, sy);
+    this.terrain_program.setUniform2f('cameraSize', sw, sh);
+
+    var chunk_px = CHUNK_SIZE * TILE_SIZE;
+    var cx0 = (sx / chunk_px)|0;
+    var cy0 = (sy / chunk_px)|0;
+    var cx1 = ((sx + sw + chunk_px - 1) / chunk_px)|0;
+    var cy1 = ((sy + sh + chunk_px - 1) / chunk_px)|0;
+
+    gl.enableVertexAttribArray(posAttr);
+    gl.enableVertexAttribArray(texAttr);
+    this.atlas_texture.bind();
+
+    for (var cy = cy0; cy < cy1; ++cy) {
+        for (var cx = cx0; cx < cx1; ++cx) {
+            var i = cy % LOCAL_SIZE;
+            var j = cx % LOCAL_SIZE;
+            var idx = i * LOCAL_SIZE + j;
+
+            if (this._chunk_points[idx] == 0) {
+                continue;
+            }
+
+            this.terrain_program.setUniform2f('chunkPos', cx, cy);
+
+            this._chunk_buffer[idx].bind();
+            gl.vertexAttribPointer(posAttr, 2, gl.UNSIGNED_BYTE, false, 4, 0);
+            gl.vertexAttribPointer(texAttr, 2, gl.UNSIGNED_BYTE, false, 4, 2);
+            gl.drawArrays(gl.TRIANGLES, 0, this._chunk_points[idx]);
+            this._chunk_buffer[idx].unbind();
+        }
+    }
+
+    this.atlas_texture.unbind();
+    gl.disableVertexAttribArray(posAttr);
+    gl.disableVertexAttribArray(texAttr);
 };
 
 

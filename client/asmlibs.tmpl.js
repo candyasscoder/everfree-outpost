@@ -141,9 +141,11 @@ var asmlibs_code_raw = function(global, env, buffer) {
 
     return ({
         __adjust_stack: __adjust_stack,
+        get_sizes: _get_sizes,
         collide: _collide,
         render: _render,
         update_xv_data: _update_xv_data,
+        generate_geometry: _generate_geometry,
         test: _test,
     });
 };

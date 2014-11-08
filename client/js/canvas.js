@@ -1,7 +1,26 @@
 /** @constructor */
-function AnimCanvas(frame_callback) {
+function AnimCanvas(frame_callback, ctx_type) {
     this.canvas = document.createElement('canvas');
-    this.ctx = this.canvas.getContext('2d');
+
+    if (ctx_type == null) {
+        ctx_type = '2d';
+    }
+
+    if (ctx_type == '2d') {
+        this.ctx = this.canvas.getContext('2d');
+    } else if (ctx_type == 'webgl') {
+        var aliases = ['webgl2', 'experimental-webgl2', 'webgl', 'experimental-webgl'];
+        this.ctx = null;
+        for (var i = 0; i < aliases.length && this.ctx == null; ++i) {
+            this.ctx = this.canvas.getContext(aliases[i]);
+        }
+        if (this.ctx == null) {
+            throw 'webgl is not available';
+        }
+    } else {
+        throw 'unknown context type: ' + ctx_type;
+    }
+
     this._handleResize();
     this.animating = false;
 
