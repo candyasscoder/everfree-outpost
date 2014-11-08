@@ -300,8 +300,12 @@ pub fn render(xv: &XvData,
         }
     }
 
-    //quicksort(sprites, SpriteUV);
-    //render_sprites(xv, x, y, width, height, sprites, callback);
+    quicksort(sprites, SpriteUV);
+    for sprite in sprites.iter() {
+        draw_sprite(sprite.id,
+                    sprite.ref_x - sprite.anchor_x,
+                    sprite.ref_y - sprite.ref_z - sprite.anchor_y);
+    }
 }
 
 const LEVEL_BUFFER_SIZE: uint = 1024;

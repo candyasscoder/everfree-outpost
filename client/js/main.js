@@ -233,6 +233,9 @@ function initAssets() {
 
     loader.addText('terrain.frag', 'assets/shaders/terrain.frag');
     loader.addText('terrain.vert', 'assets/shaders/terrain.vert');
+
+    loader.addText('sprite.frag', 'assets/shaders/sprite.frag');
+    loader.addText('sprite.vert', 'assets/shaders/sprite.vert');
 }
 
 function initChunks() {
@@ -331,6 +334,9 @@ function connOpen() {
     conn.sendLogin([1, 2, 3, 4], "Pony");
 
     pony_sheet = new Sheet(bakeSpriteSheet(runner, assets), 96, 96);
+    runner.job('load', function() {
+        renderer.setSpriteSheet(pony_sheet);
+    });
 
     otherEntity = new Entity(pony_sheet, pony_anims, new Vec(4000, 4000, 0), {x: 48, y: 74});
 

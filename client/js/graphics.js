@@ -200,6 +200,21 @@ Renderer.prototype.initGl = function(assets) {
     var terrain_frag = assets['terrain.frag'];
     this.terrain_program = new Program(gl, terrain_vert, terrain_frag);
 
+    var sprite_vert = assets['sprite.vert'];
+    var sprite_frag = assets['sprite.frag'];
+    this.sprite_program = new Program(gl, sprite_vert, sprite_frag);
+    this.sprite_program.setUniform1i('sheetSampler', 0);
+    this.sprite_buffer = new Buffer(gl);
+    this.sprite_buffer.loadData(new Uint8Array([
+            0, 0,
+            0, 1,
+            1, 1,
+
+            0, 0,
+            1, 1,
+            1, 0,
+    ]));
+
     var atlas = assets['tiles'];
     this.atlas_texture = new Texture(gl);
     this.atlas_texture.loadImage(atlas);
@@ -211,6 +226,15 @@ Renderer.prototype.initGl = function(assets) {
             (atlas.width / TILE_SIZE)|0,
             (atlas.height / TILE_SIZE)|0);
     this.terrain_program.setUniform1i('atlasSampler', 0);
+
+    this.sprite_texture = new Texture(gl);
+};
+
+Renderer.prototype.setSpriteSheet = function(sheet) {
+    var img = sheet.image;
+    this.sprite_texture.loadImage(img);
+    this.sprite_program.setUniform2f('sheetSize', img.width, img.height);
+    console.log('loaded sheet', img, img.width, img.height);
 };
 
 Renderer.prototype.loadBlockData = function(blocks) {
@@ -241,11 +265,11 @@ Renderer.prototype.loadChunk = function(i, j, chunk) {
 Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
     var gl = this.gl;
 
-    var posAttr = this.terrain_program.getAttributeLocation('position');
-    var texAttr = this.terrain_program.getAttributeLocation('texCoord');
-
     this.terrain_program.setUniform2f('cameraPos', sx, sy);
     this.terrain_program.setUniform2f('cameraSize', sw, sh);
+
+    this.sprite_program.setUniform2f('cameraPos', sx, sy);
+    this.sprite_program.setUniform2f('cameraSize', sw, sh);
 
     var log = [];
 
@@ -253,10 +277,14 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
 
     function draw_terrain(cx, cy, begin, end) {
         log.push(['terrain', cx, cy, begin, end]);
+        var posAttr = this_.terrain_program.getAttributeLocation('position');
+        var texAttr = this_.terrain_program.getAttributeLocation('texCoord');
+
         gl.enableVertexAttribArray(posAttr);
         gl.enableVertexAttribArray(texAttr);
         this_.atlas_texture.bind();
 
+        this_.terrain_program.use();
         this_.terrain_program.setUniform2f('chunkPos', cx, cy);
 
         var i = cy % LOCAL_SIZE;
@@ -276,11 +304,32 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
 
     function draw_sprite(id, x, y) {
         log.push(['sprite', id, x, y]);
+        var posAttr = this_.sprite_program.getAttributeLocation('position');
+
+        gl.enableVertexAttribArray(posAttr);
+        this_.sprite_texture.bind();
+
+        var sprite = sprites[id];
+        var x = sprite.ref_x - sprite.anchor_x;
+        var y = sprite.ref_y - sprite.ref_z - sprite.anchor_y;
+        this_.sprite_program.use();
+        this_.sprite_program.setUniform2f('base', x, y);
+        this_.sprite_program.setUniform2f('off', sprite.offset_x, sprite.offset_y);
+        this_.sprite_program.setUniform2f('size', sprite.width, sprite.height);
+        this_.sprite_program.setUniform2f('flip', sprite.flip, 0);
+
+        this_.sprite_buffer.bind();
+        gl.vertexAttribPointer(posAttr, 2, gl.UNSIGNED_BYTE, false, 0, 0);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        this_.sprite_buffer.unbind();
+
+        this_.sprite_texture.unbind();
+        gl.disableVertexAttribArray(posAttr);
     }
 
     this._asm.render(sx, sy, sw, sh, sprites, draw_terrain, draw_sprite);
 
-    console.log(log.join(' ; '));
+    //console.log(log.join(' ; '));
 };
 
 

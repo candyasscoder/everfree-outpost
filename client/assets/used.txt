@@ -8,3 +8,5 @@ sprites/maretail1.png
 
 shaders/terrain.vert
 shaders/terrain.frag
+shaders/sprite.vert
+shaders/sprite.frag
