@@ -4,9 +4,10 @@ use std::num::Bounded;
 use std::time::Duration;
 
 use time;
+use types::Time;
 
 struct WakeItem<T> {
-    time: i64,
+    time: Time,
     reason: T,
 }
 
@@ -43,15 +44,15 @@ impl<T> WakeQueue<T> {
         }
     }
 
-    pub fn push(&mut self, time: i64, reason: T) {
+    pub fn push(&mut self, time: Time, reason: T) {
         self.items.push(WakeItem { time: time, reason: reason });
     }
 
-    pub fn pop(&mut self) -> Option<(i64, T)> {
+    pub fn pop(&mut self, now: Time) -> Option<(Time, T)> {
         match self.items.top() {
             None => return None,
             Some(item) => {
-                if item.time > now() {
+                if item.time > now {
                     return None;
                 }
             },
@@ -61,16 +62,11 @@ impl<T> WakeQueue<T> {
         Some((item.time, item.reason))
     }
 
-    pub fn wait_recv(&mut self) -> Receiver<()> {
+    pub fn wait_recv(&mut self, now: Time) -> Receiver<()> {
         let dur = match self.items.top() {
             None => Bounded::max_value(),
-            Some(item) => Duration::milliseconds(item.time - now()),
+            Some(item) => Duration::milliseconds(item.time - now),
         };
         self.timer.oneshot(dur)
     }
-}
-
-pub fn now() -> i64 {
-    let timespec = time::get_time();
-    (timespec.sec * 1000) + (timespec.nsec as i64 / 1000000)
 }

@@ -13,6 +13,7 @@ extern crate time;
 
 extern crate physics;
 
+use std::cmp;
 use std::collections::HashMap;
 use std::io;
 use std::io::{BufReader, BufWriter};
@@ -24,6 +25,7 @@ use std::u16;
 use physics::{CHUNK_SIZE, CHUNK_BITS, TILE_SIZE};
 use physics::v3::{V3, scalar};
 
+use timer::WakeQueue;
 use wire::{WireReader, WireWriter};
 use msg::Motion as WireMotion;
 use msg::{Request, Response};
@@ -52,113 +54,135 @@ fn main() {
         tasks::run_output(writer, resp_recv).unwrap();
     });
 
-    real_main(req_recv, resp_send)
+    let mut state = state::State::new();
+    state.init_terrain();
+    let mut server = Server::new(resp_send, state);
+    server.run(req_recv);
 }
 
 
-fn real_main(reqs: Receiver<(ClientId, Request)>,
-             resps: Sender<(ClientId, Response)>) {
-    let mut state = state::State::new();
-    state.init_terrain();
+pub enum WakeReason {
+    HandleInput(ClientId, InputBits),
+    PhysicsUpdate(ClientId),
+}
 
-    loop {
-        let wake_recv = state.wake_queue.wait_recv();
+struct Server {
+    resps: Sender<(ClientId, Response)>,
+    state: state::State,
+    wake_queue: WakeQueue<WakeReason>,
+}
 
-        select! {
-            () = wake_recv.recv() => {
-                while let Some((time, reason)) = state.wake_queue.pop() {
-                    handle_wake(&mut state,
-                                &resps,
-                                time,
-                                reason);
+impl Server {
+    fn new(resps: Sender<(ClientId, Response)>,
+           state: state::State) -> Server {
+        Server {
+            resps: resps,
+            state: state,
+            wake_queue: WakeQueue::new(),
+        }
+    }
+
+    fn run(&mut self, reqs: Receiver<(ClientId, Request)>) {
+        loop {
+            let wake_recv = self.wake_queue.wait_recv(now());
+
+            select! {
+                () = wake_recv.recv() => {
+                    let now = now();
+                    while let Some((time, reason)) = self.wake_queue.pop(now) {
+                        self.handle_wake(time, reason);
+                    }
+                },
+
+                (id, req) = reqs.recv() => {
+                    self.handle_req(now(), id, req);
                 }
-            },
-
-            (id, req) = reqs.recv() => {
-                handle_req(&mut state, &resps, id, req);
             }
         }
     }
-}
 
-fn handle_req(state: &mut state::State,
-              resps: &Sender<(ClientId, Response)>,
-              id: ClientId,
-              req: Request) {
-    match req {
-        msg::GetTerrain => {
-            warn!("client {} used deprecated opcode GetTerrain", id);
-        },
+    fn handle_req(&mut self,
+                  now: Time,
+                  client_id: ClientId,
+                  req: Request) {
+        match req {
+            msg::GetTerrain => {
+                warn!("client {} used deprecated opcode GetTerrain", client_id);
+            },
 
-        msg::UpdateMotion(wire_motion) => {
-            warn!("client {} used deprecated opcode UpdateMotion", id);
-        },
+            msg::UpdateMotion(wire_motion) => {
+                warn!("client {} used deprecated opcode UpdateMotion", client_id);
+            },
 
-        msg::Ping(cookie) => {
-            resps.send((id, msg::Pong(cookie, now().to_local())));
-        },
+            msg::Ping(cookie) => {
+                self.resps.send((client_id, msg::Pong(cookie, now.to_local())));
+            },
 
-        msg::Input(time, input) => {
-            let now = now();
-            let input = InputBits::from_bits_truncate(input);
-            let updated = state.update_input(now, id, input);
-            if updated {
+            msg::Input(time, input) => {
+                let time = cmp::max(time.to_global(now), now);
+                let input = InputBits::from_bits_truncate(input);
+                self.wake_queue.push(time, HandleInput(client_id, input));
+            },
+
+            msg::Login(secret, name) => {
+                log!(10, "login request for {}", name);
+                self.state.add_client(now, client_id);
+
+                let info = msg::InitData {
+                    entity_id: client_id as EntityId,
+                    camera_pos: (0, 0),
+                    chunks: 8 * 8,
+                    entities: 1,
+                };
+                self.resps.send((client_id, msg::Init(info)));
+
+                for c in range(0, 8 * 8) {
+                    let data = self.state.get_terrain_rle16(c);
+                    self.resps.send((client_id, msg::TerrainChunk(c as u16, data)));
+                }
+
+                let ce = self.state.client_entity(client_id).unwrap();
+                let motion = entity_motion(now, ce);
+                let anim = ce.entity.anim;
+                self.resps.send((client_id, msg::EntityUpdate(ce.client.entity_id, motion, anim)));
+            },
+
+            msg::AddClient => {
+            },
+
+            msg::RemoveClient => {
+                self.state.remove_client(client_id);
+                self.resps.send((client_id, msg::ClientRemoved));
+            },
+
+            msg::BadMessage(opcode) => {
+                warn!("unrecognized opcode from client {}: {:x}",
+                      client_id, opcode.unwrap());
+            },
+        }
+    }
+
+    fn handle_wake(&mut self,
+                   now: Time,
+                   reason: WakeReason) {
+        match reason {
+            HandleInput(client_id, input) => {
+                let updated = self.state.update_input(now, client_id, input);
                 let (entity_id, motion, anim) = {
-                    let ce = state.client_entity(id).unwrap();
+                    let ce = self.state.client_entity(client_id).unwrap();
                     (ce.client.entity_id,
                      entity_motion(now, ce),
                      ce.entity.anim)
                 };
-                for &send_id in state.clients.keys() {
-                    resps.send((send_id, msg::EntityUpdate(entity_id, motion, anim)));
+                for &send_id in self.state.clients.keys() {
+                    self.resps.send((send_id, msg::EntityUpdate(entity_id, motion, anim)));
                 }
-            }
-        },
+            },
 
-        msg::Login(secret, name) => {
-            log!(10, "login request for {}", name);
-            state.add_client(now(), id);
-
-            let info = msg::InitData {
-                entity_id: id as EntityId,
-                camera_pos: (0, 0),
-                chunks: 8 * 8,
-                entities: 1,
-            };
-            resps.send((id, msg::Init(info)));
-
-            for c in range(0, 8 * 8) {
-                let data = state.get_terrain_rle16(c);
-                resps.send((id, msg::TerrainChunk(c as u16, data)));
-            }
-
-            let ce = state.client_entity(id).unwrap();
-            let motion = entity_motion(now(), ce);
-            let anim = ce.entity.anim;
-            resps.send((id, msg::EntityUpdate(ce.client.entity_id, motion, anim)));
-        },
-
-        msg::AddClient => {
-            //state.add_client(now(), id);
-        },
-
-        msg::RemoveClient => {
-            state.remove_client(id);
-            resps.send((id, msg::ClientRemoved));
-        },
-
-        msg::BadMessage(opcode) => {
-            warn!("unrecognized opcode from client {}: {:x}",
-                  id, opcode.unwrap());
-        },
+            PhysicsUpdate(client_id) => {
+            },
+        }
     }
-}
-
-fn handle_wake(state: &mut state::State,
-               resps: &Sender<(ClientId, Response)>,
-               time: i64,
-               reason: state::WakeReason) {
-    warn!("unimplemented: handle_wake");
 }
 
 fn now() -> Time {

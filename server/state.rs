@@ -6,7 +6,6 @@ use physics;
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE};
 use physics::v3::{V3, scalar};
 
-use timer::WakeQueue;
 use types::{Time, Duration, ClientId, EntityId, AnimId, BlockId, TileId, DURATION_MAX};
 
 const CHUNK_TOTAL: uint = 1 << (3 * CHUNK_BITS);
@@ -147,17 +146,10 @@ impl<'a> ClientEntityMut<'a> {
 }
 
 
-pub enum WakeReason {
-    HandleInput(ClientId, InputBits),
-    PhysicsUpdate(ClientId),
-}
-
-
 pub struct State {
     pub map: Terrain,
     pub entities: HashMap<EntityId, Entity>,
     pub clients: HashMap<ClientId, Client>,
-    pub wake_queue: WakeQueue<WakeReason>,
 }
 
 impl State {
@@ -166,7 +158,6 @@ impl State {
             map: Terrain { chunks: [[0, ..CHUNK_TOTAL], ..LOCAL_TOTAL] },
             entities: HashMap::new(),
             clients: HashMap::new(),
-            wake_queue: WakeQueue::new(),
         }
     }
 
