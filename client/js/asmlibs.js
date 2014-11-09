@@ -101,8 +101,6 @@ var SIZEOF = (function() {
     console.assert(view[0] == EXPECT_SIZES,
             'expected sizes for ' + EXPECT_SIZES + ' types, but got ' + view[0]);
 
-    console.log(view);
-
     return ({
         XvData: view[1],
         Sprite: view[2],
@@ -249,7 +247,8 @@ Asm.prototype.generateGeometry = function(i, j) {
     return result;
 };
 
-Asm.getRendererHeapSize = function() {
+// This should be a static method, but that confuses Closure Compiler.
+exports.getRendererHeapSize = function() {
     return RENDER_HEAP_END - RENDER_HEAP_START;
 };
 

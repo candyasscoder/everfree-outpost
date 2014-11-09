@@ -65,6 +65,7 @@ for (var i = 0; i < anim_dirs.length; ++i) {
     }
 }
 
+/** @constructor */
 function Pony(sheet, x, y, z, physics) {
     this._entity = new Entity(sheet, pony_anims, new Vec(x, y + 16, z), {x: 48, y: 74});
     this._entity.setAnimation(0, 0);
@@ -130,23 +131,23 @@ function bakeSpriteSheet(runner, assets) {
     }
 
     function tinted(img, color) {
-        this.subjob('copy', function() {
+        runner.subjob('copy', function() {
             temp.globalCompositeOperation = 'copy';
             temp.drawImage(img, 0, 0);
         });
 
-        this.subjob('color', function() {
+        runner.subjob('color', function() {
             temp.globalCompositeOperation = 'source-in';
             temp.fillStyle = color;
             temp.fillRect(0, 0, width, height);
         });
 
-        this.subjob('multiply', function() {
+        runner.subjob('multiply', function() {
             temp.globalCompositeOperation = 'multiply';
             temp.drawImage(img, 0, 0);
         });
 
-        this.subjob('draw', function() {
+        runner.subjob('draw', function() {
             baked.drawImage(temp.canvas, 0, 0);
         });
     }
@@ -337,8 +338,6 @@ function connOpen() {
     runner.job('load', function() {
         renderer.setSpriteSheet(pony_sheet);
     });
-
-    otherEntity = new Entity(pony_sheet, pony_anims, new Vec(4000, 4000, 0), {x: 48, y: 74});
 
     document.body.removeChild($('banner-bg'));
     canvas.start();

@@ -1,3 +1,5 @@
+var Asm = require('asmlibs').Asm;
+var getRendererHeapSize = require('asmlibs').getRendererHeapSize;
 var OffscreenContext = require('canvas').OffscreenContext;
 var TileDef = require('chunk').TileDef;
 var CHUNK_SIZE = require('chunk').CHUNK_SIZE;
@@ -178,7 +180,7 @@ Buffer.prototype.loadData = function(data) {
 /** @constructor */
 function Renderer(gl) {
     this.gl = gl;
-    this._asm = new Asm(Asm.getRendererHeapSize());
+    this._asm = new Asm(getRendererHeapSize());
 
     this._chunk_buffer = new Array(LOCAL_SIZE * LOCAL_SIZE);
     this._chunk_points = new Array(LOCAL_SIZE * LOCAL_SIZE);
@@ -222,9 +224,6 @@ Renderer.prototype.initGl = function(assets) {
     this.terrain_program.setUniform2f('atlasSize',
             (atlas.width / TILE_SIZE)|0,
             (atlas.height / TILE_SIZE)|0);
-    console.log('atlas size = ',
-            (atlas.width / TILE_SIZE)|0,
-            (atlas.height / TILE_SIZE)|0);
     this.terrain_program.setUniform1i('atlasSampler', 0);
 
     this.sprite_texture = new Texture(gl);
@@ -234,7 +233,6 @@ Renderer.prototype.setSpriteSheet = function(sheet) {
     var img = sheet.image;
     this.sprite_texture.loadImage(img);
     this.sprite_program.setUniform2f('sheetSize', img.width, img.height);
-    console.log('loaded sheet', img, img.width, img.height);
 };
 
 Renderer.prototype.loadBlockData = function(blocks) {
@@ -271,8 +269,6 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
     this.sprite_program.setUniform2f('cameraPos', sx, sy);
     this.sprite_program.setUniform2f('cameraSize', sw, sh);
 
-    var log = [];
-
     var this_ = this;
 
     function draw_terrain(cx, cy, begin, end) {
@@ -289,7 +285,6 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
         var i = cy % LOCAL_SIZE;
         var j = cx % LOCAL_SIZE;
         var idx = i * LOCAL_SIZE + j;
-        log.push(['terrain', cx, cy, begin, end, this_._chunk_points[idx]]);
 
         this_._chunk_buffer[idx].bind();
         gl.vertexAttribPointer(posAttr, 2, gl.UNSIGNED_BYTE, false, 4, 0);
@@ -303,7 +298,6 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
     }
 
     function draw_sprite(id, x, y, w, h) {
-        log.push(['sprite', id, x, y, w, h]);
         var posAttr = this_.sprite_program.getAttributeLocation('position');
 
         gl.enableVertexAttribArray(posAttr);
@@ -344,8 +338,6 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
     }
 
     this._asm.render(sx, sy, sw, sh, sprites, draw_terrain, draw_sprite);
-
-    //console.log(log.join(' ; '));
 };
 
 

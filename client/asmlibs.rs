@@ -118,6 +118,7 @@ pub extern fn generate_geometry(xv_data: &mut XvData,
     *vertex_count = graphics::generate_geometry(xv_data, geom, i, j) as i32;
 }
 
+
 #[repr(C)]
 #[deriving(Show)]
 pub struct Sizes {
@@ -153,5 +154,3 @@ pub extern fn test_wrapper(input: &CollideArgs, output: &mut CollideResult) {
         unsafe { mem::transmute(input.pos.z) },
         input.size.x as u8, input.size.y as u8);
 }
-
-

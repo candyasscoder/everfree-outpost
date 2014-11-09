@@ -85,8 +85,6 @@ AnimCanvas.prototype._handleResize = function() {
     this.canvas.height = virtHeight;
     this.canvas.style.width = physWidth + 'px';
     this.canvas.style.height = physHeight + 'px';
-
-    console.log('resize', width, height, this.scale, virtWidth, virtHeight, physWidth, physHeight);
 };
 
 

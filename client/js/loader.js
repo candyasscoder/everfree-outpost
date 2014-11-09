@@ -35,7 +35,6 @@ AssetLoader.prototype._addXhr = function(name, url, type, callback) {
     }
 
     if (elt == null) {
-        console.log('send xhr for', name, url);
         var xhr = new XMLHttpRequest();
         xhr.open('GET', url, true);
 
@@ -57,7 +56,6 @@ AssetLoader.prototype._addXhr = function(name, url, type, callback) {
         xhr.send();
         this._addPendingAsset();
     } else {
-        console.log('read element for', name, url);
         var value = elt.textContent;
         if (type == 'json') {
             value = JSON.parse(value);

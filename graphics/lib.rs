@@ -1,8 +1,11 @@
 #![crate_name = "graphics"]
 #![no_std]
+
 #![feature(globs, phase)]
 #![feature(overloaded_calls, unboxed_closures)]
 #![feature(macro_rules)]
+
+#![allow(unsigned_negation)]
 
 #[phase(plugin, link)] extern crate core;
 #[cfg(asmjs)]
@@ -14,10 +17,7 @@ extern crate physics;
 use core::prelude::*;
 use core::cell::Cell;
 use core::cmp;
-use core::fmt;
-use core::iter::range_inclusive;
 
-use physics::v3::V3;
 use physics::{TILE_BITS, CHUNK_BITS};
 
 
@@ -49,68 +49,6 @@ pub type ChunkData = [u16, ..1 << (3 * CHUNK_BITS)];
 pub type LocalData = [ChunkData, ..1 << (2 * LOCAL_BITS)];
 
 
-/*
-pub enum Surface {
-    Empty,
-    Output,
-    TileAtlas,
-    RenderCache(u8),
-    ChunkCache(u8),
-}
-*/
-pub type Surface = u16;
-#[allow(non_upper_case_globals)]
-pub const Empty: Surface = 0;
-#[allow(non_upper_case_globals)]
-pub const Output: Surface = 1;
-#[allow(non_upper_case_globals)]
-pub const TileAtlas: Surface = 2;
-#[allow(non_snake_case)]
-pub fn RenderCache(i: u8) -> Surface { 8 + i as u16 }
-#[allow(non_snake_case)]
-pub fn ChunkCache(i: u8) -> Surface { 64 + i as u16 }
-#[allow(non_snake_case)]
-pub fn SpriteImage(i: u16) -> Surface { 128 + i as u16 }
-
-
-enum Side {
-    Front,
-    Back,
-    Top,
-    Bottom,
-}
-
-pub struct RenderContext<'a> {
-    pub block_data: &'a BlockData,
-    pub local_data: &'a LocalData,
-}
-
-impl<'a> RenderContext<'a> {
-    fn get_tile(&self, x: u16, y: u16, z: u16, side: Side) -> u16 {
-        if z >= CHUNK_SIZE {
-            return 0;
-        }
-
-        let i = y / CHUNK_SIZE % LOCAL_SIZE;
-        let j = x / CHUNK_SIZE % LOCAL_SIZE;
-        let chunk_idx = i * LOCAL_SIZE + j;
-
-        let tx = x % CHUNK_SIZE;
-        let ty = y % CHUNK_SIZE;
-        let tile_idx = (z * CHUNK_SIZE + ty) * CHUNK_SIZE + tx;
-
-        let block_id = self.local_data[chunk_idx as uint][tile_idx as uint];
-        let block = &self.block_data[block_id as uint];
-        match side {
-            Front => block.front,
-            Back => block.back,
-            Top => block.top,
-            Bottom => block.bottom,
-        }
-    }
-}
-
-
 type XvOffsets = [u8, ..(CHUNK_SIZE * 4) as uint];
 type XvTiles = [u16, ..(CHUNK_SIZE * 4) as uint];
 
@@ -130,8 +68,6 @@ pub fn update_xv(xv: &mut XvData, blocks: &BlockData, chunk: &ChunkData, i: u8, 
     let chunk_idx0 = (i << LOCAL_BITS) + j;
     let i1 = (i + LOCAL_SIZE as uint - 1) % LOCAL_SIZE as uint;
     let chunk_idx1 = (i1 << LOCAL_BITS) + j;
-
-    let mut counter = 10u;
 
     let mut copy = |&mut: x: u16, u: u16, v: u16,
                           chunk_idx: uint,
@@ -191,6 +127,7 @@ pub fn update_xv(xv: &mut XvData, blocks: &BlockData, chunk: &ChunkData, i: u8, 
     }
 }
 
+#[allow(dead_code)]
 pub struct VertexData {
     x: u8,
     y: u8,
@@ -205,7 +142,7 @@ pub type GeometryBuffer = [VertexData, ..(4 * FACE_VERTS) << (3 * CHUNK_BITS)];
 pub fn generate_geometry(xv: &mut XvData,
                          geom: &mut GeometryBuffer,
                          i: u8, j: u8) -> uint {
-    let mut pos = Cell::new(0);
+    let pos = Cell::new(0);
 
     let mut push = |&mut: x, y, s, t| {
         geom[pos.get()] = VertexData { x: x, y: y, s: s, t: t };
@@ -376,7 +313,7 @@ fn render_chunk(chunk: &XvChunk,
 
     for sprite in sprites.iter_mut() {
         let (tx0, tx1, ty0, ty1) = sprite.clipped_tile_bounds(cx, cy);
-        let inside = (tx0 < tx1 && ty0 < ty1);
+        let inside = tx0 < tx1 && ty0 < ty1;
         let mut below = false;
         for ty in range(ty0, ty1) {
             let limit = sprite.u_limit(cy * CHUNK_SIZE + ty);
@@ -487,121 +424,6 @@ fn render_chunk(chunk: &XvChunk,
             }
         }
     }
-}
-
-fn render_sprites(xv: &XvData,
-                  x: u16,
-                  y: u16,
-                  width: u16,
-                  height: u16,
-                  sprites: &mut [Sprite],
-                  mut callback: |Surface, u16, u16, Surface, u16, u16, u16, u16|) {
-    /*
-    let screen_min_row = y / TILE_SIZE;
-    let screen_min_col = x / TILE_SIZE;
-    let screen_max_row = (y + height + TILE_SIZE - 1) / TILE_SIZE;
-    let screen_max_col = (x + width + TILE_SIZE - 1) / TILE_SIZE;
-    let screen_rows = screen_max_row - screen_min_row;
-    let screen_cols = screen_max_col - screen_min_col;
-
-    if screen_rows as uint * screen_cols as uint > LEVEL_BUFFER_SIZE {
-        let split =
-            if width > height {
-                let left = width / 2;
-                ((x, y, left, height),
-                 (x + left, y, width - left, height))
-            } else {
-                let top = height / 2;
-                ((x, y, width, top),
-                 (x, y + top, width, height - top))
-            };
-        let ((x0, y0, w0, h0), (x1, y1, w1, h1)) = split;
-
-        // TODO: set clip?
-        render_sprites(xv, x0, y0, w0, h0, sprites,
-                       |src, sx, sy, dst, dx, dy, w, h|
-                       callback(src, sx, sy, dst, dx, dy, w, h));
-        render_sprites(xv, x1, y1, w1, h1, sprites,
-                       |src, sx, sy, dst, dx, dy, w, h|
-                       callback(src, sx, sy, dst, dx, dy, w, h));
-        return;
-    }
-
-    let mut draw_level = [0_u8, ..LEVEL_BUFFER_SIZE];
-    let get_index = |&: row: u16, col: u16| {
-        let i = row - screen_min_row;
-        let j = col - screen_min_col;
-        (i * screen_cols + j) as uint
-    };
-
-    let mut draw_stack = |&mut: row: u16, col: u16, min_u: u8, max_u: u8,
-                          callback: &mut |Surface, u16, u16, Surface, u16, u16, u16, u16|| {
-        let x = col % (CHUNK_SIZE * LOCAL_SIZE);
-        let v = row % (CHUNK_SIZE * LOCAL_SIZE);
-        let xv_idx = v * CHUNK_SIZE * LOCAL_SIZE + x;
-
-        for u in range(min_u, max_u) {
-            let t = xv[xv_idx as uint].tiles[u as uint];
-            if t != 0 {
-                (*callback)(TileAtlas,
-                            (t % ATLAS_SIZE) * TILE_SIZE,
-                            (t / ATLAS_SIZE) * TILE_SIZE,
-                            Output,
-                            col * TILE_SIZE,
-                            row * TILE_SIZE,
-                            TILE_SIZE,
-                            TILE_SIZE);
-            }
-        }
-    };
-
-    for sprite in sprites.iter() {
-        let (screen_x, screen_y) = sprite.screen_pos();
-        let min_row = screen_y / TILE_SIZE;
-        let min_col = screen_x / TILE_SIZE;
-        let max_row = (screen_y + sprite.height + TILE_SIZE - 1) / TILE_SIZE;
-        let max_col = (screen_x + sprite.width + TILE_SIZE - 1) / TILE_SIZE;
-
-        for row in range(cmp::max(min_row, screen_min_row),
-                         cmp::min(max_row, screen_max_row)) {
-            // Number of surfaces in each x,v position on this row that are entirely behind or
-            // entirely below the sprite.  These counts use the same units as XvData.tiles indices,
-            // so the front of one tile and the back of the adjacent tile are counted separately.
-            let behind = 4 * (sprite.ref_y / TILE_SIZE - row) - 1;
-            let below = 4 * (sprite.ref_z / TILE_SIZE) + 1;
-            let limit = cmp::max(0, cmp::max(behind as i16, below as i16)) as u8;
-
-            for col in range(cmp::max(min_col, screen_min_col),
-                             cmp::min(max_col, screen_max_col)) {
-                let start = draw_level[get_index(row, col)];
-                if start == 0 {
-                    callback(Empty, 0, 0,
-                             Output, col * TILE_SIZE, row * TILE_SIZE,
-                             TILE_SIZE, TILE_SIZE);
-                }
-
-                draw_stack(row, col, start, limit, &mut callback);
-                draw_level[get_index(row, col)] = limit;
-            }
-        }
-
-        callback(SpriteImage(sprite.id), 0, 0,
-                 Output, screen_x, screen_y,
-                 sprite.width, sprite.height);
-        callback(Empty, 0, 0,
-                 Output, sprite.ref_x - 4, sprite.ref_y - sprite.ref_z - 4,
-                 8, 8);
-    }
-
-    for row in range(screen_min_row, screen_max_row) {
-        for col in range(screen_min_col, screen_max_col) {
-            let start = draw_level[get_index(row, col)];
-            if start != 0 {
-                draw_stack(row, col, start, (CHUNK_SIZE * 4) as u8, &mut callback);
-            }
-        }
-    }
-    */
 }
 
 
