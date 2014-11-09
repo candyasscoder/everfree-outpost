@@ -1,10 +1,8 @@
 use std::io::IoResult;
 
-use super::Time;
-
 use wire;
 use wire::{WireReader, WireWriter};
-use state::EntityId;
+use types::{LocalTime, EntityId};
 
 
 pub type ClientId = u16;
@@ -73,7 +71,7 @@ pub enum Request {
     GetTerrain,
     UpdateMotion(Motion),
     Ping(u16),
-    Input(Time, u16),
+    Input(LocalTime, u16),
     Login([u32, ..4], String),
 
     // Control messages
@@ -94,7 +92,7 @@ impl Request {
             op::UpdateMotion => UpdateMotion(try!(wr.read())),
             op::Ping => Ping(try!(wr.read())),
             op::Input => {
-                let (a, b): (Time, u16) = try!(wr.read());
+                let (a, b): (LocalTime, u16) = try!(wr.read());
                 Input(a, b)
             },
             op::Login => {
@@ -118,7 +116,7 @@ impl Request {
 pub enum Response {
     TerrainChunk(u16, Vec<u16>),
     PlayerMotion(u16, Motion),
-    Pong(u16, Time),
+    Pong(u16, LocalTime),
     EntityUpdate(EntityId, Motion, u16),
     Init(InitData),
     KickReason(String),
@@ -168,14 +166,14 @@ impl InitData {
 #[deriving(Show)]
 pub struct Motion {
     pub start_pos: (u16, u16, u16),
-    pub start_time: Time,
+    pub start_time: LocalTime,
     pub end_pos: (u16, u16, u16),
-    pub end_time: Time,
+    pub end_time: LocalTime,
 }
 
 impl wire::ReadFrom for Motion {
     fn read_from<R: Reader>(r: &mut R, bytes: uint) -> IoResult<Motion> {
-        let (a, b, c, d): ((u16, u16, u16), Time, (u16, u16, u16), Time) =
+        let (a, b, c, d): ((u16, u16, u16), LocalTime, (u16, u16, u16), LocalTime) =
                             try!(wire::ReadFrom::read_from(r, bytes));
         Ok(Motion {
             start_pos: a,
@@ -187,7 +185,7 @@ impl wire::ReadFrom for Motion {
 
     fn size(_: Option<Motion>) -> (uint, uint) {
         let fixed = 2 * wire::ReadFrom::size(None::<(u16, u16, u16)>).0 +
-                    2 * wire::ReadFrom::size(None::<Time>).0;
+                    2 * wire::ReadFrom::size(None::<LocalTime>).0;
         (fixed, 0)
     }
 }

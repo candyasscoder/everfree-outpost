@@ -1,8 +1,10 @@
 #![crate_name = "backend"]
+#![feature(globs)]
 #![feature(phase)]
 #![feature(tuple_indexing, if_let)]
 #![feature(unboxed_closures, overloaded_calls)]
 #![feature(macro_rules)]
+#![feature(associated_types)]
 #![allow(non_upper_case_globals)]
 
 #[phase(plugin, link)]
@@ -24,16 +26,17 @@ use physics::v3::{V3, scalar};
 
 use wire::{WireReader, WireWriter};
 use msg::Motion as WireMotion;
-use msg::{Request, Response, ClientId};
-use state::{EntityId, InputBits};
+use msg::{Request, Response};
+use state::InputBits;
+
+use types::{LocalTime, LocalCoord, Time, ClientId, EntityId, ToGlobal, ToLocal};
 
 mod msg;
 mod wire;
 mod tasks;
 mod state;
 mod timer;
-
-pub type Time = u16;
+mod types;
 
 fn main() {
     let (req_send, req_recv) = channel();
@@ -92,7 +95,7 @@ fn handle_req(state: &mut state::State,
         },
 
         msg::Ping(cookie) => {
-            resps.send((id, msg::Pong(cookie, now())));
+            resps.send((id, msg::Pong(cookie, now().to_local())));
         },
 
         msg::Input(time, input) => {
@@ -158,9 +161,9 @@ fn handle_wake(state: &mut state::State,
     warn!("unimplemented: handle_wake");
 }
 
-fn now() -> u16 {
+fn now() -> Time {
     let timespec = time::get_time();
-    (timespec.sec as u16 * 1000) + (timespec.nsec / 1000000) as u16
+    (timespec.sec as Time * 1000) + (timespec.nsec / 1000000) as Time
 }
 
 fn entity_motion(now: Time, ce: state::ClientEntity) -> WireMotion {
@@ -172,8 +175,8 @@ fn entity_motion(now: Time, ce: state::ClientEntity) -> WireMotion {
     let end_pos = state::world_to_local(ce.entity.end_pos, world_base, local_base);
     
     WireMotion {
-        start_time: ce.entity.start_time,
-        end_time: ce.entity.start_time + ce.entity.duration,
+        start_time: ce.entity.start_time.to_local(),
+        end_time: (ce.entity.start_time + ce.entity.duration as Time).to_local(),
         start_pos: (start_pos.x as u16,
                     start_pos.y as u16,
                     start_pos.z as u16),

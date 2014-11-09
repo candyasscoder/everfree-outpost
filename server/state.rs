@@ -6,13 +6,8 @@ use physics;
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE};
 use physics::v3::{V3, scalar};
 
-use super::Time;
-use msg::ClientId;
 use timer::WakeQueue;
-
-
-type BlockId = u16;
-type TileId = u16;
+use types::{Time, Duration, ClientId, EntityId, AnimId, BlockId, TileId, DURATION_MAX};
 
 const CHUNK_TOTAL: uint = 1 << (3 * CHUNK_BITS);
 type Chunk = [BlockId, ..CHUNK_TOTAL];
@@ -50,13 +45,9 @@ impl physics::ShapeSource for Terrain {
 
 const ANIM_DIR_COUNT: AnimId = 8;
 
-pub type EntityId = u32;
-
-pub type AnimId = u16;
-
 pub struct Entity {
     pub start_time: Time,
-    pub duration: Time,
+    pub duration: Duration,
     pub start_pos: V3,
     pub end_pos: V3,
     pub anim: AnimId,
@@ -66,7 +57,7 @@ impl Entity {
     pub fn pos(&self, now: Time) -> V3 {
         let current = now - self.start_time;
 
-        if current < self.duration {
+        if current < self.duration as Time {
             let offset = (self.end_pos - self.start_pos) *
                     scalar(current as i32) / scalar(self.duration as i32);
             self.start_pos + offset
@@ -99,7 +90,7 @@ impl Entity {
         let velocity = V3::new(dx, dy, 0) * scalar(50 * speed as i32);
         let (mut end_pos, mut dur) = physics::collide(map, start_pos, size, velocity);
 
-        while dur > u16::MAX as i32 {
+        while dur > DURATION_MAX as i32 {
             assert!(dur > 0);
             dur /= 2;
             end_pos = start_pos + (end_pos - start_pos) / scalar(2);
@@ -109,7 +100,7 @@ impl Entity {
         let world_end_pos = local_to_world(end_pos, world_base, local_base);
 
         self.start_time = now;
-        self.duration = dur as Time;
+        self.duration = dur as Duration;
         self.start_pos = world_start_pos;
         self.end_pos = world_end_pos;
         self.anim = anim;
