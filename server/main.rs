@@ -25,7 +25,7 @@ use physics::v3::{V3, scalar};
 use wire::{WireReader, WireWriter};
 use msg::Motion as WireMotion;
 use msg::{Request, Response, ClientId};
-use state::EntityId;
+use state::{EntityId, InputBits};
 
 mod msg;
 mod wire;
@@ -97,6 +97,7 @@ fn handle_req(state: &mut state::State,
 
         msg::Input(time, input) => {
             let now = now();
+            let input = InputBits::from_bits_truncate(input);
             let updated = state.update_input(now, id, input);
             if updated {
                 let (entity_id, motion, anim) = {

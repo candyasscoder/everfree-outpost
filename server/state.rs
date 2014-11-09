@@ -11,8 +11,11 @@ use msg::ClientId;
 use timer::WakeQueue;
 
 
+type BlockId = u16;
+type TileId = u16;
+
 const CHUNK_TOTAL: uint = 1 << (3 * CHUNK_BITS);
-type Chunk = [u16, ..CHUNK_TOTAL];
+type Chunk = [BlockId, ..CHUNK_TOTAL];
 
 const LOCAL_BITS: uint = 3;
 const LOCAL_SIZE: i32 = 1 << LOCAL_BITS;
@@ -44,22 +47,19 @@ impl physics::ShapeSource for Terrain {
 }
 
 
-const INPUT_LEFT: u16 =     0x0001;
-const INPUT_RIGHT: u16  =   0x0002;
-const INPUT_UP: u16  =      0x0004;
-const INPUT_DOWN: u16  =    0x0008;
-const INPUT_RUN: u16  =     0x0010;
 
-const ANIM_DIR_COUNT: uint = 8;
+const ANIM_DIR_COUNT: AnimId = 8;
 
 pub type EntityId = u32;
+
+pub type AnimId = u16;
 
 pub struct Entity {
     pub start_time: Time,
     pub end_time: Time,
     pub start_pos: V3,
     pub end_pos: V3,
-    pub anim: u16,
+    pub anim: AnimId,
 }
 
 impl Entity {
@@ -76,22 +76,20 @@ impl Entity {
         }
     }
 
-    pub fn update(&mut self, map: &Terrain, now: Time, input: u16) {
-        let has = |&: flag: u16| { input & flag != 0 };
-
-        let dx = if has(INPUT_LEFT) { -1 } else { 0 } +
-                 if has(INPUT_RIGHT) { 1 } else { 0 };
-        let dy = if has(INPUT_UP) { -1 } else { 0 } +
-                 if has(INPUT_DOWN) { 1 } else { 0 };
+    pub fn update(&mut self, map: &Terrain, now: Time, input: InputBits) {
+        let dx = if input.contains(INPUT_LEFT) { -1 } else { 0 } +
+                 if input.contains(INPUT_RIGHT) { 1 } else { 0 };
+        let dy = if input.contains(INPUT_UP) { -1 } else { 0 } +
+                 if input.contains(INPUT_DOWN) { 1 } else { 0 };
         let speed =
             if dx == 0 && dy == 0 { 0 }
-            else if has(INPUT_RUN) { 3 }
+            else if input.contains(INPUT_RUN) { 3 }
             else { 1 };
 
         let idx = (3 * (dx + 1) + (dy + 1)) as uint;
-        let old_anim = self.anim % ANIM_DIR_COUNT as u16;
+        let old_anim = self.anim % ANIM_DIR_COUNT;
         let anim_dir = [5, 4, 3, 6, old_anim, 2, 7, 0, 1][idx];
-        let anim = anim_dir + speed * ANIM_DIR_COUNT as u16;
+        let anim = anim_dir + speed * ANIM_DIR_COUNT;
 
         let world_start_pos = self.pos(now);
         let world_base = base_chunk(world_start_pos);
@@ -112,7 +110,7 @@ impl Entity {
         let world_end_pos = local_to_world(end_pos, world_base, local_base);
 
         self.start_time = now;
-        self.end_time = now + dur as u16;
+        self.end_time = now + dur as Time;
         self.start_pos = world_start_pos;
         self.end_pos = world_end_pos;
         self.anim = anim;
@@ -120,9 +118,20 @@ impl Entity {
 }
 
 
+bitflags! {
+    flags InputBits: u16 {
+        const INPUT_LEFT =      0x0001,
+        const INPUT_RIGHT =     0x0002,
+        const INPUT_UP =        0x0004,
+        const INPUT_DOWN =      0x0008,
+        const INPUT_RUN =       0x0010,
+    }
+}
+
+
 pub struct Client {
     pub entity_id: EntityId,
-    pub current_input: u16,
+    pub current_input: InputBits,
     pub chunk_offset: (u8, u8),
 }
 
@@ -149,6 +158,7 @@ impl<'a> ClientEntityMut<'a> {
 
 
 pub enum WakeReason {
+    HandleInput(ClientId, InputBits),
     PhysicsUpdate(ClientId),
 }
 
@@ -241,7 +251,7 @@ impl State {
 
         let client = Client {
             entity_id: id as EntityId,
-            current_input: 0,
+            current_input: InputBits::empty(),
             chunk_offset: (0, 0),
         };
 
@@ -265,7 +275,7 @@ impl State {
         true
     }
 
-    pub fn update_input(&mut self, now: Time, id: ClientId, input: u16) -> bool {
+    pub fn update_input(&mut self, now: Time, id: ClientId, input: InputBits) -> bool {
         if !self.clients.contains_key(&id) {
             return false;
         }
