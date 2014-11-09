@@ -173,7 +173,7 @@ fn entity_motion(now: Time, ce: state::ClientEntity) -> WireMotion {
     
     WireMotion {
         start_time: ce.entity.start_time,
-        end_time: ce.entity.end_time,
+        end_time: ce.entity.start_time + ce.entity.duration,
         start_pos: (start_pos.x as u16,
                     start_pos.y as u16,
                     start_pos.z as u16),

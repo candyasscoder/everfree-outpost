@@ -56,7 +56,7 @@ pub type AnimId = u16;
 
 pub struct Entity {
     pub start_time: Time,
-    pub end_time: Time,
+    pub duration: Time,
     pub start_pos: V3,
     pub end_pos: V3,
     pub anim: AnimId,
@@ -64,12 +64,11 @@ pub struct Entity {
 
 impl Entity {
     pub fn pos(&self, now: Time) -> V3 {
-        let total = self.end_time - self.start_time;
         let current = now - self.start_time;
 
-        if current < total {
+        if current < self.duration {
             let offset = (self.end_pos - self.start_pos) *
-                    scalar(current as i32) / scalar(total as i32);
+                    scalar(current as i32) / scalar(self.duration as i32);
             self.start_pos + offset
         } else {
             self.end_pos
@@ -110,7 +109,7 @@ impl Entity {
         let world_end_pos = local_to_world(end_pos, world_base, local_base);
 
         self.start_time = now;
-        self.end_time = now + dur as Time;
+        self.duration = dur as Time;
         self.start_pos = world_start_pos;
         self.end_pos = world_end_pos;
         self.anim = anim;
@@ -243,7 +242,7 @@ impl State {
     pub fn add_client(&mut self, now: Time, id: ClientId) {
         let entity = Entity {
             start_time: now,
-            end_time: now - 1,
+            duration: u16::MAX,
             start_pos: V3::new(100 - 16, 100 - 16, 0),
             end_pos: V3::new(100 - 16, 100 - 16, 0),
             anim: 0,
@@ -289,7 +288,7 @@ impl State {
         entity.update(&self.map, now, input);
 
         log!(10, "client entity moves {} -> {} for dur {}",
-             entity.start_pos, entity.end_pos, entity.end_time - entity.start_time);
+             entity.start_pos, entity.end_pos, entity.duration);
         true
     }
 }
