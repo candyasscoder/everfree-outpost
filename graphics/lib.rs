@@ -231,13 +231,15 @@ pub fn generate_geometry(xv: &mut XvData,
     for v in range(0, CHUNK_SIZE) {
         for x in range(0, CHUNK_SIZE) {
             let idx = (v * CHUNK_SIZE + x) as uint;
-            chunk.bases[idx] = (pos.get() / FACE_VERTS) as u16;
+            let base = pos.get() / FACE_VERTS;
+            chunk.bases[idx] = base as u16;
             for u in range(0, 4 * CHUNK_SIZE) {
                 let tile = chunk.tiles[idx][u as uint];
                 if tile != 0 {
                     push_face(x, v, tile);
                 }
-                chunk.offsets[idx][u as uint] = (pos.get() / FACE_VERTS) as u8;
+                let offset = (pos.get() / FACE_VERTS) - base as uint;
+                chunk.offsets[idx][u as uint] = offset as u8;
             }
         }
     }
@@ -246,26 +248,82 @@ pub fn generate_geometry(xv: &mut XvData,
 }
 
 
+#[deriving(PartialEq, Eq, Show)]
+enum SpriteStatus {
+    // Sprite does not overlap the chunk.
+    Outside,
+    // Sprite will be drawn above all terrain in the chunk.
+    Above,
+    // Sprite will be drawn between some terrain layers in the chunk.
+    Between,
+}
+
+#[deriving(Show)]
 pub struct Sprite {
     id: u16,
     ref_x: u16,
     ref_y: u16,
     ref_z: u16,
-    width: u16,
-    height: u16,
-    anchor_x: u16,
-    anchor_y: u16,
+    width: u8,
+    height: u8,
+    anchor_x: u8,
+    anchor_y: u8,
+    status: SpriteStatus,
 }
 
 impl Sprite {
     fn screen_pos(&self) -> (u16, u16) {
-        (self.ref_x - self.anchor_x,
-         self.ref_y - self.ref_z - self.anchor_y)
+        (self.ref_x - self.anchor_x as u16,
+         self.ref_y - self.ref_z - self.anchor_y as u16)
     }
 
     fn ref_uv(&self) -> (u16, u16) {
         (self.ref_y + self.ref_z,
          self.ref_y - self.ref_z)
+    }
+
+    fn clipped_bounds(&self, cx: u16, cy: u16) -> (u16, u16, u16, u16) {
+        let (screen_x, screen_y) = self.screen_pos();
+
+        let chunk_px = CHUNK_SIZE * TILE_SIZE;
+        let base_x0 = cx * chunk_px;
+        let base_x1 = base_x0 + chunk_px;
+        let base_y0 = cy * chunk_px;
+        let base_y1 = base_y0 + chunk_px;
+
+        fn clamp(x: u16, min: u16, max: u16) -> u16 {
+            if x < min { min }
+            else if x > max { max }
+            else { x }
+        }
+
+        let x0 = clamp(screen_x, base_x0, base_x1) - base_x0;
+        let x1 = clamp(screen_x + self.width as u16, base_x0, base_x1) - base_x0;
+        let y0 = clamp(screen_y, base_y0, base_y1) - base_y0;
+        let y1 = clamp(screen_y + self.height as u16, base_y0, base_y1) - base_y0;
+
+        (x0, x1, y0, y1)
+    }
+
+    fn clipped_tile_bounds(&self, cx: u16, cy: u16) -> (u16, u16, u16, u16) {
+        let (x0, x1, y0, y1) = self.clipped_bounds(cx, cy);
+
+        let tx0 = x0 / TILE_SIZE;
+        let tx1 = (x1 + TILE_SIZE - 1) / TILE_SIZE;
+        let ty0 = y0 / TILE_SIZE;
+        let ty1 = (y1 + TILE_SIZE - 1) / TILE_SIZE;
+
+        (tx0, tx1, ty0, ty1)
+    }
+
+    fn u_limit(&self, row: u16) -> u8 {
+        // Number of surfaces in each x,v position on this row that are entirely behind or entirely
+        // below the sprite.  These counts use the same units as XvData.tiles indices, so the front
+        // of one tile and the back of the adjacent tile are counted separately.
+        let behind = 4 * (self.ref_y / TILE_SIZE - row) - 1;
+        let below = 4 * (self.ref_z / TILE_SIZE) + 1;
+        let limit = cmp::max(0, cmp::max(behind as i16, below as i16));
+        limit as u8
     }
 }
 
@@ -277,38 +335,159 @@ pub fn render(xv: &XvData,
               height: u16,
               sprites: &mut [Sprite],
               draw_terrain: |u16, u16, u16, u16|,
-              draw_sprite: |u16, u16, u16|) {
+              draw_sprite: |u16, u16, u16, u16, u16|) {
+    quicksort(sprites, SpriteUV);
+
     let chunk_px = CHUNK_SIZE * TILE_SIZE;
 
-    let min_i = y / chunk_px;
-    let max_i = (y + height + chunk_px - 1) / chunk_px;
-    let min_j = x / chunk_px;
-    let max_j = (x + width + chunk_px - 1) / chunk_px;
+    let cx0 = x / chunk_px;
+    let cx1 = (x + width + chunk_px - 1) / chunk_px;
+    let cy0 = y / chunk_px;
+    let cy1 = (y + height + chunk_px - 1) / chunk_px;
 
-    for raw_i in range(min_i, max_i) {
-        for raw_j in range(min_j, max_j) {
-            let i = raw_i % LOCAL_SIZE;
-            let j = raw_j % LOCAL_SIZE;
+    for cy in range(cy0, cy1) {
+        for cx in range(cx0, cx1) {
+            let i = cy % LOCAL_SIZE;
+            let j = cx % LOCAL_SIZE;
             let idx = (i * LOCAL_SIZE + j) as uint;
 
             let chunk = &xv.chunks[idx];
-            let xv_idx = (CHUNK_SIZE * CHUNK_SIZE - 1) as uint;
-            let u_idx = (CHUNK_SIZE * 4 - 1) as uint;
-            let base = chunk.bases[xv_idx];
-            let offset = chunk.offsets[xv_idx][u_idx];
-            draw_terrain(raw_j, raw_i, 0, base + offset as u16);
+            render_chunk(chunk, cx, cy, sprites,
+                         |a, b, c, d| draw_terrain(a, b, c, d),
+                         |a, b, c, d, e| draw_sprite(a, b, c, d, e));
         }
-    }
-
-    quicksort(sprites, SpriteUV);
-    for sprite in sprites.iter() {
-        draw_sprite(sprite.id,
-                    sprite.ref_x - sprite.anchor_x,
-                    sprite.ref_y - sprite.ref_z - sprite.anchor_y);
     }
 }
 
-const LEVEL_BUFFER_SIZE: uint = 1024;
+fn render_chunk(chunk: &XvChunk,
+                cx: u16, cy: u16,
+                sprites: &mut [Sprite],
+                draw_terrain: |u16, u16, u16, u16|,
+                draw_sprite: |u16, u16, u16, u16, u16|) {
+    // Pass #1
+    //
+    // Examine each sprite.  For each sprite, determine whether it is Outside, Above, or Between
+    // the terrain layers.  Also mark each column in which terrain covers a sprite, as these
+    // columns need to be drawn incrementally.
+    let mut depth = [-1_u8, ..1 << (2 * CHUNK_BITS)];
+
+    let max_idx = (CHUNK_SIZE * CHUNK_SIZE - 1) as uint;
+    let col_max_idx = (4 * CHUNK_SIZE - 1) as uint;
+
+    for sprite in sprites.iter_mut() {
+        let (tx0, tx1, ty0, ty1) = sprite.clipped_tile_bounds(cx, cy);
+        let inside = (tx0 < tx1 && ty0 < ty1);
+        let mut below = false;
+        for ty in range(ty0, ty1) {
+            let limit = sprite.u_limit(cy * CHUNK_SIZE + ty);
+            for tx in range(tx0, tx1) {
+                let idx = (ty * CHUNK_SIZE + tx) as uint;
+                // Offset of the first face above the sprite in this column.  We look at index
+                // `limit - 1` is the first face *after* the one at u=limit, and we want the last
+                // one *before* u=limit.  This never underflows because limit is always >= 1
+                // (assuming ref_z >= 0).
+                let above = chunk.offsets[idx][limit as uint - 1];
+                // Offset of the last face in this column.
+                let col_max = chunk.offsets[idx][col_max_idx];
+
+                if above < col_max {
+                    depth[idx] = 0;
+                    below = true;
+                }
+            }
+        }
+
+        sprite.status =
+            if !inside {
+                Outside
+            } else if !below {
+                Above
+            } else {
+                Between
+            };
+    }
+
+    // Pass #2
+    //
+    // Examine each column.  Collect runs of columns tha contain only Above sprites (or no sprites)
+    // and draw each run.
+    let mut last = 0;
+    for idx in range(0, depth.len()) {
+        if depth[idx] == -1 {
+            continue;
+        }
+
+        let cur = chunk.bases[idx];
+        if cur > last {
+            draw_terrain(cx, cy, last, cur);
+        }
+        last = cur + chunk.offsets[idx][col_max_idx] as u16;
+    }
+
+    let cur = chunk.bases[max_idx] + chunk.offsets[max_idx][col_max_idx] as u16;
+    if cur > last {
+        draw_terrain(cx, cy, last, cur);
+    }
+
+    // Pass #3 [TODO]
+    //
+    // Examine each sprite.  Draw all partial columns below the sprite, then draw the sprite
+    // itself.
+    for sprite in sprites.iter() {
+        if sprite.status == Outside {
+            continue;
+        }
+
+        if sprite.status == Between {
+            let (tx0, tx1, ty0, ty1) = sprite.clipped_tile_bounds(cx, cy);
+            for ty in range(ty0, ty1) {
+                let limit = sprite.u_limit(cy * CHUNK_SIZE + ty);
+                for tx in range(tx0, tx1) {
+                    let idx = (ty * CHUNK_SIZE + tx) as uint;
+                    let base = chunk.bases[idx];
+                    let start_off = depth[idx];
+                    let end_off = chunk.offsets[idx][limit as uint - 1];
+                    if start_off < end_off {
+                        draw_terrain(cx, cy,
+                                     base + start_off as u16,
+                                     base + end_off as u16);
+                    }
+                    depth[idx] = end_off;
+                }
+            }
+        }
+
+        let (x0, x1, y0, y1) = sprite.clipped_bounds(cx, cy);
+        let base_x = cx * CHUNK_SIZE * TILE_SIZE;
+        let base_y = cy * CHUNK_SIZE * TILE_SIZE;
+        draw_sprite(sprite.id,
+                    x0 + base_x,
+                    y0 + base_y,
+                    x1 - x0,
+                    y1 - y0);
+    }
+
+    // Pass #4 [TODO]
+    //
+    // Examine each column.  If the column has been partially drawn, draw the topmost part of it.
+    for ty in range(0, CHUNK_SIZE) {
+        for tx in range(0, CHUNK_SIZE) {
+            let idx = (ty * CHUNK_SIZE + tx) as uint;
+            if depth[idx] == -1 {
+                continue;
+            }
+
+            let base = chunk.bases[idx];
+            let start_off = depth[idx];
+            let end_off = chunk.offsets[idx][col_max_idx];
+            if start_off < end_off {
+                draw_terrain(cx, cy,
+                             base + start_off as u16,
+                             base + end_off as u16);
+            }
+        }
+    }
+}
 
 fn render_sprites(xv: &XvData,
                   x: u16,

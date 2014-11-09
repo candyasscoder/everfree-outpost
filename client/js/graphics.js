@@ -276,7 +276,6 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
     var this_ = this;
 
     function draw_terrain(cx, cy, begin, end) {
-        log.push(['terrain', cx, cy, begin, end]);
         var posAttr = this_.terrain_program.getAttributeLocation('position');
         var texAttr = this_.terrain_program.getAttributeLocation('texCoord');
 
@@ -290,11 +289,12 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
         var i = cy % LOCAL_SIZE;
         var j = cx % LOCAL_SIZE;
         var idx = i * LOCAL_SIZE + j;
+        log.push(['terrain', cx, cy, begin, end, this_._chunk_points[idx]]);
 
         this_._chunk_buffer[idx].bind();
         gl.vertexAttribPointer(posAttr, 2, gl.UNSIGNED_BYTE, false, 4, 0);
         gl.vertexAttribPointer(texAttr, 2, gl.UNSIGNED_BYTE, false, 4, 2);
-        gl.drawArrays(gl.TRIANGLES, 0, this_._chunk_points[idx]);
+        gl.drawArrays(gl.TRIANGLES, 6 * begin, 6 * (end - begin));
         this_._chunk_buffer[idx].unbind();
 
         this_.atlas_texture.unbind();
@@ -302,20 +302,22 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
         gl.disableVertexAttribArray(texAttr);
     }
 
-    function draw_sprite(id, x, y) {
-        log.push(['sprite', id, x, y]);
+    function draw_sprite(id, x, y, w, h) {
+        log.push(['sprite', id, x, y, w, h]);
         var posAttr = this_.sprite_program.getAttributeLocation('position');
 
         gl.enableVertexAttribArray(posAttr);
         this_.sprite_texture.bind();
 
         var sprite = sprites[id];
-        var x = sprite.ref_x - sprite.anchor_x;
-        var y = sprite.ref_y - sprite.ref_z - sprite.anchor_y;
+        var x0 = sprite.ref_x - sprite.anchor_x;
+        var y0 = sprite.ref_y - sprite.ref_z - sprite.anchor_y;
         this_.sprite_program.use();
         this_.sprite_program.setUniform2f('base', x, y);
-        this_.sprite_program.setUniform2f('off', sprite.offset_x, sprite.offset_y);
-        this_.sprite_program.setUniform2f('size', sprite.width, sprite.height);
+        this_.sprite_program.setUniform2f('off',
+                sprite.offset_x + x - x0,
+                sprite.offset_y + y - y0);
+        this_.sprite_program.setUniform2f('size', w, h);
         this_.sprite_program.setUniform2f('flip', sprite.flip, 0);
 
         this_.sprite_buffer.bind();

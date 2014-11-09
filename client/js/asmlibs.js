@@ -214,18 +214,20 @@ Asm.prototype.render = function(x, y, w, h, sprites, draw_terrain, draw_sprite) 
     var draw_terrain_idx = this._callbackAlloc(draw_terrain);
     var draw_sprite_idx = this._callbackAlloc(draw_sprite);
 
-    var view = this.spritesView();
+    var view16 = this.spritesView();
+    var view8 = new Uint8Array(view16.buffer, view16.byteOffset, view16.byteLength);
     for (var i = 0; i < sprites.length; ++i) {
-        var base = i * 8;
+        var base8 = i * SIZEOF.Sprite;
+        var base16 = (base8 / 2)|0;
         var sprite = sprites[i];
-        view[base + 0] = i;
-        view[base + 1] = sprite.ref_x;
-        view[base + 2] = sprite.ref_y;
-        view[base + 3] = sprite.ref_z;
-        view[base + 4] = sprite.width;
-        view[base + 5] = sprite.height;
-        view[base + 6] = sprite.anchor_x;
-        view[base + 7] = sprite.anchor_y;
+        view16[base16 + 0] = i;
+        view16[base16 + 1] = sprite.ref_x;
+        view16[base16 + 2] = sprite.ref_y;
+        view16[base16 + 3] = sprite.ref_z;
+        view8[base8 + 8] = sprite.width;
+        view8[base8 + 9] = sprite.height;
+        view8[base8 + 10] = sprite.anchor_x;
+        view8[base8 + 11] = sprite.anchor_y;
     }
 
     this._raw['render'](XV_START, x, y, w, h, SPRITES_START, sprites.length,

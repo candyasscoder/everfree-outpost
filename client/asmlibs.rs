@@ -86,8 +86,9 @@ pub extern fn render(xv_data: &XvData,
         run_callback(draw_terrain_idx, args.as_slice());
     };
 
-    let draw_sprite = |id: u16, x: u16, y: u16| {
-        run_callback(draw_sprite_idx, [id as i32, x as i32, y as i32].as_slice());
+    let draw_sprite = |id: u16, x: u16, y: u16, w: u16, h: u16| {
+        let args = [id as i32, x as i32, y as i32, w as i32, h as i32];
+        run_callback(draw_sprite_idx, args.as_slice());
     };
 
     let sprites = unsafe {
