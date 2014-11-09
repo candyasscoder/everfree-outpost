@@ -89,10 +89,11 @@ impl Entity {
         let velocity = V3::new(dx, dy, 0) * scalar(50 * speed as i32);
         let (mut end_pos, mut dur) = physics::collide(map, start_pos, size, velocity);
 
-        while dur > DURATION_MAX as i32 {
-            assert!(dur > 0);
-            dur /= 2;
-            end_pos = start_pos + (end_pos - start_pos) / scalar(2);
+        if dur == 0 {
+            dur = DURATION_MAX as i32;
+        } else if dur > DURATION_MAX as i32 {
+            let offset = end_pos - start_pos;
+            end_pos = start_pos + offset * scalar(DURATION_MAX as i32) / scalar(dur);
         }
 
         let (end_pos, dur) = (end_pos, dur);
@@ -103,6 +104,10 @@ impl Entity {
         self.start_pos = world_start_pos;
         self.end_pos = world_end_pos;
         self.anim = anim;
+    }
+
+    pub fn end_time(&self) -> Time {
+        self.start_time + self.duration as Time 
     }
 }
 
@@ -248,10 +253,9 @@ impl State {
     pub fn update_physics(&mut self, now: Time, id: ClientId) -> bool {
         let client = &mut self.clients[id];
         let entity = &mut self.entities[client.entity_id];
-        // TODO: doesn't work when dur == 65535
-        //if now - entity.start_time < entity.end_time - entity.start_time {
-            //return false;
-        //}
+        if now < entity.end_time() {
+            return false;
+        }
         entity.update(&self.map, now, client.current_input);
         true
     }

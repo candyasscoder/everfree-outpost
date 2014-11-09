@@ -168,20 +168,34 @@ impl Server {
         match reason {
             HandleInput(client_id, input) => {
                 let updated = self.state.update_input(now, client_id, input);
-                let (entity_id, motion, anim) = {
-                    let ce = self.state.client_entity(client_id).unwrap();
-                    (ce.client.entity_id,
-                     entity_motion(now, ce),
-                     ce.entity.anim)
-                };
-                for &send_id in self.state.clients.keys() {
-                    self.resps.send((send_id, msg::EntityUpdate(entity_id, motion, anim)));
+                if updated {
+                    self.post_physics_update(now, client_id);
                 }
             },
 
             PhysicsUpdate(client_id) => {
+                let updated = self.state.update_physics(now, client_id);
+                if updated {
+                    self.post_physics_update(now, client_id);
+                }
             },
         }
+    }
+
+    fn post_physics_update(&mut self,
+                           now: Time,
+                           client_id: ClientId) {
+        let (entity_id, motion, anim, end_time) = {
+            let ce = self.state.client_entity(client_id).unwrap();
+            (ce.client.entity_id,
+             entity_motion(now, ce),
+             ce.entity.anim,
+             ce.entity.end_time())
+        };
+        for &send_id in self.state.clients.keys() {
+            self.resps.send((send_id, msg::EntityUpdate(entity_id, motion, anim)));
+        }
+        self.wake_queue.push(end_time, PhysicsUpdate(client_id));
     }
 }
 
