@@ -310,13 +310,27 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
         this_.sprite_texture.bind();
 
         var sprite = sprites[id];
+        // Coordinates where the sprite would normally be displayed.
         var x0 = sprite.ref_x - sprite.anchor_x;
         var y0 = sprite.ref_y - sprite.ref_z - sprite.anchor_y;
+        // The region x,y,w,h is x0,y0,sprite.width,sprite.height clipped to
+        // lie within some other region.  clip_off is the offset of x,y,w,h
+        // within the sprite's normal region.  The source offsets are adjusted
+        // by this amount to grab the right part of the image for x,y,w,h.
+        var clip_off_x = x - x0;
+        var clip_off_y = y - y0;
+        // If the sprite is flipped, we need to flip the offset.  We draw the
+        // left half of a flipped sprite by drawing a flipped version of the
+        // right half of the source.
+        if (sprite.flip) {
+            clip_off_x = sprite.width - clip_off_x - w;
+        }
+
         this_.sprite_program.use();
         this_.sprite_program.setUniform2f('base', x, y);
         this_.sprite_program.setUniform2f('off',
-                sprite.offset_x + x - x0,
-                sprite.offset_y + y - y0);
+                sprite.offset_x + clip_off_x,
+                sprite.offset_y + clip_off_y);
         this_.sprite_program.setUniform2f('size', w, h);
         this_.sprite_program.setUniform2f('flip', sprite.flip, 0);
 
