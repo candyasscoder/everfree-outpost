@@ -255,6 +255,15 @@ Renderer.prototype.loadChunk = function(i, j, chunk) {
     j = (idx % LOCAL_SIZE);
     this._asm.updateXvData(i, j);
 
+    this._refreshGeometry(i, j);
+    this._refreshGeometry(i - 1, j);
+};
+
+Renderer.prototype._refreshGeometry = function(i, j) {
+    i = i & (LOCAL_SIZE - 1);
+    j = j & (LOCAL_SIZE - 1);
+    var idx = i * LOCAL_SIZE + j;
+
     var geom = this._asm.generateGeometry(i, j);
     this._chunk_buffer[idx].loadData(geom);
     this._chunk_points[idx] = (geom.length / 4)|0;
