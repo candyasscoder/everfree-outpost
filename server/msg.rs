@@ -57,6 +57,7 @@ pub mod op {
         EntityUpdate = 0x8004,
         Init = 0x8005,
         KickReason = 0x8006,
+        UnloadChunk = 0x8007,
         // TODO: EntityAdd, EntityRemove
 
         AddClient = 0xff00,
@@ -120,6 +121,7 @@ pub enum Response {
     EntityUpdate(EntityId, Motion, u16),
     Init(InitData),
     KickReason(String),
+    UnloadChunk(u16),
 
     ClientRemoved,
 }
@@ -139,6 +141,8 @@ impl Response {
                 ww.write_msg(id, (op::Init, data.flatten())),
             KickReason(ref msg) =>
                 ww.write_msg(id, (op::KickReason, msg)),
+            UnloadChunk(idx) =>
+                ww.write_msg(id, (op::UnloadChunk, idx)),
 
             ClientRemoved =>
                 ww.write_msg(id, (op::ClientRemoved)),

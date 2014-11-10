@@ -30,8 +30,10 @@ use wire::{WireReader, WireWriter};
 use msg::Motion as WireMotion;
 use msg::{Request, Response};
 use state::InputBits;
+use state::LOCAL_SIZE;
 
-use types::{LocalTime, LocalCoord, Time, ClientId, EntityId, ToGlobal, ToLocal};
+use types::{LocalTime, LocalCoord, Time, ToGlobal, ToLocal};
+use types::{ClientId, EntityId};
 
 mod msg;
 mod wire;
@@ -39,6 +41,7 @@ mod tasks;
 mod state;
 mod timer;
 mod types;
+mod view;
 
 fn main() {
     let (req_send, req_recv) = channel();
@@ -64,6 +67,7 @@ fn main() {
 pub enum WakeReason {
     HandleInput(ClientId, InputBits),
     PhysicsUpdate(ClientId),
+    CheckView(ClientId),
 }
 
 struct Server {
@@ -136,15 +140,23 @@ impl Server {
                 };
                 self.resps.send((client_id, msg::Init(info)));
 
-                for c in range(0, 8 * 8) {
-                    let data = self.state.get_terrain_rle16(c);
-                    self.resps.send((client_id, msg::TerrainChunk(c as u16, data)));
-                }
+                let (region, offset) = {
+                    let ce = self.state.client_entity(client_id).unwrap();
+                    let motion = entity_motion(now, ce);
+                    let anim = ce.entity.anim;
+                    self.resps.send((client_id, msg::EntityUpdate(ce.client.entity_id, motion, anim)));
+                    log!(10, "pos={}, region={}",
+                         ce.entity.pos(now),
+                         ce.client.view_state.region());
 
-                let ce = self.state.client_entity(client_id).unwrap();
-                let motion = entity_motion(now, ce);
-                let anim = ce.entity.anim;
-                self.resps.send((client_id, msg::EntityUpdate(ce.client.entity_id, motion, anim)));
+                    (ce.client.view_state.region(),
+                     chunk_offset(ce.entity.pos(now), ce.client.chunk_offset))
+                };
+
+                for (x,y) in region.points() {
+                    self.load_chunk(client_id, x, y, offset);
+                }
+                self.wake_queue.push(now + 1000, CheckView(client_id));
             },
 
             msg::AddClient => {
@@ -179,6 +191,31 @@ impl Server {
                     self.post_physics_update(now, client_id);
                 }
             },
+
+            CheckView(client_id) => {
+                let (result, offset) = {
+                    let ce = match self.state.client_entity_mut(client_id) {
+                        Some(ce) => ce,
+                        None => return,
+                    };
+                    let pos = ce.entity.pos(now);
+                    (ce.client.view_state.update(pos + V3::new(16, 16, 0)),
+                     chunk_offset(pos, ce.client.chunk_offset))
+                };
+
+
+                if let Some((old_region, new_region)) = result {
+                    for (x,y) in old_region.points().filter(|&(x,y)| !new_region.contains(x,y)) {
+                        self.unload_chunk(client_id, x, y, offset);
+                    }
+
+                    for (x,y) in new_region.points().filter(|&(x,y)| !old_region.contains(x,y)) {
+                        self.load_chunk(client_id, x, y, offset);
+                    }
+                }
+
+                self.wake_queue.push(now + 1000, CheckView(client_id));
+            },
         }
     }
 
@@ -195,7 +232,37 @@ impl Server {
         for &send_id in self.state.clients.keys() {
             self.resps.send((send_id, msg::EntityUpdate(entity_id, motion, anim)));
         }
-        self.wake_queue.push(end_time, PhysicsUpdate(client_id));
+
+        if motion.start_pos != motion.end_pos {
+            self.wake_queue.push(end_time, PhysicsUpdate(client_id));
+        }
+    }
+
+    fn load_chunk(&self,
+                  client_id: ClientId,
+                  x: i32, y: i32,
+                  offset: V3) {
+        let cx = (x + offset.x) & (LOCAL_SIZE - 1);
+        let cy = (y + offset.y) & (LOCAL_SIZE - 1);
+
+        log!(10, "load {},{} as {},{} for {}", x, y, cx, cy, client_id);
+
+        let idx = cy * LOCAL_SIZE + cx;
+        let data = self.state.get_terrain_rle16(idx as uint);
+        self.resps.send((client_id, msg::TerrainChunk(idx as u16, data)));
+    }
+
+    fn unload_chunk(&self,
+                    client_id: ClientId,
+                    x: i32, y: i32,
+                    offset: V3) {
+        let cx = (x + offset.x) & (LOCAL_SIZE - 1);
+        let cy = (y + offset.y) & (LOCAL_SIZE - 1);
+
+        log!(10, "unload {},{} as {},{} for {}", x, y, cx, cy, client_id);
+
+        let idx = cy * LOCAL_SIZE + cx;
+        self.resps.send((client_id, msg::UnloadChunk(idx as u16)));
     }
 }
 
@@ -222,4 +289,10 @@ fn entity_motion(now: Time, ce: state::ClientEntity) -> WireMotion {
                     end_pos.y as u16,
                     end_pos.z as u16),
     }
+}
+
+fn chunk_offset(pos: V3, extra_offset: (u8, u8)) -> V3 {
+    let world_base = state::base_chunk(pos);
+    let local_base = state::offset_base_chunk(world_base, extra_offset);
+    local_base - world_base
 }

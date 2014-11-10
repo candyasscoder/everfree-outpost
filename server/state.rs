@@ -7,14 +7,15 @@ use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE};
 use physics::v3::{V3, scalar};
 
 use types::{Time, Duration, ClientId, EntityId, AnimId, BlockId, TileId, DURATION_MAX};
+use view::ViewState;
 
 const CHUNK_TOTAL: uint = 1 << (3 * CHUNK_BITS);
 type Chunk = [BlockId, ..CHUNK_TOTAL];
 
-const LOCAL_BITS: uint = 3;
-const LOCAL_SIZE: i32 = 1 << LOCAL_BITS;
-const LOCAL_MASK: i32 = LOCAL_SIZE - 1;
-const LOCAL_TOTAL: uint = 1 << (2 * LOCAL_BITS);
+pub const LOCAL_BITS: uint = 3;
+pub const LOCAL_SIZE: i32 = 1 << LOCAL_BITS;
+pub const LOCAL_MASK: i32 = LOCAL_SIZE - 1;
+pub const LOCAL_TOTAL: uint = 1 << (2 * LOCAL_BITS);
 
 pub struct Terrain {
     pub chunks: [Chunk, ..LOCAL_TOTAL],
@@ -127,6 +128,7 @@ pub struct Client {
     pub entity_id: EntityId,
     pub current_input: InputBits,
     pub chunk_offset: (u8, u8),
+    pub view_state: ViewState,
 }
 
 
@@ -227,11 +229,14 @@ impl State {
     }
 
     pub fn add_client(&mut self, now: Time, id: ClientId) {
+        let pos = V3::new(100, 100, 0);
+        let offset = V3::new(16, 16, 0);
+
         let entity = Entity {
             start_time: now,
             duration: u16::MAX,
-            start_pos: V3::new(100 - 16, 100 - 16, 0),
-            end_pos: V3::new(100 - 16, 100 - 16, 0),
+            start_pos: pos - offset,
+            end_pos: pos - offset,
             anim: 0,
         };
 
@@ -239,6 +244,7 @@ impl State {
             entity_id: id as EntityId,
             current_input: InputBits::empty(),
             chunk_offset: (0, 0),
+            view_state: ViewState::new(pos),
         };
 
         self.entities.insert(id as EntityId, entity);
@@ -273,8 +279,6 @@ impl State {
         let entity = &mut self.entities[client.entity_id];
         entity.update(&self.map, now, input);
 
-        log!(10, "client entity moves {} -> {} for dur {}",
-             entity.start_pos, entity.end_pos, entity.duration);
         true
     }
 }

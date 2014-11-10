@@ -42,6 +42,14 @@ Vec.prototype.divScalar = function(c) {
     return new Vec((this.x / c)|0, (this.y / c)|0, (this.z / c)|0);
 };
 
+Vec.prototype.mod = function(other) {
+    return new Vec((this.x % other.x)|0, (this.y % other.y)|0, (this.z % other.z)|0);
+};
+
+Vec.prototype.modScalar = function(c) {
+    return new Vec((this.x % c)|0, (this.y % c)|0, (this.z % c)|0);
+};
+
 Vec.prototype.sign = function() {
     return new Vec(Math.sign(this.x), Math.sign(this.y), Math.sign(this.z));
 };

@@ -13,6 +13,7 @@ var OP_PONG =               0x8003;
 var OP_ENTITY_UPDATE =      0x8004;
 var OP_INIT =               0x8005;
 var OP_KICK_REASON =        0x8006;
+var OP_UNLOAD_CHUNK =       0x8007;
 
 /** @constructor */
 function Connection(url) {
@@ -33,6 +34,7 @@ function Connection(url) {
     this.onEntityUpdate = null;
     this.onInit = null;
     this.onKickReason = null;
+    this.onUnloadChunk = null;
 }
 exports.Connection = Connection;
 
@@ -147,11 +149,19 @@ Connection.prototype._handleMessage = function(evt) {
         case OP_KICK_REASON:
             if (this.onKickReason != null) {
                 var msg = decodeUtf8(new Uint8Array(view.buffer, 2));
+                this.onKickReason(msg);
             }
             break;
 
+        case OP_UNLOAD_CHUNK:
+            if (this.onUnloadChunk != null) {
+                var idx = get16();
+                this.onUnloadChunk(idx);
+            };
+            break;
+
         default:
-            console.assert(false, 'received invalid opcode:', opcode);
+            console.assert(false, 'received invalid opcode:', opcode.toString(16));
             break;
     }
 };

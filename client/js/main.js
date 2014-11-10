@@ -179,6 +179,7 @@ var entities;
 var player_entity;
 
 var chunks;
+var chunkLoaded;
 var physics;
 var renderer = null;
 
@@ -206,6 +207,11 @@ function init() {
     chunks = initChunks();
     physics = new Physics();
     var tile_sheet = new Sheet(assets['tiles'], 32, 32);
+
+    chunkLoaded = new Array(LOCAL_SIZE * LOCAL_SIZE);
+    for (var i = 0; i < chunkLoaded.length; ++i) {
+        chunkLoaded[i] = false;
+    }
 
     renderer = new Renderer(canvas.ctx);
 
@@ -326,6 +332,7 @@ function postInit() {
     conn.onInit = handleInit;
     conn.onTerrainChunk = handleTerrainChunk;
     conn.onEntityUpdate = handleEntityUpdate;
+    conn.onUnloadChunk = handleUnloadChunk;
 
     renderer.initGl(assets);
 }
@@ -369,6 +376,8 @@ function handleTerrainChunk(i, data) {
         physics.loadChunk(0, i, chunk._tiles);
         renderer.loadChunk(0, i, chunk);
     });
+
+    chunkLoaded[i] = true;
 }
 
 function handleEntityUpdate(id, motion, anim) {
@@ -388,6 +397,10 @@ function handleEntityUpdate(id, motion, anim) {
     }
     entities[id].setMotion(m);
     entities[id].setAnimation(m.start_time, anim);
+}
+
+function handleUnloadChunk(idx) {
+    chunkLoaded[idx] = false;
 }
 
 function localSprite(now, entity, camera_mid) {
@@ -458,73 +471,21 @@ function frame(gl, now) {
 
     debug.frameEnd();
     debug.updateJobs(runner);
-}
 
+    debug.gfxCtx.clearRect(0, 0, 128, 128);
+    var chunk_pos = pos.divScalar(CHUNK_SIZE * TILE_SIZE).modScalar(LOCAL_SIZE);
+    var px = 128 / LOCAL_SIZE;
+    for (var y = 0; y < LOCAL_SIZE; ++y) {
+        for (var x = 0; x < LOCAL_SIZE; ++x) {
+            if (x == chunk_pos.x && y == chunk_pos.y) {
+                debug.gfxCtx.fillStyle = 'green';
+            } else {
+                debug.gfxCtx.fillStyle = 'red';
+            }
 
-
-
-function frame_2d(ctx, now) {
-    debug.frameStart();
-
-    var pos = new Vec(4096, 4096, 0);
-    var pony = null;
-    if (player_entity >= 0 && entities[player_entity] != null) {
-        pos = entities[player_entity].position(now);
-        pony = entities[player_entity];
-    }
-    debug.updatePos(pos);
-
-    var camera_size = new Vec(ctx.canvas.width|0, ctx.canvas.height|0, 0);
-    var camera_pos = pos.sub(camera_size.divScalar(2));
-
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-
-    ctx.translate(-camera_pos.x, -camera_pos.y);
-
-
-    var entity_ids = Object.getOwnPropertyNames(entities);
-    var sprites = new Array(entity_ids.length);
-    for (var i = 0; i < entity_ids.length; ++i) {
-        var entity = entities[entity_ids[i]];
-        sprites[i] = localSprite(now, entity, pos);
-    }
-
-    renderer.render(ctx,
-            camera_pos.x, camera_pos.y,
-            ctx.canvas.width, ctx.canvas.height,
-            sprites);
-
-
-    if (pony != null) {
-        // Draw pony motion forecast
-        //var fc = pony._forecast;
-        var fc = pony._motion;
-
-        if (fc.start_pos.z != 0) {
-            ctx.strokeStyle = '#880';
-            ctx.beginPath();
-            ctx.moveTo(fc.start_pos.x, fc.start_pos.y);
-            ctx.lineTo(fc.start_pos.x, fc.start_pos.y - fc.start_pos.z);
-            ctx.stroke();
+            if (chunkLoaded[y * LOCAL_SIZE + x]) {
+                debug.gfxCtx.fillRect(x * px, y * px, px, px);
+            }
         }
-
-        if (fc.end_pos.z != 0) {
-            ctx.strokeStyle = '#880';
-            ctx.beginPath();
-            ctx.moveTo(fc.end_pos.x, fc.end_pos.y);
-            ctx.lineTo(fc.end_pos.x, fc.end_pos.y - fc.end_pos.z);
-            ctx.stroke();
-        }
-
-        ctx.strokeStyle = '#cc0';
-        ctx.beginPath();
-        ctx.moveTo(fc.start_pos.x, fc.start_pos.y - fc.start_pos.z);
-        ctx.lineTo(fc.end_pos.x, fc.end_pos.y - fc.end_pos.z);
-        ctx.stroke();
     }
-
-    debug.frameEnd();
-
-    debug.updateJobs(runner);
 }
