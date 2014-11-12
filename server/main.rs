@@ -35,6 +35,7 @@ mod timer;
 mod types;
 mod view;
 mod input;
+mod gen;
 
 fn main() {
     let (req_send, req_recv) = channel();
@@ -51,7 +52,10 @@ fn main() {
     });
 
     let mut state = state::State::new();
+    let start = now();
     state.init_terrain();
+    let end = now();
+    log!(10, "generated terrain in {} msec", end - start);
     let mut server = Server::new(resp_send, state);
     server.run(req_recv);
 }

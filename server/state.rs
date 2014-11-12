@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::rand::{IsaacRng, Rng, SeedableRng};
 use std::u16;
 
 use physics;
@@ -11,7 +10,7 @@ use view::ViewState;
 use input::{InputBits, INPUT_LEFT, INPUT_RIGHT, INPUT_UP, INPUT_DOWN, INPUT_RUN};
 
 const CHUNK_TOTAL: uint = 1 << (3 * CHUNK_BITS);
-type Chunk = [BlockId, ..CHUNK_TOTAL];
+pub type Chunk = [BlockId, ..CHUNK_TOTAL];
 
 pub const LOCAL_BITS: uint = 3;
 pub const LOCAL_SIZE: i32 = 1 << LOCAL_BITS;
@@ -149,14 +148,12 @@ impl State {
     }
 
     pub fn init_terrain(&mut self) {
-        let mut rng: IsaacRng = SeedableRng::from_seed([1,2,3,6].as_slice().as_slice());
-        for i in range(0, LOCAL_TOTAL) {
-            for j in range(0, (CHUNK_SIZE * CHUNK_SIZE) as uint) {
-                if rng.gen_range(0, 10) == 0u8 {
-                    self.map.chunks[i][j] = 0;
-                } else {
-                    self.map.chunks[i][j] = 1;
-                }
+        use gen::TerrainGenerator;
+        let mut gen = TerrainGenerator::new(12345);
+        for cy in range(0, LOCAL_SIZE) {
+            for cx in range(0, LOCAL_SIZE) {
+                let i = (cy * LOCAL_SIZE + cx) as uint;
+                self.map.chunks[i] = gen.generate_chunk(cx, cy);
             }
         }
     }
