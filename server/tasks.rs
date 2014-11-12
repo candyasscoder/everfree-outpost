@@ -15,6 +15,6 @@ pub fn run_output<W: Writer>(w: W, recv: Receiver<(ClientId, Response)>) -> IoRe
     let mut ww = WireWriter::new(w);
     loop {
         let (id, req) = recv.recv();
-        req.write_to(id, &mut ww);
+        try!(req.write_to(id, &mut ww));
     }
 }

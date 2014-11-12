@@ -18,7 +18,7 @@ impl<R: Reader> WireReader<R> {
 
     pub fn read_header(&mut self) -> IoResult<u16> {
         if !self.done() {
-            self.skip_remaining();
+            try!(self.skip_remaining());
         }
 
         let id: u16 = try!(ReadFrom::read_from(&mut self.r, 2));

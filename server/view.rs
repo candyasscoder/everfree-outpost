@@ -1,12 +1,10 @@
 use physics::v3::V3;
-use physics::{CHUNK_SIZE, CHUNK_BITS, TILE_SIZE, TILE_BITS};
+use physics::{CHUNK_BITS, TILE_BITS};
 
 pub const VIEW_SIZE_X: i32 = 5;
 pub const VIEW_SIZE_Y: i32 = 6;
 pub const VIEW_ANCHOR_X: i32 = 2;
 pub const VIEW_ANCHOR_Y: i32 = 2;
-
-pub const CHUNK_PX: i32 = CHUNK_SIZE * TILE_SIZE;
 
 pub struct ViewState {
     last_center: (i32, i32),
@@ -21,15 +19,6 @@ pub struct ViewRegion {
 }
 
 impl ViewRegion {
-    fn empty() -> ViewRegion {
-        ViewRegion {
-            x: 0,
-            y: 0,
-            w: 0,
-            h: 0,
-        }
-    }
-
     fn around(center: (i32, i32)) -> ViewRegion {
         let (cx, cy) = center;
         ViewRegion {

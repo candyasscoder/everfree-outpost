@@ -6,8 +6,9 @@ use physics;
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE};
 use physics::v3::{V3, scalar};
 
-use types::{Time, Duration, ClientId, EntityId, AnimId, BlockId, TileId, DURATION_MAX};
+use types::{Time, Duration, ClientId, EntityId, AnimId, BlockId, DURATION_MAX};
 use view::ViewState;
+use input::{InputBits, INPUT_LEFT, INPUT_RIGHT, INPUT_UP, INPUT_DOWN, INPUT_RUN};
 
 const CHUNK_TOTAL: uint = 1 << (3 * CHUNK_BITS);
 type Chunk = [BlockId, ..CHUNK_TOTAL];
@@ -113,17 +114,6 @@ impl Entity {
 }
 
 
-bitflags! {
-    flags InputBits: u16 {
-        const INPUT_LEFT =      0x0001,
-        const INPUT_RIGHT =     0x0002,
-        const INPUT_UP =        0x0004,
-        const INPUT_DOWN =      0x0008,
-        const INPUT_RUN =       0x0010,
-    }
-}
-
-
 pub struct Client {
     pub entity_id: EntityId,
     pub current_input: InputBits,
@@ -137,19 +127,9 @@ pub struct ClientEntity<'a> {
     pub entity: &'a Entity,
 }
 
-
 pub struct ClientEntityMut<'a> {
     pub client: &'a mut Client,
     pub entity: &'a mut Entity,
-}
-
-impl<'a> ClientEntityMut<'a> {
-    pub fn imm(&self) -> ClientEntity {
-        ClientEntity {
-            client: self.client,
-            entity: self.entity,
-        }
-    }
 }
 
 
@@ -205,7 +185,7 @@ impl State {
     }
 
     pub fn client_entity(&self, id: ClientId) -> Option<ClientEntity> {
-        let client = match self.clients.find(&id) {
+        let client = match self.clients.get(&id) {
             Some(c) => c,
             None => return None,
         };
@@ -217,7 +197,7 @@ impl State {
     }
 
     pub fn client_entity_mut(&mut self, id: ClientId) -> Option<ClientEntityMut> {
-        let client = match self.clients.find_mut(&id) {
+        let client = match self.clients.get_mut(&id) {
             Some(c) => c,
             None => return None,
         };

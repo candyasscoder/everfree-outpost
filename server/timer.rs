@@ -3,7 +3,6 @@ use std::io::timer::Timer;
 use std::num::Bounded;
 use std::time::Duration;
 
-use time;
 use types::Time;
 
 struct WakeItem<T> {

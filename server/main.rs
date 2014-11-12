@@ -14,25 +14,17 @@ extern crate time;
 extern crate physics;
 
 use std::cmp;
-use std::collections::HashMap;
 use std::io;
-use std::io::{BufReader, BufWriter};
-use std::io::IoResult;
-use std::mem;
-use std::rand::{StdRng, Rng};
-use std::u16;
 
-use physics::{CHUNK_SIZE, CHUNK_BITS, TILE_SIZE};
-use physics::v3::{V3, scalar};
+use physics::v3::V3;
 
 use timer::WakeQueue;
-use wire::{WireReader, WireWriter};
 use msg::Motion as WireMotion;
 use msg::{Request, Response};
-use state::InputBits;
+use input::InputBits;
 use state::LOCAL_SIZE;
 
-use types::{LocalTime, LocalCoord, Time, ToGlobal, ToLocal};
+use types::{Time, ToGlobal, ToLocal};
 use types::{ClientId, EntityId};
 
 mod msg;
@@ -42,6 +34,7 @@ mod state;
 mod timer;
 mod types;
 mod view;
+mod input;
 
 fn main() {
     let (req_send, req_recv) = channel();
@@ -114,7 +107,7 @@ impl Server {
                 warn!("client {} used deprecated opcode GetTerrain", client_id);
             },
 
-            msg::UpdateMotion(wire_motion) => {
+            msg::UpdateMotion(_wire_motion) => {
                 warn!("client {} used deprecated opcode UpdateMotion", client_id);
             },
 
@@ -128,7 +121,7 @@ impl Server {
                 self.wake_queue.push(time, HandleInput(client_id, input));
             },
 
-            msg::Login(secret, name) => {
+            msg::Login(_secret, name) => {
                 log!(10, "login request for {}", name);
                 self.state.add_client(now, client_id);
 

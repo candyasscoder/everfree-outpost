@@ -67,6 +67,7 @@ pub mod op {
 }
 
 
+#[allow(dead_code)]
 pub enum Request {
     // Ordinary requests
     GetTerrain,
@@ -114,6 +115,7 @@ impl Request {
 }
 
 
+#[allow(dead_code)]
 pub enum Response {
     TerrainChunk(u16, Vec<u16>),
     PlayerMotion(u16, Motion),
