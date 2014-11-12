@@ -14,15 +14,17 @@ SRC = .
 BUILD = build
 DIST = dist
 
-BUILD_ASMJS = $(BUILD)/asmjs
-BUILD_NATIVE = $(BUILD)/native
-BUILD_ASMLIBS = $(BUILD)/asmlibs
-BUILD_MIN = $(BUILD)/min
+BUILD_ASMJS := $(BUILD)/asmjs
+BUILD_NATIVE_DEBUG := $(BUILD)/native
+BUILD_NATIVE_RELEASE := $(BUILD)/native.opt
+BUILD_ASMLIBS := $(BUILD)/asmlibs
+BUILD_MIN := $(BUILD)/min
 
 DIST_BIN = $(DIST)/bin
 DIST_WWW = $(DIST)/www
 
-$(shell mkdir -p $(BUILD_ASMJS) $(BUILD_NATIVE) $(BUILD_ASMLIBS) $(BUILD_MIN) \
+$(shell mkdir -p $(BUILD_ASMJS) $(BUILD_NATIVE_DEBUG) $(BUILD_NATIVE_RELEASE) \
+	$(BUILD_ASMLIBS) $(BUILD_MIN) \
 	$(DIST) $(DIST_BIN) $(DIST_WWW) $(DIST_WWW)/assets)
 
 
@@ -62,12 +64,26 @@ DEPS_backend = physics
 
 # Rules for building Rust libraries
 
+ifeq ($(RELEASE),)
+	RELEASE_RUSTFLAGS_opt = 
+	RELEASE_RUSTFLAGS_lto = 
+	RELEASE_ext = 
+	BUILD_NATIVE = $(BUILD_NATIVE_DEBUG)
+else
+	RELEASE_RUSTFLAGS_opt = --opt-level=3
+	RELEASE_RUSTFLAGS_lto = -C lto
+	RELEASE_ext = .opt
+	BUILD_NATIVE = $(BUILD_NATIVE_RELEASE)
+endif
+
+# FIXME: For asmjs, we force opt-level=3 to eliminate some constructs that
+# emscripten-fastcomp doesn't like.
 RUSTFLAGS_asmjs = -L $(BUILD_ASMJS) -L $(BUILD_NATIVE) \
 		--opt-level=3 --target=$(TARGET) \
 		-Z no-landing-pads -C no-stack-check --cfg asmjs
 
 RUSTFLAGS_native = -L $(BUILD_NATIVE) \
-		--opt-level=3 --target=$(HOST)
+		$(RELEASE_RUSTFLAGS_opt) --target=$(HOST)
 
 $(BUILD_ASMJS)/lib%.rlib: $(SRC)/%/lib.rs
 	$(RUSTC) $< --out-dir $(BUILD_ASMJS) --crate-type=rlib $(RUSTFLAGS_asmjs) \
@@ -152,9 +168,9 @@ $(BUILD_MIN)/outpost.js: $(JS_SRCS)
 
 # Rules for building the server
 
-$(BUILD)/backend: $(SRC)/server/main.rs \
+$(BUILD_NATIVE)/backend: $(SRC)/server/main.rs \
 		$(foreach dep,$(DEPS_backend),$(BUILD_NATIVE)/lib$(dep).rlib)
-	$(RUSTC) $< -o $@ $(RUSTFLAGS_native) \
+	$(RUSTC) $< -o $@ $(RUSTFLAGS_native) $(RELEASE_RUSTFLAGS_lto) \
 		--dep-info $(BUILD_NATIVE)/backend.d
 
 
@@ -205,7 +221,7 @@ $(DIST_WWW)/assets/%: $(SRC)/client/assets/%
 $(DIST_WWW)/js/%: $(SRC)/client/js/%
 	cp -v $< $@
 
-$(DIST_BIN)/backend: $(BUILD)/backend
+$(DIST_BIN)/backend: $(BUILD_NATIVE)/backend
 	rm -fv $@
 	cp -v $< $@
 
