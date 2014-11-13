@@ -71,9 +71,17 @@ def process_block_group(g, prefix=''):
         for side in SIDES:
             if side not in block:
                 continue
-            if block[side].startswith('/'):
+            if isinstance(block[side], tuple):
                 continue
-            block[side] = prefix + '/' + block[side]
+
+            def handle(layer):
+                layer = layer.strip()
+                if layer.startswith('/'):
+                    return layer
+                else:
+                    return prefix + '/' + layer
+
+            block[side] = tuple(handle(layer) for layer in block[side].split('+'))
 
     return blocks
 
@@ -176,22 +184,22 @@ def build_array(blocks):
     return block_array
 
 def compute_atlas(blocks, tiles):
-    order = [(None, 0, 0)]
+    order = [()]
     rev = {}
 
     for block in blocks:
         for k in SIDES:
             if k not in block:
                 continue
-            tile_name = block[k]
-            tile = tiles[tile_name]
 
-            display = (tile['sheet'], tile['x'], tile['y'])
+            tile_names = block[k];
+            layers = tuple(tiles[tile_name] for tile_name in tile_names)
+            display = tuple((t['sheet'], t['x'], t['y']) for t in layers)
 
             if display in rev:
                 continue
             order.append(display)
-            rev[tile_name] = len(order) - 1
+            rev[tile_names] = len(order) - 1
 
     return (order, rev)
 
@@ -199,7 +207,7 @@ TILE_SIZE = 32
 ATLAS_WIDTH = 32
 
 def build_atlas(order, in_dir, out_file):
-    sheets = dict((s, None) for s,_,_ in order)
+    sheets = dict((s, None) for layers in order for s,_,_ in layers)
     for s in sheets:
         if s is None:
             continue
@@ -210,16 +218,18 @@ def build_atlas(order, in_dir, out_file):
     px_height = atlas_height * TILE_SIZE
     output = Image.new('RGBA', (px_width, px_height))
 
-    for idx, (s, j, i) in enumerate(order):
-        if sheets[s] is None:
-            continue
-        out_j = idx % ATLAS_WIDTH
-        out_i = idx // ATLAS_WIDTH
+    for idx, layers in enumerate(order):
+        out_tx = idx % ATLAS_WIDTH
+        out_ty = idx // ATLAS_WIDTH
 
-        in_x = j * TILE_SIZE
-        in_y = i * TILE_SIZE
-        display = sheets[s].crop((in_x, in_y, in_x + TILE_SIZE, in_y + TILE_SIZE))
-        output.paste(display, (out_j * TILE_SIZE, out_i * TILE_SIZE))
+        for (s, tx, ty) in layers:
+            if sheets[s] is None:
+                continue
+
+            in_x = tx * TILE_SIZE
+            in_y = ty * TILE_SIZE
+            display = sheets[s].crop((in_x, in_y, in_x + TILE_SIZE, in_y + TILE_SIZE))
+            output.paste(display, (out_tx * TILE_SIZE, out_ty * TILE_SIZE), mask=display)
 
     output.save(out_file)
     
