@@ -231,7 +231,7 @@ function initAssets() {
     loader.addImage('tiles', 'assets/tiles.png');
 
     loader.addJson(null, 'tiles.json', function(json) {
-        var tiles = json['tiles'];
+        var tiles = json['blocks'];
         for (var i = 0; i < tiles.length; ++i) {
             TileDef.register(i, tiles[i]);
         }
@@ -361,15 +361,6 @@ function handleTerrainChunk(i, data) {
     if (raw_length != CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
         console.assert(false,
                 'chunk data contained wrong number of tiles:', raw_length);
-    }
-
-    if (i == 0) {
-        chunk.set(0, 0, 0, 26);
-        chunk.set(0, 0, 1, 27);
-        chunk.set(0, 0, 2, 28);
-        chunk.set(1, 0, 0, 29);
-        chunk.set(1, 0, 1, 30);
-        chunk.set(1, 0, 2, 31);
     }
 
     runner.job('load-chunk-' + i, function() {

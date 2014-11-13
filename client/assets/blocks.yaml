@@ -1,0 +1,38 @@
+empty.shape: empty
+empty.id: 0
+
+grass:
+    _.prefix: grass
+    _.shape: floor
+
+    # TODO: simplify this pattern
+    center/v0.bottom: center/v0
+    center/v1.bottom: center/v1
+    center/v2.bottom: center/v2
+    center/v3.bottom: center/v3
+
+tree:
+    _.prefix: tree
+    _.shape: solid
+    _.bottom: /grass/center/v0
+
+    base/center/x0.front: base/center/x0
+    base/center/x1.front: base/center/x1
+    base:
+        _.shape: floor
+        left/y0.bottom: base/left/y0
+        left/y1.bottom: base/left/y1
+        right/y0.bottom: base/right/y0
+        right/y1.bottom: base/right/y1
+
+    trunk/00.front: trunk/00
+    trunk/10.front: trunk/10
+
+    top/cutoff/00.front: trunk/01
+    top/cutoff/00.top: top/cutoff/00
+    top/cutoff/01.top: top/cutoff/01
+    top/cutoff/10.front: trunk/11
+    top/cutoff/10.top: top/cutoff/10
+    top/cutoff/11.top: top/cutoff/11
+
+    back:

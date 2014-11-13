@@ -440,20 +440,44 @@ impl TerrainGenerator {
             generate(&mut self.gen_data, sx, sy, section, self.seed);
             let data = self.gen_data.get(&(sx, sy, section)).unwrap();
             for &(tx, ty) in data.inside.iter() {
-                if !bounds.contains_inclusive(tx, ty) {
-                    continue;
+                if bounds.contains(tx - 2, ty) {
+                    chunk[bounds.index(tx - 2, ty) + 0 * Z_STEP] = 9;
+                }
+
+                if bounds.contains(tx - 2, ty - 1) {
+                    chunk[bounds.index(tx - 2, ty - 1) + 0 * Z_STEP] = 8;
                 }
 
                 if bounds.contains(tx - 1, ty) {
-                    chunk[bounds.index(tx - 1, ty) + 0 * Z_STEP] = 26;
-                    chunk[bounds.index(tx - 1, ty) + 1 * Z_STEP] = 27;
-                    chunk[bounds.index(tx - 1, ty) + 2 * Z_STEP] = 28;
+                    chunk[bounds.index(tx - 1, ty) + 0 * Z_STEP] = 6;
+                    chunk[bounds.index(tx - 1, ty) + 1 * Z_STEP] = 16;
+                    chunk[bounds.index(tx - 1, ty) + 2 * Z_STEP] = 12;
+                }
+
+                if bounds.contains(tx - 1, ty - 1) {
+                    chunk[bounds.index(tx - 1, ty - 1) + 0 * Z_STEP] = 5;
+                    chunk[bounds.index(tx - 1, ty - 1) + 1 * Z_STEP] = 5;
+                    chunk[bounds.index(tx - 1, ty - 1) + 2 * Z_STEP] = 13;
                 }
 
                 if bounds.contains(tx, ty) {
-                    chunk[bounds.index(tx, ty) + 0 * Z_STEP] = 29;
-                    chunk[bounds.index(tx, ty) + 1 * Z_STEP] = 30;
-                    chunk[bounds.index(tx, ty) + 2 * Z_STEP] = 31;
+                    chunk[bounds.index(tx, ty) + 0 * Z_STEP] = 7;
+                    chunk[bounds.index(tx, ty) + 1 * Z_STEP] = 17;
+                    chunk[bounds.index(tx, ty) + 2 * Z_STEP] = 14;
+                }
+
+                if bounds.contains(tx, ty - 1) {
+                    chunk[bounds.index(tx, ty - 1) + 0 * Z_STEP] = 5;
+                    chunk[bounds.index(tx, ty - 1) + 1 * Z_STEP] = 5;
+                    chunk[bounds.index(tx, ty - 1) + 2 * Z_STEP] = 15;
+                }
+
+                if bounds.contains(tx + 1, ty) {
+                    chunk[bounds.index(tx + 1, ty) + 0 * Z_STEP] = 11;
+                }
+
+                if bounds.contains(tx + 1, ty - 1) {
+                    chunk[bounds.index(tx + 1, ty - 1) + 0 * Z_STEP] = 10;
                 }
             }
         }

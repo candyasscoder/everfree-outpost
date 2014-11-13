@@ -176,8 +176,11 @@ $(BUILD_NATIVE)/backend: $(SRC)/server/main.rs \
 
 # Rules for misc files
 
-$(BUILD)/tiles.json $(BUILD)/tiles.png: $(SRC)/client/assets/tiles.yaml $(SRC)/util/process_tiles.py
-	$(PYTHON3) $(SRC)/util/process_tiles.py <$< >$(BUILD)/tiles.json \
+$(BUILD)/tiles.json $(BUILD)/tiles.png: \
+		$(SRC)/util/process_tiles.py \
+		$(SRC)/client/assets/tiles.yaml \
+		$(SRC)/client/assets/blocks.yaml
+	$(PYTHON3) $^ >$(BUILD)/tiles.json \
 		--gen-atlas-file=$(BUILD)/tiles.png \
 		--atlas-input-dir=$(SRC)/client/assets/tiles
 

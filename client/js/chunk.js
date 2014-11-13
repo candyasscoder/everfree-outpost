@@ -41,10 +41,10 @@ Chunk.prototype.set = function(x, y, z, tile) {
 function TileDef_(id, info) {
     this.id = id;
     this.shape = info['shape'];
-    this.top = info['top'];
-    this.bottom = info['bottom'];
-    this.front = info['front'];
-    this.back = info['back'];
+    this.top = info['top'] || 0;
+    this.bottom = info['bottom'] || 0;
+    this.front = info['front'] || 0;
+    this.back = info['back'] || 0;
 }
 
 // Closure compiler doesn't like having static items on functions.
