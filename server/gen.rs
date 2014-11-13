@@ -423,9 +423,14 @@ impl TerrainGenerator {
         use physics::{CHUNK_BITS, CHUNK_SIZE};
         const Z_STEP: uint = 1 << (2 * CHUNK_BITS);
 
+        let seed = [self.seed as u32 + 12345,
+                    (self.seed >> 32) as u32,
+                    cx as u32 << 2,
+                    cy as u32];
+        let mut rng: XorShiftRng = SeedableRng::from_seed(seed);
         let mut chunk = [0, ..1 << (3 * CHUNK_BITS)];
         for i in range(0, 1 << (2 * CHUNK_BITS)) {
-            chunk[i] = 1;
+            chunk[i] = rng.gen_range(1, 5);
         }
 
         let mut sections_buf = [(0, 0, Corner), ..4];
