@@ -1,0 +1,15 @@
+maresprite.png: &mlponline
+    title: MLPonline Sprite Sheets
+    author: urimas
+    license: Custom
+    url: http://urimas.deviantart.com/art/MLPonline-Sprite-Sheets-341840400
+    attribution:
+        There are no restrictions on how these are used as long as i'm
+        credited. and linked back here
+
+backwingmare.png: *mlponline
+frontwingmare.png: *mlponline
+marehorn.png: *mlponline
+maremane1.png: *mlponline
+maretail1.png: *mlponline
+type1blue.png: *mlponline

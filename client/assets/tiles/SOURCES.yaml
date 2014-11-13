@@ -1,0 +1,83 @@
+tilesetformattedupdate1.png: &16x16-indoor-rpg
+    title: "16x16 indoor rpg tileset: the baseline"
+    author: Stephen Challener (Redshrike)
+    license: CC-BY 3.0 / OGA-BY 3.0
+    url: http://opengameart.org/content/16x16-indoor-rpg-tileset-the-baseline
+    attribution:
+        Art by Stephen Challener (Redshrike). Commissioned by OpenGameArt.org
+        (http://opengameart.org)
+16x16extratiles_0.PNG: *16x16-indoor-rpg
+
+"rpg indoor tileset expansion 1 trans.png":
+    title: "RPG Indoor Tileset: Expansion 1"
+    author: Redshrike
+    license: CC-BY 3.0 / OGA-BY 3.0
+    url: http://opengameart.org/content/rpg-indoor-tileset-expansion-1
+    attribution:
+        Stephen Challener (Redshrike) and Jetrel, hosted by OpenGameArt.org
+
+Castle_2.png: &castle-tiles
+    title: Castle Tiles for RPG's
+    author: Hyptosis, Zabin, Daniel Cook
+    license: CC-BY 3.0
+    url: http://opengameart.org/content/castle-tiles-for-rpgs
+    attribution:
+        Zabin, Hyptosis, and Danial Cook and a link back to www.OpenGameart.org
+Castle2.png: *castle-tiles
+CastleExample_4.png: *castle-tiles
+
+PathAndObjects_0.png:
+    title: "RPG Tiles: Cobble stone paths & town objects"
+    author: Zabin, Daneeklu, Jetrel, Hyptosis, Redshrike, Bertram
+    license: CC-BY-SA 3.0
+    url: http://opengameart.org/content/rpg-tiles-cobble-stone-paths-town-objects
+    attribution:
+        "Credit goes to: Zabin, Daneeklu, Jetrel, Hyptosis, Redshrike, Bertram.
+        A link back to this page
+        \"http://opengameart.org/content/rpg-tiles-cobble-stone-paths-town-objects
+        to see who did what\""
+
+hyptosis_sprites-and-tiles-for-you.png: &hyptosis-pack
+    title: Lots of free 2d tiles and sprites by Hyptosis
+    author: Hyptosis
+    license: CC-BY 3.0
+    url: http://opengameart.org/content/lots-of-free-2d-tiles-and-sprites-by-hyptosis
+    attribution:
+        Please credit Hyptosis and Zabin (only drew 6 frames of the bomb's
+        wick burning) from OGA and respect to the License.
+hyptosis_tile-art-batch-1.png: *hyptosis-pack
+hyptosis_til-art-batch-2.png: *hyptosis-pack
+hyptosis_tile-art-batch-3.png: *hyptosis-pack
+hyptosis_tile-art-batch-4.png: *hyptosis-pack
+hyptosis_tile-art-batch-5.png: *hyptosis-pack
+
+mountain_landscape_23.png:
+    title: 2d Lost Garden Zelda style tiles resized to 32x32 with additions
+    author: Daniel Cook, Jetrel, Saphy (TMW), Zabin, Bertram
+    license: CC-BY 3.0
+    url: http://opengameart.org/content/2d-lost-garden-zelda-style-tiles-resized-to-32x32-with-additions
+    attribution:
+        Credit goes to Daniel Cook's 2d Circle Graphic Archive, Jetrel's
+        mockups resized 32x32, Bertram's improvements, Zabin's modification
+        and additions, Saphy (TMW) tall grass and please provide a link
+        back to OGA and this submission.
+
+tilesetformattedupdate1_0.png:
+    title: 16x16 JRPG tilesets enlarged 2x
+    author: multiple artists
+    license: CC-BY 3.0
+    url: http://opengameart.org/content/16x16-jrpg-tilesets-enlarged-2x
+    attribution:
+        Cave, desert, sewer, and overworld sets by MrBeast. Interior tileset by
+        RedShrike. Town tiles by Surt, modified by Blarumyrran. Snow town tiles
+        are a modification of the town tileset by Sharm. Forest tiles contained
+        in the town set are by Sharm. Some of these works were commissioned by
+        OpenGameArt.org (http://opengameart.org).
+
+wood_tileset_3.png:
+    title: 2d lost Garden tileset transition to Jetrel's Wood tileset
+    author: Jetrel, Daniel Cook, Zabin
+    license: CC-BY-SA 3.0
+    url: http://opengameart.org/content/2d-lost-garden-tileset-transition-to-jetrels-wood-tileset
+    attribution:
+        Credit goes to Jetrel, Daniel Cook, Bertram and Zabin
