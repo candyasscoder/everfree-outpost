@@ -31,11 +31,11 @@ PathAndObjects_0.png:
     author: Zabin, Daneeklu, Jetrel, Hyptosis, Redshrike, Bertram
     license: CC-BY-SA 3.0
     url: http://opengameart.org/content/rpg-tiles-cobble-stone-paths-town-objects
-    attribution:
-        "Credit goes to: Zabin, Daneeklu, Jetrel, Hyptosis, Redshrike, Bertram.
+    attribution: >
+        Credit goes to: Zabin, Daneeklu, Jetrel, Hyptosis, Redshrike, Bertram.
         A link back to this page
-        \"http://opengameart.org/content/rpg-tiles-cobble-stone-paths-town-objects
-        to see who did what\""
+        "http://opengameart.org/content/rpg-tiles-cobble-stone-paths-town-objects
+        to see who did what"
 
 hyptosis_sprites-and-tiles-for-you.png: &hyptosis-pack
     title: Lots of free 2d tiles and sprites by Hyptosis
@@ -81,3 +81,172 @@ wood_tileset_3.png:
     url: http://opengameart.org/content/2d-lost-garden-tileset-transition-to-jetrels-wood-tileset
     attribution:
         Credit goes to Jetrel, Daniel Cook, Bertram and Zabin
+
+
+terrain_atlas.png: &lpc-tile-sheet-1
+    title: LPC Tile Atlas
+    author:
+        Lanea Zimmerman (AKA Sharm),
+        Stephen Challener (AKA Redshrike),
+        Charles Sanchez (AKA CharlesGabriel),
+        Manuel Riecke (AKA MrBeast),
+        Daniel Armstrong (AKA HughSpectrum),
+        Casper Nilsson,
+        Daniel Eddeland,
+        Johann CHARLOT,
+        Skyler Robert Colladay 
+    license: CC-BY-SA 3.0 / GPL 3.0
+    url: http://opengameart.org/content/lpc-tile-atlas
+    attribution: |
+        License 
+        -------
+
+        CC-BY-SA 3.0:
+         - http://creativecommons.org/licenses/by-sa/3.0/
+         - See the file: cc-by-sa-3.0.txt
+        GNU GPL 3.0:
+         - http://www.gnu.org/licenses/gpl-3.0.html
+         - See the file: gpl-3.0.txt
+
+        Note the file is based on the LCP contest readme so don't expect the exact little pieces used like the base one.
+        *Additional license information.
+
+        Assets from:
+
+        LPC participants:
+        ----------------
+
+        Casper Nilsson
+            *GNU GPL 3.0 or later
+            email: casper.nilsson@gmail.com
+            Freenode: CasperN
+            OpenGameArt.org: C.Nilsson
+            
+         - LPC C.Nilsson (2D art)
+
+        Daniel Eddeland 
+            *GNU GPL 3.0 or later
+         - Tilesets of plants, props, food and environments, suitable for farming / fishing sims and other games. 
+         - Includes wheat, grass, sand tilesets, fence tilesets and plants such as corn and tomato. 
+
+
+        Johann CHARLOT 
+            *GNU LGPL Version 3. 
+            *Later versions are permitted.
+            Homepage  http://poufpoufproduction.fr
+            Email     johannc@poufpoufproduction.fr
+            
+         - Shoot'em up graphic kit
+
+        Skyler Robert Colladay 
+
+         - FeralFantom's Entry (2D art)
+
+        BASE assets:
+        ------------
+
+        Lanea Zimmerman (AKA Sharm)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+         - barrel.png
+         - brackish.png
+         - buckets.png
+         - bridges.png
+         - cabinets.png
+         - cement.png
+         - cementstair.png
+         - chests.png
+         - country.png
+         - cup.png
+         - dirt2.png
+         - dirt.png
+         - dungeon.png
+         - grassalt.png
+         - grass.png
+         - holek.png
+         - holemid.png
+         - hole.png
+         - house.png
+         - inside.png
+         - kitchen.png
+         - lava.png
+         - lavarock.png
+         - mountains.png
+         - rock.png
+         - shadow.png
+         - signs.png
+         - stairs.png
+         - treetop.png
+         - trunk.png
+         - waterfall.png
+         - watergrass.png
+         - water.png
+         - princess.png and princess.xcf
+
+
+        Stephen Challener (AKA Redshrike)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+         - female_walkcycle.png
+         - female_hurt.png
+         - female_slash.png
+         - female_spellcast.png
+         - male_walkcycle.png
+         - male_hurt.png
+         - male_slash.png
+         - male_spellcast.png
+         - male_pants.png
+         - male_hurt_pants.png
+         - male_fall_down_pants.png
+         - male_slash_pants.png
+
+
+        Charles Sanchez (AKA CharlesGabriel)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+         - bat.png
+         - bee.png
+         - big_worm.png
+         - eyeball.png
+         - ghost.png
+         - man_eater_flower.png
+         - pumpking.png
+         - slime.png
+         - small_worm.png
+         - snake.png
+
+
+        Manuel Riecke (AKA MrBeast)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+         - hairfemale.png and hairfemale.xcf
+         - hairmale.png and hairmale.xcf
+         - soldier.png
+         - soldier_altcolor.png
+
+
+        Daniel Armstrong (AKA HughSpectrum)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        Castle work:
+
+         - castlewalls.png
+         - castlefloors.png
+         - castle_outside.png
+         - castlefloors_outside.png
+         - castle_lightsources.png
+
+lpc-trees-unscaled.png: &rescaled-trees
+    title: LPC Trees (edited)
+    author: Lanea Zimmerman (AKA Sharm), Casper Nilsson, Stuart Pernsteiner
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution:
+        Lanea Zimmerman's tree trunks and Casper Nilsson's tree stump, copied
+        from the LPC Tile Atlas and edited slightly (including 4x rescaling
+        using xBRZ).
+
+        According to the readme from the .zip file at
+        http://opengameart.org/content/lpc-cnilsson,
+        C.Nilsson's art is CC-BY-SA 3.0 / GPL 3+ dual licensed.
+lpc-trees-unscaled.xcf: *rescaled-trees
+lpc-trees-scaled.png: *rescaled-trees
