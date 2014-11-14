@@ -463,6 +463,7 @@ function frame(gl, now) {
     debug.frameEnd();
     debug.updateJobs(runner);
 
+    /*
     debug.gfxCtx.clearRect(0, 0, 128, 128);
     var chunk_pos = pos.divScalar(CHUNK_SIZE * TILE_SIZE).modScalar(LOCAL_SIZE);
     var px = 128 / LOCAL_SIZE;
@@ -479,4 +480,5 @@ function frame(gl, now) {
             }
         }
     }
+    */
 }
