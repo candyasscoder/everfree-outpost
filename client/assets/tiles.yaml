@@ -1,9 +1,63 @@
-terrain_atlas.png:
-    # Grass center variants, sorted by amount of "stuff"
-    grass/center/v0: [22, 3]
-    grass/center/v1: [23, 5]
-    grass/center/v2: [22, 5]
-    grass/center/v3: [21, 5]
+lpc-base-tiles/grass.png:
+    grass: &terrain-template
+        center/v0: [1, 3]
+        center/v1: [0, 5]
+        center/v2: [1, 5]
+        center/v3: [2, 5]
+
+        edge/n: [1, 2]
+        edge/w: [0, 3]
+        edge/e: [2, 3]
+        edge/s: [1, 4]
+
+        corner/outer/nw: [0, 2]
+        corner/outer/ne: [2, 2]
+        corner/outer/sw: [0, 4]
+        corner/outer/se: [2, 4]
+
+        corner/inner/nw: [2, 1]
+        corner/inner/ne: [1, 1]
+        corner/inner/sw: [2, 0]
+        corner/inner/se: [1, 0]
+
+        spot/large: [0, 0]
+        spot/small: [0, 1]
+
+lpc-base-tiles/brackish.png:
+    water_dark: *terrain-template
+
+lpc-base-tiles/cement.png:
+    cement: *terrain-template
+
+lpc-base-tiles/dirt.png:
+    dirt: *terrain-template
+
+lpc-base-tiles/dirt2.png:
+    dirt_dark: *terrain-template
+
+lpc-base-tiles/grassalt.png:
+    grass_alt: *terrain-template
+
+lpc-base-tiles/hole.png:
+    hole: *terrain-template
+
+lpc-base-tiles/holek.png:
+    hole_black: *terrain-template
+
+lpc-base-tiles/holemid.png:
+    hole_dark: *terrain-template
+
+lpc-base-tiles/lava.png:
+    lava: *terrain-template
+
+lpc-base-tiles/lavarock.png:
+    dirt_black: *terrain-template
+
+lpc-base-tiles/water.png:
+    water: *terrain-template
+
+lpc-base-tiles/watergrass.png:
+    water_grass: *terrain-template
 
 lpc-trees-scaled.png:
     tree/base/center/x0: [5, 7]
@@ -16,3 +70,9 @@ lpc-trees-scaled.png:
     tree/top/filled: [1, 1, 2, -2]
     tree/top/cutoff: [1, 3, 2, -2]
     tree/stump: [1, 5, 2, -2]
+
+lpc-base-tiles/inside.png:
+    wood_floor: [0, 4]
+
+lpc-base-tiles/stairs.png:
+    stair/n: [0, 12]

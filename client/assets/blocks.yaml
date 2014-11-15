@@ -14,10 +14,12 @@ grass:
 tree:
     _.prefix: tree
     _.shape: solid
-    _.bottom: /grass/center/v0
 
+    base/center/x0.bottom: /grass/center/v0
     base/center/x0.front: base/center/x0
+    base/center/x1.bottom: /grass/center/v0
     base/center/x1.front: base/center/x1
+
     base:
         _.shape: floor
         left/y0.bottom: /grass/center/v0 + base/left/y0
@@ -36,3 +38,12 @@ tree:
     top/cutoff/11.top: top/cutoff/11
 
     back:
+
+#stair:
+#    n.shape: ramp_n
+#    n.bottom: stair/n
+#    n.back: stair/n
+
+#floor:
+#    wood.shape: floor
+#    wood.bottom: wood_floor

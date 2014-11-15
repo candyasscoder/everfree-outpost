@@ -123,7 +123,8 @@ def process_tiles(g):
     raw_tiles = go(g)
     tiles = {}
     for k, v in raw_tiles.items():
-        sheet, _, name = k.partition('/')
+        sheet_base, _, name = k.partition('.png/')
+        sheet = sheet_base + '.png'
         x, y = v
         tiles['/' + name] = {'sheet': sheet, 'x': x, 'y': y}
     return tiles
@@ -196,7 +197,7 @@ def compute_atlas(blocks, tiles):
             layers = tuple(tiles[tile_name] for tile_name in tile_names)
             display = tuple((t['sheet'], t['x'], t['y']) for t in layers)
 
-            if display in rev:
+            if tile_names in rev:
                 continue
             order.append(display)
             rev[tile_names] = len(order) - 1
