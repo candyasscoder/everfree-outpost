@@ -128,7 +128,7 @@ fn disk_sample<T, Place, Choose, R>(mut place: Place,
 
 fn min_space(_x: i32, _y: i32) -> i32 {
     //2 + y / 8
-    3
+    5
 }
 
 
