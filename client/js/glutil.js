@@ -52,7 +52,6 @@ Program.prototype.setUniformNi = function(name, vs) {
     if (loc == null) {
         return;
     }
-    this.use();
     switch (vs.length) {
         case 1: this.gl.uniform1iv(loc, vs); break;
         case 2: this.gl.uniform2iv(loc, vs); break;
@@ -69,7 +68,6 @@ Program.prototype.setUniformNf = function(name, vs) {
     if (loc == null) {
         return;
     }
-    this.use();
     switch (vs.length) {
         case 1: this.gl.uniform1fv(loc, vs); break;
         case 2: this.gl.uniform2fv(loc, vs); break;
@@ -204,6 +202,10 @@ GlObject.prototype.getTexture = function(name) {
 };
 
 GlObject.prototype.draw = function(vert_base, vert_count, uniforms, attributes, textures) {
+    this.drawMulti([[vert_base, vert_count]], uniforms, attributes, textures);
+};
+
+GlObject.prototype.drawMulti = function(vert_indexes, uniforms, attributes, textures) {
     var gl = this.gl;
 
     this.program.use();
@@ -252,7 +254,9 @@ GlObject.prototype.draw = function(vert_base, vert_count, uniforms, attributes, 
         image.bind();
     }
 
-    gl.drawArrays(gl.TRIANGLES, vert_base, vert_count);
+    for (var i = 0; i < vert_indexes.length; ++i) {
+        gl.drawArrays(gl.TRIANGLES, vert_indexes[i][0], vert_indexes[i][1]);
+    }
 
     // Unbind all textures.
     for (var key in this.base_textures) {

@@ -145,20 +145,41 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
 
     var this_ = this;
 
-    function draw_terrain(cx, cy, begin, end) {
-        var i = cy % LOCAL_SIZE;
-        var j = cx % LOCAL_SIZE;
+    var cur_cx = -1;
+    var cur_cy = -1;
+    var cur_indices = [];
+
+    function buffer_terrain(cx, cy, begin, end) {
+        if (cx != cur_cx || cy != cur_cy) {
+            flush_terrain();
+            cur_cx = cx;
+            cur_cy = cy;
+        }
+        cur_indices.push([6 * begin, 6 * (end - begin)]);
+    }
+
+    function flush_terrain() {
+        if (cur_indices.length == 0) {
+            return;
+        }
+
+        var i = cur_cy % LOCAL_SIZE;
+        var j = cur_cx % LOCAL_SIZE;
         var idx = i * LOCAL_SIZE + j;
         var buffer = this_._chunk_buffer[idx];
 
-        this_.terrain_obj.draw(6 * begin, 6 * (end - begin),
-                {'chunkPos': [cx, cy]},
+        this_.terrain_obj.drawMulti(cur_indices,
+                {'chunkPos': [cur_cx, cur_cy]},
                 {'position': buffer,
                  'texCoord': buffer},
                 {});
+
+        cur_indices.length = 0;
     }
 
     function draw_sprite(id, x, y, w, h) {
+        flush_terrain();
+
         var sprite = sprites[id];
         // Coordinates where the sprite would normally be displayed.
         var x0 = sprite.ref_x - sprite.anchor_x;
@@ -187,7 +208,9 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
         this_.sprite_obj.draw(0, 6, uniforms, {}, {});
     }
 
-    this._asm.render(sx, sy, sw, sh, sprites, draw_terrain, draw_sprite);
+    this._asm.render(sx, sy, sw, sh, sprites, buffer_terrain, draw_sprite);
+
+    flush_terrain();
 };
 
 
