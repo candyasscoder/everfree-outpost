@@ -177,12 +177,16 @@ $(BUILD_NATIVE)/backend: $(SRC)/server/main.rs \
 # Rules for misc files
 
 $(BUILD)/tiles.json $(BUILD)/tiles.png: \
-		$(SRC)/util/process_tiles.py \
 		$(SRC)/client/assets/tiles.yaml \
-		$(SRC)/client/assets/blocks.yaml
-	$(PYTHON3) $^ >$(BUILD)/tiles.json \
-		--gen-atlas-file=$(BUILD)/tiles.png \
-		--atlas-input-dir=$(SRC)/client/assets/tiles
+		$(SRC)/client/assets/blocks.yaml \
+		$(SRC)/util/process_tiles.py \
+		$(wildcard $(SRC)/util/process_tiles/*.py)
+	$(PYTHON3) $(SRC)/util/process_tiles.py \
+		$(SRC)/client/assets/blocks.yaml \
+		--tile-yaml=$(SRC)/client/assets/tiles.yaml \
+		--tile-image-dir=$(SRC)/client/assets/tiles \
+		--client-json-out=$(BUILD)/tiles.json \
+		--atlas-image-out=$(BUILD)/tiles.png
 
 $(BUILD)/client.debug.html: $(SRC)/client/client.html \
 	$(SRC)/util/collect_js_deps.py $(SRC)/util/patch_script_tags.py $(JS_SRCS)
