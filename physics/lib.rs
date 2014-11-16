@@ -38,6 +38,7 @@ macro_rules! try_return_some {
 #[cfg(asmjs)]
 mod std {
     pub use core::cmp;
+    pub use core::clone;
     pub use core::fmt;
 }
 
@@ -73,7 +74,7 @@ pub const CHUNK_MASK: i32 = CHUNK_SIZE - 1;
 static CHUNK_SIZE_BITS: bool = CHUNK_SIZE == 1 << CHUNK_BITS as uint;
 
 
-#[deriving(Eq, PartialEq)]
+#[deriving(Eq, PartialEq, Show, Clone)]
 #[repr(u8)]
 pub enum Shape {
     Empty = 0,

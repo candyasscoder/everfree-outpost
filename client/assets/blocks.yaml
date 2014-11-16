@@ -20,12 +20,12 @@ tree:
     base/center/x1.bottom: /grass/center/v0
     base/center/x1.front: base/center/x1
 
-    base:
-        _.shape: floor
-        left/y0.bottom: /grass/center/v0 + base/left/y0
-        left/y1.bottom: /grass/center/v0 + base/left/y1
-        right/y0.bottom: /grass/center/v0 + base/right/y0
-        right/y1.bottom: /grass/center/v0 + base/right/y1
+    base/left/_.shape: floor
+    base/left/y0.bottom: /grass/center/v0 + base/left/y0
+    base/left/y1.bottom: /grass/center/v0 + base/left/y1
+    base/right/_.shape: floor
+    base/right/y0.bottom: /grass/center/v0 + base/right/y0
+    base/right/y1.bottom: /grass/center/v0 + base/right/y1
 
     trunk/00.front: trunk/00
     trunk/10.front: trunk/10

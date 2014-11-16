@@ -10,6 +10,7 @@
 #[phase(plugin, link)]
 extern crate log;
 extern crate time;
+extern crate serialize;
 
 extern crate physics;
 
@@ -23,6 +24,7 @@ use msg::Motion as WireMotion;
 use msg::{Request, Response};
 use input::InputBits;
 use state::LOCAL_SIZE;
+use block_data::BlockData;
 
 use types::{Time, ToGlobal, ToLocal};
 use types::{ClientId, EntityId};
@@ -36,8 +38,21 @@ mod types;
 mod view;
 mod input;
 mod gen;
+mod block_data;
 
 fn main() {
+    let block_data = {
+        use std::os;
+        use std::io::fs::File;
+        use serialize::json;
+
+        let path = &os::args()[1];
+        log!(10, "reading block data from {}", path);
+        let mut file = File::open(&Path::new(path)).unwrap();
+        let json = json::from_reader(&mut file).unwrap();
+        BlockData::from_json(json).unwrap()
+    };
+
     let (req_send, req_recv) = channel();
     let (resp_send, resp_recv) = channel();
 
@@ -51,7 +66,7 @@ fn main() {
         tasks::run_output(writer, resp_recv).unwrap();
     });
 
-    let mut state = state::State::new();
+    let mut state = state::State::new(block_data);
     let start = now();
     state.init_terrain();
     let end = now();

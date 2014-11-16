@@ -2,6 +2,8 @@ use std::cmp;
 use std::collections::lru_cache::LruCache;
 use std::rand::{Rng, XorShiftRng, SeedableRng};
 
+use block_data::BlockData;
+
 
 // TODO: Move this to a shared utility library
 
@@ -419,7 +421,9 @@ impl TerrainGenerator {
         }
     }
 
-    pub fn generate_chunk(&mut self, cx: i32, cy: i32) -> ::state::Chunk {
+    pub fn generate_chunk(&mut self,
+                          block_data: &BlockData,
+                          cx: i32, cy: i32) -> ::state::Chunk {
         use physics::{CHUNK_BITS, CHUNK_SIZE};
         const Z_STEP: uint = 1 << (2 * CHUNK_BITS);
 
@@ -441,48 +445,35 @@ impl TerrainGenerator {
                                  (cx + 1) * CHUNK_SIZE,
                                  (cy + 1) * CHUNK_SIZE);
 
-        for &(sx, sy, section) in sections.iter() {
-            generate(&mut self.gen_data, sx, sy, section, self.seed);
-            let data = self.gen_data.get(&(sx, sy, section)).unwrap();
-            for &(tx, ty) in data.inside.iter() {
-                if bounds.contains(tx - 2, ty) {
-                    chunk[bounds.index(tx - 2, ty) + 0 * Z_STEP] = 9;
+        {
+            let mut set = |&mut: x: i32, y: i32, z: i32, name: &str| {
+                if bounds.contains(x, y) {
+                    chunk[bounds.index(x, y) + z as uint * Z_STEP] = block_data.get_id(name);
                 }
+            };
 
-                if bounds.contains(tx - 2, ty - 1) {
-                    chunk[bounds.index(tx - 2, ty - 1) + 0 * Z_STEP] = 8;
-                }
+            for &(sx, sy, section) in sections.iter() {
+                generate(&mut self.gen_data, sx, sy, section, self.seed);
+                let data = self.gen_data.get(&(sx, sy, section)).unwrap();
+                for &(tx, ty) in data.inside.iter() {
+                    set(tx - 2, ty,     0, "tree/base/left/y1");
+                    set(tx - 2, ty - 1, 0, "tree/base/left/y0");
+                    set(tx + 1, ty,     0, "tree/base/right/y1");
+                    set(tx + 1, ty - 1, 0, "tree/base/right/y0");
 
-                if bounds.contains(tx - 1, ty) {
-                    chunk[bounds.index(tx - 1, ty) + 0 * Z_STEP] = 6;
-                    chunk[bounds.index(tx - 1, ty) + 1 * Z_STEP] = 16;
-                    chunk[bounds.index(tx - 1, ty) + 2 * Z_STEP] = 12;
-                }
+                    set(tx - 1, ty,     0, "tree/base/center/x0");
+                    set(tx,     ty,     0, "tree/base/center/x1");
+                    set(tx - 1, ty,     1, "tree/trunk/00");
+                    set(tx,     ty,     1, "tree/trunk/10");
+                    set(tx - 1, ty,     2, "tree/top/cutoff/00");
+                    set(tx,     ty,     2, "tree/top/cutoff/10");
+                    set(tx - 1, ty - 1, 2, "tree/top/cutoff/01");
+                    set(tx,     ty - 1, 2, "tree/top/cutoff/11");
 
-                if bounds.contains(tx - 1, ty - 1) {
-                    chunk[bounds.index(tx - 1, ty - 1) + 0 * Z_STEP] = 5;
-                    chunk[bounds.index(tx - 1, ty - 1) + 1 * Z_STEP] = 5;
-                    chunk[bounds.index(tx - 1, ty - 1) + 2 * Z_STEP] = 13;
-                }
-
-                if bounds.contains(tx, ty) {
-                    chunk[bounds.index(tx, ty) + 0 * Z_STEP] = 7;
-                    chunk[bounds.index(tx, ty) + 1 * Z_STEP] = 17;
-                    chunk[bounds.index(tx, ty) + 2 * Z_STEP] = 14;
-                }
-
-                if bounds.contains(tx, ty - 1) {
-                    chunk[bounds.index(tx, ty - 1) + 0 * Z_STEP] = 5;
-                    chunk[bounds.index(tx, ty - 1) + 1 * Z_STEP] = 5;
-                    chunk[bounds.index(tx, ty - 1) + 2 * Z_STEP] = 15;
-                }
-
-                if bounds.contains(tx + 1, ty) {
-                    chunk[bounds.index(tx + 1, ty) + 0 * Z_STEP] = 11;
-                }
-
-                if bounds.contains(tx + 1, ty - 1) {
-                    chunk[bounds.index(tx + 1, ty - 1) + 0 * Z_STEP] = 10;
+                    set(tx - 1, ty - 1, 0, "tree/back");
+                    set(tx,     ty - 1, 0, "tree/back");
+                    set(tx - 1, ty - 1, 1, "tree/back");
+                    set(tx,     ty - 1, 1, "tree/back");
                 }
             }
         }

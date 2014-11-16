@@ -2,12 +2,15 @@ use std::collections::HashMap;
 use std::u16;
 
 use physics;
+use physics::{Shape, ShapeSource};
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE};
 use physics::v3::{V3, scalar};
 
 use types::{Time, Duration, ClientId, EntityId, AnimId, BlockId, DURATION_MAX};
 use view::ViewState;
 use input::{InputBits, INPUT_LEFT, INPUT_RIGHT, INPUT_UP, INPUT_DOWN, INPUT_RUN};
+use block_data::BlockData;
+
 
 const CHUNK_TOTAL: uint = 1 << (3 * CHUNK_BITS);
 pub type Chunk = [BlockId, ..CHUNK_TOTAL];
@@ -21,23 +24,18 @@ pub struct Terrain {
     pub chunks: [Chunk, ..LOCAL_TOTAL],
 }
 
-impl physics::ShapeSource for Terrain {
-    fn get_shape(&self, pos: V3) -> physics::Shape {
+impl<'a> ShapeSource for (&'a Terrain, &'a BlockData) {
+    fn get_shape(&self, pos: V3) -> Shape {
+        let &(map, block_data) = self;
+
         let V3 { x: tile_x, y: tile_y, z: tile_z } = pos & scalar(CHUNK_MASK);
         let V3 { x: chunk_x, y: chunk_y, z: _ } = (pos >> CHUNK_BITS) & scalar(LOCAL_MASK);
 
         let chunk_idx = chunk_y * LOCAL_SIZE + chunk_x;
         let tile_idx = (tile_z * CHUNK_SIZE + tile_y) * CHUNK_SIZE + tile_x;
 
-        let block = self.chunks[chunk_idx as uint][tile_idx as uint];
-        // TODO: don't hardcode
-        if block == 0 {
-            physics::Empty
-        } else if block <= 4 {
-            physics::Floor
-        } else {
-            physics::Solid
-        }
+        let block = map.chunks[chunk_idx as uint][tile_idx as uint];
+        block_data.shape(block)
     }
 }
 
@@ -66,7 +64,8 @@ impl Entity {
         }
     }
 
-    pub fn update(&mut self, map: &Terrain, now: Time, input: InputBits) {
+    pub fn update<S>(&mut self, shape_source: &S, now: Time, input: InputBits)
+            where S: ShapeSource {
         let dx = if input.contains(INPUT_LEFT) { -1 } else { 0 } +
                  if input.contains(INPUT_RIGHT) { 1 } else { 0 };
         let dy = if input.contains(INPUT_UP) { -1 } else { 0 } +
@@ -88,7 +87,7 @@ impl Entity {
         let start_pos = world_to_local(world_start_pos, world_base, local_base);
         let size = scalar(32);
         let velocity = V3::new(dx, dy, 0) * scalar(50 * speed as i32);
-        let (mut end_pos, mut dur) = physics::collide(map, start_pos, size, velocity);
+        let (mut end_pos, mut dur) = physics::collide(shape_source, start_pos, size, velocity);
 
         if dur == 0 {
             dur = DURATION_MAX as i32;
@@ -133,14 +132,16 @@ pub struct ClientEntityMut<'a> {
 
 
 pub struct State {
+    pub block_data: BlockData,
     pub map: Terrain,
     pub entities: HashMap<EntityId, Entity>,
     pub clients: HashMap<ClientId, Client>,
 }
 
 impl State {
-    pub fn new() -> State {
+    pub fn new(block_data: BlockData) -> State {
         State {
+            block_data: block_data,
             map: Terrain { chunks: [[0, ..CHUNK_TOTAL], ..LOCAL_TOTAL] },
             entities: HashMap::new(),
             clients: HashMap::new(),
@@ -153,7 +154,7 @@ impl State {
         for cy in range(0, LOCAL_SIZE) {
             for cx in range(0, LOCAL_SIZE) {
                 let i = (cy * LOCAL_SIZE + cx) as uint;
-                self.map.chunks[i] = gen.generate_chunk(cx, cy);
+                self.map.chunks[i] = gen.generate_chunk(&self.block_data, cx, cy);
             }
         }
     }
@@ -239,7 +240,7 @@ impl State {
         if now < entity.end_time() {
             return false;
         }
-        entity.update(&self.map, now, client.current_input);
+        entity.update(&(&self.map, &self.block_data), now, client.current_input);
         true
     }
 
@@ -254,7 +255,7 @@ impl State {
         client.current_input = input;
 
         let entity = &mut self.entities[client.entity_id];
-        entity.update(&self.map, now, input);
+        entity.update(&(&self.map, &self.block_data), now, input);
 
         true
     }

@@ -21,11 +21,12 @@ BUILD_ASMLIBS := $(BUILD)/asmlibs
 BUILD_MIN := $(BUILD)/min
 
 DIST_BIN = $(DIST)/bin
+DIST_DATA = $(DIST)/data
 DIST_WWW = $(DIST)/www
 
 $(shell mkdir -p $(BUILD_ASMJS) $(BUILD_NATIVE_DEBUG) $(BUILD_NATIVE_RELEASE) \
 	$(BUILD_ASMLIBS) $(BUILD_MIN) \
-	$(DIST) $(DIST_BIN) $(DIST_WWW) $(DIST_WWW)/assets)
+	$(DIST) $(DIST_BIN) $(DIST_DATA) $(DIST_WWW) $(DIST_WWW)/assets)
 
 
 JS_SRCS = $(wildcard $(SRC)/client/js/*.js)
@@ -176,7 +177,7 @@ $(BUILD_NATIVE)/backend: $(SRC)/server/main.rs \
 
 # Rules for misc files
 
-$(BUILD)/tiles.json $(BUILD)/tiles.png: \
+$(BUILD)/tiles.json $(BUILD)/tiles.png $(BUILD)/blocks-server.json: \
 		$(SRC)/client/assets/tiles.yaml \
 		$(SRC)/client/assets/blocks.yaml \
 		$(SRC)/util/process_tiles.py \
@@ -186,7 +187,8 @@ $(BUILD)/tiles.json $(BUILD)/tiles.png: \
 		--tile-yaml=$(SRC)/client/assets/tiles.yaml \
 		--tile-image-dir=$(SRC)/client/assets/tiles \
 		--client-json-out=$(BUILD)/tiles.json \
-		--atlas-image-out=$(BUILD)/tiles.png
+		--atlas-image-out=$(BUILD)/tiles.png \
+		--server-json-out=$(BUILD)/blocks-server.json
 
 $(BUILD)/client.debug.html: $(SRC)/client/client.html \
 	$(SRC)/util/collect_js_deps.py $(SRC)/util/patch_script_tags.py $(JS_SRCS)
@@ -196,16 +198,18 @@ $(BUILD)/client.debug.html: $(SRC)/client/client.html \
 
 # Rules for copying files into dist/
 
-define WWW_FILE_
-$(DIST_WWW)/$(1): $(2)
+define DIST_FILE_
+$(DIST_$(1))/$(2): $(3)
 	cp -v $$< $$@
 
-$(DIST)/all: $(DIST_WWW)/$(1)
+$(DIST)/all: $(DIST_$(1))/$(2)
 endef
-WWW_FILE = $(call WWW_FILE_,$(strip $(1)),$(strip $(2)))
+WWW_FILE = $(call DIST_FILE_,WWW,$(strip $(1)),$(strip $(2)))
+DATA_FILE = $(call DIST_FILE_,DATA,$(strip $(1)),$(strip $(2)))
 
 $(eval $(call WWW_FILE, tiles.json, 	$(BUILD)/tiles.json))
 $(eval $(call WWW_FILE, assets/tiles.png, 	$(BUILD)/tiles.png))
+$(eval $(call DATA_FILE, blocks.json, 	$(BUILD)/blocks-server.json))
 
 ifeq ($(RELEASE),)
 $(eval $(call WWW_FILE, client.html, 	$(BUILD)/client.debug.html))

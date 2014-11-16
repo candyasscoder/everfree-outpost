@@ -39,10 +39,10 @@ application = tornado.web.Application([
 
 
 class BackendStream(object):
-    def __init__(self, path, io_loop=None):
+    def __init__(self, args, io_loop=None):
         self.io_loop = io_loop or tornado.ioloop.IOLoop.current()
         self.impl = tornado.process.Subprocess(
-                [path],
+                args,
                 stdout=tornado.process.Subprocess.STREAM,
                 stdin=tornado.process.Subprocess.STREAM,
                 io_loop=self.io_loop)
@@ -111,7 +111,10 @@ class BackendStream(object):
         print('closed!')
 
 if __name__ == "__main__":
-    tornado.autoreload.watch('./dist/bin/backend')
-    backend = BackendStream('./dist/bin/backend')
+    exe_path = './dist/bin/backend'
+    json_path = './dist/data/blocks.json'
+    tornado.autoreload.watch(exe_path)
+    tornado.autoreload.watch(json_path)
+    backend = BackendStream([exe_path, json_path])
     application.listen(8888)
     tornado.ioloop.IOLoop.instance().start()
