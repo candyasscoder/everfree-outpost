@@ -207,7 +207,7 @@ impl State {
     }
 
     pub fn add_client(&mut self, now: Time, id: ClientId) {
-        let pos = V3::new(100, 100, 0);
+        let pos = V3::new(250, 250, 0);
         let offset = V3::new(16, 16, 0);
 
         let entity = Entity {

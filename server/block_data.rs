@@ -41,6 +41,7 @@ impl BlockData {
                 "empty" => physics::Empty,
                 "floor" => physics::Floor,
                 "solid" => physics::Solid,
+                "ramp_n" => physics::RampN,
                 _ => {
                     let msg = format!("invalid shape \"{}\" for block {} ({})",
                                       shape_str, i, name);

@@ -39,11 +39,11 @@ tree:
 
     back:
 
-#stair:
-#    n.shape: ramp_n
-#    n.bottom: stair/n
-#    n.back: stair/n
+stair:
+    n.shape: ramp_n
+    n.bottom: stair/n
+    n.back: stair/n
 
-#floor:
-#    wood.shape: floor
-#    wood.bottom: wood_floor
+floor:
+    wood.shape: floor
+    wood.bottom: wood_floor

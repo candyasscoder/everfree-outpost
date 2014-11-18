@@ -433,8 +433,12 @@ impl TerrainGenerator {
                     cy as u32];
         let mut rng: XorShiftRng = SeedableRng::from_seed(seed);
         let mut chunk = [0, ..1 << (3 * CHUNK_BITS)];
+        let ids = [block_data.get_id("grass/center/v0"),
+                   block_data.get_id("grass/center/v1"),
+                   block_data.get_id("grass/center/v2"),
+                   block_data.get_id("grass/center/v3")];
         for i in range(0, 1 << (2 * CHUNK_BITS)) {
-            chunk[i] = rng.gen_range(1, 5);
+            chunk[i] = *rng.choose(ids.as_slice()).unwrap();
         }
 
         let mut sections_buf = [(0, 0, Corner), ..4];
@@ -475,6 +479,18 @@ impl TerrainGenerator {
                     set(tx - 1, ty - 1, 1, "tree/back");
                     set(tx,     ty - 1, 1, "tree/back");
                 }
+            }
+
+            if cx == 0 && cy == 0 {
+                for x in range(5, 9) {
+                    for y in range(2, 4) {
+                        set(x, y, 2, "floor/wood");
+                    }
+                }
+                set(6, 4, 1, "stair/n");
+                set(7, 4, 1, "stair/n");
+                set(6, 5, 0, "stair/n");
+                set(7, 5, 0, "stair/n");
             }
         }
 
