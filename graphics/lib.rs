@@ -2,7 +2,7 @@
 #![no_std]
 
 #![feature(globs, phase)]
-#![feature(overloaded_calls, unboxed_closures)]
+#![feature(unboxed_closures)]
 #![feature(macro_rules)]
 
 #![allow(unsigned_negation)]
@@ -336,11 +336,11 @@ fn render_chunk(chunk: &XvChunk,
 
         sprite.status =
             if !inside {
-                Outside
+                SpriteStatus::Outside
             } else if !below {
-                Above
+                SpriteStatus::Above
             } else {
-                Between
+                SpriteStatus::Between
             };
     }
 
@@ -371,11 +371,11 @@ fn render_chunk(chunk: &XvChunk,
     // Examine each sprite.  Draw all partial columns below the sprite, then draw the sprite
     // itself.
     for sprite in sprites.iter() {
-        if sprite.status == Outside {
+        if sprite.status == SpriteStatus::Outside {
             continue;
         }
 
-        if sprite.status == Between {
+        if sprite.status == SpriteStatus::Between {
             let (tx0, tx1, ty0, ty1) = sprite.clipped_tile_bounds(cx, cy);
             for ty in range(ty0, ty1) {
                 let limit = sprite.u_limit(cy * CHUNK_SIZE + ty);

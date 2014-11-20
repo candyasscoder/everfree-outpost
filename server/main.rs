@@ -2,7 +2,7 @@
 #![feature(globs)]
 #![feature(phase)]
 #![feature(tuple_indexing, if_let)]
-#![feature(unboxed_closures, overloaded_calls)]
+#![feature(unboxed_closures)]
 #![feature(macro_rules)]
 #![feature(associated_types)]
 #![allow(non_upper_case_globals)]
@@ -28,6 +28,7 @@ use block_data::BlockData;
 
 use types::{Time, ToGlobal, ToLocal};
 use types::{ClientId, EntityId};
+
 
 mod msg;
 mod wire;
@@ -122,25 +123,25 @@ impl Server {
                   client_id: ClientId,
                   req: Request) {
         match req {
-            msg::GetTerrain => {
+            Request::GetTerrain => {
                 warn!("client {} used deprecated opcode GetTerrain", client_id);
             },
 
-            msg::UpdateMotion(_wire_motion) => {
+            Request::UpdateMotion(_wire_motion) => {
                 warn!("client {} used deprecated opcode UpdateMotion", client_id);
             },
 
-            msg::Ping(cookie) => {
-                self.resps.send((client_id, msg::Pong(cookie, now.to_local())));
+            Request::Ping(cookie) => {
+                self.resps.send((client_id, Response::Pong(cookie, now.to_local())));
             },
 
-            msg::Input(time, input) => {
+            Request::Input(time, input) => {
                 let time = cmp::max(time.to_global(now), now);
                 let input = InputBits::from_bits_truncate(input);
-                self.wake_queue.push(time, HandleInput(client_id, input));
+                self.wake_queue.push(time, WakeReason::HandleInput(client_id, input));
             },
 
-            msg::Login(_secret, name) => {
+            Request::Login(_secret, name) => {
                 log!(10, "login request for {}", name);
                 self.state.add_client(now, client_id);
 
@@ -150,13 +151,14 @@ impl Server {
                     chunks: 8 * 8,
                     entities: 1,
                 };
-                self.resps.send((client_id, msg::Init(info)));
+                self.resps.send((client_id, Response::Init(info)));
 
                 let (region, offset) = {
                     let ce = self.state.client_entity(client_id).unwrap();
                     let motion = entity_motion(now, ce);
                     let anim = ce.entity.anim;
-                    self.resps.send((client_id, msg::EntityUpdate(ce.client.entity_id, motion, anim)));
+                    self.resps.send((client_id,
+                                     Response::EntityUpdate(ce.client.entity_id, motion, anim)));
                     log!(10, "pos={}, region={}",
                          ce.entity.pos(now),
                          ce.client.view_state.region());
@@ -168,18 +170,18 @@ impl Server {
                 for (x,y) in region.points() {
                     self.load_chunk(client_id, x, y, offset);
                 }
-                self.wake_queue.push(now + 1000, CheckView(client_id));
+                self.wake_queue.push(now + 1000, WakeReason::CheckView(client_id));
             },
 
-            msg::AddClient => {
+            Request::AddClient => {
             },
 
-            msg::RemoveClient => {
+            Request::RemoveClient => {
                 self.state.remove_client(client_id);
-                self.resps.send((client_id, msg::ClientRemoved));
+                self.resps.send((client_id, Response::ClientRemoved));
             },
 
-            msg::BadMessage(opcode) => {
+            Request::BadMessage(opcode) => {
                 warn!("unrecognized opcode from client {}: {:x}",
                       client_id, opcode.unwrap());
             },
@@ -190,21 +192,21 @@ impl Server {
                    now: Time,
                    reason: WakeReason) {
         match reason {
-            HandleInput(client_id, input) => {
+            WakeReason::HandleInput(client_id, input) => {
                 let updated = self.state.update_input(now, client_id, input);
                 if updated {
                     self.post_physics_update(now, client_id);
                 }
             },
 
-            PhysicsUpdate(client_id) => {
+            WakeReason::PhysicsUpdate(client_id) => {
                 let updated = self.state.update_physics(now, client_id);
                 if updated {
                     self.post_physics_update(now, client_id);
                 }
             },
 
-            CheckView(client_id) => {
+            WakeReason::CheckView(client_id) => {
                 let (result, offset) = {
                     let ce = match self.state.client_entity_mut(client_id) {
                         Some(ce) => ce,
@@ -226,7 +228,7 @@ impl Server {
                     }
                 }
 
-                self.wake_queue.push(now + 1000, CheckView(client_id));
+                self.wake_queue.push(now + 1000, WakeReason::CheckView(client_id));
             },
         }
     }
@@ -242,11 +244,11 @@ impl Server {
              ce.entity.end_time())
         };
         for &send_id in self.state.clients.keys() {
-            self.resps.send((send_id, msg::EntityUpdate(entity_id, motion, anim)));
+            self.resps.send((send_id, Response::EntityUpdate(entity_id, motion, anim)));
         }
 
         if motion.start_pos != motion.end_pos {
-            self.wake_queue.push(end_time, PhysicsUpdate(client_id));
+            self.wake_queue.push(end_time, WakeReason::PhysicsUpdate(client_id));
         }
     }
 
@@ -261,7 +263,7 @@ impl Server {
 
         let idx = cy * LOCAL_SIZE + cx;
         let data = self.state.get_terrain_rle16(idx as uint);
-        self.resps.send((client_id, msg::TerrainChunk(idx as u16, data)));
+        self.resps.send((client_id, Response::TerrainChunk(idx as u16, data)));
     }
 
     fn unload_chunk(&self,
@@ -274,7 +276,7 @@ impl Server {
         log!(10, "unload {},{} as {},{} for {}", x, y, cx, cy, client_id);
 
         let idx = cy * LOCAL_SIZE + cx;
-        self.resps.send((client_id, msg::UnloadChunk(idx as u16)));
+        self.resps.send((client_id, Response::UnloadChunk(idx as u16)));
     }
 }
 

@@ -1,7 +1,7 @@
 #![crate_name = "physics"]
 #![no_std]
 #![feature(globs, phase)]
-#![feature(overloaded_calls, unboxed_closures)]
+#![feature(unboxed_closures)]
 #![feature(macro_rules)]
 
 #[phase(plugin, link)] extern crate core;
@@ -12,6 +12,7 @@
 
 use core::prelude::*;
 use core::cmp;
+use core::num::SignedInt;
 
 use v3::{V3, Region, scalar};
 
@@ -89,8 +90,17 @@ pub enum Shape {
 
 impl Shape {
     fn is_ramp(&self) -> bool {
+        use self::Shape::*;
         match *self {
             RampE | RampW | RampS | RampN => true,
+            _ => false,
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        match *self {
+            Shape::Empty |
+            Shape::RampTop => true,
             _ => false,
         }
     }
@@ -102,13 +112,13 @@ pub trait ShapeSource {
 
     fn get_shape_below(&self, mut pos: V3) -> (Shape, i32) {
         while pos.z >= 0 {
-            match self.get_shape(pos) {
-                Empty | RampTop => {},
-                s => return (s, pos.z),
+            let s = self.get_shape(pos);
+            if !s.is_empty() {
+                return (s, pos.z);
             }
             pos.z -= 1;
         }
-        (Empty, 0)
+        (Shape::Empty, 0)
     }
 }
 
@@ -119,15 +129,19 @@ pub fn collide<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> (V
     
     let max_velocity = cmp::max(velocity.x.abs(), velocity.y.abs());
 
-    let mut end_pos = walk_path(chunk, pos, size, velocity, check_region);
+    let mut end_pos = walk_path(chunk, pos, size, velocity,
+                                |&: chunk: &S, old, new| check_region(chunk, old, new));
     if end_pos == pos {
-        end_pos = walk_path(chunk, pos, size, velocity, check_region_ramp);
+        end_pos = walk_path(chunk, pos, size, velocity,
+                            |&: chunk: &S, old, new| check_region_ramp(chunk, old, new));
     }
     if end_pos == pos {
-        end_pos = walk_path(chunk, pos, size, velocity.with_z(max_velocity), check_region_ramp);
+        end_pos = walk_path(chunk, pos, size, velocity.with_z(max_velocity),
+                            |&: chunk: &S, old, new| check_region_ramp(chunk, old, new));
     }
     if end_pos == pos {
-        end_pos = walk_path(chunk, pos, size, velocity.with_z(-max_velocity), check_region_ramp);
+        end_pos = walk_path(chunk, pos, size, velocity.with_z(-max_velocity),
+                            |&: chunk: &S, old, new| check_region_ramp(chunk, old, new));
     }
 
     let abs = velocity.abs();
@@ -164,7 +178,7 @@ fn check_region<S: ShapeSource>(chunk: &S, old: Region, new: Region) -> bool {
     let bottom_min = tile_min;
     let bottom_max = V3::new(tile_max.x, tile_max.y, tile_min.z + 1);
     for pos in Region::new(bottom_min, bottom_max).points() {
-        if chunk.get_shape(pos) != Floor {
+        if chunk.get_shape(pos) != Shape::Floor {
             return false;
         }
     }
@@ -173,9 +187,8 @@ fn check_region<S: ShapeSource>(chunk: &S, old: Region, new: Region) -> bool {
     let top_min = V3::new(tile_min.x, tile_min.y, tile_min.z + 1);
     let top_max = tile_max;
     for pos in Region::new(top_min, top_max).points() {
-        match chunk.get_shape(pos) {
-            Empty | RampTop => {},
-            _ => return false,
+        if !chunk.get_shape(pos).is_empty() {
+            return false;
         }
     }
 
@@ -210,9 +223,8 @@ fn check_region_ramp<S: ShapeSource>(chunk: &S, old: Region, new: Region) -> boo
         if pos.z == outer.min.z {
             continue;
         }
-        match chunk.get_shape(pos) {
-            Empty | RampTop => {},
-            _ => return false,
+        if !chunk.get_shape(pos).is_empty() {
+            return false;
         }
     }
 
@@ -233,6 +245,7 @@ fn max_altitude<S: ShapeSource>(chunk: &S, region: Region) -> i32 {
         let shape = chunk.get_shape(point);
 
         let tile_alt = {
+            use self::Shape::*;
             let tile_volume = Region::new(point, point + scalar(1)) * scalar(TILE_SIZE);
             let subregion = region.intersect(&tile_volume) - point * scalar(TILE_SIZE);
             match shape {
@@ -256,6 +269,7 @@ fn max_altitude<S: ShapeSource>(chunk: &S, region: Region) -> i32 {
 }
 
 fn altitude_at_pixel(shape: Shape, x: i32, y: i32) -> i32 {
+    use self::Shape::*;
     match shape {
         Empty | RampTop => -1,
         Floor => 0,
@@ -336,23 +350,26 @@ fn check_ramp_continuity<S: ShapeSource>(chunk: &S, region: Region) -> bool {
     fn adjacent_shape<S: ShapeSource>(chunk: &S, x: i32, y: i32, z: i32,
                                       look_up: bool) -> (Shape, i32) {
         if look_up {
-            match chunk.get_shape(V3::new(x, y, z + 1)) {
-                Empty | RampTop => {},
-                s => return (s, z + 1),
+            let s = chunk.get_shape(V3::new(x, y, z + 1));
+            if !s.is_empty() {
+                return (s, z + 1);
             }
         }
 
-        match chunk.get_shape(V3::new(x, y, z)) {
-            Empty | RampTop => (chunk.get_shape(V3::new(x, y, z - 1)), z - 1),
-            s => return (s, z),
+        let s = chunk.get_shape(V3::new(x, y, z));
+        if !s.is_empty() {
+            (s, z)
+        } else {
+            (chunk.get_shape(V3::new(x, y, z - 1)), z - 1)
         }
     }
 }
 
 const DEFAULT_STEP: uint = 5;
 
-fn walk_path<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3,
-                             check_region: |&S, Region, Region| -> bool) -> V3 {
+fn walk_path<S: ShapeSource, F>(chunk: &S, pos: V3, size: V3, velocity: V3,
+                                check_region: F) -> V3
+        where F: Fn(&S, Region, Region) -> bool {
     let velocity_gcd = gcd(gcd(velocity.x.abs(), velocity.y.abs()), velocity.z.abs());
     let rel_velocity = velocity / scalar(velocity_gcd);
     let units = cmp::max(cmp::max(rel_velocity.x.abs(), rel_velocity.y.abs()), rel_velocity.z.abs());

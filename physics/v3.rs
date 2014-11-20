@@ -1,6 +1,7 @@
 use core::prelude::*;
 use core::cmp::{min, max};
 use core::fmt;
+use core::num::SignedInt;
 
 
 #[deriving(Eq, PartialEq)]

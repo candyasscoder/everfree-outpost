@@ -63,7 +63,7 @@ impl<T> WakeQueue<T> {
 
     pub fn wait_recv(&mut self, now: Time) -> Receiver<()> {
         let dur = match self.items.top() {
-            None => Bounded::max_value(),
+            None => Duration::max_value(),
             Some(item) => Duration::milliseconds(item.time - now),
         };
         self.timer.oneshot(dur)

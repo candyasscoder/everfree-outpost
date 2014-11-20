@@ -4,6 +4,8 @@ use std::rand::{Rng, XorShiftRng, SeedableRng};
 
 use block_data::BlockData;
 
+use self::Section::*;
+
 
 // TODO: Move this to a shared utility library
 

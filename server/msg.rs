@@ -4,6 +4,9 @@ use wire;
 use wire::{WireReader, WireWriter};
 use types::{LocalTime, EntityId};
 
+pub use self::Request::*;
+pub use self::Response::*;
+
 
 pub type ClientId = u16;
 
