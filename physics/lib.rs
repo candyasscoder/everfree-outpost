@@ -14,7 +14,7 @@ use core::prelude::*;
 use core::cmp;
 use core::num::SignedInt;
 
-use v3::{V3, Region, scalar};
+use v3::{V3, Axis, DirAxis, Region, scalar};
 
 macro_rules! try_return {
     ($e:expr) => {
@@ -160,7 +160,7 @@ pub fn collide<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> (V
 
 
 fn check_region<S: ShapeSource>(chunk: &S, old: Region, new: Region) -> bool {
-    let Region { min, max } = old.join(&new);
+    let Region { min, max } = new;
 
     if min.x < 0 || min.y < 0 || min.z < 0 {
         return false;
@@ -365,42 +365,45 @@ fn check_ramp_continuity<S: ShapeSource>(chunk: &S, region: Region) -> bool {
     }
 }
 
-const DEFAULT_STEP: uint = 5;
-
 fn walk_path<S: ShapeSource, F>(chunk: &S, pos: V3, size: V3, velocity: V3,
                                 check_region: F) -> V3
         where F: Fn(&S, Region, Region) -> bool {
-    let velocity_gcd = gcd(gcd(velocity.x.abs(), velocity.y.abs()), velocity.z.abs());
-    let rel_velocity = velocity / scalar(velocity_gcd);
-    let units = cmp::max(cmp::max(rel_velocity.x.abs(), rel_velocity.y.abs()), rel_velocity.z.abs());
+    let mag = velocity.abs();
+    let dir = velocity.signum();
+    let mut accum = V3::new(0, 0, 0);
+    let step_size = cmp::max(cmp::max(mag.x, mag.y), mag.z);
 
-    let mut cur = pos * scalar(units);
-    let rel_size = size * scalar(units);
-    let mut step_size = DEFAULT_STEP;
+    let mut pos = pos;
 
-    //reset_trace();
+    for _ in range(0u, 500) {
+        accum = accum + mag;
 
-    for _ in range(0u, 20) {
-        let step = rel_velocity << step_size;
-        let next = cur + step;
-        let old = Region::new(cur, cur + rel_size);
-        let new = Region::new(next, next + rel_size);
+        macro_rules! maybe_step_axis {
+            ($AXIS:ident) => {{
+                let axis = Axis::$AXIS;
+                if accum.get(axis) >= step_size {
+                    // accum.$axis -= step_size
+                    accum = accum.with(axis, accum.get(axis) - step_size);
 
-        //trace_rect(new.min, new.max - new.min);
+                    let neg = dir.get(axis) < 0;
+                    let new_pos = pos + dir.only(axis);
+                    let edge = pos.get(axis) + size.get_if_pos((axis, neg));
+                    if edge % 32 == 0 &&
+                       !check_region(chunk,
+                                     Region::new(pos, pos + size),
+                                     Region::new(new_pos, new_pos + size)) {
+                        break;
+                    }
 
-        if check_region(chunk, old, new) {
-            cur = cur + step;
-            if step_size < DEFAULT_STEP {
-                step_size += 1;
-            }
-        } else {
-            if step_size > 0 {
-                step_size -= 1;
-            } else {
-                break;
+                    pos = pos + dir.only(axis);
+                }}
             }
         }
+
+        maybe_step_axis!(X)
+        maybe_step_axis!(Y)
+        maybe_step_axis!(Z)
     }
 
-    cur / scalar(units)
+    pos
 }

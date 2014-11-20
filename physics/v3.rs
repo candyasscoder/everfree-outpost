@@ -4,6 +4,24 @@ use core::fmt;
 use core::num::SignedInt;
 
 
+#[deriving(Eq, PartialEq, Show)]
+pub enum Axis {
+    X,
+    Y,
+    Z,
+}
+
+pub type DirAxis = (Axis, bool);
+pub mod DirAxis {
+    use super::{Axis, DirAxis};
+    pub const PosX: DirAxis = (Axis::X, false);
+    pub const PosY: DirAxis = (Axis::Y, false);
+    pub const PosZ: DirAxis = (Axis::Z, false);
+    pub const NegX: DirAxis = (Axis::X, true);
+    pub const NegY: DirAxis = (Axis::Y, true);
+    pub const NegZ: DirAxis = (Axis::Z, true);
+}
+
 #[deriving(Eq, PartialEq)]
 pub struct V3 {
     pub x: i32,
@@ -20,6 +38,20 @@ impl fmt::Show for V3 {
 impl V3 {
     pub fn new(x: i32, y: i32, z: i32) -> V3 {
         V3 { x: x, y: y, z: z }
+    }
+
+    pub fn on_axis(axis: Axis, mag: i32) -> V3 {
+        match axis {
+            Axis::X => V3::new(mag, 0, 0),
+            Axis::Y => V3::new(0, mag, 0),
+            Axis::Z => V3::new(0, 0, mag),
+        }
+    }
+
+    pub fn on_dir_axis(dir_axis: DirAxis, mag: i32) -> V3 {
+        let (axis, neg) = dir_axis;
+        let result = V3::on_axis(axis, mag);
+        if !neg { result } else { -result }
     }
 
     pub fn map<F: Fn(i32) -> i32>(&self, f: F) -> V3 {
@@ -51,6 +83,34 @@ impl V3 {
             v: self,
             i: 0,
         }
+    }
+
+    pub fn dot(&self, other: &V3) -> i32 {
+        self.x * other.x +
+        self.y * other.y +
+        self.z * other.z
+    }
+
+    pub fn get(&self, axis: Axis) -> i32 {
+        match axis {
+            Axis::X => self.x,
+            Axis::Y => self.y,
+            Axis::Z => self.z,
+        }
+    }
+
+    pub fn get_dir(&self, dir_axis: DirAxis) -> i32 {
+        let (axis, neg) = dir_axis;
+        if !neg { self.get(axis) } else { -self.get(axis) }
+    }
+
+    pub fn get_if_pos(&self, dir_axis: DirAxis) -> i32 {
+        let (axis, neg) = dir_axis;
+        if !neg { self.get(axis) } else { 0 }
+    }
+
+    pub fn only(&self, axis: Axis) -> V3 {
+        V3::on_axis(axis, self.get(axis))
     }
 
     pub fn abs(&self) -> V3 {
@@ -95,6 +155,14 @@ impl V3 {
 
     pub fn with_z(&self, new_z: i32) -> V3 {
         V3::new(self.x, self.y, new_z)
+    }
+
+    pub fn with(&self, axis: Axis, new: i32) -> V3 {
+        match axis {
+            Axis::X => self.with_x(new),
+            Axis::Y => self.with_y(new),
+            Axis::Z => self.with_z(new),
+        }
     }
 }
 
