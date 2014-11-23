@@ -74,6 +74,13 @@ macro_rules! println {
     }
 }
 
+#[macro_export]
+macro_rules! log {
+    ($level:expr, $str:expr $($rest:tt)*) => {
+        format_args!(::asmrt::raw_println, $str $($rest)*)
+    }
+}
+
 
 // Generic interface for calling back into Javascript code.
 
