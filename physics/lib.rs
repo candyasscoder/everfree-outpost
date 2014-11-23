@@ -122,6 +122,41 @@ pub trait ShapeSource {
     }
 }
 
+struct CheckRegion {
+    size: V3,
+}
+
+impl CheckRegion {
+    fn new(_: V3, size: V3, velocity: V3) -> CheckRegion {
+        CheckRegion { size: size }
+    }
+}
+
+trait StepCallback {
+    fn check<S: ShapeSource>(&self, chunk: &S, pos: V3, dir_axis: DirAxis) -> bool;
+}
+
+impl StepCallback for CheckRegion {
+    #[inline(always)]
+    fn check<S: ShapeSource>(&self, chunk: &S, pos: V3, dir_axis: DirAxis) -> bool {
+        let CheckRegion { size } = *self;
+        let (axis, neg) = dir_axis;
+
+        let edge = pos.get(axis) + size.get_if_pos((axis, neg));
+
+        let min = pos.with(axis, if neg { edge - 1 } else { edge });
+        let max = min + size.with(axis, 1);
+
+        if edge % 32 == 0 &&
+           !check_region(chunk,
+                         Region::new(pos, pos + size),
+                         Region::new(min, max)) {
+            return false;
+        }
+        true
+    }
+}
+
 pub fn collide<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> (V3, i32) {
     if velocity == scalar(0) {
         return (pos, core::i32::MAX);
@@ -129,20 +164,7 @@ pub fn collide<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> (V
     
     let max_velocity = cmp::max(velocity.x.abs(), velocity.y.abs());
 
-    let mut end_pos = walk_path(chunk, pos, size, velocity,
-                                |&: chunk: &S, old, new| check_region(chunk, old, new));
-    if end_pos == pos {
-        end_pos = walk_path(chunk, pos, size, velocity,
-                            |&: chunk: &S, old, new| check_region_ramp(chunk, old, new));
-    }
-    if end_pos == pos {
-        end_pos = walk_path(chunk, pos, size, velocity.with_z(max_velocity),
-                            |&: chunk: &S, old, new| check_region_ramp(chunk, old, new));
-    }
-    if end_pos == pos {
-        end_pos = walk_path(chunk, pos, size, velocity.with_z(-max_velocity),
-                            |&: chunk: &S, old, new| check_region_ramp(chunk, old, new));
-    }
+    let mut end_pos = walk_path(chunk, pos, size, velocity, CheckRegion::new);
 
     let abs = velocity.abs();
     let max = cmp::max(cmp::max(abs.x, abs.y), abs.z);
@@ -365,9 +387,12 @@ fn check_ramp_continuity<S: ShapeSource>(chunk: &S, region: Region) -> bool {
     }
 }
 
-fn walk_path<S: ShapeSource, F>(chunk: &S, pos: V3, size: V3, velocity: V3,
-                                check_region: F) -> V3
-        where F: Fn(&S, Region, Region) -> bool {
+fn walk_path<S, CB>(chunk: &S, pos: V3, size: V3, velocity: V3,
+                    make_cb: fn(V3, V3, V3) -> CB) -> V3
+        where S: ShapeSource,
+              CB: StepCallback {
+    let cb = make_cb(pos, size, velocity);
+
     let mag = velocity.abs();
     let dir = velocity.signum();
     let mut accum = V3::new(0, 0, 0);
@@ -378,6 +403,9 @@ fn walk_path<S: ShapeSource, F>(chunk: &S, pos: V3, size: V3, velocity: V3,
     for _ in range(0u, 500) {
         accum = accum + mag;
 
+        // I tried using an unboxed closure for most of this instead of a macro, but it caused a
+        // 2.5x slowdown due to LLVM not inlining the closure body.  There's no way I could find to
+        // give a closure body #[inline(always)], so I used this macro instead.
         macro_rules! maybe_step_axis {
             ($AXIS:ident) => {{
                 let axis = Axis::$AXIS;
@@ -387,11 +415,8 @@ fn walk_path<S: ShapeSource, F>(chunk: &S, pos: V3, size: V3, velocity: V3,
 
                     let neg = dir.get(axis) < 0;
                     let new_pos = pos + dir.only(axis);
-                    let edge = pos.get(axis) + size.get_if_pos((axis, neg));
-                    if edge % 32 == 0 &&
-                       !check_region(chunk,
-                                     Region::new(pos, pos + size),
-                                     Region::new(new_pos, new_pos + size)) {
+
+                    if !cb.check(chunk, pos, (axis, neg)) {
                         break;
                     }
 
