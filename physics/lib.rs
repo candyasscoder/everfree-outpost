@@ -181,33 +181,26 @@ pub fn collide<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> (V
 
 
 fn check_region<S: ShapeSource>(chunk: &S, new: Region) -> bool {
-    let Region { min, max } = new;
-
-    if min.x < 0 || min.y < 0 || min.z < 0 {
-        return false;
-    }
-
-    let tile_min = min / scalar(TILE_SIZE);
-    let tile_max = (max + scalar(TILE_SIZE - 1)) / scalar(TILE_SIZE);
+    assert!(new.min.x >= 0 && new.min.y >= 0 && new.min.z >= 0);
 
     // Check that the bottom of the region touches the bottom of the tiles.
-    if min.z % TILE_SIZE != 0 {
+    if new.min.z % TILE_SIZE != 0 {
         return false;
     }
 
+    let tile = new.div_round(TILE_SIZE);
+
     // Check that the bottom layer is all floor.
-    let bottom_min = tile_min;
-    let bottom_max = V3::new(tile_max.x, tile_max.y, tile_min.z + 1);
-    for pos in Region::new(bottom_min, bottom_max).points() {
+    for pos in tile.flatten(1).points() {
         if chunk.get_shape(pos) != Shape::Floor {
             return false;
         }
     }
 
     // Check that the rest of the region is all empty.
-    let top_min = V3::new(tile_min.x, tile_min.y, tile_min.z + 1);
-    let top_max = tile_max;
-    for pos in Region::new(top_min, top_max).points() {
+    let tile_depth = tile.max.z - tile.min.z;
+    let top = tile.flatten(tile_depth - 1) + V3::new(0, 0, 1);
+    for pos in top.points() {
         if !chunk.get_shape(pos).is_empty() {
             return false;
         }
