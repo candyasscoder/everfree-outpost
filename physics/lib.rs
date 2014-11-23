@@ -16,23 +16,8 @@ use core::num::SignedInt;
 
 use v3::{V3, Axis, DirAxis, Region, scalar};
 
-macro_rules! try_return {
-    ($e:expr) => {
-        match $e {
-            Some(x) => return x,
-            None => {},
-        }
-    }
-}
 
-macro_rules! try_return_some {
-    ($e:expr) => {
-        match $e {
-            Some(x) => return Some(x),
-            None => {},
-        }
-    }
-}
+pub mod v3;
 
 
 // Some macros in `core` rely on names within `::std`.
@@ -41,24 +26,6 @@ mod std {
     pub use core::cmp;
     pub use core::clone;
     pub use core::fmt;
-}
-
-
-pub mod v3;
-
-
-fn gcd(mut a: i32, mut b: i32) -> i32 {
-    while b != 0 {
-        let t = b;
-        b = a % b;
-        a = t;
-    }
-    a
-}
-
-#[allow(dead_code)]
-fn lcm(a: i32, b: i32) -> i32 {
-    a * b / gcd(a, b)
 }
 
 
