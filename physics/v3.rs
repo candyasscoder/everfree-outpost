@@ -13,6 +13,7 @@ pub enum Axis {
 
 pub type DirAxis = (Axis, bool);
 pub mod DirAxis {
+    #![allow(non_snake_case, non_upper_case_globals)]
     use super::{Axis, DirAxis};
     pub const PosX: DirAxis = (Axis::X, false);
     pub const PosY: DirAxis = (Axis::Y, false);

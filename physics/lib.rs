@@ -89,7 +89,7 @@ pub enum Shape {
 }
 
 impl Shape {
-    fn is_ramp(&self) -> bool {
+    pub fn is_ramp(&self) -> bool {
         use self::Shape::*;
         match *self {
             RampE | RampW | RampS | RampN => true,
@@ -97,7 +97,7 @@ impl Shape {
         }
     }
 
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         match *self {
             Shape::Empty |
             Shape::RampTop => true,
@@ -122,18 +122,20 @@ pub trait ShapeSource {
     }
 }
 
+
+trait StepCallback {
+    fn check<S: ShapeSource>(&self, chunk: &S, pos: V3, dir_axis: DirAxis) -> bool;
+}
+
+
 struct CheckRegion {
     size: V3,
 }
 
 impl CheckRegion {
-    fn new(_: V3, size: V3, velocity: V3) -> CheckRegion {
+    fn new(_: V3, size: V3, _: V3) -> CheckRegion {
         CheckRegion { size: size }
     }
-}
-
-trait StepCallback {
-    fn check<S: ShapeSource>(&self, chunk: &S, pos: V3, dir_axis: DirAxis) -> bool;
 }
 
 impl StepCallback for CheckRegion {
@@ -148,23 +150,20 @@ impl StepCallback for CheckRegion {
         let max = min + size.with(axis, 1);
 
         if edge % 32 == 0 &&
-           !check_region(chunk,
-                         Region::new(pos, pos + size),
-                         Region::new(min, max)) {
+           !check_region(chunk, Region::new(min, max)) {
             return false;
         }
         true
     }
 }
 
+
 pub fn collide<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> (V3, i32) {
     if velocity == scalar(0) {
         return (pos, core::i32::MAX);
     }
     
-    let max_velocity = cmp::max(velocity.x.abs(), velocity.y.abs());
-
-    let mut end_pos = walk_path(chunk, pos, size, velocity, CheckRegion::new);
+    let end_pos = walk_path(chunk, pos, size, velocity, CheckRegion::new);
 
     let abs = velocity.abs();
     let max = cmp::max(cmp::max(abs.x, abs.y), abs.z);
@@ -181,7 +180,7 @@ pub fn collide<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> (V
 }
 
 
-fn check_region<S: ShapeSource>(chunk: &S, old: Region, new: Region) -> bool {
+fn check_region<S: ShapeSource>(chunk: &S, new: Region) -> bool {
     let Region { min, max } = new;
 
     if min.x < 0 || min.y < 0 || min.z < 0 {
@@ -217,176 +216,6 @@ fn check_region<S: ShapeSource>(chunk: &S, old: Region, new: Region) -> bool {
     true
 }
 
-fn check_region_ramp<S: ShapeSource>(chunk: &S, old: Region, new: Region) -> bool {
-    if new.min.x < 0 || new.min.y < 0 || new.min.z < 0 {
-        return false;
-    }
-
-    // Check that we stand at an appropriate altitude.
-    // Look both above and below the bottom plane of `min`.  This handles the case where we stand
-    // at the very top of a ramp.
-    let bottom = new.flatten(2) - V3::new(0, 0, 1);
-    if new.min.z != max_altitude(chunk, bottom) {
-        return false;
-    }
-
-    // Check that we are actually over (or adjacent to) some amount of ramp.
-    let expanded = Region::new(bottom.min - V3::new(1, 1, 0),
-                               bottom.max + V3::new(1, 1, 0));
-    if !expanded.div_round(TILE_SIZE).points().any(|p| chunk.get_shape(p).is_ramp()) {
-        return false;
-    }
-
-    // Check that there are no collisions.
-    let outer_px = old.join(&new);
-    let outer = outer_px.div_round(TILE_SIZE);
-    for pos in outer.points() {
-        // The lowest level was implicitly checked for collisions by the altitude code.
-        if pos.z == outer.min.z {
-            continue;
-        }
-        if !chunk.get_shape(pos).is_empty() {
-            return false;
-        }
-    }
-
-    // Check for continuity of the ramp.
-    let mut footprint_px = outer_px;
-    footprint_px.min.z = cmp::max(old.min.z, new.min.z);
-    if !check_ramp_continuity(chunk, footprint_px) {
-        return false;
-    }
-
-    true
-}
-
-fn max_altitude<S: ShapeSource>(chunk: &S, region: Region) -> i32 {
-    let tile_region = region.div_round(TILE_SIZE);
-    let mut max_alt = -1;
-    for point in tile_region.points() {
-        let shape = chunk.get_shape(point);
-
-        let tile_alt = {
-            use self::Shape::*;
-            let tile_volume = Region::new(point, point + scalar(1)) * scalar(TILE_SIZE);
-            let subregion = region.intersect(&tile_volume) - point * scalar(TILE_SIZE);
-            match shape {
-                Empty | RampTop => continue,
-                Floor => 0,
-                Solid => TILE_SIZE,
-                RampE => subregion.max.x,
-                RampW => TILE_SIZE - subregion.min.x,
-                RampS => subregion.max.y,
-                RampN => TILE_SIZE - subregion.min.y,
-            }
-        };
-
-        let alt = tile_alt + point.z * TILE_SIZE;
-        if alt > max_alt {
-            max_alt = alt;
-        }
-    }
-
-    max_alt
-}
-
-fn altitude_at_pixel(shape: Shape, x: i32, y: i32) -> i32 {
-    use self::Shape::*;
-    match shape {
-        Empty | RampTop => -1,
-        Floor => 0,
-        Solid => TILE_SIZE,
-        RampE => x,
-        RampW => TILE_SIZE - x,
-        RampS => y,
-        RampN => TILE_SIZE - y,
-    }
-}
-
-fn check_ramp_continuity<S: ShapeSource>(chunk: &S, region: Region) -> bool {
-    let Region { min, max } = region.div_round(TILE_SIZE);
-    let top_z = min.z;
-
-    let mut next_z_x = -1;
-    let mut next_z_y = -1;
-
-    for y in range(min.y, max.y) {
-        for x in range(min.x, max.x) {
-            // Get z-level to inspect for the current tile.
-            let (shape_here, z_here) = chunk.get_shape_below(V3::new(x, y, top_z));
-            if x > min.x && next_z_x != z_here {
-                return false;
-            } else if x == min.x && y > min.y && next_z_y != z_here {
-                return false;
-            }
-
-            // Coordinates within the tile of the intersection of the tile region and the footprint
-            // region.  That means these range from [0..32], with numbers other than 0 and 32
-            // appearing only at the edges.
-            let x0 = if x > min.x { 0 } else { region.min.x - min.x * TILE_SIZE };
-            let y0 = if y > min.y { 0 } else { region.min.y - min.y * TILE_SIZE };
-            let x1 = if x < max.x - 1 { TILE_SIZE } else { region.max.x - (max.x - 1) * TILE_SIZE};
-            let y1 = if y < max.y - 1 { TILE_SIZE } else { region.max.y - (max.y - 1) * TILE_SIZE};
-            let alt_here_11 = altitude_at_pixel(shape_here, x1, y1);
-            let look_up = alt_here_11 == TILE_SIZE && z_here < top_z;
-
-            // Check the line between this tile and the one to the east, but only the parts that
-            // lie within `region`.
-            if x < max.x - 1 {
-                let (shape_right, z_right) = adjacent_shape(chunk, x + 1, y, z_here, look_up);
-                let alt_here_10 = altitude_at_pixel(shape_here, TILE_SIZE, y0);
-                let alt_right_00 = altitude_at_pixel(shape_right, 0, y0);
-                let alt_right_01 = altitude_at_pixel(shape_right, 0, y1);
-                if z_here * TILE_SIZE + alt_here_10 != z_right * TILE_SIZE + alt_right_00 ||
-                   z_here * TILE_SIZE + alt_here_11 != z_right * TILE_SIZE + alt_right_01 {
-                    return false;
-                }
-                // Save the z that we expect to see when visiting the tile to the east.  If we see
-                // a different z, then there's a problem like this:
-                //   _ /
-                //    \_
-                // The \ ramp is properly connected to the rightmost _, but the / ramp is actually
-                // the topmost tile in that column.
-                next_z_x = z_right;
-            }
-
-            // Check the line between this tile and the one to the south.
-            if y < max.y - 1 {
-                let (shape_down, z_down) = adjacent_shape(chunk, x, y + 1, z_here, look_up);
-                let alt_here_01 = altitude_at_pixel(shape_here, x0, TILE_SIZE);
-                let alt_down_00 = altitude_at_pixel(shape_down, x0, 0);
-                let alt_down_10 = altitude_at_pixel(shape_down, x1, 0);
-                if z_here * TILE_SIZE + alt_here_01 != z_down * TILE_SIZE + alt_down_00 ||
-                   z_here * TILE_SIZE + alt_here_11 != z_down * TILE_SIZE + alt_down_10 {
-                    return false;
-                }
-                if x == min.x {
-                    next_z_y = z_down;
-                }
-            }
-        }
-    }
-
-    return true;
-
-    fn adjacent_shape<S: ShapeSource>(chunk: &S, x: i32, y: i32, z: i32,
-                                      look_up: bool) -> (Shape, i32) {
-        if look_up {
-            let s = chunk.get_shape(V3::new(x, y, z + 1));
-            if !s.is_empty() {
-                return (s, z + 1);
-            }
-        }
-
-        let s = chunk.get_shape(V3::new(x, y, z));
-        if !s.is_empty() {
-            (s, z)
-        } else {
-            (chunk.get_shape(V3::new(x, y, z - 1)), z - 1)
-        }
-    }
-}
-
 fn walk_path<S, CB>(chunk: &S, pos: V3, size: V3, velocity: V3,
                     make_cb: fn(V3, V3, V3) -> CB) -> V3
         where S: ShapeSource,
@@ -410,12 +239,10 @@ fn walk_path<S, CB>(chunk: &S, pos: V3, size: V3, velocity: V3,
             ($AXIS:ident) => {{
                 let axis = Axis::$AXIS;
                 if accum.get(axis) >= step_size {
-                    // accum.$axis -= step_size
+                    // This is simply `accum.$axis -= step_size`.
                     accum = accum.with(axis, accum.get(axis) - step_size);
 
                     let neg = dir.get(axis) < 0;
-                    let new_pos = pos + dir.only(axis);
-
                     if !cb.check(chunk, pos, (axis, neg)) {
                         break;
                     }
