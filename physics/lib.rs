@@ -176,21 +176,22 @@ fn check_region<S: ShapeSource>(chunk: &S, new: Region) -> bool {
     true
 }
 
-fn walk_path<S, CB>(chunk: &S, pos: V3, size: V3, velocity: V3,
+fn walk_path<S, CB>(chunk: &S, start_pos: V3, size: V3, velocity: V3,
                     make_cb: fn(V3, V3, V3) -> CB) -> V3
         where S: ShapeSource,
               CB: StepCallback {
-    let cb = make_cb(pos, size, velocity);
+    let cb = make_cb(start_pos, size, velocity);
 
     let mag = velocity.abs();
     let dir = velocity.signum();
     let mut accum = V3::new(0, 0, 0);
     let step_size = cmp::max(cmp::max(mag.x, mag.y), mag.z);
 
-    let mut pos = pos;
+    let mut last_pos = start_pos;
 
     for _ in range(0u, 500) {
         accum = accum + mag;
+        let mut pos = last_pos;
 
         // I tried using an unboxed closure for most of this instead of a macro, but it caused a
         // 2.5x slowdown due to LLVM not inlining the closure body.  There's no way I could find to
@@ -215,7 +216,9 @@ fn walk_path<S, CB>(chunk: &S, pos: V3, size: V3, velocity: V3,
         maybe_step_axis!(X)
         maybe_step_axis!(Y)
         maybe_step_axis!(Z)
+
+        last_pos = pos;
     }
 
-    pos
+    last_pos
 }
