@@ -223,12 +223,14 @@ impl Mul<V3, V3> for V3 {
 }
 
 impl Div<V3, V3> for V3 {
+    #[inline]
     fn div(&self, other: &V3) -> V3 {
         self.zip(other, |&:a: i32, b: i32| a / b)
     }
 }
 
 impl Rem<V3, V3> for V3 {
+    #[inline]
     fn rem(&self, other: &V3) -> V3 {
         self.zip(other, |&:a: i32, b: i32| a % b)
     }
@@ -289,43 +291,52 @@ impl fmt::Show for Region {
 }
 
 impl Region {
+    #[inline]
     pub fn new(min: V3, max: V3) -> Region {
         Region { min: min, max: max }
     }
 
+    #[inline]
     pub fn points(&self) -> RegionPoints {
         RegionPoints::new(self.min, self.max)
     }
 
+    #[inline]
     pub fn contains(&self, point: &V3) -> bool {
         point.x >= self.min.x && point.x < self.max.x &&
         point.y >= self.min.y && point.y < self.max.y &&
         point.z >= self.min.z && point.z < self.max.z
     }
 
+    #[inline]
     pub fn join(&self, other: &Region) -> Region {
         Region::new(self.min.zip(&other.min, |&:a:i32, b: i32| min(a, b)),
                     self.max.zip(&other.max, |&:a:i32, b: i32| max(a, b)))
     }
 
+    #[inline]
     pub fn intersect(&self, other: &Region) -> Region {
         Region::new(self.min.zip(&other.min, |&:a:i32, b: i32| max(a, b)),
                     self.max.zip(&other.max, |&:a:i32, b: i32| min(a, b)))
     }
 
+    #[inline]
     pub fn div_round(&self, rhs: i32) -> Region {
         Region::new(self.min / scalar(rhs),
                     (self.max + scalar(rhs - 1)) / scalar(rhs))
     }
 
+    #[inline]
     pub fn flatten(&self, depth: i32) -> Region {
         Region::new(self.min, self.max.with_z(self.min.z + depth))
     }
 
+    #[inline]
     pub fn expand(&self, amount: &V3) -> Region {
         Region::new(self.min - *amount, self.max + *amount)
     }
 
+    #[inline]
     pub fn clamp_point(&self, point: &V3) -> V3 {
         let x = max(self.min.x, min(self.max.x, point.x));
         let y = max(self.min.y, min(self.max.y, point.y));
