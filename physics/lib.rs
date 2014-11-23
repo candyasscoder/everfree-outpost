@@ -9,6 +9,8 @@
 #[phase(plugin, link)] extern crate asmrt;
 #[cfg(not(asmjs))]
 #[phase(plugin, link)] extern crate std;
+#[cfg(not(asmjs))]
+#[phase(plugin, link)] extern crate log;
 
 use core::prelude::*;
 use core::cmp;
@@ -92,6 +94,10 @@ pub trait ShapeSource {
 
 trait StepCallback {
     fn check<S: ShapeSource>(&self, chunk: &S, pos: V3, dir_axis: DirAxis) -> bool;
+
+    fn check_post<S: ShapeSource>(&self, chunk: &S, pos: V3) -> bool {
+        true
+    }
 }
 
 
@@ -100,7 +106,7 @@ struct CheckRegion {
 }
 
 impl CheckRegion {
-    fn new(_: V3, size: V3, _: V3) -> CheckRegion {
+    fn new(size: V3) -> CheckRegion {
         CheckRegion { size: size }
     }
 }
@@ -125,12 +131,71 @@ impl StepCallback for CheckRegion {
 }
 
 
+struct CheckRegionSlide {
+    base: CheckRegion,
+    slide_x: i8,
+    slide_y: i8,
+    slide_z: i8,
+}
+
+impl CheckRegionSlide {
+    fn new(size: V3, blocked: V3) -> CheckRegionSlide {
+        CheckRegionSlide {
+            base: CheckRegion::new(size),
+            slide_x: blocked.x as i8,
+            slide_y: blocked.y as i8,
+            slide_z: blocked.z as i8,
+        }
+    }
+}
+
+impl StepCallback for CheckRegionSlide {
+    #[inline(always)]
+    fn check<S: ShapeSource>(&self, chunk: &S, pos: V3, dir_axis: DirAxis) -> bool {
+        self.base.check(chunk, pos, dir_axis)
+    }
+
+    fn check_post<S: ShapeSource>(&self, chunk: &S, pos: V3) -> bool {
+        if self.slide_x != 0 {
+            if check_side(chunk, pos, self.base.size, (Axis::X, self.slide_x < 0)) {
+                return false;
+            }
+        }
+
+        if self.slide_y != 0 {
+            if check_side(chunk, pos, self.base.size, (Axis::Y, self.slide_y < 0)) {
+                return false;
+            }
+        }
+
+        if self.slide_z != 0 {
+            if check_side(chunk, pos, self.base.size, (Axis::Z, self.slide_z < 0)) {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+
 pub fn collide<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> (V3, i32) {
     if velocity == scalar(0) {
         return (pos, core::i32::MAX);
     }
-    
-    let end_pos = walk_path(chunk, pos, size, velocity, CheckRegion::new);
+
+    let mut velocity = velocity;
+
+    let mut end_pos = walk_path(chunk, pos, size, velocity, CheckRegion::new(size));
+    if end_pos == pos {
+        let blocked = blocked_sides(chunk, pos, size, velocity);
+        if blocked != velocity.signum() {
+            velocity = velocity * blocked.is_zero();
+            end_pos = walk_path(chunk, pos, size, velocity,
+                                CheckRegionSlide::new(size, blocked));
+        }
+    }
+
 
     let abs = velocity.abs();
     let max = cmp::max(cmp::max(abs.x, abs.y), abs.z);
@@ -147,6 +212,27 @@ pub fn collide<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> (V
 }
 
 
+fn blocked_sides<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> V3 {
+    let neg = velocity.is_negative();
+    let blocked_x = !check_side(chunk, pos, size, (Axis::X, neg.x != 0));
+    let blocked_y = !check_side(chunk, pos, size, (Axis::Y, neg.y != 0));
+    let blocked_z = !check_side(chunk, pos, size, (Axis::Z, neg.z != 0));
+    V3::new(if blocked_x { velocity.x.signum() } else { 0 },
+            if blocked_y { velocity.y.signum() } else { 0 },
+            if blocked_z { velocity.z.signum() } else { 0 })
+}
+
+fn check_side<S: ShapeSource>(chunk: &S, pos: V3, size: V3, dir_axis: DirAxis) -> bool {
+    let (axis, neg) = dir_axis;
+    let edge = pos.get(axis) + size.get_if_pos((axis, neg));
+    let min = pos.with(axis, if neg { edge - 1 } else { edge });
+    let max = min + size.with(axis, 1);
+    let result = check_region(chunk, Region::new(min, max));
+    result
+}
+
+// `inline(never)` here magically makes `collide` faster.
+#[inline(never)]
 fn check_region<S: ShapeSource>(chunk: &S, new: Region) -> bool {
     assert!(new.min.x >= 0 && new.min.y >= 0 && new.min.z >= 0);
 
@@ -177,11 +263,9 @@ fn check_region<S: ShapeSource>(chunk: &S, new: Region) -> bool {
 }
 
 fn walk_path<S, CB>(chunk: &S, start_pos: V3, size: V3, velocity: V3,
-                    make_cb: fn(V3, V3, V3) -> CB) -> V3
+                    cb: CB) -> V3
         where S: ShapeSource,
               CB: StepCallback {
-    let cb = make_cb(start_pos, size, velocity);
-
     let mag = velocity.abs();
     let dir = velocity.signum();
     let mut accum = V3::new(0, 0, 0);
@@ -218,6 +302,10 @@ fn walk_path<S, CB>(chunk: &S, start_pos: V3, size: V3, velocity: V3,
         maybe_step_axis!(Z)
 
         last_pos = pos;
+
+        if !cb.check_post(chunk, last_pos) {
+            break;
+        }
     }
 
     last_pos
