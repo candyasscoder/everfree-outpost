@@ -25,7 +25,7 @@ macro_rules! unwrap {
 
 impl BlockData {
     pub fn from_json(json: Json) -> Result<BlockData, ParseError> {
-        let blocks = unwrap!(json.find("blocks").and_then(|j| j.as_list()),
+        let blocks = unwrap!(json.find("blocks").and_then(|j| j.as_array()),
                              "missing array \"blocks\" at top level");
 
         let mut shapes = Vec::from_elem(blocks.len(), physics::Empty);
@@ -67,6 +67,6 @@ impl BlockData {
     }
 
     pub fn find_id(&self, name: &str) -> Option<BlockId> {
-        self.name_to_id.find_equiv(name).map(|&x| x)
+        self.name_to_id.get(name).map(|&x| x)
     }
 }

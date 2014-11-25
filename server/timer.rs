@@ -1,6 +1,5 @@
 use std::collections::BinaryHeap;
 use std::io::timer::Timer;
-use std::num::Bounded;
 use std::time::Duration;
 
 use types::Time;

@@ -31,7 +31,7 @@ pub struct V3 {
 }
 
 impl fmt::Show for V3 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         (self.x, self.y, self.z).fmt(f)
     }
 }
@@ -285,7 +285,7 @@ pub struct Region {
 }
 
 impl fmt::Show for Region {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         (self.min, self.max).fmt(f)
     }
 }
