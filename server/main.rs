@@ -68,10 +68,6 @@ fn main() {
     });
 
     let mut state = state::State::new(block_data);
-    let start = now();
-    state.init_terrain();
-    let end = now();
-    log!(10, "generated terrain in {} msec", end - start);
     let mut server = Server::new(resp_send, state);
     server.run(req_recv);
 }
@@ -252,30 +248,30 @@ impl Server {
         }
     }
 
-    fn load_chunk(&self,
+    fn load_chunk(&mut self,
                   client_id: ClientId,
-                  x: i32, y: i32,
+                  cx: i32, cy: i32,
                   offset: V3) {
-        let cx = (x + offset.x) & (LOCAL_SIZE - 1);
-        let cy = (y + offset.y) & (LOCAL_SIZE - 1);
+        self.state.load_chunk(cx, cy);
 
-        log!(10, "load {},{} as {},{} for {}", x, y, cx, cy, client_id);
+        let lx = (cx + offset.x) & (LOCAL_SIZE - 1);
+        let ly = (cy + offset.y) & (LOCAL_SIZE - 1);
 
-        let idx = cy * LOCAL_SIZE + cx;
-        let data = self.state.get_terrain_rle16(idx as uint);
+        let idx = ly * LOCAL_SIZE + lx;
+        let data = self.state.get_terrain_rle16(cx, cy);
         self.resps.send((client_id, Response::TerrainChunk(idx as u16, data)));
     }
 
-    fn unload_chunk(&self,
+    fn unload_chunk(&mut self,
                     client_id: ClientId,
-                    x: i32, y: i32,
+                    cx: i32, cy: i32,
                     offset: V3) {
-        let cx = (x + offset.x) & (LOCAL_SIZE - 1);
-        let cy = (y + offset.y) & (LOCAL_SIZE - 1);
+        self.state.unload_chunk(cx, cy);
 
-        log!(10, "unload {},{} as {},{} for {}", x, y, cx, cy, client_id);
+        let lx = (cx + offset.x) & (LOCAL_SIZE - 1);
+        let ly = (cy + offset.y) & (LOCAL_SIZE - 1);
 
-        let idx = cy * LOCAL_SIZE + cx;
+        let idx = ly * LOCAL_SIZE + lx;
         self.resps.send((client_id, Response::UnloadChunk(idx as u16)));
     }
 }

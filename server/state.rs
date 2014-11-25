@@ -1,30 +1,33 @@
 use std::collections::HashMap;
+use std::iter::range_inclusive;
 use std::u16;
 
 use physics;
 use physics::{Shape, ShapeSource};
-use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE};
+use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE, TILE_BITS};
 use physics::v3::{V3, scalar};
 
 use types::{Time, Duration, ClientId, EntityId, AnimId, BlockId, DURATION_MAX};
 use view::ViewState;
 use input::{InputBits, INPUT_LEFT, INPUT_RIGHT, INPUT_UP, INPUT_DOWN, INPUT_RUN};
 use block_data::BlockData;
+use gen::TerrainGenerator;
 
 
 const CHUNK_TOTAL: uint = 1 << (3 * CHUNK_BITS);
 pub type Chunk = [BlockId, ..CHUNK_TOTAL];
+static EMPTY_CHUNK: Chunk = [0, ..CHUNK_TOTAL];
 
 pub const LOCAL_BITS: uint = 3;
 pub const LOCAL_SIZE: i32 = 1 << LOCAL_BITS;
 pub const LOCAL_MASK: i32 = LOCAL_SIZE - 1;
 pub const LOCAL_TOTAL: uint = 1 << (2 * LOCAL_BITS);
 
-pub struct Terrain {
-    pub chunks: [Chunk, ..LOCAL_TOTAL],
+pub struct LocalTerrain<'a> {
+    pub chunks: [Option<&'a Chunk>, ..LOCAL_TOTAL],
 }
 
-impl<'a> ShapeSource for (&'a Terrain, &'a BlockData) {
+impl<'a> ShapeSource for (&'a LocalTerrain<'a>, &'a BlockData) {
     fn get_shape(&self, pos: V3) -> Shape {
         let &(map, block_data) = self;
 
@@ -34,8 +37,10 @@ impl<'a> ShapeSource for (&'a Terrain, &'a BlockData) {
         let chunk_idx = chunk_y * LOCAL_SIZE + chunk_x;
         let tile_idx = (tile_z * CHUNK_SIZE + tile_y) * CHUNK_SIZE + tile_x;
 
-        let block = map.chunks[chunk_idx as uint][tile_idx as uint];
-        block_data.shape(block)
+        match map.chunks[chunk_idx as uint] {
+            None => Shape::Empty,
+            Some(chunk) => block_data.shape(chunk[tile_idx as uint]),
+        }
     }
 }
 
@@ -125,9 +130,26 @@ pub struct ClientEntity<'a> {
     pub entity: &'a Entity,
 }
 
+impl<'a> ClientEntity<'a> {
+    fn new(client: &'a Client, entity: &'a Entity) -> ClientEntity<'a> {
+        ClientEntity {
+            client: client,
+            entity: entity,
+        }
+    }
+}
+
 pub struct ClientEntityMut<'a> {
     pub client: &'a mut Client,
     pub entity: &'a mut Entity,
+}
+
+
+pub type Terrain = HashMap<(i32, i32), TerrainEntry>;
+
+pub struct TerrainEntry {
+    ref_count: u32,
+    data: Chunk,
 }
 
 
@@ -136,33 +158,26 @@ pub struct State {
     pub map: Terrain,
     pub entities: HashMap<EntityId, Entity>,
     pub clients: HashMap<ClientId, Client>,
+    pub terrain_gen: TerrainGenerator,
 }
 
 impl State {
     pub fn new(block_data: BlockData) -> State {
         State {
             block_data: block_data,
-            map: Terrain { chunks: [[0, ..CHUNK_TOTAL], ..LOCAL_TOTAL] },
+            map: HashMap::new(),
             entities: HashMap::new(),
             clients: HashMap::new(),
+            terrain_gen: TerrainGenerator::new(12345),
         }
     }
 
-    pub fn init_terrain(&mut self) {
-        use gen::TerrainGenerator;
-        let mut gen = TerrainGenerator::new(12345);
-        for cy in range(0, LOCAL_SIZE) {
-            for cx in range(0, LOCAL_SIZE) {
-                let i = (cy * LOCAL_SIZE + cx) as uint;
-                self.map.chunks[i] = gen.generate_chunk(&self.block_data, cx, cy);
-            }
-        }
-    }
-
-    pub fn get_terrain_rle16(&self, idx: uint) -> Vec<u16> {
+    pub fn get_terrain_rle16(&self, cx: i32, cy: i32) -> Vec<u16> {
         let mut result = Vec::new();
 
-        let mut iter = self.map.chunks[idx].iter().peekable();
+        let chunk = self.map.get(&(cx, cy)).map_or(&EMPTY_CHUNK, |c| &c.data);
+
+        let mut iter = chunk.iter().peekable();
         while !iter.is_empty() {
             let cur = *iter.next().unwrap();
 
@@ -240,7 +255,8 @@ impl State {
         if now < entity.end_time() {
             return false;
         }
-        entity.update(&(&self.map, &self.block_data), now, client.current_input);
+        let terrain = build_local_terrain(&self.map, now, ClientEntity::new(client, entity));
+        entity.update(&(&terrain, &self.block_data), now, client.current_input);
         true
     }
 
@@ -255,9 +271,44 @@ impl State {
         client.current_input = input;
 
         let entity = &mut self.entities[client.entity_id];
-        entity.update(&(&self.map, &self.block_data), now, input);
+        let terrain = build_local_terrain(&self.map, now, ClientEntity::new(client, entity));
+        entity.update(&(&terrain, &self.block_data), now, input);
 
         true
+    }
+
+    pub fn load_chunk(&mut self, cx: i32, cy: i32) {
+        use std::collections::hash_map::Entry::{Vacant, Occupied};
+        match self.map.entry((cx, cy)) {
+            Vacant(e) => {
+                log!(10, "LOAD {} {} -> 1 (INIT)", cx, cy);
+                let chunk = self.terrain_gen.generate_chunk(&self.block_data, cx, cy);
+                e.set(TerrainEntry {
+                    ref_count: 1,
+                    data: chunk,
+                });
+            },
+            Occupied(mut e) => {
+                e.get_mut().ref_count += 1;
+                log!(10, "LOAD {} {} -> {}", cx, cy, e.get().ref_count);
+            },
+        }
+    }
+
+    pub fn unload_chunk(&mut self, cx: i32, cy: i32) {
+        use std::collections::hash_map::Entry::{Vacant, Occupied};
+        match self.map.entry((cx, cy)) {
+            Vacant(_) => return,
+            Occupied(mut e) => {
+                e.get_mut().ref_count -= 1;
+                if e.get().ref_count == 0 {
+                    log!(10, "UNLOAD {} {} -> 0 (DEAD)", cx, cy);
+                    e.take();
+                } else {
+                    log!(10, "UNLOAD {} {} -> {}", cx, cy, e.get().ref_count);
+                }
+            },
+        }
     }
 }
 
@@ -292,4 +343,29 @@ pub fn world_to_local(world: V3, world_base_chunk: V3, local_base_chunk: V3) -> 
 
     let offset = world - world_base;
     local_base + offset
+}
+
+pub fn build_local_terrain<'a>(map: &'a Terrain,
+                               now: Time,
+                               ce: ClientEntity) -> LocalTerrain<'a> {
+    let mut local = LocalTerrain {
+        chunks: [None, ..LOCAL_TOTAL],
+    };
+
+    let pos = ce.entity.pos(now) >> (TILE_BITS + CHUNK_BITS);
+    let offset = ce.client.chunk_offset;
+
+    for y in range_inclusive(-2, 3) {
+        for x in range_inclusive(-2, 2) {
+            let cx = pos.x + x;
+            let cy = pos.y + y;
+
+            let lx = (cx + offset.0 as i32) & LOCAL_MASK;
+            let ly = (cy + offset.1 as i32) & LOCAL_MASK;
+            let local_idx = ly * LOCAL_SIZE + lx;
+            local.chunks[local_idx as uint] = map.get(&(cx, cy)).map(|x| &x.data);
+        }
+    }
+
+    local
 }
