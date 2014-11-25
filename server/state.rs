@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::iter::range_inclusive;
+use std::rand::{Rng, SeedableRng, XorShiftRng};
 use std::u16;
 
 use physics;
@@ -159,6 +160,7 @@ pub struct State {
     pub entities: HashMap<EntityId, Entity>,
     pub clients: HashMap<ClientId, Client>,
     pub terrain_gen: TerrainGenerator,
+    pub rng: XorShiftRng,
 }
 
 impl State {
@@ -169,6 +171,7 @@ impl State {
             entities: HashMap::new(),
             clients: HashMap::new(),
             terrain_gen: TerrainGenerator::new(12345),
+            rng: SeedableRng::from_seed([12345, 45205314, 65412562, 940534205]),
         }
     }
 
@@ -233,10 +236,13 @@ impl State {
             anim: 0,
         };
 
+        let chunk_offset = (self.rng.gen_range(0, 8),
+                            self.rng.gen_range(0, 8));
+
         let client = Client {
             entity_id: id as EntityId,
             current_input: InputBits::empty(),
-            chunk_offset: (0, 0),
+            chunk_offset: chunk_offset,
             view_state: ViewState::new(pos),
         };
 
