@@ -261,7 +261,7 @@ impl State {
         if now < entity.end_time() {
             return false;
         }
-        let terrain = build_local_terrain(&self.map, now, ClientEntity::new(client, entity));
+        let terrain = build_local_terrain(&self.map, now, ClientEntity::new(client, entity), false);
         entity.update(&(&terrain, &self.block_data), now, client.current_input);
         true
     }
@@ -277,7 +277,7 @@ impl State {
         client.current_input = input;
 
         let entity = &mut self.entities[client.entity_id];
-        let terrain = build_local_terrain(&self.map, now, ClientEntity::new(client, entity));
+        let terrain = build_local_terrain(&self.map, now, ClientEntity::new(client, entity), false);
         entity.update(&(&terrain, &self.block_data), now, input);
 
         true
@@ -353,13 +353,14 @@ pub fn world_to_local(world: V3, world_base_chunk: V3, local_base_chunk: V3) -> 
 
 pub fn build_local_terrain<'a>(map: &'a Terrain,
                                now: Time,
-                               ce: ClientEntity) -> LocalTerrain<'a> {
+                               ce: ClientEntity,
+                               use_chunk_offset: bool) -> LocalTerrain<'a> {
     let mut local = LocalTerrain {
         chunks: [None, ..LOCAL_TOTAL],
     };
 
     let pos = ce.entity.pos(now) >> (TILE_BITS + CHUNK_BITS);
-    let offset = ce.client.chunk_offset;
+    let offset = if use_chunk_offset { ce.client.chunk_offset } else { (0, 0) };
 
     for y in range_inclusive(-2, 3) {
         for x in range_inclusive(-2, 2) {
