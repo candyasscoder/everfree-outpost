@@ -297,6 +297,12 @@ impl Region {
     }
 
     #[inline]
+    pub fn around(center: V3, radius: i32) -> Region {
+        Region::new(center - scalar(radius),
+                    center + scalar(radius))
+    }
+
+    #[inline]
     pub fn points(&self) -> RegionPoints {
         RegionPoints::new(self.min, self.max)
     }
@@ -306,6 +312,13 @@ impl Region {
         point.x >= self.min.x && point.x < self.max.x &&
         point.y >= self.min.y && point.y < self.max.y &&
         point.z >= self.min.z && point.z < self.max.z
+    }
+
+    #[inline]
+    pub fn contains_inclusive(&self, point: &V3) -> bool {
+        point.x >= self.min.x && point.x <= self.max.x &&
+        point.y >= self.min.y && point.y <= self.max.y &&
+        point.z >= self.min.z && point.z <= self.max.z
     }
 
     #[inline]
@@ -342,6 +355,17 @@ impl Region {
         let y = max(self.min.y, min(self.max.y, point.y));
         let z = max(self.min.z, min(self.max.z, point.z));
         V3::new(x, y, z)
+    }
+
+    #[inline]
+    pub fn index(&self, point: &V3) -> uint {
+        let dx = (self.max.x - self.min.x) as uint;
+        let dy = (self.max.y - self.min.y) as uint;
+        let offset = *point - self.min;
+        let x = offset.x as uint;
+        let y = offset.y as uint;
+        let z = offset.z as uint;
+        (z * dy + y) * dx + x
     }
 }
 

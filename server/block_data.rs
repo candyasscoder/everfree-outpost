@@ -28,7 +28,7 @@ impl BlockData {
         let blocks = unwrap!(json.find("blocks").and_then(|j| j.as_array()),
                              "missing array \"blocks\" at top level");
 
-        let mut shapes = Vec::from_elem(blocks.len(), physics::Empty);
+        let mut shapes = Vec::from_elem(blocks.len(), Shape::Empty);
         let mut name_to_id = HashMap::new();
 
         for (i, block) in blocks.iter().enumerate() {
@@ -38,10 +38,10 @@ impl BlockData {
                                     "missing string \"shape\" for block {} ({})", i, name);
 
             let shape = match shape_str {
-                "empty" => physics::Empty,
-                "floor" => physics::Floor,
-                "solid" => physics::Solid,
-                "ramp_n" => physics::RampN,
+                "empty" => Shape::Empty,
+                "floor" => Shape::Floor,
+                "solid" => Shape::Solid,
+                "ramp_n" => Shape::RampN,
                 _ => {
                     let msg = format!("invalid shape \"{}\" for block {} ({})",
                                       shape_str, i, name);
@@ -59,7 +59,7 @@ impl BlockData {
     }
 
     pub fn shape(&self, id: BlockId) -> Shape {
-        self.shapes.as_slice().get(id as uint).map(|&x| x).unwrap_or(physics::Empty)
+        self.shapes.as_slice().get(id as uint).map(|&x| x).unwrap_or(Shape::Empty)
     }
 
     pub fn get_id(&self, name: &str) -> BlockId {

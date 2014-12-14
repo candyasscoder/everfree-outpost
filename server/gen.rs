@@ -3,95 +3,9 @@ use std::collections::lru_cache::LruCache;
 use std::rand::{Rng, XorShiftRng, SeedableRng};
 
 use block_data::BlockData;
+use physics::v3::{V3, Region};
 
 use self::Section::*;
-
-
-// TODO: Move this to a shared utility library
-
-/// Representation of a 2D region.
-struct Region {
-    x0: i32,
-    y0: i32,
-    x1: i32,
-    y1: i32,
-}
-
-impl Region {
-    fn new(x0: i32, y0: i32, x1: i32, y1: i32) -> Region {
-        Region {
-            x0: x0,
-            y0: y0,
-            x1: cmp::max(x0, x1),
-            y1: cmp::max(y0, y1),
-        }
-    }
-
-    fn around(x: i32, y: i32, radius: i32) -> Region {
-        Region::new(x - radius, y - radius, x + radius, y + radius)
-    }
-
-    fn contains(&self, x: i32, y: i32) -> bool {
-        self.x0 <= x && x < self.x1 &&
-        self.y0 <= y && y < self.y1
-    }
-
-    fn contains_inclusive(&self, x: i32, y: i32) -> bool {
-        self.x0 <= x && x <= self.x1 &&
-        self.y0 <= y && y <= self.y1
-    }
-
-    fn intersect(&self, other: &Region) -> Region {
-        let x0 = cmp::max(self.x0, other.x0);
-        let y0 = cmp::max(self.y0, other.y0);
-        let x1 = cmp::min(self.x1, other.x1);
-        let y1 = cmp::min(self.y1, other.y1);
-        Region::new(x0, y0, x1, y1)
-    }
-
-    fn points(&self) -> Points {
-        Points {
-            x: self.x0,
-            y: if self.x0 < self.x1 { self.y0 } else { self.y1 },
-            min_x: self.x0,
-            max_x: self.x1,
-            max_y: self.y1,
-        }
-    }
-
-    fn index(&self, x: i32, y: i32) -> uint {
-        let dx = (x - self.x0) as uint;
-        let dy = (y - self.y0) as uint;
-        let w = (self.x1 - self.x0) as uint;
-
-        dy * w + dx
-    }
-}
-
-struct Points {
-    x: i32,
-    y: i32,
-    min_x: i32,
-    max_x: i32,
-    max_y: i32,
-}
-
-impl Iterator<(i32, i32)> for Points {
-    fn next(&mut self) -> Option<(i32, i32)> {
-        if self.y >= self.max_y {
-            return None;
-        }
-
-        let result = Some((self.x, self.y));
-
-        self.x += 1;
-        if self.x >= self.max_x {
-            self.x = self.min_x;
-            self.y += 1;
-        }
-        result
-    }
-}
 
 
 
@@ -154,7 +68,10 @@ fn place_trees<R: Rng>(grid: &mut [u8],
             let space = min_space(tx, ty);
             let space_sq = space * space;
 
-            for (x, y) in Region::around(tx, ty, space).intersect(&grid_area).points() {
+            let center = V3::new(tx, ty, 0);
+            for pos in Region::around(center, space).intersect(&grid_area).points() {
+                let V3 { x, y, z: _ } = pos;
+
                 // Measure from the center of the cell.  Otherwise the circle will be uneven,
                 // since tx,ty refers to a grid intersection, not a cell.
                 let dx = (x - tx) * 2 + 1;
@@ -164,7 +81,7 @@ fn place_trees<R: Rng>(grid: &mut [u8],
                     continue;
                 }
 
-                let idx = grid_area.index(x, y);
+                let idx = grid_area.index(&pos);
                 // It is possible for grid[idx] to be 2 (tree) when a tree is placed with large
                 // min_space immediately outside the excluded zone of a tree with smaller
                 // min_space.
@@ -173,11 +90,12 @@ fn place_trees<R: Rng>(grid: &mut [u8],
                 }
             }
 
-            for (x,y) in Region::around(tx, ty, 1).intersect(&grid_area).points() {
-                grid[grid_area.index(x, y)] = 2;
+            let tile_center = V3::new(tx, ty, 0);
+            for tile_pos in Region::around(tile_center, 1).intersect(&grid_area).points() {
+                grid[grid_area.index(&tile_pos)] = 2;
             }
 
-            if bounds.contains_inclusive(tx, ty) {
+            if bounds.contains_inclusive(&tile_center) {
                 inside.push((tx, ty));
                 true
             } else {
@@ -194,12 +112,13 @@ fn place_trees<R: Rng>(grid: &mut [u8],
         }
 
         let place = |&mut: (tx, ty): (i32, i32)| {
-            if !grid_area.contains_inclusive(tx, ty) {
+            let tile_pos = V3::new(tx, ty, 0);
+            if !grid_area.contains_inclusive(&tile_pos) {
                 return false;
             }
 
-            for (x,y) in Region::around(tx, ty, 1).intersect(&grid_area).points() {
-                if grid[grid_area.index(x, y)] != 0 {
+            for pos in Region::around(tile_pos, 1).intersect(&grid_area).points() {
+                if grid[grid_area.index(&pos)] != 0 {
                     return false;
                 }
             }
@@ -226,8 +145,8 @@ fn place_trees<R: Rng>(grid: &mut [u8],
         let mut init_rng = rng.gen::<XorShiftRng>();
         let mut init = Vec::with_capacity(5);
         for _ in range(0u, 5) {
-            let point = (init_rng.gen_range(bounds.x0, bounds.x1),
-                         init_rng.gen_range(bounds.y0, bounds.y1));
+            let point = (init_rng.gen_range(bounds.min.x, bounds.max.x),
+                         init_rng.gen_range(bounds.min.y, bounds.max.y));
             init.push(point);
         }
 
@@ -309,14 +228,18 @@ fn generate_chunk_data<'a, F, R>(mut fetch: F,
     };
 
     let mut grid = [0, ..(GRID_SIZE * GRID_SIZE) as uint];
-    let bounds = Region::new(x * GEN_CHUNK_SIZE + off_x,
-                             y * GEN_CHUNK_SIZE + off_y,
-                             x * GEN_CHUNK_SIZE + off_x + width,
-                             y * GEN_CHUNK_SIZE + off_y + height);
-    let grid_area = Region::new(bounds.x0 - FRINGE_SIZE,
-                                bounds.y0 - FRINGE_SIZE,
-                                bounds.x1 + FRINGE_SIZE,
-                                bounds.y1 + FRINGE_SIZE);
+    let bounds = Region::new(V3::new(x * GEN_CHUNK_SIZE + off_x,
+                                     y * GEN_CHUNK_SIZE + off_y,
+                                     0),
+                             V3::new(x * GEN_CHUNK_SIZE + off_x + width,
+                                     y * GEN_CHUNK_SIZE + off_y + height,
+                                     1));
+    let grid_area = Region::new(V3::new(bounds.min.x - FRINGE_SIZE,
+                                        bounds.min.y - FRINGE_SIZE,
+                                        0),
+                                V3::new(bounds.max.x + FRINGE_SIZE,
+                                        bounds.max.y + FRINGE_SIZE,
+                                        1));
 
     let (inside, outside) = place_trees(grid.as_mut_slice(),
                                         grid_area,
@@ -446,15 +369,18 @@ impl TerrainGenerator {
         let mut sections_buf = [(0, 0, Corner), ..4];
         let sections = sections_around_chunk(cx, cy, &mut sections_buf);
 
-        let bounds = Region::new(cx * CHUNK_SIZE,
-                                 cy * CHUNK_SIZE,
-                                 (cx + 1) * CHUNK_SIZE,
-                                 (cy + 1) * CHUNK_SIZE);
+        let bounds = Region::new(V3::new(cx * CHUNK_SIZE,
+                                         cy * CHUNK_SIZE,
+                                         0),
+                                 V3::new((cx + 1) * CHUNK_SIZE,
+                                         (cy + 1) * CHUNK_SIZE,
+                                         1));
 
         {
             let mut set = |&mut: x: i32, y: i32, z: i32, name: &str| {
-                if bounds.contains(x, y) {
-                    chunk[bounds.index(x, y) + z as uint * Z_STEP] = block_data.get_id(name);
+                let base_pos = V3::new(x, y, 0);
+                if bounds.contains(&base_pos) {
+                    chunk[bounds.index(&base_pos) + z as uint * Z_STEP] = block_data.get_id(name);
                 }
             };
 
