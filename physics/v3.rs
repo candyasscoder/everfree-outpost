@@ -23,7 +23,7 @@ pub mod DirAxis {
     pub const NegZ: DirAxis = (Axis::Z, true);
 }
 
-#[deriving(Eq, PartialEq)]
+#[deriving(Eq, PartialEq, Clone)]
 pub struct V3 {
     pub x: i32,
     pub y: i32,
@@ -165,6 +165,24 @@ impl V3 {
             Axis::Z => self.with_z(new),
         }
     }
+
+    pub fn div_floor(&self, other: &V3) -> V3 {
+        self.zip(other, |&: a: i32, b: i32| {
+            div_floor(a, b)
+        })
+    }
+}
+
+fn div_floor(a: i32, b: i32) -> i32 {
+    if b < 0 {
+        return div_floor(-a, -b);
+    }
+
+    if a < 0 {
+        (a - (b - 1)) / b
+    } else {
+        a / b
+    }
 }
 
 pub struct V3Items<'a> {
@@ -279,6 +297,7 @@ impl Not<V3> for V3 {
 }
 
 
+#[deriving(Eq, PartialEq, Clone)]
 pub struct Region {
     pub min: V3,
     pub max: V3,
@@ -305,6 +324,17 @@ impl Region {
     #[inline]
     pub fn points(&self) -> RegionPoints {
         RegionPoints::new(self.min, self.max)
+    }
+
+    #[inline]
+    pub fn size(&self) -> V3 {
+        self.max - self.min
+    }
+
+    #[inline]
+    pub fn volume(&self) -> i32 {
+        let size = self.size();
+        size.x * size.y * size.z
     }
 
     #[inline]
@@ -340,8 +370,19 @@ impl Region {
     }
 
     #[inline]
+    pub fn div_round_signed(&self, rhs: i32) -> Region {
+        Region::new(self.min.div_floor(&scalar(rhs)),
+                    (self.max + scalar(rhs - 1)).div_floor(&scalar(rhs)))
+    }
+
+    #[inline]
+    pub fn with_zs(&self, min_z: i32, max_z: i32) -> Region {
+        Region::new(self.min.with_z(min_z), self.max.with_z(max_z))
+    }
+
+    #[inline]
     pub fn flatten(&self, depth: i32) -> Region {
-        Region::new(self.min, self.max.with_z(self.min.z + depth))
+        self.with_zs(self.min.z, self.min.z + depth)
     }
 
     #[inline]
