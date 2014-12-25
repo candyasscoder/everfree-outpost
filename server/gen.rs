@@ -283,7 +283,7 @@ const LRU_SIZE: uint = 1024;
 
 const CORNER_MULT: i32 = 1;
 const EDGE_MULT: i32 = 3;
-const CHUNK_MULT: i32 = 3;
+const CHUNK_MULT: i32 = 4;
 
 fn section_bounds(x: i32, y: i32, section: Section, chunk_size: i32) -> Region {
     let (off_x, off_y, width, height) = match section {

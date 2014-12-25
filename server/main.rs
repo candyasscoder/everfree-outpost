@@ -5,6 +5,7 @@
 #![feature(unboxed_closures)]
 #![feature(macro_rules)]
 #![feature(associated_types)]
+#![feature(unsafe_destructor)]
 #![allow(non_upper_case_globals)]
 
 #[phase(plugin, link)]

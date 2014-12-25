@@ -12,6 +12,7 @@ pub type EntityId = u32;
 pub type AnimId = u16;
 pub type BlockId = u16;
 pub type TileId = u16;
+pub type ObjectId = u32;
 
 pub const DURATION_MAX: Duration = u16::MAX;
 

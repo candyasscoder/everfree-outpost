@@ -14,6 +14,8 @@ use input::{InputBits, INPUT_LEFT, INPUT_RIGHT, INPUT_UP, INPUT_DOWN, INPUT_RUN}
 use block_data::BlockData;
 use gen::TerrainGenerator;
 
+pub use self::terrain_entry::{TerrainEntry, BaseTerrainRef, ObjectsRef};
+
 
 const CHUNK_TOTAL: uint = 1 << (3 * CHUNK_BITS);
 pub type Chunk = [BlockId, ..CHUNK_TOTAL];
@@ -148,9 +150,121 @@ pub struct ClientEntityMut<'a> {
 
 pub type Terrain = HashMap<(i32, i32), TerrainEntry>;
 
-pub struct TerrainEntry {
-    ref_count: u32,
-    data: Chunk,
+pub struct ObjectTemplate {
+    size: V3,
+    blocks: Vec<BlockId>,
+}
+
+pub struct Object {
+    template_id: u32,
+    x: i8,
+    y: i8,
+    z: i8,
+}
+
+
+mod terrain_entry {
+    use super::{Chunk, Object};
+
+    pub struct TerrainEntry {
+        ref_count: u32,
+        base_terrain: Chunk,
+        objects: Vec<Object>,
+        block_cache: Chunk,
+    }
+
+
+    pub struct BaseTerrainRef<'a> {
+        owner: &'a mut TerrainEntry,
+    }
+
+    impl<'a> Deref<Chunk> for BaseTerrainRef<'a> {
+        fn deref(&self) -> &Chunk {
+            &self.owner.base_terrain
+        }
+    }
+
+    impl<'a> DerefMut<Chunk> for BaseTerrainRef<'a> {
+        fn deref_mut(&mut self) -> &mut Chunk {
+            &mut self.owner.base_terrain
+        }
+    }
+
+    #[unsafe_destructor]
+    impl<'a> Drop for BaseTerrainRef<'a> {
+        fn drop(&mut self) {
+            self.owner.refresh()
+        }
+    }
+
+
+    pub struct ObjectsRef<'a> {
+        owner: &'a mut TerrainEntry,
+    }
+
+    impl<'a> Deref<Vec<Object>> for ObjectsRef<'a> {
+        fn deref(&self) -> &Vec<Object> {
+            &self.owner.objects
+        }
+    }
+
+    impl<'a> DerefMut<Vec<Object>> for ObjectsRef<'a> {
+        fn deref_mut(&mut self) -> &mut Vec<Object> {
+            &mut self.owner.objects
+        }
+    }
+
+    #[unsafe_destructor]
+    impl<'a> Drop for ObjectsRef<'a> {
+        fn drop(&mut self) {
+            self.owner.refresh()
+        }
+    }
+
+
+    impl TerrainEntry {
+        pub fn new(chunk: Chunk) -> TerrainEntry {
+            TerrainEntry {
+                ref_count: 1,
+                base_terrain: chunk,
+                objects: Vec::new(),
+                block_cache: chunk,
+            }
+        }
+
+        fn refresh(&mut self) {
+            // TODO
+        }
+
+        pub fn retain(&mut self) {
+            self.ref_count += 1;
+        }
+
+        pub fn release(&mut self) -> bool {
+            self.ref_count -= 1;
+            self.ref_count == 0
+        }
+
+        pub fn base_terrain(&self) -> &Chunk {
+            &self.base_terrain
+        }
+
+        pub fn base_terrain_mut(&mut self) -> BaseTerrainRef {
+            BaseTerrainRef { owner: self }
+        }
+
+        pub fn objects(&self) -> &[Object] {
+            self.objects.as_slice()
+        }
+
+        pub fn objects_mut(&mut self) -> ObjectsRef {
+            ObjectsRef { owner: self }
+        }
+
+        pub fn blocks(&self) -> &Chunk {
+            &self.block_cache
+        }
+    }
 }
 
 
@@ -178,7 +292,7 @@ impl State {
     pub fn get_terrain_rle16(&self, cx: i32, cy: i32) -> Vec<u16> {
         let mut result = Vec::new();
 
-        let chunk = self.map.get(&(cx, cy)).map_or(&EMPTY_CHUNK, |c| &c.data);
+        let chunk = self.map.get(&(cx, cy)).map_or(&EMPTY_CHUNK, |c| c.blocks());
 
         let mut iter = chunk.iter().peekable();
         while !iter.is_empty() {
@@ -289,14 +403,11 @@ impl State {
             Vacant(e) => {
                 log!(10, "LOAD {} {} -> 1 (INIT)", cx, cy);
                 let chunk = self.terrain_gen.generate_chunk(&self.block_data, cx, cy);
-                e.set(TerrainEntry {
-                    ref_count: 1,
-                    data: chunk,
-                });
+                e.set(TerrainEntry::new(chunk));
             },
             Occupied(mut e) => {
-                e.get_mut().ref_count += 1;
-                log!(10, "LOAD {} {} -> {}", cx, cy, e.get().ref_count);
+                e.get_mut().retain();
+                log!(10, "LOAD {} {}", cx, cy);
             },
         }
     }
@@ -306,12 +417,11 @@ impl State {
         match self.map.entry((cx, cy)) {
             Vacant(_) => return,
             Occupied(mut e) => {
-                e.get_mut().ref_count -= 1;
-                if e.get().ref_count == 0 {
+                if e.get_mut().release() {
                     log!(10, "UNLOAD {} {} -> 0 (DEAD)", cx, cy);
                     e.take();
                 } else {
-                    log!(10, "UNLOAD {} {} -> {}", cx, cy, e.get().ref_count);
+                    log!(10, "UNLOAD {} {}", cx, cy);
                 }
             },
         }
@@ -370,7 +480,7 @@ pub fn build_local_terrain<'a>(map: &'a Terrain,
             let lx = (cx + offset.0 as i32) & LOCAL_MASK;
             let ly = (cy + offset.1 as i32) & LOCAL_MASK;
             let local_idx = ly * LOCAL_SIZE + lx;
-            local.chunks[local_idx as uint] = map.get(&(cx, cy)).map(|x| &x.data);
+            local.chunks[local_idx as uint] = map.get(&(cx, cy)).map(|x| x.blocks());
         }
     }
 
