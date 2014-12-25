@@ -165,6 +165,9 @@ pub struct Object {
 
 mod terrain_entry {
     use super::{Chunk, Object};
+    use physics::v3::{V3, scalar, Region};
+    use physics::CHUNK_SIZE;
+
 
     pub struct TerrainEntry {
         ref_count: u32,
@@ -223,17 +226,70 @@ mod terrain_entry {
 
 
     impl TerrainEntry {
-        pub fn new(chunk: Chunk) -> TerrainEntry {
-            TerrainEntry {
+        pub fn new(base: V3, chunk: Chunk, objs: Vec<V3>) -> TerrainEntry {
+            let objects = objs.into_iter()
+                              .map(|pos| {
+                                       let pos = pos - base;
+                                       Object {
+                                           template_id: 0,
+                                           x: pos.x as i8,
+                                           y: pos.y as i8,
+                                           z: pos.z as i8,
+                                       }
+                                   })
+                              .collect();
+
+            let mut entry = TerrainEntry {
                 ref_count: 1,
                 base_terrain: chunk,
-                objects: Vec::new(),
+                objects: objects,
                 block_cache: chunk,
-            }
+            };
+            entry.refresh();
+            entry
         }
 
         fn refresh(&mut self) {
-            // TODO
+            self.block_cache = self.base_terrain;
+
+            // TODO: non-hardcoded templates
+            let obj_tree = super::ObjectTemplate {
+                size: V3::new(4, 2, 3),
+                blocks: vec![
+                    10,  7,  7, 12,
+                    11,  8,  9, 13,
+
+                     0,  7,  7,  0,
+                     0, 18, 19,  0,
+
+                     0, 15, 17,  0,
+                     0, 14, 16,  0,
+                ],
+            };
+
+            let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
+            let block_cache = &mut self.block_cache;
+            let mut set = |&mut: pos, block| {
+                if !bounds.contains(&pos) {
+                    return;
+                }
+
+                block_cache[bounds.index(&pos)] = block;
+            };
+
+            for obj in self.objects.iter() {
+                let template = &obj_tree;
+
+                let min = V3::new(obj.x as i32,
+                                  obj.y as i32,
+                                  obj.z as i32) + bounds.min;
+                let obj_bounds = Region::new(min, min + template.size);
+
+                for pos in obj_bounds.points() {
+                    let idx = obj_bounds.index(&pos);
+                    set(pos, template.blocks[idx]);
+                }
+            }
         }
 
         pub fn retain(&mut self) {
@@ -402,8 +458,9 @@ impl State {
         match self.map.entry((cx, cy)) {
             Vacant(e) => {
                 log!(10, "LOAD {} {} -> 1 (INIT)", cx, cy);
-                let chunk = self.terrain_gen.generate_chunk(&self.block_data, cx, cy);
-                e.set(TerrainEntry::new(chunk));
+                let (chunk, objs) = self.terrain_gen.generate_chunk(&self.block_data, cx, cy);
+                e.set(TerrainEntry::new(V3::new(cx, cy, 0) * scalar(CHUNK_SIZE),
+                                        chunk, objs));
             },
             Occupied(mut e) => {
                 e.get_mut().retain();

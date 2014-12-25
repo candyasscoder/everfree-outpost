@@ -315,7 +315,7 @@ impl TerrainGenerator {
 
     pub fn generate_chunk(&mut self,
                           block_data: &BlockData,
-                          cx: i32, cy: i32) -> ::state::Chunk {
+                          cx: i32, cy: i32) -> (::state::Chunk, Vec<V3>) {
         use physics::{CHUNK_BITS, CHUNK_SIZE};
         const Z_STEP: uint = 1 << (2 * CHUNK_BITS);
 
@@ -340,49 +340,9 @@ impl TerrainGenerator {
                                          (cy + 1) * CHUNK_SIZE,
                                          1));
 
-        {
-            let mut set = |&mut: x: i32, y: i32, z: i32, name: &str| {
-                let base_pos = V3::new(x, y, 0);
-                if bounds.contains(&base_pos) {
-                    chunk[bounds.index(&base_pos) + z as uint * Z_STEP] = block_data.get_id(name);
-                }
-            };
+        let points = self.sampler.generate_points(bounds.expand(&V3::new(2, 2, 0)));
+        let points = points.into_iter().map(|pos| pos - V3::new(2, 1, 0)).collect();
 
-            let points = self.sampler.generate_points(bounds.expand(&V3::new(2, 2, 0)));
-            for &V3 { x: tx, y: ty, z: _ } in points.iter() {
-                set(tx - 2, ty,     0, "tree/base/left/y1");
-                set(tx - 2, ty - 1, 0, "tree/base/left/y0");
-                set(tx + 1, ty,     0, "tree/base/right/y1");
-                set(tx + 1, ty - 1, 0, "tree/base/right/y0");
-
-                set(tx - 1, ty,     0, "tree/base/center/x0");
-                set(tx,     ty,     0, "tree/base/center/x1");
-                set(tx - 1, ty,     1, "tree/trunk/00");
-                set(tx,     ty,     1, "tree/trunk/10");
-                set(tx - 1, ty,     2, "tree/top/cutoff/00");
-                set(tx,     ty,     2, "tree/top/cutoff/10");
-                set(tx - 1, ty - 1, 2, "tree/top/cutoff/01");
-                set(tx,     ty - 1, 2, "tree/top/cutoff/11");
-
-                set(tx - 1, ty - 1, 0, "tree/back");
-                set(tx,     ty - 1, 0, "tree/back");
-                set(tx - 1, ty - 1, 1, "tree/back");
-                set(tx,     ty - 1, 1, "tree/back");
-            }
-
-            if cx == 0 && cy == 0 {
-                for x in range(5, 9) {
-                    for y in range(2, 4) {
-                        set(x, y, 2, "floor/wood");
-                    }
-                }
-                set(6, 4, 1, "stair/n");
-                set(7, 4, 1, "stair/n");
-                set(6, 5, 0, "stair/n");
-                set(7, 5, 0, "stair/n");
-            }
-        }
-
-        chunk
+        (chunk, points)
     }
 }
