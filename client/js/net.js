@@ -6,6 +6,7 @@ var OP_UPDATE_MOTION =      0x0002;
 var OP_PING =               0x0003;
 var OP_INPUT =              0x0004;
 var OP_LOGIN =              0x0005;
+var OP_ACTION =             0x0006;
 
 var OP_TERRAIN_CHUNK =      0x8001;
 var OP_PLAYER_MOTION =      0x8002;
@@ -211,5 +212,13 @@ Connection.prototype.sendLogin = function(secret, name) {
         buf.setUint8(2 + 32 + i, name_utf8.charCodeAt(i));
     }
 
+    this.socket.send(buf);
+};
+
+Connection.prototype.sendAction = function(time, action) {
+    var buf = new Uint16Array(3);
+    buf[0] = OP_ACTION;
+    buf[1] = time;
+    buf[2] = action;
     this.socket.send(buf);
 };

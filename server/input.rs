@@ -9,3 +9,9 @@ bitflags! {
         const INPUT_RUN =       0x0010,
     }
 }
+
+bitflags! {
+    flags ActionBits: u16 {
+        const ACT_USE =         0x0001,
+    }
+}

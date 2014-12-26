@@ -53,6 +53,7 @@ pub mod op {
         Ping = 0x0003,
         Input = 0x0004,
         Login = 0x0005,
+        Action = 0x0006,
 
         TerrainChunk = 0x8001,
         PlayerMotion = 0x8002,
@@ -78,6 +79,7 @@ pub enum Request {
     Ping(u16),
     Input(LocalTime, u16),
     Login([u32, ..4], String),
+    Action(LocalTime, u16),
 
     // Control messages
     AddClient,
@@ -103,6 +105,10 @@ impl Request {
             op::Login => {
                 let ((a0, a1, a2, a3), b): ((u32, u32, u32, u32), String) = try!(wr.read());
                 Login([a0, a1, a2, a3], b)
+            },
+            op::Action => {
+                let (a, b) = try!(wr.read());
+                Action(a, b)
             },
             op::AddClient => AddClient,
             op::RemoveClient => RemoveClient,

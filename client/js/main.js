@@ -259,6 +259,8 @@ var INPUT_UP =      0x0004;
 var INPUT_DOWN =    0x0008;
 var INPUT_RUN =     0x0010;
 
+var ACTION_USE =    0x0001;
+
 function initInput() {
     var dirs_held = {
         'Up': false,
@@ -276,7 +278,7 @@ function initInput() {
                 updateWalkDir();
             }
         } else {
-            known = false;
+            known = sendActionForKey(evt.key);
         }
 
         if (known) {
@@ -317,6 +319,18 @@ function initInput() {
 
         var now = Date.now();
         conn.sendInput(timing.encodeSend(now + 10), bits);
+    }
+
+    function sendActionForKey(key) {
+        var code = 0;
+        switch (key) {
+            case ' ': code = ACTION_USE; break;
+            default: return false;
+        }
+
+        var now = Date.now();
+        conn.sendAction(timing.encodeSend(now + 10), code);
+        return true;
     }
 }
 

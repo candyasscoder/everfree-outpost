@@ -24,7 +24,7 @@ use physics::v3::V3;
 use timer::WakeQueue;
 use msg::Motion as WireMotion;
 use msg::{Request, Response};
-use input::InputBits;
+use input::{InputBits, ActionBits};
 use state::LOCAL_SIZE;
 use data::Data;
 
@@ -86,6 +86,7 @@ fn main() {
 
 pub enum WakeReason {
     HandleInput(ClientId, InputBits),
+    HandleAction(ClientId, ActionBits),
     PhysicsUpdate(ClientId),
     CheckView(ClientId),
 }
@@ -180,6 +181,12 @@ impl<'a> Server<'a> {
                 self.wake_queue.push(now + 1000, WakeReason::CheckView(client_id));
             },
 
+            Request::Action(time, action) => {
+                let time = cmp::max(time.to_global(now), now);
+                let action = ActionBits::from_bits_truncate(action);
+                self.wake_queue.push(time, WakeReason::HandleAction(client_id, action));
+            },
+
             Request::AddClient => {
             },
 
@@ -204,6 +211,10 @@ impl<'a> Server<'a> {
                 if updated {
                     self.post_physics_update(now, client_id);
                 }
+            },
+
+            WakeReason::HandleAction(client_id, action) => {
+                log!(10, "action {} for client {}", action.bits(), client_id);
             },
 
             WakeReason::PhysicsUpdate(client_id) => {
