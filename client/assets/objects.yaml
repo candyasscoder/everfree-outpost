@@ -9,3 +9,9 @@ tree:
     z2:
         - _, top/cutoff/00, top/cutoff/10, _
         - _, top/cutoff/01, top/cutoff/11, _
+
+stump:
+    prefix: tree
+    z0:
+        - base/left/y0, stump/00,   stump/10,       base/right/y0
+        - base/left/y1, stump/01,   stump/11,   base/right/y1

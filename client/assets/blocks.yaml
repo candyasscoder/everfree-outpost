@@ -38,6 +38,15 @@ tree:
     top/cutoff/11.top: top/cutoff/10
     top/cutoff/10.top: top/cutoff/11
 
+    stump/_.bottom: /grass/center/v0
+    stump/_.shape: solid
+    stump/01.front: base/center/x0
+    stump/01.top: stump/00
+    stump/00.top: stump/01
+    stump/11.front: base/center/x1
+    stump/11.top: stump/10
+    stump/10.top: stump/11
+
     back:
 
 stair:
