@@ -107,7 +107,7 @@ class BackendStream(object):
             if id not in self.closed_ids:
                 self.clients[id].write_message(body, binary=True)
 
-    def on_close(self):
+    def on_close(self, code):
         print('closed!')
 
 if __name__ == "__main__":
