@@ -2,16 +2,9 @@ from collections import defaultdict
 import sys
 
 from process_tiles import tree
+from process_tiles.util import combine_prefix
 
 SIDES = ('top', 'bottom', 'front', 'back')
-
-def combine_prefix(new, old):
-    if old is None:
-        return new
-    elif new is None:
-        return old
-    else:
-        return old + '/' + new
 
 def parse_raw(yaml):
     t = tree.expand_tree(yaml, '/.')
@@ -92,23 +85,6 @@ SHAPE_ID = {
         'ramp_n': 6,
         'ramp_top': 7,
         }
-
-def build_array(blocks):
-    # Generate the final list.
-    num_ids = 1 + max(b['id'] for b in blocks.values())
-    array = [None] * num_ids
-    for name, block in blocks.items():
-        assert array[block['id']] is None, \
-                'overlapping ids: %r, %r' % (array[block['id']]['name'], name)
-        array[block['id']] = block
-
-    occupancy = len(blocks) / num_ids
-    if occupancy < 0.8:
-        sys.stderr.write('warning: low block array occupancy (%.1f%%)\n' %
-                (occupancy * 100))
-
-    return array
-
 
 def build_client_json(block_arr, atlas):
     def go(block):

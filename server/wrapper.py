@@ -112,9 +112,13 @@ class BackendStream(object):
 
 if __name__ == "__main__":
     exe_path = './dist/bin/backend'
-    json_path = './dist/data/blocks.json'
+    blocks_json_path = './dist/data/blocks.json'
+    objects_json_path = './dist/data/objects.json'
+
     tornado.autoreload.watch(exe_path)
-    tornado.autoreload.watch(json_path)
-    backend = BackendStream([exe_path, json_path])
+    tornado.autoreload.watch(blocks_json_path)
+    tornado.autoreload.watch(objects_json_path)
+
+    backend = BackendStream([exe_path, blocks_json_path, objects_json_path])
     application.listen(8888)
     tornado.ioloop.IOLoop.instance().start()

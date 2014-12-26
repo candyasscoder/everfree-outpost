@@ -1,30 +1,41 @@
 import argparse
+import functools
 import json
 import sys
 import yaml
 
 import process_tiles.atlas as A
 import process_tiles.blocks as B
+import process_tiles.objects as O
 import process_tiles.tiles as T
+import process_tiles.util as U
 
 def build_parser():
     parser = argparse.ArgumentParser(
-            description='Process blocks and tiles into a usable form.')
-    parser.add_argument('block_yaml', metavar='BLOCK_YAML',
-            help='YAML file describing the available blocks')
+            description='Process tile, block, and object data files into a usable form.')
 
+    parser.add_argument('--block-yaml', metavar='FILE',
+            help='YAML file describing the available blocks')
     parser.add_argument('--tile-yaml', metavar='FILE',
             help='YAML file describing the available tiles')
+    parser.add_argument('--object-yaml', metavar='FILE',
+            help='YAML file describing object templates')
     parser.add_argument('--tile-image-dir', metavar='DIR',
             help='directory containing tile images')
+
     parser.add_argument('--atlas-image-out', metavar='FILE',
             help='where to write the tile atlas image')
     parser.add_argument('--client-json-out', metavar='FILE',
             help='where to write the client-side blocks.json')
     parser.add_argument('--server-json-out', metavar='FILE',
             help='where to write the server-side blocks.json')
+    parser.add_argument('--object-json-out', metavar='FILE',
+            help='where to write the server-side objects.json')
 
     return parser
+
+def memoize(f):
+    return functools.lru_cache(maxsize=1)(f)
 
 def main():
     parser = build_parser()
@@ -35,42 +46,83 @@ def main():
         which = '--client-json-out' if args.client_json_out is not None else '--atlas-image-out'
         parser.error('%s requires --tile-yaml and --tile-image-dir to be set' % which)
 
-    if args.atlas_image_out is None and args.client_json_out is None and \
-            args.server_json_out is None:
-        parser.error('must specify at least one of '
-                '--atlas-image-out, --client-json-out, and --server-json-out')
+    if args.object_json_out is not None and args.object_yaml is None:
+        parser.error('--object-json-out requires --object-yaml to be set')
 
-    with open(args.block_yaml) as f:
-        raw_blocks = yaml.load(f)
-    blocks = B.parse_raw(raw_blocks)
-    block_arr = B.build_array(blocks)
 
-    if args.client_json_out is not None or args.atlas_image_out is not None:
+    @memoize
+    def raw_blocks():
+        if args.block_yaml is None:
+            parser.error('must provide --block-yaml')
+        with open(args.block_yaml) as f:
+            return yaml.load(f)
+
+    @memoize
+    def raw_tiles():
+        if args.tile_yaml is None:
+            parser.error('must provide --tile-yaml')
         with open(args.tile_yaml) as f:
-            raw_tiles = yaml.load(f)
-        tiles = T.parse_raw(raw_tiles)
+            return yaml.load(f)
 
-        atlas_order, atlas_lookup = A.compute_atlas(block_arr, tiles)
-        atlas_image = A.build_atlas_image(atlas_order, args.tile_image_dir)
+    @memoize
+    def raw_objects():
+        if args.object_yaml is None:
+            parser.error('must provide --object-yaml')
+        with open(args.object_yaml) as f:
+            return yaml.load(f)
 
+    blocks = memoize(lambda: B.parse_raw(raw_blocks()))
+    block_arr = memoize(lambda: U.build_array(blocks()))
+
+    tiles = memoize(lambda: T.parse_raw(raw_tiles()))
+
+    atlas_order_and_lookup = memoize(lambda: A.compute_atlas(block_arr(), tiles()))
+    atlas_order = memoize(lambda: atlas_order_and_lookup()[0])
+    atlas_lookup = memoize(lambda: atlas_order_and_lookup()[1])
+    @memoize
+    def atlas_image():
+        if args.tile_image_dir is None:
+            parser.error('must provide --tile-image-dir')
+        return A.build_atlas_image(atlas_order(), args.tile_image_dir)
+
+    objects = memoize(lambda: O.parse_raw(raw_objects()))
+    object_arr = memoize(lambda: U.build_array(objects()))
+
+
+    did_something = False
 
     if args.atlas_image_out is not None:
-        A.save_image(atlas_image, args.atlas_image_out)
+        did_something = True
+        A.save_image(atlas_image(), args.atlas_image_out)
 
     if args.client_json_out is not None:
+        did_something = True
         j = {
-                'blocks': B.build_client_json(block_arr, atlas_lookup),
-                'opaque': A.build_client_json(atlas_image),
+                'blocks': B.build_client_json(block_arr(), atlas_lookup()),
+                'opaque': A.build_client_json(atlas_image()),
                 }
         with open(args.client_json_out, 'w') as f:
             json.dump(j, f)
 
     if args.server_json_out is not None:
+        did_something = True
+        j = {
+                'blocks': B.build_server_json(block_arr()),
+                }
         with open(args.server_json_out, 'w') as f:
-            j = {
-                    'blocks': B.build_server_json(block_arr),
-                    }
             json.dump(j, f)
+
+    if args.object_json_out is not None:
+        did_something = True
+        j = {
+                'objects': O.build_json(object_arr())
+                }
+        with open(args.object_json_out, 'w') as f:
+            json.dump(j, f)
+
+
+    if not did_something:
+        parser.error('must specify at least one output option')
 
 if __name__ == '__main__':
     main()

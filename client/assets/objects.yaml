@@ -1,0 +1,11 @@
+tree:
+    prefix: tree
+    z0:
+        - base/left/y0, back,           back,           base/right/y0
+        - base/left/y1, base/center/x0, base/center/x1, base/right/y1
+    z1:
+        - _, back,      back,       _
+        - _, trunk/00,  trunk/10,   _
+    z2:
+        - _, top/cutoff/00, top/cutoff/10, _
+        - _, top/cutoff/01, top/cutoff/11, _

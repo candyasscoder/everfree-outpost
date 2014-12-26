@@ -183,12 +183,20 @@ $(BUILD)/tiles.json $(BUILD)/tiles.png $(BUILD)/blocks-server.json: \
 		$(SRC)/util/process_tiles.py \
 		$(wildcard $(SRC)/util/process_tiles/*.py)
 	$(PYTHON3) $(SRC)/util/process_tiles.py \
-		$(SRC)/client/assets/blocks.yaml \
+		--block-yaml=$(SRC)/client/assets/blocks.yaml \
 		--tile-yaml=$(SRC)/client/assets/tiles.yaml \
 		--tile-image-dir=$(SRC)/client/assets/tiles \
 		--client-json-out=$(BUILD)/tiles.json \
 		--atlas-image-out=$(BUILD)/tiles.png \
 		--server-json-out=$(BUILD)/blocks-server.json
+
+$(BUILD)/objects.json: \
+		$(SRC)/client/assets/objects.yaml \
+		$(SRC)/util/process_tiles.py \
+		$(wildcard $(SRC)/util/process_tiles/*.py)
+	$(PYTHON3) $(SRC)/util/process_tiles.py \
+		--object-yaml=$(SRC)/client/assets/objects.yaml \
+		--object-json-out=$(BUILD)/objects.json
 
 $(BUILD)/client.debug.html: $(SRC)/client/client.html \
 	$(SRC)/util/collect_js_deps.py $(SRC)/util/patch_script_tags.py $(JS_SRCS)
@@ -210,6 +218,7 @@ DATA_FILE = $(call DIST_FILE_,DATA,$(strip $(1)),$(strip $(2)))
 $(eval $(call WWW_FILE, tiles.json, 	$(BUILD)/tiles.json))
 $(eval $(call WWW_FILE, assets/tiles.png, 	$(BUILD)/tiles.png))
 $(eval $(call DATA_FILE, blocks.json, 	$(BUILD)/blocks-server.json))
+$(eval $(call DATA_FILE, objects.json, 	$(BUILD)/objects.json))
 
 ifeq ($(RELEASE),)
 $(eval $(call WWW_FILE, client.html, 	$(BUILD)/client.debug.html))

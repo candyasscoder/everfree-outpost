@@ -2,7 +2,7 @@ use std::cmp;
 use std::collections::lru_cache::LruCache;
 use std::rand::{Rng, XorShiftRng, SeedableRng};
 
-use block_data::BlockData;
+use data::BlockData;
 use physics::v3::{V3, Region, scalar};
 
 use self::Section::*;

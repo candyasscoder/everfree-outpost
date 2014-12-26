@@ -11,7 +11,7 @@ use physics::v3::{V3, scalar};
 use types::{Time, Duration, ClientId, EntityId, AnimId, BlockId, DURATION_MAX};
 use view::ViewState;
 use input::{InputBits, INPUT_LEFT, INPUT_RIGHT, INPUT_UP, INPUT_DOWN, INPUT_RUN};
-use block_data::BlockData;
+use data::{Data, BlockData};
 use gen::TerrainGenerator;
 
 pub use self::terrain_entry::{TerrainEntry, BaseTerrainRef, ObjectsRef};
@@ -148,7 +148,7 @@ pub struct ClientEntityMut<'a> {
 }
 
 
-pub type Terrain = HashMap<(i32, i32), TerrainEntry>;
+pub type Terrain<'a> = HashMap<(i32, i32), TerrainEntry<'a>>;
 
 pub struct ObjectTemplate {
     size: V3,
@@ -167,9 +167,11 @@ mod terrain_entry {
     use super::{Chunk, Object};
     use physics::v3::{V3, scalar, Region};
     use physics::CHUNK_SIZE;
+    use data::Data;
 
 
-    pub struct TerrainEntry {
+    pub struct TerrainEntry<'a> {
+        data: &'a Data,
         ref_count: u32,
         base_terrain: Chunk,
         objects: Vec<Object>,
@@ -177,56 +179,56 @@ mod terrain_entry {
     }
 
 
-    pub struct BaseTerrainRef<'a> {
-        owner: &'a mut TerrainEntry,
+    pub struct BaseTerrainRef<'a, 'b: 'a> {
+        owner: &'a mut TerrainEntry<'b>,
     }
 
-    impl<'a> Deref<Chunk> for BaseTerrainRef<'a> {
+    impl<'a, 'b> Deref<Chunk> for BaseTerrainRef<'a, 'b> {
         fn deref(&self) -> &Chunk {
             &self.owner.base_terrain
         }
     }
 
-    impl<'a> DerefMut<Chunk> for BaseTerrainRef<'a> {
+    impl<'a, 'b> DerefMut<Chunk> for BaseTerrainRef<'a, 'b> {
         fn deref_mut(&mut self) -> &mut Chunk {
             &mut self.owner.base_terrain
         }
     }
 
     #[unsafe_destructor]
-    impl<'a> Drop for BaseTerrainRef<'a> {
+    impl<'a, 'b> Drop for BaseTerrainRef<'a, 'b> {
         fn drop(&mut self) {
             self.owner.refresh()
         }
     }
 
 
-    pub struct ObjectsRef<'a> {
-        owner: &'a mut TerrainEntry,
+    pub struct ObjectsRef<'a, 'b: 'a> {
+        owner: &'a mut TerrainEntry<'b>,
     }
 
-    impl<'a> Deref<Vec<Object>> for ObjectsRef<'a> {
+    impl<'a, 'b> Deref<Vec<Object>> for ObjectsRef<'a, 'b> {
         fn deref(&self) -> &Vec<Object> {
             &self.owner.objects
         }
     }
 
-    impl<'a> DerefMut<Vec<Object>> for ObjectsRef<'a> {
+    impl<'a, 'b> DerefMut<Vec<Object>> for ObjectsRef<'a, 'b> {
         fn deref_mut(&mut self) -> &mut Vec<Object> {
             &mut self.owner.objects
         }
     }
 
     #[unsafe_destructor]
-    impl<'a> Drop for ObjectsRef<'a> {
+    impl<'a, 'b> Drop for ObjectsRef<'a, 'b> {
         fn drop(&mut self) {
             self.owner.refresh()
         }
     }
 
 
-    impl TerrainEntry {
-        pub fn new(base: V3, chunk: Chunk, objs: Vec<V3>) -> TerrainEntry {
+    impl<'a> TerrainEntry<'a> {
+        pub fn new(data: &'a Data, base: V3, chunk: Chunk, objs: Vec<V3>) -> TerrainEntry<'a> {
             let objects = objs.into_iter()
                               .map(|pos| {
                                        let pos = pos - base;
@@ -240,6 +242,7 @@ mod terrain_entry {
                               .collect();
 
             let mut entry = TerrainEntry {
+                data: data,
                 ref_count: 1,
                 base_terrain: chunk,
                 objects: objects,
@@ -252,21 +255,6 @@ mod terrain_entry {
         fn refresh(&mut self) {
             self.block_cache = self.base_terrain;
 
-            // TODO: non-hardcoded templates
-            let obj_tree = super::ObjectTemplate {
-                size: V3::new(4, 2, 3),
-                blocks: vec![
-                    10,  7,  7, 12,
-                    11,  8,  9, 13,
-
-                     0,  7,  7,  0,
-                     0, 18, 19,  0,
-
-                     0, 15, 17,  0,
-                     0, 14, 16,  0,
-                ],
-            };
-
             let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
             let block_cache = &mut self.block_cache;
             let mut set = |&mut: pos, block| {
@@ -277,9 +265,8 @@ mod terrain_entry {
                 block_cache[bounds.index(&pos)] = block;
             };
 
+            let template = self.data.object_templates.get_by_id("tree");
             for obj in self.objects.iter() {
-                let template = &obj_tree;
-
                 let min = V3::new(obj.x as i32,
                                   obj.y as i32,
                                   obj.z as i32) + bounds.min;
@@ -305,7 +292,7 @@ mod terrain_entry {
             &self.base_terrain
         }
 
-        pub fn base_terrain_mut(&mut self) -> BaseTerrainRef {
+        pub fn base_terrain_mut<'b>(&'b mut self) -> BaseTerrainRef<'a, 'b> {
             BaseTerrainRef { owner: self }
         }
 
@@ -313,7 +300,7 @@ mod terrain_entry {
             self.objects.as_slice()
         }
 
-        pub fn objects_mut(&mut self) -> ObjectsRef {
+        pub fn objects_mut<'b>(&'b mut self) -> ObjectsRef<'a, 'b> {
             ObjectsRef { owner: self }
         }
 
@@ -324,19 +311,19 @@ mod terrain_entry {
 }
 
 
-pub struct State {
-    pub block_data: BlockData,
-    pub map: Terrain,
+pub struct State<'a> {
+    pub data: &'a Data,
+    pub map: Terrain<'a>,
     pub entities: HashMap<EntityId, Entity>,
     pub clients: HashMap<ClientId, Client>,
     pub terrain_gen: TerrainGenerator,
     pub rng: XorShiftRng,
 }
 
-impl State {
-    pub fn new(block_data: BlockData) -> State {
+impl<'a> State<'a> {
+    pub fn new(data: &'a Data) -> State<'a> {
         State {
-            block_data: block_data,
+            data: data,
             map: HashMap::new(),
             entities: HashMap::new(),
             clients: HashMap::new(),
@@ -432,7 +419,7 @@ impl State {
             return false;
         }
         let terrain = build_local_terrain(&self.map, now, ClientEntity::new(client, entity), false);
-        entity.update(&(&terrain, &self.block_data), now, client.current_input);
+        entity.update(&(&terrain, &self.data.block_data), now, client.current_input);
         true
     }
 
@@ -448,7 +435,7 @@ impl State {
 
         let entity = &mut self.entities[client.entity_id];
         let terrain = build_local_terrain(&self.map, now, ClientEntity::new(client, entity), false);
-        entity.update(&(&terrain, &self.block_data), now, input);
+        entity.update(&(&terrain, &self.data.block_data), now, input);
 
         true
     }
@@ -458,8 +445,9 @@ impl State {
         match self.map.entry((cx, cy)) {
             Vacant(e) => {
                 log!(10, "LOAD {} {} -> 1 (INIT)", cx, cy);
-                let (chunk, objs) = self.terrain_gen.generate_chunk(&self.block_data, cx, cy);
-                e.set(TerrainEntry::new(V3::new(cx, cy, 0) * scalar(CHUNK_SIZE),
+                let (chunk, objs) = self.terrain_gen.generate_chunk(&self.data.block_data, cx, cy);
+                e.set(TerrainEntry::new(self.data,
+                                        V3::new(cx, cy, 0) * scalar(CHUNK_SIZE),
                                         chunk, objs));
             },
             Occupied(mut e) => {

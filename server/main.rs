@@ -17,6 +17,7 @@ extern crate physics;
 
 use std::cmp;
 use std::io;
+use serialize::json;
 
 use physics::v3::V3;
 
@@ -25,7 +26,7 @@ use msg::Motion as WireMotion;
 use msg::{Request, Response};
 use input::InputBits;
 use state::LOCAL_SIZE;
-use block_data::BlockData;
+use data::Data;
 
 use types::{Time, ToGlobal, ToLocal};
 use types::{ClientId, EntityId};
@@ -40,19 +41,28 @@ mod types;
 mod view;
 mod input;
 mod gen;
-mod block_data;
+mod data;
+
+fn read_json(path: &str) -> json::Json {
+    use std::io::fs::File;
+    let mut file = File::open(&Path::new(path)).unwrap();
+    let json = json::from_reader(&mut file).unwrap();
+    json
+}
 
 fn main() {
-    let block_data = {
+    let data = {
         use std::os;
-        use std::io::fs::File;
-        use serialize::json;
 
-        let path = &os::args()[1];
-        log!(10, "reading block data from {}", path);
-        let mut file = File::open(&Path::new(path)).unwrap();
-        let json = json::from_reader(&mut file).unwrap();
-        BlockData::from_json(json).unwrap()
+        let block_path = &os::args()[1];
+        log!(10, "reading block data from {}", block_path);
+        let block_json = read_json(block_path.as_slice());
+
+        let template_path = &os::args()[2];
+        log!(10, "reading template data from {}", template_path);
+        let template_json = read_json(template_path.as_slice());
+
+        Data::from_json(block_json, template_json).unwrap()
     };
 
     let (req_send, req_recv) = channel();
@@ -68,7 +78,7 @@ fn main() {
         tasks::run_output(writer, resp_recv).unwrap();
     });
 
-    let mut state = state::State::new(block_data);
+    let mut state = state::State::new(&data);
     let mut server = Server::new(resp_send, state);
     server.run(req_recv);
 }
@@ -80,15 +90,15 @@ pub enum WakeReason {
     CheckView(ClientId),
 }
 
-struct Server {
+struct Server<'a> {
     resps: Sender<(ClientId, Response)>,
-    state: state::State,
+    state: state::State<'a>,
     wake_queue: WakeQueue<WakeReason>,
 }
 
-impl Server {
+impl<'a> Server<'a> {
     fn new(resps: Sender<(ClientId, Response)>,
-           state: state::State) -> Server {
+           state: state::State<'a>) -> Server<'a> {
         Server {
             resps: resps,
             state: state,

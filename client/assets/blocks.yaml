@@ -30,12 +30,13 @@ tree:
     trunk/00.front: trunk/00
     trunk/10.front: trunk/10
 
-    top/cutoff/00.front: trunk/01
-    top/cutoff/00.top: top/cutoff/00
-    top/cutoff/01.top: top/cutoff/01
-    top/cutoff/10.front: trunk/11
-    top/cutoff/10.top: top/cutoff/10
-    top/cutoff/11.top: top/cutoff/11
+    # TODO: correct tile naming to match the block naming.
+    top/cutoff/01.front: trunk/01
+    top/cutoff/01.top: top/cutoff/00
+    top/cutoff/00.top: top/cutoff/01
+    top/cutoff/11.front: trunk/11
+    top/cutoff/11.top: top/cutoff/10
+    top/cutoff/10.top: top/cutoff/11
 
     back:
 
