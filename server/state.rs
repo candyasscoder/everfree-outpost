@@ -265,8 +265,8 @@ mod terrain_entry {
                 block_cache[bounds.index(&pos)] = block;
             };
 
-            let template = self.data.object_templates.get_by_id("tree");
             for obj in self.objects.iter() {
+                let template = self.data.object_templates.template(obj.template_id);
                 let min = V3::new(obj.x as i32,
                                   obj.y as i32,
                                   obj.z as i32) + bounds.min;
