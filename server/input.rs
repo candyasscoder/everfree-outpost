@@ -12,6 +12,6 @@ bitflags! {
 
 bitflags! {
     flags ActionBits: u16 {
-        const ACT_USE =         0x0001,
+        const ACTION_USE =      0x0001,
     }
 }

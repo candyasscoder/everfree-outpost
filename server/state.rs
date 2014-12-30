@@ -6,11 +6,12 @@ use std::u16;
 use physics;
 use physics::{Shape, ShapeSource};
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE, TILE_BITS};
-use physics::v3::{V3, scalar};
+use physics::v3::{V3, scalar, Region};
 
 use types::{Time, Duration, ClientId, EntityId, AnimId, BlockId, DURATION_MAX};
 use view::ViewState;
 use input::{InputBits, INPUT_LEFT, INPUT_RIGHT, INPUT_UP, INPUT_DOWN, INPUT_RUN};
+use input::{ActionBits, ACTION_USE};
 use data::{Data, BlockData};
 use gen::TerrainGenerator;
 
@@ -57,6 +58,7 @@ pub struct Entity {
     pub start_pos: V3,
     pub end_pos: V3,
     pub anim: AnimId,
+    pub facing: V3,
 }
 
 impl Entity {
@@ -112,6 +114,9 @@ impl Entity {
         self.start_pos = world_start_pos;
         self.end_pos = world_end_pos;
         self.anim = anim;
+        if dx != 0 || dy != 0 {
+            self.facing = V3::new(dx, dy, 0);
+        }
     }
 
     pub fn end_time(&self) -> Time {
@@ -229,11 +234,12 @@ mod terrain_entry {
 
     impl<'a> TerrainEntry<'a> {
         pub fn new(data: &'a Data, base: V3, chunk: Chunk, objs: Vec<V3>) -> TerrainEntry<'a> {
+            let tree_id = data.object_templates.get_id("tree");
             let objects = objs.into_iter()
                               .map(|pos| {
                                        let pos = pos - base;
                                        Object {
-                                           template_id: 0,
+                                           template_id: tree_id,
                                            x: pos.x as i8,
                                            y: pos.y as i8,
                                            z: pos.z as i8,
@@ -391,6 +397,7 @@ impl<'a> State<'a> {
             start_pos: pos - offset,
             end_pos: pos - offset,
             anim: 0,
+            facing: V3::new(1, 0, 0),
         };
 
         let chunk_offset = (self.rng.gen_range(0, 8),
@@ -438,6 +445,61 @@ impl<'a> State<'a> {
         entity.update(&(&terrain, &self.data.block_data), now, input);
 
         true
+    }
+
+    pub fn perform_action(&mut self, now: Time, id: ClientId, action: ActionBits) {
+        let pos_px = {
+            let ce = match self.client_entity(id) {
+                Some(ce) => ce,
+                None => return,
+            };
+            ce.entity.pos(now) + scalar(16) + scalar(32) * ce.entity.facing
+        };
+        let pos = pos_px.div_floor(&scalar(TILE_SIZE));
+        let chunk = pos.div_floor(&scalar(CHUNK_SIZE));
+
+        log!(10, "perform action: px={}; tile={}; chunk={}", pos_px, pos, chunk);
+
+        let tree_id = self.data.object_templates.get_id("tree");
+        let stump_id = self.data.object_templates.get_id("stump");
+
+        let found_idx = {
+            let objects = match self.map.get(&(chunk.x, chunk.y)) {
+                Some(c) => c.objects(),
+                None => return,
+            };
+
+            log!(10, "got {} objects for chunk", objects.len());
+
+            let mut found_idx = None;
+            for (i, obj) in objects.iter().enumerate() {
+                if obj.template_id != tree_id {
+                    continue;
+                }
+
+                let obj_base = V3::new(obj.x as i32,
+                                       obj.y as i32,
+                                       obj.z as i32);
+                let offset = pos - obj_base;
+                if Region::around(V3::new(2, 1, 0), 1).contains(&offset) {
+                    log!(10, "found hit on tree {} at offset {}", i, offset);
+                    found_idx = Some(i);
+                    break;
+                }
+            }
+
+            found_idx
+        };
+
+        log!(10, "hit index: {}", found_idx);
+
+        match found_idx {
+            Some(idx) => {
+                self.map[(chunk.x, chunk.y)]
+                    .objects_mut()[idx].template_id = stump_id;
+            },
+            None => {},
+        }
     }
 
     pub fn load_chunk(&mut self, cx: i32, cy: i32) {

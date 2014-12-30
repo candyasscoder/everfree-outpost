@@ -214,7 +214,7 @@ impl<'a> Server<'a> {
             },
 
             WakeReason::HandleAction(client_id, action) => {
-                log!(10, "action {} for client {}", action.bits(), client_id);
+                self.state.perform_action(now, client_id, action);
             },
 
             WakeReason::PhysicsUpdate(client_id) => {
