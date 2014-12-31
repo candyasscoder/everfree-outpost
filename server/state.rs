@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::hash_map;
 use std::iter::range_inclusive;
 use std::rand::{Rng, SeedableRng, XorShiftRng};
 use std::u16;
@@ -16,6 +17,7 @@ use data::{Data, BlockData};
 use gen::TerrainGenerator;
 
 pub use self::terrain_entry::{TerrainEntry, BaseTerrainRef, ObjectsRef};
+use self::StateChange::ChunkUpdate;
 
 
 const CHUNK_TOTAL: uint = 1 << (3 * CHUNK_BITS);
@@ -317,6 +319,12 @@ mod terrain_entry {
 }
 
 
+#[deriving(Show)]
+pub enum StateChange {
+    ChunkUpdate(i32, i32),
+}
+
+
 pub struct State<'a> {
     pub data: &'a Data,
     pub map: Terrain<'a>,
@@ -363,6 +371,10 @@ impl<'a> State<'a> {
         result
     }
 
+    pub fn client_ids(&self) -> Vec<ClientId> {
+        self.clients.keys().map(|&x| x).collect()
+    }
+
     pub fn client_entity(&self, id: ClientId) -> Option<ClientEntity> {
         let client = match self.clients.get(&id) {
             Some(c) => c,
@@ -385,6 +397,13 @@ impl<'a> State<'a> {
             client: client,
             entity: entity,
         })
+    }
+
+    pub fn client_entities(&self) -> ClientEntities {
+        ClientEntities {
+            clients: self.clients.iter(),
+            entities: &self.entities,
+        }
     }
 
     pub fn add_client(&mut self, now: Time, id: ClientId) {
@@ -447,11 +466,11 @@ impl<'a> State<'a> {
         true
     }
 
-    pub fn perform_action(&mut self, now: Time, id: ClientId, action: ActionBits) {
+    pub fn perform_action(&mut self, now: Time, id: ClientId, action: ActionBits) -> Vec<StateChange> {
         let pos_px = {
             let ce = match self.client_entity(id) {
                 Some(ce) => ce,
-                None => return,
+                None => return Vec::new(),
             };
             ce.entity.pos(now) + scalar(16) + scalar(32) * ce.entity.facing
         };
@@ -466,7 +485,7 @@ impl<'a> State<'a> {
         let found_idx = {
             let objects = match self.map.get(&(chunk.x, chunk.y)) {
                 Some(c) => c.objects(),
-                None => return,
+                None => return Vec::new(),
             };
 
             log!(10, "got {} objects for chunk", objects.len());
@@ -493,13 +512,18 @@ impl<'a> State<'a> {
 
         log!(10, "hit index: {}", found_idx);
 
+        let mut updates = Vec::new();
+
         match found_idx {
             Some(idx) => {
                 self.map[(chunk.x, chunk.y)]
                     .objects_mut()[idx].template_id = stump_id;
+                updates.push(ChunkUpdate(chunk.x, chunk.y));
             },
             None => {},
         }
+
+        updates
     }
 
     pub fn load_chunk(&mut self, cx: i32, cy: i32) {
@@ -534,6 +558,36 @@ impl<'a> State<'a> {
         }
     }
 }
+
+
+pub struct ClientEntities<'a> {
+    clients: hash_map::Entries<'a, ClientId, Client>,
+    entities: &'a HashMap<EntityId, Entity>,
+}
+
+impl<'a> Iterator<(ClientId, ClientEntity<'a>)> for ClientEntities<'a> {
+    fn next(&mut self) -> Option<(ClientId, ClientEntity<'a>)> {
+        // The loop keeps going until we have a definitive result - either we found a Client and
+        // its Entity, or there are no more clients (that have corresponding entities).
+        loop {
+            let (&id, client) = match self.clients.next() {
+                Some(x) => x,
+                None => return None,
+            };
+
+            match self.entities.get(&client.entity_id) {
+                Some(entity) => {
+                    // Success - got a Client and its Entity.
+                    return Some((id, ClientEntity::new(client, entity)));
+                },
+                None => {
+                    // Failure - go around the loop again to try the next client.
+                },
+            };
+        }
+    }
+}
+
 
 pub fn base_chunk(pos: V3) -> V3 {
     let size = CHUNK_SIZE * TILE_SIZE;

@@ -26,6 +26,7 @@ use msg::Motion as WireMotion;
 use msg::{Request, Response};
 use input::{InputBits, ActionBits};
 use state::LOCAL_SIZE;
+use state::StateChange::ChunkUpdate;
 use data::Data;
 
 use types::{Time, ToGlobal, ToLocal};
@@ -214,7 +215,24 @@ impl<'a> Server<'a> {
             },
 
             WakeReason::HandleAction(client_id, action) => {
-                self.state.perform_action(now, client_id, action);
+                let updates = self.state.perform_action(now, client_id, action);
+                for update in updates.into_iter() {
+                    match update {
+                        ChunkUpdate(cx, cy) => {
+                            for (id, ce) in self.state.client_entities() {
+                                if !ce.client.view_state.region().contains(cx, cy) {
+                                    continue;
+                                }
+
+                                let offset = chunk_offset(ce.entity.pos(now),
+                                                          ce.client.chunk_offset);
+                                let idx = chunk_to_idx(cx, cy, offset);
+                                let data = self.state.get_terrain_rle16(cx, cy);
+                                self.resps.send((id, Response::TerrainChunk(idx as u16, data)));
+                            }
+                        },
+                    }
+                }
             },
 
             WakeReason::PhysicsUpdate(client_id) => {
@@ -276,10 +294,7 @@ impl<'a> Server<'a> {
                   offset: V3) {
         self.state.load_chunk(cx, cy);
 
-        let lx = (cx + offset.x) & (LOCAL_SIZE - 1);
-        let ly = (cy + offset.y) & (LOCAL_SIZE - 1);
-
-        let idx = ly * LOCAL_SIZE + lx;
+        let idx = chunk_to_idx(cx, cy, offset);
         let data = self.state.get_terrain_rle16(cx, cy);
         self.resps.send((client_id, Response::TerrainChunk(idx as u16, data)));
     }
@@ -290,12 +305,15 @@ impl<'a> Server<'a> {
                     offset: V3) {
         self.state.unload_chunk(cx, cy);
 
-        let lx = (cx + offset.x) & (LOCAL_SIZE - 1);
-        let ly = (cy + offset.y) & (LOCAL_SIZE - 1);
-
-        let idx = ly * LOCAL_SIZE + lx;
+        let idx = chunk_to_idx(cx, cy, offset);
         self.resps.send((client_id, Response::UnloadChunk(idx as u16)));
     }
+}
+
+fn chunk_to_idx(cx: i32, cy: i32, offset: V3) -> i32 {
+    let lx = (cx + offset.x) & (LOCAL_SIZE - 1);
+    let ly = (cy + offset.y) & (LOCAL_SIZE - 1);
+    ly * LOCAL_SIZE + lx
 }
 
 fn now() -> Time {
