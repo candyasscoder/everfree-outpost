@@ -1,5 +1,7 @@
+use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::io::timer::Timer;
+use std::sync::mpsc::Receiver;
 use std::time::Duration;
 
 use types::Time;
@@ -47,7 +49,7 @@ impl<T> WakeQueue<T> {
     }
 
     pub fn pop(&mut self, now: Time) -> Option<(Time, T)> {
-        match self.items.top() {
+        match self.items.peek() {
             None => return None,
             Some(item) => {
                 if item.time > now {
@@ -61,7 +63,7 @@ impl<T> WakeQueue<T> {
     }
 
     pub fn wait_recv(&mut self, now: Time) -> Receiver<()> {
-        let dur = match self.items.top() {
+        let dur = match self.items.peek() {
             None => Duration::max_value(),
             Some(item) => Duration::milliseconds(item.time - now),
         };

@@ -1,16 +1,13 @@
 #![crate_name = "physics"]
 #![no_std]
-#![feature(globs, phase)]
 #![feature(unboxed_closures)]
-#![feature(macro_rules)]
 
-#[phase(plugin, link)] extern crate core;
-#[cfg(asmjs)]
-#[phase(plugin, link)] extern crate asmrt;
-#[cfg(not(asmjs))]
-#[phase(plugin, link)] extern crate std;
-#[cfg(not(asmjs))]
-#[phase(plugin, link)] extern crate log;
+#![allow(unstable)] // many parts of libcore are unstable as of Rust 1.0
+
+#[macro_use] extern crate core;
+#[cfg(asmjs)] #[macro_use] extern crate asmrt;
+#[cfg(not(asmjs))] #[macro_use] extern crate std;
+#[cfg(not(asmjs))] #[macro_use] extern crate log;
 
 use core::prelude::*;
 use core::cmp;
@@ -28,23 +25,24 @@ mod std {
     pub use core::cmp;
     pub use core::clone;
     pub use core::fmt;
+    pub use core::marker;
 }
 
 
 pub const TILE_SIZE: i32 = 32;
-pub const TILE_BITS: uint = 5;
+pub const TILE_BITS: usize = 5;
 pub const TILE_MASK: i32 = TILE_SIZE - 1;
 #[allow(dead_code)] #[static_assert]
-static TILE_SIZE_BITS: bool = TILE_SIZE == 1 << TILE_BITS as uint;
+static TILE_SIZE_BITS: bool = TILE_SIZE == 1 << TILE_BITS as usize;
 
 pub const CHUNK_SIZE: i32 = 16;
-pub const CHUNK_BITS: uint = 4;
+pub const CHUNK_BITS: usize = 4;
 pub const CHUNK_MASK: i32 = CHUNK_SIZE - 1;
 #[allow(dead_code)] #[static_assert]
-static CHUNK_SIZE_BITS: bool = CHUNK_SIZE == 1 << CHUNK_BITS as uint;
+static CHUNK_SIZE_BITS: bool = CHUNK_SIZE == 1 << CHUNK_BITS as usize;
 
 
-#[deriving(Eq, PartialEq, Show, Clone)]
+#[derive(Copy, Eq, PartialEq, Show, Clone)]
 #[repr(u8)]
 pub enum Shape {
     Empty = 0,
@@ -95,7 +93,7 @@ pub trait ShapeSource {
 trait StepCallback {
     fn check<S: ShapeSource>(&self, chunk: &S, pos: V3, dir_axis: DirAxis) -> bool;
 
-    fn check_post<S: ShapeSource>(&self, chunk: &S, pos: V3) -> bool {
+    fn check_post<S: ShapeSource>(&self, _chunk: &S, _pos: V3) -> bool {
         true
     }
 }
@@ -262,7 +260,7 @@ fn check_region<S: ShapeSource>(chunk: &S, new: Region) -> bool {
     true
 }
 
-fn walk_path<S, CB>(chunk: &S, start_pos: V3, size: V3, velocity: V3,
+fn walk_path<S, CB>(chunk: &S, start_pos: V3, _size: V3, velocity: V3,
                     cb: CB) -> V3
         where S: ShapeSource,
               CB: StepCallback {
@@ -273,7 +271,7 @@ fn walk_path<S, CB>(chunk: &S, start_pos: V3, size: V3, velocity: V3,
 
     let mut last_pos = start_pos;
 
-    for _ in range(0u, 500) {
+    for _ in range(0us, 500) {
         accum = accum + mag;
         let mut pos = last_pos;
 
@@ -294,12 +292,12 @@ fn walk_path<S, CB>(chunk: &S, start_pos: V3, size: V3, velocity: V3,
 
                     pos = pos + dir.only(axis);
                 }}
-            }
+            };
         }
 
-        maybe_step_axis!(X)
-        maybe_step_axis!(Y)
-        maybe_step_axis!(Z)
+        maybe_step_axis!(X);
+        maybe_step_axis!(Y);
+        maybe_step_axis!(Z);
 
         last_pos = pos;
 

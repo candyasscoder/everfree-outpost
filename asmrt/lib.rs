@@ -2,11 +2,11 @@
 #![crate_type = "lib"]
 #![no_std]
 
-#![feature(globs, phase)]
 #![feature(lang_items)]
-#![feature(macro_rules)]
 
-#[phase(plugin, link)] extern crate core;
+#![allow(unstable)] // much of libcore is unstable as of Rust 1.0
+
+#[macro_use] extern crate core;
 
 use core::prelude::*;
 use core::fmt;
@@ -23,8 +23,8 @@ mod std {
 #[lang = "panic_fmt"]
 extern fn lang_panic_fmt(args: &core::fmt::Arguments,
                         file: &'static str,
-                        line: uint) -> ! {
-    format_args!(raw_println, "task panicked at {}:{}: {}", file, line, args);
+                        line: usize) -> ! {
+    raw_println(format_args!("task panicked at {}:{}: {}", file, line, args));
     unsafe { core::intrinsics::abort() };
 }
 
@@ -55,30 +55,36 @@ extern {
 
 struct AsmJsFormatWriter;
 
-impl fmt::FormatWriter for AsmJsFormatWriter {
-    fn write(&mut self, bytes: &[u8]) -> fmt::Result {
-        unsafe { write_str(bytes.as_ptr(), bytes.len() as i32) };
+impl fmt::Writer for AsmJsFormatWriter {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        unsafe { write_str(s.as_ptr(), s.len() as i32) };
         Ok(())
     }
 }
 
-pub fn raw_println(args: &fmt::Arguments) {
+pub fn raw_println(args: fmt::Arguments) {
     let _ = fmt::write(&mut AsmJsFormatWriter, args);
     unsafe { flush_str() };
 }
 
 #[macro_export]
 macro_rules! println {
-    ($str:expr $($rest:tt)*) => {
-        format_args!(::asmrt::raw_println, $str $($rest)*)
-    }
+    ($str:expr) => {
+        $crate::raw_println(format_args!($str))
+    };
+    ($str:expr, $($rest:tt)*) => {
+        $crate::raw_println(format_args!($str, $($rest)*))
+    };
 }
 
 #[macro_export]
 macro_rules! log {
-    ($level:expr, $str:expr $($rest:tt)*) => {
-        format_args!(::asmrt::raw_println, $str $($rest)*)
-    }
+    ($level:expr, $str:expr) => {
+        println!($str)
+    };
+    ($level:expr, $str:expr, $($rest:tt)*) => {
+        println!($str, $($rest)*)
+    };
 }
 
 

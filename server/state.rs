@@ -12,7 +12,7 @@ use physics::v3::{V3, scalar, Region};
 use types::{Time, Duration, ClientId, EntityId, AnimId, BlockId, DURATION_MAX};
 use view::ViewState;
 use input::{InputBits, INPUT_LEFT, INPUT_RIGHT, INPUT_UP, INPUT_DOWN, INPUT_RUN};
-use input::{ActionBits, ACTION_USE};
+use input::ActionBits;
 use data::{Data, BlockData};
 use gen::TerrainGenerator;
 
@@ -20,17 +20,17 @@ pub use self::terrain_entry::{TerrainEntry, BaseTerrainRef, ObjectsRef};
 use self::StateChange::ChunkUpdate;
 
 
-const CHUNK_TOTAL: uint = 1 << (3 * CHUNK_BITS);
-pub type Chunk = [BlockId, ..CHUNK_TOTAL];
-static EMPTY_CHUNK: Chunk = [0, ..CHUNK_TOTAL];
+const CHUNK_TOTAL: usize = 1 << (3 * CHUNK_BITS);
+pub type Chunk = [BlockId; CHUNK_TOTAL];
+static EMPTY_CHUNK: Chunk = [0; CHUNK_TOTAL];
 
-pub const LOCAL_BITS: uint = 3;
+pub const LOCAL_BITS: usize = 3;
 pub const LOCAL_SIZE: i32 = 1 << LOCAL_BITS;
 pub const LOCAL_MASK: i32 = LOCAL_SIZE - 1;
-pub const LOCAL_TOTAL: uint = 1 << (2 * LOCAL_BITS);
+pub const LOCAL_TOTAL: usize = 1 << (2 * LOCAL_BITS);
 
 pub struct LocalTerrain<'a> {
-    pub chunks: [Option<&'a Chunk>, ..LOCAL_TOTAL],
+    pub chunks: [Option<&'a Chunk>; LOCAL_TOTAL],
 }
 
 impl<'a> ShapeSource for (&'a LocalTerrain<'a>, &'a BlockData) {
@@ -43,9 +43,9 @@ impl<'a> ShapeSource for (&'a LocalTerrain<'a>, &'a BlockData) {
         let chunk_idx = chunk_y * LOCAL_SIZE + chunk_x;
         let tile_idx = (tile_z * CHUNK_SIZE + tile_y) * CHUNK_SIZE + tile_x;
 
-        match map.chunks[chunk_idx as uint] {
+        match map.chunks[chunk_idx as usize] {
             None => Shape::Empty,
-            Some(chunk) => block_data.shape(chunk[tile_idx as uint]),
+            Some(chunk) => block_data.shape(chunk[tile_idx as usize]),
         }
     }
 }
@@ -87,7 +87,7 @@ impl Entity {
             else if input.contains(INPUT_RUN) { 3 }
             else { 1 };
 
-        let idx = (3 * (dx + 1) + (dy + 1)) as uint;
+        let idx = (3 * (dx + 1) + (dy + 1)) as usize;
         let old_anim = self.anim % ANIM_DIR_COUNT;
         let anim_dir = [5, 4, 3, 6, old_anim, 2, 7, 0, 1][idx];
         let anim = anim_dir + speed * ANIM_DIR_COUNT;
@@ -135,6 +135,7 @@ pub struct Client {
 }
 
 
+#[derive(Copy)]
 pub struct ClientEntity<'a> {
     pub client: &'a Client,
     pub entity: &'a Entity,
@@ -172,6 +173,7 @@ pub struct Object {
 
 mod terrain_entry {
     use super::{Chunk, Object};
+    use std::ops::{Deref, DerefMut};
     use physics::v3::{V3, scalar, Region};
     use physics::CHUNK_SIZE;
     use data::Data;
@@ -190,13 +192,14 @@ mod terrain_entry {
         owner: &'a mut TerrainEntry<'b>,
     }
 
-    impl<'a, 'b> Deref<Chunk> for BaseTerrainRef<'a, 'b> {
+    impl<'a, 'b> Deref for BaseTerrainRef<'a, 'b> {
+        type Target = Chunk;
         fn deref(&self) -> &Chunk {
             &self.owner.base_terrain
         }
     }
 
-    impl<'a, 'b> DerefMut<Chunk> for BaseTerrainRef<'a, 'b> {
+    impl<'a, 'b> DerefMut for BaseTerrainRef<'a, 'b> {
         fn deref_mut(&mut self) -> &mut Chunk {
             &mut self.owner.base_terrain
         }
@@ -214,13 +217,14 @@ mod terrain_entry {
         owner: &'a mut TerrainEntry<'b>,
     }
 
-    impl<'a, 'b> Deref<Vec<Object>> for ObjectsRef<'a, 'b> {
+    impl<'a, 'b> Deref for ObjectsRef<'a, 'b> {
+        type Target = Vec<Object>;
         fn deref(&self) -> &Vec<Object> {
             &self.owner.objects
         }
     }
 
-    impl<'a, 'b> DerefMut<Vec<Object>> for ObjectsRef<'a, 'b> {
+    impl<'a, 'b> DerefMut for ObjectsRef<'a, 'b> {
         fn deref_mut(&mut self) -> &mut Vec<Object> {
             &mut self.owner.objects
         }
@@ -300,7 +304,7 @@ mod terrain_entry {
             &self.base_terrain
         }
 
-        pub fn base_terrain_mut<'b>(&'b mut self) -> BaseTerrainRef<'a, 'b> {
+        pub fn base_terrain_mut<'b>(&'b mut self) -> BaseTerrainRef<'b, 'a> {
             BaseTerrainRef { owner: self }
         }
 
@@ -308,7 +312,7 @@ mod terrain_entry {
             self.objects.as_slice()
         }
 
-        pub fn objects_mut<'b>(&'b mut self) -> ObjectsRef<'a, 'b> {
+        pub fn objects_mut<'b>(&'b mut self) -> ObjectsRef<'b, 'a> {
             ObjectsRef { owner: self }
         }
 
@@ -319,7 +323,7 @@ mod terrain_entry {
 }
 
 
-#[deriving(Show)]
+#[derive(Show)]
 pub enum StateChange {
     ChunkUpdate(i32, i32),
 }
@@ -358,12 +362,13 @@ impl<'a> State<'a> {
             if iter.peek().map(|x| **x) != Some(cur) {
                 result.push(cur);
             } else {
-                let mut count = 1u;
+                // TODO: check that count doesn't overflow 12 bits.
+                let mut count = 1u16;
                 while iter.peek().map(|x| **x) == Some(cur) {
                     iter.next();
                     count += 1;
                 }
-                result.push(0xf000 | count as u16);
+                result.push(0xf000 | count);
                 result.push(cur);
             }
         }
@@ -466,7 +471,7 @@ impl<'a> State<'a> {
         true
     }
 
-    pub fn perform_action(&mut self, now: Time, id: ClientId, action: ActionBits) -> Vec<StateChange> {
+    pub fn perform_action(&mut self, now: Time, id: ClientId, _action: ActionBits) -> Vec<StateChange> {
         let pos_px = {
             let ce = match self.client_entity(id) {
                 Some(ce) => ce,
@@ -477,7 +482,7 @@ impl<'a> State<'a> {
         let pos = pos_px.div_floor(&scalar(TILE_SIZE));
         let chunk = pos.div_floor(&scalar(CHUNK_SIZE));
 
-        log!(10, "perform action: px={}; tile={}; chunk={}", pos_px, pos, chunk);
+        log!(10, "perform action: px={:?}; tile={:?}; chunk={:?}", pos_px, pos, chunk);
 
         let tree_id = self.data.object_templates.get_id("tree");
         let stump_id = self.data.object_templates.get_id("stump");
@@ -501,7 +506,7 @@ impl<'a> State<'a> {
                                        obj.z as i32);
                 let offset = pos - obj_base;
                 if Region::around(V3::new(2, 1, 0), 1).contains(&offset) {
-                    log!(10, "found hit on tree {} at offset {}", i, offset);
+                    log!(10, "found hit on tree {:?} at offset {:?}", i, offset);
                     found_idx = Some(i);
                     break;
                 }
@@ -510,7 +515,7 @@ impl<'a> State<'a> {
             found_idx
         };
 
-        log!(10, "hit index: {}", found_idx);
+        log!(10, "hit index: {:?}", found_idx);
 
         let mut updates = Vec::new();
 
@@ -532,9 +537,9 @@ impl<'a> State<'a> {
             Vacant(e) => {
                 log!(10, "LOAD {} {} -> 1 (INIT)", cx, cy);
                 let (chunk, objs) = self.terrain_gen.generate_chunk(&self.data.block_data, cx, cy);
-                e.set(TerrainEntry::new(self.data,
-                                        V3::new(cx, cy, 0) * scalar(CHUNK_SIZE),
-                                        chunk, objs));
+                e.insert(TerrainEntry::new(self.data,
+                                           V3::new(cx, cy, 0) * scalar(CHUNK_SIZE),
+                                           chunk, objs));
             },
             Occupied(mut e) => {
                 e.get_mut().retain();
@@ -550,7 +555,7 @@ impl<'a> State<'a> {
             Occupied(mut e) => {
                 if e.get_mut().release() {
                     log!(10, "UNLOAD {} {} -> 0 (DEAD)", cx, cy);
-                    e.take();
+                    e.remove();
                 } else {
                     log!(10, "UNLOAD {} {}", cx, cy);
                 }
@@ -561,11 +566,12 @@ impl<'a> State<'a> {
 
 
 pub struct ClientEntities<'a> {
-    clients: hash_map::Entries<'a, ClientId, Client>,
+    clients: hash_map::Iter<'a, ClientId, Client>,
     entities: &'a HashMap<EntityId, Entity>,
 }
 
-impl<'a> Iterator<(ClientId, ClientEntity<'a>)> for ClientEntities<'a> {
+impl<'a> Iterator for ClientEntities<'a> {
+    type Item = (ClientId, ClientEntity<'a>);
     fn next(&mut self) -> Option<(ClientId, ClientEntity<'a>)> {
         // The loop keeps going until we have a definitive result - either we found a Client and
         // its Entity, or there are no more clients (that have corresponding entities).
@@ -627,7 +633,7 @@ pub fn build_local_terrain<'a>(map: &'a Terrain,
                                ce: ClientEntity,
                                use_chunk_offset: bool) -> LocalTerrain<'a> {
     let mut local = LocalTerrain {
-        chunks: [None, ..LOCAL_TOTAL],
+        chunks: [None; LOCAL_TOTAL],
     };
 
     let pos = ce.entity.pos(now) >> (TILE_BITS + CHUNK_BITS);
@@ -641,7 +647,7 @@ pub fn build_local_terrain<'a>(map: &'a Terrain,
             let lx = (cx + offset.0 as i32) & LOCAL_MASK;
             let ly = (cy + offset.1 as i32) & LOCAL_MASK;
             let local_idx = ly * LOCAL_SIZE + lx;
-            local.chunks[local_idx as uint] = map.get(&(cx, cy)).map(|x| x.blocks());
+            local.chunks[local_idx as usize] = map.get(&(cx, cy)).map(|x| x.blocks());
         }
     }
 

@@ -1,17 +1,14 @@
 #![crate_name = "graphics"]
 #![no_std]
 
-#![feature(globs, phase)]
 #![feature(unboxed_closures)]
-#![feature(macro_rules)]
 
 #![allow(unsigned_negation)]
+#![allow(unstable)] // many parts of libcore are unstable as of Rust 1.0
 
-#[phase(plugin, link)] extern crate core;
-#[cfg(asmjs)]
-#[phase(plugin, link)] extern crate asmrt;
-#[cfg(not(asmjs))]
-#[phase(plugin, link)] extern crate std;
+#[macro_use] extern crate core;
+#[cfg(asmjs)] #[macro_use] extern crate asmrt;
+#[cfg(not(asmjs))] #[macro_use] extern crate std;
 extern crate physics;
 
 use core::prelude::*;
@@ -25,6 +22,7 @@ use physics::{TILE_BITS, CHUNK_BITS};
 mod std {
     pub use core::cmp;
     pub use core::fmt;
+    pub use core::marker;
 }
 
 
@@ -33,9 +31,10 @@ const ATLAS_SIZE: u16 = 32;
 const TILE_SIZE: u16 = 1 << TILE_BITS;
 const CHUNK_SIZE: u16 = 1 << CHUNK_BITS;
 
-const LOCAL_BITS: uint = 3;
+const LOCAL_BITS: usize = 3;
 const LOCAL_SIZE: u16 = 1 << LOCAL_BITS;
 
+#[derive(Copy)]
 pub struct BlockDisplay {
     front: u16,
     back: u16,
@@ -43,50 +42,50 @@ pub struct BlockDisplay {
     bottom: u16,
 }
 
-pub type BlockData = [BlockDisplay, ..(ATLAS_SIZE * ATLAS_SIZE) as uint];
+pub type BlockData = [BlockDisplay; (ATLAS_SIZE * ATLAS_SIZE) as usize];
 
-pub type ChunkData = [u16, ..1 << (3 * CHUNK_BITS)];
-pub type LocalData = [ChunkData, ..1 << (2 * LOCAL_BITS)];
+pub type ChunkData = [u16; 1 << (3 * CHUNK_BITS)];
+pub type LocalData = [ChunkData; 1 << (2 * LOCAL_BITS)];
 
 
-type XvOffsets = [u8, ..(CHUNK_SIZE * 4) as uint];
-type XvTiles = [u16, ..(CHUNK_SIZE * 4) as uint];
+type XvOffsets = [u8; (CHUNK_SIZE * 4) as usize];
+type XvTiles = [u16; (CHUNK_SIZE * 4) as usize];
 
 struct XvChunk {
-    bases: [u16, ..1 << (2 * CHUNK_BITS)],
-    offsets: [XvOffsets, ..1 << (2 * CHUNK_BITS)],
-    tiles: [XvTiles, ..1 << (2 * CHUNK_BITS)],
+    bases: [u16; 1 << (2 * CHUNK_BITS)],
+    offsets: [XvOffsets; 1 << (2 * CHUNK_BITS)],
+    tiles: [XvTiles; 1 << (2 * CHUNK_BITS)],
 }
 
 pub struct XvData {
-    chunks: [XvChunk, ..1 << (2 * LOCAL_BITS)],
+    chunks: [XvChunk; 1 << (2 * LOCAL_BITS)],
 }
 
 pub fn update_xv(xv: &mut XvData, blocks: &BlockData, chunk: &ChunkData, i: u8, j: u8) {
-    let i = i as uint;
-    let j = j as uint;
+    let i = i as usize;
+    let j = j as usize;
     let chunk_idx0 = (i << LOCAL_BITS) + j;
-    let i1 = (i + LOCAL_SIZE as uint - 1) % LOCAL_SIZE as uint;
+    let i1 = (i + LOCAL_SIZE as usize - 1) % LOCAL_SIZE as usize;
     let chunk_idx1 = (i1 << LOCAL_BITS) + j;
 
     let mut copy = |&mut: x: u16, u: u16, v: u16,
-                          chunk_idx: uint,
+                          chunk_idx: usize,
                           cx: u16, cu: u16, cv: u16,
                           upper: bool| {
-        let tiles_idx = ((v << CHUNK_BITS) + x) as uint;
+        let tiles_idx = ((v << CHUNK_BITS) + x) as usize;
         let stack = &mut xv.chunks[chunk_idx].tiles[tiles_idx];
 
         let cy = (cu + cv) / 2;
         let cz = (cu - cv) / 2;
-        let tile = chunk[((cz * CHUNK_SIZE + cy) * CHUNK_SIZE + cx) as uint];
-        let block = &blocks[tile as uint];
+        let tile = chunk[((cz * CHUNK_SIZE + cy) * CHUNK_SIZE + cx) as usize];
+        let block = &blocks[tile as usize];
 
         if upper {
-            stack[2 * u as uint + 0] = block.back;
-            stack[2 * u as uint + 1] = block.top;
+            stack[2 * u as usize + 0] = block.back;
+            stack[2 * u as usize + 1] = block.top;
         } else {
-            stack[2 * u as uint + 0] = block.bottom;
-            stack[2 * u as uint + 1] = block.front;
+            stack[2 * u as usize + 0] = block.bottom;
+            stack[2 * u as usize + 1] = block.front;
         }
     };
 
@@ -128,6 +127,7 @@ pub fn update_xv(xv: &mut XvData, blocks: &BlockData, chunk: &ChunkData, i: u8, 
 }
 
 #[allow(dead_code)]
+#[derive(Copy)]
 pub struct VertexData {
     x: u8,
     y: u8,
@@ -135,13 +135,13 @@ pub struct VertexData {
     t: u8,
 }
 // Each chunk has CHUNK_SIZE^3 blocks, each block has 4 faces, each face has 6 vertices.
-const FACE_VERTS: uint = 6;
-pub type GeometryBuffer = [VertexData, ..(4 * FACE_VERTS) << (3 * CHUNK_BITS)];
+const FACE_VERTS: usize = 6;
+pub type GeometryBuffer = [VertexData; (4 * FACE_VERTS) << (3 * CHUNK_BITS)];
 
 
 pub fn generate_geometry(xv: &mut XvData,
                          geom: &mut GeometryBuffer,
-                         i: u8, j: u8) -> uint {
+                         i: u8, j: u8) -> usize {
     let pos = Cell::new(0);
 
     let mut push = |&mut: x, y, s, t| {
@@ -163,20 +163,20 @@ pub fn generate_geometry(xv: &mut XvData,
 
     };
 
-    let chunk = &mut xv.chunks[((i << LOCAL_BITS) + j) as uint];
+    let chunk = &mut xv.chunks[((i << LOCAL_BITS) + j) as usize];
 
     for v in range(0, CHUNK_SIZE) {
         for x in range(0, CHUNK_SIZE) {
-            let idx = (v * CHUNK_SIZE + x) as uint;
+            let idx = (v * CHUNK_SIZE + x) as usize;
             let base = pos.get() / FACE_VERTS;
             chunk.bases[idx] = base as u16;
             for u in range(0, 4 * CHUNK_SIZE) {
-                let tile = chunk.tiles[idx][u as uint];
+                let tile = chunk.tiles[idx][u as usize];
                 if tile != 0 {
                     push_face(x, v, tile);
                 }
-                let offset = (pos.get() / FACE_VERTS) - base as uint;
-                chunk.offsets[idx][u as uint] = offset as u8;
+                let offset = (pos.get() / FACE_VERTS) - base as usize;
+                chunk.offsets[idx][u as usize] = offset as u8;
             }
         }
     }
@@ -185,7 +185,7 @@ pub fn generate_geometry(xv: &mut XvData,
 }
 
 
-#[deriving(PartialEq, Eq, Show)]
+#[derive(PartialEq, Eq, Show)]
 enum SpriteStatus {
     // Sprite does not overlap the chunk.
     Outside,
@@ -195,7 +195,7 @@ enum SpriteStatus {
     Between,
 }
 
-#[deriving(Show)]
+#[derive(Show)]
 pub struct Sprite {
     id: u16,
     ref_x: u16,
@@ -265,14 +265,16 @@ impl Sprite {
 }
 
 
-pub fn render(xv: &XvData,
-              x: u16,
-              y: u16,
-              width: u16,
-              height: u16,
-              sprites: &mut [Sprite],
-              draw_terrain: |u16, u16, u16, u16|,
-              draw_sprite: |u16, u16, u16, u16, u16|) {
+pub fn render<FT, FS>(xv: &XvData,
+                      x: u16,
+                      y: u16,
+                      width: u16,
+                      height: u16,
+                      sprites: &mut [Sprite],
+                      mut draw_terrain: FT,
+                      mut draw_sprite: FS)
+        where FT: FnMut(u16, u16, u16, u16),
+              FS: FnMut(u16, u16, u16, u16, u16) {
     quicksort(sprites, SpriteUV);
 
     let chunk_px = CHUNK_SIZE * TILE_SIZE;
@@ -286,7 +288,7 @@ pub fn render(xv: &XvData,
         for cx in range(cx0, cx1) {
             let i = cy % LOCAL_SIZE;
             let j = cx % LOCAL_SIZE;
-            let idx = (i * LOCAL_SIZE + j) as uint;
+            let idx = (i * LOCAL_SIZE + j) as usize;
 
             let chunk = &xv.chunks[idx];
             render_chunk(chunk, cx, cy, sprites,
@@ -296,20 +298,22 @@ pub fn render(xv: &XvData,
     }
 }
 
-fn render_chunk(chunk: &XvChunk,
-                cx: u16, cy: u16,
-                sprites: &mut [Sprite],
-                draw_terrain: |u16, u16, u16, u16|,
-                draw_sprite: |u16, u16, u16, u16, u16|) {
+fn render_chunk<FT, FS>(chunk: &XvChunk,
+                        cx: u16, cy: u16,
+                        sprites: &mut [Sprite],
+                        mut draw_terrain: FT,
+                        mut draw_sprite: FS)
+        where FT: FnMut(u16, u16, u16, u16),
+              FS: FnMut(u16, u16, u16, u16, u16) {
     // Pass #1
     //
     // Examine each sprite.  For each sprite, determine whether it is Outside, Above, or Between
     // the terrain layers.  Also mark each column in which terrain covers a sprite, as these
     // columns need to be drawn incrementally.
-    let mut depth = [-1_u8, ..1 << (2 * CHUNK_BITS)];
+    let mut depth = [-1_u8; 1 << (2 * CHUNK_BITS)];
 
-    let max_idx = (CHUNK_SIZE * CHUNK_SIZE - 1) as uint;
-    let col_max_idx = (4 * CHUNK_SIZE - 1) as uint;
+    let max_idx = (CHUNK_SIZE * CHUNK_SIZE - 1) as usize;
+    let col_max_idx = (4 * CHUNK_SIZE - 1) as usize;
 
     for sprite in sprites.iter_mut() {
         let (tx0, tx1, ty0, ty1) = sprite.clipped_tile_bounds(cx, cy);
@@ -318,12 +322,12 @@ fn render_chunk(chunk: &XvChunk,
         for ty in range(ty0, ty1) {
             let limit = sprite.u_limit(cy * CHUNK_SIZE + ty);
             for tx in range(tx0, tx1) {
-                let idx = (ty * CHUNK_SIZE + tx) as uint;
+                let idx = (ty * CHUNK_SIZE + tx) as usize;
                 // Offset of the first face above the sprite in this column.  We look at index
                 // `limit - 1` is the first face *after* the one at u=limit, and we want the last
                 // one *before* u=limit.  This never underflows because limit is always >= 1
                 // (assuming ref_z >= 0).
-                let above = chunk.offsets[idx][limit as uint - 1];
+                let above = chunk.offsets[idx][limit as usize - 1];
                 // Offset of the last face in this column.
                 let col_max = chunk.offsets[idx][col_max_idx];
 
@@ -380,10 +384,10 @@ fn render_chunk(chunk: &XvChunk,
             for ty in range(ty0, ty1) {
                 let limit = sprite.u_limit(cy * CHUNK_SIZE + ty);
                 for tx in range(tx0, tx1) {
-                    let idx = (ty * CHUNK_SIZE + tx) as uint;
+                    let idx = (ty * CHUNK_SIZE + tx) as usize;
                     let base = chunk.bases[idx];
                     let start_off = depth[idx];
-                    let end_off = chunk.offsets[idx][limit as uint - 1];
+                    let end_off = chunk.offsets[idx][limit as usize - 1];
                     if start_off < end_off {
                         draw_terrain(cx, cy,
                                      base + start_off as u16,
@@ -409,7 +413,7 @@ fn render_chunk(chunk: &XvChunk,
     // Examine each column.  If the column has been partially drawn, draw the topmost part of it.
     for ty in range(0, CHUNK_SIZE) {
         for tx in range(0, CHUNK_SIZE) {
-            let idx = (ty * CHUNK_SIZE + tx) as uint;
+            let idx = (ty * CHUNK_SIZE + tx) as usize;
             if depth[idx] == -1 {
                 continue;
             }
@@ -431,6 +435,7 @@ pub trait Compare<T> {
     fn is_less(&self, a: &T, b: &T) -> bool;
 }
 
+#[derive(Copy)]
 struct SpriteUV;
 impl Compare<Sprite> for SpriteUV {
     fn is_less(&self, a: &Sprite, b: &Sprite) -> bool {
@@ -455,7 +460,7 @@ fn quicksort<T, C>(xs: &mut [T], comp: C)
     quicksort(xs.slice_to_mut(pivot), comp);
     quicksort(xs.slice_from_mut(pivot + 1), comp);
 
-    fn partition<T, C>(xs: &mut [T], comp: C) -> uint
+    fn partition<T, C>(xs: &mut [T], comp: C) -> usize
             where C: Compare<T> + Copy {
         // Always choose rightmost element as the pivot.
         let pivot = xs.len() - 1;

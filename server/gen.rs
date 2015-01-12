@@ -1,6 +1,7 @@
-use std::cmp;
-use std::collections::lru_cache::LruCache;
+use std::iter::repeat;
 use std::rand::{Rng, XorShiftRng, SeedableRng};
+
+use collect::lru_cache::LruCache;
 
 use data::BlockData;
 use physics::v3::{V3, Region, scalar};
@@ -17,7 +18,7 @@ fn disk_sample<T, Place, Choose, R>(mut place: Place,
                                     mut choose: Choose,
                                     rng: &mut R,
                                     init: &[T],
-                                    tries: uint)
+                                    tries: usize)
         where T: Copy + ::std::fmt::Show,
               Place: FnMut(T) -> bool,
               Choose: FnMut(T) -> T,
@@ -33,7 +34,7 @@ fn disk_sample<T, Place, Choose, R>(mut place: Place,
 
     while queue.len() > 0 {
         let idx = rng.gen_range(0, queue.len());
-        let x0 = queue.swap_remove(idx).unwrap();
+        let x0 = queue.swap_remove(idx);
 
         for _ in range(0, tries) {
             let x = choose(x0);
@@ -67,7 +68,7 @@ fn disk_sample2<R, GS>(rng: &mut R,
     // current `bounds`.
     let outer_bounds = bounds.expand(&scalar(max_spacing)).with_zs(0, 1);
     let grid_bounds = (outer_bounds - outer_bounds.min).div_round(cell_size).with_zs(0, 1);
-    let mut grid: Vec<Option<V3>> = Vec::from_elem(grid_bounds.volume() as uint, None);
+    let mut grid: Vec<Option<V3>> = repeat(None).take(grid_bounds.volume() as usize).collect();
     let mut points = Vec::new();
 
     for &pos in initial.iter() {
@@ -131,7 +132,7 @@ fn disk_sample2<R, GS>(rng: &mut R,
 
         let mut init_rng = rng.gen::<XorShiftRng>();
         let mut init = Vec::with_capacity(5);
-        for _ in range(0u, 5) {
+        for _ in range(0u32, 5) {
             let x = init_rng.gen_range(bounds.min.x, bounds.max.x);
             let y = init_rng.gen_range(bounds.min.y, bounds.max.y);
             init.push(V3::new(x, y, 0));
@@ -271,7 +272,7 @@ impl<GS: Fn(V3) -> i32> PointSource for IsoDiskSampler<GS> {
 // horizontal edges connected to those corners.  Finally, centers depend on the four adjacent edges
 // and four adjacent corners.
 
-#[deriving(PartialEq, Eq, Hash, Show)]
+#[derive(Copy, PartialEq, Eq, Hash, Show)]
 enum Section {
     Corner,
     Top,
@@ -279,7 +280,7 @@ enum Section {
     Center,
 }
 
-const LRU_SIZE: uint = 1024;
+const LRU_SIZE: usize = 1024;
 
 const CORNER_MULT: i32 = 1;
 const EDGE_MULT: i32 = 3;
@@ -293,7 +294,7 @@ fn section_bounds(x: i32, y: i32, section: Section, chunk_size: i32) -> Region {
         Center => (CORNER_MULT, CORNER_MULT, EDGE_MULT, EDGE_MULT),
     };
 
-    let chunk_min = (V3::new(x, y, 0) * scalar(CHUNK_MULT) + V3::new(off_x, off_y, 0));
+    let chunk_min = V3::new(x, y, 0) * scalar(CHUNK_MULT) + V3::new(off_x, off_y, 0);
     let min = chunk_min * scalar(chunk_size);
     let size = V3::new(width, height, 0) * scalar(chunk_size) + V3::new(0, 0, 1);
     Region::new(min, min + size)
@@ -309,7 +310,7 @@ impl TerrainGenerator {
     pub fn new(seed: u64) -> TerrainGenerator {
         TerrainGenerator {
             seed: seed,
-            sampler: box IsoDiskSampler::new(seed, 5, 5, 32, |&: pos| 5) as Box<PointSource>,
+            sampler: Box::new(IsoDiskSampler::new(seed, 5, 5, 32, |&: _| 5)) as Box<PointSource>,
         }
     }
 
@@ -317,14 +318,14 @@ impl TerrainGenerator {
                           block_data: &BlockData,
                           cx: i32, cy: i32) -> (::state::Chunk, Vec<V3>) {
         use physics::{CHUNK_BITS, CHUNK_SIZE};
-        const Z_STEP: uint = 1 << (2 * CHUNK_BITS);
+        const Z_STEP: usize = 1 << (2 * CHUNK_BITS);
 
         let seed = [self.seed as u32 + 12345,
                     (self.seed >> 32) as u32,
                     cx as u32,
                     cy as u32];
         let mut rng: XorShiftRng = SeedableRng::from_seed(seed);
-        let mut chunk = [0, ..1 << (3 * CHUNK_BITS)];
+        let mut chunk = [0; 1 << (3 * CHUNK_BITS)];
         let ids = [block_data.get_id("grass/center/v0"),
                    block_data.get_id("grass/center/v1"),
                    block_data.get_id("grass/center/v2"),

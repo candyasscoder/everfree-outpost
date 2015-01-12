@@ -1,14 +1,13 @@
 use std::collections::HashMap;
-use std::fmt;
+use std::iter::repeat;
 use serialize::json::Json;
 
-use physics;
 use physics::Shape;
 use physics::v3::V3;
 use types::{BlockId, ObjectId};
 
 
-#[deriving(Show)]
+#[derive(Show)]
 pub struct ParseError(pub String);
 
 
@@ -38,49 +37,64 @@ pub struct BlockData {
 
 
 macro_rules! fail {
-    ($msg:expr $($extra:tt)*) => {
-        Err(ParseError(format!($msg $($extra)*)))
-    }
+    ($msg:expr) => {
+        fail!($msg,)
+    };
+    ($msg:expr, $($extra:tt)*) => {
+        Err(ParseError(format!($msg, $($extra)*)))
+    };
 }
 
 macro_rules! expect {
-    ($e:expr, $str:expr $($extra:tt)*) => {
+    ($e:expr, $str:expr) => {
+        expect!($e, $str,)
+    };
+    ($e:expr, $str:expr, $($extra:tt)*) => {
         match $e {
             Some(x) => x,
-            None => return Err(ParseError(format!($str $($extra)*))),
+            None => return Err(ParseError(format!($str, $($extra)*))),
         }
-    }
+    };
 }
 
 macro_rules! find_convert {
-    ($json:expr, $key:expr, $convert:ident, $where_:expr $($extra:tt)*) => {{
+    ($json:expr, $key:expr, $convert:ident, $where_:expr) => {
+        find_convert!($json, $key, $convert, $where_,)
+    };
+    ($json:expr, $key:expr, $convert:ident, $where_:expr, $($extra:tt)*) => {{
         let key = $key;
         match $json.find(key) {
             Some(j) => match j.$convert() {
                 Some(x) => Ok(x),
                 None => fail!(concat!("failed to convert key \"{}\" with {} ", $where_),
-                              key, stringify!($convert) $($extra)*),
+                              key, stringify!($convert), $($extra)*),
             },
             None => fail!(concat!("missing key \"{}\" ", $where_),
-                          key $($extra)*),
+                          key, $($extra)*),
         }
-    }}
+    }};
 }
 
 macro_rules! get_convert {
-    ($json:expr, $key:expr, $convert:ident, $where_:expr $($extra:tt)*) => {
-        try!(find_convert!($json, $key, $convert, $where_ $($extra)*))
-    }
+    ($json:expr, $key:expr, $convert:ident, $where_:expr) => {
+        get_convert!($json, $key, $convert, $where_,)
+    };
+    ($json:expr, $key:expr, $convert:ident, $where_:expr, $($extra:tt)*) => {
+        try!(find_convert!($json, $key, $convert, $where_, $($extra)*))
+    };
 }
 
 macro_rules! convert {
-    ($json:expr, $convert:ident, $what:expr $($extra:tt)*) => {{
+    ($json:expr, $convert:ident, $what:expr) => {
+        convert!($expr, $convert, $what,)
+    };
+    ($json:expr, $convert:ident, $what:expr, $($extra:tt)*) => {{
         match json.$convert() {
             Some(x) => Ok(x),
             None => fail!(concat!("failed to convert ", $what, " with {}"),
                           $($extra)*, stringify!($convert)),
         },
-    }}
+    }};
 }
 
 
@@ -89,7 +103,7 @@ impl BlockData {
         let blocks = get_convert!(json, "blocks", as_array,
                                   "at top level");
 
-        let mut shapes = Vec::from_elem(blocks.len(), Shape::Empty);
+        let mut shapes = repeat(Shape::Empty).take(blocks.len()).collect::<Vec<_>>();
         let mut name_to_id = HashMap::new();
 
         for (i, block) in blocks.iter().enumerate() {
@@ -110,7 +124,7 @@ impl BlockData {
                 },
             };
             shapes[i] = shape;
-            name_to_id.insert(name.into_string(), i as BlockId);
+            name_to_id.insert(String::from_str(name), i as BlockId);
         }
 
         Ok(BlockData {
@@ -120,7 +134,7 @@ impl BlockData {
     }
 
     pub fn shape(&self, id: BlockId) -> Shape {
-        self.shapes.as_slice().get(id as uint).map(|&x| x).unwrap_or(Shape::Empty)
+        self.shapes.as_slice().get(id as usize).map(|&x| x).unwrap_or(Shape::Empty)
     }
 
     pub fn get_id(&self, name: &str) -> BlockId {
@@ -184,7 +198,7 @@ impl ObjectTemplates {
                 size: size,
                 blocks: blocks,
             });
-            name_to_id.insert(name.into_string(), i as ObjectId);
+            name_to_id.insert(String::from_str(name), i as ObjectId);
         }
 
         Ok(ObjectTemplates {
@@ -194,7 +208,7 @@ impl ObjectTemplates {
     }
 
     pub fn template(&self, id: ObjectId) -> &ObjectTemplate {
-        self.templates.as_slice().get(id as uint).unwrap()
+        self.templates.as_slice().get(id as usize).unwrap()
     }
 
     pub fn get_id(&self, name: &str) -> ObjectId {

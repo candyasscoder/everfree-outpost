@@ -1,22 +1,22 @@
 #![crate_name = "backend"]
-#![feature(globs)]
-#![feature(phase)]
-#![feature(tuple_indexing, if_let)]
 #![feature(unboxed_closures)]
-#![feature(macro_rules)]
-#![feature(associated_types)]
 #![feature(unsafe_destructor)]
 #![allow(non_upper_case_globals)]
+#![allow(unstable)]
+#![allow(dead_code)]
 
-#[phase(plugin, link)]
-extern crate log;
+#[macro_use] extern crate log;
 extern crate time;
 extern crate serialize;
+
+extern crate collect;
 
 extern crate physics;
 
 use std::cmp;
 use std::io;
+use std::sync::mpsc::{Sender, Receiver, channel};
+use std::thread::Thread;
 use serialize::json;
 
 use physics::v3::V3;
@@ -69,22 +69,23 @@ fn main() {
     let (req_send, req_recv) = channel();
     let (resp_send, resp_recv) = channel();
 
-    spawn(proc() {
+    Thread::spawn(move || {
         let reader = io::stdin();
         tasks::run_input(reader, req_send).unwrap();
     });
 
-    spawn(proc() {
-        let writer = io::BufferedWriter::new(io::stdout().unwrap());
+    Thread::spawn(move || {
+        let writer = io::BufferedWriter::new(io::stdout());
         tasks::run_output(writer, resp_recv).unwrap();
     });
 
-    let mut state = state::State::new(&data);
+    let state = state::State::new(&data);
     let mut server = Server::new(resp_send, state);
     server.run(req_recv);
 }
 
 
+#[derive(Copy)]
 pub enum WakeReason {
     HandleInput(ClientId, InputBits),
     HandleAction(ClientId, ActionBits),
@@ -113,14 +114,16 @@ impl<'a> Server<'a> {
             let wake_recv = self.wake_queue.wait_recv(now());
 
             select! {
-                () = wake_recv.recv() => {
+                wake = wake_recv.recv() => {
+                    let () = wake.unwrap();
                     let now = now();
                     while let Some((time, reason)) = self.wake_queue.pop(now) {
                         self.handle_wake(time, reason);
                     }
                 },
 
-                (id, req) = reqs.recv() => {
+                req = reqs.recv() => {
+                    let (id, req) = req.unwrap();
                     self.handle_req(now(), id, req);
                 }
             }
@@ -141,7 +144,8 @@ impl<'a> Server<'a> {
             },
 
             Request::Ping(cookie) => {
-                self.resps.send((client_id, Response::Pong(cookie, now.to_local())));
+                self.resps.send((client_id, Response::Pong(cookie, now.to_local())))
+                    .unwrap();
             },
 
             Request::Input(time, input) => {
@@ -160,15 +164,16 @@ impl<'a> Server<'a> {
                     chunks: 8 * 8,
                     entities: 1,
                 };
-                self.resps.send((client_id, Response::Init(info)));
+                self.resps.send((client_id, Response::Init(info))).unwrap();
 
                 let (region, offset) = {
                     let ce = self.state.client_entity(client_id).unwrap();
                     let motion = entity_motion(now, ce);
                     let anim = ce.entity.anim;
                     self.resps.send((client_id,
-                                     Response::EntityUpdate(ce.client.entity_id, motion, anim)));
-                    log!(10, "pos={}, region={}",
+                                     Response::EntityUpdate(ce.client.entity_id, motion, anim)))
+                        .unwrap();
+                    log!(10, "pos={:?}, region={:?}",
                          ce.entity.pos(now),
                          ce.client.view_state.region());
 
@@ -193,11 +198,11 @@ impl<'a> Server<'a> {
 
             Request::RemoveClient => {
                 self.state.remove_client(client_id);
-                self.resps.send((client_id, Response::ClientRemoved));
+                self.resps.send((client_id, Response::ClientRemoved)).unwrap();
             },
 
             Request::BadMessage(opcode) => {
-                warn!("unrecognized opcode from client {}: {:x}",
+                warn!("unrecognized opcode from client {:?}: {:x}",
                       client_id, opcode.unwrap());
             },
         }
@@ -228,7 +233,8 @@ impl<'a> Server<'a> {
                                                           ce.client.chunk_offset);
                                 let idx = chunk_to_idx(cx, cy, offset);
                                 let data = self.state.get_terrain_rle16(cx, cy);
-                                self.resps.send((id, Response::TerrainChunk(idx as u16, data)));
+                                self.resps.send((id, Response::TerrainChunk(idx as u16, data)))
+                                    .unwrap();
                             }
                         },
                     }
@@ -280,7 +286,8 @@ impl<'a> Server<'a> {
              ce.entity.end_time())
         };
         for &send_id in self.state.clients.keys() {
-            self.resps.send((send_id, Response::EntityUpdate(entity_id, motion, anim)));
+            self.resps.send((send_id, Response::EntityUpdate(entity_id, motion.clone(), anim)))
+                .unwrap();
         }
 
         if motion.start_pos != motion.end_pos {
@@ -296,7 +303,8 @@ impl<'a> Server<'a> {
 
         let idx = chunk_to_idx(cx, cy, offset);
         let data = self.state.get_terrain_rle16(cx, cy);
-        self.resps.send((client_id, Response::TerrainChunk(idx as u16, data)));
+        self.resps.send((client_id, Response::TerrainChunk(idx as u16, data)))
+            .unwrap();
     }
 
     fn unload_chunk(&mut self,
@@ -306,7 +314,8 @@ impl<'a> Server<'a> {
         self.state.unload_chunk(cx, cy);
 
         let idx = chunk_to_idx(cx, cy, offset);
-        self.resps.send((client_id, Response::UnloadChunk(idx as u16)));
+        self.resps.send((client_id, Response::UnloadChunk(idx as u16)))
+            .unwrap();
     }
 }
 

@@ -1,10 +1,12 @@
 use core::prelude::*;
 use core::cmp::{min, max};
 use core::fmt;
+use core::iter::FromIterator;
 use core::num::SignedInt;
+use core::ops::{Add, Sub, Mul, Div, Rem, Neg, Shl, Shr, BitAnd, BitOr, BitXor, Not};
 
 
-#[deriving(Eq, PartialEq, Show)]
+#[derive(Copy, Eq, PartialEq, Show)]
 pub enum Axis {
     X,
     Y,
@@ -23,7 +25,7 @@ pub mod DirAxis {
     pub const NegZ: DirAxis = (Axis::Z, true);
 }
 
-#[deriving(Eq, PartialEq, Clone)]
+#[derive(Copy, Eq, PartialEq, Clone)]
 pub struct V3 {
     pub x: i32,
     pub y: i32,
@@ -190,7 +192,8 @@ pub struct V3Items<'a> {
     i: u8,
 }
 
-impl<'a> Iterator<i32> for V3Items<'a> {
+impl<'a> Iterator for V3Items<'a> {
+    type Item = i32;
     fn next(&mut self) -> Option<i32> {
         self.i += 1;
         if self.i == 1 {
@@ -206,7 +209,7 @@ impl<'a> Iterator<i32> for V3Items<'a> {
 }
 
 impl FromIterator<i32> for V3 {
-    fn from_iter<T: Iterator<i32>>(mut iterator: T) -> V3 {
+    fn from_iter<I: Iterator<Item=i32>>(mut iterator: I) -> V3 {
         let x = iterator.next().unwrap();
         let y = iterator.next().unwrap();
         let z = iterator.next().unwrap();
@@ -222,82 +225,94 @@ pub fn scalar(w: i32) -> V3 {
     }
 }
 
-impl Add<V3, V3> for V3 {
-    fn add(&self, other: &V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a + b)
+impl Add<V3> for V3 {
+    type Output = V3;
+    fn add(self, other: V3) -> V3 {
+        self.zip(&other, |&:a: i32, b: i32| a + b)
     }
 }
 
-impl Sub<V3, V3> for V3 {
-    fn sub(&self, other: &V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a - b)
+impl Sub<V3> for V3 {
+    type Output = V3;
+    fn sub(self, other: V3) -> V3 {
+        self.zip(&other, |&:a: i32, b: i32| a - b)
     }
 }
 
-impl Mul<V3, V3> for V3 {
-    fn mul(&self, other: &V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a * b)
+impl Mul<V3> for V3 {
+    type Output = V3;
+    fn mul(self, other: V3) -> V3 {
+        self.zip(&other, |&:a: i32, b: i32| a * b)
     }
 }
 
-impl Div<V3, V3> for V3 {
+impl Div<V3> for V3 {
+    type Output = V3;
     #[inline]
-    fn div(&self, other: &V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a / b)
+    fn div(self, other: V3) -> V3 {
+        self.zip(&other, |&:a: i32, b: i32| a / b)
     }
 }
 
-impl Rem<V3, V3> for V3 {
+impl Rem<V3> for V3 {
+    type Output = V3;
     #[inline]
-    fn rem(&self, other: &V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a % b)
+    fn rem(self, other: V3) -> V3 {
+        self.zip(&other, |&:a: i32, b: i32| a % b)
     }
 }
 
-impl Neg<V3> for V3 {
-    fn neg(&self) -> V3 {
+impl Neg for V3 {
+    type Output = V3;
+    fn neg(self) -> V3 {
         self.map(|&:a: i32| -a)
     }
 }
 
-impl Shl<uint, V3> for V3 {
-    fn shl(&self, rhs: &uint) -> V3 {
-        self.map(|&:a: i32| a << *rhs)
+impl Shl<usize> for V3 {
+    type Output = V3;
+    fn shl(self, rhs: usize) -> V3 {
+        self.map(|&:a: i32| a << rhs)
     }
 }
 
-impl Shr<uint, V3> for V3 {
-    fn shr(&self, rhs: &uint) -> V3 {
-        self.map(|&:a: i32| a >> *rhs)
+impl Shr<usize> for V3 {
+    type Output = V3;
+    fn shr(self, rhs: usize) -> V3 {
+        self.map(|&:a: i32| a >> rhs)
     }
 }
 
-impl BitAnd<V3, V3> for V3 {
-    fn bitand(&self, other: &V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a & b)
+impl BitAnd<V3> for V3 {
+    type Output = V3;
+    fn bitand(self, other: V3) -> V3 {
+        self.zip(&other, |&:a: i32, b: i32| a & b)
     }
 }
 
-impl BitOr<V3, V3> for V3 {
-    fn bitor(&self, other: &V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a | b)
+impl BitOr<V3> for V3 {
+    type Output = V3;
+    fn bitor(self, other: V3) -> V3 {
+        self.zip(&other, |&:a: i32, b: i32| a | b)
     }
 }
 
-impl BitXor<V3, V3> for V3 {
-    fn bitxor(&self, other: &V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a ^ b)
+impl BitXor<V3> for V3 {
+    type Output = V3;
+    fn bitxor(self, other: V3) -> V3 {
+        self.zip(&other, |&:a: i32, b: i32| a ^ b)
     }
 }
 
-impl Not<V3> for V3 {
-    fn not(&self) -> V3 {
+impl Not for V3 {
+    type Output = V3;
+    fn not(self) -> V3 {
         self.map(|&:a: i32| !a)
     }
 }
 
 
-#[deriving(Eq, PartialEq, Clone)]
+#[derive(Copy, Eq, PartialEq, Clone)]
 pub struct Region {
     pub min: V3,
     pub max: V3,
@@ -399,66 +414,75 @@ impl Region {
     }
 
     #[inline]
-    pub fn index(&self, point: &V3) -> uint {
-        let dx = (self.max.x - self.min.x) as uint;
-        let dy = (self.max.y - self.min.y) as uint;
+    pub fn index(&self, point: &V3) -> usize {
+        let dx = (self.max.x - self.min.x) as usize;
+        let dy = (self.max.y - self.min.y) as usize;
         let offset = *point - self.min;
-        let x = offset.x as uint;
-        let y = offset.y as uint;
-        let z = offset.z as uint;
+        let x = offset.x as usize;
+        let y = offset.y as usize;
+        let z = offset.z as usize;
         (z * dy + y) * dx + x
     }
 }
 
-impl Add<V3, Region> for Region {
-    fn add(&self, other: &V3) -> Region {
-        Region::new(self.min + *other, self.max + *other)
+impl Add<V3> for Region {
+    type Output = Region;
+    fn add(self, other: V3) -> Region {
+        Region::new(self.min + other, self.max + other)
     }
 }
 
-impl Sub<V3, Region> for Region {
-    fn sub(&self, other: &V3) -> Region {
-        Region::new(self.min - *other, self.max - *other)
+impl Sub<V3> for Region {
+    type Output = Region;
+    fn sub(self, other: V3) -> Region {
+        Region::new(self.min - other, self.max - other)
     }
 }
 
-impl Mul<V3, Region> for Region {
-    fn mul(&self, other: &V3) -> Region {
-        Region::new(self.min * *other, self.max * *other)
+impl Mul<V3> for Region {
+    type Output = Region;
+    fn mul(self, other: V3) -> Region {
+        Region::new(self.min * other, self.max * other)
     }
 }
 
-impl Div<V3, Region> for Region {
-    fn div(&self, other: &V3) -> Region {
-        Region::new(self.min / *other, self.max / *other)
+impl Div<V3> for Region {
+    type Output = Region;
+    fn div(self, other: V3) -> Region {
+        Region::new(self.min / other, self.max / other)
     }
 }
 
-impl Rem<V3, Region> for Region {
-    fn rem(&self, other: &V3) -> Region {
-        Region::new(self.min % *other, self.max % *other)
+impl Rem<V3> for Region {
+    type Output = Region;
+    fn rem(self, other: V3) -> Region {
+        Region::new(self.min % other, self.max % other)
     }
 }
 
-impl Neg<Region> for Region {
-    fn neg(&self) -> Region {
+impl Neg for Region {
+    type Output = Region;
+    fn neg(self) -> Region {
         Region::new(-self.min, -self.max)
     }
 }
 
-impl Shl<uint, Region> for Region {
-    fn shl(&self, rhs: &uint) -> Region {
-        Region::new(self.min << *rhs, self.max << *rhs)
+impl Shl<usize> for Region {
+    type Output = Region;
+    fn shl(self, rhs: usize) -> Region {
+        Region::new(self.min << rhs, self.max << rhs)
     }
 }
 
-impl Shr<uint, Region> for Region {
-    fn shr(&self, rhs: &uint) -> Region {
-        Region::new(self.min >> *rhs, self.max >> *rhs)
+impl Shr<usize> for Region {
+    type Output = Region;
+    fn shr(self, rhs: usize) -> Region {
+        Region::new(self.min >> rhs, self.max >> rhs)
     }
 }
 
 
+#[derive(Copy)]
 pub struct RegionPoints {
     cur: V3,
     min: V3,
@@ -477,7 +501,8 @@ impl RegionPoints {
     }
 }
 
-impl Iterator<V3> for RegionPoints {
+impl Iterator for RegionPoints {
+    type Item = V3;
     fn next(&mut self) -> Option<V3> {
         self.cur.x += 1;
         if self.cur.x >= self.max.x {

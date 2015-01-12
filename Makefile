@@ -71,7 +71,7 @@ ifeq ($(RELEASE),)
 	RELEASE_ext = 
 	BUILD_NATIVE = $(BUILD_NATIVE_DEBUG)
 else
-	RELEASE_RUSTFLAGS_opt = --opt-level=3
+	RELEASE_RUSTFLAGS_opt = -C opt-level=3
 	RELEASE_RUSTFLAGS_lto = -C lto
 	RELEASE_ext = .opt
 	BUILD_NATIVE = $(BUILD_NATIVE_RELEASE)
@@ -80,15 +80,19 @@ endif
 # FIXME: For asmjs, we force opt-level=3 to eliminate some constructs that
 # emscripten-fastcomp doesn't like.
 RUSTFLAGS_asmjs = -L $(BUILD_ASMJS) -L $(BUILD_NATIVE) \
-		--opt-level=3 --target=$(TARGET) \
+		-C opt-level=3 --target=$(TARGET) \
 		-Z no-landing-pads -C no-stack-check --cfg asmjs
 
-RUSTFLAGS_native = -L $(BUILD_NATIVE) \
+ifneq ($(RUST_EXTRA_LIBDIR),)
+	RUSTFLAGS_extra_libdir = -L $(RUST_EXTRA_LIBDIR)
+endif
+
+RUSTFLAGS_native = -L $(BUILD_NATIVE) $(RUSTFLAGS_extra_libdir) \
 		$(RELEASE_RUSTFLAGS_opt) --target=$(HOST)
 
 $(BUILD_ASMJS)/lib%.rlib: $(SRC)/%/lib.rs
 	$(RUSTC) $< --out-dir $(BUILD_ASMJS) --crate-type=rlib $(RUSTFLAGS_asmjs) \
-		--dep-info $(BUILD_ASMJS)/$*.d
+		--emit=link,dep-info
 
 # Special rule for libcore, since its source code is in a weird location.
 $(BUILD_ASMJS)/libcore.rlib: $(RUST_SRC)/src/libcore/lib.rs
@@ -96,11 +100,11 @@ $(BUILD_ASMJS)/libcore.rlib: $(RUST_SRC)/src/libcore/lib.rs
 
 $(BUILD_NATIVE)/lib%.rlib: $(SRC)/%/lib.rs
 	$(RUSTC) $< --out-dir $(BUILD_NATIVE) --crate-type=rlib $(RUSTFLAGS_native) \
-		--dep-info $(BUILD_NATIVE)/$*.d
+		--emit=link,dep-info
 
 $(BUILD_NATIVE)/lib%.so: $(SRC)/%/lib.rs
 	$(RUSTC) $< --out-dir $(BUILD_NATIVE) --crate-type=dylib $(RUSTFLAGS_native) \
-		--dep-info $(BUILD_NATIVE)/$*.d
+		--emit=link,dep-info
 
 -include $(wildcard $(BUILD_ASMJS)/*.d $(BUILD_NATIVE)/*.d)
 
@@ -110,7 +114,7 @@ $(BUILD_NATIVE)/lib%.so: $(SRC)/%/lib.rs
 ASMLIBS = $(BUILD_ASMLIBS)/asmlibs
 
 $(ASMLIBS).ll: $(SRC)/client/asmlibs.rs $(foreach dep,$(DEPS_asmlibs),$(BUILD_ASMJS)/lib$(dep).rlib)
-	$(RUSTC) $< -o $@ --emit=ir --crate-type=staticlib $(RUSTFLAGS_asmjs) -C lto
+	$(RUSTC) $< -o $@ --emit=llvm-ir --crate-type=staticlib $(RUSTFLAGS_asmjs) -C lto
 
 $(ASMLIBS).clean.ll: $(ASMLIBS).ll
 	sed -e 's/\<\(readonly\|readnone\|cold\)\>//g' \
@@ -171,8 +175,8 @@ $(BUILD_MIN)/outpost.js: $(JS_SRCS)
 
 $(BUILD_NATIVE)/backend: $(SRC)/server/main.rs \
 		$(foreach dep,$(DEPS_backend),$(BUILD_NATIVE)/lib$(dep).rlib)
-	$(RUSTC) $< -o $@ $(RUSTFLAGS_native) $(RELEASE_RUSTFLAGS_lto) \
-		--dep-info $(BUILD_NATIVE)/backend.d
+	$(RUSTC) $< --out-dir $(BUILD_NATIVE) $(RUSTFLAGS_native) $(RUSTFLAGS_extra_libdir) \
+		$(RELEASE_RUSTFLAGS_lto) --emit=link,dep-info
 
 
 # Rules for misc files

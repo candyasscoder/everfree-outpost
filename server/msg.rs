@@ -11,7 +11,7 @@ pub use self::Response::*;
 pub type ClientId = u16;
 
 
-#[deriving(PartialEq, Eq, Show)]
+#[derive(Copy, PartialEq, Eq, Show)]
 struct Opcode(u16);
 
 impl Opcode {
@@ -26,11 +26,11 @@ impl wire::WriteTo for Opcode {
         self.unwrap().write_to(w)
     }
 
-    fn size(&self) -> uint { self.unwrap().size() }
+    fn size(&self) -> usize { self.unwrap().size() }
 }
 
 impl wire::WriteToFixed for Opcode {
-    fn size_fixed(_: Option<Opcode>) -> uint {
+    fn size_fixed(_: Option<Opcode>) -> usize {
         wire::WriteToFixed::size_fixed(None::<u16>)
     }
 }
@@ -78,7 +78,7 @@ pub enum Request {
     UpdateMotion(Motion),
     Ping(u16),
     Input(LocalTime, u16),
-    Login([u32, ..4], String),
+    Login([u32; 4], String),
     Action(LocalTime, u16),
 
     // Control messages
@@ -146,7 +146,7 @@ impl Response {
                 ww.write_msg(id, (op::PlayerMotion, entity, motion)),
             Pong(data, time) =>
                 ww.write_msg(id, (op::Pong, data, time)),
-            EntityUpdate(entity_id, motion, anim) =>
+            EntityUpdate(entity_id, ref motion, anim) =>
                 ww.write_msg(id, (op::EntityUpdate, entity_id, motion, anim)),
             Init(ref data) =>
                 ww.write_msg(id, (op::Init, data.flatten())),
@@ -157,7 +157,7 @@ impl Response {
 
             ClientRemoved =>
                 ww.write_msg(id, (op::ClientRemoved)),
-        })
+        });
         ww.flush()
     }
 }
@@ -171,14 +171,14 @@ pub struct InitData {
 }
 
 impl InitData {
-    fn flatten(self) -> (EntityId, (u16, u16), u8, u8) {
-        let InitData { entity_id, camera_pos, chunks, entities } = self;
+    fn flatten(&self) -> (EntityId, (u16, u16), u8, u8) {
+        let InitData { entity_id, camera_pos, chunks, entities } = *self;
         (entity_id, camera_pos, chunks, entities)
     }
 }
 
 
-#[deriving(Show)]
+#[derive(Show, Clone)]
 pub struct Motion {
     pub start_pos: (u16, u16, u16),
     pub start_time: LocalTime,
@@ -187,7 +187,7 @@ pub struct Motion {
 }
 
 impl wire::ReadFrom for Motion {
-    fn read_from<R: Reader>(r: &mut R, bytes: uint) -> IoResult<Motion> {
+    fn read_from<R: Reader>(r: &mut R, bytes: usize) -> IoResult<Motion> {
         let (a, b, c, d): ((u16, u16, u16), LocalTime, (u16, u16, u16), LocalTime) =
                             try!(wire::ReadFrom::read_from(r, bytes));
         Ok(Motion {
@@ -198,7 +198,7 @@ impl wire::ReadFrom for Motion {
         })
     }
 
-    fn size(_: Option<Motion>) -> (uint, uint) {
+    fn size(_: Option<Motion>) -> (usize, usize) {
         let fixed = 2 * wire::ReadFrom::size(None::<(u16, u16, u16)>).0 +
                     2 * wire::ReadFrom::size(None::<LocalTime>).0;
         (fixed, 0)
@@ -214,7 +214,7 @@ impl wire::WriteTo for Motion {
         Ok(())
     }
 
-    fn size(&self) -> uint {
+    fn size(&self) -> usize {
         self.start_pos.size() +
         self.start_time.size() +
         self.end_pos.size() +

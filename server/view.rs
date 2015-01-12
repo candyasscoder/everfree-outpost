@@ -10,7 +10,7 @@ pub struct ViewState {
     last_center: (i32, i32),
 }
 
-#[deriving(Show)]
+#[derive(Show)]
 pub struct ViewRegion {
     pub x: i32,
     pub y: i32,
@@ -53,7 +53,8 @@ pub struct Points {
     max_y: i32,
 }
 
-impl Iterator<(i32, i32)> for Points {
+impl Iterator for Points {
+    type Item = (i32, i32);
     fn next(&mut self) -> Option<(i32, i32)> {
         while self.y < self.max_y && self.x >= self.max_x {
             self.x = self.min_x;
