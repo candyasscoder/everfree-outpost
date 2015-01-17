@@ -299,7 +299,6 @@ impl<'a> State<'a> {
     }
 
     pub fn perform_action(&mut self, now: Time, id: ClientId, _action: ActionBits) -> Vec<StateChange> {
-        /*
         let pos_px = {
             let ce = match self.client_entity(id) {
                 Some(ce) => ce,
@@ -308,57 +307,21 @@ impl<'a> State<'a> {
             ce.entity.pos(now) + scalar(16) + scalar(32) * ce.entity.facing
         };
         let pos = pos_px.div_floor(&scalar(TILE_SIZE));
-        let chunk = pos.div_floor(&scalar(CHUNK_SIZE));
 
-        log!(10, "perform action: px={:?}; tile={:?}; chunk={:?}", pos_px, pos, chunk);
+        log!(10, "perform action: px={:?}; tile={:?}", pos_px, pos);
 
         let tree_id = self.data.object_templates.get_id("tree");
         let stump_id = self.data.object_templates.get_id("stump");
 
-        let found_idx = {
-            let objects = match self.map.get(&(chunk.x, chunk.y)) {
-                Some(c) => c.objects(),
-                None => return Vec::new(),
-            };
-
-            log!(10, "got {} objects for chunk", objects.len());
-
-            let mut found_idx = None;
-            for (i, obj) in objects.iter().enumerate() {
-                if obj.template_id != tree_id {
-                    continue;
-                }
-
-                let obj_base = V3::new(obj.x as i32,
-                                       obj.y as i32,
-                                       obj.z as i32);
-                let offset = pos - obj_base;
-                if Region::around(V3::new(2, 1, 0), 1).contains(&offset) {
-                    log!(10, "found hit on tree {:?} at offset {:?}", i, offset);
-                    found_idx = Some(i);
-                    break;
-                }
-            }
-
-            found_idx
-        };
-
-        log!(10, "hit index: {:?}", found_idx);
+        self.map.replace_object_at_point(pos, stump_id);
 
         let mut updates = Vec::new();
-
-        match found_idx {
-            Some(idx) => {
-                self.map[(chunk.x, chunk.y)]
-                    .objects_mut()[idx].template_id = stump_id;
-                updates.push(ChunkUpdate(chunk.x, chunk.y));
-            },
-            None => {},
-        }
+        self.map.refresh(
+            |cx, cy, old, new| {
+                updates.push(ChunkUpdate(cx, cy));
+            });
 
         updates
-        */
-        vec![]
     }
 
     pub fn load_chunk(&mut self, cx: i32, cy: i32) {
