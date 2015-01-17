@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::iter::repeat;
 use std::rand::{Rng, XorShiftRng, SeedableRng};
 
@@ -5,6 +6,7 @@ use collect::lru_cache::LruCache;
 
 use data::BlockData;
 use physics::v3::{V3, Region, scalar};
+use terrain::BlockChunk;
 
 use self::Section::*;
 
@@ -147,7 +149,7 @@ fn disk_sample2<R, GS>(rng: &mut R,
 
 
 trait PointSource {
-    fn generate_points(&mut self, bounds: Region) -> Vec<V3>;
+    fn generate_points(&self, bounds: Region) -> Vec<V3>;
 }
 
 
@@ -157,7 +159,7 @@ struct IsoDiskSampler<GS: Fn(V3) -> i32> {
     max_spacing: i32,
     get_spacing: GS,
     chunk_size: i32,
-    cache: LruCache<(i32, i32, Section), Vec<V3>>,
+    cache: RefCell<LruCache<(i32, i32, Section), Vec<V3>>>,
 }
 
 impl<GS: Fn(V3) -> i32> IsoDiskSampler<GS> {
@@ -172,47 +174,55 @@ impl<GS: Fn(V3) -> i32> IsoDiskSampler<GS> {
             max_spacing: max_spacing as i32,
             get_spacing: get_spacing,
             chunk_size: chunk_size as i32,
-            cache: LruCache::new(LRU_SIZE),
+            cache: RefCell::new(LruCache::new(LRU_SIZE)),
         }
     }
 
-    fn get_chunk(&mut self, x: i32, y: i32, section: Section) -> &[V3] {
+    fn get_chunk<'c>(&self,
+                     cache: &'c mut LruCache<(i32, i32, Section), Vec<V3>>,
+                     x: i32,
+                     y: i32,
+                     section: Section) -> &'c [V3] {
         let key = (x, y, section);
         // Can't use Entry API here because we need to take a borrow on `self` to call
         // `generate_chunk`.
-        if self.cache.get(&key).is_none() {
-            self.generate_chunk(x, y, section);
+        if cache.get(&key).is_none() {
+            self.generate_chunk(cache, x, y, section);
         }
-        self.cache.get(&key).unwrap().as_slice()
+        cache.get(&key).unwrap().as_slice()
     }
 
-    fn generate_chunk(&mut self, x: i32, y: i32, section: Section) {
+    fn generate_chunk(&self,
+                      cache: &mut LruCache<(i32, i32, Section), Vec<V3>>,
+                      x: i32,
+                      y: i32,
+                      section: Section) {
         let mut initial = Vec::new();
         match section {
             Corner => { },
             Top => {
-                initial.push_all(self.get_chunk(x,     y,     Corner));
-                initial.push_all(self.get_chunk(x + 1, y,     Corner));
+                initial.push_all(self.get_chunk(cache,  x,     y,     Corner));
+                initial.push_all(self.get_chunk(cache,  x + 1, y,     Corner));
             },
             Left => {
-                initial.push_all(self.get_chunk(x,     y,     Corner));
-                initial.push_all(self.get_chunk(x - 1, y,     Top));
-                initial.push_all(self.get_chunk(x,     y,     Top));
+                initial.push_all(self.get_chunk(cache,  x,     y,     Corner));
+                initial.push_all(self.get_chunk(cache,  x - 1, y,     Top));
+                initial.push_all(self.get_chunk(cache,  x,     y,     Top));
 
-                initial.push_all(self.get_chunk(x,     y + 1, Corner));
-                initial.push_all(self.get_chunk(x - 1, y + 1, Top));
-                initial.push_all(self.get_chunk(x,     y + 1, Top));
+                initial.push_all(self.get_chunk(cache,  x,     y + 1, Corner));
+                initial.push_all(self.get_chunk(cache,  x - 1, y + 1, Top));
+                initial.push_all(self.get_chunk(cache,  x,     y + 1, Top));
             },
             Center => {
-                initial.push_all(self.get_chunk(x,     y,     Corner));
-                initial.push_all(self.get_chunk(x + 1, y,     Corner));
-                initial.push_all(self.get_chunk(x + 1, y + 1, Corner));
-                initial.push_all(self.get_chunk(x,     y + 1, Corner));
+                initial.push_all(self.get_chunk(cache,  x,     y,     Corner));
+                initial.push_all(self.get_chunk(cache,  x + 1, y,     Corner));
+                initial.push_all(self.get_chunk(cache,  x + 1, y + 1, Corner));
+                initial.push_all(self.get_chunk(cache,  x,     y + 1, Corner));
 
-                initial.push_all(self.get_chunk(x,     y,     Top));
-                initial.push_all(self.get_chunk(x,     y,     Left));
-                initial.push_all(self.get_chunk(x,     y + 1, Top));
-                initial.push_all(self.get_chunk(x + 1, y,     Left));
+                initial.push_all(self.get_chunk(cache,  x,     y,     Top));
+                initial.push_all(self.get_chunk(cache,  x,     y,     Left));
+                initial.push_all(self.get_chunk(cache,  x,     y + 1, Top));
+                initial.push_all(self.get_chunk(cache,  x + 1, y,     Left));
             },
         }
 
@@ -229,12 +239,14 @@ impl<GS: Fn(V3) -> i32> IsoDiskSampler<GS> {
                                 self.max_spacing,
                                 &self.get_spacing,
                                 initial.as_slice());
-        self.cache.insert((x, y, section), data);
+        cache.insert((x, y, section), data);
     }
 }
 
 impl<GS: Fn(V3) -> i32> PointSource for IsoDiskSampler<GS> {
-    fn generate_points(&mut self, bounds: Region) -> Vec<V3> {
+    fn generate_points(&self, bounds: Region) -> Vec<V3> {
+        let mut cache = self.cache.borrow_mut();
+
         let bounds = bounds.with_zs(0, 1);
         let mut points = Vec::new();
         for pos in bounds.div_round_signed(self.chunk_size * CHUNK_MULT).points() {
@@ -245,7 +257,7 @@ impl<GS: Fn(V3) -> i32> PointSource for IsoDiskSampler<GS> {
                     continue;
                 }
 
-                points.extend(self.get_chunk(x, y, section).iter()
+                points.extend(self.get_chunk(&mut *cache, x, y, section).iter()
                                   .map(|&pos| pos)
                                   .filter(|pos| bounds.contains(pos)));
             }
@@ -314,9 +326,9 @@ impl TerrainGenerator {
         }
     }
 
-    pub fn generate_chunk(&mut self,
+    pub fn generate_chunk(&self,
                           block_data: &BlockData,
-                          cx: i32, cy: i32) -> (::state::Chunk, Vec<V3>) {
+                          cx: i32, cy: i32) -> (BlockChunk, Vec<V3>) {
         use physics::{CHUNK_BITS, CHUNK_SIZE};
         const Z_STEP: usize = 1 << (2 * CHUNK_BITS);
 

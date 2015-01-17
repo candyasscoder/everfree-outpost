@@ -15,14 +15,10 @@ use input::{InputBits, INPUT_LEFT, INPUT_RIGHT, INPUT_UP, INPUT_DOWN, INPUT_RUN}
 use input::ActionBits;
 use data::{Data, BlockData};
 use gen::TerrainGenerator;
+use terrain::{Terrain, Object, BlockChunk, EMPTY_CHUNK};
 
-pub use self::terrain_entry::{TerrainEntry, BaseTerrainRef, ObjectsRef};
 use self::StateChange::ChunkUpdate;
 
-
-const CHUNK_TOTAL: usize = 1 << (3 * CHUNK_BITS);
-pub type Chunk = [BlockId; CHUNK_TOTAL];
-static EMPTY_CHUNK: Chunk = [0; CHUNK_TOTAL];
 
 pub const LOCAL_BITS: usize = 3;
 pub const LOCAL_SIZE: i32 = 1 << LOCAL_BITS;
@@ -30,7 +26,7 @@ pub const LOCAL_MASK: i32 = LOCAL_SIZE - 1;
 pub const LOCAL_TOTAL: usize = 1 << (2 * LOCAL_BITS);
 
 pub struct LocalTerrain<'a> {
-    pub chunks: [Option<&'a Chunk>; LOCAL_TOTAL],
+    pub chunks: [&'a BlockChunk; LOCAL_TOTAL],
 }
 
 impl<'a> ShapeSource for (&'a LocalTerrain<'a>, &'a BlockData) {
@@ -43,10 +39,7 @@ impl<'a> ShapeSource for (&'a LocalTerrain<'a>, &'a BlockData) {
         let chunk_idx = chunk_y * LOCAL_SIZE + chunk_x;
         let tile_idx = (tile_z * CHUNK_SIZE + tile_y) * CHUNK_SIZE + tile_x;
 
-        match map.chunks[chunk_idx as usize] {
-            None => Shape::Empty,
-            Some(chunk) => block_data.shape(chunk[tile_idx as usize]),
-        }
+        block_data.shape(map.chunks[chunk_idx as usize][tile_idx as usize])
     }
 }
 
@@ -156,172 +149,6 @@ pub struct ClientEntityMut<'a> {
 }
 
 
-pub type Terrain<'a> = HashMap<(i32, i32), TerrainEntry<'a>>;
-
-pub struct ObjectTemplate {
-    size: V3,
-    blocks: Vec<BlockId>,
-}
-
-pub struct Object {
-    template_id: u32,
-    x: i8,
-    y: i8,
-    z: i8,
-}
-
-
-mod terrain_entry {
-    use super::{Chunk, Object};
-    use std::ops::{Deref, DerefMut};
-    use physics::v3::{V3, scalar, Region};
-    use physics::CHUNK_SIZE;
-    use data::Data;
-
-
-    pub struct TerrainEntry<'a> {
-        data: &'a Data,
-        ref_count: u32,
-        base_terrain: Chunk,
-        objects: Vec<Object>,
-        block_cache: Chunk,
-    }
-
-
-    pub struct BaseTerrainRef<'a, 'b: 'a> {
-        owner: &'a mut TerrainEntry<'b>,
-    }
-
-    impl<'a, 'b> Deref for BaseTerrainRef<'a, 'b> {
-        type Target = Chunk;
-        fn deref(&self) -> &Chunk {
-            &self.owner.base_terrain
-        }
-    }
-
-    impl<'a, 'b> DerefMut for BaseTerrainRef<'a, 'b> {
-        fn deref_mut(&mut self) -> &mut Chunk {
-            &mut self.owner.base_terrain
-        }
-    }
-
-    #[unsafe_destructor]
-    impl<'a, 'b> Drop for BaseTerrainRef<'a, 'b> {
-        fn drop(&mut self) {
-            self.owner.refresh()
-        }
-    }
-
-
-    pub struct ObjectsRef<'a, 'b: 'a> {
-        owner: &'a mut TerrainEntry<'b>,
-    }
-
-    impl<'a, 'b> Deref for ObjectsRef<'a, 'b> {
-        type Target = Vec<Object>;
-        fn deref(&self) -> &Vec<Object> {
-            &self.owner.objects
-        }
-    }
-
-    impl<'a, 'b> DerefMut for ObjectsRef<'a, 'b> {
-        fn deref_mut(&mut self) -> &mut Vec<Object> {
-            &mut self.owner.objects
-        }
-    }
-
-    #[unsafe_destructor]
-    impl<'a, 'b> Drop for ObjectsRef<'a, 'b> {
-        fn drop(&mut self) {
-            self.owner.refresh()
-        }
-    }
-
-
-    impl<'a> TerrainEntry<'a> {
-        pub fn new(data: &'a Data, base: V3, chunk: Chunk, objs: Vec<V3>) -> TerrainEntry<'a> {
-            let tree_id = data.object_templates.get_id("tree");
-            let objects = objs.into_iter()
-                              .map(|pos| {
-                                       let pos = pos - base;
-                                       Object {
-                                           template_id: tree_id,
-                                           x: pos.x as i8,
-                                           y: pos.y as i8,
-                                           z: pos.z as i8,
-                                       }
-                                   })
-                              .collect();
-
-            let mut entry = TerrainEntry {
-                data: data,
-                ref_count: 1,
-                base_terrain: chunk,
-                objects: objects,
-                block_cache: chunk,
-            };
-            entry.refresh();
-            entry
-        }
-
-        fn refresh(&mut self) {
-            self.block_cache = self.base_terrain;
-
-            let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
-            let block_cache = &mut self.block_cache;
-            let mut set = |&mut: pos, block| {
-                if !bounds.contains(&pos) {
-                    return;
-                }
-
-                block_cache[bounds.index(&pos)] = block;
-            };
-
-            for obj in self.objects.iter() {
-                let template = self.data.object_templates.template(obj.template_id);
-                let min = V3::new(obj.x as i32,
-                                  obj.y as i32,
-                                  obj.z as i32) + bounds.min;
-                let obj_bounds = Region::new(min, min + template.size);
-
-                for pos in obj_bounds.points() {
-                    let idx = obj_bounds.index(&pos);
-                    set(pos, template.blocks[idx]);
-                }
-            }
-        }
-
-        pub fn retain(&mut self) {
-            self.ref_count += 1;
-        }
-
-        pub fn release(&mut self) -> bool {
-            self.ref_count -= 1;
-            self.ref_count == 0
-        }
-
-        pub fn base_terrain(&self) -> &Chunk {
-            &self.base_terrain
-        }
-
-        pub fn base_terrain_mut<'b>(&'b mut self) -> BaseTerrainRef<'b, 'a> {
-            BaseTerrainRef { owner: self }
-        }
-
-        pub fn objects(&self) -> &[Object] {
-            self.objects.as_slice()
-        }
-
-        pub fn objects_mut<'b>(&'b mut self) -> ObjectsRef<'b, 'a> {
-            ObjectsRef { owner: self }
-        }
-
-        pub fn blocks(&self) -> &Chunk {
-            &self.block_cache
-        }
-    }
-}
-
 
 #[derive(Show)]
 pub enum StateChange {
@@ -342,7 +169,7 @@ impl<'a> State<'a> {
     pub fn new(data: &'a Data) -> State<'a> {
         State {
             data: data,
-            map: HashMap::new(),
+            map: Terrain::new(data),
             entities: HashMap::new(),
             clients: HashMap::new(),
             terrain_gen: TerrainGenerator::new(12345),
@@ -353,7 +180,7 @@ impl<'a> State<'a> {
     pub fn get_terrain_rle16(&self, cx: i32, cy: i32) -> Vec<u16> {
         let mut result = Vec::new();
 
-        let chunk = self.map.get(&(cx, cy)).map_or(&EMPTY_CHUNK, |c| c.blocks());
+        let chunk = self.map.get((cx, cy));
 
         let mut iter = chunk.iter().peekable();
         while !iter.is_empty() {
@@ -472,6 +299,7 @@ impl<'a> State<'a> {
     }
 
     pub fn perform_action(&mut self, now: Time, id: ClientId, _action: ActionBits) -> Vec<StateChange> {
+        /*
         let pos_px = {
             let ce = match self.client_entity(id) {
                 Some(ce) => ce,
@@ -529,38 +357,38 @@ impl<'a> State<'a> {
         }
 
         updates
+        */
+        vec![]
     }
 
     pub fn load_chunk(&mut self, cx: i32, cy: i32) {
-        use std::collections::hash_map::Entry::{Vacant, Occupied};
-        match self.map.entry((cx, cy)) {
-            Vacant(e) => {
-                log!(10, "LOAD {} {} -> 1 (INIT)", cx, cy);
-                let (chunk, objs) = self.terrain_gen.generate_chunk(&self.data.block_data, cx, cy);
-                e.insert(TerrainEntry::new(self.data,
-                                           V3::new(cx, cy, 0) * scalar(CHUNK_SIZE),
-                                           chunk, objs));
-            },
-            Occupied(mut e) => {
-                e.get_mut().retain();
-                log!(10, "LOAD {} {}", cx, cy);
-            },
-        }
+        let gen = &mut self.terrain_gen;
+        let block_data = &self.data.block_data;
+        let template_data = &self.data.object_templates;
+        self.map.retain((cx, cy),
+            |cx, cy| { gen.generate_chunk(block_data, cx, cy).0 },
+            |cx, cy| {
+                let base = V3::new(cx * CHUNK_SIZE,
+                                   cy * CHUNK_SIZE,
+                                   0);
+                let points = gen.generate_chunk(block_data, cx, cy).1;
+                let id = template_data.get_id("tree");
+                points.into_iter().map(|p| {
+                    let rel_pos = p - base;
+                    Object {
+                        template_id: id,
+                        x: rel_pos.x as u8,
+                        y: rel_pos.y as u8,
+                        z: rel_pos.z as u8,
+                    }
+                }).collect()
+            });
     }
 
     pub fn unload_chunk(&mut self, cx: i32, cy: i32) {
-        use std::collections::hash_map::Entry::{Vacant, Occupied};
-        match self.map.entry((cx, cy)) {
-            Vacant(_) => return,
-            Occupied(mut e) => {
-                if e.get_mut().release() {
-                    log!(10, "UNLOAD {} {} -> 0 (DEAD)", cx, cy);
-                    e.remove();
-                } else {
-                    log!(10, "UNLOAD {} {}", cx, cy);
-                }
-            },
-        }
+        self.map.release((cx, cy),
+             |cx, cy, terrain| { },
+             |cx, cy, objects| { });
     }
 }
 
@@ -633,7 +461,7 @@ pub fn build_local_terrain<'a>(map: &'a Terrain,
                                ce: ClientEntity,
                                use_chunk_offset: bool) -> LocalTerrain<'a> {
     let mut local = LocalTerrain {
-        chunks: [None; LOCAL_TOTAL],
+        chunks: [&EMPTY_CHUNK; LOCAL_TOTAL],
     };
 
     let pos = ce.entity.pos(now) >> (TILE_BITS + CHUNK_BITS);
@@ -647,7 +475,7 @@ pub fn build_local_terrain<'a>(map: &'a Terrain,
             let lx = (cx + offset.0 as i32) & LOCAL_MASK;
             let ly = (cy + offset.1 as i32) & LOCAL_MASK;
             let local_idx = ly * LOCAL_SIZE + lx;
-            local.chunks[local_idx as usize] = map.get(&(cx, cy)).map(|x| x.blocks());
+            local.chunks[local_idx as usize] = map.get((cx, cy));
         }
     }
 

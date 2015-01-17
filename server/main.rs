@@ -43,6 +43,8 @@ mod view;
 mod input;
 mod gen;
 mod data;
+mod terrain;
+mod util;
 
 fn read_json(path: &str) -> json::Json {
     use std::io::fs::File;
