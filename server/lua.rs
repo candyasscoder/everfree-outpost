@@ -2,6 +2,8 @@ use std::ffi::CString;
 use std::marker::{ContravariantLifetime, NoCopy};
 use std::mem;
 use std::ptr;
+use std::slice;
+use std::str;
 
 use libc;
 use libc::{c_void, c_int, c_char, size_t};
@@ -77,11 +79,11 @@ pub struct OwnedLuaState {
 }
 
 impl OwnedLuaState {
-    pub fn new() -> LuaResult<OwnedLuaState> {
+    pub fn new() -> LuaResult<'static, OwnedLuaState> {
         let L = unsafe { ffi::luaL_newstate() };
 
         if L.is_null() {
-            Err((ErrorType::ErrMem, String::from_str("failed to allocate memory")))
+            Err((ErrorType::ErrMem, "failed to allocate memory"))
         } else {
             Ok(OwnedLuaState {
                 L: L,
@@ -145,16 +147,16 @@ impl ErrorType {
     }
 }
 
-type Error = (ErrorType, String);
+type Error<'a> = (ErrorType, &'a str);
 
-type LuaResult<T> = Result<T, Error>;
+type LuaResult<'a, T> = Result<T, Error<'a>>;
 
-fn make_result(lua: &mut LuaState, code: c_int) -> LuaResult<()> {
+fn make_result<'a>(lua: &'a mut LuaState, code: c_int) -> LuaResult<'a, ()> {
     if code == 0 {
         Ok(())
     } else {
         let ty = ErrorType::from_code(code);
-        let msg = lua.to_string(-1).unwrap_or(String::from_str("(no message)"));
+        let msg = lua.to_string(-1).unwrap_or("(no message)");
         Err((ty, msg))
     }
 }
@@ -287,15 +289,20 @@ impl<'a> LuaState<'a> {
 
     // Reading values from the stack
 
-    // NB: If the target item is a number, lua_tolstring will replace it on the stack with its
-    // string representation.  Hence we require `&mut self` instead of `&self` here.
-    pub fn to_bytes(&mut self, index: c_int) -> Option<Vec<u8>> {
+    pub fn to_bytes<'b>(&'b self, index: c_int) -> Option<&'b [u8]> {
+        // lua_tolstring will convert numbers to strings.  We want to avoid that so this function
+        // can be &self (instead of &mut self).  Thus, we need to check the type before operating.
+        if self.type_of(index) != ValueType::String {
+            return None;
+        }
+
         let mut len = 0;
         let ptr = unsafe { ffi::lua_tolstring(self.L, index, &mut len as *mut _) };
         if ptr.is_null() {
             None
         } else {
-            let vec = unsafe { Vec::from_raw_buf(ptr as *const u8, len as usize) };
+            let ptr_ptr: & *const u8 = unsafe { mem::transmute(&ptr) };
+            let vec = unsafe { slice::from_raw_buf(ptr_ptr, len as usize) };
             Some(vec)
         }
     }
@@ -304,12 +311,12 @@ impl<'a> LuaState<'a> {
         unsafe { ffi::lua_tointeger(self.L, index) as isize }
     }
 
-    pub fn to_string(&mut self, index: c_int) -> Option<String> {
+    pub fn to_string<'b>(&'b self, index: c_int) -> Option<&'b str> {
         let v = match self.to_bytes(index) {
             Some(v) => v,
             None => return None,
         };
-        match String::from_utf8(v) {
+        match str::from_utf8(v) {
             Ok(s) => Some(s),
             Err(_) => None,
         }
@@ -470,5 +477,10 @@ impl<'a> LuaState<'a> {
             };
             info!("{}: {:?} {}", i, ty, desc);
         }
+    }
+
+    pub fn type_of(&self, index: c_int) -> ValueType {
+        let ty_code = unsafe { ffi::lua_type(self.L, index) };
+        ValueType::from_code(ty_code)
     }
 }

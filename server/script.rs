@@ -11,6 +11,7 @@ use input::ActionBits;
 
 use lua::{OwnedLuaState, LuaState};
 use lua::{GLOBALS_INDEX, REGISTRY_INDEX};
+use lua::ValueType;
 
 
 const FFI_CALLBACKS_KEY: &'static str = "outpost_ffi_callbacks";
@@ -246,6 +247,10 @@ impl<'a, T: TypeName> TypeName for &'a T {
     }
 }
 
+impl<'a> TypeName for &'a str {
+    fn type_name() -> &'static str { "string" }
+}
+
 macro_rules! impl_type_name {
     ($ty:ty) => {
         impl TypeName for $ty {
@@ -288,6 +293,16 @@ impl<'a> LuaArg<'a> for i32 {
 
     unsafe fn load(lua: &LuaState, index: c_int) -> i32 {
         lua.to_integer(index) as i32
+    }
+}
+
+impl<'a> LuaArg<'a> for &'a str {
+    fn check(lua: &mut LuaState, index: c_int) -> bool {
+        lua.type_of(index) == ValueType::String
+    }
+
+    unsafe fn load(lua: &'a LuaState, index: c_int) -> &'a str {
+        lua.to_string(index).unwrap()
     }
 }
 
@@ -383,6 +398,15 @@ impl<U: Userdata> LuaReturn for U {
 impl LuaReturn for i32 {
     fn push_onto(self, lua: &mut LuaState) {
         lua.push_integer(self as isize);
+    }
+}
+
+impl<T: LuaReturn> LuaReturn for Option<T> {
+    fn push_onto(self, lua: &mut LuaState) {
+        match self {
+            Some(x) => x.push_onto(lua),
+            None => lua.push_nil(),
+        }
     }
 }
 
@@ -642,10 +666,22 @@ macro_rules! func_wrapper_ctx {
 #[derive(Copy)]
 struct World;
 
+impl World {
+    fn replace_object_at_point(&self, ctx: &mut ScriptContext, pos: &V3, template: &str) {
+        let id = ctx.world.data.object_templates.get_id(template);
+        ctx.world.map.replace_object_at_point(*pos, id);
+    }
+}
+
 impl_type_name!(World);
 impl_metatable_key!(World);
 
 impl Userdata for World {
+    fn populate_table(lua: &mut LuaState) {
+        func_wrapper_ctx!(replace_object_at_point: World, ctx,
+                          (w, pos, template) = (&World, _, _) => w.replace_object_at_point(ctx, pos, template));
+        insert_func!(lua, -1, replace_object_at_point);
+    }
 }
 
 
@@ -663,9 +699,9 @@ impl Client {
         self.id as i32
     }
 
-    fn entity(&self, ctx: &ScriptContext) -> Entity {
-        let id = ctx.world.clients[self.id].entity_id;
-        Entity { id: id }
+    fn entity(&self, ctx: &ScriptContext) -> Option<Entity> {
+        ctx.world.clients.get(&self.id)
+           .map(|c| Entity { id: c.entity_id })
     }
 }
 
@@ -698,8 +734,12 @@ impl Entity {
         self.id as i32
     }
 
-    fn pos(&self, ctx: &ScriptContext) -> V3 {
-        ctx.world.entities[self.id].pos(ctx.now)
+    fn pos(&self, ctx: &ScriptContext) -> Option<V3> {
+        ctx.world.entities.get(&self.id).map(|e| e.pos(ctx.now))
+    }
+
+    fn facing(&self, ctx: &ScriptContext) -> Option<V3> {
+        ctx.world.entities.get(&self.id).map(|e| e.facing)
     }
 }
 
@@ -714,5 +754,8 @@ impl Userdata for Entity {
 
         func_wrapper_ctx!(pos: Entity, ctx, e = &Entity => e.pos(ctx));
         insert_func!(lua, -1, pos);
+
+        func_wrapper_ctx!(facing: Entity, ctx, e = &Entity => e.facing(ctx));
+        insert_func!(lua, -1, facing);
     }
 }

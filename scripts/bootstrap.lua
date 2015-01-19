@@ -59,7 +59,10 @@ function outpost_ffi.types.Entity.metatable.__tostring(x)
     return 'Entity:' .. tostring(x:id())
 end
 
-outpost_ffi.callbacks.test = function(x)
-    print('hello from callback test', x, getmetatable(x), x:id())
-    print('', x, x:world(), x:entity(), x:entity():pos())
+outpost_ffi.callbacks.test = function(client)
+    local entity = client:entity()
+    local pos = entity:pos()
+    local target = pos + V3.new(16, 16, 16) + entity:facing() * V3.new(32, 32, 32)
+    local target_tile = target / V3.new(32, 32, 32)
+    client:world():replace_object_at_point(target_tile, "stump")
 end

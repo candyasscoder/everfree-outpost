@@ -324,22 +324,6 @@ impl<'a> State<'a> {
             script.test_callback(world, now, id, action);
         }
 
-        let pos_px = {
-            let ce = match self.client_entity(id) {
-                Some(ce) => ce,
-                None => return Vec::new(),
-            };
-            ce.entity.pos(now) + scalar(16) + scalar(32) * ce.entity.facing
-        };
-        let pos = pos_px.div_floor(&scalar(TILE_SIZE));
-
-        log!(10, "perform action: px={:?}; tile={:?}", pos_px, pos);
-
-        let tree_id = self.data.object_templates.get_id("tree");
-        let stump_id = self.data.object_templates.get_id("stump");
-
-        self.map.replace_object_at_point(pos, stump_id);
-
         let mut updates = Vec::new();
         self.map.refresh(
             |cx, cy, old, new| {
