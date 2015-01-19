@@ -167,6 +167,13 @@ pub struct State<'a> {
     pub rng: XorShiftRng,
 }
 
+pub struct World<'a: 'b, 'b> {
+    pub data: &'a Data,
+    pub map: &'b mut Terrain<'a>,
+    pub entities: &'b mut HashMap<EntityId, Entity>,
+    pub clients: &'b mut HashMap<ClientId, Client>,
+}
+
 impl<'a> State<'a> {
     pub fn new(data: &'a Data) -> State<'a> {
         State {
@@ -178,6 +185,16 @@ impl<'a> State<'a> {
             terrain_gen: TerrainGenerator::new(12345),
             rng: SeedableRng::from_seed([12345, 45205314, 65412562, 940534205]),
         }
+    }
+
+    pub fn script_world<'b>(&'b mut self) -> (&'b mut ScriptEngine, World<'a, 'b>) {
+        (&mut self.script,
+         World {
+             data: self.data,
+             map: &mut self.map,
+             entities: &mut self.entities,
+             clients: &mut self.clients,
+         })
     }
 
     pub fn get_terrain_rle16(&self, cx: i32, cy: i32) -> Vec<u16> {
@@ -301,8 +318,11 @@ impl<'a> State<'a> {
         true
     }
 
-    pub fn perform_action(&mut self, now: Time, id: ClientId, _action: ActionBits) -> Vec<StateChange> {
-        self.script.test_callback();
+    pub fn perform_action(&mut self, now: Time, id: ClientId, action: ActionBits) -> Vec<StateChange> {
+        {
+            let (script, world) = self.script_world();
+            script.test_callback(world, now, id, action);
+        }
 
         let pos_px = {
             let ce = match self.client_entity(id) {

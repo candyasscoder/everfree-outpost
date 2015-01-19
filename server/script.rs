@@ -1,8 +1,13 @@
+use std::cell::{RefCell, RefMut};
+use std::mem;
+use std::ops::{Add, Sub, Mul, Div, Rem};
 use libc::c_int;
 
-use std::ops::{Add, Sub, Mul, Div, Rem};
-
 use physics::v3::V3;
+
+use state;
+use types::{Time, ClientId, EntityId};
+use input::ActionBits;
 
 use lua::{OwnedLuaState, LuaState};
 use lua::{GLOBALS_INDEX, REGISTRY_INDEX};
@@ -10,6 +15,8 @@ use lua::{GLOBALS_INDEX, REGISTRY_INDEX};
 
 const FFI_CALLBACKS_KEY: &'static str = "outpost_ffi_callbacks";
 const FFI_LIB_NAME: &'static str = "outpost_ffi";
+
+const CTX_KEY: &'static str = "outpost_ctx";
 
 const BOOTSTRAP_FILE: &'static str = "bootstrap.lua";
 
@@ -29,15 +36,26 @@ callbacks! {
 
 pub struct ScriptEngine {
     owned_lua: OwnedLuaState,
-    ctx_slot: c_int,
+}
+
+struct ScriptContext<'a: 'b, 'b> {
+    world: state::World<'a, 'b>,
+    now: Time,
+}
+
+impl<'a: 'b, 'b> ScriptContext<'a, 'b> {
+    pub fn new(world: state::World<'a, 'b>, now: Time) -> ScriptContext<'a, 'b> {
+        ScriptContext {
+            world: world,
+            now: now,
+        }
+    }
 }
 
 impl ScriptEngine {
     pub fn new(script_dir: &Path) -> ScriptEngine {
         // OwnedLuaState::new() should return Err only on out-of-memory.
         let mut owned_lua = OwnedLuaState::new().unwrap();
-
-        let ctx_slot = owned_lua.get().alloc_slot();
 
         {
             let mut lua = owned_lua.get();
@@ -63,15 +81,59 @@ impl ScriptEngine {
 
         ScriptEngine {
             owned_lua: owned_lua,
-            ctx_slot: ctx_slot,
         }
     }
 
-    pub fn test_callback(&mut self) {
+    fn with_context<F, T>(&mut self,
+                          ctx: &RefCell<ScriptContext>,
+                          blk: F) -> T
+            where F: FnOnce(&mut LuaState) -> T {
+
         let mut lua = self.owned_lua.get();
-        lua.get_field(REGISTRY_INDEX, "outpost_callback_test");
-        lua.pcall(0, 0, 0).unwrap();
+        lua.push_light_userdata(ctx as *const _ as *mut RefCell<ScriptContext>);
+        lua.set_field(REGISTRY_INDEX, CTX_KEY);
+
+        let x = blk(&mut lua);
+
+        lua.push_nil();
+        lua.set_field(REGISTRY_INDEX, CTX_KEY);
+
+        x
     }
+
+
+    pub fn test_callback(&mut self,
+                         world: state::World,
+                         now: Time,
+                         id: ClientId,
+                         action: ActionBits) {
+        let ctx = RefCell::new(ScriptContext {
+            world: world,
+            now: now,
+        });
+        self.with_context(&ctx, |lua| {
+            lua.get_field(REGISTRY_INDEX, "outpost_callback_test");
+            let c = Client { id: id };
+            c.push_onto(lua);
+            lua.pcall(1, 0, 0).unwrap();
+        });
+    }
+}
+
+pub fn get_ctx_ref<'a>(lua: &mut LuaState) -> &'a RefCell<ScriptContext<'a, 'a>> {
+    lua.get_field(REGISTRY_INDEX, CTX_KEY);
+    let raw_ptr: *mut RefCell<ScriptContext> = unsafe { lua.to_userdata_raw(-1) };
+    lua.pop(1);
+
+    if raw_ptr.is_null() {
+        panic!("tried to access script context, but no context is active");
+    }
+
+    unsafe { mem::transmute(raw_ptr) }
+}
+
+pub fn get_ctx<'a>(lua: &mut LuaState) -> RefMut<'a, ScriptContext<'a, 'a>> {
+    get_ctx_ref(lua).borrow_mut()
 }
 
 fn build_ffi_lib(lua: &mut LuaState) {
@@ -119,7 +181,7 @@ macro_rules! mk_build_types_table {
     }
 }
 
-mk_build_types_table!(V3);
+mk_build_types_table!(V3, World, Client, Entity);
 
 fn build_callbacks_table(lua: &mut LuaState) {
     lua.push_table();
@@ -195,7 +257,6 @@ macro_rules! impl_type_name {
 }
 
 impl_type_name!(i32);
-impl_type_name!(V3);
 
 
 trait MetatableKey {
@@ -215,8 +276,6 @@ macro_rules! impl_metatable_key {
         }
     };
 }
-
-impl_metatable_key!(V3);
 
 
 trait LuaArg<'a>: TypeName {
@@ -484,17 +543,17 @@ macro_rules! binops {
 
 macro_rules! static_funcs {
     ($lua:expr, $idx:expr, $ty:ty,
-     $( $pat:pat => $ty_name:ident :: $func:ident ($($arg:expr),*) ),*) => {
+     $( $pat:pat => $ty_name:ident :: $func:ident ($($arg:expr),*) ),*) => {{
         $({
             func_wrapper!($func: $ty, $pat => $ty_name::$func ($($arg),*));
             insert_func!($lua, $idx, $func);
         })*
-    };
+    }};
 }
 
 macro_rules! methods {
     ($lua:expr, $idx:expr, $ty:ty,
-     $( ($($pat:pat),*) => self . $method:ident ($($arg:expr),*) ),*) => {
+     $( ($($pat:pat),*) => self . $method:ident ($($arg:expr),*) ),*) => {{
         $({
             func_wrapper!($method: $ty, (ptr_, $($pat),*) => {
                 let ptr: &$ty = ptr_;
@@ -502,17 +561,17 @@ macro_rules! methods {
             });
             insert_func!($lua, $idx, $method);
         })*
-    };
+    }};
 }
 
 macro_rules! funcs {
     ($lua:expr, $idx:expr, $ty:ty,
-     $( fn $name:ident ( $($arg:ident : $arg_ty:ty),* ) $body:expr )*) => {
+     $( fn $name:ident ( $($arg:ident : $arg_ty:ty),* ) $body:expr )*) => {{
         $({
             func_wrapper!($name: $ty, ($($arg,)*) = ($($arg_ty,)*) => $body);
             insert_func!($lua, $idx, $name);
         })*
-    };
+    }};
 }
 
 
@@ -527,6 +586,9 @@ fn create_userdata<U: Userdata>(lua: &mut LuaState, u: U) {
     lua.set_metatable(-2);
 }
 
+
+impl_type_name!(V3);
+impl_metatable_key!(V3);
 
 impl Userdata for V3 {
     fn populate_table(lua: &mut LuaState) {
@@ -550,5 +612,107 @@ impl Userdata for V3 {
                 __mul = Mul::mul,
                 __div = Div::div,
                 __mod = Rem::rem);
+    }
+}
+
+
+
+macro_rules! func_wrapper_ctx {
+    ($fn_name:ident : $ty:ty, $ctx:ident, $pat:pat = $pat_ty:ty => $val:expr ) => {
+        fn $fn_name(mut lua: LuaState) -> c_int {
+            let (value, count) = {
+                let mut ctx_ref = get_ctx(&mut lua);
+                let $ctx = &mut *ctx_ref;
+                let ($pat, count): ($pat_ty, c_int) = unsafe {
+                    check_unpack_count(&mut lua, stringify!($fn_name))
+                };
+                ($val, count)
+            };
+            lua.pop(count);
+            pack_count(&mut lua, value)
+        }
+    };
+    ($fn_name:ident : $ty:ty, $ctx:ident, $pat:pat => $val:expr ) => {
+        func_wrapper_ctx!($fn_name: $ty, $ctx, $pat = _ => $val);
+    };
+}
+
+
+
+#[derive(Copy)]
+struct World;
+
+impl_type_name!(World);
+impl_metatable_key!(World);
+
+impl Userdata for World {
+}
+
+
+#[derive(Copy)]
+struct Client {
+    id: ClientId,
+}
+
+impl Client {
+    fn world(&self) -> World {
+        World
+    }
+
+    fn id(&self) -> i32 {
+        self.id as i32
+    }
+
+    fn entity(&self, ctx: &ScriptContext) -> Entity {
+        let id = ctx.world.clients[self.id].entity_id;
+        Entity { id: id }
+    }
+}
+
+impl_type_name!(Client);
+impl_metatable_key!(Client);
+
+impl Userdata for Client {
+    fn populate_table(lua: &mut LuaState) {
+        methods!(lua, -1, Client,
+                 () => self.world(),
+                 () => self.id());
+
+        func_wrapper_ctx!(entity: Client, ctx, c = &Client => c.entity(ctx));
+        insert_func!(lua, -1, entity);
+    }
+}
+
+
+#[derive(Copy)]
+struct Entity {
+    id: EntityId,
+}
+
+impl Entity {
+    fn world(&self) -> World {
+        World
+    }
+
+    fn id(&self) -> i32 {
+        self.id as i32
+    }
+
+    fn pos(&self, ctx: &ScriptContext) -> V3 {
+        ctx.world.entities[self.id].pos(ctx.now)
+    }
+}
+
+impl_type_name!(Entity);
+impl_metatable_key!(Entity);
+
+impl Userdata for Entity {
+    fn populate_table(lua: &mut LuaState) {
+        methods!(lua, -1, Entity,
+                 () => self.world(),
+                 () => self.id());
+
+        func_wrapper_ctx!(pos: Entity, ctx, e = &Entity => e.pos(ctx));
+        insert_func!(lua, -1, pos);
     }
 }

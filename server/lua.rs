@@ -252,6 +252,10 @@ impl<'a> LuaState<'a> {
         unsafe { ffi::lua_pushnil(self.L) };
     }
 
+    pub fn push_light_userdata<T>(&mut self, ptr: *mut T) {
+        unsafe { ffi::lua_pushlightuserdata(self.L, ptr as *mut c_void) };
+    }
+
     pub fn push_rust_function(&mut self, f: lua_RustFunction) {
         let f = unsafe { mem::transmute(f) };
         unsafe { ffi::lua_pushcclosure(self.L, f, 0) };
@@ -331,6 +335,10 @@ impl<'a> LuaState<'a> {
                 Some(mem::transmute(ptr))
             }
         }
+    }
+
+    pub unsafe fn to_userdata_raw<T>(&self, index: c_int) -> *mut T {
+        unsafe { ffi::lua_touserdata(self.L, index) as *mut T }
     }
 
     // Table manipulation

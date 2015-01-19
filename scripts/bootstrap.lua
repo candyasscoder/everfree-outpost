@@ -42,6 +42,24 @@ c:set_y(17)
 print(c:x(), c:y(), c:z())
 print(c:extract())
 
-outpost_ffi.callbacks.test = function()
-    print('hello from callback test')
+
+function outpost_ffi.types.V3.metatable.__tostring(v)
+    return tostring(v:x()) .. ',' .. tostring(v:y()) .. ',' .. tostring(v:z())
+end
+
+function outpost_ffi.types.World.metatable.__tostring(x)
+    return 'World'
+end
+
+function outpost_ffi.types.Client.metatable.__tostring(x)
+    return 'Client:' .. tostring(x:id())
+end
+
+function outpost_ffi.types.Entity.metatable.__tostring(x)
+    return 'Entity:' .. tostring(x:id())
+end
+
+outpost_ffi.callbacks.test = function(x)
+    print('hello from callback test', x, getmetatable(x), x:id())
+    print('', x, x:world(), x:entity(), x:entity():pos())
 end
