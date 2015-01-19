@@ -58,8 +58,6 @@ fn read_json(path: &str) -> json::Json {
 }
 
 fn main() {
-    //let script_engine = script::ScriptEngine::new(&Path::new("."));
-
     let data = {
         use std::os;
 

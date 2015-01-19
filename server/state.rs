@@ -16,6 +16,7 @@ use input::ActionBits;
 use data::{Data, BlockData};
 use gen::TerrainGenerator;
 use terrain::{Terrain, Object, BlockChunk, EMPTY_CHUNK};
+use script::ScriptEngine;
 
 use self::StateChange::ChunkUpdate;
 
@@ -158,6 +159,7 @@ pub enum StateChange {
 
 pub struct State<'a> {
     pub data: &'a Data,
+    pub script: ScriptEngine,
     pub map: Terrain<'a>,
     pub entities: HashMap<EntityId, Entity>,
     pub clients: HashMap<ClientId, Client>,
@@ -169,6 +171,7 @@ impl<'a> State<'a> {
     pub fn new(data: &'a Data) -> State<'a> {
         State {
             data: data,
+            script: ScriptEngine::new(&Path::new("./scripts")),
             map: Terrain::new(data),
             entities: HashMap::new(),
             clients: HashMap::new(),
@@ -299,6 +302,8 @@ impl<'a> State<'a> {
     }
 
     pub fn perform_action(&mut self, now: Time, id: ClientId, _action: ActionBits) -> Vec<StateChange> {
+        self.script.test_callback();
+
         let pos_px = {
             let ce = match self.client_entity(id) {
                 Some(ce) => ce,

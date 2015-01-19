@@ -13,14 +13,31 @@ const FFI_LIB_NAME: &'static str = "outpost_ffi";
 
 const BOOTSTRAP_FILE: &'static str = "bootstrap.lua";
 
+macro_rules! callbacks {
+    ($($caps_name:ident = $name:expr;)*) => {
+        $( const $caps_name: &'static str = concat!("outpost_callback_", $name); )*
+
+        const ALL_CALLBACKS: &'static [(&'static str, &'static str)] = &[
+            $( ($name, concat!("outpost_callback_", $name)) ),*
+        ];
+    };
+}
+
+callbacks! {
+    CB_KEY_TEST = "test";
+}
+
 pub struct ScriptEngine {
     owned_lua: OwnedLuaState,
+    ctx_slot: c_int,
 }
 
 impl ScriptEngine {
     pub fn new(script_dir: &Path) -> ScriptEngine {
         // OwnedLuaState::new() should return Err only on out-of-memory.
         let mut owned_lua = OwnedLuaState::new().unwrap();
+
+        let ctx_slot = owned_lua.get().alloc_slot();
 
         {
             let mut lua = owned_lua.get();
@@ -46,7 +63,14 @@ impl ScriptEngine {
 
         ScriptEngine {
             owned_lua: owned_lua,
+            ctx_slot: ctx_slot,
         }
+    }
+
+    pub fn test_callback(&mut self) {
+        let mut lua = self.owned_lua.get();
+        lua.get_field(REGISTRY_INDEX, "outpost_callback_test");
+        lua.pcall(0, 0, 0).unwrap();
     }
 }
 
@@ -55,6 +79,9 @@ fn build_ffi_lib(lua: &mut LuaState) {
 
     build_types_table(lua);
     lua.set_field(-2, "types");
+
+    build_callbacks_table(lua);
+    lua.set_field(-2, "callbacks");
 }
 
 // NB: assumes the idxs are negative
@@ -93,6 +120,54 @@ macro_rules! mk_build_types_table {
 }
 
 mk_build_types_table!(V3);
+
+fn build_callbacks_table(lua: &mut LuaState) {
+    lua.push_table();
+
+    lua.push_table();
+    lua.push_rust_function(callbacks_table_newindex);
+    lua.set_field(-2, "__newindex");
+    lua.push_rust_function(callbacks_table_index);
+    lua.set_field(-2, "__index");
+    lua.set_metatable(-2);
+
+    for &(base, _) in ALL_CALLBACKS.iter() {
+        lua.push_rust_function(lua_no_op);
+        lua.set_field(-2, base);
+    }
+}
+
+fn callbacks_table_newindex(mut lua: LuaState) -> c_int {
+    // Stack: table, key, value
+    let cb_key = match lua.to_string(-2) {
+        None => return 0,
+        Some(x) => format!("outpost_callback_{}", x),
+    };
+
+    // Store callback into the registry.
+    lua.set_field(REGISTRY_INDEX, &*cb_key);
+
+    // Don't write into the actual table.  __index/__newindex are ignored when the field already
+    // exists.
+    lua.pop(2);
+    0
+}
+
+fn callbacks_table_index(mut lua: LuaState) -> c_int {
+    // Stack: table, key
+    let cb_key = match lua.to_string(-1) {
+        None => return 0,
+        Some(x) => format!("outpost_callback_{}", x),
+    };
+
+    // Load callback into the registry.
+    lua.get_field(REGISTRY_INDEX, &*cb_key);
+    1
+}
+
+fn lua_no_op(_: LuaState) -> c_int {
+    0
+}
 
 
 trait TypeName {

@@ -53,9 +53,16 @@ mod ffi {
 
         pub fn lua_gettable(L: *mut lua_State, t: c_int);
         pub fn lua_settable(L: *mut lua_State, t: c_int);
+        pub fn lua_rawget(L: *mut lua_State, index: c_int);
+        pub fn lua_rawset(L: *mut lua_State, index: c_int);
+        pub fn lua_rawgeti(L: *mut lua_State, index: c_int, n: c_int);
+        pub fn lua_rawseti(L: *mut lua_State, index: c_int, n: c_int);
 
         pub fn lua_getmetatable(L: *mut lua_State, index: c_int);
         pub fn lua_setmetatable(L: *mut lua_State, index: c_int);
+
+        pub fn luaL_ref(L: *mut lua_State, t: c_int) -> c_int;
+        pub fn luaL_unref(L: *mut lua_State, t: c_int, r: c_int);
 
         pub fn lua_rawequal(L: *mut lua_State, index1: c_int, index2: c_int) -> c_int;
 
@@ -336,6 +343,14 @@ impl<'a> LuaState<'a> {
         unsafe { ffi::lua_settable(self.L, index) };
     }
 
+    pub fn get_table_raw(&mut self, index: c_int) {
+        unsafe { ffi::lua_rawget(self.L, index) };
+    }
+
+    pub fn set_table_raw(&mut self, index: c_int) {
+        unsafe { ffi::lua_rawset(self.L, index) };
+    }
+
     pub fn get_field(&mut self, index: c_int, k: &str) {
         self.push_string(k);
         if index < 0 && index > PSEUDO_INDEX_LIMIT {
@@ -361,6 +376,30 @@ impl<'a> LuaState<'a> {
 
     pub fn set_metatable(&mut self, index: c_int) {
         unsafe { ffi::lua_setmetatable(self.L, index) };
+    }
+
+    // Registry slots
+
+    pub fn alloc_slot(&mut self) -> c_int {
+        // Need a non-nil value, else we will get a bogus slot index.
+        self.push_integer(0);
+        let slot = unsafe { ffi::luaL_ref(self.L, REGISTRY_INDEX) };
+
+        self.push_nil();
+        self.set_slot(slot);
+        slot
+    }
+
+    pub fn free_slot(&mut self, slot: c_int) {
+        unsafe { ffi::luaL_unref(self.L, REGISTRY_INDEX, slot) };
+    }
+
+    pub fn get_slot(&mut self, slot: c_int) {
+        unsafe { ffi::lua_rawgeti(self.L, REGISTRY_INDEX, slot) };
+    }
+
+    pub fn set_slot(&mut self, slot: c_int) {
+        unsafe { ffi::lua_rawseti(self.L, REGISTRY_INDEX, slot) };
     }
 
     // Calling functions
