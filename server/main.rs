@@ -5,7 +5,9 @@
 #![allow(unstable)]
 #![allow(dead_code)]
 
+#[macro_use] extern crate bitflags;
 #[macro_use] extern crate log;
+extern crate libc;
 extern crate time;
 extern crate serialize;
 
@@ -45,6 +47,8 @@ mod gen;
 mod data;
 mod terrain;
 mod util;
+mod lua;
+mod script;
 
 fn read_json(path: &str) -> json::Json {
     use std::io::fs::File;
@@ -54,6 +58,8 @@ fn read_json(path: &str) -> json::Json {
 }
 
 fn main() {
+    //let script_engine = script::ScriptEngine::new(&Path::new("."));
+
     let data = {
         use std::os;
 
