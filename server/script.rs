@@ -6,6 +6,7 @@ use libc::c_int;
 use physics::v3::V3;
 
 use state;
+use terrain;
 use types::{Time, ClientId, EntityId};
 use input::ActionBits;
 
@@ -182,7 +183,7 @@ macro_rules! mk_build_types_table {
     }
 }
 
-mk_build_types_table!(V3, World, Client, Entity);
+mk_build_types_table!(V3, World, Object, Client, Entity);
 
 fn build_callbacks_table(lua: &mut LuaState) {
     lua.push_table();
@@ -262,6 +263,7 @@ macro_rules! impl_type_name {
 }
 
 impl_type_name!(i32);
+impl_type_name!(u32);
 
 
 trait MetatableKey {
@@ -288,13 +290,22 @@ trait LuaArg<'a>: TypeName {
     unsafe fn load(lua: &'a LuaState, index: c_int) -> Self;
 }
 
-impl<'a> LuaArg<'a> for i32 {
-    fn check(lua: &mut LuaState, index: c_int) -> bool { true }
+macro_rules! impl_lua_arg_int {
+    ($ty:ty) => {
+        impl<'a> LuaArg<'a> for $ty {
+            fn check(lua: &mut LuaState, index: c_int) -> bool {
+                lua.type_of(index) == ValueType::Number
+            }
 
-    unsafe fn load(lua: &LuaState, index: c_int) -> i32 {
-        lua.to_integer(index) as i32
-    }
+            unsafe fn load(lua: &LuaState, index: c_int) -> $ty {
+                lua.to_integer(index) as $ty
+            }
+        }
+    };
 }
+
+impl_lua_arg_int!(i32);
+impl_lua_arg_int!(u32);
 
 impl<'a> LuaArg<'a> for &'a str {
     fn check(lua: &mut LuaState, index: c_int) -> bool {
@@ -389,17 +400,30 @@ trait LuaReturn {
     fn push_onto(self, lua: &mut LuaState);
 }
 
+impl<'a> LuaReturn for &'a str {
+    fn push_onto(self, lua: &mut LuaState) {
+        lua.push_string(self);
+    }
+}
+
 impl<U: Userdata> LuaReturn for U {
     fn push_onto(self, lua: &mut LuaState) {
         create_userdata(lua, self);
     }
 }
 
-impl LuaReturn for i32 {
-    fn push_onto(self, lua: &mut LuaState) {
-        lua.push_integer(self as isize);
-    }
+macro_rules! impl_lua_return_int {
+    ($ty:ty) => {
+        impl LuaReturn for $ty {
+            fn push_onto(self, lua: &mut LuaState) {
+                lua.push_integer(self as isize);
+            }
+        }
+    };
 }
+
+impl_lua_return_int!(i32);
+impl_lua_return_int!(u32);
 
 impl<T: LuaReturn> LuaReturn for Option<T> {
     fn push_onto(self, lua: &mut LuaState) {
@@ -644,9 +668,11 @@ impl Userdata for V3 {
 macro_rules! func_wrapper_ctx {
     ($fn_name:ident : $ty:ty, $ctx:ident, $pat:pat = $pat_ty:ty => $val:expr ) => {
         fn $fn_name(mut lua: LuaState) -> c_int {
+            // FIXME: ctx_ref is a RefCell borrow, so it has a destructor, but the destructor won't
+            // run if lua.error is called!
+            let mut ctx_ref = get_ctx(&mut lua);
+            let $ctx = &mut *ctx_ref;
             let (value, count) = {
-                let mut ctx_ref = get_ctx(&mut lua);
-                let $ctx = &mut *ctx_ref;
                 let ($pat, count): ($pat_ty, c_int) = unsafe {
                     check_unpack_count(&mut lua, stringify!($fn_name))
                 };
@@ -661,15 +687,32 @@ macro_rules! func_wrapper_ctx {
     };
 }
 
+macro_rules! methods_ctx {
+    ($lua:expr, $idx:expr, $ty:ty,
+     $( ($($pat:pat),*) => self . $method:ident ($($arg:expr),*) ),*) => {{
+        $({
+            func_wrapper_ctx!($method: $ty, ctx, (ptr_, $($pat),*) => {
+                let ptr: &$ty = ptr_;
+                ptr.$method(ctx, $($arg),*)
+            });
+            insert_func!($lua, $idx, $method);
+        })*
+    }};
+}
 
 
 #[derive(Copy)]
 struct World;
 
 impl World {
-    fn replace_object_at_point(&self, ctx: &mut ScriptContext, pos: &V3, template: &str) {
-        let id = ctx.world.data.object_templates.get_id(template);
-        ctx.world.map.replace_object_at_point(*pos, id);
+    fn find_object_at_point(&self, ctx: &ScriptContext, pos: &V3) -> Option<Object> {
+        ctx.world.map.find_object_at_point(*pos)
+           .map(|(idx, _)| Object { idx: idx })
+    }
+
+    fn create_object(&self, ctx: &mut ScriptContext, pos: &V3, template_id: u32) -> Option<Object> {
+        ctx.world.map.create_object(*pos, template_id)
+           .map(|idx| Object { idx: idx })
     }
 }
 
@@ -678,10 +721,112 @@ impl_metatable_key!(World);
 
 impl Userdata for World {
     fn populate_table(lua: &mut LuaState) {
-        func_wrapper_ctx!(replace_object_at_point: World, ctx,
-                          (w, pos, template) = (&World, _, _) => w.replace_object_at_point(ctx, pos, template));
-        insert_func!(lua, -1, replace_object_at_point);
+        methods_ctx!(lua, -1, World,
+                     (pos) => self.find_object_at_point(pos),
+                     (pos, template_id) => self.create_object(pos, template_id));
     }
+}
+
+
+#[derive(Copy)]
+struct Object {
+    idx: terrain::ObjectIndex,
+}
+
+impl Object {
+    fn pos(&self, ctx: &ScriptContext) -> Option<V3> {
+        let (cx, cy, _) = self.idx;
+        ctx.world.map.get_object(self.idx)
+           .map(|obj| obj.pos((cx, cy)))
+    }
+
+    fn size(&self, ctx: &ScriptContext) -> Option<V3> {
+        ctx.world.map.get_object(self.idx)
+           .map(|obj| obj.size(ctx.world.data))
+    }
+
+    fn template_id(&self, ctx: &ScriptContext) -> Option<u32> {
+        ctx.world.map.get_object(self.idx)
+           .map(|obj| obj.template_id)
+    }
+
+    fn template<'a>(&self, ctx: &'a ScriptContext) -> Option<&'a str> {
+        self.template_id(ctx)
+            .map(|id| &*ctx.world.data.object_templates.template(id).name)
+    }
+
+    fn delete(&self, ctx: &mut ScriptContext) {
+        ctx.world.map.delete_object(self.idx);
+    }
+
+    fn move_helper(&self,
+                   ctx: &mut ScriptContext,
+                   new_pos: &V3) -> Option<terrain::ObjectIndex> {
+        ctx.world.map.move_object(self.idx, *new_pos)
+    }
+
+    fn replace_helper(&self,
+                      ctx: &mut ScriptContext,
+                      new_template_name: &str) -> Option<terrain::ObjectIndex> {
+        let new_template_id = match ctx.world.data.object_templates.find_id(new_template_name) {
+            None => return None,
+            Some(x) => x,
+        };
+        ctx.world.map.replace_object(self.idx, new_template_id)
+    }
+}
+
+impl_type_name!(Object);
+impl_metatable_key!(Object);
+
+impl Userdata for Object {
+    fn populate_table(lua: &mut LuaState) {
+        methods_ctx!(lua, -1, Object,
+                     () => self.pos(),
+                     () => self.size(),
+                     () => self.delete(),
+                     () => self.template());
+        insert_func!(lua, -1, move: object_move);
+        insert_func!(lua, -1, replace: object_replace);
+    }
+}
+
+fn object_move(mut lua: LuaState) -> c_int {
+    let (new_idx, count) = {
+        // FIXME: broken in the same way as func_wrapper_ctx
+        let mut ctx_ref = get_ctx(&mut lua);
+        let ctx = &mut *ctx_ref;
+        let ((obj, pos), count) = unsafe { check_unpack_count(&mut lua, "move") };
+        let obj: &Object = obj;
+        (obj.move_helper(ctx, pos), count)
+    };
+
+    if let Some(new_idx) = new_idx {
+        let obj: &mut Object = unsafe { lua.to_userdata_mut(1).unwrap() };
+        obj.idx = new_idx;
+    }
+
+    lua.pop(2);
+    0
+}
+
+fn object_replace(mut lua: LuaState) -> c_int {
+    let (new_idx, count) = {
+        // FIXME: broken in the same way as func_wrapper_ctx
+        let mut ctx_ref = get_ctx(&mut lua);
+        let ctx = &mut *ctx_ref;
+        let ((obj, template_id), count) = unsafe { check_unpack_count(&mut lua, "replace") };
+        let obj: &Object = obj;
+        (obj.replace_helper(ctx, template_id), count)
+    };
+
+    if let Some(new_idx) = new_idx {
+        let obj: &mut Object = unsafe { lua.to_userdata_mut(1).unwrap() };
+        obj.idx = new_idx;
+    }
+
+    lua.pop(2);
+    0
 }
 
 
@@ -714,8 +859,8 @@ impl Userdata for Client {
                  () => self.world(),
                  () => self.id());
 
-        func_wrapper_ctx!(entity: Client, ctx, c = &Client => c.entity(ctx));
-        insert_func!(lua, -1, entity);
+        methods_ctx!(lua, -1, Client,
+                     () => self.entity());
     }
 }
 
@@ -752,10 +897,8 @@ impl Userdata for Entity {
                  () => self.world(),
                  () => self.id());
 
-        func_wrapper_ctx!(pos: Entity, ctx, e = &Entity => e.pos(ctx));
-        insert_func!(lua, -1, pos);
-
-        func_wrapper_ctx!(facing: Entity, ctx, e = &Entity => e.facing(ctx));
-        insert_func!(lua, -1, facing);
+        methods_ctx!(lua, -1, Entity,
+                     () => self.pos(),
+                     () => self.facing());
     }
 }

@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use physics::{CHUNK_SIZE, CHUNK_BITS};
 use physics::v3::{V3, Region, scalar};
+use physics::Shape::{Empty, Floor};
 
 use data::Data;
 use types::BlockId;
@@ -19,6 +20,42 @@ pub struct Object {
     pub y: u8,
     pub z: u8,
 }
+
+impl Object {
+    fn new(template_id: u32, pos: V3) -> (Object, (i32, i32)) {
+        let chunk = pos.div_floor(&scalar(CHUNK_SIZE));
+        let offset = pos - chunk * scalar(CHUNK_SIZE);
+        let obj = Object {
+            template_id: template_id,
+            x: offset.x as u8,
+            y: offset.y as u8,
+            z: offset.z as u8,
+        };
+        (obj, (chunk.x, chunk.y))
+    }
+
+    pub fn offset(&self) -> V3 {
+        V3::new(self.x as i32,
+                self.y as i32,
+                self.z as i32)
+    }
+
+    pub fn pos(&self, chunk: (i32, i32)) -> V3 {
+        V3::new(chunk.0, chunk.1, 0) * scalar(CHUNK_SIZE) + self.offset()
+    }
+
+    pub fn size(&self, data: &Data) -> V3 {
+        data.object_templates.template(self.template_id).size
+    }
+
+    pub fn bounds(&self, data: &Data, chunk: (i32, i32)) -> Region {
+        let pos = self.pos(chunk);
+        let size = self.size(data);
+        Region::new(pos, pos + size)
+    }
+}
+
+pub type ObjectIndex = (i32, i32, usize);
 
 #[derive(PartialEq, Eq, Show)]
 enum CacheStatus {
@@ -133,8 +170,8 @@ impl<'d> Terrain<'d> {
         }
     }
 
-    fn find_object_at_point(&mut self,
-                            point: V3) -> Option<(i32, i32, usize)> {
+    pub fn find_object_at_point(&self,
+                                point: V3) -> Option<(ObjectIndex, &Object)> {
         let point_chunk = point.div_floor(&scalar(CHUNK_SIZE));
 
         // Look at objects in the chunk containing `point` and also in the chunks above and to the
@@ -159,7 +196,7 @@ impl<'d> Terrain<'d> {
                     let region = Region::new(base, base + template.size);
 
                     if region.contains(&point) {
-                        return Some((cx, cy, idx));
+                        return Some(((cx, cy, idx), obj));
                     }
                 }
             }
@@ -168,39 +205,100 @@ impl<'d> Terrain<'d> {
         None
     }
 
-    pub fn replace_object_at_point(&mut self,
-                                   point: V3,
-                                   new_id: u32) -> bool {
-        let (cx, cy, idx) = match self.find_object_at_point(point) {
-            None => return false,
+    pub fn create_object(&mut self,
+                         pos: V3,
+                         template_id: u32) -> Option<ObjectIndex> {
+        let (obj, (cx, cy)) = Object::new(template_id, pos);
+        let bounds = obj.bounds(self.data, (cx, cy));
+
+        if !self.check_clear(bounds) {
+            info!("can't create object at {:?}", bounds);
+            return None;
+        }
+
+        let objs = match self.objects.get_mut(&(cx, cy)) {
+            None => return None,
             Some(x) => x,
         };
+        objs.objects.push(obj);
 
-        let chunk_objs = match self.objects.get_mut(&(cx, cy)) {
-            None => return false,
+        invalidate_region(bounds, &mut self.terrain, &mut self.dirty);
+
+        Some((cx, cy, objs.objects.len() - 1))
+    }
+
+    pub fn delete_object(&mut self,
+                         obj_idx: ObjectIndex) -> Option<Object> {
+        let (cx, cy, i) = obj_idx;
+
+        let objs = match self.objects.get_mut(&(cx, cy)) {
+            None => return None,
             Some(x) => x,
         };
-        let objs = &mut chunk_objs.objects;
-        let old_template = self.data.object_templates.template(objs[idx].template_id);
-        let new_template = self.data.object_templates.template(new_id);
+        if i >= objs.objects.len() {
+            return None;
+        }
 
-        let mut obj = &mut objs[idx];
-        obj.template_id = new_id;
+        let obj = objs.objects.swap_remove(i);
+        let bounds = obj.bounds(self.data, (cx, cy));
+        invalidate_region(bounds, &mut self.terrain, &mut self.dirty);
 
-        let old_chunk_base = V3::new(cx, cy, 0) * scalar(CHUNK_SIZE);
-        let old_pos = old_chunk_base + V3::new(obj.x as i32,
-                                               obj.y as i32,
-                                               obj.z as i32);
-        let old_bounds = Region::new(old_pos, old_pos + old_template.size);
-        let new_bounds = Region::new(old_pos, old_pos + new_template.size);
+        Some(obj)
+    }
 
-        // NB: When we start to allow objects to be moved, it might not be a good idea to use .join
-        // (if the object moved a long distance, this would invalidate all intervening chunks).
-        invalidate_region(old_bounds.join(&new_bounds),
-                          &mut self.terrain,
-                          &mut self.dirty);
+    pub fn get_object(&self, obj_idx: ObjectIndex) -> Option<&Object> {
+        let (cx, cy, i) = obj_idx;
+        self.objects.get(&(cx, cy))
+            .and_then(|o| o.objects.get(i))
+    }
 
-        true
+    pub fn get_object_mut(&mut self, obj_idx: ObjectIndex) -> Option<&mut Object> {
+        let (cx, cy, i) = obj_idx;
+        self.objects.get_mut(&(cx, cy))
+            .and_then(|o| o.objects.get_mut(i))
+    }
+
+    pub fn alter_object(&mut self,
+                        obj_idx: ObjectIndex,
+                        new_pos: Option<V3>,
+                        new_template_id: Option<u32>) -> Option<ObjectIndex> {
+        let (cx, cy, i) = obj_idx;
+
+        let old_obj = match self.delete_object(obj_idx) {
+            None => return None,
+            Some(obj) => obj,
+        };
+
+        let old_pos = old_obj.pos((cx, cy));
+        let old_template_id = old_obj.template_id;
+
+        let result = self.create_object(new_pos.unwrap_or(old_pos),
+                                        new_template_id.unwrap_or(old_template_id));
+
+        if result.is_none() {
+            // Failed to create the object in the new position.  Instead create one back in the old
+            // position, so we get back to the same state as when we started.
+            self.create_object(old_pos, old_template_id)
+                .expect("invariant broken: failed to replace object in its original location");
+            // Make sure it has the same index in the list, too.
+            let objs = &mut self.objects.get_mut(&(cx, cy)).unwrap().objects;
+            let new_i = objs.len() - 1;
+            objs.swap(i, new_i);
+        }
+
+        result
+    }
+
+    pub fn move_object(&mut self,
+                       obj_idx: ObjectIndex,
+                       new_pos: V3) -> Option<ObjectIndex> {
+        self.alter_object(obj_idx, Some(new_pos), None)
+    }
+
+    pub fn replace_object(&mut self,
+                          obj_idx: ObjectIndex,
+                          new_template_id: u32) -> Option<ObjectIndex> {
+        self.alter_object(obj_idx, None, Some(new_template_id))
     }
 
     pub fn refresh<F>(&mut self, mut callback: F)
@@ -225,6 +323,45 @@ impl<'d> Terrain<'d> {
             chunk.cache = new_cache;
             chunk.cache_status = CacheStatus::Clean;
         }
+    }
+
+    fn check_clear(&self, bounds: Region) -> bool {
+        let chunks = bounds.div_round_signed(CHUNK_SIZE).with_zs(0, 1);
+
+        for point in chunks.points() {
+            if let Some(objs) = self.objects.get(&(point.x, point.y)) {
+                let base = point * scalar(CHUNK_SIZE);
+                for obj in objs.objects.iter() {
+                    let pos = base + obj.offset();
+                    let template = self.data.object_templates.template(obj.template_id);
+                    let obj_bounds = Region::new(pos, pos + template.size);
+                    if bounds.overlaps(&obj_bounds) {
+                        info!("check_clear: collision with object bounds {:?}",
+                              obj_bounds);
+                        return false;
+                    }
+                }
+            }
+
+            if let Some(terrain) = self.terrain.get(&(point.x, point.y)) {
+                let chunk_bounds = Region::new(point, point + scalar(1)) * scalar(CHUNK_SIZE);
+
+                for point in bounds.intersect(&chunk_bounds).points() {
+                    let idx = chunk_bounds.index(&point);
+                    match self.data.block_data.shape(terrain.base[idx]) {
+                        Empty => {},
+                        Floor if point.z == bounds.min.z => {},
+                        s => {
+                            info!("check_clear: hit {:?} terrain at {:?}",
+                                  s, point);
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+
+        true
     }
 }
 

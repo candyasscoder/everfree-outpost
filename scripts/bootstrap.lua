@@ -64,5 +64,12 @@ outpost_ffi.callbacks.test = function(client)
     local pos = entity:pos()
     local target = pos + V3.new(16, 16, 16) + entity:facing() * V3.new(32, 32, 32)
     local target_tile = target / V3.new(32, 32, 32)
-    client:world():replace_object_at_point(target_tile, "stump")
+    print('target_tile', target_tile)
+
+    local obj = client:world():find_object_at_point(target_tile)
+
+    if obj ~= nil and obj:template() == 'tree' then
+        print('hit a tree')
+        obj:replace('stump')
+    end
 end

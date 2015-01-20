@@ -379,6 +379,12 @@ impl Region {
     }
 
     #[inline]
+    pub fn overlaps(&self, other: &Region) -> bool {
+        let size = self.intersect(other).size();
+        size.x > 0 && size.y > 0 && size.z > 0
+    }
+
+    #[inline]
     pub fn div_round(&self, rhs: i32) -> Region {
         Region::new(self.min / scalar(rhs),
                     (self.max + scalar(rhs - 1)) / scalar(rhs))

@@ -150,6 +150,7 @@ impl BlockData {
 pub struct ObjectTemplate {
     pub size: V3,
     pub blocks: Vec<BlockId>,
+    pub name: String,
 }
 
 pub struct ObjectTemplates {
@@ -197,6 +198,7 @@ impl ObjectTemplates {
             by_id.push(ObjectTemplate {
                 size: size,
                 blocks: blocks,
+                name: String::from_str(name),
             });
             name_to_id.insert(String::from_str(name), i as ObjectId);
         }
