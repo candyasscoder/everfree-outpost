@@ -26,7 +26,7 @@ DIST_WWW = $(DIST)/www
 
 $(shell mkdir -p $(BUILD_ASMJS) $(BUILD_NATIVE_DEBUG) $(BUILD_NATIVE_RELEASE) \
 	$(BUILD_ASMLIBS) $(BUILD_MIN) \
-	$(DIST) $(DIST_BIN) $(DIST_DATA) $(DIST_WWW) $(DIST_WWW)/assets)
+	$(DIST) $(DIST_BIN) $(DIST_DATA) $(DIST_WWW) $(DIST_WWW)/assets $(DIST)/scripts)
 
 
 JS_SRCS = $(wildcard $(SRC)/client/js/*.js)
@@ -236,9 +236,14 @@ $(eval $(call WWW_FILE, outpost.js, 	$(BUILD_MIN)/outpost.js))
 $(eval $(call WWW_FILE, asmlibs.js, 	$(BUILD_MIN)/asmlibs.js))
 endif
 
-$(DIST)/all: $(patsubst %,$(DIST_WWW)/assets/%,$(shell cat $(SRC)/client/assets/used.txt))
+$(DIST)/all: $(patsubst %,$(DIST_WWW)/assets/%,$(shell cat $(SRC)/client/assets/used.txt)) \
+	$(patsubst scripts/%,$(DIST)/scripts/%,$(wildcard scripts/*.lua))
 
 $(DIST_WWW)/assets/%: $(SRC)/client/assets/%
+	mkdir -p $$(dirname $@)
+	cp -v $< $@
+
+$(DIST)/scripts/%: $(SRC)/scripts/%
 	mkdir -p $$(dirname $@)
 	cp -v $< $@
 

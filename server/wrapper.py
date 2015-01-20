@@ -111,14 +111,22 @@ class BackendStream(object):
         print('closed!')
 
 if __name__ == "__main__":
-    exe_path = './dist/bin/backend'
-    blocks_json_path = './dist/data/blocks.json'
-    objects_json_path = './dist/data/objects.json'
+    import os
+    import sys
 
-    tornado.autoreload.watch(exe_path)
-    tornado.autoreload.watch(blocks_json_path)
-    tornado.autoreload.watch(objects_json_path)
+    bin_dir = os.path.dirname(sys.argv[0])
+    root_dir = os.path.dirname(bin_dir)
 
-    backend = BackendStream([exe_path, blocks_json_path, objects_json_path])
+    exe = os.path.join(root_dir, 'bin/backend')
+    blocks_json = os.path.join(root_dir, 'data/blocks.json')
+    objects_json = os.path.join(root_dir, 'data/objects.json')
+    script_dir = os.path.join(root_dir, 'scripts')
+
+    tornado.autoreload.watch(exe)
+    tornado.autoreload.watch(blocks_json)
+    tornado.autoreload.watch(objects_json)
+    tornado.autoreload.watch(os.path.join(script_dir, 'bootstrap.lua'))
+
+    backend = BackendStream([exe, blocks_json, objects_json, script_dir])
     application.listen(8888)
     tornado.ioloop.IOLoop.instance().start()

@@ -175,10 +175,10 @@ pub struct World<'a: 'b, 'b> {
 }
 
 impl<'a> State<'a> {
-    pub fn new(data: &'a Data) -> State<'a> {
+    pub fn new(data: &'a Data, script_path: &str) -> State<'a> {
         State {
             data: data,
-            script: ScriptEngine::new(&Path::new("./scripts")),
+            script: ScriptEngine::new(&Path::new(script_path)),
             map: Terrain::new(data),
             entities: HashMap::new(),
             clients: HashMap::new(),

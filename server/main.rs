@@ -58,7 +58,7 @@ fn read_json(path: &str) -> json::Json {
 }
 
 fn main() {
-    let data = {
+    let (data, script_path) = {
         use std::os;
 
         let block_path = &os::args()[1];
@@ -69,7 +69,10 @@ fn main() {
         log!(10, "reading template data from {}", template_path);
         let template_json = read_json(template_path.as_slice());
 
-        Data::from_json(block_json, template_json).unwrap()
+        let data = Data::from_json(block_json, template_json).unwrap();
+
+        let script_path = os::args()[3].clone();
+        (data, script_path)
     };
 
     let (req_send, req_recv) = channel();
@@ -85,7 +88,7 @@ fn main() {
         tasks::run_output(writer, resp_recv).unwrap();
     });
 
-    let state = state::State::new(&data);
+    let state = state::State::new(&data, &*script_path);
     let mut server = Server::new(resp_send, state);
     server.run(req_recv);
 }
