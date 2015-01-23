@@ -5,7 +5,7 @@ use std::rand::{Rng, XorShiftRng, SeedableRng};
 use collect::lru_cache::LruCache;
 
 use data::BlockData;
-use physics::v3::{V3, Region, scalar};
+use physics::v3::{Vn, V3, Region, scalar};
 use terrain::BlockChunk;
 
 use self::Section::*;

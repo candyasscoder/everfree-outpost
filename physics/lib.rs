@@ -13,7 +13,7 @@ use core::prelude::*;
 use core::cmp;
 use core::num::SignedInt;
 
-use v3::{V3, Axis, DirAxis, Region, scalar};
+use v3::{Vn, V3, Axis, DirAxis, Region, scalar};
 
 
 pub mod v3;

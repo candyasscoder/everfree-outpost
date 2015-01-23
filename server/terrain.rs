@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use physics::{CHUNK_SIZE, CHUNK_BITS};
-use physics::v3::{V3, Region, scalar};
+use physics::v3::{Vn, V3, Region, scalar};
 use physics::Shape::{Empty, Floor};
 
 use data::Data;

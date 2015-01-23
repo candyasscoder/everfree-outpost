@@ -3,7 +3,7 @@ use std::mem;
 use std::ops::{Add, Sub, Mul, Div, Rem};
 use libc::c_int;
 
-use physics::v3::V3;
+use physics::v3::{Vn, V3};
 
 use state;
 use terrain;

@@ -43,58 +43,30 @@ impl V3 {
         V3 { x: x, y: y, z: z }
     }
 
-    pub fn on_axis(axis: Axis, mag: i32) -> V3 {
-        match axis {
-            Axis::X => V3::new(mag, 0, 0),
-            Axis::Y => V3::new(0, mag, 0),
-            Axis::Z => V3::new(0, 0, mag),
-        }
+    pub fn with_x(self, val: i32) -> V3 {
+        self.with(Axis::X, val)
     }
 
-    pub fn on_dir_axis(dir_axis: DirAxis, mag: i32) -> V3 {
-        let (axis, neg) = dir_axis;
-        let result = V3::on_axis(axis, mag);
-        if !neg { result } else { -result }
+    pub fn with_y(self, val: i32) -> V3 {
+        self.with(Axis::Y, val)
     }
 
-    pub fn map<F: Fn(i32) -> i32>(&self, f: F) -> V3 {
-        V3 {
-            x: f(self.x),
-            y: f(self.y),
-            z: f(self.z),
-        }
+    pub fn with_z(self, val: i32) -> V3 {
+        self.with(Axis::Z, val)
+    }
+}
+
+impl Vn for V3 {
+    type Axis = Axis;
+
+    fn from_fn<F: FnMut(Axis) -> i32>(mut f: F) -> V3 {
+        let x = f(Axis::X);
+        let y = f(Axis::Y);
+        let z = f(Axis::Z);
+        V3::new(x, y, z)
     }
 
-    pub fn zip<F: Fn(i32, i32) -> i32>(&self, other: V3, f: F) -> V3 {
-        V3 {
-            x: f(self.x, other.x),
-            y: f(self.y, other.y),
-            z: f(self.z, other.z),
-        }
-    }
-
-    pub fn zip3<F: Fn(i32, i32, i32) -> i32>(&self, other1: V3, other2: V3, f: F) -> V3 {
-        V3 {
-            x: f(self.x, other1.x, other2.x),
-            y: f(self.y, other1.y, other2.y),
-            z: f(self.z, other1.z, other2.z),
-        }
-    }
-
-    pub fn iter<'a>(&'a self) -> V3Items<'a> {
-        V3Items {
-            v: self,
-            i: 0,
-        }
-    }
-
-    pub fn dot(&self, other: V3) -> i32 {
-        self.x * other.x +
-        self.y * other.y +
-        self.z * other.z
-    }
-
-    pub fn get(&self, axis: Axis) -> i32 {
+    fn get(self, axis: Axis) -> i32 {
         match axis {
             Axis::X => self.x,
             Axis::Y => self.y,
@@ -102,78 +74,147 @@ impl V3 {
         }
     }
 
-    pub fn get_dir(&self, dir_axis: DirAxis) -> i32 {
-        let (axis, neg) = dir_axis;
-        if !neg { self.get(axis) } else { -self.get(axis) }
-    }
-
-    pub fn get_if_pos(&self, dir_axis: DirAxis) -> i32 {
-        let (axis, neg) = dir_axis;
-        if !neg { self.get(axis) } else { 0 }
-    }
-
-    pub fn only(&self, axis: Axis) -> V3 {
-        V3::on_axis(axis, self.get(axis))
-    }
-
-    pub fn abs(&self) -> V3 {
-        self.map(|&:a: i32| a.abs())
-    }
-
-    pub fn signum(&self) -> V3 {
-        self.map(|&:a: i32| a.signum())
-    }
-
-    pub fn is_positive(&self) -> V3 {
-        self.map(|&:a: i32| (a > 0) as i32)
-    }
-
-    pub fn is_negative(&self) -> V3 {
-        self.map(|&:a: i32| (a < 0) as i32)
-    }
-
-    pub fn is_zero(&self) -> V3 {
-        self.map(|&:a: i32| (a == 0) as i32)
-    }
-
-    pub fn choose(&self, a: V3, b: V3) -> V3 {
-        V3 {
-            x: if self.x != 0 { a.x } else { b.x },
-            y: if self.y != 0 { a.y } else { b.y },
-            z: if self.z != 0 { a.z } else { b.z },
-        }
-    }
-
-    pub fn clamp(&self, low: i32, high: i32) -> V3 {
-        self.map(|&: a: i32| max(low, min(high, a)))
-    }
-
-    pub fn with_x(&self, new_x: i32) -> V3 {
-        V3::new(new_x, self.y, self.z)
-    }
-
-    pub fn with_y(&self, new_y: i32) -> V3 {
-        V3::new(self.x, new_y, self.z)
-    }
-
-    pub fn with_z(&self, new_z: i32) -> V3 {
-        V3::new(self.x, self.y, new_z)
-    }
-
-    pub fn with(&self, axis: Axis, new: i32) -> V3 {
-        match axis {
-            Axis::X => self.with_x(new),
-            Axis::Y => self.with_y(new),
-            Axis::Z => self.with_z(new),
-        }
-    }
-
-    pub fn div_floor(&self, other: V3) -> V3 {
-        self.zip(other, |&: a: i32, b: i32| {
-            div_floor(a, b)
-        })
+    fn for_axes<F: FnMut(Axis)>(mut f: F) {
+        f(Axis::X);
+        f(Axis::Y);
+        f(Axis::Z);
     }
 }
+
+pub trait Vn: Sized+Copy {
+    type Axis: Eq+Copy;
+
+    fn from_fn<F: FnMut(<Self as Vn>::Axis) -> i32>(f: F) -> Self;
+    fn get(self, axis: <Self as Vn>::Axis) -> i32;
+    fn for_axes<F: FnMut(<Self as Vn>::Axis)>(f: F);
+
+    fn on_axis(axis: <Self as Vn>::Axis, mag: i32) -> Self {
+        <Self as Vn>::from_fn(|a| if a == axis { mag } else { 0 })
+    }
+
+    fn on_dir_axis(dir_axis: (<Self as Vn>::Axis, bool), mag: i32) -> Self {
+        let (axis, neg) = dir_axis;
+        <Self as Vn>::on_axis(axis, if neg { -mag } else { mag })
+    }
+
+    fn map<F: FnMut(i32) -> i32>(self, mut f: F) -> Self {
+        <Self as Vn>::from_fn(|a| f(self.get(a)))
+    }
+
+    fn zip<F: FnMut(i32, i32) -> i32>(self, other: Self, mut f: F) -> Self {
+        <Self as Vn>::from_fn(|a| f(self.get(a), other.get(a)))
+    }
+
+    fn zip3<F: FnMut(i32, i32, i32) -> i32>(self, other1: Self, other2: Self, mut f: F) -> Self {
+        <Self as Vn>::from_fn(|a| f(self.get(a), other1.get(a), other2.get(a)))
+    }
+
+    fn dot(self, other: Self) -> i32 {
+        let mut sum = 0;
+        <Self as Vn>::for_axes(|a| sum += self.get(a) * other.get(a));
+        sum
+    }
+
+    fn get_dir(self, dir_axis: (<Self as Vn>::Axis, bool)) -> i32 {
+        let (axis, neg) = dir_axis;
+        if neg { -self.get(axis) } else { self.get(axis) }
+    }
+
+    fn get_if_pos(self, dir_axis: (<Self as Vn>::Axis, bool)) -> i32 {
+        let (axis, neg) = dir_axis;
+        if neg { 0 } else { self.get(axis) }
+    }
+
+    fn only(self, axis: <Self as Vn>::Axis) -> Self {
+        <Self as Vn>::on_axis(axis, self.get(axis))
+    }
+
+    fn abs(self) -> Self {
+        self.map(|x| x.abs())
+    }
+
+    fn signum(self) -> Self {
+        self.map(|x| x.signum())
+    }
+
+    fn is_positive(self) -> Self {
+        self.map(|x| (x > 0) as i32)
+    }
+
+    fn is_negative(self) -> Self {
+        self.map(|x| (x < 0) as i32)
+    }
+
+    fn is_zero(self) -> Self {
+        self.map(|x| (x == 0) as i32)
+    }
+
+    fn choose(self, a: Self, b: Self) -> Self {
+        self.zip3(a, b, |x, a, b| if x != 0 { a } else { b })
+    }
+
+    fn clamp(self, low: i32, high: i32) -> Self {
+        self.map(|x| max(low, min(high, x)))
+    }
+
+    fn with(self, axis: <Self as Vn>::Axis, mag: i32) -> Self {
+        <Self as Vn>::from_fn(|a| if a == axis { mag } else { self.get(a) })
+    }
+
+    fn div_floor(self, other: Self) -> Self {
+        self.zip(other, |a, b| div_floor(a, b))
+    }
+
+
+    fn add(self, other: Self) -> Self {
+        self.zip(other, |a, b| a + b)
+    }
+
+    fn sub(self, other: Self) -> Self {
+        self.zip(other, |a, b| a - b)
+    }
+
+    fn mul(self, other: Self) -> Self {
+        self.zip(other, |a, b| a * b)
+    }
+
+    fn div(self, other: Self) -> Self {
+        self.zip(other, |a, b| a / b)
+    }
+
+    fn rem(self, other: Self) -> Self {
+        self.zip(other, |a, b| a % b)
+    }
+
+    fn neg(self) -> Self {
+        self.map(|x| -x)
+    }
+
+    fn shl(self, amount: usize) -> Self {
+        self.map(|x| x << amount)
+    }
+
+    fn shr(self, amount: usize) -> Self {
+        self.map(|x| x >> amount)
+    }
+
+    fn bitand(self, other: Self) -> Self {
+        self.zip(other, |a, b| a & b)
+    }
+
+    fn bitor(self, other: Self) -> Self {
+        self.zip(other, |a, b| a | b)
+    }
+
+    fn bitxor(self, other: Self) -> Self {
+        self.zip(other, |a, b| a ^ b)
+    }
+
+    fn not(self) -> Self {
+        self.map(|x| !x)
+    }
+}
+
 
 fn div_floor(a: i32, b: i32) -> i32 {
     if b < 0 {
@@ -217,99 +258,65 @@ impl FromIterator<i32> for V3 {
     }
 }
 
-pub fn scalar(w: i32) -> V3 {
-    V3 {
-        x: w,
-        y: w,
-        z: w,
-    }
+pub fn scalar<V: Vn>(w: i32) -> V {
+    <V as Vn>::from_fn(|_| w)
 }
 
-impl Add<V3> for V3 {
-    type Output = V3;
-    fn add(self, other: V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a + b)
-    }
+
+macro_rules! impl_Vn_binop {
+    ($vec:ty, $op:ident, $method:ident) => {
+        impl $op<$vec> for $vec {
+            type Output = $vec;
+            fn $method(self, other: $vec) -> $vec {
+                <$vec as Vn>::$method(self, other)
+            }
+        }
+    };
 }
 
-impl Sub<V3> for V3 {
-    type Output = V3;
-    fn sub(self, other: V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a - b)
-    }
+macro_rules! impl_Vn_unop {
+    ($vec:ty, $op:ident, $method:ident) => {
+        impl $op for $vec {
+            type Output = $vec;
+            fn $method(self) -> $vec {
+                <$vec as Vn>::$method(self)
+            }
+        }
+    };
 }
 
-impl Mul<V3> for V3 {
-    type Output = V3;
-    fn mul(self, other: V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a * b)
-    }
+macro_rules! impl_Vn_shift_op {
+    ($vec:ty, $op:ident, $method:ident) => {
+        impl $op<usize> for $vec {
+            type Output = $vec;
+            fn $method(self, amount: usize) -> $vec {
+                <$vec as Vn>::$method(self, amount)
+            }
+        }
+    };
 }
 
-impl Div<V3> for V3 {
-    type Output = V3;
-    #[inline]
-    fn div(self, other: V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a / b)
-    }
+macro_rules! impl_Vn_ops {
+    ($vec:ty) => {
+        impl_Vn_binop!($vec, Add, add);
+        impl_Vn_binop!($vec, Sub, sub);
+        impl_Vn_binop!($vec, Mul, mul);
+        impl_Vn_binop!($vec, Div, div);
+        impl_Vn_binop!($vec, Rem, rem);
+        impl_Vn_unop!($vec, Neg, neg);
+
+        impl_Vn_shift_op!($vec, Shl, shl);
+        impl_Vn_shift_op!($vec, Shr, shr);
+
+        impl_Vn_binop!($vec, BitAnd, bitand);
+        impl_Vn_binop!($vec, BitOr, bitor);
+        impl_Vn_binop!($vec, BitXor, bitxor);
+        impl_Vn_unop!($vec, Not, not);
+    };
 }
 
-impl Rem<V3> for V3 {
-    type Output = V3;
-    #[inline]
-    fn rem(self, other: V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a % b)
-    }
-}
 
-impl Neg for V3 {
-    type Output = V3;
-    fn neg(self) -> V3 {
-        self.map(|&:a: i32| -a)
-    }
-}
-
-impl Shl<usize> for V3 {
-    type Output = V3;
-    fn shl(self, rhs: usize) -> V3 {
-        self.map(|&:a: i32| a << rhs)
-    }
-}
-
-impl Shr<usize> for V3 {
-    type Output = V3;
-    fn shr(self, rhs: usize) -> V3 {
-        self.map(|&:a: i32| a >> rhs)
-    }
-}
-
-impl BitAnd<V3> for V3 {
-    type Output = V3;
-    fn bitand(self, other: V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a & b)
-    }
-}
-
-impl BitOr<V3> for V3 {
-    type Output = V3;
-    fn bitor(self, other: V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a | b)
-    }
-}
-
-impl BitXor<V3> for V3 {
-    type Output = V3;
-    fn bitxor(self, other: V3) -> V3 {
-        self.zip(other, |&:a: i32, b: i32| a ^ b)
-    }
-}
-
-impl Not for V3 {
-    type Output = V3;
-    fn not(self) -> V3 {
-        self.map(|&:a: i32| !a)
-    }
-}
+impl_Vn_ops!(V3);
 
 
 #[derive(Copy, Eq, PartialEq, Clone)]
