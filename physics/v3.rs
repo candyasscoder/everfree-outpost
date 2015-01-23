@@ -53,6 +53,10 @@ impl V3 {
     pub fn with_z(self, val: i32) -> V3 {
         self.with(Axis::Z, val)
     }
+
+    pub fn reduce(self) -> V2 {
+        V2::new(self.x, self.y)
+    }
 }
 
 impl Vn for V3 {
@@ -80,6 +84,67 @@ impl Vn for V3 {
         val
     }
 }
+
+
+#[derive(Copy, Eq, PartialEq, Show)]
+pub enum Axis2 {
+    X,
+    Y,
+}
+
+#[derive(Copy, Eq, PartialEq, Clone)]
+pub struct V2 {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl fmt::Show for V2 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        (self.x, self.y).fmt(f)
+    }
+}
+
+impl V2 {
+    pub fn new(x: i32, y: i32) -> V2 {
+        V2 { x: x, y: y }
+    }
+
+    pub fn with_x(self, val: i32) -> V2 {
+        self.with(Axis2::X, val)
+    }
+
+    pub fn with_y(self, val: i32) -> V2 {
+        self.with(Axis2::Y, val)
+    }
+
+    pub fn extend(self, val: i32) -> V3 {
+        V3::new(self.x, self.y, val)
+    }
+}
+
+impl Vn for V2 {
+    type Axis = Axis2;
+
+    fn unfold<T, F: FnMut(Axis2, T) -> (i32, T)>(val: T, mut f: F) -> (V2, T) {
+        let (x, val) = f(Axis2::X, val);
+        let (y, val) = f(Axis2::Y, val);
+        (V2::new(x, y), val)
+    }
+
+    fn get(self, axis: Axis2) -> i32 {
+        match axis {
+            Axis2::X => self.x,
+            Axis2::Y => self.y,
+        }
+    }
+
+    fn fold_axes<T, F: FnMut(Axis2, T) -> T>(val: T, mut f: F) -> T {
+        let val = f(Axis2::X, val);
+        let val = f(Axis2::Y, val);
+        val
+    }
+}
+
 
 pub trait Vn: Sized+Copy {
     type Axis: Eq+Copy;
@@ -288,6 +353,7 @@ macro_rules! impl_Vn_ops {
 
 
 impl_Vn_ops!(V3);
+impl_Vn_ops!(V2);
 
 
 #[derive(Copy, Eq, PartialEq, Clone)]
@@ -424,6 +490,20 @@ impl Region<V3> {
     #[inline]
     pub fn flatten(&self, depth: i32) -> Region<V3> {
         self.with_zs(self.min.z, self.min.z + depth)
+    }
+
+    #[inline]
+    pub fn reduce(&self) -> Region<V2> {
+        Region::new(self.min.reduce(),
+                    self.max.reduce())
+    }
+}
+
+impl Region<V2> {
+    #[inline]
+    pub fn extend(&self, min: i32, max: i32) -> Region<V3> {
+        Region::new(self.min.extend(min),
+                    self.max.extend(max))
     }
 }
 
