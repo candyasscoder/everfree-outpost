@@ -1,7 +1,6 @@
 use core::prelude::*;
 use core::cmp::{min, max};
 use core::fmt;
-use core::iter::FromIterator;
 use core::num::SignedInt;
 use core::ops::{Add, Sub, Mul, Div, Rem, Neg, Shl, Shr, BitAnd, BitOr, BitXor, Not};
 
@@ -59,11 +58,11 @@ impl V3 {
 impl Vn for V3 {
     type Axis = Axis;
 
-    fn from_fn<F: FnMut(Axis) -> i32>(mut f: F) -> V3 {
-        let x = f(Axis::X);
-        let y = f(Axis::Y);
-        let z = f(Axis::Z);
-        V3::new(x, y, z)
+    fn unfold<T, F: FnMut(Axis, T) -> (i32, T)>(val: T, mut f: F) -> (V3, T) {
+        let (x, val) = f(Axis::X, val);
+        let (y, val) = f(Axis::Y, val);
+        let (z, val) = f(Axis::Z, val);
+        (V3::new(x, y, z), val)
     }
 
     fn get(self, axis: Axis) -> i32 {
@@ -74,19 +73,24 @@ impl Vn for V3 {
         }
     }
 
-    fn for_axes<F: FnMut(Axis)>(mut f: F) {
-        f(Axis::X);
-        f(Axis::Y);
-        f(Axis::Z);
+    fn fold_axes<T, F: FnMut(Axis, T) -> T>(val: T, mut f: F) -> T {
+        let val = f(Axis::X, val);
+        let val = f(Axis::Y, val);
+        let val = f(Axis::Z, val);
+        val
     }
 }
 
 pub trait Vn: Sized+Copy {
     type Axis: Eq+Copy;
 
-    fn from_fn<F: FnMut(<Self as Vn>::Axis) -> i32>(f: F) -> Self;
+    fn unfold<T, F: FnMut(<Self as Vn>::Axis, T) -> (i32, T)>(val: T, mut f: F) -> (Self, T);
     fn get(self, axis: <Self as Vn>::Axis) -> i32;
-    fn for_axes<F: FnMut(<Self as Vn>::Axis)>(f: F);
+    fn fold_axes<T, F: FnMut(<Self as Vn>::Axis, T) -> T>(init: T, mut f: F) -> T;
+
+    fn from_fn<F: FnMut(<Self as Vn>::Axis) -> i32>(mut f: F) -> Self {
+        <Self as Vn>::unfold((), |a, ()| (f(a), ())).0
+    }
 
     fn on_axis(axis: <Self as Vn>::Axis, mag: i32) -> Self {
         <Self as Vn>::from_fn(|a| if a == axis { mag } else { 0 })
@@ -110,9 +114,7 @@ pub trait Vn: Sized+Copy {
     }
 
     fn dot(self, other: Self) -> i32 {
-        let mut sum = 0;
-        <Self as Vn>::for_axes(|a| sum += self.get(a) * other.get(a));
-        sum
+        <Self as Vn>::fold_axes(0, |a, sum| sum + self.get(a) * other.get(a))
     }
 
     fn get_dir(self, dir_axis: (<Self as Vn>::Axis, bool)) -> i32 {
@@ -215,7 +217,6 @@ pub trait Vn: Sized+Copy {
     }
 }
 
-
 fn div_floor(a: i32, b: i32) -> i32 {
     if b < 0 {
         return div_floor(-a, -b);
@@ -225,36 +226,6 @@ fn div_floor(a: i32, b: i32) -> i32 {
         (a - (b - 1)) / b
     } else {
         a / b
-    }
-}
-
-pub struct V3Items<'a> {
-    v: &'a V3,
-    i: u8,
-}
-
-impl<'a> Iterator for V3Items<'a> {
-    type Item = i32;
-    fn next(&mut self) -> Option<i32> {
-        self.i += 1;
-        if self.i == 1 {
-            Some(self.v.x)
-        } else if self.i == 2 {
-            Some(self.v.y)
-        } else if self.i == 3 {
-            Some(self.v.z)
-        } else {
-            None
-        }
-    }
-}
-
-impl FromIterator<i32> for V3 {
-    fn from_iter<I: Iterator<Item=i32>>(mut iterator: I) -> V3 {
-        let x = iterator.next().unwrap();
-        let y = iterator.next().unwrap();
-        let z = iterator.next().unwrap();
-        V3 { x: x, y: y, z: z }
     }
 }
 
@@ -320,215 +291,238 @@ impl_Vn_ops!(V3);
 
 
 #[derive(Copy, Eq, PartialEq, Clone)]
-pub struct Region {
-    pub min: V3,
-    pub max: V3,
+pub struct Region<V=V3> {
+    pub min: V,
+    pub max: V,
 }
 
-impl fmt::Show for Region {
+impl<V: Copy+fmt::Show> fmt::Show for Region<V> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         (self.min, self.max).fmt(f)
     }
 }
 
-impl Region {
+impl<V: Vn> Region<V> {
     #[inline]
-    pub fn new(min: V3, max: V3) -> Region {
+    pub fn new(min: V, max: V) -> Region<V> {
         Region { min: min, max: max }
     }
 
     #[inline]
-    pub fn around(center: V3, radius: i32) -> Region {
+    pub fn points(&self) -> RegionPoints<V> {
+        RegionPoints::new(self.min, self.max)
+    }
+
+    #[inline]
+    pub fn contains(&self, point: V) -> bool {
+        <V as Vn>::fold_axes(true, |a, cur| {
+            cur &&
+            point.get(a) >= self.min.get(a) &&
+            point.get(a) <  self.max.get(a)
+        })
+    }
+
+    #[inline]
+    pub fn contains_inclusive(&self, point: V) -> bool {
+        <V as Vn>::fold_axes(true, |a, cur| {
+            cur &&
+            point.get(a) >= self.min.get(a) &&
+            point.get(a) <= self.max.get(a)
+        })
+    }
+
+    #[inline]
+    pub fn join(&self, other: Region<V>) -> Region<V> {
+        Region::new(self.min.zip(other.min, |a, b| min(a, b)),
+                    self.max.zip(other.max, |a, b| max(a, b)))
+    }
+
+    #[inline]
+    pub fn intersect(&self, other: Region<V>) -> Region<V> {
+        Region::new(self.min.zip(other.min, |a, b| max(a, b)),
+                    self.max.zip(other.max, |a, b| min(a, b)))
+    }
+
+    #[inline]
+    pub fn overlaps(&self, other: Region<V>) -> bool {
+        let inter = self.intersect(other);
+        <V as Vn>::fold_axes(true, |a, over| over && inter.min.get(a) < inter.max.get(a))
+    }
+
+    #[inline]
+    pub fn clamp_point(&self, point: V) -> V {
+        <V as Vn>::from_fn(|a| max(self.min.get(a),
+                               min(self.max.get(a),
+                                   point.get(a))))
+    }
+}
+
+impl<V: Vn + Add<V, Output=V> + Sub<V, Output=V> > Region<V> {
+    #[inline]
+    pub fn around(center: V, radius: i32) -> Region<V> {
         Region::new(center - scalar(radius),
                     center + scalar(radius))
     }
 
     #[inline]
-    pub fn points(&self) -> RegionPoints {
-        RegionPoints::new(self.min, self.max)
-    }
-
-    #[inline]
-    pub fn size(&self) -> V3 {
+    pub fn size(&self) -> V {
         self.max - self.min
     }
 
     #[inline]
     pub fn volume(&self) -> i32 {
         let size = self.size();
-        size.x * size.y * size.z
+        <V as Vn>::fold_axes(1, |a, v| v * size.get(a))
     }
 
     #[inline]
-    pub fn contains(&self, point: V3) -> bool {
-        point.x >= self.min.x && point.x < self.max.x &&
-        point.y >= self.min.y && point.y < self.max.y &&
-        point.z >= self.min.z && point.z < self.max.z
+    pub fn expand(&self, amount: V) -> Region<V> {
+        Region::new(self.min - amount, self.max + amount)
     }
 
     #[inline]
-    pub fn contains_inclusive(&self, point: V3) -> bool {
-        point.x >= self.min.x && point.x <= self.max.x &&
-        point.y >= self.min.y && point.y <= self.max.y &&
-        point.z >= self.min.z && point.z <= self.max.z
+    pub fn index(&self, point: V) -> usize {
+        let offset = point - self.min;
+        let size = self.size();
+        <V as Vn>::fold_axes((0, 1), |a, (sum, mul)| {
+            (sum + offset.get(a) as usize * mul,
+             mul * size.get(a) as usize)
+        }).0
     }
+}
 
+impl<V > Region<V>
+        where V: Vn + Add<V, Output=V> + Sub<V, Output=V> + Div<V, Output=V> {
     #[inline]
-    pub fn join(&self, other: Region) -> Region {
-        Region::new(self.min.zip(other.min, |&:a:i32, b: i32| min(a, b)),
-                    self.max.zip(other.max, |&:a:i32, b: i32| max(a, b)))
-    }
-
-    #[inline]
-    pub fn intersect(&self, other: Region) -> Region {
-        Region::new(self.min.zip(other.min, |&:a:i32, b: i32| max(a, b)),
-                    self.max.zip(other.max, |&:a:i32, b: i32| min(a, b)))
-    }
-
-    #[inline]
-    pub fn overlaps(&self, other: Region) -> bool {
-        let size = self.intersect(other).size();
-        size.x > 0 && size.y > 0 && size.z > 0
-    }
-
-    #[inline]
-    pub fn div_round(&self, rhs: i32) -> Region {
+    pub fn div_round(&self, rhs: i32) -> Region<V> {
         Region::new(self.min / scalar(rhs),
                     (self.max + scalar(rhs - 1)) / scalar(rhs))
     }
 
     #[inline]
-    pub fn div_round_signed(&self, rhs: i32) -> Region {
+    pub fn div_round_signed(&self, rhs: i32) -> Region<V> {
         Region::new(self.min.div_floor(scalar(rhs)),
                     (self.max + scalar(rhs - 1)).div_floor(scalar(rhs)))
     }
+}
 
+impl Region<V3> {
     #[inline]
-    pub fn with_zs(&self, min_z: i32, max_z: i32) -> Region {
+    pub fn with_zs(&self, min_z: i32, max_z: i32) -> Region<V3> {
         Region::new(self.min.with_z(min_z), self.max.with_z(max_z))
     }
 
     #[inline]
-    pub fn flatten(&self, depth: i32) -> Region {
+    pub fn flatten(&self, depth: i32) -> Region<V3> {
         self.with_zs(self.min.z, self.min.z + depth)
     }
-
-    #[inline]
-    pub fn expand(&self, amount: V3) -> Region {
-        Region::new(self.min - amount, self.max + amount)
-    }
-
-    #[inline]
-    pub fn clamp_point(&self, point: V3) -> V3 {
-        let x = max(self.min.x, min(self.max.x, point.x));
-        let y = max(self.min.y, min(self.max.y, point.y));
-        let z = max(self.min.z, min(self.max.z, point.z));
-        V3::new(x, y, z)
-    }
-
-    #[inline]
-    pub fn index(&self, point: V3) -> usize {
-        let dx = (self.max.x - self.min.x) as usize;
-        let dy = (self.max.y - self.min.y) as usize;
-        let offset = point - self.min;
-        let x = offset.x as usize;
-        let y = offset.y as usize;
-        let z = offset.z as usize;
-        (z * dy + y) * dx + x
-    }
 }
 
-impl Add<V3> for Region {
-    type Output = Region;
-    fn add(self, other: V3) -> Region {
-        Region::new(self.min + other, self.max + other)
-    }
+macro_rules! impl_Region_binop {
+    ($op:ident, $method:ident) => {
+        impl<V: Vn+Copy> $op<V> for Region<V> {
+            type Output = Region<V>;
+            fn $method(self, other: V) -> Region<V> {
+                Region::new(<V as Vn>::$method(self.min, other),
+                            <V as Vn>::$method(self.max, other))
+            }
+        }
+    };
 }
 
-impl Sub<V3> for Region {
-    type Output = Region;
-    fn sub(self, other: V3) -> Region {
-        Region::new(self.min - other, self.max - other)
-    }
+macro_rules! impl_Region_unop {
+    ($op:ident, $method:ident) => {
+        impl<V: Vn+Copy> $op for Region<V> {
+            type Output = Region<V>;
+            fn $method(self) -> Region<V> {
+                Region::new(<V as Vn>::$method(self.min),
+                            <V as Vn>::$method(self.max))
+            }
+        }
+    };
 }
 
-impl Mul<V3> for Region {
-    type Output = Region;
-    fn mul(self, other: V3) -> Region {
-        Region::new(self.min * other, self.max * other)
-    }
+macro_rules! impl_Region_shift_op {
+    ($op:ident, $method:ident) => {
+        impl<V: Vn+Copy> $op<usize> for Region<V> {
+            type Output = Region<V>;
+            fn $method(self, amount: usize) -> Region<V> {
+                Region::new(<V as Vn>::$method(self.min, amount),
+                            <V as Vn>::$method(self.max, amount))
+            }
+        }
+    };
 }
 
-impl Div<V3> for Region {
-    type Output = Region;
-    fn div(self, other: V3) -> Region {
-        Region::new(self.min / other, self.max / other)
-    }
+macro_rules! impl_Region_ops {
+    () => {
+        impl_Region_binop!(Add, add);
+        impl_Region_binop!(Sub, sub);
+        impl_Region_binop!(Mul, mul);
+        impl_Region_binop!(Div, div);
+        impl_Region_binop!(Rem, rem);
+        impl_Region_unop!(Neg, neg);
+
+        impl_Region_shift_op!(Shl, shl);
+        impl_Region_shift_op!(Shr, shr);
+
+        impl_Region_binop!(BitAnd, bitand);
+        impl_Region_binop!(BitOr, bitor);
+        impl_Region_binop!(BitXor, bitxor);
+        impl_Region_unop!(Not, not);
+    };
 }
 
-impl Rem<V3> for Region {
-    type Output = Region;
-    fn rem(self, other: V3) -> Region {
-        Region::new(self.min % other, self.max % other)
-    }
-}
-
-impl Neg for Region {
-    type Output = Region;
-    fn neg(self) -> Region {
-        Region::new(-self.min, -self.max)
-    }
-}
-
-impl Shl<usize> for Region {
-    type Output = Region;
-    fn shl(self, rhs: usize) -> Region {
-        Region::new(self.min << rhs, self.max << rhs)
-    }
-}
-
-impl Shr<usize> for Region {
-    type Output = Region;
-    fn shr(self, rhs: usize) -> Region {
-        Region::new(self.min >> rhs, self.max >> rhs)
-    }
-}
+impl_Region_ops!();
 
 
 #[derive(Copy)]
-pub struct RegionPoints {
-    cur: V3,
-    min: V3,
-    max: V3,
+pub struct RegionPoints<V> {
+    cur: V,
+    min: V,
+    max: V,
 }
 
-impl RegionPoints {
-    pub fn new(min: V3, max: V3) -> RegionPoints {
-        let empty = max.x <= min.x || max.y <= min.y || max.z <= min.z;
-
+impl<V: Vn> RegionPoints<V> {
+    pub fn new(min: V, max: V) -> RegionPoints<V> {
+        let mut first = true;
+        let start = min.map(|x| {
+            if first {
+                first = false;
+                x - 1
+            } else {
+                x
+            }
+        });
         RegionPoints {
-            cur: min - V3::new(1, 0, 0),
+            cur: start,
             min: min,
-            max: if !empty { max } else { min },
+            max: max,
         }
     }
 }
 
-impl Iterator for RegionPoints {
-    type Item = V3;
-    fn next(&mut self) -> Option<V3> {
-        self.cur.x += 1;
-        if self.cur.x >= self.max.x {
-            self.cur.x = self.min.x;
-            self.cur.y += 1;
-            if self.cur.y >= self.max.y {
-                self.cur.y = self.min.y;
-                self.cur.z += 1;
-                if self.cur.z >= self.max.z {
-                    return None;
+impl<V: Vn+Copy> Iterator for RegionPoints<V> {
+    type Item = V;
+
+    fn next(&mut self) -> Option<V> {
+        let (new, carry) = <V as Vn>::unfold(true, |a, carry| {
+            if !carry {
+                (self.cur.get(a), false)
+            } else {
+                let new_val = self.cur.get(a) + 1;
+                if new_val < self.max.get(a) {
+                    (new_val, false)
+                } else {
+                    (self.min.get(a), true)
                 }
             }
+        });
+        self.cur = new;
+        if carry {
+            None
+        } else {
+            Some(new)
         }
-        Some(self.cur)
     }
 }
