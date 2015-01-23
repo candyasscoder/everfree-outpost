@@ -343,17 +343,20 @@ impl<'a> State<'a> {
                 let base = V3::new(cx * CHUNK_SIZE,
                                    cy * CHUNK_SIZE,
                                    0);
+                let bounds = Region::new(base, base + scalar(CHUNK_SIZE));
                 let points = gen.generate_chunk(block_data, cx, cy).1;
                 let id = template_data.get_id("tree");
-                points.into_iter().map(|p| {
-                    let rel_pos = p - base;
-                    Object {
-                        template_id: id,
-                        x: rel_pos.x as u8,
-                        y: rel_pos.y as u8,
-                        z: rel_pos.z as u8,
-                    }
-                }).collect()
+                points.into_iter()
+                      .filter(|&p| bounds.contains(p))
+                      .map(|p| {
+                          let rel_pos = p - base;
+                          Object {
+                              template_id: id,
+                              x: rel_pos.x as u8,
+                              y: rel_pos.y as u8,
+                              z: rel_pos.z as u8,
+                          }
+                      }).collect()
             });
     }
 

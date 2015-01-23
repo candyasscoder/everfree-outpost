@@ -309,8 +309,17 @@ impl<V: Vn> Region<V> {
     }
 
     #[inline]
+    pub fn empty(&self) -> bool {
+        <V as Vn>::fold_axes(false, |a, e| e || self.min.get(a) >= self.max.get(a))
+    }
+
+    #[inline]
     pub fn points(&self) -> RegionPoints<V> {
-        RegionPoints::new(self.min, self.max)
+        if self.empty() {
+            RegionPoints::empty()
+        } else {
+            RegionPoints::new(self.min, self.max)
+        }
     }
 
     #[inline]
@@ -484,6 +493,14 @@ pub struct RegionPoints<V> {
 }
 
 impl<V: Vn> RegionPoints<V> {
+    pub fn empty() -> RegionPoints<V> {
+        RegionPoints {
+            cur: scalar(0),
+            min: scalar(0),
+            max: scalar(0),
+        }
+    }
+
     pub fn new(min: V, max: V) -> RegionPoints<V> {
         let mut first = true;
         let start = min.map(|x| {
