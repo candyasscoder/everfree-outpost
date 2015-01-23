@@ -23,7 +23,7 @@ pub struct Object {
 
 impl Object {
     fn new(template_id: u32, pos: V3) -> (Object, (i32, i32)) {
-        let chunk = pos.div_floor(&scalar(CHUNK_SIZE));
+        let chunk = pos.div_floor(scalar(CHUNK_SIZE));
         let offset = pos - chunk * scalar(CHUNK_SIZE);
         let obj = Object {
             template_id: template_id,
@@ -172,7 +172,7 @@ impl<'d> Terrain<'d> {
 
     pub fn find_object_at_point(&self,
                                 point: V3) -> Option<(ObjectIndex, &Object)> {
-        let point_chunk = point.div_floor(&scalar(CHUNK_SIZE));
+        let point_chunk = point.div_floor(scalar(CHUNK_SIZE));
 
         // Look at objects in the chunk containing `point` and also in the chunks above and to the
         // left.
@@ -195,7 +195,7 @@ impl<'d> Terrain<'d> {
                     let template = self.data.object_templates.template(obj.template_id);
                     let region = Region::new(base, base + template.size);
 
-                    if region.contains(&point) {
+                    if region.contains(point) {
                         return Some(((cx, cy, idx), obj));
                     }
                 }
@@ -335,7 +335,7 @@ impl<'d> Terrain<'d> {
                     let pos = base + obj.offset();
                     let template = self.data.object_templates.template(obj.template_id);
                     let obj_bounds = Region::new(pos, pos + template.size);
-                    if bounds.overlaps(&obj_bounds) {
+                    if bounds.overlaps(obj_bounds) {
                         info!("check_clear: collision with object bounds {:?}",
                               obj_bounds);
                         return false;
@@ -346,8 +346,8 @@ impl<'d> Terrain<'d> {
             if let Some(terrain) = self.terrain.get(&(point.x, point.y)) {
                 let chunk_bounds = Region::new(point, point + scalar(1)) * scalar(CHUNK_SIZE);
 
-                for point in bounds.intersect(&chunk_bounds).points() {
-                    let idx = chunk_bounds.index(&point);
+                for point in bounds.intersect(chunk_bounds).points() {
+                    let idx = chunk_bounds.index(point);
                     match self.data.block_data.shape(terrain.base[idx]) {
                         Empty => {},
                         Floor if point.z == bounds.min.z => {},
@@ -401,9 +401,9 @@ fn merge_objects(data: &Data,
 
         let obj_region = Region::new(base, base + template.size);
 
-        for point in obj_region.intersect(&chunk_region).points() {
-            let chunk_idx = chunk_region.index(&point);
-            let obj_idx = obj_region.index(&point);
+        for point in obj_region.intersect(chunk_region).points() {
+            let chunk_idx = chunk_region.index(point);
+            let obj_idx = obj_region.index(point);
             blocks[chunk_idx] = template.blocks[obj_idx];
         }
     }

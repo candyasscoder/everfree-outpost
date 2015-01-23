@@ -68,23 +68,23 @@ fn disk_sample2<R, GS>(rng: &mut R,
 
     // All points of interest to the current set of placements lie within `max_spacing` of the
     // current `bounds`.
-    let outer_bounds = bounds.expand(&scalar(max_spacing)).with_zs(0, 1);
+    let outer_bounds = bounds.expand(scalar(max_spacing)).with_zs(0, 1);
     let grid_bounds = (outer_bounds - outer_bounds.min).div_round(cell_size).with_zs(0, 1);
     let mut grid: Vec<Option<V3>> = repeat(None).take(grid_bounds.volume() as usize).collect();
     let mut points = Vec::new();
 
     for &pos in initial.iter() {
-        if !outer_bounds.contains(&pos) {
+        if !outer_bounds.contains(pos) {
             continue;
         }
         let grid_pos = (pos - outer_bounds.min) / scalar(cell_size);
-        grid[grid_bounds.index(&grid_pos)] = Some(pos);
+        grid[grid_bounds.index(grid_pos)] = Some(pos);
     }
 
     {
         let place = |&mut: pos: V3| {
             assert!(pos.z == 0);
-            if !bounds.contains(&pos) {
+            if !bounds.contains(pos) {
                 return false;
             }
 
@@ -99,11 +99,11 @@ fn disk_sample2<R, GS>(rng: &mut R,
             // too close to `pos`.
             for grid_pos in grid_around.points() {
 
-                match grid[grid_bounds.index(&grid_pos)] {
+                match grid[grid_bounds.index(grid_pos)] {
                     None => {},
                     Some(neighbor_pos) => {
                         let delta = neighbor_pos - pos;
-                        let dist2 = delta.dot(&delta);
+                        let dist2 = delta.dot(delta);
                         if dist2 < spacing * spacing {
                             return false;
                         }
@@ -113,7 +113,7 @@ fn disk_sample2<R, GS>(rng: &mut R,
 
             points.push(pos);
             let grid_pos = (pos - outer_bounds.min) / scalar(cell_size);
-            grid[grid_bounds.index(&grid_pos)] = Some(pos);
+            grid[grid_bounds.index(grid_pos)] = Some(pos);
             true
         };
 
@@ -253,13 +253,13 @@ impl<GS: Fn(V3) -> i32> PointSource for IsoDiskSampler<GS> {
             let V3 { x, y, z: _ } = pos;
             for &section in [Corner, Top, Left, Center].iter() {
                 let cur_bounds = section_bounds(x, y, section, self.chunk_size);
-                if cur_bounds.intersect(&bounds).volume() == 0 {
+                if cur_bounds.intersect(bounds).volume() == 0 {
                     continue;
                 }
 
                 points.extend(self.get_chunk(&mut *cache, x, y, section).iter()
                                   .map(|&pos| pos)
-                                  .filter(|pos| bounds.contains(pos)));
+                                  .filter(|&pos| bounds.contains(pos)));
             }
         }
         points
@@ -353,7 +353,7 @@ impl TerrainGenerator {
                                          (cy + 1) * CHUNK_SIZE,
                                          1));
 
-        let points = self.sampler.generate_points(bounds.expand(&V3::new(2, 2, 0)));
+        let points = self.sampler.generate_points(bounds.expand(V3::new(2, 2, 0)));
         let points = points.into_iter().map(|pos| pos - V3::new(2, 1, 0)).collect();
 
         (chunk, points)

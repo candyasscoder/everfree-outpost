@@ -65,7 +65,7 @@ impl V3 {
         }
     }
 
-    pub fn zip<F: Fn(i32, i32) -> i32>(&self, other: &V3, f: F) -> V3 {
+    pub fn zip<F: Fn(i32, i32) -> i32>(&self, other: V3, f: F) -> V3 {
         V3 {
             x: f(self.x, other.x),
             y: f(self.y, other.y),
@@ -73,7 +73,7 @@ impl V3 {
         }
     }
 
-    pub fn zip3<F: Fn(i32, i32, i32) -> i32>(&self, other1: &V3, other2: &V3, f: F) -> V3 {
+    pub fn zip3<F: Fn(i32, i32, i32) -> i32>(&self, other1: V3, other2: V3, f: F) -> V3 {
         V3 {
             x: f(self.x, other1.x, other2.x),
             y: f(self.y, other1.y, other2.y),
@@ -88,7 +88,7 @@ impl V3 {
         }
     }
 
-    pub fn dot(&self, other: &V3) -> i32 {
+    pub fn dot(&self, other: V3) -> i32 {
         self.x * other.x +
         self.y * other.y +
         self.z * other.z
@@ -136,7 +136,7 @@ impl V3 {
         self.map(|&:a: i32| (a == 0) as i32)
     }
 
-    pub fn choose(&self, a: &V3, b: &V3) -> V3 {
+    pub fn choose(&self, a: V3, b: V3) -> V3 {
         V3 {
             x: if self.x != 0 { a.x } else { b.x },
             y: if self.y != 0 { a.y } else { b.y },
@@ -168,7 +168,7 @@ impl V3 {
         }
     }
 
-    pub fn div_floor(&self, other: &V3) -> V3 {
+    pub fn div_floor(&self, other: V3) -> V3 {
         self.zip(other, |&: a: i32, b: i32| {
             div_floor(a, b)
         })
@@ -228,21 +228,21 @@ pub fn scalar(w: i32) -> V3 {
 impl Add<V3> for V3 {
     type Output = V3;
     fn add(self, other: V3) -> V3 {
-        self.zip(&other, |&:a: i32, b: i32| a + b)
+        self.zip(other, |&:a: i32, b: i32| a + b)
     }
 }
 
 impl Sub<V3> for V3 {
     type Output = V3;
     fn sub(self, other: V3) -> V3 {
-        self.zip(&other, |&:a: i32, b: i32| a - b)
+        self.zip(other, |&:a: i32, b: i32| a - b)
     }
 }
 
 impl Mul<V3> for V3 {
     type Output = V3;
     fn mul(self, other: V3) -> V3 {
-        self.zip(&other, |&:a: i32, b: i32| a * b)
+        self.zip(other, |&:a: i32, b: i32| a * b)
     }
 }
 
@@ -250,7 +250,7 @@ impl Div<V3> for V3 {
     type Output = V3;
     #[inline]
     fn div(self, other: V3) -> V3 {
-        self.zip(&other, |&:a: i32, b: i32| a / b)
+        self.zip(other, |&:a: i32, b: i32| a / b)
     }
 }
 
@@ -258,7 +258,7 @@ impl Rem<V3> for V3 {
     type Output = V3;
     #[inline]
     fn rem(self, other: V3) -> V3 {
-        self.zip(&other, |&:a: i32, b: i32| a % b)
+        self.zip(other, |&:a: i32, b: i32| a % b)
     }
 }
 
@@ -286,21 +286,21 @@ impl Shr<usize> for V3 {
 impl BitAnd<V3> for V3 {
     type Output = V3;
     fn bitand(self, other: V3) -> V3 {
-        self.zip(&other, |&:a: i32, b: i32| a & b)
+        self.zip(other, |&:a: i32, b: i32| a & b)
     }
 }
 
 impl BitOr<V3> for V3 {
     type Output = V3;
     fn bitor(self, other: V3) -> V3 {
-        self.zip(&other, |&:a: i32, b: i32| a | b)
+        self.zip(other, |&:a: i32, b: i32| a | b)
     }
 }
 
 impl BitXor<V3> for V3 {
     type Output = V3;
     fn bitxor(self, other: V3) -> V3 {
-        self.zip(&other, |&:a: i32, b: i32| a ^ b)
+        self.zip(other, |&:a: i32, b: i32| a ^ b)
     }
 }
 
@@ -353,33 +353,33 @@ impl Region {
     }
 
     #[inline]
-    pub fn contains(&self, point: &V3) -> bool {
+    pub fn contains(&self, point: V3) -> bool {
         point.x >= self.min.x && point.x < self.max.x &&
         point.y >= self.min.y && point.y < self.max.y &&
         point.z >= self.min.z && point.z < self.max.z
     }
 
     #[inline]
-    pub fn contains_inclusive(&self, point: &V3) -> bool {
+    pub fn contains_inclusive(&self, point: V3) -> bool {
         point.x >= self.min.x && point.x <= self.max.x &&
         point.y >= self.min.y && point.y <= self.max.y &&
         point.z >= self.min.z && point.z <= self.max.z
     }
 
     #[inline]
-    pub fn join(&self, other: &Region) -> Region {
-        Region::new(self.min.zip(&other.min, |&:a:i32, b: i32| min(a, b)),
-                    self.max.zip(&other.max, |&:a:i32, b: i32| max(a, b)))
+    pub fn join(&self, other: Region) -> Region {
+        Region::new(self.min.zip(other.min, |&:a:i32, b: i32| min(a, b)),
+                    self.max.zip(other.max, |&:a:i32, b: i32| max(a, b)))
     }
 
     #[inline]
-    pub fn intersect(&self, other: &Region) -> Region {
-        Region::new(self.min.zip(&other.min, |&:a:i32, b: i32| max(a, b)),
-                    self.max.zip(&other.max, |&:a:i32, b: i32| min(a, b)))
+    pub fn intersect(&self, other: Region) -> Region {
+        Region::new(self.min.zip(other.min, |&:a:i32, b: i32| max(a, b)),
+                    self.max.zip(other.max, |&:a:i32, b: i32| min(a, b)))
     }
 
     #[inline]
-    pub fn overlaps(&self, other: &Region) -> bool {
+    pub fn overlaps(&self, other: Region) -> bool {
         let size = self.intersect(other).size();
         size.x > 0 && size.y > 0 && size.z > 0
     }
@@ -392,8 +392,8 @@ impl Region {
 
     #[inline]
     pub fn div_round_signed(&self, rhs: i32) -> Region {
-        Region::new(self.min.div_floor(&scalar(rhs)),
-                    (self.max + scalar(rhs - 1)).div_floor(&scalar(rhs)))
+        Region::new(self.min.div_floor(scalar(rhs)),
+                    (self.max + scalar(rhs - 1)).div_floor(scalar(rhs)))
     }
 
     #[inline]
@@ -407,12 +407,12 @@ impl Region {
     }
 
     #[inline]
-    pub fn expand(&self, amount: &V3) -> Region {
-        Region::new(self.min - *amount, self.max + *amount)
+    pub fn expand(&self, amount: V3) -> Region {
+        Region::new(self.min - amount, self.max + amount)
     }
 
     #[inline]
-    pub fn clamp_point(&self, point: &V3) -> V3 {
+    pub fn clamp_point(&self, point: V3) -> V3 {
         let x = max(self.min.x, min(self.max.x, point.x));
         let y = max(self.min.y, min(self.max.y, point.y));
         let z = max(self.min.z, min(self.max.z, point.z));
@@ -420,10 +420,10 @@ impl Region {
     }
 
     #[inline]
-    pub fn index(&self, point: &V3) -> usize {
+    pub fn index(&self, point: V3) -> usize {
         let dx = (self.max.x - self.min.x) as usize;
         let dy = (self.max.y - self.min.y) as usize;
-        let offset = *point - self.min;
+        let offset = point - self.min;
         let x = offset.x as usize;
         let y = offset.y as usize;
         let z = offset.z as usize;
