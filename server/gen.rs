@@ -5,11 +5,12 @@ use std::rand::{Rng, XorShiftRng, SeedableRng};
 use collect::lru_cache::LruCache;
 
 use data::BlockData;
-use physics::v3::{Vn, V3, Region, scalar};
+use physics::v3::{Vn, V3, V2, Region, Region2, scalar};
 use terrain::BlockChunk;
 
 use self::Section::*;
 
+// TODO: Use V2 instead of (i32, i32) for chunk coordinates
 
 
 
@@ -52,13 +53,13 @@ fn disk_sample<T, Place, Choose, R>(mut place: Place,
 /// which are not included in the output).  All values returned by `get_spacing` should lie within
 /// `min_spacing`..`max_spacing`.
 fn disk_sample2<R, GS>(rng: &mut R,
-                       bounds: Region,
+                       bounds: Region2,
                        min_spacing: i32,
                        max_spacing: i32,
                        get_spacing: &GS,
-                       initial: &[V3]) -> Vec<V3>
+                       initial: &[V2]) -> Vec<V2>
         where R: Rng,
-              GS: Fn(V3) -> i32 {
+              GS: Fn(V2) -> i32 {
     let mut rng = rng;
     let get_spacing = |&: pos| { (*get_spacing)(pos) };
 
@@ -68,9 +69,9 @@ fn disk_sample2<R, GS>(rng: &mut R,
 
     // All points of interest to the current set of placements lie within `max_spacing` of the
     // current `bounds`.
-    let outer_bounds = bounds.expand(scalar(max_spacing)).with_zs(0, 1);
-    let grid_bounds = (outer_bounds - outer_bounds.min).div_round(cell_size).with_zs(0, 1);
-    let mut grid: Vec<Option<V3>> = repeat(None).take(grid_bounds.volume() as usize).collect();
+    let outer_bounds = bounds.expand(scalar(max_spacing));
+    let grid_bounds = (outer_bounds - outer_bounds.min).div_round(cell_size);
+    let mut grid: Vec<Option<V2>> = repeat(None).take(grid_bounds.volume() as usize).collect();
     let mut points = Vec::new();
 
     for &pos in initial.iter() {
@@ -82,8 +83,7 @@ fn disk_sample2<R, GS>(rng: &mut R,
     }
 
     {
-        let place = |&mut: pos: V3| {
-            assert!(pos.z == 0);
+        let place = |&mut: pos: V2| {
             if !bounds.contains(pos) {
                 return false;
             }
@@ -92,8 +92,8 @@ fn disk_sample2<R, GS>(rng: &mut R,
 
             // Make sure there are no points within a `spacing` radius of `pos`.
 
-            let around = Region::around(pos, spacing).with_zs(0, 1);
-            let grid_around = (around - outer_bounds.min).div_round(cell_size).with_zs(0, 1);
+            let around = Region::around(pos, spacing);
+            let grid_around = (around - outer_bounds.min).div_round(cell_size);
 
             // Inspect each grid cell, and for each that contains a point, check if the point is
             // too close to `pos`.
@@ -118,7 +118,7 @@ fn disk_sample2<R, GS>(rng: &mut R,
         };
 
         let mut choose_rng = rng.gen::<XorShiftRng>();
-        let choose = |&mut: pos: V3| {
+        let choose = |&mut: pos: V2| {
             let min_space = get_spacing(pos);
             let max_space = min_space * 2;
 
@@ -129,7 +129,7 @@ fn disk_sample2<R, GS>(rng: &mut R,
                 dx = choose_rng.gen_range(-max_space, max_space + 1);
                 dy = choose_rng.gen_range(-max_space, max_space + 1);
             }
-            pos + V3::new(dx, dy, 0)
+            pos + V2::new(dx, dy)
         };
 
         let mut init_rng = rng.gen::<XorShiftRng>();
@@ -137,7 +137,7 @@ fn disk_sample2<R, GS>(rng: &mut R,
         for _ in range(0u32, 5) {
             let x = init_rng.gen_range(bounds.min.x, bounds.max.x);
             let y = init_rng.gen_range(bounds.min.y, bounds.max.y);
-            init.push(V3::new(x, y, 0));
+            init.push(V2::new(x, y));
         }
 
         let mut sample_rng = rng.gen::<XorShiftRng>();
@@ -149,20 +149,20 @@ fn disk_sample2<R, GS>(rng: &mut R,
 
 
 trait PointSource {
-    fn generate_points(&self, bounds: Region) -> Vec<V3>;
+    fn generate_points(&self, bounds: Region2) -> Vec<V2>;
 }
 
 
-struct IsoDiskSampler<GS: Fn(V3) -> i32> {
+struct IsoDiskSampler<GS: Fn(V2) -> i32> {
     base_seed: u64,
     min_spacing: i32,
     max_spacing: i32,
     get_spacing: GS,
     chunk_size: i32,
-    cache: RefCell<LruCache<(i32, i32, Section), Vec<V3>>>,
+    cache: RefCell<LruCache<(i32, i32, Section), Vec<V2>>>,
 }
 
-impl<GS: Fn(V3) -> i32> IsoDiskSampler<GS> {
+impl<GS: Fn(V2) -> i32> IsoDiskSampler<GS> {
     fn new(seed: u64,
            min_spacing: u16,
            max_spacing: u16,
@@ -179,10 +179,10 @@ impl<GS: Fn(V3) -> i32> IsoDiskSampler<GS> {
     }
 
     fn get_chunk<'c>(&self,
-                     cache: &'c mut LruCache<(i32, i32, Section), Vec<V3>>,
+                     cache: &'c mut LruCache<(i32, i32, Section), Vec<V2>>,
                      x: i32,
                      y: i32,
-                     section: Section) -> &'c [V3] {
+                     section: Section) -> &'c [V2] {
         let key = (x, y, section);
         // Can't use Entry API here because we need to take a borrow on `self` to call
         // `generate_chunk`.
@@ -193,7 +193,7 @@ impl<GS: Fn(V3) -> i32> IsoDiskSampler<GS> {
     }
 
     fn generate_chunk(&self,
-                      cache: &mut LruCache<(i32, i32, Section), Vec<V3>>,
+                      cache: &mut LruCache<(i32, i32, Section), Vec<V2>>,
                       x: i32,
                       y: i32,
                       section: Section) {
@@ -243,14 +243,13 @@ impl<GS: Fn(V3) -> i32> IsoDiskSampler<GS> {
     }
 }
 
-impl<GS: Fn(V3) -> i32> PointSource for IsoDiskSampler<GS> {
-    fn generate_points(&self, bounds: Region) -> Vec<V3> {
+impl<GS: Fn(V2) -> i32> PointSource for IsoDiskSampler<GS> {
+    fn generate_points(&self, bounds: Region2) -> Vec<V2> {
         let mut cache = self.cache.borrow_mut();
 
-        let bounds = bounds.with_zs(0, 1);
         let mut points = Vec::new();
         for pos in bounds.div_round_signed(self.chunk_size * CHUNK_MULT).points() {
-            let V3 { x, y, z: _ } = pos;
+            let V2 { x, y } = pos;
             for &section in [Corner, Top, Left, Center].iter() {
                 let cur_bounds = section_bounds(x, y, section, self.chunk_size);
                 if cur_bounds.intersect(bounds).volume() == 0 {
@@ -298,7 +297,7 @@ const CORNER_MULT: i32 = 1;
 const EDGE_MULT: i32 = 3;
 const CHUNK_MULT: i32 = 4;
 
-fn section_bounds(x: i32, y: i32, section: Section, chunk_size: i32) -> Region {
+fn section_bounds(x: i32, y: i32, section: Section, chunk_size: i32) -> Region2 {
     let (off_x, off_y, width, height) = match section {
         Corner => (0, 0, CORNER_MULT, CORNER_MULT),
         Top => (CORNER_MULT, 0, EDGE_MULT, CORNER_MULT),
@@ -306,9 +305,9 @@ fn section_bounds(x: i32, y: i32, section: Section, chunk_size: i32) -> Region {
         Center => (CORNER_MULT, CORNER_MULT, EDGE_MULT, EDGE_MULT),
     };
 
-    let chunk_min = V3::new(x, y, 0) * scalar(CHUNK_MULT) + V3::new(off_x, off_y, 0);
+    let chunk_min = V2::new(x, y) * scalar(CHUNK_MULT) + V2::new(off_x, off_y);
     let min = chunk_min * scalar(chunk_size);
-    let size = V3::new(width, height, 0) * scalar(chunk_size) + V3::new(0, 0, 1);
+    let size = V2::new(width, height) * scalar(chunk_size);
     Region::new(min, min + size)
 }
 
@@ -346,15 +345,10 @@ impl TerrainGenerator {
             chunk[i] = *rng.choose(ids.as_slice()).unwrap();
         }
 
-        let bounds = Region::new(V3::new(cx * CHUNK_SIZE,
-                                         cy * CHUNK_SIZE,
-                                         0),
-                                 V3::new((cx + 1) * CHUNK_SIZE,
-                                         (cy + 1) * CHUNK_SIZE,
-                                         1));
+        let bounds = Region::new(V2::new(cx, cy), V2::new(cx + 1, cy + 1)) * scalar(CHUNK_SIZE);
 
-        let points = self.sampler.generate_points(bounds.expand(V3::new(2, 2, 0)));
-        let points = points.into_iter().map(|pos| pos - V3::new(2, 1, 0)).collect();
+        let points = self.sampler.generate_points(bounds.expand(V2::new(2, 2)));
+        let points = points.into_iter().map(|pos| (pos - V2::new(2, 1)).extend(0)).collect();
 
         (chunk, points)
     }

@@ -362,6 +362,8 @@ pub struct Region<V=V3> {
     pub max: V,
 }
 
+pub type Region2 = Region<V2>;
+
 impl<V: Copy+fmt::Show> fmt::Show for Region<V> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         (self.min, self.max).fmt(f)
