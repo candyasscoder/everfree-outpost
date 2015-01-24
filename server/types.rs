@@ -9,10 +9,18 @@ pub type Coord = i32;
 
 pub type ClientId = u16;
 pub type EntityId = u32;
+pub type StructureId = u32;
+pub type InventoryId = u32;
+
+pub type StableId = u64;
+
+#[deprecated]
+pub type ObjectId = u32;
+
 pub type AnimId = u16;
 pub type BlockId = u16;
 pub type TileId = u16;
-pub type ObjectId = u32;
+pub type TemplateId = u32;
 
 pub const DURATION_MAX: Duration = u16::MAX;
 

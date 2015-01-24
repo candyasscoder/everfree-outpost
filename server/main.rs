@@ -46,9 +46,11 @@ mod input;
 mod gen;
 mod data;
 mod terrain;
-mod util;
+#[macro_use] mod util;
 mod lua;
 mod script;
+mod world;
+
 
 fn read_json(path: &str) -> json::Json {
     use std::io::fs::File;
