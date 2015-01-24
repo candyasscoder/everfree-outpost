@@ -25,6 +25,7 @@ pub mod DirAxis {
 }
 
 #[derive(Copy, Eq, PartialEq, Clone)]
+#[cfg_attr(not(asmjs), derive(Hash))]
 pub struct V3 {
     pub x: i32,
     pub y: i32,
@@ -93,6 +94,7 @@ pub enum Axis2 {
 }
 
 #[derive(Copy, Eq, PartialEq, Clone)]
+#[cfg_attr(not(asmjs), derive(Hash))]
 pub struct V2 {
     pub x: i32,
     pub y: i32,

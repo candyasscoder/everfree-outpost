@@ -17,7 +17,7 @@ pub struct ObjectRef<'a, 'd: 'a, O: Object> {
     pub id: <O as Object>::Id,
 }
 
-pub trait ObjectRefT<'d, O> {
+pub trait ObjectRefT<'d, O>: Deref<Target=O>+DerefMut {
     fn world<'b>(&'b self) -> &'b World<'d>;
     fn world_mut<'b>(&'b mut self) -> &'b mut World<'d>;
     fn id(&self) -> <O as Object>::Id;

@@ -1,7 +1,8 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::mem::replace;
 
-use physics::v3::V3;
+use physics::CHUNK_SIZE;
+use physics::v3::{Vn, V3, scalar};
 
 use types::Time;
 use types::{StableId, ClientId, EntityId, InventoryId};
@@ -45,7 +46,7 @@ impl Entity {
         }
     }
 
-    pub fn check_invariant(&self, id: EntityId, world: &World) -> bool {
+    pub fn check_invariant(&self, now: Time, id: EntityId, world: &World) -> bool {
         use util::Stable;
 
         let mut ok = true;
@@ -64,7 +65,13 @@ impl Entity {
 
         match self.attachment {
             Attach::World => {},
-            Attach::Chunk => {}, // TODO: check that chunk is loaded
+            Attach::Chunk => {
+                // TODO: check that Motion does not involve any actual movement
+                let chunk_id = self.pos(0).reduce().div_floor(scalar(CHUNK_SIZE));
+                check!(ok, world.terrain_chunks.get(&chunk_id).is_some(),
+                       "entity {} parent chunk {:?} does not exist",
+                       id, chunk_id);
+            },
             Attach::Client(cid) => {
                 if let Some(client) = world.clients.get(cid) {
                     check!(ok, client.child_entities().contains(&id),
@@ -104,6 +111,7 @@ impl Entity {
 
 pub trait EntityRef<'d>: ObjectRefT<'d, Entity> {
     fn set_attachment(&mut self, attachment: Attach) {
+        // TODO: if `attachment` is `Chunk`, check that `self.motion` is stationary
         let old_attach = replace(&mut self.obj_mut().attachment, attachment);
 
         if old_attach == attachment {
@@ -118,6 +126,11 @@ pub trait EntityRef<'d>: ObjectRefT<'d, Entity> {
 
         if let Attach::Client(cid) = attachment {
             self.world_mut().client_mut(cid).child_entities_mut().insert(eid);
+        } else if attachment == Attach::Chunk {
+            let chunk_id = self.pos(0).reduce().div_floor(scalar(CHUNK_SIZE));
+            assert!(self.world().terrain_chunks.get(&chunk_id).is_some(),
+                    "can't attach entity {} to Chunk because chunk {:?} is not loaded",
+                    eid, chunk_id);
         }
     }
 }

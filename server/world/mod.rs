@@ -122,7 +122,7 @@ impl Object for Inventory {
 struct World<'d> {
     data: &'d Data,
     clients: StableIdMap<ClientId, Client>,
-    chunks: HashMap<V2, TerrainChunk>,
+    terrain_chunks: HashMap<V2, TerrainChunk>,
     entities: StableIdMap<EntityId, Entity>,
     structures: StableIdMap<StructureId, Structure>,
     inventories: StableIdMap<InventoryId, Inventory>,
@@ -158,6 +158,13 @@ impl<'d> World<'d> {
         ObjectRef {
             world: self,
             id: id,
+        }
+    }
+
+    pub fn terrain_chunk(&self, id: V2) -> &TerrainChunk {
+        match self.terrain_chunks.get(&id) {
+            None => panic!("bad chunk id: {:?}", id),
+            Some(x) => x,
         }
     }
 
