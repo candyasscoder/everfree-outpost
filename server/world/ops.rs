@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 use std::mem::replace;
 
-use physics::CHUNK_SIZE;
-use physics::v3::{Vn, V3, scalar};
+use physics::{CHUNK_SIZE, CHUNK_BITS};
+use physics::v3::{Vn, V3, V2, scalar};
 
 use input::InputBits;
 use types::*;
@@ -74,6 +74,34 @@ fn client_clear_pawn(w: &mut World,
     // NB: Keep this behavior in sync with entity_destroy.
     let old_eid = replace(&mut c.pawn, None);
     Ok(old_eid)
+}
+
+
+fn terrain_chunk_create(w: &mut World,
+                        pos: V2,
+                        blocks: [BlockId; 1 << (CHUNK_BITS * 3)]) -> OpResult<()> {
+    if w.terrain_chunks.contains_key(&pos) {
+        fail!("chunk already exists with same position");
+    }
+
+    let tc = TerrainChunk {
+        blocks: blocks,
+    };
+
+    w.terrain_chunks.insert(pos, tc);
+    Ok(())
+}
+
+fn terrain_chunk_destroy(w: &mut World,
+                         pos: V2) -> OpResult<()> {
+    let ok = w.terrain_chunks.remove(&pos).is_some();
+    if !ok {
+        fail!("no chunk exists with given position");
+    }
+
+    // TODO: remove entities and structures that have Chunk attachment
+
+    Ok(())
 }
 
 
