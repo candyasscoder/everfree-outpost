@@ -1,4 +1,6 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::collections::hash_map::Hasher;
+use std::hash::Hash;
 use std::mem::replace;
 
 use physics::{CHUNK_SIZE, CHUNK_BITS};
@@ -214,15 +216,19 @@ pub fn structure_create(w: &mut World,
         child_inventories: HashSet::new(),
     };
 
-    Ok(w.structures.insert(s))
-    
-    // TODO: add to structure-by-position lookup tables
+    let sid = w.structures.insert(s);
+    structure_add_to_lookup(&mut w.structures_by_chunk, sid, bounds);
+    Ok(sid)
 }
 
 pub fn structure_destroy(w: &mut World,
                          sid: StructureId) -> OpResult<()> {
     use super::StructureAttachment::*;
     let s = unwrap!(w.structures.remove(sid));
+
+    let t = w.data.object_templates.template(s.template);
+    let bounds = Region::new(s.pos, s.pos + t.size);
+    structure_remove_from_lookup(&mut w.structures_by_chunk, sid, bounds);
 
     match s.attachment {
         World => {},
@@ -241,14 +247,14 @@ pub fn structure_move(w: &mut World,
     let t = unwrap!(w.data.object_templates.get_template(s.template));
 
     let old_bounds = Region::new(s.pos, s.pos + t.size);
-    // TODO: remove from structure-by-position lookup tables
+    structure_remove_from_lookup(&mut w.structures_by_chunk, sid, old_bounds);
 
     let new_bounds = Region::new(new_pos, new_pos + t.size);
     // TODO: check that new bounds are clear of obstacles
 
     s.pos = new_pos;
 
-    // TODO: add to lookup tables
+    structure_add_to_lookup(&mut w.structures_by_chunk, sid, new_bounds);
 
     Ok(())
 }
@@ -261,14 +267,58 @@ pub fn structure_replace(w: &mut World,
     let new_t = unwrap!(w.data.object_templates.get_template(new_tid));
 
     let old_bounds = Region::new(s.pos, s.pos + old_t.size);
-    // TODO: remove from structure-by-position lookup tables
+    structure_remove_from_lookup(&mut w.structures_by_chunk, sid, old_bounds);
 
     let new_bounds = Region::new(s.pos, s.pos + new_t.size);
     // TODO: check that new bounds are clear of obstacles
 
     s.template = new_tid;
 
-    // TODO: add to lookup tables
+    structure_add_to_lookup(&mut w.structures_by_chunk, sid, new_bounds);
 
     Ok(())
+}
+
+fn structure_add_to_lookup(lookup: &mut HashMap<V2, HashSet<StructureId>>,
+                           sid: StructureId,
+                           bounds: Region) {
+    let chunk_bounds = bounds.reduce().div_round_signed(CHUNK_SIZE);
+    for chunk_pos in chunk_bounds.points() {
+        multimap_insert(lookup, chunk_pos, sid);
+    }
+}
+
+fn structure_remove_from_lookup(lookup: &mut HashMap<V2, HashSet<StructureId>>,
+                                sid: StructureId,
+                                bounds: Region) {
+    let chunk_bounds = bounds.reduce().div_round_signed(CHUNK_SIZE);
+    for chunk_pos in chunk_bounds.points() {
+        multimap_remove(lookup, chunk_pos, sid);
+    }
+}
+
+fn multimap_insert<K, V>(map: &mut HashMap<K, HashSet<V>>, k: K, v: V)
+        where K: Hash<Hasher>+Eq,
+              V: Hash<Hasher>+Eq {
+    use std::collections::hash_map::Entry::*;
+    let bucket = match map.entry(k) {
+        Vacant(e) => e.insert(HashSet::new()),
+        Occupied(e) => e.into_mut(),
+    };
+    bucket.insert(v);
+}
+
+fn multimap_remove<K, V>(map: &mut HashMap<K, HashSet<V>>, k: K, v: V)
+        where K: Hash<Hasher>+Eq,
+              V: Hash<Hasher>+Eq {
+    use std::collections::hash_map::Entry::*;
+    match map.entry(k) {
+        Vacant(e) => panic!("bucket is already empty"),
+        Occupied(mut e) => {
+            e.get_mut().remove(&v);
+            if e.get().is_empty() {
+                e.remove();
+            }
+        },
+    }
 }

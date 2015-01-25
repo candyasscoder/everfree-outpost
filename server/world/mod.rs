@@ -105,11 +105,14 @@ impl_IntrusiveStableId!(Inventory, stable_id);
 
 struct World<'d> {
     data: &'d Data,
+
     clients: StableIdMap<ClientId, Client>,
     terrain_chunks: HashMap<V2, TerrainChunk>,
     entities: StableIdMap<EntityId, Entity>,
     structures: StableIdMap<StructureId, Structure>,
     inventories: StableIdMap<InventoryId, Inventory>,
+
+    structures_by_chunk: HashMap<V2, HashSet<StructureId>>,
 }
 
 pub enum Update {
@@ -117,6 +120,20 @@ pub enum Update {
 }
 
 impl<'d> World<'d> {
+    pub fn new(data: &'d Data) -> World<'d> {
+        World {
+            data: data,
+
+            clients: StableIdMap::new(),
+            terrain_chunks: HashMap::new(),
+            entities: StableIdMap::new(),
+            structures: StableIdMap::new(),
+            inventories: StableIdMap::new(),
+
+            structures_by_chunk: HashMap::new(),
+        }
+    }
+
     pub fn client<'a>(&'a self, id: ClientId) -> ObjectRef<'a, 'd, Client> {
         match self.clients.get(id) {
             None => panic!("bad ClientId: {}", id),
