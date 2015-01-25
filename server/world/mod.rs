@@ -9,7 +9,7 @@ use types::*;
 use util::{StableIdMap, Stable};
 use view::ViewState;
 
-use self::object::{Object, ObjectRef};
+use self::object::{Object, ObjectRef, ObjectRefMut};
 
 macro_rules! bad {
     ($ok:expr, $msg:expr) => { bad!($ok, $msg,) };
@@ -28,8 +28,6 @@ macro_rules! check {
 }
 
 mod object;
-//mod client;
-//mod entity;
 mod ops;
 
 
@@ -118,80 +116,82 @@ pub enum Update {
 }
 
 impl<'d> World<'d> {
-    pub fn create_client<'a>(&'a mut self, chunk_offset: (u8, u8)) -> ObjectRef<'a, 'd, Client> {
-        let client = unimplemented!(); //Client::new(chunk_offset);
-        let id = self.clients.insert(client);
-        ObjectRef {
-            world: self,
-            id: id,
-        }
-    }
-
-    pub fn client(&self, id: ClientId) -> &Client {
+    pub fn client<'a>(&'a self, id: ClientId) -> ObjectRef<'a, 'd, Client> {
         match self.clients.get(id) {
             None => panic!("bad ClientId: {}", id),
-            Some(x) => x,
+            Some(x) => {},
+        }
+
+        ObjectRef {
+            world: self,
+            id: id,
         }
     }
 
-    pub fn client_mut<'a>(&'a mut self, id: ClientId) -> ObjectRef<'a, 'd, Client> {
-        match self.clients.get_mut(id) {
+    pub fn client_mut<'a>(&'a mut self, id: ClientId) -> ObjectRefMut<'a, 'd, Client> {
+        match self.clients.get(id) {
             None => panic!("bad ClientId: {}", id),
             Some(_) => {},
         }
 
-        ObjectRef {
+        ObjectRefMut {
             world: self,
             id: id,
         }
     }
 
-    pub fn terrain_chunk(&self, id: V2) -> &TerrainChunk {
+    pub fn terrain_chunk<'a>(&'a self, id: V2) -> ObjectRef<'a, 'd, TerrainChunk> {
         match self.terrain_chunks.get(&id) {
             None => panic!("bad chunk id: {:?}", id),
-            Some(x) => x,
+            Some(x) => {},
         }
-    }
 
-    pub fn create_entity<'a>(&'a mut self, pos: V3, anim: AnimId) -> ObjectRef<'a, 'd, Entity> {
-        let entity = unimplemented!(); //Entity::new(pos, anim);
-        let id = self.entities.insert(entity);
         ObjectRef {
             world: self,
             id: id,
         }
     }
 
-    pub fn entity(&self, id: EntityId) -> &Entity {
+    pub fn terrain_chunk_mut<'a>(&'a mut self, id: V2) -> ObjectRefMut<'a, 'd, TerrainChunk> {
+        match self.terrain_chunks.get(&id) {
+            None => panic!("bad chunk id: {:?}", id),
+            Some(x) => {},
+        }
+
+        ObjectRefMut {
+            world: self,
+            id: id,
+        }
+    }
+
+    pub fn entity<'a>(&'a self, id: EntityId) -> ObjectRef<'a, 'd, Entity> {
         match self.entities.get(id) {
             None => panic!("bad EntityId: {}", id),
-            Some(x) => x,
+            Some(x) => {},
+        }
+
+        ObjectRef {
+            world: self,
+            id: id,
         }
     }
 
-    pub fn entity_mut<'a>(&'a mut self, id: EntityId) -> ObjectRef<'a, 'd, Entity> {
-        match self.entities.get_mut(id) {
+    pub fn entity_mut<'a>(&'a mut self, id: EntityId) -> ObjectRefMut<'a, 'd, Entity> {
+        match self.entities.get(id) {
             None => panic!("bad EntityId: {}", id),
             Some(_) => {},
         }
 
-        ObjectRef {
+        ObjectRefMut {
             world: self,
             id: id,
         }
     }
 
-    pub fn structure(&self, id: StructureId) -> &Structure {
+    pub fn structure<'a>(&'a self, id: StructureId) -> ObjectRef<'a, 'd, Structure> {
         match self.structures.get(id) {
             None => panic!("bad StructureId: {}", id),
-            Some(x) => x,
-        }
-    }
-
-    pub fn structure_mut<'a>(&'a mut self, id: StructureId) -> ObjectRef<'a, 'd, Structure> {
-        match self.structures.get_mut(id) {
-            None => panic!("bad StructureId: {}", id),
-            Some(_) => {},
+            Some(x) => {},
         }
 
         ObjectRef {
@@ -200,20 +200,37 @@ impl<'d> World<'d> {
         }
     }
 
-    pub fn inventory(&self, id: InventoryId) -> &Inventory {
-        match self.inventories.get(id) {
-            None => panic!("bad InventoryId: {}", id),
-            Some(x) => x,
+    pub fn structure_mut<'a>(&'a mut self, id: StructureId) -> ObjectRefMut<'a, 'd, Structure> {
+        match self.structures.get(id) {
+            None => panic!("bad StructureId: {}", id),
+            Some(_) => {},
+        }
+
+        ObjectRefMut {
+            world: self,
+            id: id,
         }
     }
 
-    pub fn inventory_mut<'a>(&'a mut self, id: InventoryId) -> ObjectRef<'a, 'd, Inventory> {
-        match self.inventories.get_mut(id) {
+    pub fn inventory<'a>(&'a self, id: InventoryId) -> ObjectRef<'a, 'd, Inventory> {
+        match self.inventories.get(id) {
+            None => panic!("bad InventoryId: {}", id),
+            Some(x) => {},
+        }
+
+        ObjectRef {
+            world: self,
+            id: id,
+        }
+    }
+
+    pub fn inventory_mut<'a>(&'a mut self, id: InventoryId) -> ObjectRefMut<'a, 'd, Inventory> {
+        match self.inventories.get(id) {
             None => panic!("bad InventoryId: {}", id),
             Some(_) => {},
         }
 
-        ObjectRef {
+        ObjectRefMut {
             world: self,
             id: id,
         }
@@ -225,11 +242,70 @@ impl<'d> World<'d> {
 }
 
 impl Client {
+    fn current_input(&self) -> InputBits {
+        self.current_input
+    }
+
+    fn set_current_input(&mut self, new: InputBits) {
+        self.current_input = new;
+    }
+
+    fn chunk_offset(&self) -> (u8, u8) {
+        self.chunk_offset
+    }
+
+    fn set_chunk_offset(&mut self, new: (u8, u8)) {
+        self.chunk_offset = new;
+    }
+
+    fn view_state(&self) -> &ViewState {
+        &self.view_state
+    }
+
+    fn view_state_mut(&mut self) -> &mut ViewState {
+        &mut self.view_state
+    }
 }
 
 impl Entity {
+    pub fn motion(&self) -> &Motion {
+        &self.motion
+    }
+
+    // No motion_mut since modifying `self.motion` affects lookup tables.
+
+    pub fn anim(&self) -> AnimId {
+        self.anim
+    }
+
+    pub fn set_anim(&mut self, new: AnimId) {
+        self.anim = new;
+    }
+
+    pub fn facing(&self) -> V3 {
+        self.facing
+    }
+
+    pub fn set_facing(&mut self, new: V3) {
+        self.facing = new;
+    }
+
     pub fn pos(&self, now: Time) -> V3 {
         // TODO
         V3::new(1, 2, 3)
+    }
+
+    pub fn attachment(&self) -> EntityAttachment {
+        self.attachment
+    }
+}
+
+impl Structure {
+    fn pos(&self) -> V3 {
+        self.pos
+    }
+
+    fn template_id(&self) -> TemplateId {
+        self.template
     }
 }

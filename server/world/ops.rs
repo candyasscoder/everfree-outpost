@@ -17,8 +17,8 @@ use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
 pub type OpResult<T> = Result<T, StrError>;
 
 
-fn client_create(w: &mut World,
-                 chunk_offset: (u8, u8)) -> OpResult<ClientId> {
+pub fn client_create(w: &mut World,
+                     chunk_offset: (u8, u8)) -> OpResult<ClientId> {
     let c = Client {
         pawn: None,
         current_input: InputBits::empty(),
@@ -33,8 +33,8 @@ fn client_create(w: &mut World,
     Ok(w.clients.insert(c))
 }
 
-fn client_destroy(w: &mut World,
-                  cid: ClientId) -> OpResult<()> {
+pub fn client_destroy(w: &mut World,
+                      cid: ClientId) -> OpResult<()> {
     let c = unwrap!(w.clients.remove(cid));
     // Further lookup failures indicate an invariant violation.
 
@@ -47,10 +47,10 @@ fn client_destroy(w: &mut World,
     Ok(())
 }
 
-fn client_set_pawn(w: &mut World,
-                   now: Time,
-                   cid: ClientId,
-                   eid: EntityId) -> OpResult<Option<EntityId>> {
+pub fn client_set_pawn(w: &mut World,
+                       now: Time,
+                       cid: ClientId,
+                       eid: EntityId) -> OpResult<Option<EntityId>> {
     try!(entity_attach(w, eid, EntityAttachment::Client(cid)));
     let old_eid;
 
@@ -67,9 +67,8 @@ fn client_set_pawn(w: &mut World,
     Ok(old_eid)
 }
 
-fn client_clear_pawn(w: &mut World,
-                     now: Time,
-                     cid: ClientId) -> OpResult<Option<EntityId>> {
+pub fn client_clear_pawn(w: &mut World,
+                         cid: ClientId) -> OpResult<Option<EntityId>> {
     let c = unwrap!(w.clients.get_mut(cid));
     // NB: Keep this behavior in sync with entity_destroy.
     let old_eid = replace(&mut c.pawn, None);
@@ -77,9 +76,9 @@ fn client_clear_pawn(w: &mut World,
 }
 
 
-fn terrain_chunk_create(w: &mut World,
-                        pos: V2,
-                        blocks: [BlockId; 1 << (CHUNK_BITS * 3)]) -> OpResult<()> {
+pub fn terrain_chunk_create(w: &mut World,
+                            pos: V2,
+                            blocks: [BlockId; 1 << (CHUNK_BITS * 3)]) -> OpResult<()> {
     if w.terrain_chunks.contains_key(&pos) {
         fail!("chunk already exists with same position");
     }
@@ -92,8 +91,8 @@ fn terrain_chunk_create(w: &mut World,
     Ok(())
 }
 
-fn terrain_chunk_destroy(w: &mut World,
-                         pos: V2) -> OpResult<()> {
+pub fn terrain_chunk_destroy(w: &mut World,
+                             pos: V2) -> OpResult<()> {
     let ok = w.terrain_chunks.remove(&pos).is_some();
     if !ok {
         fail!("no chunk exists with given position");
@@ -105,9 +104,9 @@ fn terrain_chunk_destroy(w: &mut World,
 }
 
 
-fn entity_create(w: &mut World,
-                 pos: V3,
-                 anim: AnimId) -> OpResult<EntityId> {
+pub fn entity_create(w: &mut World,
+                     pos: V3,
+                     anim: AnimId) -> OpResult<EntityId> {
     let e = Entity {
         motion: super::Motion,
         anim: anim,
@@ -121,8 +120,8 @@ fn entity_create(w: &mut World,
     Ok(w.entities.insert(e))
 }
 
-fn entity_destroy(w: &mut World,
-                  eid: EntityId) -> OpResult<()> {
+pub fn entity_destroy(w: &mut World,
+                      eid: EntityId) -> OpResult<()> {
     use super::EntityAttachment::*;
     let e = unwrap!(w.entities.remove(eid));
     // Further lookup failures indicate an invariant violation.
@@ -148,9 +147,9 @@ fn entity_destroy(w: &mut World,
     Ok(())
 }
 
-fn entity_attach(w: &mut World,
-                 eid: EntityId,
-                 new_attach: EntityAttachment) -> OpResult<EntityAttachment> {
+pub fn entity_attach(w: &mut World,
+                     eid: EntityId,
+                     new_attach: EntityAttachment) -> OpResult<EntityAttachment> {
     use super::EntityAttachment::*;
 
     let e = unwrap!(w.entities.get_mut(eid));
@@ -193,9 +192,9 @@ fn entity_attach(w: &mut World,
 }
 
 
-fn structure_create(w: &mut World,
-                    pos: V3,
-                    tid: TemplateId) -> OpResult<StructureId> {
+pub fn structure_create(w: &mut World,
+                        pos: V3,
+                        tid: TemplateId) -> OpResult<StructureId> {
     let t = unwrap!(w.data.object_templates.get_template(tid));
     let bounds = Region::new(pos, pos + t.size);
     // TODO: check that bounds are clear of obstacles
@@ -220,8 +219,8 @@ fn structure_create(w: &mut World,
     // TODO: add to structure-by-position lookup tables
 }
 
-fn structure_destroy(w: &mut World,
-                     sid: StructureId) -> OpResult<()> {
+pub fn structure_destroy(w: &mut World,
+                         sid: StructureId) -> OpResult<()> {
     use super::StructureAttachment::*;
     let s = unwrap!(w.structures.remove(sid));
 
@@ -235,9 +234,9 @@ fn structure_destroy(w: &mut World,
     Ok(())
 }
 
-fn structure_move(w: &mut World,
-                  sid: StructureId,
-                  new_pos: V3) -> OpResult<()> {
+pub fn structure_move(w: &mut World,
+                      sid: StructureId,
+                      new_pos: V3) -> OpResult<()> {
     let s = unwrap!(w.structures.get_mut(sid));
     let t = unwrap!(w.data.object_templates.get_template(s.template));
 
@@ -254,9 +253,9 @@ fn structure_move(w: &mut World,
     Ok(())
 }
 
-fn structure_replace(w: &mut World,
-                     sid: StructureId,
-                     new_tid: TemplateId) -> OpResult<()> {
+pub fn structure_replace(w: &mut World,
+                         sid: StructureId,
+                         new_tid: TemplateId) -> OpResult<()> {
     let s = unwrap!(w.structures.get_mut(sid));
     let old_t = unwrap!(w.data.object_templates.get_template(s.template));
     let new_t = unwrap!(w.data.object_templates.get_template(new_tid));
