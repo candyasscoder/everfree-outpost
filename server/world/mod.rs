@@ -1,15 +1,15 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use physics::CHUNK_BITS;
 use physics::v3::{Vn, V2, V3};
 
 use data::Data;
+use input::InputBits;
 use types::*;
 use util::{StableIdMap, Stable};
+use view::ViewState;
 
 use self::object::{Object, ObjectRef};
-use self::client::Client;
-use self::entity::Entity;
 
 macro_rules! bad {
     ($ok:expr, $msg:expr) => { bad!($ok, $msg,) };
@@ -28,14 +28,25 @@ macro_rules! check {
 }
 
 mod object;
-mod client;
-mod entity;
+//mod client;
+//mod entity;
+mod ops;
 
+
+#[derive(Copy, PartialEq, Eq, Show)]
+pub enum EntityAttachment {
+    World,
+    Chunk,
+    Client(ClientId),
+}
+
+#[derive(Copy, PartialEq, Eq, Show)]
 enum StructureAttachment {
     World,
     Chunk,
 }
 
+#[derive(Copy, PartialEq, Eq, Show)]
 enum InventoryAttachment {
     World,
     Client(ClientId),
@@ -44,11 +55,34 @@ enum InventoryAttachment {
 }
 
 
+pub struct Client {
+    pawn: Option<EntityId>,
+    current_input: InputBits,
+    chunk_offset: (u8, u8),
+    view_state: ViewState,
+
+    stable_id: StableId,
+    child_entities: HashSet<EntityId>,
+    child_inventories: HashSet<InventoryId>,
+}
+impl_IntrusiveStableId!(Client, stable_id);
 
 struct TerrainChunk {
     blocks: [BlockId; 1 << (3 * CHUNK_BITS)],
 }
 
+pub struct Motion;
+
+pub struct Entity {
+    motion: Motion,
+    anim: AnimId,
+    facing: V3,
+
+    stable_id: StableId,
+    attachment: EntityAttachment,
+    child_inventories: HashSet<InventoryId>,
+}
+impl_IntrusiveStableId!(Entity, stable_id);
 
 struct Structure {
     pos: V3,
@@ -70,55 +104,6 @@ struct Inventory {
 impl_IntrusiveStableId!(Inventory, stable_id);
 
 
-impl Object for Client {
-    type Id = ClientId;
-
-    fn get<'a>(world: &'a World, id: ClientId) -> Option<&'a Client> {
-        world.clients.get(id)
-    }
-
-    fn get_mut<'a>(world: &'a mut World, id: ClientId) -> Option<&'a mut Client> {
-        world.clients.get_mut(id)
-    }
-}
-
-impl Object for Entity {
-    type Id = EntityId;
-
-    fn get<'a>(world: &'a World, id: EntityId) -> Option<&'a Entity> {
-        world.entities.get(id)
-    }
-
-    fn get_mut<'a>(world: &'a mut World, id: EntityId) -> Option<&'a mut Entity> {
-        world.entities.get_mut(id)
-    }
-}
-
-impl Object for Structure {
-    type Id = StructureId;
-
-    fn get<'a>(world: &'a World, id: StructureId) -> Option<&'a Structure> {
-        world.structures.get(id)
-    }
-
-    fn get_mut<'a>(world: &'a mut World, id: StructureId) -> Option<&'a mut Structure> {
-        world.structures.get_mut(id)
-    }
-}
-
-impl Object for Inventory {
-    type Id = InventoryId;
-
-    fn get<'a>(world: &'a World, id: InventoryId) -> Option<&'a Inventory> {
-        world.inventories.get(id)
-    }
-
-    fn get_mut<'a>(world: &'a mut World, id: InventoryId) -> Option<&'a mut Inventory> {
-        world.inventories.get_mut(id)
-    }
-}
-
-
 struct World<'d> {
     data: &'d Data,
     clients: StableIdMap<ClientId, Client>,
@@ -134,7 +119,7 @@ pub enum Update {
 
 impl<'d> World<'d> {
     pub fn create_client<'a>(&'a mut self, chunk_offset: (u8, u8)) -> ObjectRef<'a, 'd, Client> {
-        let client = Client::new(chunk_offset);
+        let client = unimplemented!(); //Client::new(chunk_offset);
         let id = self.clients.insert(client);
         ObjectRef {
             world: self,
@@ -169,7 +154,7 @@ impl<'d> World<'d> {
     }
 
     pub fn create_entity<'a>(&'a mut self, pos: V3, anim: AnimId) -> ObjectRef<'a, 'd, Entity> {
-        let entity = Entity::new(pos, anim);
+        let entity = unimplemented!(); //Entity::new(pos, anim);
         let id = self.entities.insert(entity);
         ObjectRef {
             world: self,
@@ -236,5 +221,15 @@ impl<'d> World<'d> {
 
     pub fn record(&mut self, update: Update) {
         // TODO
+    }
+}
+
+impl Client {
+}
+
+impl Entity {
+    pub fn pos(&self, now: Time) -> V3 {
+        // TODO
+        V3::new(1, 2, 3)
     }
 }

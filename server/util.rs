@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::error::Error;
 use std::hash::Hash;
 use std::num::{FromPrimitive, ToPrimitive};
 use std::collections::hash_map::Hasher;
@@ -305,4 +306,37 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
     pub fn get_mut(&mut self, transient_id: K) -> Option<&mut V> {
         self.map.get_mut(transient_id.to_uint().unwrap())
     }
+}
+
+
+#[derive(Copy, Show)]
+pub struct StrError {
+    pub msg: &'static str,
+}
+
+impl Error for StrError {
+    fn description(&self) -> &'static str {
+        self.msg
+    }
+}
+
+macro_rules! fail {
+    ($msg:expr) => {{
+            let error = $crate::util::StrError { msg: $msg };
+            return Err(::std::error::FromError::from_error(error));
+    }};
+}
+
+macro_rules! unwrap {
+    ($e:expr, $msg:expr) => {
+        match $e {
+            Some(x) => x,
+            None => fail!($msg),
+        }
+    };
+    ($e:expr) => {
+        unwrap!($e,
+                concat!(file!(), ":", stringify!(line!()),
+                ": `", stringify!($e), "` produced `None`"))
+    };
 }

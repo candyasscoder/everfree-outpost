@@ -1,7 +1,9 @@
 use std::ops::{Deref, DerefMut};
 use std::ptr;
 
+use types::*;
 use world::World;
+use world::{Client, TerrainChunk, Entity, Structure, Inventory};
 
 
 pub trait Object: 'static {
@@ -9,6 +11,54 @@ pub trait Object: 'static {
 
     fn get<'a>(world: &'a World, id: <Self as Object>::Id) -> Option<&'a Self>;
     fn get_mut<'a>(world: &'a mut World, id: <Self as Object>::Id) -> Option<&'a mut Self>;
+}
+
+impl Object for Client {
+    type Id = ClientId;
+
+    fn get<'a>(world: &'a World, id: ClientId) -> Option<&'a Client> {
+        world.clients.get(id)
+    }
+
+    fn get_mut<'a>(world: &'a mut World, id: ClientId) -> Option<&'a mut Client> {
+        world.clients.get_mut(id)
+    }
+}
+
+impl Object for Entity {
+    type Id = EntityId;
+
+    fn get<'a>(world: &'a World, id: EntityId) -> Option<&'a Entity> {
+        world.entities.get(id)
+    }
+
+    fn get_mut<'a>(world: &'a mut World, id: EntityId) -> Option<&'a mut Entity> {
+        world.entities.get_mut(id)
+    }
+}
+
+impl Object for Structure {
+    type Id = StructureId;
+
+    fn get<'a>(world: &'a World, id: StructureId) -> Option<&'a Structure> {
+        world.structures.get(id)
+    }
+
+    fn get_mut<'a>(world: &'a mut World, id: StructureId) -> Option<&'a mut Structure> {
+        world.structures.get_mut(id)
+    }
+}
+
+impl Object for Inventory {
+    type Id = InventoryId;
+
+    fn get<'a>(world: &'a World, id: InventoryId) -> Option<&'a Inventory> {
+        world.inventories.get(id)
+    }
+
+    fn get_mut<'a>(world: &'a mut World, id: InventoryId) -> Option<&'a mut Inventory> {
+        world.inventories.get_mut(id)
+    }
 }
 
 
