@@ -5,6 +5,7 @@ use std::hash::Hash;
 use std::num::{FromPrimitive, ToPrimitive};
 use std::collections::hash_map::Hasher;
 use std::ops::{Index, IndexMut};
+use std::slice;
 
 use types::StableId;
 
@@ -174,6 +175,13 @@ impl<V> IdMap<V> {
             Some(&mut Some(ref mut v)) => Some(v),
         }
     }
+
+    pub fn iter(&self) -> IdMapIter<V> {
+        IdMapIter {
+            idx: 0,
+            iter: self.map.iter(),
+        }
+    }
 }
 
 impl<V> Index<usize> for IdMap<V> {
@@ -189,6 +197,26 @@ impl<V> IndexMut<usize> for IdMap<V> {
 
     fn index_mut(&mut self, index: &usize) -> &mut V {
         self.get_mut(*index).expect("no entry found for key")
+    }
+}
+
+struct IdMapIter<'a, V: 'a> {
+    idx: usize,
+    iter: slice::Iter<'a, Option<V>>,
+}
+
+impl<'a, V> Iterator for IdMapIter<'a, V> {
+    type Item = (usize, &'a V);
+    fn next(&mut self) -> Option<(usize, &'a V)> {
+        let mut result = None;
+        for opt_ref in self.iter {
+            self.idx += 1;
+            if let Some(ref x) = *opt_ref {
+                result = Some((self.idx - 1, x));
+                break;
+            }
+        }
+        result
     }
 }
 
@@ -305,6 +333,23 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
 
     pub fn get_mut(&mut self, transient_id: K) -> Option<&mut V> {
         self.map.get_mut(transient_id.to_uint().unwrap())
+    }
+
+    pub fn iter(&self) -> StableIdMapIter<K, V> {
+        StableIdMapIter {
+            iter: self.map.iter(),
+        }
+    }
+}
+
+struct StableIdMapIter<'a, K, V: 'a> {
+    iter: IdMapIter<'a, V>,
+}
+
+impl<'a, K: FromPrimitive, V> Iterator for StableIdMapIter<'a, K, V> {
+    type Item = (K, &'a V);
+    fn next(&mut self) -> Option<(K, &'a V)> {
+        self.iter.next().map(|(k,v)| (FromPrimitive::from_uint(k).unwrap(), v))
     }
 }
 
