@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::mem::replace;
 
 use physics::{CHUNK_SIZE, CHUNK_BITS};
-use physics::v3::{Vn, V3, V2, scalar};
+use physics::v3::{Vn, V3, V2, scalar, Region};
 
 use input::InputBits;
 use types::*;
@@ -190,4 +190,86 @@ fn entity_attach(w: &mut World,
     }
 
     Ok(old_attach)
+}
+
+
+fn structure_create(w: &mut World,
+                    pos: V3,
+                    tid: TemplateId) -> OpResult<StructureId> {
+    let t = unwrap!(w.data.object_templates.get_template(tid));
+    let bounds = Region::new(pos, pos + t.size);
+    // TODO: check that bounds are clear of obstacles
+
+    let chunk_pos = pos.reduce().div_floor(scalar(CHUNK_SIZE));
+    let offset = pos - chunk_pos.extend(0) * scalar(CHUNK_SIZE);
+
+    let s = Structure {
+        pos: pos,
+        offset: (offset.x as u8,
+                 offset.y as u8,
+                 offset.z as u8),
+        template: tid,
+
+        stable_id: NO_STABLE_ID,
+        attachment: StructureAttachment::World,
+        child_inventories: HashSet::new(),
+    };
+
+    Ok(w.structures.insert(s))
+    
+    // TODO: add to structure-by-position lookup tables
+}
+
+fn structure_destroy(w: &mut World,
+                     sid: StructureId) -> OpResult<()> {
+    use super::StructureAttachment::*;
+    let s = unwrap!(w.structures.remove(sid));
+
+    match s.attachment {
+        World => {},
+        Chunk => {},
+    }
+
+    // TODO: clean up inventories
+
+    Ok(())
+}
+
+fn structure_move(w: &mut World,
+                  sid: StructureId,
+                  new_pos: V3) -> OpResult<()> {
+    let s = unwrap!(w.structures.get_mut(sid));
+    let t = unwrap!(w.data.object_templates.get_template(s.template));
+
+    let old_bounds = Region::new(s.pos, s.pos + t.size);
+    // TODO: remove from structure-by-position lookup tables
+
+    let new_bounds = Region::new(new_pos, new_pos + t.size);
+    // TODO: check that new bounds are clear of obstacles
+
+    s.pos = new_pos;
+
+    // TODO: add to lookup tables
+
+    Ok(())
+}
+
+fn structure_replace(w: &mut World,
+                     sid: StructureId,
+                     new_tid: TemplateId) -> OpResult<()> {
+    let s = unwrap!(w.structures.get_mut(sid));
+    let old_t = unwrap!(w.data.object_templates.get_template(s.template));
+    let new_t = unwrap!(w.data.object_templates.get_template(new_tid));
+
+    let old_bounds = Region::new(s.pos, s.pos + old_t.size);
+    // TODO: remove from structure-by-position lookup tables
+
+    let new_bounds = Region::new(s.pos, s.pos + new_t.size);
+    // TODO: check that new bounds are clear of obstacles
+
+    s.template = new_tid;
+
+    // TODO: add to lookup tables
+
+    Ok(())
 }

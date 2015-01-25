@@ -210,7 +210,11 @@ impl ObjectTemplates {
     }
 
     pub fn template(&self, id: ObjectId) -> &ObjectTemplate {
-        self.templates.as_slice().get(id as usize).unwrap()
+        self.get_template(id).unwrap()
+    }
+
+    pub fn get_template(&self, id: ObjectId) -> Option<&ObjectTemplate> {
+        self.templates.as_slice().get(id as usize)
     }
 
     pub fn get_id(&self, name: &str) -> ObjectId {

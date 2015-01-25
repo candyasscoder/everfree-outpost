@@ -91,7 +91,7 @@ struct Structure {
 
     stable_id: StableId,
     attachment: StructureAttachment,
-    child_inventories: Vec<InventoryId>,
+    child_inventories: HashSet<InventoryId>,
 }
 impl_IntrusiveStableId!(Structure, stable_id);
 
