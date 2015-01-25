@@ -10,6 +10,7 @@ use types::*;
 use view::ViewState;
 use world::World;
 use world::{Client, TerrainChunk, Entity, Structure, Inventory};
+use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::Motion;
 use world::ops::{self, OpResult};
 
@@ -179,6 +180,10 @@ impl<'a, 'd> ObjectRefMut<'a, 'd, Client> {
 impl<'a, 'd> ObjectRefMut<'a, 'd, Entity> {
     fn set_motion(&mut self, motion: Motion) -> OpResult<Motion> {
         unimplemented!()
+    }
+
+    fn set_attachment(&mut self, attach: EntityAttachment) -> OpResult<EntityAttachment> {
+        ops::entity_attach(self.world, self.id, attach)
     }
 }
 

@@ -29,6 +29,7 @@ macro_rules! check {
 
 mod object;
 mod ops;
+mod debug;
 
 
 #[derive(Copy, PartialEq, Eq, Show)]
