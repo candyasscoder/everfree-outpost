@@ -15,6 +15,12 @@ use view::ViewState;
 use super::{World, Update};
 use super::{Client, TerrainChunk, Entity, Structure, Inventory};
 use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
+use super::object::{ObjectRefBase, ObjectRefMutBase};
+use super::object::{ClientRef, ClientRefMut};
+use super::object::{TerrainChunkRef, TerrainChunkRefMut};
+use super::object::{EntityRef, EntityRefMut};
+use super::object::{StructureRef, StructureRefMut};
+//use super::object::{InventoryRef, InventoryRefMut};
 
 pub type OpResult<T> = Result<T, StrError>;
 

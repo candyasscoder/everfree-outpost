@@ -135,14 +135,15 @@ impl<'d> World<'d> {
     }
 
     pub fn client<'a>(&'a self, id: ClientId) -> ObjectRef<'a, 'd, Client> {
-        match self.clients.get(id) {
+        let obj = match self.clients.get(id) {
             None => panic!("bad ClientId: {}", id),
-            Some(x) => {},
-        }
+            Some(x) => x,
+        };
 
         ObjectRef {
             world: self,
             id: id,
+            obj: obj,
         }
     }
 
@@ -159,14 +160,15 @@ impl<'d> World<'d> {
     }
 
     pub fn terrain_chunk<'a>(&'a self, id: V2) -> ObjectRef<'a, 'd, TerrainChunk> {
-        match self.terrain_chunks.get(&id) {
+        let obj = match self.terrain_chunks.get(&id) {
             None => panic!("bad chunk id: {:?}", id),
-            Some(x) => {},
-        }
+            Some(x) => x,
+        };
 
         ObjectRef {
             world: self,
             id: id,
+            obj: obj,
         }
     }
 
@@ -183,14 +185,15 @@ impl<'d> World<'d> {
     }
 
     pub fn entity<'a>(&'a self, id: EntityId) -> ObjectRef<'a, 'd, Entity> {
-        match self.entities.get(id) {
+        let obj = match self.entities.get(id) {
             None => panic!("bad EntityId: {}", id),
-            Some(x) => {},
-        }
+            Some(x) => x,
+        };
 
         ObjectRef {
             world: self,
             id: id,
+            obj: obj,
         }
     }
 
@@ -207,14 +210,15 @@ impl<'d> World<'d> {
     }
 
     pub fn structure<'a>(&'a self, id: StructureId) -> ObjectRef<'a, 'd, Structure> {
-        match self.structures.get(id) {
+        let obj = match self.structures.get(id) {
             None => panic!("bad StructureId: {}", id),
-            Some(x) => {},
-        }
+            Some(x) => x,
+        };
 
         ObjectRef {
             world: self,
             id: id,
+            obj: obj,
         }
     }
 
@@ -231,14 +235,15 @@ impl<'d> World<'d> {
     }
 
     pub fn inventory<'a>(&'a self, id: InventoryId) -> ObjectRef<'a, 'd, Inventory> {
-        match self.inventories.get(id) {
+        let obj = match self.inventories.get(id) {
             None => panic!("bad InventoryId: {}", id),
-            Some(x) => {},
-        }
+            Some(x) => x,
+        };
 
         ObjectRef {
             world: self,
             id: id,
+            obj: obj,
         }
     }
 
@@ -282,6 +287,12 @@ impl Client {
 
     pub fn view_state_mut(&mut self) -> &mut ViewState {
         &mut self.view_state
+    }
+}
+
+impl TerrainChunk {
+    pub fn block(&self, idx: usize) -> BlockId {
+        self.blocks[idx]
     }
 }
 
