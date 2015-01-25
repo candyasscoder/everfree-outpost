@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, hash_set};
 
 use physics::CHUNK_BITS;
 use physics::v3::{Vn, V2, V3, scalar};
@@ -135,6 +135,13 @@ impl<'d> World<'d> {
     pub fn record(&mut self, update: Update) {
         // TODO
     }
+
+    pub fn chunk_structures<'a>(&'a self, chunk_id: V2) -> ChunkStructures<'a, 'd> {
+        ChunkStructures {
+            world: self,
+            iter: self.structures_by_chunk.get(&chunk_id).map(|xs| xs.iter()),
+        }
+    }
 }
 
 macro_rules! obj_methods {
@@ -201,6 +208,31 @@ obj_methods!(Structure,
 obj_methods!(Inventory,
              id: InventoryId => inventories.get(id),
              get_inventory, get_inventory_mut, inventory, inventory_mut);
+
+pub struct ChunkStructures<'a, 'd: 'a> {
+    world: &'a World<'d>,
+    iter: Option<hash_set::Iter<'a, StructureId>>,
+}
+
+impl<'a, 'd> Iterator for ChunkStructures<'a, 'd> {
+    type Item = ObjectRef<'a, 'd, Structure>;
+    fn next(&mut self) -> Option<ObjectRef<'a, 'd, Structure>> {
+        let iter = match self.iter {
+            Some(ref mut x) => x,
+            None => return None,
+        };
+
+        let world = self.world;
+        iter.next().map(|&sid| {
+            let s = &world.structures[sid];
+            ObjectRef {
+                world: world,
+                id: sid,
+                obj: s,
+            }
+        })
+    }
+}
 
 
 impl Client {
