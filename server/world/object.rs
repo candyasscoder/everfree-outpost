@@ -237,8 +237,9 @@ impl<'a, 'd> EntityRef<'d> for ObjectRef<'a, 'd, Entity> { }
 impl<'a, 'd> EntityRef<'d> for ObjectRefMut<'a, 'd, Entity> { }
 
 pub trait EntityRefMut<'d>: ObjectRefMutBase<'d, Entity> {
-    fn set_motion(&mut self, motion: Motion) -> OpResult<Motion> {
-        unimplemented!()
+    fn set_motion(&mut self, motion: Motion) {
+        // TODO: update entity-by-chunk cache
+        self.obj_mut().motion = motion;
     }
 
     fn set_attachment(&mut self, attach: EntityAttachment) -> OpResult<EntityAttachment> {

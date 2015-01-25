@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use physics::CHUNK_BITS;
-use physics::v3::{Vn, V2, V3};
+use physics::v3::{Vn, V2, V3, scalar};
 
 use data::Data;
 use input::InputBits;
@@ -69,8 +69,6 @@ impl_IntrusiveStableId!(Client, stable_id);
 struct TerrainChunk {
     blocks: [BlockId; 1 << (3 * CHUNK_BITS)],
 }
-
-pub struct Motion;
 
 pub struct Entity {
     motion: Motion,
@@ -261,8 +259,7 @@ impl Entity {
     }
 
     pub fn pos(&self, now: Time) -> V3 {
-        // TODO
-        V3::new(1, 2, 3)
+        self.motion.pos(now)
     }
 
     pub fn attachment(&self) -> EntityAttachment {
@@ -279,3 +276,40 @@ impl Structure {
         self.template
     }
 }
+
+
+// TODO: find somewhere better to put Motion
+
+pub struct Motion {
+    pub start_time: Time,
+    pub duration: Duration,
+    pub start_pos: V3,
+    pub end_pos: V3,
+}
+
+impl Motion {
+    pub fn stationary(pos: V3) -> Motion {
+        Motion {
+            start_time: 0,
+            duration: 0,
+            start_pos: pos,
+            end_pos: pos,
+        }
+    }
+
+    pub fn pos(&self, now: Time) -> V3 {
+        if now <= self.start_time {
+            self.start_pos
+        } else {
+            let delta = now - self.start_time;
+            if delta >= self.duration as Time {
+                self.end_pos
+            } else {
+                let offset = (self.end_pos - self.start_pos) *
+                        scalar(delta as i32) / scalar(self.duration as i32);
+                self.start_pos + offset
+            }
+        }
+    }
+}
+

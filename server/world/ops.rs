@@ -117,7 +117,7 @@ pub fn entity_create(w: &mut World,
                      pos: V3,
                      anim: AnimId) -> OpResult<EntityId> {
     let e = Entity {
-        motion: super::Motion,
+        motion: super::Motion::stationary(pos),
         anim: anim,
         facing: V3::new(1, 0, 0),
 
