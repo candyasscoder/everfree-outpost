@@ -228,6 +228,7 @@ pub fn structure_create(w: &mut World,
 
     let sid = w.structures.insert(s);
     structure_add_to_lookup(&mut w.structures_by_chunk, sid, bounds);
+    invalidate_region(w, bounds);
     Ok(sid)
 }
 
@@ -239,6 +240,7 @@ pub fn structure_destroy(w: &mut World,
     let t = w.data.object_templates.template(s.template);
     let bounds = Region::new(s.pos, s.pos + t.size);
     structure_remove_from_lookup(&mut w.structures_by_chunk, sid, bounds);
+    invalidate_region(w, bounds);
 
     match s.attachment {
         World => {},
@@ -266,6 +268,8 @@ pub fn structure_move(w: &mut World,
     if structure_check_placement(w, new_bounds) {
         w.structures[sid].pos = new_pos;
         structure_add_to_lookup(&mut w.structures_by_chunk, sid, new_bounds);
+        invalidate_region(w, old_bounds);
+        invalidate_region(w, new_bounds);
         Ok(())
     } else {
         structure_add_to_lookup(&mut w.structures_by_chunk, sid, old_bounds);
@@ -290,6 +294,8 @@ pub fn structure_replace(w: &mut World,
     if structure_check_placement(w, new_bounds) {
         w.structures[sid].template = new_tid;
         structure_add_to_lookup(&mut w.structures_by_chunk, sid, new_bounds);
+        invalidate_region(w, old_bounds);
+        invalidate_region(w, new_bounds);
         Ok(())
     } else {
         structure_add_to_lookup(&mut w.structures_by_chunk, sid, old_bounds);
@@ -367,5 +373,13 @@ fn multimap_remove<K, V>(map: &mut HashMap<K, HashSet<V>>, k: K, v: V)
                 e.remove();
             }
         },
+    }
+}
+
+fn invalidate_region(w: &mut World,
+                     bounds: Region) {
+    let chunk_bounds = bounds.reduce().div_round_signed(CHUNK_SIZE);
+    for chunk_pos in chunk_bounds.points() {
+        w.record(Update::ChunkInvalidate(chunk_pos));
     }
 }

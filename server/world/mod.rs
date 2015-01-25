@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet, hash_set};
+use std::vec;
 
 use physics::CHUNK_BITS;
 use physics::v3::{Vn, V2, V3, scalar};
@@ -104,6 +105,7 @@ impl_IntrusiveStableId!(Inventory, stable_id);
 
 pub struct World<'d> {
     data: &'d Data,
+    journal: Vec<Update>,
 
     clients: StableIdMap<ClientId, Client>,
     terrain_chunks: HashMap<V2, TerrainChunk>,
@@ -116,12 +118,15 @@ pub struct World<'d> {
 
 pub enum Update {
     ClientViewReset(ClientId),
+    ChunkInvalidate(V2),
+    EntityMotionChange(EntityId),
 }
 
 impl<'d> World<'d> {
     pub fn new(data: &'d Data) -> World<'d> {
         World {
             data: data,
+            journal: Vec::new(),
 
             clients: StableIdMap::new(),
             terrain_chunks: HashMap::new(),
@@ -134,7 +139,11 @@ impl<'d> World<'d> {
     }
 
     pub fn record(&mut self, update: Update) {
-        // TODO
+        self.journal.push(update);
+    }
+
+    pub fn drain_journal(&mut self) -> vec::Drain<Update> {
+        self.journal.drain()
     }
 
     pub fn chunk_structures<'a>(&'a self, chunk_id: V2) -> ChunkStructures<'a, 'd> {

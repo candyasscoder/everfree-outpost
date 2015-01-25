@@ -10,7 +10,7 @@ use data::ObjectTemplate;
 use input::InputBits;
 use types::*;
 use view::ViewState;
-use world::World;
+use world::{World, Update};
 use world::{Client, TerrainChunk, Entity, Structure, Inventory};
 use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::Motion;
@@ -238,8 +238,10 @@ impl<'a, 'd> EntityRef<'d> for ObjectRefMut<'a, 'd, Entity> { }
 
 pub trait EntityRefMut<'d>: ObjectRefMutBase<'d, Entity> {
     fn set_motion(&mut self, motion: Motion) {
+        let eid = self.id();
         // TODO: update entity-by-chunk cache
         self.obj_mut().motion = motion;
+        self.world_mut().record(Update::EntityMotionChange(eid));
     }
 
     fn set_attachment(&mut self, attach: EntityAttachment) -> OpResult<EntityAttachment> {
