@@ -134,135 +134,76 @@ impl<'d> World<'d> {
         }
     }
 
-    pub fn client<'a>(&'a self, id: ClientId) -> ObjectRef<'a, 'd, Client> {
-        let obj = match self.clients.get(id) {
-            None => panic!("bad ClientId: {}", id),
-            Some(x) => x,
-        };
-
-        ObjectRef {
-            world: self,
-            id: id,
-            obj: obj,
-        }
-    }
-
-    pub fn client_mut<'a>(&'a mut self, id: ClientId) -> ObjectRefMut<'a, 'd, Client> {
-        match self.clients.get(id) {
-            None => panic!("bad ClientId: {}", id),
-            Some(_) => {},
-        }
-
-        ObjectRefMut {
-            world: self,
-            id: id,
-        }
-    }
-
-    pub fn terrain_chunk<'a>(&'a self, id: V2) -> ObjectRef<'a, 'd, TerrainChunk> {
-        let obj = match self.terrain_chunks.get(&id) {
-            None => panic!("bad chunk id: {:?}", id),
-            Some(x) => x,
-        };
-
-        ObjectRef {
-            world: self,
-            id: id,
-            obj: obj,
-        }
-    }
-
-    pub fn terrain_chunk_mut<'a>(&'a mut self, id: V2) -> ObjectRefMut<'a, 'd, TerrainChunk> {
-        match self.terrain_chunks.get(&id) {
-            None => panic!("bad chunk id: {:?}", id),
-            Some(x) => {},
-        }
-
-        ObjectRefMut {
-            world: self,
-            id: id,
-        }
-    }
-
-    pub fn entity<'a>(&'a self, id: EntityId) -> ObjectRef<'a, 'd, Entity> {
-        let obj = match self.entities.get(id) {
-            None => panic!("bad EntityId: {}", id),
-            Some(x) => x,
-        };
-
-        ObjectRef {
-            world: self,
-            id: id,
-            obj: obj,
-        }
-    }
-
-    pub fn entity_mut<'a>(&'a mut self, id: EntityId) -> ObjectRefMut<'a, 'd, Entity> {
-        match self.entities.get(id) {
-            None => panic!("bad EntityId: {}", id),
-            Some(_) => {},
-        }
-
-        ObjectRefMut {
-            world: self,
-            id: id,
-        }
-    }
-
-    pub fn structure<'a>(&'a self, id: StructureId) -> ObjectRef<'a, 'd, Structure> {
-        let obj = match self.structures.get(id) {
-            None => panic!("bad StructureId: {}", id),
-            Some(x) => x,
-        };
-
-        ObjectRef {
-            world: self,
-            id: id,
-            obj: obj,
-        }
-    }
-
-    pub fn structure_mut<'a>(&'a mut self, id: StructureId) -> ObjectRefMut<'a, 'd, Structure> {
-        match self.structures.get(id) {
-            None => panic!("bad StructureId: {}", id),
-            Some(_) => {},
-        }
-
-        ObjectRefMut {
-            world: self,
-            id: id,
-        }
-    }
-
-    pub fn inventory<'a>(&'a self, id: InventoryId) -> ObjectRef<'a, 'd, Inventory> {
-        let obj = match self.inventories.get(id) {
-            None => panic!("bad InventoryId: {}", id),
-            Some(x) => x,
-        };
-
-        ObjectRef {
-            world: self,
-            id: id,
-            obj: obj,
-        }
-    }
-
-    pub fn inventory_mut<'a>(&'a mut self, id: InventoryId) -> ObjectRefMut<'a, 'd, Inventory> {
-        match self.inventories.get(id) {
-            None => panic!("bad InventoryId: {}", id),
-            Some(_) => {},
-        }
-
-        ObjectRefMut {
-            world: self,
-            id: id,
-        }
-    }
-
     pub fn record(&mut self, update: Update) {
         // TODO
     }
 }
+
+macro_rules! obj_methods {
+    ($obj_ty:ty,
+     $id_name:ident: $id_ty:ty => $table:ident . get ( $lookup_arg:expr ),
+     $get_obj:ident, $get_obj_mut:ident, $obj:ident, $obj_mut:ident) => {
+        impl<'d> World<'d> {
+            pub fn $get_obj<'a>(&'a self,
+                                $id_name: $id_ty) -> Option<ObjectRef<'a, 'd, $obj_ty>> {
+                let obj = match self.$table.get($lookup_arg) {
+                    None => return None,
+                    Some(x) => x,
+                };
+
+                Some(ObjectRef {
+                    world: self,
+                    id: $id_name,
+                    obj: obj,
+                })
+            }
+
+            pub fn $get_obj_mut<'a>(&'a mut self,
+                                    $id_name: $id_ty) -> Option<ObjectRefMut<'a, 'd, $obj_ty>> {
+                match self.$table.get($lookup_arg) {
+                    None => return None,
+                    Some(_) => {},
+                }
+
+                Some(ObjectRefMut {
+                    world: self,
+                    id: $id_name,
+                })
+            }
+
+            pub fn $obj<'a>(&'a self, $id_name: $id_ty) -> ObjectRef<'a, 'd, $obj_ty> {
+                self.$get_obj($id_name)
+                    .expect(concat!("no ", stringify!($obj_ty), " with given id"))
+            }
+
+            pub fn $obj_mut<'a>(&'a mut self, $id_name: $id_ty) -> ObjectRefMut<'a, 'd, $obj_ty> {
+                self.$get_obj_mut($id_name)
+                    .expect(concat!("no ", stringify!($obj_ty), " with given id"))
+            }
+        }
+    };
+}
+
+obj_methods!(Client,
+             id: ClientId => clients.get(id),
+             get_client, get_client_mut, client, client_mut);
+
+obj_methods!(TerrainChunk,
+             id: V2 => terrain_chunks.get(&id),
+             get_terrain_chunk, get_terrain_chunk_mut, terrain_chunk, terrain_chunk_mut);
+
+obj_methods!(Entity,
+             id: EntityId => entities.get(id),
+             get_entity, get_entity_mut, entity, entity_mut);
+
+obj_methods!(Structure,
+             id: StructureId => structures.get(id),
+             get_structure, get_structure_mut, structure, structure_mut);
+
+obj_methods!(Inventory,
+             id: InventoryId => inventories.get(id),
+             get_inventory, get_inventory_mut, inventory, inventory_mut);
+
 
 impl Client {
     pub fn current_input(&self) -> InputBits {

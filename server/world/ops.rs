@@ -4,6 +4,7 @@ use std::hash::Hash;
 use std::mem::replace;
 
 use physics::{CHUNK_SIZE, CHUNK_BITS};
+use physics::Shape;
 use physics::v3::{Vn, V3, V2, scalar, Region};
 
 use input::InputBits;
@@ -309,18 +310,18 @@ fn structure_check_placement(w: &World,
             }
         }
 
-        /*
-        if let Some(terrain) = w.terrain_chunks.get(&chunk_pos) {
-            let chunk_region = Region::new(chunk_pos.extend(0),
-                                           chunk_pos.extend(0) + scalar(CHUNK_SIZE));
-            for point in bounds.intersect(chunk_region).points() {
-                let idx = chunk_region.index(point);
-                match terrain.blocks[idx]. {
-
+        if let Some(chunk) = w.get_terrain_chunk(chunk_pos) {
+            for point in bounds.intersect(chunk.bounds()).points() {
+                match chunk.shape_at(point) {
+                    Shape::Empty => {},
+                    Shape::Floor if point.z == bounds.min.z => {},
+                    _ => return false,
                 }
             }
+        } else {
+            // Don't allow placing a structure into an unloaded chunk.
+            return false;
         }
-        */
     }
     true
 }
