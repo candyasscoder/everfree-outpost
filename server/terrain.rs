@@ -6,12 +6,8 @@ use physics::Shape::{Empty, Floor};
 
 use data::Data;
 use types::BlockId;
+pub use types::{BlockChunk, CHUNK_TOTAL, EMPTY_CHUNK};
 use util::RefcountedMap;
-
-
-const CHUNK_TOTAL: usize = 1 << (3 * CHUNK_BITS);
-pub type BlockChunk = [BlockId; CHUNK_TOTAL];
-pub static EMPTY_CHUNK: BlockChunk = [0; CHUNK_TOTAL];
 
 
 pub struct Object {

@@ -1,4 +1,5 @@
 use std::u16;
+use physics::CHUNK_BITS;
 
 pub type LocalTime = u16;
 pub type LocalCoord = u16;
@@ -23,6 +24,10 @@ pub type TileId = u16;
 pub type TemplateId = u32;
 
 pub const DURATION_MAX: Duration = u16::MAX;
+
+pub const CHUNK_TOTAL: usize = 1 << (3 * CHUNK_BITS);
+pub type BlockChunk = [BlockId; CHUNK_TOTAL];
+pub static EMPTY_CHUNK: BlockChunk = [0; CHUNK_TOTAL];
 
 
 /// Trait for converting from local to global.

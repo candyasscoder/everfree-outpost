@@ -50,6 +50,7 @@ mod terrain;
 mod lua;
 mod script;
 mod world;
+mod terrain2;
 
 
 fn read_json(path: &str) -> json::Json {

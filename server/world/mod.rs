@@ -10,6 +10,7 @@ use util::{StableIdMap, Stable};
 use view::ViewState;
 
 use self::object::{Object, ObjectRef, ObjectRefMut};
+pub use self::ops::OpResult;
 
 macro_rules! bad {
     ($ok:expr, $msg:expr) => { bad!($ok, $msg,) };
@@ -27,7 +28,7 @@ macro_rules! check {
     };
 }
 
-mod object;
+pub mod object;
 mod ops;
 mod debug;
 
@@ -40,13 +41,13 @@ pub enum EntityAttachment {
 }
 
 #[derive(Copy, PartialEq, Eq, Show)]
-enum StructureAttachment {
+pub enum StructureAttachment {
     World,
     Chunk,
 }
 
 #[derive(Copy, PartialEq, Eq, Show)]
-enum InventoryAttachment {
+pub enum InventoryAttachment {
     World,
     Client(ClientId),
     Entity(EntityId),
@@ -66,7 +67,7 @@ pub struct Client {
 }
 impl_IntrusiveStableId!(Client, stable_id);
 
-struct TerrainChunk {
+pub struct TerrainChunk {
     blocks: [BlockId; 1 << (3 * CHUNK_BITS)],
 }
 
@@ -81,7 +82,7 @@ pub struct Entity {
 }
 impl_IntrusiveStableId!(Entity, stable_id);
 
-struct Structure {
+pub struct Structure {
     pos: V3,
     offset: (u8, u8, u8),
     template: TemplateId,
@@ -92,7 +93,7 @@ struct Structure {
 }
 impl_IntrusiveStableId!(Structure, stable_id);
 
-struct Inventory {
+pub struct Inventory {
     contents: HashMap<String, u8>,
 
     stable_id: StableId,
@@ -101,7 +102,7 @@ struct Inventory {
 impl_IntrusiveStableId!(Inventory, stable_id);
 
 
-struct World<'d> {
+pub struct World<'d> {
     data: &'d Data,
 
     clients: StableIdMap<ClientId, Client>,
@@ -141,6 +142,27 @@ impl<'d> World<'d> {
             world: self,
             iter: self.structures_by_chunk.get(&chunk_id).map(|xs| xs.iter()),
         }
+    }
+
+    pub fn create_terrain_chunk(&mut self,
+                                pos: V2,
+                                blocks: BlockChunk) -> OpResult<()> {
+        ops::terrain_chunk_create(self, pos, blocks)
+    }
+
+    pub fn destroy_terrain_chunk(&mut self,
+                                 pos: V2) -> OpResult<()> {
+        ops::terrain_chunk_destroy(self, pos)
+    }
+
+    pub fn create_structure(&mut self,
+                            pos: V3,
+                            tid: TemplateId) -> OpResult<StructureId> {
+        ops::structure_create(self, pos, tid)
+    }
+
+    pub fn destroy_structure(&mut self, sid: StructureId) -> OpResult<()> {
+        ops::structure_destroy(self, sid)
     }
 }
 
@@ -264,6 +286,10 @@ impl Client {
 impl TerrainChunk {
     pub fn block(&self, idx: usize) -> BlockId {
         self.blocks[idx]
+    }
+
+    pub fn blocks(&self) -> &[BlockId; 1 << (3 * CHUNK_BITS)] {
+        &self.blocks
     }
 }
 
