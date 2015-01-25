@@ -342,6 +342,26 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
     }
 }
 
+impl<K, V> Index<K> for StableIdMap<K, V>
+        where K: Copy+FromPrimitive+ToPrimitive,
+              V: IntrusiveStableId {
+    type Output = V;
+
+    fn index(&self, index: &K) -> &V {
+        self.get(*index).expect("no entry found for key")
+    }
+}
+
+impl<K, V> IndexMut<K> for StableIdMap<K, V>
+        where K: Copy+FromPrimitive+ToPrimitive,
+              V: IntrusiveStableId {
+    type Output = V;
+
+    fn index_mut(&mut self, index: &K) -> &mut V {
+        self.get_mut(*index).expect("no entry found for key")
+    }
+}
+
 struct StableIdMapIter<'a, K, V: 'a> {
     iter: IdMapIter<'a, V>,
 }

@@ -185,7 +185,7 @@ pub fn entity_attach(w: &mut World,
         World => {},
         Chunk => {},    // No separate cache to update
         Client(cid) => {
-            let c = w.clients.get_mut(cid).unwrap();
+            let c = &mut w.clients[cid];
             c.child_entities.remove(&eid);
         },
     }
@@ -199,7 +199,10 @@ pub fn structure_create(w: &mut World,
                         tid: TemplateId) -> OpResult<StructureId> {
     let t = unwrap!(w.data.object_templates.get_template(tid));
     let bounds = Region::new(pos, pos + t.size);
-    // TODO: check that bounds are clear of obstacles
+
+    if !structure_check_placement(w, bounds) {
+        fail!("structure placement blocked by terrain or other structure");
+    }
 
     let chunk_pos = pos.reduce().div_floor(scalar(CHUNK_SIZE));
     let offset = pos - chunk_pos.extend(0) * scalar(CHUNK_SIZE);
@@ -243,40 +246,77 @@ pub fn structure_destroy(w: &mut World,
 pub fn structure_move(w: &mut World,
                       sid: StructureId,
                       new_pos: V3) -> OpResult<()> {
-    let s = unwrap!(w.structures.get_mut(sid));
-    let t = unwrap!(w.data.object_templates.get_template(s.template));
+    let (old_bounds, new_bounds) = {
+        let s = unwrap!(w.structures.get(sid));
+        let t = unwrap!(w.data.object_templates.get_template(s.template));
 
-    let old_bounds = Region::new(s.pos, s.pos + t.size);
+        (Region::new(s.pos, s.pos + t.size),
+         Region::new(new_pos, new_pos + t.size))
+    };
+
     structure_remove_from_lookup(&mut w.structures_by_chunk, sid, old_bounds);
 
-    let new_bounds = Region::new(new_pos, new_pos + t.size);
-    // TODO: check that new bounds are clear of obstacles
-
-    s.pos = new_pos;
-
-    structure_add_to_lookup(&mut w.structures_by_chunk, sid, new_bounds);
-
-    Ok(())
+    if structure_check_placement(w, new_bounds) {
+        w.structures[sid].pos = new_pos;
+        structure_add_to_lookup(&mut w.structures_by_chunk, sid, new_bounds);
+        Ok(())
+    } else {
+        structure_add_to_lookup(&mut w.structures_by_chunk, sid, old_bounds);
+        fail!("structure placement blocked by terrain or other structure");
+    }
 }
 
 pub fn structure_replace(w: &mut World,
                          sid: StructureId,
                          new_tid: TemplateId) -> OpResult<()> {
-    let s = unwrap!(w.structures.get_mut(sid));
-    let old_t = unwrap!(w.data.object_templates.get_template(s.template));
-    let new_t = unwrap!(w.data.object_templates.get_template(new_tid));
+    let (old_bounds, new_bounds) = {
+        let s = unwrap!(w.structures.get_mut(sid));
+        let old_t = unwrap!(w.data.object_templates.get_template(s.template));
+        let new_t = unwrap!(w.data.object_templates.get_template(new_tid));
 
-    let old_bounds = Region::new(s.pos, s.pos + old_t.size);
+        (Region::new(s.pos, s.pos + old_t.size),
+         Region::new(s.pos, s.pos + new_t.size))
+    };
+
     structure_remove_from_lookup(&mut w.structures_by_chunk, sid, old_bounds);
 
-    let new_bounds = Region::new(s.pos, s.pos + new_t.size);
-    // TODO: check that new bounds are clear of obstacles
+    if structure_check_placement(w, new_bounds) {
+        w.structures[sid].template = new_tid;
+        structure_add_to_lookup(&mut w.structures_by_chunk, sid, new_bounds);
+        Ok(())
+    } else {
+        structure_add_to_lookup(&mut w.structures_by_chunk, sid, old_bounds);
+        fail!("structure placement blocked by terrain or other structure");
+    }
+}
 
-    s.template = new_tid;
+fn structure_check_placement(w: &World,
+                             bounds: Region) -> bool {
+    let chunk_bounds = bounds.reduce().div_round_signed(CHUNK_SIZE);
+    for chunk_pos in chunk_bounds.points() {
+        if let Some(sids) = w.structures_by_chunk.get(&chunk_pos) {
+            for &sid in sids.iter() {
+                let other_bounds = w.structure(sid).bounds();
+                if other_bounds.overlaps(bounds) {
+                    return false;
+                }
+            }
+        }
 
-    structure_add_to_lookup(&mut w.structures_by_chunk, sid, new_bounds);
+        /*
+        if let Some(terrain) = w.terrain_chunks.get(&chunk_pos) {
+            let chunk_region = Region::new(chunk_pos.extend(0),
+                                           chunk_pos.extend(0) + scalar(CHUNK_SIZE));
+            for point in bounds.intersect(chunk_region).points() {
+                let idx = chunk_region.index(point);
+                match terrain.blocks[idx]. {
 
-    Ok(())
+                }
+            }
+        }
+        */
+    }
+    true
 }
 
 fn structure_add_to_lookup(lookup: &mut HashMap<V2, HashSet<StructureId>>,

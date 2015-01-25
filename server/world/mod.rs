@@ -260,27 +260,27 @@ impl<'d> World<'d> {
 }
 
 impl Client {
-    fn current_input(&self) -> InputBits {
+    pub fn current_input(&self) -> InputBits {
         self.current_input
     }
 
-    fn set_current_input(&mut self, new: InputBits) {
+    pub fn set_current_input(&mut self, new: InputBits) {
         self.current_input = new;
     }
 
-    fn chunk_offset(&self) -> (u8, u8) {
+    pub fn chunk_offset(&self) -> (u8, u8) {
         self.chunk_offset
     }
 
-    fn set_chunk_offset(&mut self, new: (u8, u8)) {
+    pub fn set_chunk_offset(&mut self, new: (u8, u8)) {
         self.chunk_offset = new;
     }
 
-    fn view_state(&self) -> &ViewState {
+    pub fn view_state(&self) -> &ViewState {
         &self.view_state
     }
 
-    fn view_state_mut(&mut self) -> &mut ViewState {
+    pub fn view_state_mut(&mut self) -> &mut ViewState {
         &mut self.view_state
     }
 }
@@ -319,11 +319,11 @@ impl Entity {
 }
 
 impl Structure {
-    fn pos(&self) -> V3 {
+    pub fn pos(&self) -> V3 {
         self.pos
     }
 
-    fn template_id(&self) -> TemplateId {
+    pub fn template_id(&self) -> TemplateId {
         self.template
     }
 }

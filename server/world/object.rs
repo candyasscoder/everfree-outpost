@@ -2,7 +2,7 @@ use std::mem::replace;
 use std::ops::{Deref, DerefMut};
 use std::ptr;
 
-use physics::v3::{Vn, V3, V2};
+use physics::v3::{Vn, V3, V2, Region};
 
 use data::ObjectTemplate;
 use input::InputBits;
@@ -152,7 +152,7 @@ impl<'a, 'd, O: Object> DerefMut for ObjectRefMut<'a, 'd, O> {
 
 
 impl<'a, 'd> ObjectRef<'a, 'd, Client> {
-    fn pawn(&self) -> Option<ObjectRef<'a, 'd, Entity>> {
+    pub fn pawn(&self) -> Option<ObjectRef<'a, 'd, Entity>> {
         match self.obj().pawn {
             None => None,
             Some(eid) => Some(self.world().entity(eid)),
@@ -161,15 +161,15 @@ impl<'a, 'd> ObjectRef<'a, 'd, Client> {
 }
 
 impl<'a, 'd> ObjectRefMut<'a, 'd, Client> {
-    fn pawn<'b>(&'b self) -> Option<ObjectRef<'b, 'd, Entity>> { self.downgrade().pawn() }
-    fn pawn_mut<'b>(&'b mut self) -> Option<ObjectRefMut<'b, 'd, Entity>> {
+    pub fn pawn<'b>(&'b self) -> Option<ObjectRef<'b, 'd, Entity>> { self.downgrade().pawn() }
+    pub fn pawn_mut<'b>(&'b mut self) -> Option<ObjectRefMut<'b, 'd, Entity>> {
         match self.obj().pawn {
             None => None,
             Some(eid) => Some(self.world_mut().entity_mut(eid)),
         }
     }
 
-    fn set_pawn(&mut self, now: Time, pawn: Option<EntityId>) -> OpResult<Option<EntityId>> {
+    pub fn set_pawn(&mut self, now: Time, pawn: Option<EntityId>) -> OpResult<Option<EntityId>> {
         match pawn {
             Some(eid) => ops::client_set_pawn(self.world, now, self.id, eid),
             None => ops::client_clear_pawn(self.world, self.id),
@@ -178,33 +178,41 @@ impl<'a, 'd> ObjectRefMut<'a, 'd, Client> {
 }
 
 impl<'a, 'd> ObjectRefMut<'a, 'd, Entity> {
-    fn set_motion(&mut self, motion: Motion) -> OpResult<Motion> {
+    pub fn set_motion(&mut self, motion: Motion) -> OpResult<Motion> {
         unimplemented!()
     }
 
-    fn set_attachment(&mut self, attach: EntityAttachment) -> OpResult<EntityAttachment> {
+    pub fn set_attachment(&mut self, attach: EntityAttachment) -> OpResult<EntityAttachment> {
         ops::entity_attach(self.world, self.id, attach)
     }
 }
 
 impl<'a, 'd> ObjectRef<'a, 'd, Structure> {
-    fn template(&self) -> &'d ObjectTemplate {
+    pub fn template(&self) -> &'d ObjectTemplate {
         let tid = self.template_id();
         self.world.data.object_templates.template(self.template_id())
+    }
+
+    pub fn bounds(&self) -> Region {
+        let pos = self.pos();
+        let size = self.template().size;
+        Region::new(pos, pos + size)
     }
 }
 
 impl<'a, 'd> ObjectRefMut<'a, 'd, Structure> {
-    fn template(&self) -> &'d ObjectTemplate {
+    pub fn template(&self) -> &'d ObjectTemplate {
         let tid = self.template_id();
         self.world.data.object_templates.template(self.template_id())
     }
 
-    fn set_pos(&mut self, pos: V3) -> OpResult<()> {
+    pub fn bounds(&self) -> Region { self.downgrade().bounds() }
+
+    pub fn set_pos(&mut self, pos: V3) -> OpResult<()> {
         ops::structure_move(self.world, self.id, pos)
     }
 
-    fn set_template_id(&mut self, template: TemplateId) -> OpResult<()> {
+    pub fn set_template_id(&mut self, template: TemplateId) -> OpResult<()> {
         ops::structure_replace(self.world, self.id, template)
     }
 }
