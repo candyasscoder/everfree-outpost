@@ -362,7 +362,7 @@ impl<K, V> IndexMut<K> for StableIdMap<K, V>
     }
 }
 
-struct StableIdMapIter<'a, K, V: 'a> {
+pub struct StableIdMapIter<'a, K, V: 'a> {
     iter: IdMapIter<'a, V>,
 }
 

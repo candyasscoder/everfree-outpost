@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet, hash_set};
-use std::vec;
+use std::mem::replace;
 
 use physics::CHUNK_BITS;
 use physics::v3::{Vn, V2, V3, scalar};
@@ -7,7 +7,7 @@ use physics::v3::{Vn, V2, V3, scalar};
 use data::Data;
 use input::InputBits;
 use types::*;
-use util::{StableIdMap, Stable};
+use util::{StableIdMap, Stable, StableIdMapIter};
 use view::ViewState;
 
 use self::object::{Object, ObjectRef, ObjectRefMut};
@@ -142,8 +142,8 @@ impl<'d> World<'d> {
         self.journal.push(update);
     }
 
-    pub fn drain_journal(&mut self) -> vec::Drain<Update> {
-        self.journal.drain()
+    pub fn take_journal(&mut self) -> Vec<Update> {
+        replace(&mut self.journal, Vec::new())
     }
 
     pub fn chunk_structures<'a>(&'a self, chunk_id: V2) -> ChunkStructures<'a, 'd> {
@@ -153,29 +153,63 @@ impl<'d> World<'d> {
         }
     }
 
-    pub fn create_terrain_chunk(&mut self,
-                                pos: V2,
-                                blocks: BlockChunk) -> OpResult<()> {
-        ops::terrain_chunk_create(self, pos, blocks)
-    }
-
-    pub fn destroy_terrain_chunk(&mut self,
-                                 pos: V2) -> OpResult<()> {
-        ops::terrain_chunk_destroy(self, pos)
-    }
-
-    pub fn create_structure(&mut self,
-                            pos: V3,
-                            tid: TemplateId) -> OpResult<StructureId> {
-        ops::structure_create(self, pos, tid)
-    }
-
-    pub fn destroy_structure(&mut self, sid: StructureId) -> OpResult<()> {
-        ops::structure_destroy(self, sid)
+    pub fn clients<'a>(&'a self) -> Clients<'a, 'd> {
+        Clients {
+            world: self,
+            iter: self.clients.iter(),
+        }
     }
 }
 
-macro_rules! obj_methods {
+macro_rules! lifecycle_methods {
+    ($obj_ty:ty,
+     $create_method:ident ( $($arg_name:ident : $arg_ty:ty),* ) => $create_op:ident
+        [$ref_id_name:ident -> $ref_id_expr:expr],
+     $destroy_method:ident ( $id_name:ident : $id_ty:ty ) => $destroy_op:ident) => {
+        impl<'d> World<'d> {
+            pub fn $create_method<'a>(&'a mut self
+                                      $(, $arg_name: $arg_ty)*)
+                                      -> OpResult<ObjectRefMut<'a, 'd, $obj_ty>> {
+                let $ref_id_name = try!(ops::$create_op(self $(, $arg_name)*));
+                Ok(ObjectRefMut {
+                    world: self,
+                    id: $ref_id_expr,
+                })
+            }
+
+            pub fn $destroy_method(&mut self, $id_name: $id_ty) -> OpResult<()> {
+                ops::$destroy_op(self, $id_name)
+            }
+        }
+    };
+    ($obj_ty:ty,
+     $create_method:ident ( $($arg_name:ident : $arg_ty:ty),* ) => $create_op:ident,
+     $destroy_method:ident ( $id_name:ident : $id_ty:ty ) => $destroy_op:ident) => {
+        lifecycle_methods!($obj_ty,
+                           $create_method($($arg_name: $arg_ty),*) => $create_op
+                            [id -> id],
+                           $destroy_method($id_name: $id_ty) => $destroy_op);
+    };
+}
+
+lifecycle_methods!(Client,
+                   create_client(chunk_offset: (u8, u8)) => client_create,
+                   destroy_client(id: ClientId) => client_destroy);
+
+lifecycle_methods!(TerrainChunk,
+                   create_terrain_chunk(pos: V2, blocks: BlockChunk) => terrain_chunk_create
+                    [id -> pos],
+                   destroy_terrain_chunk(pos: V2) => terrain_chunk_destroy);
+
+lifecycle_methods!(Entity,
+                   create_entity(pos: V3, anim: AnimId) => entity_create,
+                   destroy_entity(id: EntityId) => entity_destroy);
+
+lifecycle_methods!(Structure,
+                   create_structure(pos: V3, tid: TemplateId) => structure_create,
+                   destroy_structure(id: StructureId) => structure_destroy);
+
+macro_rules! access_methods {
     ($obj_ty:ty,
      $id_name:ident: $id_ty:ty => $table:ident . get ( $lookup_arg:expr ),
      $get_obj:ident, $get_obj_mut:ident, $obj:ident, $obj_mut:ident) => {
@@ -220,25 +254,25 @@ macro_rules! obj_methods {
     };
 }
 
-obj_methods!(Client,
-             id: ClientId => clients.get(id),
-             get_client, get_client_mut, client, client_mut);
+access_methods!(Client,
+                id: ClientId => clients.get(id),
+                get_client, get_client_mut, client, client_mut);
 
-obj_methods!(TerrainChunk,
-             id: V2 => terrain_chunks.get(&id),
-             get_terrain_chunk, get_terrain_chunk_mut, terrain_chunk, terrain_chunk_mut);
+access_methods!(TerrainChunk,
+                id: V2 => terrain_chunks.get(&id),
+                get_terrain_chunk, get_terrain_chunk_mut, terrain_chunk, terrain_chunk_mut);
 
-obj_methods!(Entity,
-             id: EntityId => entities.get(id),
-             get_entity, get_entity_mut, entity, entity_mut);
+access_methods!(Entity,
+                id: EntityId => entities.get(id),
+                get_entity, get_entity_mut, entity, entity_mut);
 
-obj_methods!(Structure,
-             id: StructureId => structures.get(id),
-             get_structure, get_structure_mut, structure, structure_mut);
+access_methods!(Structure,
+                id: StructureId => structures.get(id),
+                get_structure, get_structure_mut, structure, structure_mut);
 
-obj_methods!(Inventory,
-             id: InventoryId => inventories.get(id),
-             get_inventory, get_inventory_mut, inventory, inventory_mut);
+access_methods!(Inventory,
+                id: InventoryId => inventories.get(id),
+                get_inventory, get_inventory_mut, inventory, inventory_mut);
 
 pub struct ChunkStructures<'a, 'd: 'a> {
     world: &'a World<'d>,
@@ -260,6 +294,25 @@ impl<'a, 'd> Iterator for ChunkStructures<'a, 'd> {
                 world: world,
                 id: sid,
                 obj: s,
+            }
+        })
+    }
+}
+
+pub struct Clients<'a, 'd: 'a> {
+    world: &'a World<'d>,
+    iter: StableIdMapIter<'a, ClientId, Client>,
+}
+
+impl<'a, 'd> Iterator for Clients<'a, 'd> {
+    type Item = ObjectRef<'a, 'd, Client>;
+    fn next(&mut self) -> Option<ObjectRef<'a, 'd, Client>> {
+        let world = self.world;
+        self.iter.next().map(|(cid, c)| {
+            ObjectRef {
+                world: world,
+                id: cid,
+                obj: c,
             }
         })
     }
@@ -347,6 +400,7 @@ impl Structure {
 
 // TODO: find somewhere better to put Motion
 
+#[derive(Clone)]
 pub struct Motion {
     pub start_time: Time,
     pub duration: Duration,
@@ -377,6 +431,10 @@ impl Motion {
                 self.start_pos + offset
             }
         }
+    }
+
+    pub fn end_time(&self) -> Time {
+        self.start_time + self.duration as Time
     }
 }
 

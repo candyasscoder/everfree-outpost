@@ -7,7 +7,7 @@ use physics::v3::{Vn, V3, V2, scalar, Region};
 use data::Data;
 use types::*;
 use util::StrError;
-use world::World;
+use world::{World, Update};
 use world::object::*;
 
 pub struct TerrainCache {
@@ -158,7 +158,7 @@ fn retain_structures<F>(world: &mut World,
         Vacant(e) => {
             for (p, tid) in load_structures(pos).into_iter() {
                 // TODO: check that pos is valid for the chunk
-                world.create_structure(p, tid).unwrap();
+                world.create_structure(p, tid); //.unwrap();
             }
             e.insert(1);
         },

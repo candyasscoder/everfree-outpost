@@ -16,6 +16,7 @@ extern crate collect;
 extern crate physics;
 
 use std::cmp;
+use std::error::Error;
 use std::io;
 use std::sync::mpsc::{Sender, Receiver, channel};
 use std::thread::Thread;
@@ -30,11 +31,13 @@ use input::{InputBits, ActionBits};
 use state::LOCAL_SIZE;
 use state::StateChange::ChunkUpdate;
 use data::Data;
+use world::object::{ObjectRefBase, ClientRef};
 
 use types::{Time, ToGlobal, ToLocal};
 use types::{ClientId, EntityId};
 
 
+#[macro_use] mod util;
 mod msg;
 mod wire;
 mod tasks;
@@ -46,7 +49,6 @@ mod input;
 mod gen;
 mod data;
 mod terrain;
-#[macro_use] mod util;
 mod lua;
 mod script;
 mod world;
@@ -168,8 +170,6 @@ impl<'a> Server<'a> {
 
             Request::Login(_secret, name) => {
                 log!(10, "login request for {}", name);
-                self.state.add_client(now, client_id);
-
                 let info = msg::InitData {
                     entity_id: client_id as EntityId,
                     camera_pos: (0, 0),
@@ -179,18 +179,21 @@ impl<'a> Server<'a> {
                 self.resps.send((client_id, Response::Init(info))).unwrap();
 
                 let (region, offset) = {
-                    let ce = self.state.client_entity(client_id).unwrap();
-                    let motion = entity_motion(now, ce);
-                    let anim = ce.entity.anim;
+                    let mut client = self.state.add_client(now, client_id);
+                    info!("client connected with id {} <-> {}", client.id(), client_id);
+
+                    let pawn = client.pawn().unwrap();
+                    let motion = entity_motion(now, pawn.motion(), client.chunk_offset());
+                    let anim = pawn.anim();
                     self.resps.send((client_id,
-                                     Response::EntityUpdate(ce.client.entity_id, motion, anim)))
+                                     Response::EntityUpdate(pawn.id(), motion, anim)))
                         .unwrap();
                     log!(10, "pos={:?}, region={:?}",
-                         ce.entity.pos(now),
-                         ce.client.view_state.region());
+                         pawn.pos(now),
+                         client.view_state().region());
 
-                    (ce.client.view_state.region(),
-                     chunk_offset(ce.entity.pos(now), ce.client.chunk_offset))
+                    (client.view_state().region(),
+                     chunk_offset(pawn.pos(now), client.chunk_offset()))
                 };
 
                 for (x,y) in region.points() {
@@ -226,12 +229,15 @@ impl<'a> Server<'a> {
         match reason {
             WakeReason::HandleInput(client_id, input) => {
                 let updated = self.state.update_input(now, client_id, input);
-                if updated {
-                    self.post_physics_update(now, client_id);
+                match updated {
+                    Ok(true) => self.post_physics_update(now, client_id),
+                    Ok(false) => {},
+                    Err(e) => warn!("update_input error: {}", e.description()),
                 }
             },
 
             WakeReason::HandleAction(client_id, action) => {
+                /*
                 let updates = self.state.perform_action(now, client_id, action);
                 for update in updates.into_iter() {
                     match update {
@@ -251,24 +257,27 @@ impl<'a> Server<'a> {
                         },
                     }
                 }
+                */
             },
 
             WakeReason::PhysicsUpdate(client_id) => {
                 let updated = self.state.update_physics(now, client_id);
-                if updated {
-                    self.post_physics_update(now, client_id);
+                match updated {
+                    Ok(true) => self.post_physics_update(now, client_id),
+                    Ok(false) => {},
+                    Err(e) => warn!("update_physics error: {}", e.description()),
                 }
             },
 
             WakeReason::CheckView(client_id) => {
                 let (result, offset) = {
-                    let ce = match self.state.client_entity_mut(client_id) {
-                        Some(ce) => ce,
+                    let mut client = match self.state.world_mut().get_client_mut(client_id) {
+                        Some(x) => x,
                         None => return,
                     };
-                    let pos = ce.entity.pos(now);
-                    (ce.client.view_state.update(pos + V3::new(16, 16, 0)),
-                     chunk_offset(pos, ce.client.chunk_offset))
+                    let pos = client.pawn().unwrap().pos(now);
+                    (client.view_state_mut().update(pos + V3::new(16, 16, 0)),
+                     chunk_offset(pos, client.chunk_offset()))
                 };
 
 
@@ -291,13 +300,15 @@ impl<'a> Server<'a> {
                            now: Time,
                            client_id: ClientId) {
         let (entity_id, motion, anim, end_time) = {
-            let ce = self.state.client_entity(client_id).unwrap();
-            (ce.client.entity_id,
-             entity_motion(now, ce),
-             ce.entity.anim,
-             ce.entity.end_time())
+            let client = self.state.world().client(client_id);
+            let entity = client.pawn().unwrap();
+            (entity.id(),
+             entity_motion(now, entity.motion(), client.chunk_offset()),
+             entity.anim(),
+             entity.motion().end_time())
         };
-        for &send_id in self.state.clients.keys() {
+        for client in self.state.world().clients() {
+            let send_id = client.id();
             self.resps.send((send_id, Response::EntityUpdate(entity_id, motion.clone(), anim)))
                 .unwrap();
         }
@@ -342,17 +353,19 @@ fn now() -> Time {
     (timespec.sec as Time * 1000) + (timespec.nsec / 1000000) as Time
 }
 
-fn entity_motion(now: Time, ce: state::ClientEntity) -> WireMotion {
-    let pos = ce.entity.pos(now);
+fn entity_motion(now: Time,
+                 motion: &world::Motion,
+                 client_offset: (u8, u8)) -> WireMotion {
+    let pos = motion.pos(now);
     let world_base = state::base_chunk(pos);
-    let local_base = state::offset_base_chunk(world_base, ce.client.chunk_offset);
+    let local_base = state::offset_base_chunk(world_base, client_offset);
 
-    let start_pos = state::world_to_local(ce.entity.start_pos, world_base, local_base);
-    let end_pos = state::world_to_local(ce.entity.end_pos, world_base, local_base);
+    let start_pos = state::world_to_local(motion.start_pos, world_base, local_base);
+    let end_pos = state::world_to_local(motion.end_pos, world_base, local_base);
     
     WireMotion {
-        start_time: ce.entity.start_time.to_local(),
-        end_time: (ce.entity.start_time + ce.entity.duration as Time).to_local(),
+        start_time: motion.start_time.to_local(),
+        end_time: (motion.start_time + motion.duration as Time).to_local(),
         start_pos: (start_pos.x as u16,
                     start_pos.y as u16,
                     start_pos.z as u16),
