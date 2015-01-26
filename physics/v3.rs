@@ -1,7 +1,7 @@
 use core::prelude::*;
 use core::cmp::{min, max};
 use core::fmt;
-use core::num::SignedInt;
+use core::num::{Int, SignedInt, UnsignedInt};
 use core::ops::{Add, Sub, Mul, Div, Rem, Neg, Shl, Shr, BitAnd, BitOr, BitXor, Not};
 
 
@@ -287,6 +287,13 @@ pub trait Vn: Sized+Copy {
 fn div_floor(a: i32, b: i32) -> i32 {
     if b < 0 {
         return div_floor(-a, -b);
+    }
+
+    // In the common case (dividing by a power-of-two constant), we'd like this to turn into a
+    // single right-shift instruction.
+    if (b as u32).is_power_of_two() {
+        let bits = b.trailing_zeros();
+        return a >> bits;
     }
 
     if a < 0 {
