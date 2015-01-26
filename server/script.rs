@@ -437,30 +437,6 @@ impl<T: LuaReturn> LuaReturn for Option<T> {
     }
 }
 
-impl LuaReturn for StrResult<()> {
-    fn push_onto(self, lua: &mut LuaState) {
-        match self {
-            Ok(x) => lua.push_bool(true),
-            Err(e) => {
-                lua.push_nil();
-                e.msg.push_onto(lua);
-            },
-        }
-    }
-}
-
-impl<T: LuaReturn> LuaReturn for StrResult<T> {
-    fn push_onto(self, lua: &mut LuaState) {
-        match self {
-            Ok(x) => x.push_onto(lua),
-            Err(e) => {
-                lua.push_nil();
-                e.msg.push_onto(lua);
-            },
-        }
-    }
-}
-
 
 trait LuaReturnList {
     fn pack(self, lua: &mut LuaState);
@@ -499,6 +475,40 @@ impl_lua_return_list!(2, A, B);
 impl_lua_return_list!(3, A, B, C);
 impl_lua_return_list!(4, A, B, C, D);
 impl_lua_return_list!(5, A, B, C, D, E);
+
+impl LuaReturnList for StrResult<()> {
+    fn pack(self, lua: &mut LuaState) {
+        match self {
+            Ok(x) => {
+                lua.push_bool(true);
+                lua.push_nil();
+            },
+            Err(e) => {
+                lua.push_nil();
+                e.msg.push_onto(lua);
+            },
+        }
+    }
+
+    fn count() -> c_int { 2 }
+}
+
+impl<T: LuaReturn> LuaReturnList for StrResult<T> {
+    fn pack(self, lua: &mut LuaState) {
+        match self {
+            Ok(x) => {
+                x.push_onto(lua);
+                lua.push_nil();
+            },
+            Err(e) => {
+                lua.push_nil();
+                e.msg.push_onto(lua);
+            },
+        }
+    }
+
+    fn count() -> c_int { 2 }
+}
 
 fn pack_count<T: LuaReturnList>(lua: &mut LuaState, x: T) -> c_int {
     x.pack(lua);
