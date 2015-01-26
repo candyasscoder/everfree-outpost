@@ -35,9 +35,10 @@ fn check_client_invariants(w: &World) -> bool {
                 let attach = e.attachment();
                 check!(ok, attach == EntityAttachment::Client(cid),
                        "client {} pawn entity {} is wrongly attached to {:?}",
-                       cid, eid, attach);
+                       cid.unwrap(), eid.unwrap(), attach);
             } else {
-                bad!(ok, "client {} pawn entity {} does not exist", cid, eid);
+                bad!(ok, "client {} pawn entity {} does not exist",
+                     cid.unwrap(), eid.unwrap());
             }
         }
 
@@ -47,9 +48,10 @@ fn check_client_invariants(w: &World) -> bool {
                 let attach = e.attachment();
                 check!(ok, attach == EntityAttachment::Client(cid),
                        "client {} child entity {} is wrongly attached to {:?}",
-                       cid, eid, attach);
+                       cid.unwrap(), eid.unwrap(), attach);
             } else {
-                bad!(ok, "client {} child entity {} does not exist", cid, eid);
+                bad!(ok, "client {} child entity {} does not exist",
+                     cid.unwrap(), eid.unwrap());
             }
         }
 

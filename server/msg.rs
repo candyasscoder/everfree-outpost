@@ -2,13 +2,10 @@ use std::io::IoResult;
 
 use wire;
 use wire::{WireReader, WireWriter};
-use types::{LocalTime, EntityId};
+use types::{LocalTime, ClientId, EntityId};
 
 pub use self::Request::*;
 pub use self::Response::*;
-
-
-pub type ClientId = u16;
 
 
 #[derive(Copy, PartialEq, Eq, Show)]

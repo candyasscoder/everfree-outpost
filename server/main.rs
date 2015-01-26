@@ -149,11 +149,11 @@ impl<'a> Server<'a> {
                   req: Request) {
         match req {
             Request::GetTerrain => {
-                warn!("client {} used deprecated opcode GetTerrain", client_id);
+                warn!("client {} used deprecated opcode GetTerrain", client_id.unwrap());
             },
 
             Request::UpdateMotion(_wire_motion) => {
-                warn!("client {} used deprecated opcode UpdateMotion", client_id);
+                warn!("client {} used deprecated opcode UpdateMotion", client_id.unwrap());
             },
 
             Request::Ping(cookie) => {
@@ -169,17 +169,10 @@ impl<'a> Server<'a> {
 
             Request::Login(_secret, name) => {
                 log!(10, "login request for {}", name);
-                let info = msg::InitData {
-                    entity_id: client_id as EntityId,
-                    camera_pos: (0, 0),
-                    chunks: 8 * 8,
-                    entities: 1,
-                };
-                self.resps.send((client_id, Response::Init(info))).unwrap();
 
-                let (region, offset) = {
+                let (region, offset, pawn_id) = {
                     let mut client = self.state.add_client(now, client_id);
-                    info!("client connected with id {} <-> {}", client.id(), client_id);
+                    info!("client connected with id {:?} <-> {:?}", client.id(), client_id);
 
                     let pawn = client.pawn().unwrap();
                     let motion = entity_motion(now, pawn.motion(), client.chunk_offset());
@@ -192,8 +185,17 @@ impl<'a> Server<'a> {
                          client.view_state().region());
 
                     (client.view_state().region(),
-                     chunk_offset(pawn.pos(now), client.chunk_offset()))
+                     chunk_offset(pawn.pos(now), client.chunk_offset()),
+                     pawn.id())
                 };
+
+                let info = msg::InitData {
+                    entity_id: pawn_id,
+                    camera_pos: (0, 0),
+                    chunks: 8 * 8,
+                    entities: 1,
+                };
+                self.resps.send((client_id, Response::Init(info))).unwrap();
 
                 for (x,y) in region.points() {
                     self.load_chunk(client_id, x, y, offset);

@@ -1,3 +1,4 @@
+use std::num::{FromPrimitive, ToPrimitive};
 use std::u16;
 use physics::CHUNK_BITS;
 
@@ -8,15 +9,50 @@ pub type Time = i64;
 pub type Duration = u16;
 pub type Coord = i32;
 
-pub type ClientId = u16;
-pub type EntityId = u32;
-pub type StructureId = u32;
-pub type InventoryId = u32;
+macro_rules! mk_id_newtypes {
+    ( $($name:ident($inner:ty);)* ) => {
+        $(
+            #[derive(Copy, PartialEq, Eq, Hash, Show)]
+            pub struct $name(pub $inner);
+
+            impl $name {
+                pub fn unwrap(self) -> $inner {
+                    let $name(x) = self;
+                    x
+                }
+            }
+
+            impl FromPrimitive for $name {
+                fn from_i64(n: i64) -> Option<$name> {
+                    FromPrimitive::from_i64(n).map(|x| $name(x))
+                }
+
+                fn from_u64(n: u64) -> Option<$name> {
+                    FromPrimitive::from_u64(n).map(|x| $name(x))
+                }
+            }
+
+            impl ToPrimitive for $name {
+                fn to_i64(&self) -> Option<i64> {
+                    self.unwrap().to_i64()
+                }
+
+                fn to_u64(&self) -> Option<u64> {
+                    self.unwrap().to_u64()
+                }
+            }
+        )*
+    };
+}
+
+mk_id_newtypes! {
+    ClientId(u16);
+    EntityId(u32);
+    StructureId(u32);
+    InventoryId(u32);
+}
 
 pub type StableId = u64;
-
-#[deprecated]
-pub type ObjectId = u32;
 
 pub type AnimId = u16;
 pub type BlockId = u16;

@@ -810,7 +810,7 @@ impl Client {
     }
 
     fn id(&self) -> i32 {
-        self.id as i32
+        self.id.unwrap() as i32
     }
 
     fn pawn(&self, ctx: &ScriptContext) -> Option<Entity> {
@@ -846,7 +846,7 @@ impl Entity {
     }
 
     fn id(&self) -> i32 {
-        self.id as i32
+        self.id.unwrap() as i32
     }
 
     fn pos(&self, ctx: &ScriptContext) -> Option<V3> {

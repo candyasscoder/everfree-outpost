@@ -2,6 +2,8 @@ use std::cmp;
 use std::io::IoResult;
 use std::mem;
 
+use types::*;
+
 
 pub struct WireReader<R> {
     r: R,
@@ -16,12 +18,12 @@ impl<R: Reader> WireReader<R> {
         }
     }
 
-    pub fn read_header(&mut self) -> IoResult<u16> {
+    pub fn read_header(&mut self) -> IoResult<ClientId> {
         if !self.done() {
             try!(self.skip_remaining());
         }
 
-        let id: u16 = try!(ReadFrom::read_from(&mut self.r, 2));
+        let id = try!(ReadFrom::read_from(&mut self.r, 2));
         let len: u16 = try!(ReadFrom::read_from(&mut self.r, 2));
         self.msg_left = len as usize;
         Ok(id)
@@ -67,7 +69,7 @@ impl<W: Writer> WireWriter<W> {
         }
     }
 
-    pub fn write_msg<A: WriteTo>(&mut self, id: u16, msg: A) -> IoResult<()> {
+    pub fn write_msg<A: WriteTo>(&mut self, id: ClientId, msg: A) -> IoResult<()> {
         assert!(msg.size() <= ::std::u16::MAX as usize);
         try!(id.write_to(&mut self.w));
         try!((msg.size() as u16).write_to(&mut self.w));
@@ -225,6 +227,40 @@ tuple_impl!(a: A ; b: B);
 tuple_impl!(a: A , b: B ; c: C);
 tuple_impl!(a: A , b: B , c: C ; d: D);
 tuple_impl!(a: A , b: B , c: C , d: D ; e: E);
+
+
+macro_rules! id_newtype_impl {
+    ($name:ident : $inner:ident) => {
+        impl ReadFrom for $name {
+            #[inline]
+            fn read_from<R: Reader>(r: &mut R, bytes: usize) -> IoResult<$name> {
+                <$inner as ReadFrom>::read_from(r, bytes)
+                    .map(|x| $name(x))
+            }
+
+            #[size]
+            fn size(_: Option<$name>) -> (usize, usize) { <$inner as ReadFrom>::size(None) }
+        }
+
+        impl WriteTo for $name {
+            #[inline]
+            fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
+                self.unwrap().write_to(w)
+            }
+
+            #[inline]
+            fn size(&self) -> usize { <$inner as WriteTo>::size(&self.unwrap()) }
+        }
+
+        impl WriteToFixed for $name {
+            #[inline]
+            fn size_fixed(_: Option<$name>) -> usize { <$inner as WriteToFixed>::size_fixed(None) }
+        }
+    };
+}
+
+id_newtype_impl!(ClientId: u16);
+id_newtype_impl!(EntityId: u32);
 
 
 impl<A: ReadFromFixed> ReadFrom for Vec<A> {

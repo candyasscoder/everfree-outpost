@@ -4,7 +4,7 @@ use serialize::json::Json;
 
 use physics::Shape;
 use physics::v3::V3;
-use types::{BlockId, ObjectId};
+use types::{BlockId, TemplateId};
 
 
 #[derive(Show)]
@@ -155,7 +155,7 @@ pub struct ObjectTemplate {
 
 pub struct ObjectTemplates {
     templates: Vec<ObjectTemplate>,
-    name_to_id: HashMap<String, ObjectId>,
+    name_to_id: HashMap<String, TemplateId>,
 }
 
 impl ObjectTemplates {
@@ -200,7 +200,7 @@ impl ObjectTemplates {
                 blocks: blocks,
                 name: String::from_str(name),
             });
-            name_to_id.insert(String::from_str(name), i as ObjectId);
+            name_to_id.insert(String::from_str(name), i as TemplateId);
         }
 
         Ok(ObjectTemplates {
@@ -209,19 +209,19 @@ impl ObjectTemplates {
         })
     }
 
-    pub fn template(&self, id: ObjectId) -> &ObjectTemplate {
+    pub fn template(&self, id: TemplateId) -> &ObjectTemplate {
         self.get_template(id).unwrap()
     }
 
-    pub fn get_template(&self, id: ObjectId) -> Option<&ObjectTemplate> {
+    pub fn get_template(&self, id: TemplateId) -> Option<&ObjectTemplate> {
         self.templates.as_slice().get(id as usize)
     }
 
-    pub fn get_id(&self, name: &str) -> ObjectId {
+    pub fn get_id(&self, name: &str) -> TemplateId {
         self.find_id(name).unwrap_or_else(|| panic!("unknown object template id: {}", name))
     }
 
-    pub fn find_id(&self, name: &str) -> Option<ObjectId> {
+    pub fn find_id(&self, name: &str) -> Option<TemplateId> {
         self.name_to_id.get(name).map(|&x| x)
     }
 

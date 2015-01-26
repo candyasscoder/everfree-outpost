@@ -1,8 +1,9 @@
 use std::io::IoResult;
 use std::sync::mpsc::{Sender, Receiver};
 
-use msg::{Request, Response, ClientId};
+use msg::{Request, Response};
 use wire::{WireReader, WireWriter};
+use types::ClientId;
 
 pub fn run_input<R: Reader>(r: R, send: Sender<(ClientId, Request)>) -> IoResult<()> {
     let mut wr = WireReader::new(r);
