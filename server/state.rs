@@ -401,21 +401,21 @@ impl<'a> State<'a> {
     }
 
     pub fn perform_action(&mut self, now: Time, id: ClientId, action: ActionBits) -> Vec<StateChange> {
-        /*
-        {
-            let (script, world) = self.script_world();
-            script.test_callback(world, now, id, action);
-        }
+        self.script.test_callback(self.mw.world_mut(), now, id, action);
 
         let mut updates = Vec::new();
-        self.map.refresh(
-            |cx, cy, old, new| {
-                updates.push(ChunkUpdate(cx, cy));
-            });
+        let journal = self.world_mut().take_journal();
+        for update in journal.into_iter() {
+            match update {
+                world::Update::ChunkInvalidate(pos) => {
+                    self.mw.refresh_chunk(pos);
+                    updates.push(ChunkUpdate(pos.x, pos.y));
+                },
+                _ => {},
+            }
+        }
 
         updates
-        */
-        Vec::new()
     }
 
     pub fn load_chunk(&mut self, cx: i32, cy: i32) {

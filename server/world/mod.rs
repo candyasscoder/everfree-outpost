@@ -138,6 +138,10 @@ impl<'d> World<'d> {
         }
     }
 
+    pub fn data(&self) -> &'d Data {
+        self.data
+    }
+
     pub fn record(&mut self, update: Update) {
         self.journal.push(update);
     }
@@ -320,6 +324,10 @@ impl<'a, 'd> Iterator for Clients<'a, 'd> {
 
 
 impl Client {
+    pub fn pawn_id(&self) -> Option<EntityId> {
+        self.pawn
+    }
+
     pub fn current_input(&self) -> InputBits {
         self.current_input
     }

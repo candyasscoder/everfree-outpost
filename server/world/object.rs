@@ -256,9 +256,13 @@ pub trait StructureRef<'d>: ObjectRefBase<'d, Structure> {
         self.world().data.object_templates.template(self.obj().template_id())
     }
 
+    fn size(&self) -> V3 {
+        self.template().size
+    }
+
     fn bounds(&self) -> Region {
         let pos = self.obj().pos();
-        let size = self.template().size;
+        let size = self.size();
         Region::new(pos, pos + size)
     }
 }

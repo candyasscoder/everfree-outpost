@@ -237,27 +237,25 @@ impl<'a> Server<'a> {
             },
 
             WakeReason::HandleAction(client_id, action) => {
-                /*
                 let updates = self.state.perform_action(now, client_id, action);
                 for update in updates.into_iter() {
                     match update {
                         ChunkUpdate(cx, cy) => {
-                            for (id, ce) in self.state.client_entities() {
-                                if !ce.client.view_state.region().contains(cx, cy) {
+                            for c in self.state.world().clients() {
+                                if !c.view_state().region().contains(cx, cy) {
                                     continue;
                                 }
 
-                                let offset = chunk_offset(ce.entity.pos(now),
-                                                          ce.client.chunk_offset);
+                                let offset = chunk_offset(c.pawn().unwrap().pos(now),
+                                                          c.chunk_offset());
                                 let idx = chunk_to_idx(cx, cy, offset);
                                 let data = self.state.get_terrain_rle16(cx, cy);
-                                self.resps.send((id, Response::TerrainChunk(idx as u16, data)))
+                                self.resps.send((c.id(), Response::TerrainChunk(idx as u16, data)))
                                     .unwrap();
                             }
                         },
                     }
                 }
-                */
             },
 
             WakeReason::PhysicsUpdate(client_id) => {
@@ -294,6 +292,8 @@ impl<'a> Server<'a> {
                 self.wake_queue.push(now + 1000, WakeReason::CheckView(client_id));
             },
         }
+
+        drop(self.state.world_mut().take_journal());
     }
 
     fn post_physics_update(&mut self,

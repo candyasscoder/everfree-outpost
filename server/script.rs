@@ -3,12 +3,15 @@ use std::mem;
 use std::ops::{Add, Sub, Mul, Div, Rem};
 use libc::c_int;
 
-use physics::v3::{Vn, V3};
+use physics::CHUNK_SIZE;
+use physics::v3::{Vn, V3, scalar};
 
 use state;
 use terrain;
-use types::{Time, ClientId, EntityId};
+use types::{Time, ClientId, EntityId, StructureId};
 use input::ActionBits;
+use world;
+use world::object::*;
 
 use lua::{OwnedLuaState, LuaState};
 use lua::{GLOBALS_INDEX, REGISTRY_INDEX};
@@ -40,13 +43,13 @@ pub struct ScriptEngine {
     owned_lua: OwnedLuaState,
 }
 
-struct ScriptContext<'a: 'b, 'b> {
-    world: state::World<'a, 'b>,
+struct ScriptContext<'a, 'd: 'a> {
+    world: &'a mut world::World<'d>,
     now: Time,
 }
 
-impl<'a: 'b, 'b> ScriptContext<'a, 'b> {
-    pub fn new(world: state::World<'a, 'b>, now: Time) -> ScriptContext<'a, 'b> {
+impl<'a, 'd> ScriptContext<'a, 'd> {
+    pub fn new(world: &'a mut world::World<'d>, now: Time) -> ScriptContext<'a, 'd> {
         ScriptContext {
             world: world,
             now: now,
@@ -105,7 +108,7 @@ impl ScriptEngine {
 
 
     pub fn test_callback(&mut self,
-                         world: state::World,
+                         world: &mut world::World,
                          now: Time,
                          id: ClientId,
                          action: ActionBits) {
@@ -183,7 +186,7 @@ macro_rules! mk_build_types_table {
     }
 }
 
-mk_build_types_table!(V3, World, Object, Client, Entity);
+mk_build_types_table!(V3, World, Structure, Client, Entity);
 
 fn build_callbacks_table(lua: &mut LuaState) {
     lua.push_table();
@@ -705,14 +708,20 @@ macro_rules! methods_ctx {
 struct World;
 
 impl World {
-    fn find_object_at_point(&self, ctx: &ScriptContext, pos: &V3) -> Option<Object> {
-        ctx.world.map.find_object_at_point(*pos)
-           .map(|(idx, _)| Object { idx: idx })
+    fn find_structure_at_point(&self, ctx: &ScriptContext, pos: &V3) -> Option<Structure> {
+        let pos = *pos;
+        let chunk = pos.reduce().div_floor(scalar(CHUNK_SIZE));
+        for s in ctx.world.chunk_structures(chunk) {
+            if s.bounds().contains(pos) {
+                return Some(Structure { id: s.id() });
+            }
+        }
+        None
     }
 
-    fn create_object(&self, ctx: &mut ScriptContext, pos: &V3, template_id: u32) -> Option<Object> {
-        ctx.world.map.create_object(*pos, template_id)
-           .map(|idx| Object { idx: idx })
+    fn create_structure(&self, ctx: &mut ScriptContext, pos: &V3, template_id: u32) -> Option<Structure> {
+        ctx.world.create_structure(*pos, template_id)
+           .map(|s| Structure { id: s.id() }).ok()
     }
 }
 
@@ -722,111 +731,72 @@ impl_metatable_key!(World);
 impl Userdata for World {
     fn populate_table(lua: &mut LuaState) {
         methods_ctx!(lua, -1, World,
-                     (pos) => self.find_object_at_point(pos),
-                     (pos, template_id) => self.create_object(pos, template_id));
+                     (pos) => self.find_structure_at_point(pos),
+                     (pos, template_id) => self.create_structure(pos, template_id));
     }
 }
 
 
 #[derive(Copy)]
-struct Object {
-    idx: terrain::ObjectIndex,
+struct Structure {
+    id: StructureId,
 }
 
-impl Object {
+impl Structure {
     fn pos(&self, ctx: &ScriptContext) -> Option<V3> {
-        let (cx, cy, _) = self.idx;
-        ctx.world.map.get_object(self.idx)
-           .map(|obj| obj.pos((cx, cy)))
+        ctx.world.get_structure(self.id)
+           .map(|s| s.pos())
     }
 
     fn size(&self, ctx: &ScriptContext) -> Option<V3> {
-        ctx.world.map.get_object(self.idx)
-           .map(|obj| obj.size(ctx.world.data))
+        ctx.world.get_structure(self.id)
+           .map(|s| s.size())
     }
 
     fn template_id(&self, ctx: &ScriptContext) -> Option<u32> {
-        ctx.world.map.get_object(self.idx)
-           .map(|obj| obj.template_id)
+        ctx.world.get_structure(self.id)
+           .map(|s| s.template_id())
     }
 
     fn template<'a>(&self, ctx: &'a ScriptContext) -> Option<&'a str> {
         self.template_id(ctx)
-            .map(|id| &*ctx.world.data.object_templates.template(id).name)
+            .and_then(|id| ctx.world.data().object_templates.get_template(id))
+            .map(|t| &*t.name)
     }
 
     fn delete(&self, ctx: &mut ScriptContext) {
-        ctx.world.map.delete_object(self.idx);
+        ctx.world.destroy_structure(self.id);
     }
 
-    fn move_helper(&self,
-                   ctx: &mut ScriptContext,
-                   new_pos: &V3) -> Option<terrain::ObjectIndex> {
-        ctx.world.map.move_object(self.idx, *new_pos)
+    fn move_to(&self, ctx: &mut ScriptContext, new_pos: &V3) {
+        ctx.world.get_structure_mut(self.id)
+           .map(|mut s| s.set_pos(*new_pos));
     }
 
-    fn replace_helper(&self,
-                      ctx: &mut ScriptContext,
-                      new_template_name: &str) -> Option<terrain::ObjectIndex> {
-        let new_template_id = match ctx.world.data.object_templates.find_id(new_template_name) {
-            None => return None,
+    fn replace(&self, ctx: &mut ScriptContext, new_template_name: &str) {
+        let new_template_id = match ctx.world.data().object_templates.find_id(new_template_name) {
             Some(x) => x,
+            None => return,
         };
-        ctx.world.map.replace_object(self.idx, new_template_id)
+
+        ctx.world.get_structure_mut(self.id)
+           .map(|mut s| s.set_template_id(new_template_id));
     }
 }
 
-impl_type_name!(Object);
-impl_metatable_key!(Object);
+impl_type_name!(Structure);
+impl_metatable_key!(Structure);
 
-impl Userdata for Object {
+impl Userdata for Structure {
     fn populate_table(lua: &mut LuaState) {
-        methods_ctx!(lua, -1, Object,
+        methods_ctx!(lua, -1, Structure,
                      () => self.pos(),
                      () => self.size(),
                      () => self.delete(),
-                     () => self.template());
-        insert_func!(lua, -1, move: object_move);
-        insert_func!(lua, -1, replace: object_replace);
+                     () => self.template(),
+                     (pos) => self.move_to(pos),
+                     (name) => self.replace(name));
     }
-}
-
-fn object_move(mut lua: LuaState) -> c_int {
-    let (new_idx, count) = {
-        // FIXME: broken in the same way as func_wrapper_ctx
-        let mut ctx_ref = get_ctx(&mut lua);
-        let ctx = &mut *ctx_ref;
-        let ((obj, pos), count) = unsafe { check_unpack_count(&mut lua, "move") };
-        let obj: &Object = obj;
-        (obj.move_helper(ctx, pos), count)
-    };
-
-    if let Some(new_idx) = new_idx {
-        let obj: &mut Object = unsafe { lua.to_userdata_mut(1).unwrap() };
-        obj.idx = new_idx;
-    }
-
-    lua.pop(2);
-    0
-}
-
-fn object_replace(mut lua: LuaState) -> c_int {
-    let (new_idx, count) = {
-        // FIXME: broken in the same way as func_wrapper_ctx
-        let mut ctx_ref = get_ctx(&mut lua);
-        let ctx = &mut *ctx_ref;
-        let ((obj, template_id), count) = unsafe { check_unpack_count(&mut lua, "replace") };
-        let obj: &Object = obj;
-        (obj.replace_helper(ctx, template_id), count)
-    };
-
-    if let Some(new_idx) = new_idx {
-        let obj: &mut Object = unsafe { lua.to_userdata_mut(1).unwrap() };
-        obj.idx = new_idx;
-    }
-
-    lua.pop(2);
-    0
 }
 
 
@@ -844,9 +814,10 @@ impl Client {
         self.id as i32
     }
 
-    fn entity(&self, ctx: &ScriptContext) -> Option<Entity> {
-        ctx.world.clients.get(&self.id)
-           .map(|c| Entity { id: c.entity_id })
+    fn pawn(&self, ctx: &ScriptContext) -> Option<Entity> {
+        ctx.world.get_client(self.id)
+           .and_then(|c| c.pawn_id())
+           .map(|eid| Entity { id: eid })
     }
 }
 
@@ -860,7 +831,7 @@ impl Userdata for Client {
                  () => self.id());
 
         methods_ctx!(lua, -1, Client,
-                     () => self.entity());
+                     () => self.pawn());
     }
 }
 
@@ -880,11 +851,11 @@ impl Entity {
     }
 
     fn pos(&self, ctx: &ScriptContext) -> Option<V3> {
-        ctx.world.entities.get(&self.id).map(|e| e.pos(ctx.now))
+        ctx.world.get_entity(self.id).map(|e| e.pos(ctx.now))
     }
 
     fn facing(&self, ctx: &ScriptContext) -> Option<V3> {
-        ctx.world.entities.get(&self.id).map(|e| e.facing)
+        ctx.world.get_entity(self.id).map(|e| e.facing())
     }
 }
 

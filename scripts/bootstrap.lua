@@ -60,16 +60,16 @@ function outpost_ffi.types.Entity.metatable.__tostring(x)
 end
 
 outpost_ffi.callbacks.test = function(client)
-    local entity = client:entity()
+    local entity = client:pawn()
     local pos = entity:pos()
     local target = pos + V3.new(16, 16, 16) + entity:facing() * V3.new(32, 32, 32)
     local target_tile = target / V3.new(32, 32, 32)
     print('target_tile', target_tile)
 
-    local obj = client:world():find_object_at_point(target_tile)
+    local s = client:world():find_structure_at_point(target_tile)
 
-    if obj ~= nil and obj:template() == 'tree' then
+    if s ~= nil and s:template() == 'tree' then
         print('hit a tree')
-        obj:replace('stump')
+        s:replace('stump')
     end
 end
