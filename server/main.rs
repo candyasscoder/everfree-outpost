@@ -16,6 +16,7 @@ extern crate collect;
 extern crate physics;
 
 use std::cmp;
+use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 use std::sync::mpsc::{Sender, Receiver, channel};
@@ -34,7 +35,7 @@ use data::Data;
 use world::object::{ObjectRefBase, ClientRef};
 
 use types::{Time, ToGlobal, ToLocal};
-use types::{ClientId, EntityId};
+use types::{WireId, ClientId, EntityId};
 
 
 #[macro_use] mod util;
@@ -107,22 +108,24 @@ pub enum WakeReason {
 }
 
 struct Server<'a> {
-    resps: Sender<(ClientId, Response)>,
+    resps: Sender<(WireId, Response)>,
     state: state::State<'a>,
     wake_queue: WakeQueue<WakeReason>,
+    wire_id_map: HashMap<WireId, ClientId>,
 }
 
 impl<'a> Server<'a> {
-    fn new(resps: Sender<(ClientId, Response)>,
+    fn new(resps: Sender<(WireId, Response)>,
            state: state::State<'a>) -> Server<'a> {
         Server {
             resps: resps,
             state: state,
             wake_queue: WakeQueue::new(),
+            wire_id_map: HashMap::new(),
         }
     }
 
-    fn run(&mut self, reqs: Receiver<(ClientId, Request)>) {
+    fn run(&mut self, reqs: Receiver<(WireId, Request)>) {
         loop {
             let wake_recv = self.wake_queue.wait_recv(now());
 
@@ -143,25 +146,30 @@ impl<'a> Server<'a> {
         }
     }
 
+    fn wire_to_client(&self, wire_id: WireId) -> Option<ClientId> {
+        self.wire_id_map.get(&wire_id).map(|&x| x)
+    }
+
     fn handle_req(&mut self,
                   now: Time,
-                  client_id: ClientId,
+                  wire_id: WireId,
                   req: Request) {
         match req {
             Request::GetTerrain => {
-                warn!("client {} used deprecated opcode GetTerrain", client_id.unwrap());
+                warn!("connection {} used deprecated opcode GetTerrain", wire_id.unwrap());
             },
 
             Request::UpdateMotion(_wire_motion) => {
-                warn!("client {} used deprecated opcode UpdateMotion", client_id.unwrap());
+                warn!("connection {} used deprecated opcode UpdateMotion", wire_id.unwrap());
             },
 
             Request::Ping(cookie) => {
-                self.resps.send((client_id, Response::Pong(cookie, now.to_local())))
+                self.resps.send((wire_id, Response::Pong(cookie, now.to_local())))
                     .unwrap();
             },
 
             Request::Input(time, input) => {
+                let client_id = unwrap_or!(self.wire_to_client(wire_id));
                 let time = cmp::max(time.to_global(now), now);
                 let input = InputBits::from_bits_truncate(input);
                 self.wake_queue.push(time, WakeReason::HandleInput(client_id, input));
@@ -170,32 +178,34 @@ impl<'a> Server<'a> {
             Request::Login(_secret, name) => {
                 log!(10, "login request for {}", name);
 
-                let (region, offset, pawn_id) = {
-                    let mut client = self.state.add_client(now, client_id);
-                    info!("client connected with id {:?} <-> {:?}", client.id(), client_id);
-
+                let (client_id, region, offset) = {
+                    let mut client = self.state.add_client(now, wire_id);
+                    info!("client connected with id {:?} <-> {:?}", client.id(), wire_id);
                     let pawn = client.pawn().unwrap();
+
+                    let info = msg::InitData {
+                        entity_id: pawn.id(),
+                        camera_pos: (0, 0),
+                        chunks: 8 * 8,
+                        entities: 1,
+                    };
+                    self.resps.send((wire_id, Response::Init(info))).unwrap();
+
                     let motion = entity_motion(now, pawn.motion(), client.chunk_offset());
                     let anim = pawn.anim();
-                    self.resps.send((client_id,
+                    self.resps.send((wire_id,
                                      Response::EntityUpdate(pawn.id(), motion, anim)))
                         .unwrap();
                     log!(10, "pos={:?}, region={:?}",
                          pawn.pos(now),
                          client.view_state().region());
 
-                    (client.view_state().region(),
-                     chunk_offset(pawn.pos(now), client.chunk_offset()),
-                     pawn.id())
+                    (client.id(),
+                     client.view_state().region(),
+                     chunk_offset(pawn.pos(now), client.chunk_offset()))
                 };
 
-                let info = msg::InitData {
-                    entity_id: pawn_id,
-                    camera_pos: (0, 0),
-                    chunks: 8 * 8,
-                    entities: 1,
-                };
-                self.resps.send((client_id, Response::Init(info))).unwrap();
+                self.wire_id_map.insert(wire_id, client_id);
 
                 for (x,y) in region.points() {
                     self.load_chunk(client_id, x, y, offset);
@@ -204,6 +214,7 @@ impl<'a> Server<'a> {
             },
 
             Request::Action(time, action) => {
+                let client_id = unwrap_or!(self.wire_to_client(wire_id));
                 let time = cmp::max(time.to_global(now), now);
                 let action = ActionBits::from_bits_truncate(action);
                 self.wake_queue.push(time, WakeReason::HandleAction(client_id, action));
@@ -213,13 +224,16 @@ impl<'a> Server<'a> {
             },
 
             Request::RemoveClient => {
-                self.state.remove_client(client_id);
-                self.resps.send((client_id, Response::ClientRemoved)).unwrap();
+                if let Some(client_id) = self.wire_to_client(wire_id) {
+                    self.state.remove_client(client_id);
+                    self.wire_id_map.remove(&wire_id);
+                }
+                self.resps.send((wire_id, Response::ClientRemoved)).unwrap();
             },
 
             Request::BadMessage(opcode) => {
-                warn!("unrecognized opcode from client {:?}: {:x}",
-                      client_id, opcode.unwrap());
+                warn!("unrecognized opcode from connection {:?}: {:x}",
+                      wire_id, opcode.unwrap());
             },
         }
     }
@@ -251,7 +265,8 @@ impl<'a> Server<'a> {
                                                           c.chunk_offset());
                                 let idx = chunk_to_idx(cx, cy, offset);
                                 let data = self.state.get_terrain_rle16(cx, cy);
-                                self.resps.send((c.id(), Response::TerrainChunk(idx as u16, data)))
+                                self.resps.send((c.wire_id(),
+                                                 Response::TerrainChunk(idx as u16, data)))
                                     .unwrap();
                             }
                         },
@@ -309,8 +324,8 @@ impl<'a> Server<'a> {
              entity.motion().end_time())
         };
         for client in self.state.world().clients() {
-            let send_id = client.id();
-            self.resps.send((send_id, Response::EntityUpdate(entity_id, motion.clone(), anim)))
+            self.resps.send((client.wire_id(),
+                             Response::EntityUpdate(entity_id, motion.clone(), anim)))
                 .unwrap();
         }
 
@@ -327,7 +342,8 @@ impl<'a> Server<'a> {
 
         let idx = chunk_to_idx(cx, cy, offset);
         let data = self.state.get_terrain_rle16(cx, cy);
-        self.resps.send((client_id, Response::TerrainChunk(idx as u16, data)))
+        let wire_id = self.state.world().client(client_id).wire_id();
+        self.resps.send((wire_id, Response::TerrainChunk(idx as u16, data)))
             .unwrap();
     }
 
@@ -338,7 +354,8 @@ impl<'a> Server<'a> {
         self.state.unload_chunk(cx, cy);
 
         let idx = chunk_to_idx(cx, cy, offset);
-        self.resps.send((client_id, Response::UnloadChunk(idx as u16)))
+        let wire_id = self.state.world().client(client_id).wire_id();
+        self.resps.send((wire_id, Response::UnloadChunk(idx as u16)))
             .unwrap();
     }
 }

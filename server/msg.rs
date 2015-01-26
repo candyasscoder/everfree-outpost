@@ -2,7 +2,7 @@ use std::io::IoResult;
 
 use wire;
 use wire::{WireReader, WireWriter};
-use types::{LocalTime, ClientId, EntityId};
+use types::{LocalTime, WireId, EntityId};
 
 pub use self::Request::*;
 pub use self::Response::*;
@@ -69,6 +69,7 @@ pub mod op {
 
 
 #[allow(dead_code)]
+#[derive(Show)]
 pub enum Request {
     // Ordinary requests
     GetTerrain,
@@ -87,7 +88,7 @@ pub enum Request {
 }
 
 impl Request {
-    pub fn read_from<R: Reader>(wr: &mut WireReader<R>) -> IoResult<(ClientId, Request)> {
+    pub fn read_from<R: Reader>(wr: &mut WireReader<R>) -> IoResult<(WireId, Request)> {
         let id = try!(wr.read_header());
         let opcode = Opcode(try!(wr.read()));
 
@@ -135,7 +136,7 @@ pub enum Response {
 }
 
 impl Response {
-    pub fn write_to<W: Writer>(&self, id: ClientId, ww: &mut WireWriter<W>) -> IoResult<()> {
+    pub fn write_to<W: Writer>(&self, id: WireId, ww: &mut WireWriter<W>) -> IoResult<()> {
         try!(match *self {
             TerrainChunk(idx, ref data) =>
                 ww.write_msg(id, (op::TerrainChunk, idx, data.as_slice())),

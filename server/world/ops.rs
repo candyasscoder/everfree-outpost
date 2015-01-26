@@ -27,8 +27,10 @@ pub type OpResult<T> = Result<T, StrError>;
 
 
 pub fn client_create(w: &mut World,
+                     wire_id: WireId,
                      chunk_offset: (u8, u8)) -> OpResult<ClientId> {
     let c = Client {
+        wire_id: wire_id,
         pawn: None,
         current_input: InputBits::empty(),
         chunk_offset: chunk_offset,

@@ -57,6 +57,7 @@ pub enum InventoryAttachment {
 
 
 pub struct Client {
+    wire_id: WireId,
     pawn: Option<EntityId>,
     current_input: InputBits,
     chunk_offset: (u8, u8),
@@ -197,7 +198,7 @@ macro_rules! lifecycle_methods {
 }
 
 lifecycle_methods!(Client,
-                   create_client(chunk_offset: (u8, u8)) => client_create,
+                   create_client(wire_id: WireId, chunk_offset: (u8, u8)) => client_create,
                    destroy_client(id: ClientId) => client_destroy);
 
 lifecycle_methods!(TerrainChunk,
@@ -324,6 +325,10 @@ impl<'a, 'd> Iterator for Clients<'a, 'd> {
 
 
 impl Client {
+    pub fn wire_id(&self) -> WireId {
+        self.wire_id
+    }
+
     pub fn pawn_id(&self) -> Option<EntityId> {
         self.pawn
     }

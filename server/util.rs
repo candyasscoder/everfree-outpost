@@ -393,15 +393,25 @@ macro_rules! fail {
 }
 
 macro_rules! unwrap {
-    ($e:expr, $msg:expr) => {
-        match $e {
-            Some(x) => x,
-            None => fail!($msg),
-        }
-    };
+    ($e:expr, $msg:expr) => { unwrap_or!($e, fail!($msg)) };
     ($e:expr) => {
         unwrap!($e,
-                concat!(file!(), ":", stringify!(line!()),
+                concat!(file!(), ":", stringify2!(line!()),
                 ": `", stringify!($e), "` produced `None`"))
     };
+}
+
+macro_rules! stringify2 {
+    ($e:expr) => { stringify!($e) };
+}
+
+macro_rules! unwrap_or {
+    ($e:expr, $or:expr) => {
+        match $e {
+            Some(x) => x,
+            None => $or,
+        }
+    };
+
+    ($e:expr) => { unwrap_or!($e, return) };
 }

@@ -18,7 +18,7 @@ impl<R: Reader> WireReader<R> {
         }
     }
 
-    pub fn read_header(&mut self) -> IoResult<ClientId> {
+    pub fn read_header(&mut self) -> IoResult<WireId> {
         if !self.done() {
             try!(self.skip_remaining());
         }
@@ -69,7 +69,7 @@ impl<W: Writer> WireWriter<W> {
         }
     }
 
-    pub fn write_msg<A: WriteTo>(&mut self, id: ClientId, msg: A) -> IoResult<()> {
+    pub fn write_msg<A: WriteTo>(&mut self, id: WireId, msg: A) -> IoResult<()> {
         assert!(msg.size() <= ::std::u16::MAX as usize);
         try!(id.write_to(&mut self.w));
         try!((msg.size() as u16).write_to(&mut self.w));
@@ -259,7 +259,7 @@ macro_rules! id_newtype_impl {
     };
 }
 
-id_newtype_impl!(ClientId: u16);
+id_newtype_impl!(WireId: u16);
 id_newtype_impl!(EntityId: u32);
 
 

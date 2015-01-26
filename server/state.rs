@@ -170,7 +170,7 @@ impl<'a> State<'a> {
 
     pub fn add_client<'b>(&'b mut self,
                           now: Time,
-                          id: ClientId) -> world::object::ObjectRefMut<'b, 'a, world::Client> {
+                          wire_id: WireId) -> world::object::ObjectRefMut<'b, 'a, world::Client> {
         let pos = V3::new(250, 250, 0);
         let offset = V3::new(16, 16, 0);
 
@@ -179,7 +179,7 @@ impl<'a> State<'a> {
         let chunk_offset = (self.rng.gen_range(0, 8),
                             self.rng.gen_range(0, 8));
 
-        let mut client = self.world_mut().create_client(chunk_offset).unwrap();
+        let mut client = self.world_mut().create_client(wire_id, chunk_offset).unwrap();
         client.set_pawn(now, Some(pawn_id)).unwrap();
         client
     }

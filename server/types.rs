@@ -46,6 +46,7 @@ macro_rules! mk_id_newtypes {
 }
 
 mk_id_newtypes! {
+    WireId(u16);
     ClientId(u16);
     EntityId(u32);
     StructureId(u32);
