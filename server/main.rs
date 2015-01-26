@@ -48,7 +48,6 @@ mod view;
 mod input;
 mod gen;
 mod data;
-mod terrain;
 mod lua;
 mod script;
 mod world;

@@ -7,7 +7,6 @@ use physics::CHUNK_SIZE;
 use physics::v3::{Vn, V3, scalar};
 
 use state;
-use terrain;
 use types::{Time, ClientId, EntityId, StructureId};
 use input::ActionBits;
 use world;

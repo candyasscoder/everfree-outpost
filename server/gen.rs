@@ -6,7 +6,7 @@ use collect::lru_cache::LruCache;
 
 use data::BlockData;
 use physics::v3::{Vn, V3, V2, Region, Region2, scalar};
-use terrain::BlockChunk;
+use types::BlockChunk;
 
 use self::Section::*;
 

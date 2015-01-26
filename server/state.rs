@@ -9,13 +9,12 @@ use physics::{Shape, ShapeSource};
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE, TILE_BITS};
 use physics::v3::{V3, V2, Vn, scalar, Region};
 
-use types::{Time, Duration, ClientId, EntityId, AnimId, BlockId, DURATION_MAX};
+use types::*;
 use view::ViewState;
 use input::{InputBits, INPUT_LEFT, INPUT_RIGHT, INPUT_UP, INPUT_DOWN, INPUT_RUN};
 use input::ActionBits;
 use data::{Data, BlockData};
 use gen::TerrainGenerator;
-use terrain::{Terrain, Object, BlockChunk, EMPTY_CHUNK};
 use script::ScriptEngine;
 use terrain2;
 use world;
@@ -51,78 +50,6 @@ impl<'a> ShapeSource for (&'a LocalTerrain<'a>, &'a BlockData) {
 
 
 const ANIM_DIR_COUNT: AnimId = 8;
-
-pub struct Entity {
-    pub start_time: Time,
-    pub duration: Duration,
-    pub start_pos: V3,
-    pub end_pos: V3,
-    pub anim: AnimId,
-    pub facing: V3,
-}
-
-impl Entity {
-    pub fn pos(&self, now: Time) -> V3 {
-        let current = now - self.start_time;
-
-        if current < self.duration as Time {
-            let offset = (self.end_pos - self.start_pos) *
-                    scalar(current as i32) / scalar(self.duration as i32);
-            self.start_pos + offset
-        } else {
-            self.end_pos
-        }
-    }
-
-    pub fn update<S>(&mut self, shape_source: &S, now: Time, input: InputBits)
-            where S: ShapeSource {
-        let dx = if input.contains(INPUT_LEFT) { -1 } else { 0 } +
-                 if input.contains(INPUT_RIGHT) { 1 } else { 0 };
-        let dy = if input.contains(INPUT_UP) { -1 } else { 0 } +
-                 if input.contains(INPUT_DOWN) { 1 } else { 0 };
-        let speed =
-            if dx == 0 && dy == 0 { 0 }
-            else if input.contains(INPUT_RUN) { 3 }
-            else { 1 };
-
-        let idx = (3 * (dx + 1) + (dy + 1)) as usize;
-        let old_anim = self.anim % ANIM_DIR_COUNT;
-        let anim_dir = [5, 4, 3, 6, old_anim, 2, 7, 0, 1][idx];
-        let anim = anim_dir + speed * ANIM_DIR_COUNT;
-
-        let world_start_pos = self.pos(now);
-        let world_base = base_chunk(world_start_pos);
-        let local_base = offset_base_chunk(world_base, (0, 0));
-
-        let start_pos = world_to_local(world_start_pos, world_base, local_base);
-        let size = scalar(32);
-        let velocity = V3::new(dx, dy, 0) * scalar(50 * speed as i32);
-        let (mut end_pos, mut dur) = physics::collide(shape_source, start_pos, size, velocity);
-
-        if dur == 0 {
-            dur = DURATION_MAX as i32;
-        } else if dur > DURATION_MAX as i32 {
-            let offset = end_pos - start_pos;
-            end_pos = start_pos + offset * scalar(DURATION_MAX as i32) / scalar(dur);
-        }
-
-        let (end_pos, dur) = (end_pos, dur);
-        let world_end_pos = local_to_world(end_pos, world_base, local_base);
-
-        self.start_time = now;
-        self.duration = dur as Duration;
-        self.start_pos = world_start_pos;
-        self.end_pos = world_end_pos;
-        self.anim = anim;
-        if dx != 0 || dy != 0 {
-            self.facing = V3::new(dx, dy, 0);
-        }
-    }
-
-    pub fn end_time(&self) -> Time {
-        self.start_time + self.duration as Time 
-    }
-}
 
 pub fn run_physics<S>(entity: &world::Entity,
                       shape_source: &S,
@@ -179,35 +106,6 @@ pub fn run_physics<S>(entity: &world::Entity,
 }
 
 
-pub struct Client {
-    pub entity_id: EntityId,
-    pub current_input: InputBits,
-    pub chunk_offset: (u8, u8),
-    pub view_state: ViewState,
-}
-
-
-#[derive(Copy)]
-pub struct ClientEntity<'a> {
-    pub client: &'a Client,
-    pub entity: &'a Entity,
-}
-
-impl<'a> ClientEntity<'a> {
-    fn new(client: &'a Client, entity: &'a Entity) -> ClientEntity<'a> {
-        ClientEntity {
-            client: client,
-            entity: entity,
-        }
-    }
-}
-
-pub struct ClientEntityMut<'a> {
-    pub client: &'a mut Client,
-    pub entity: &'a mut Entity,
-}
-
-
 
 #[derive(Show)]
 pub enum StateChange {
@@ -218,22 +116,9 @@ pub enum StateChange {
 pub struct State<'a> {
     pub data: &'a Data,
     pub script: ScriptEngine,
-
-    pub map: Terrain<'a>,
-    pub entities: HashMap<EntityId, Entity>,
-    pub clients: HashMap<ClientId, Client>,
-
     pub mw: terrain2::ManagedWorld<'a>,
-
     pub terrain_gen: TerrainGenerator,
     pub rng: XorShiftRng,
-}
-
-pub struct World<'a: 'b, 'b> {
-    pub data: &'a Data,
-    pub map: &'b mut Terrain<'a>,
-    pub entities: &'b mut HashMap<EntityId, Entity>,
-    pub clients: &'b mut HashMap<ClientId, Client>,
 }
 
 impl<'a> State<'a> {
@@ -242,25 +127,11 @@ impl<'a> State<'a> {
             data: data,
             script: ScriptEngine::new(&Path::new(script_path)),
 
-            map: Terrain::new(data),
-            entities: HashMap::new(),
-            clients: HashMap::new(),
-
             mw: terrain2::ManagedWorld::new(data),
 
             terrain_gen: TerrainGenerator::new(12345),
             rng: SeedableRng::from_seed([12345, 45205314, 65412562, 940534205]),
         }
-    }
-
-    pub fn script_world<'b>(&'b mut self) -> (&'b mut ScriptEngine, World<'a, 'b>) {
-        (&mut self.script,
-         World {
-             data: self.data,
-             map: &mut self.map,
-             entities: &mut self.entities,
-             clients: &mut self.clients,
-         })
     }
 
     pub fn get_terrain_rle16(&self, cx: i32, cy: i32) -> Vec<u16> {
@@ -288,39 +159,6 @@ impl<'a> State<'a> {
 
         result
     }
-
-    /*
-    pub fn client_entity(&self, id: ClientId) -> Option<ClientEntity> {
-        let client = match self.clients.get(&id) {
-            Some(c) => c,
-            None => return None,
-        };
-        let entity = &self.entities[client.entity_id];
-        Some(ClientEntity {
-            client: client,
-            entity: entity,
-        })
-    }
-
-    pub fn client_entity_mut(&mut self, id: ClientId) -> Option<ClientEntityMut> {
-        let client = match self.clients.get_mut(&id) {
-            Some(c) => c,
-            None => return None,
-        };
-        let entity = &mut self.entities[client.entity_id];
-        Some(ClientEntityMut {
-            client: client,
-            entity: entity,
-        })
-    }
-
-    pub fn client_entities(&self) -> ClientEntities {
-        ClientEntities {
-            clients: self.clients.iter(),
-            entities: &self.entities,
-        }
-    }
-    */
 
     pub fn world(&self) -> &world::World<'a> {
         self.mw.world()
@@ -440,36 +278,6 @@ impl<'a> State<'a> {
 
     pub fn unload_chunk(&mut self, cx: i32, cy: i32) {
         self.mw.release(V2::new(cx, cy));
-    }
-}
-
-
-pub struct ClientEntities<'a> {
-    clients: hash_map::Iter<'a, ClientId, Client>,
-    entities: &'a HashMap<EntityId, Entity>,
-}
-
-impl<'a> Iterator for ClientEntities<'a> {
-    type Item = (ClientId, ClientEntity<'a>);
-    fn next(&mut self) -> Option<(ClientId, ClientEntity<'a>)> {
-        // The loop keeps going until we have a definitive result - either we found a Client and
-        // its Entity, or there are no more clients (that have corresponding entities).
-        loop {
-            let (&id, client) = match self.clients.next() {
-                Some(x) => x,
-                None => return None,
-            };
-
-            match self.entities.get(&client.entity_id) {
-                Some(entity) => {
-                    // Success - got a Client and its Entity.
-                    return Some((id, ClientEntity::new(client, entity)));
-                },
-                None => {
-                    // Failure - go around the loop again to try the next client.
-                },
-            };
-        }
     }
 }
 
