@@ -59,17 +59,30 @@ function outpost_ffi.types.Entity.metatable.__tostring(x)
     return 'Entity:' .. tostring(x:id())
 end
 
+function outpost_ffi.types.Structure.metatable.__tostring(x)
+    return 'Structure:' .. tostring(x:id())
+end
+
 outpost_ffi.callbacks.test = function(client)
     local entity = client:pawn()
     local pos = entity:pos()
     local target = pos + V3.new(16, 16, 16) + entity:facing() * V3.new(32, 32, 32)
-    local target_tile = target / V3.new(32, 32, 32)
+    local target_tile = target:pixel_to_tile()
     print('target_tile', target_tile)
 
     local s = client:world():find_structure_at_point(target_tile)
+    print('found s', s)
+    if s ~= nil then
+        dump{ s_info = {
+            template = s:template(),
+            pos = s:pos(),
+            size = s:size(),
+        }}
+    end
 
     if s ~= nil and s:template() == 'tree' then
         print('hit a tree')
-        s:replace('stump')
+        ok, err = s:replace('stump')
+        if not ok then print('failed to replace', err) end
     end
 end

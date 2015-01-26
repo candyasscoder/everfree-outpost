@@ -415,3 +415,5 @@ macro_rules! unwrap_or {
 
     ($e:expr) => { unwrap_or!($e, return) };
 }
+
+pub type StrResult<T> = Result<T, StrError>;

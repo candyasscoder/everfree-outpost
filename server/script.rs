@@ -3,12 +3,13 @@ use std::mem;
 use std::ops::{Add, Sub, Mul, Div, Rem};
 use libc::c_int;
 
-use physics::CHUNK_SIZE;
+use physics::{TILE_SIZE, CHUNK_SIZE};
 use physics::v3::{Vn, V3, scalar};
 
 use state;
 use types::{Time, ClientId, EntityId, StructureId};
 use input::ActionBits;
+use util::StrResult;
 use world;
 use world::object::*;
 
@@ -436,6 +437,30 @@ impl<T: LuaReturn> LuaReturn for Option<T> {
     }
 }
 
+impl LuaReturn for StrResult<()> {
+    fn push_onto(self, lua: &mut LuaState) {
+        match self {
+            Ok(x) => lua.push_bool(true),
+            Err(e) => {
+                lua.push_nil();
+                e.msg.push_onto(lua);
+            },
+        }
+    }
+}
+
+impl<T: LuaReturn> LuaReturn for StrResult<T> {
+    fn push_onto(self, lua: &mut LuaState) {
+        match self {
+            Ok(x) => x.push_onto(lua),
+            Err(e) => {
+                lua.push_nil();
+                e.msg.push_onto(lua);
+            },
+        }
+    }
+}
+
 
 trait LuaReturnList {
     fn pack(self, lua: &mut LuaState);
@@ -652,7 +677,10 @@ impl Userdata for V3 {
         funcs!(lua, -1, V3,
                fn extract(ptr: &V3) {
                    (ptr.x, ptr.y, ptr.z)
-               });
+               }
+               fn pixel_to_tile(p: &V3) { p.div_floor(scalar(TILE_SIZE)) }
+               fn tile_to_chunk(p: &V3) { p.div_floor(scalar(CHUNK_SIZE)) }
+        );
     }
 
     fn populate_metatable(lua: &mut LuaState) {
@@ -718,9 +746,9 @@ impl World {
         None
     }
 
-    fn create_structure(&self, ctx: &mut ScriptContext, pos: &V3, template_id: u32) -> Option<Structure> {
+    fn create_structure(&self, ctx: &mut ScriptContext, pos: &V3, template_id: u32) -> StrResult<Structure> {
         ctx.world.create_structure(*pos, template_id)
-           .map(|s| Structure { id: s.id() }).ok()
+           .map(|s| Structure { id: s.id() })
     }
 }
 
@@ -742,6 +770,14 @@ struct Structure {
 }
 
 impl Structure {
+    fn world(&self) -> World {
+        World
+    }
+
+    fn id(&self) -> i32 {
+        self.id.unwrap() as i32
+    }
+
     fn pos(&self, ctx: &ScriptContext) -> Option<V3> {
         ctx.world.get_structure(self.id)
            .map(|s| s.pos())
@@ -763,23 +799,22 @@ impl Structure {
             .map(|t| &*t.name)
     }
 
-    fn delete(&self, ctx: &mut ScriptContext) {
-        ctx.world.destroy_structure(self.id);
+    fn delete(&self, ctx: &mut ScriptContext) -> StrResult<()> {
+        ctx.world.destroy_structure(self.id)
     }
 
-    fn move_to(&self, ctx: &mut ScriptContext, new_pos: &V3) {
-        ctx.world.get_structure_mut(self.id)
-           .map(|mut s| s.set_pos(*new_pos));
+    fn move_to(&self, ctx: &mut ScriptContext, new_pos: &V3) -> StrResult<()> {
+        let mut s = unwrap!(ctx.world.get_structure_mut(self.id));
+        s.set_pos(*new_pos)
     }
 
-    fn replace(&self, ctx: &mut ScriptContext, new_template_name: &str) {
-        let new_template_id = match ctx.world.data().object_templates.find_id(new_template_name) {
-            Some(x) => x,
-            None => return,
-        };
+    fn replace(&self, ctx: &mut ScriptContext, new_template_name: &str) -> StrResult<()> {
+        let new_template_id =
+            unwrap!(ctx.world.data().object_templates.find_id(new_template_name),
+                    "named structure template does not exist");
 
-        ctx.world.get_structure_mut(self.id)
-           .map(|mut s| s.set_template_id(new_template_id));
+        let mut s = unwrap!(ctx.world.get_structure_mut(self.id));
+        s.set_template_id(new_template_id)
     }
 }
 
@@ -788,6 +823,10 @@ impl_metatable_key!(Structure);
 
 impl Userdata for Structure {
     fn populate_table(lua: &mut LuaState) {
+        methods!(lua, -1, Structure,
+                 () => self.world(),
+                 () => self.id());
+
         methods_ctx!(lua, -1, Structure,
                      () => self.pos(),
                      () => self.size(),

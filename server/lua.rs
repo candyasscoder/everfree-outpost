@@ -36,6 +36,7 @@ mod ffi {
 
         pub fn lua_createtable(L: *mut lua_State, narr: c_int, nrec: c_int);
         pub fn lua_newuserdata(L: *mut lua_State, size: size_t) -> *mut c_void;
+        pub fn lua_pushboolean(L: *mut lua_State, b: c_int);
         pub fn lua_pushcclosure(L: *mut lua_State, f: lua_CFunction, n: c_int);
         pub fn lua_pushinteger(L: *mut lua_State, i: lua_Integer);
         pub fn lua_pushnil(L: *mut lua_State);
@@ -245,6 +246,10 @@ impl<'a> LuaState<'a> {
     }
 
     // Pushing values onto the stack
+
+    pub fn push_bool(&mut self, b: bool) {
+        unsafe { ffi::lua_pushboolean(self.L, b as c_int) };
+    }
 
     pub fn push_integer(&mut self, i: isize) {
         unsafe { ffi::lua_pushinteger(self.L, i as lua_Integer) };
