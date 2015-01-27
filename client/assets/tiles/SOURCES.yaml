@@ -240,7 +240,6 @@ terrain_atlas.png: &lpc-tile-sheet-1
          - Tilesets of plants, props, food and environments, suitable for farming / fishing sims and other games. 
          - Includes wheat, grass, sand tilesets, fence tilesets and plants such as corn and tomato. 
 
-
         Johann CHARLOT 
             *GNU LGPL Version 3. 
             *Later versions are permitted.
@@ -256,96 +255,8 @@ terrain_atlas.png: &lpc-tile-sheet-1
         BASE assets:
         ------------
 
-        Lanea Zimmerman (AKA Sharm)
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-         - barrel.png
-         - brackish.png
-         - buckets.png
-         - bridges.png
-         - cabinets.png
-         - cement.png
-         - cementstair.png
-         - chests.png
-         - country.png
-         - cup.png
-         - dirt2.png
-         - dirt.png
-         - dungeon.png
-         - grassalt.png
-         - grass.png
-         - holek.png
-         - holemid.png
-         - hole.png
-         - house.png
-         - inside.png
-         - kitchen.png
-         - lava.png
-         - lavarock.png
-         - mountains.png
-         - rock.png
-         - shadow.png
-         - signs.png
-         - stairs.png
-         - treetop.png
-         - trunk.png
-         - waterfall.png
-         - watergrass.png
-         - water.png
-         - princess.png and princess.xcf
-
-
-        Stephen Challener (AKA Redshrike)
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-         - female_walkcycle.png
-         - female_hurt.png
-         - female_slash.png
-         - female_spellcast.png
-         - male_walkcycle.png
-         - male_hurt.png
-         - male_slash.png
-         - male_spellcast.png
-         - male_pants.png
-         - male_hurt_pants.png
-         - male_fall_down_pants.png
-         - male_slash_pants.png
-
-
-        Charles Sanchez (AKA CharlesGabriel)
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-         - bat.png
-         - bee.png
-         - big_worm.png
-         - eyeball.png
-         - ghost.png
-         - man_eater_flower.png
-         - pumpking.png
-         - slime.png
-         - small_worm.png
-         - snake.png
-
-
-        Manuel Riecke (AKA MrBeast)
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-         - hairfemale.png and hairfemale.xcf
-         - hairmale.png and hairmale.xcf
-         - soldier.png
-         - soldier_altcolor.png
-
-
-        Daniel Armstrong (AKA HughSpectrum)
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-        Castle work:
-
-         - castlewalls.png
-         - castlefloors.png
-         - castle_outside.png
-         - castlefloors_outside.png
-         - castle_lightsources.png
+        (see "LPC Base Assets" listing)
+    derived-from: "lpc-base-tiles/*.png"
 
 lpc-trees-unscaled.png: &rescaled-trees
     title: LPC Trees (edited)
@@ -359,5 +270,6 @@ lpc-trees-unscaled.png: &rescaled-trees
         According to the readme from the .zip file at
         http://opengameart.org/content/lpc-cnilsson,
         C.Nilsson's art is CC-BY-SA 3.0 / GPL 3+ dual licensed.
+    derived-from: terrain_atlas.png
 lpc-trees-unscaled.xcf: *rescaled-trees
 lpc-trees-scaled.png: *rescaled-trees
