@@ -3,9 +3,9 @@ maresprite.png: &mlponline
     author: urimas
     license: Custom
     url: http://urimas.deviantart.com/art/MLPonline-Sprite-Sheets-341840400
-    attribution:
-        There are no restrictions on how these are used as long as i'm
-        credited. and linked back here
+    attribution: >
+        "There are no restrictions on how these are used as long as i'm
+        credited. and linked back here"
 
 backwingmare.png: *mlponline
 frontwingmare.png: *mlponline

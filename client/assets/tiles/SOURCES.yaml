@@ -269,7 +269,8 @@ lpc-trees-unscaled.png: &rescaled-trees
 
         According to the readme from the .zip file at
         http://opengameart.org/content/lpc-cnilsson,
-        C.Nilsson's art is CC-BY-SA 3.0 / GPL 3+ dual licensed.
+        C.Nilsson's art is CC-BY-SA 3.0 / GPL 3+ dual licensed (not GPL3+ only,
+        as the LPC Tile Atlas license section suggests).
     derived-from: terrain_atlas.png
 lpc-trees-unscaled.xcf: *rescaled-trees
 lpc-trees-scaled.png: *rescaled-trees

@@ -84,7 +84,7 @@ def render_one(info, dct):
         divs.append(x)
 
     mk(anchor(encode_name(info['title'])))
-    mk(div('title', info['title']))
+    mk("<h2 class='title'>{title}</h2>".format(title=info['title']))
     mk(div('author', 'By ' + info['author']))
     mk(div('license', marker('License') + info['license']))
 
@@ -155,7 +155,21 @@ def collect_entries(ss, filenames):
 def main():
     ss = Sources()
 
-    filenames = [s.strip() for s in sys.stdin.readlines()]
+    filenames = []
+    for line in sys.stdin.readlines():
+        line = line.strip()
+        if line.startswith('#'):
+            continue
+        if line == '':
+            continue
+
+        path = os.path.normpath(line)
+        if not os.path.isfile(path):
+            try_path = os.path.join('client/assets', path)
+            if os.path.isfile(try_path):
+                path = try_path
+
+        filenames.append(path)
 
     dct = collect_entries(ss, filenames)
     entries = merge_entries(dct)

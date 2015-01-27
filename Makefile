@@ -181,7 +181,10 @@ $(BUILD_NATIVE)/backend: $(SRC)/server/main.rs \
 
 # Rules for misc files
 
-$(BUILD)/tiles.json $(BUILD)/tiles.png $(BUILD)/blocks-server.json: \
+$(BUILD)/tiles.json \
+$(BUILD)/tiles.png \
+$(BUILD)/blocks-server.json \
+$(BUILD)/tile-assets-used.txt: \
 		$(SRC)/client/assets/tiles.yaml \
 		$(SRC)/client/assets/blocks.yaml \
 		$(SRC)/util/process_tiles.py \
@@ -192,7 +195,8 @@ $(BUILD)/tiles.json $(BUILD)/tiles.png $(BUILD)/blocks-server.json: \
 		--tile-image-dir=$(SRC)/client/assets/tiles \
 		--client-json-out=$(BUILD)/tiles.json \
 		--atlas-image-out=$(BUILD)/tiles.png \
-		--server-json-out=$(BUILD)/blocks-server.json
+		--server-json-out=$(BUILD)/blocks-server.json \
+		--asset-list-out=$(BUILD)/tile-assets-used.txt
 
 $(BUILD)/objects.json: \
 		$(SRC)/client/assets/objects.yaml \
@@ -206,6 +210,13 @@ $(BUILD)/client.debug.html: $(SRC)/client/client.html \
 	$(SRC)/util/collect_js_deps.py $(SRC)/util/patch_script_tags.py $(JS_SRCS)
 	$(PYTHON3) $(SRC)/util/collect_js_deps.py $(SRC)/client/js/main.js | \
 		$(PYTHON3) $(SRC)/util/patch_script_tags.py $< >$@
+
+$(BUILD)/credits.html: $(SRC)/util/gen_credits.py \
+		$(SRC)/client/assets/used.txt \
+		$(BUILD)/tile-assets-used.txt
+	cat $(SRC)/client/assets/used.txt $(BUILD)/tile-assets-used.txt | \
+		grep -vE '(\.frag|\.vert)$$' |\
+		$(PYTHON3) $(SRC)/util/gen_credits.py >$@
 
 
 # Rules for copying files into dist/
@@ -223,6 +234,7 @@ $(eval $(call WWW_FILE, tiles.json, 	$(BUILD)/tiles.json))
 $(eval $(call WWW_FILE, assets/tiles.png, 	$(BUILD)/tiles.png))
 $(eval $(call DATA_FILE, blocks.json, 	$(BUILD)/blocks-server.json))
 $(eval $(call DATA_FILE, objects.json, 	$(BUILD)/objects.json))
+$(eval $(call WWW_FILE, credits.html, 	$(BUILD)/credits.html))
 
 ifeq ($(RELEASE),)
 $(eval $(call WWW_FILE, client.html, 	$(BUILD)/client.debug.html))

@@ -1,6 +1,7 @@
 import argparse
 import functools
 import json
+import os
 import sys
 import yaml
 
@@ -31,6 +32,8 @@ def build_parser():
             help='where to write the server-side blocks.json')
     parser.add_argument('--object-json-out', metavar='FILE',
             help='where to write the server-side objects.json')
+    parser.add_argument('--asset-list-out', metavar='FILE',
+            help='where to write the list of used assets')
 
     return parser
 
@@ -71,6 +74,12 @@ def main():
         with open(args.object_yaml) as f:
             return yaml.load(f)
 
+    @memoize
+    def tile_image_dir():
+        if args.tile_image_dir is None:
+            parser.error('must provide --tile-image-dir')
+        return args.tile_image_dir
+
     blocks = memoize(lambda: B.parse_raw(raw_blocks()))
     block_arr = memoize(lambda: U.build_array(blocks()))
 
@@ -79,11 +88,7 @@ def main():
     atlas_order_and_lookup = memoize(lambda: A.compute_atlas(block_arr(), tiles()))
     atlas_order = memoize(lambda: atlas_order_and_lookup()[0])
     atlas_lookup = memoize(lambda: atlas_order_and_lookup()[1])
-    @memoize
-    def atlas_image():
-        if args.tile_image_dir is None:
-            parser.error('must provide --tile-image-dir')
-        return A.build_atlas_image(atlas_order(), args.tile_image_dir)
+    atlas_image = memoize(lambda: A.build_atlas_image(atlas_order(), tile_image_dir()))
 
     objects = memoize(lambda: O.parse_raw(raw_objects()))
     object_arr = memoize(lambda: U.build_array(objects()))
@@ -119,6 +124,13 @@ def main():
                 }
         with open(args.object_json_out, 'w') as f:
             json.dump(j, f)
+
+    if args.asset_list_out is not None:
+        did_something = True
+        sheets = A.collect_sheets(atlas_order())
+        with open(args.asset_list_out, 'w') as f:
+            for sheet in sheets:
+                f.write('%s\n' % os.path.join(tile_image_dir(), sheet))
 
 
     if not did_something:

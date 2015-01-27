@@ -28,8 +28,11 @@ def compute_atlas(block_arr, tiles):
 TILE_SIZE = 32
 ATLAS_WIDTH = 32
 
+def collect_sheets(order):
+    return set(s for layers in order for s,_,_ in layers)
+
 def build_atlas_image(order, in_dir):
-    sheets = dict((s, None) for layers in order for s,_,_ in layers)
+    sheets = dict((s, None) for s in collect_sheets(order))
     for s in sheets:
         if s is None:
             continue
