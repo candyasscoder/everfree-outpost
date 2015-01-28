@@ -357,7 +357,7 @@ function connOpen() {
 
     pony_sheet = new Sheet(bakeSpriteSheet(runner, assets), 96, 96);
     runner.job('load', function() {
-        renderer.setSpriteSheet(pony_sheet);
+        renderer.refreshTexture(pony_sheet.image);
     });
 
     document.body.removeChild($('banner-bg'));

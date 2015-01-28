@@ -94,6 +94,8 @@ Program.prototype.setUniform = function(name, type, vs) {
 function Texture(gl) {
     this.gl = gl;
     this.texture = gl.createTexture();
+    this.width = 0;
+    this.height = 0;
 }
 
 exports.Texture = Texture;
@@ -117,6 +119,9 @@ Texture.prototype.loadImage = function(image) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     this.unbind();
+
+    this.width = image.width;
+    this.height = image.height;
 };
 
 

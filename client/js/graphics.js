@@ -64,40 +64,32 @@ Renderer.prototype.initGl = function(assets) {
             {'atlasSampler': atlas_texture});
 
 
-    var sprite_vert = assets['sprite.vert'];
-    var sprite_frag = assets['sprite.frag'];
-    var sprite_program = new Program(gl, sprite_vert, sprite_frag);
-
-    var sprite_buffer = new Buffer(gl);
-    sprite_buffer.loadData(new Uint8Array([
-            0, 0,
-            0, 1,
-            1, 1,
-
-            0, 0,
-            1, 1,
-            1, 0,
-    ]));
-
-    var sprite_uniforms = {
-        'cameraPos': uniform('float', null),
-        'cameraSize': uniform('float', null),
-        'sheetSize': uniform('float', null),
-        'base': uniform('float', null),
-        'off': uniform('float', null),
-        'size': uniform('float', null),
-        'flip': uniform('float', null),
+    this.sprite_classes = {
+        'simple': new SimpleSpriteClass(gl),
     };
-    this.sprite_obj = new GlObject(gl, sprite_program,
-            sprite_uniforms,
-            {'position': attribute(sprite_buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
-            {'sheetSampler': new Texture(gl)});
+
+    this.texture_cache = new WeakMap();
 };
 
-Renderer.prototype.setSpriteSheet = function(sheet) {
-    var img = sheet.image;
-    this.sprite_obj.getTexture('sheetSampler').loadImage(img);
-    this.sprite_obj.setUniformValue('sheetSize', [img.width, img.height]);
+Renderer.prototype.cacheTexture = function(image) {
+    var tex = this.texture_cache.get(image);
+    if (tex != null) {
+        // Cache hit
+        return tex;
+    }
+
+    // Cache miss - create a new texture
+    var tex = new Texture(this.gl);
+    tex.loadImage(image);
+    this.texture_cache.set(image, tex);
+    return tex;
+};
+
+Renderer.prototype.refreshTexture = function(image) {
+    var tex = this.texture_cache.get(image);
+    if (tex != null) {
+        tex.loadImage(image);
+    }
 };
 
 Renderer.prototype.loadBlockData = function(blocks) {
@@ -140,8 +132,10 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
     this.terrain_obj.setUniformValue('cameraPos', [sx, sy]);
     this.terrain_obj.setUniformValue('cameraSize', [sw, sh]);
 
-    this.sprite_obj.setUniformValue('cameraPos', [sx, sy]);
-    this.sprite_obj.setUniformValue('cameraSize', [sw, sh]);
+    for (k in this.sprite_classes) {
+        var cls = this.sprite_classes[k];
+        cls.setCamera(sx, sy, sw, sh);
+    }
 
     var this_ = this;
 
@@ -197,15 +191,15 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
             clip_off_x = sprite.width - clip_off_x - w;
         }
 
-        var uniforms = {
-            'base': [x, y],
-            'off': [sprite.offset_x + clip_off_x,
-                    sprite.offset_y + clip_off_y],
-            'size': [w, h],
-            'flip': [sprite.flip, 0],
-        };
+        var cls = this_.sprite_classes[sprite.sheet.getSpriteClass()];
 
-        this_.sprite_obj.draw(0, 6, uniforms, {}, {});
+        cls.draw(this_,
+                 [x, y],
+                 [sprite.offset_x + clip_off_x,
+                  sprite.offset_y + clip_off_y],
+                 [w, h],
+                 [sprite.flip, 0],
+                 sprite.sheet.getSpriteExtra());
     }
 
     this._asm.render(sx, sy, sw, sh, sprites, buffer_terrain, draw_sprite);
@@ -215,8 +209,65 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
 
 
 /** @constructor */
+function SimpleSpriteClass(gl) {
+    var vert = assets['sprite.vert'];
+    var frag = assets['sprite.frag'];
+    var program = new Program(gl, vert, frag);
+
+    var buffer = new Buffer(gl);
+    buffer.loadData(new Uint8Array([
+            0, 0,
+            0, 1,
+            1, 1,
+
+            0, 0,
+            1, 1,
+            1, 0,
+    ]));
+
+    var uniforms = {
+        'cameraPos': uniform('float', null),
+        'cameraSize': uniform('float', null),
+        'sheetSize': uniform('float', null),
+        'base': uniform('float', null),
+        'off': uniform('float', null),
+        'size': uniform('float', null),
+        'flip': uniform('float', null),
+    };
+    this._obj = new GlObject(gl, program,
+            uniforms,
+            {'position': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
+            {'sheetSampler': null});
+}
+
+SimpleSpriteClass.prototype.setCamera = function(sx, sy, sw, sh) {
+    this._obj.setUniformValue('cameraPos', [sx, sy]);
+    this._obj.setUniformValue('cameraSize', [sw, sh]);
+};
+
+SimpleSpriteClass.prototype.draw = function(r, base, off, size, flip, extra) {
+    var tex = r.cacheTexture(extra.image);
+
+    var uniforms = {
+        'base': base,
+        'off': off,
+        'size': size,
+        'flip': flip,
+
+        'sheetSize': [tex.width, tex.height],
+    };
+
+    var textures = {
+        'sheetSampler': tex,
+    };
+
+    this._obj.draw(0, 6, uniforms, {}, textures);
+};
+
+
+/** @constructor */
 function Sprite() {
-    this.image = null;
+    this.sheet = null;
     this.offset_x = 0;
     this.offset_y = 0;
     this.width = 0;
@@ -235,8 +286,8 @@ Sprite.prototype.refPosition = function() {
     return new Vec(this.ref_x, this.ref_y, this.ref_z);
 };
 
-Sprite.prototype.setSource = function(image, offset_x, offset_y, width, height) {
-    this.image = image;
+Sprite.prototype.setSource = function(sheet, offset_x, offset_y, width, height) {
+    this.sheet = sheet;
     this.offset_x = offset_x;
     this.offset_y = offset_y;
     this.width = width;

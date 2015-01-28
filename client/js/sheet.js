@@ -20,12 +20,20 @@ Sheet.prototype.drawInto = function(ctx, i, j, x, y) {
 
 Sheet.prototype.updateSprite = function(sprite, i, j) {
     sprite.setSource(
-            this.image,
+            this,
             j * this.item_width,
             i * this.item_height,
             this.item_width,
             this.item_height);
 };
+
+Sheet.prototype.getSpriteClass = function() {
+    return 'simple';
+};
+
+Sheet.prototype.getSpriteExtra = function() {
+    return ({ image: this.image });
+}
 
 
 /** @constructor */

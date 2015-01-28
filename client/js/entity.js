@@ -49,6 +49,8 @@ Entity.prototype.position = function(now) {
 };
 
 Entity.prototype.getSprite = function(now) {
+    var cls = this._anim.sheet.getSpriteClass();
+    var extra = this._anim.sheet.getSpriteExtra();
     var sprite = new Sprite();
     this._anim.updateSprite(now, sprite);
 
