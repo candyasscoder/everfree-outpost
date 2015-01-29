@@ -60,6 +60,40 @@ LayeredSheet.prototype.drawInto = function(ctx, i, j, x, y) {
 
 LayeredSheet.prototype.updateSprite = Sheet.prototype.updateSprite;
 
+LayeredSheet.prototype.getSpriteClass = function() {
+    throw 'LayeredSheet does not support webgl rendering';
+};
+
+LayeredSheet.prototype.getSpriteExtra = function() {
+    throw 'LayeredSheet does not support webgl rendering';
+}
+
+
+/** @constructor */
+function LayeredTintedSheet(layers, item_width, item_height) {
+    if (layers.length > 8) {
+        throw 'too many layers for LayeredTintedSheet (max is 8)';
+    }
+    this.layers = layers;
+    this.item_width = item_width;
+    this.item_height = item_height;
+}
+exports.LayeredTintedSheet = LayeredTintedSheet;
+
+LayeredTintedSheet.prototype.drawInto = function(ctx, i, j, x, y) {
+    throw 'LayeredTintedSheet does not support 2d canvas rendering';
+};
+
+LayeredTintedSheet.prototype.updateSprite = Sheet.prototype.updateSprite;
+
+LayeredTintedSheet.prototype.getSpriteClass = function() {
+    return 'layered_tinted';
+};
+
+LayeredTintedSheet.prototype.getSpriteExtra = function() {
+    return ({ layers: this.layers });
+}
+
 
 /** @constructor */
 function Animation(sheet) {

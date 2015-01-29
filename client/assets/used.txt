@@ -10,3 +10,4 @@ shaders/terrain.vert
 shaders/terrain.frag
 shaders/sprite.vert
 shaders/sprite.frag
+shaders/sprite_layered.frag

@@ -119,55 +119,6 @@ Pony.prototype.translateMotion = function(offset) {
 };
 
 
-function bakeSpriteSheet(runner, assets) {
-    var width = assets['pony_f_base'].width;
-    var height = assets['pony_f_base'].height;
-
-    var temp = new OffscreenContext(width, height);
-    var baked = new OffscreenContext(width, height);
-
-    function copy(img) {
-        baked.drawImage(img, 0, 0);
-    }
-
-    function tinted(img, color) {
-        runner.subjob('copy', function() {
-            temp.globalCompositeOperation = 'copy';
-            temp.drawImage(img, 0, 0);
-        });
-
-        runner.subjob('color', function() {
-            temp.globalCompositeOperation = 'source-in';
-            temp.fillStyle = color;
-            temp.fillRect(0, 0, width, height);
-        });
-
-        runner.subjob('multiply', function() {
-            temp.globalCompositeOperation = 'multiply';
-            temp.drawImage(img, 0, 0);
-        });
-
-        runner.subjob('draw', function() {
-            baked.drawImage(temp.canvas, 0, 0);
-        });
-    }
-
-    var coat_color = '#c8f';
-    var hair_color = '#84c';
-    runner.job('bake', function() {
-        runner.subjob('wing_back',  tinted, assets['pony_f_wing_back'], coat_color);
-        runner.subjob('base',       tinted, assets['pony_f_base'], coat_color);
-        runner.subjob('eyes',       copy,   assets['pony_f_eyes_blue']);
-        runner.subjob('wing_front', tinted, assets['pony_f_wing_front'], coat_color);
-        runner.subjob('tail',       tinted, assets['pony_f_tail_1'], hair_color);
-        runner.subjob('mane',       tinted, assets['pony_f_mane_1'], hair_color);
-        runner.subjob('horn',       tinted, assets['pony_f_horn'], coat_color);
-    });
-
-    return baked.canvas;
-}
-
-
 var canvas;
 var debug;
 var runner;
@@ -243,6 +194,8 @@ function initAssets() {
 
     loader.addText('sprite.frag', 'assets/shaders/sprite.frag');
     loader.addText('sprite.vert', 'assets/shaders/sprite.vert');
+
+    loader.addText('sprite_layered.frag', 'assets/shaders/sprite_layered.frag');
 }
 
 function initChunks() {
@@ -355,10 +308,15 @@ function connOpen() {
     timing = new Timing(conn);
     conn.sendLogin([1, 2, 3, 4], "Pony");
 
-    pony_sheet = new Sheet(bakeSpriteSheet(runner, assets), 96, 96);
-    runner.job('load', function() {
-        renderer.refreshTexture(pony_sheet.image);
-    });
+    pony_sheet = new LayeredTintedSheet([
+            { image: assets['pony_f_wing_back'],    color: 0xcc88ff,    skip: false },
+            { image: assets['pony_f_base'],         color: 0xcc88ff,    skip: false },
+            { image: assets['pony_f_eyes_blue'],    color: 0xffffff,    skip: false },
+            { image: assets['pony_f_wing_front'],   color: 0xcc88ff,    skip: false },
+            { image: assets['pony_f_tail_1'],       color: 0x8844cc,    skip: false },
+            { image: assets['pony_f_mane_1'],       color: 0x8844cc,    skip: false },
+            { image: assets['pony_f_horn'],         color: 0xcc88ff,    skip: false },
+            ], 96, 96);
 
     document.body.removeChild($('banner-bg'));
     canvas.start();
