@@ -47,42 +47,45 @@ Program.prototype.getAttributeLocation = function(name) {
     return this._locations[name];
 };
 
-Program.prototype.setUniformNi = function(name, vs) {
+Program.prototype.setUniformNi = function(name, width, vs) {
     var loc = this.getUniformLocation(name);
     if (loc == null) {
         return;
     }
-    switch (vs.length) {
+    switch (width) {
         case 1: this.gl.uniform1iv(loc, vs); break;
         case 2: this.gl.uniform2iv(loc, vs); break;
         case 3: this.gl.uniform3iv(loc, vs); break;
         case 4: this.gl.uniform4iv(loc, vs); break;
         default:
-            console.assert(false, 'expected 1-4 arguments, but got', vs.length);
-            throw 'bad number of arguments';
+            console.assert(false, 'expected width of 1-4, but got', vs.length);
+            throw 'bad width for uniform';
     }
 };
 
-Program.prototype.setUniformNf = function(name, vs) {
+Program.prototype.setUniformNf = function(name, width, vs) {
     var loc = this.getUniformLocation(name);
     if (loc == null) {
         return;
     }
-    switch (vs.length) {
+    switch (width) {
         case 1: this.gl.uniform1fv(loc, vs); break;
         case 2: this.gl.uniform2fv(loc, vs); break;
         case 3: this.gl.uniform3fv(loc, vs); break;
         case 4: this.gl.uniform4fv(loc, vs); break;
         default:
-            console.assert(false, 'expected 1-4 arguments, but got', vs.length);
-            throw 'bad number of arguments';
+            console.assert(false, 'expected width of 1-4, but got', width);
+            throw 'bad width for uniform';
     }
 };
 
 Program.prototype.setUniform = function(name, type, vs) {
     switch (type) {
-        case 'int': this.setUniformNi(name, vs); break;
-        case 'float': this.setUniformNf(name, vs); break;
+        case 'int': this.setUniformNi(name, 1, vs); break;
+        case 'float': this.setUniformNf(name, 1, vs); break;
+        case 'vec2': this.setUniformNf(name, 2, vs); break;
+        case 'vec3': this.setUniformNf(name, 3, vs); break;
+        case 'vec4': this.setUniformNf(name, 4, vs); break;
         default:
             console.assert(false, 'bad uniform type', type);
             throw 'bad uniform type';

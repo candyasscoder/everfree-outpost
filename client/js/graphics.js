@@ -45,12 +45,12 @@ Renderer.prototype.initGl = function(assets) {
     atlas_texture.loadImage(atlas);
 
     var terrain_uniforms = {
-        'atlasSize': uniform('float',
+        'atlasSize': uniform('vec2',
                 [(atlas.width / TILE_SIZE)|0,
                  (atlas.height / TILE_SIZE)|0]),
-        'cameraPos': uniform('float', null),
-        'cameraSize': uniform('float', null),
-        'chunkPos': uniform('float', null),
+        'cameraPos': uniform('vec2', null),
+        'cameraSize': uniform('vec2', null),
+        'chunkPos': uniform('vec2', null),
     };
 
     var terrain_attributes = {
@@ -227,13 +227,13 @@ function SimpleSpriteClass(gl) {
     ]));
 
     var uniforms = {
-        'cameraPos': uniform('float', null),
-        'cameraSize': uniform('float', null),
-        'sheetSize': uniform('float', null),
-        'base': uniform('float', null),
-        'off': uniform('float', null),
-        'size': uniform('float', null),
-        'flip': uniform('float', null),
+        'cameraPos': uniform('vec2', null),
+        'cameraSize': uniform('vec2', null),
+        'sheetSize': uniform('vec2', null),
+        'base': uniform('vec2', null),
+        'off': uniform('vec2', null),
+        'size': uniform('vec2', null),
+        'flip': uniform('vec2', null),
     };
     this._obj = new GlObject(gl, program,
             uniforms,
@@ -284,17 +284,17 @@ function LayeredTintedSpriteClass(gl) {
     ]));
 
     var uniforms = {
-        'cameraPos': uniform('float', null),
-        'cameraSize': uniform('float', null),
-        'sheetSize': uniform('float', null),
-        'base': uniform('float', null),
-        'off': uniform('float', null),
-        'size': uniform('float', null),
-        'flip': uniform('float', null),
+        'cameraPos': uniform('vec2', null),
+        'cameraSize': uniform('vec2', null),
+        'sheetSize': uniform('vec2', null),
+        'base': uniform('vec2', null),
+        'off': uniform('vec2', null),
+        'size': uniform('vec2', null),
+        'flip': uniform('vec2', null),
+        'color': uniform('vec4', null),
     };
     var textures = {};
     for (var i = 0; i < 8; ++i) {
-        uniforms['color[' + i + ']'] = uniform('float', null);
         textures['sheetSampler[' + i + ']'] = null;
     }
     this._obj = new GlObject(gl, program,
@@ -306,6 +306,21 @@ function LayeredTintedSpriteClass(gl) {
 LayeredTintedSpriteClass.prototype.setCamera = SimpleSpriteClass.prototype.setCamera;
 
 LayeredTintedSpriteClass.prototype.draw = function(r, base, off, size, flip, extra) {
+    var textures = {};
+    var color_arr = [];
+
+    for (var i = 0; i < extra.layers.length; ++i) {
+        var layer = extra.layers[i];
+        var tex = r.cacheTexture(layer.image);
+
+        var color_int = layer.color;
+        color_arr.push(((color_int >> 16) & 0xff) / 255.0);
+        color_arr.push(((color_int >>  8) & 0xff) / 255.0);
+        color_arr.push(((color_int)       & 0xff) / 255.0);
+        color_arr.push(layer.skip ? 0 : 1);
+        textures['sheetSampler[' + i + ']'] = tex;
+    }
+
     var uniforms = {
         'base': base,
         'off': off,
@@ -313,22 +328,9 @@ LayeredTintedSpriteClass.prototype.draw = function(r, base, off, size, flip, ext
         'flip': flip,
 
         'sheetSize': [extra.layers[0].image.width, extra.layers[0].image.height],
+
+        'color': color_arr,
     };
-
-    var textures = {};
-
-    for (var i = 0; i < extra.layers.length; ++i) {
-        var layer = extra.layers[i];
-        var tex = r.cacheTexture(layer.image);
-
-        var color_int = layer.color;
-        var color_arr = [((color_int >> 16) & 0xff) / 255.0,
-                         ((color_int >>  8) & 0xff) / 255.0,
-                         ((color_int >>  0) & 0xff) / 255.0,
-                         layer.skip ? 0 : 1];
-        uniforms['color[' + i + ']'] = color_arr;
-        textures['sheetSampler[' + i + ']'] = tex;
-    }
 
     this._obj.draw(0, 6, uniforms, {}, textures);
 };
