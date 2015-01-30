@@ -87,7 +87,6 @@ impl_IntrusiveStableId!(Entity, stable_id);
 
 pub struct Structure {
     pos: V3,
-    offset: (u8, u8, u8),
     template: TemplateId,
 
     stable_id: StableId,

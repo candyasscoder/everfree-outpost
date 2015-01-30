@@ -215,13 +215,9 @@ pub fn structure_create(w: &mut World,
     }
 
     let chunk_pos = pos.reduce().div_floor(scalar(CHUNK_SIZE));
-    let offset = pos - chunk_pos.extend(0) * scalar(CHUNK_SIZE);
 
     let s = Structure {
         pos: pos,
-        offset: (offset.x as u8,
-                 offset.y as u8,
-                 offset.z as u8),
         template: tid,
 
         stable_id: NO_STABLE_ID,
