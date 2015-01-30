@@ -103,7 +103,7 @@ fn main() {
 pub enum WakeReason {
     HandleInput(ClientId, InputBits),
     HandleAction(ClientId, ActionBits),
-    PhysicsUpdate(ClientId),
+    PhysicsUpdate(EntityId),
     CheckView(ClientId),
 }
 
@@ -219,8 +219,9 @@ impl<'a> Server<'a> {
         match reason {
             WakeReason::HandleInput(client_id, input) => {
                 let updated = self.state.update_input(now, client_id, input);
+                let entity_id = self.state.world().client(client_id).pawn_id().unwrap();
                 match updated {
-                    Ok(true) => self.post_physics_update(now, client_id),
+                    Ok(true) => self.post_physics_update(now, entity_id),
                     Ok(false) => {},
                     Err(e) => warn!("update_input error: {}", e.description()),
                 }
@@ -249,10 +250,10 @@ impl<'a> Server<'a> {
                 }
             },
 
-            WakeReason::PhysicsUpdate(client_id) => {
-                let updated = self.state.update_physics(now, client_id);
+            WakeReason::PhysicsUpdate(entity_id) => {
+                let updated = self.state.update_physics(now, entity_id, false);
                 match updated {
-                    Ok(true) => self.post_physics_update(now, client_id),
+                    Ok(true) => self.post_physics_update(now, entity_id),
                     Ok(false) => {},
                     Err(e) => warn!("update_physics error: {}", e.description()),
                 }
@@ -355,16 +356,16 @@ impl<'a> Server<'a> {
 
         if let Some((old_region, new_region)) = result {
             for (x,y) in old_region.points().filter(|&(x,y)| !new_region.contains(x,y)) {
+                self.state.unload_chunk(x, y);
+                let idx = chunk_to_idx(x, y, offset);
+                self.send_wire(wire_id, Response::UnloadChunk(idx as u16));
+            }
+
+            for (x,y) in new_region.points().filter(|&(x,y)| !old_region.contains(x,y)) {
                 self.state.load_chunk(x, y);
                 let idx = chunk_to_idx(x, y, offset);
                 let data = self.state.get_terrain_rle16(x, y);
                 self.send_wire(wire_id, Response::TerrainChunk(idx as u16, data));
-            }
-
-            for (x,y) in new_region.points().filter(|&(x,y)| !old_region.contains(x,y)) {
-                self.state.unload_chunk(x, y);
-                let idx = chunk_to_idx(x, y, offset);
-                self.send_wire(wire_id, Response::UnloadChunk(idx as u16));
             }
         }
     }
@@ -381,23 +382,20 @@ impl<'a> Server<'a> {
 
     fn post_physics_update(&mut self,
                            now: Time,
-                           client_id: ClientId) {
-        let (entity_id, motion, anim, end_time) = {
-            let client = self.state.world().client(client_id);
-            let entity = client.pawn().unwrap();
-            (entity.id(),
-             entity_motion(now, entity.motion(), client.chunk_offset()),
-             entity.anim(),
-             entity.motion().end_time())
+                           eid: EntityId) {
+        let entity = match self.state.world().get_entity(eid) {
+            Some(e) => e,
+            None => return,
         };
+        let motion = entity.motion();
+
         for client in self.state.world().clients() {
-            self.resps.send((client.wire_id(),
-                             Response::EntityUpdate(entity_id, motion.clone(), anim)))
-                .unwrap();
+            let wire_motion = entity_motion(now, motion, client.chunk_offset());
+            self.send(&client, Response::EntityUpdate(eid, wire_motion, entity.anim()));
         }
 
         if motion.start_pos != motion.end_pos {
-            self.wake_queue.push(end_time, WakeReason::PhysicsUpdate(client_id));
+            self.wake_queue.push(motion.end_time(), WakeReason::PhysicsUpdate(eid));
         }
     }
 }

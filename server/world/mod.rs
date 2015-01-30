@@ -77,6 +77,7 @@ pub struct Entity {
     motion: Motion,
     anim: AnimId,
     facing: V3,
+    target_velocity: V3,
 
     stable_id: StableId,
     attachment: EntityAttachment,
@@ -415,6 +416,14 @@ impl Entity {
 
     pub fn set_facing(&mut self, new: V3) {
         self.facing = new;
+    }
+
+    pub fn target_velocity(&self) -> V3 {
+        self.target_velocity
+    }
+
+    pub fn set_target_velocity(&mut self, new: V3) {
+        self.target_velocity = new;
     }
 
     pub fn pos(&self, now: Time) -> V3 {

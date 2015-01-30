@@ -234,6 +234,24 @@ pub trait Vn: Sized+Copy {
         self.zip(other, |a, b| div_floor(a, b))
     }
 
+    fn min(self) -> i32 {
+        <Self as Vn>::fold_axes(None, |a, x| {
+            match x {
+                None => Some(self.get(a)),
+                Some(x) => Some(min(x, self.get(a))),
+            }
+        }).unwrap()
+    }
+
+    fn max(self) -> i32 {
+        <Self as Vn>::fold_axes(None, |a, x| {
+            match x {
+                None => Some(self.get(a)),
+                Some(x) => Some(max(x, self.get(a))),
+            }
+        }).unwrap()
+    }
+
 
     fn add(self, other: Self) -> Self {
         self.zip(other, |a, b| a + b)

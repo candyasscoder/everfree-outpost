@@ -122,6 +122,7 @@ pub fn entity_create(w: &mut World,
         motion: super::Motion::stationary(pos),
         anim: anim,
         facing: V3::new(1, 0, 0),
+        target_velocity: scalar(0),
 
         stable_id: NO_STABLE_ID,
         attachment: EntityAttachment::World,

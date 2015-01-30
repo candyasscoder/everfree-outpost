@@ -51,11 +51,7 @@ impl<'a> ShapeSource for (&'a LocalTerrain<'a>, &'a BlockData) {
 
 const ANIM_DIR_COUNT: AnimId = 8;
 
-pub fn run_physics<S>(entity: &world::Entity,
-                      shape_source: &S,
-                      now: Time,
-                      input: InputBits) -> (world::Motion, AnimId, V3)
-        where S: ShapeSource {
+pub fn input_to_target_velocity(input: InputBits) -> V3 {
     let dx = if input.contains(INPUT_LEFT) { -1 } else { 0 } +
              if input.contains(INPUT_RIGHT) { 1 } else { 0 };
     let dy = if input.contains(INPUT_UP) { -1 } else { 0 } +
@@ -65,18 +61,29 @@ pub fn run_physics<S>(entity: &world::Entity,
         else if input.contains(INPUT_RUN) { 3 }
         else { 1 };
 
-    let idx = (3 * (dx + 1) + (dy + 1)) as usize;
+    V3::new(dx, dy, 0) * scalar(50 * speed)
+}
+
+pub fn run_physics<S>(entity: &world::Entity,
+                      shape_source: &S,
+                      now: Time) -> (world::Motion, AnimId, V3)
+        where S: ShapeSource {
+    let velocity = entity.target_velocity();
+    let dir = velocity.signum();
+    let speed = velocity.abs().max() / 50;
+
+    let idx = (3 * (dir.x + 1) + (dir.y + 1)) as usize;
     let old_anim = entity.anim() % ANIM_DIR_COUNT;
     let anim_dir = [5, 4, 3, 6, old_anim, 2, 7, 0, 1][idx];
-    let anim = anim_dir + speed * ANIM_DIR_COUNT;
+    let anim = anim_dir + speed as AnimId * ANIM_DIR_COUNT;
 
     let world_start_pos = entity.pos(now);
     let world_base = base_chunk(world_start_pos);
     let local_base = offset_base_chunk(world_base, (0, 0));
 
     let start_pos = world_to_local(world_start_pos, world_base, local_base);
+    // TODO: hardcoded constant based on entity size
     let size = scalar(32);
-    let velocity = V3::new(dx, dy, 0) * scalar(50 * speed as i32);
     let (mut end_pos, mut dur) = physics::collide(shape_source, start_pos, size, velocity);
 
     if dur == 0 {
@@ -96,8 +103,8 @@ pub fn run_physics<S>(entity: &world::Entity,
         end_pos: world_end_pos,
     };
     let new_facing = 
-        if dx != 0 || dy != 0 {
-            V3::new(dx, dy, 0)
+        if dir != scalar(0) {
+            dir
         } else {
             entity.facing()
         };
@@ -189,21 +196,19 @@ impl<'a> State<'a> {
         self.world_mut().destroy_client(id).unwrap();
     }
 
-    pub fn update_physics(&mut self, now: Time, id: ClientId) -> Result<bool, StrError> {
-        let (eid, (motion, anim, facing)) = {
-            let client = unwrap!(self.world().get_client(id));
-            let entity = unwrap!(client.pawn());
-            if now < entity.motion().end_time() {
+    pub fn update_physics(&mut self, now: Time, eid: EntityId, force: bool) -> Result<bool, StrError> {
+        let (motion, anim, facing) = {
+            let entity = unwrap!(self.world().get_entity(eid));
+            // TODO: weird bug: it should be harmless to always act like `force` is enabled, but
+            // doing so causes the entity to get stuck instead of sliding along walls
+            if !force && now < entity.motion().end_time() {
                 return Ok(false);
             }
 
             let terrain = build_local_terrain(&self.mw, entity.pos(now), (0, 0));
-            let phys_result = run_physics(&*entity,
-                                          &(&terrain, &self.data.block_data),
-                                          now,
-                                          client.current_input());
-
-            (entity.id(), phys_result)
+            run_physics(&*entity,
+                        &(&terrain, &self.data.block_data),
+                        now)
         };
         let mut e = self.world_mut().entity_mut(eid);
         e.set_motion(motion);
@@ -213,30 +218,19 @@ impl<'a> State<'a> {
     }
 
     pub fn update_input(&mut self, now: Time, id: ClientId, input: InputBits) -> Result<bool, StrError> {
-        let (eid, (motion, anim, facing)) = {
-            let client = unwrap!(self.world().get_client(id));
+        let eid = {
+            let mut client = unwrap!(self.world_mut().get_client_mut(id));
             if client.current_input() == input {
                 return Ok(false);
             }
+            client.set_current_input(input);
 
-            let entity = unwrap!(client.pawn());
-
-            let terrain = build_local_terrain(&self.mw, entity.pos(now), (0, 0));
-            let phys_result = run_physics(&*entity,
-                                          &(&terrain, &self.data.block_data),
-                                          now,
-                                          input);
-
-            (entity.id(), phys_result)
+            let mut entity = unwrap!(client.pawn_mut());
+            entity.set_target_velocity(input_to_target_velocity(input));
+            entity.id()
         };
 
-        self.world_mut().client_mut(id).set_current_input(input);
-
-        let mut e = self.world_mut().entity_mut(eid);
-        e.set_motion(motion);
-        e.set_anim(anim);
-        e.set_facing(facing);
-        Ok(true)
+        self.update_physics(now, eid, true)
     }
 
     pub fn perform_action(&mut self, now: Time, id: ClientId, action: ActionBits) -> Vec<StateChange> {
