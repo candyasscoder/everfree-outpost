@@ -178,12 +178,15 @@ impl<'a> Server<'a> {
             Request::Login(_secret, name) => {
                 log!(10, "login request for {}", name);
 
-                let cid = {
+                let (cid, eid) = {
                     let client = self.state.add_client(now, wire_id);
-                    client.id()
+                    (client.id(), client.pawn_id())
                 };
                 self.wire_id_map.insert(wire_id, cid);
                 self.reset_viewport(now, cid, true);
+                if let Some(eid) = eid {
+                    self.update_entity_motion(now, eid);
+                }
                 self.wake_queue.push(now + 1000, WakeReason::CheckView(cid));
             },
 
