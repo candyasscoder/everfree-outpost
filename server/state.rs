@@ -171,7 +171,8 @@ impl<'a> State<'a> {
     pub fn add_client<'b>(&'b mut self,
                           now: Time,
                           wire_id: WireId) -> world::object::ObjectRefMut<'b, 'a, world::Client> {
-        let pos = V3::new(250, 250, 0);
+        let pos = V3::new(170, 250, 0);
+        // TODO: hardcoded constant based on entity size
         let offset = V3::new(16, 16, 0);
 
         let pawn_id = self.world_mut().create_entity(pos - offset, 0).unwrap().id();
