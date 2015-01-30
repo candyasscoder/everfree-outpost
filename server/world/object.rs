@@ -90,6 +90,7 @@ pub struct ObjectRef<'a, 'd: 'a, O: Object> {
     pub id: <O as Object>::Id,
     pub obj: &'a O,
 }
+impl<'a, 'd, O: Object> Copy for ObjectRef<'a, 'd, O> { }
 
 pub struct ObjectRefMut<'a, 'd: 'a, O: Object> {
     pub world: &'a mut World<'d>,
@@ -174,6 +175,10 @@ pub trait ClientRef<'d>: ObjectRefBase<'d, Client> {
             None => None,
             Some(eid) => Some(self.world().entity(eid)),
         }
+    }
+
+    fn camera_pos(&self, now: Time) -> V2 {
+        self.pawn().map_or(scalar(0), |p| p.pos(now).reduce())
     }
 }
 impl<'a, 'd> ClientRef<'d> for ObjectRef<'a, 'd, Client> { }

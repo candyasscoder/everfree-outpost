@@ -164,6 +164,13 @@ impl<'d> World<'d> {
             iter: self.clients.iter(),
         }
     }
+
+    pub fn entities<'a>(&'a self) -> Entities<'a, 'd> {
+        Entities {
+            world: self,
+            iter: self.entities.iter(),
+        }
+    }
 }
 
 macro_rules! lifecycle_methods {
@@ -318,6 +325,25 @@ impl<'a, 'd> Iterator for Clients<'a, 'd> {
                 world: world,
                 id: cid,
                 obj: c,
+            }
+        })
+    }
+}
+
+pub struct Entities<'a, 'd: 'a> {
+    world: &'a World<'d>,
+    iter: StableIdMapIter<'a, EntityId, Entity>,
+}
+
+impl<'a, 'd> Iterator for Entities<'a, 'd> {
+    type Item = ObjectRef<'a, 'd, Entity>;
+    fn next(&mut self) -> Option<ObjectRef<'a, 'd, Entity>> {
+        let world = self.world;
+        self.iter.next().map(|(eid, e)| {
+            ObjectRef {
+                world: world,
+                id: eid,
+                obj: e,
             }
         })
     }
