@@ -221,7 +221,7 @@ impl<'a> Server<'a> {
                 let updated = self.state.update_input(now, client_id, input);
                 let entity_id = self.state.world().client(client_id).pawn_id().unwrap();
                 match updated {
-                    Ok(true) => self.post_physics_update(now, entity_id),
+                    Ok(true) => self.update_entity_motion(now, entity_id),
                     Ok(false) => {},
                     Err(e) => warn!("update_input error: {}", e.description()),
                 }
@@ -232,19 +232,7 @@ impl<'a> Server<'a> {
                 for update in updates.into_iter() {
                     match update {
                         ChunkUpdate(cx, cy) => {
-                            for c in self.state.world().clients() {
-                                if !c.view_state().region().contains(cx, cy) {
-                                    continue;
-                                }
-
-                                let offset = chunk_offset(c.pawn().unwrap().pos(now),
-                                                          c.chunk_offset());
-                                let idx = chunk_to_idx(cx, cy, offset);
-                                let data = self.state.get_terrain_rle16(cx, cy);
-                                self.resps.send((c.wire_id(),
-                                                 Response::TerrainChunk(idx as u16, data)))
-                                    .unwrap();
-                            }
+                            self.update_chunk(now, V2::new(cx, cy));
                         },
                     }
                 }
@@ -253,7 +241,7 @@ impl<'a> Server<'a> {
             WakeReason::PhysicsUpdate(entity_id) => {
                 let updated = self.state.update_physics(now, entity_id, false);
                 match updated {
-                    Ok(true) => self.post_physics_update(now, entity_id),
+                    Ok(true) => self.update_entity_motion(now, entity_id),
                     Ok(false) => {},
                     Err(e) => warn!("update_physics error: {}", e.description()),
                 }
@@ -370,19 +358,28 @@ impl<'a> Server<'a> {
         }
     }
 
-    fn on_chunk_update(&mut self,
-                       now: Time,
-                       chunk_pos: V2) {
+    fn update_chunk(&mut self,
+                    now: Time,
+                    chunk_pos: V2) {
+        // TODO: keep an index of which clients are viewing which chunks
+        for c in self.state.world().clients() {
+            let cx = chunk_pos.x;
+            let cy = chunk_pos.y;
+            if !c.view_state().region().contains(cx, cy) {
+                continue;
+            }
+
+            let offset = chunk_offset(c.camera_pos(now).extend(0), c.chunk_offset());
+            let idx = chunk_to_idx(cx, cy, offset);
+            let data = self.state.get_terrain_rle16(cx, cy);
+            self.send(&c, Response::TerrainChunk(idx as u16, data));
+        }
     }
 
-    fn on_entity_motion_change(&mut self,
-                               now: Time,
-                               eid: EntityId) {
-    }
-
-    fn post_physics_update(&mut self,
-                           now: Time,
-                           eid: EntityId) {
+    fn update_entity_motion(&mut self,
+                            now: Time,
+                            eid: EntityId) {
+        // TODO: send updates only to clients that might actually see them
         let entity = match self.state.world().get_entity(eid) {
             Some(e) => e,
             None => return,
