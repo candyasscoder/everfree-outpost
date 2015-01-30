@@ -311,43 +311,34 @@ impl<'a, 'd> Iterator for ChunkStructures<'a, 'd> {
     }
 }
 
-pub struct Clients<'a, 'd: 'a> {
-    world: &'a World<'d>,
-    iter: StableIdMapIter<'a, ClientId, Client>,
-}
 
-impl<'a, 'd> Iterator for Clients<'a, 'd> {
-    type Item = ObjectRef<'a, 'd, Client>;
-    fn next(&mut self) -> Option<ObjectRef<'a, 'd, Client>> {
-        let world = self.world;
-        self.iter.next().map(|(cid, c)| {
-            ObjectRef {
-                world: world,
-                id: cid,
-                obj: c,
+macro_rules! object_iter {
+    ($name:ident, $obj_ty:ty, $id_ty:ty) => {
+        pub struct $name<'a, 'd: 'a> {
+            world: &'a World<'d>,
+            iter: StableIdMapIter<'a, $id_ty, $obj_ty>,
+        }
+
+        impl<'a, 'd> Iterator for $name<'a, 'd> {
+            type Item = ObjectRef<'a, 'd, $obj_ty>;
+            fn next(&mut self) -> Option<ObjectRef<'a, 'd, $obj_ty>> {
+                let world = self.world;
+                self.iter.next().map(|(oid, o)| {
+                    ObjectRef {
+                        world: world,
+                        id: oid,
+                        obj: o,
+                    }
+                })
             }
-        })
-    }
+        }
+    };
 }
 
-pub struct Entities<'a, 'd: 'a> {
-    world: &'a World<'d>,
-    iter: StableIdMapIter<'a, EntityId, Entity>,
-}
-
-impl<'a, 'd> Iterator for Entities<'a, 'd> {
-    type Item = ObjectRef<'a, 'd, Entity>;
-    fn next(&mut self) -> Option<ObjectRef<'a, 'd, Entity>> {
-        let world = self.world;
-        self.iter.next().map(|(eid, e)| {
-            ObjectRef {
-                world: world,
-                id: eid,
-                obj: e,
-            }
-        })
-    }
-}
+object_iter!(Clients, Client, ClientId);
+object_iter!(Entities, Entity, EntityId);
+object_iter!(Structures, Structure, StructureId);
+object_iter!(Inevntories, Inventory, InventoryId);
 
 
 impl Client {
