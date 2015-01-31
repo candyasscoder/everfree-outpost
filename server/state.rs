@@ -181,6 +181,7 @@ impl<'a> State<'a> {
 
     pub fn add_client<'b>(&'b mut self,
                           now: Time,
+                          name: &str,
                           wire_id: WireId) -> world::object::ObjectRefMut<'b, 'a, world::Client> {
         let pos = V3::new(170, 250, 0);
         // TODO: hardcoded constant based on entity size
@@ -191,7 +192,7 @@ impl<'a> State<'a> {
         let chunk_offset = (self.rng.gen_range(0, 8),
                             self.rng.gen_range(0, 8));
 
-        let mut client = self.world_mut().create_client(wire_id, chunk_offset).unwrap();
+        let mut client = self.world_mut().create_client(name, wire_id, chunk_offset).unwrap();
         client.set_pawn(now, Some(pawn_id)).unwrap();
         client
     }

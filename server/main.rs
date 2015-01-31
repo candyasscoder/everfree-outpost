@@ -171,7 +171,7 @@ impl<'a> Server<'a> {
                 log!(10, "login request for {}", name);
 
                 let (cid, eid) = {
-                    let client = self.state.add_client(now, wire_id);
+                    let client = self.state.add_client(now, &*name, wire_id);
                     (client.id(), client.pawn_id())
                 };
                 self.wire_id_map.insert(wire_id, cid);

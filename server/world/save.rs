@@ -257,6 +257,8 @@ impl<W: Writer> SaveWriter<W> {
 
         // Body
         try!(self.write_opt_id(c.pawn));
+        try!(self.write_count(c.name().len()));
+        try!(self.write_str_bytes(c.name()));
 
         // Children
         try!(self.write_count(c.child_entities.len()));
@@ -306,8 +308,6 @@ impl<W: Writer> SaveWriter<W> {
         }
 
         // Children
-        // TODO: We have to do our own filtering here because ClientRef::child_structures is not
-        // implemented.
         try!(self.write_count(t.child_structures.len()));
         for s in t.child_structures() {
             try!(self.write_structure(&s));
@@ -540,6 +540,10 @@ impl<R: Reader> SaveReader<R> {
             let c = &mut w.clients[cid];
             c.stable_id = stable_id;
 
+            let name_len = try!(self.read_count());
+            let name = try!(self.read_str(name_len));
+
+            c.name = name;
             c.pawn = pawn_id;
         }
         // At this point all Client invariants hold, except that c.pawn is not yet attached to the

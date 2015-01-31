@@ -71,6 +71,14 @@ impl Storage {
     pub fn open_terrain_chunk_file(&self, pos: V2) -> Option<File> {
         try_open_file(&self.terrain_chunk_path(pos))
     }
+
+    pub fn create_client_file(&self, name: &str) -> File {
+        File::create(&self.client_path(name)).unwrap()
+    }
+
+    pub fn create_terrain_chunk_file(&self, pos: V2) -> File {
+        File::create(&self.terrain_chunk_path(pos)).unwrap()
+    }
 }
 
 fn char_legal(c: char) -> bool {

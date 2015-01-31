@@ -27,9 +27,11 @@ pub type OpResult<T> = Result<T, StrError>;
 
 
 pub fn client_create(w: &mut World,
+                     name: &str,
                      wire_id: WireId,
                      chunk_offset: (u8, u8)) -> OpResult<ClientId> {
     let c = Client {
+        name: String::from_str(name),
         wire_id: wire_id,
         pawn: None,
         current_input: InputBits::empty(),
@@ -46,6 +48,7 @@ pub fn client_create(w: &mut World,
 
 pub fn client_create_unchecked(w: &mut World) -> ClientId {
     w.clients.insert(Client {
+        name: String::new(),
         wire_id: WireId(0),
         pawn: None,
         current_input: InputBits::empty(),
