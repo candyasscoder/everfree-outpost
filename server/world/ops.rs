@@ -103,13 +103,15 @@ pub fn client_clear_pawn(w: &mut World,
 
 pub fn terrain_chunk_create(w: &mut World,
                             pos: V2,
-                            blocks: [BlockId; 1 << (CHUNK_BITS * 3)]) -> OpResult<()> {
+                            blocks: Box<BlockChunk>) -> OpResult<()> {
     if w.terrain_chunks.contains_key(&pos) {
         fail!("chunk already exists with same position");
     }
 
     let tc = TerrainChunk {
         blocks: blocks,
+
+        child_structures: HashSet::new(),
     };
 
     w.terrain_chunks.insert(pos, tc);

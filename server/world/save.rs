@@ -27,13 +27,6 @@ enum AnyId {
     Entity(EntityId),
     Structure(StructureId),
     Inventory(InventoryId),
-
-    /*
-    StableClient(Stable<ClientId>),
-    StableEntity(Stable<EntityId>),
-    StableStructure(Stable<StructureId>),
-    StableInventory(Stable<InventoryId>),
-    */
 }
 
 trait ToAnyId {
@@ -116,16 +109,6 @@ impl ReadId for InventoryId {
     fn fabricate(w: &mut World) -> InventoryId {
         ops::inventory_create_unchecked(w)
     }
-}
-
-
-#[derive(Copy, PartialEq, Eq, Show, Hash)]
-enum ObjKind {
-    Client,
-    TerrainChunk,
-    Entity,
-    Structure,
-    Inventory,
 }
 
 
@@ -587,7 +570,7 @@ impl<R: Reader> SaveReader<R> {
         let chunk_pos = try!(self.read_v2());
         self.id_map.insert(save_id, AnyId::TerrainChunk(chunk_pos));
 
-        let mut blocks = [0; CHUNK_TOTAL];
+        let mut blocks = Box::new([0; CHUNK_TOTAL]);
         {
             let byte_len = blocks.len() * mem::size_of::<BlockId>();
             let byte_array = unsafe {

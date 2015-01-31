@@ -256,7 +256,7 @@ impl<'a> State<'a> {
         let block_data = &self.data.block_data;
         let template_data = &self.data.object_templates;
         self.mw.retain(V2::new(cx, cy),
-            |c| { gen.generate_chunk(block_data, c.x, c.y).0 },
+            |c| { Box::new(gen.generate_chunk(block_data, c.x, c.y).0) },
             |c| {
                 let base = V3::new(c.x * CHUNK_SIZE,
                                    c.y * CHUNK_SIZE,

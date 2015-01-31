@@ -105,7 +105,7 @@ impl<'d> ManagedWorld<'d> {
                           pos: V2,
                           mut load_terrain: F1,
                           mut load_objects: F2)
-            where F1: FnMut(V2) -> BlockChunk,
+            where F1: FnMut(V2) -> Box<BlockChunk>,
                   F2: FnMut(V2) -> Vec<(V3, TemplateId)> {
         match self.ref_count.entry(pos) {
             Vacant(e) => {

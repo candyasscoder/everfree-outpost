@@ -71,7 +71,9 @@ pub struct Client {
 impl_IntrusiveStableId!(Client, stable_id);
 
 pub struct TerrainChunk {
-    blocks: [BlockId; 1 << (3 * CHUNK_BITS)],
+    blocks: Box<BlockChunk>,
+
+    child_structures: HashSet<StructureId>,
 }
 
 pub struct Entity {
@@ -210,7 +212,7 @@ lifecycle_methods!(Client,
                    destroy_client(id: ClientId) => client_destroy);
 
 lifecycle_methods!(TerrainChunk,
-                   create_terrain_chunk(pos: V2, blocks: BlockChunk) => terrain_chunk_create
+                   create_terrain_chunk(pos: V2, blocks: Box<BlockChunk>) => terrain_chunk_create
                     [id -> pos],
                    destroy_terrain_chunk(pos: V2) => terrain_chunk_destroy);
 
@@ -410,8 +412,8 @@ impl TerrainChunk {
         self.blocks[idx]
     }
 
-    pub fn blocks(&self) -> &[BlockId; 1 << (3 * CHUNK_BITS)] {
-        &self.blocks
+    pub fn blocks(&self) -> &BlockChunk {
+        &*self.blocks
     }
 }
 
