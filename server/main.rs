@@ -19,6 +19,7 @@ use std::cmp;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io;
+use std::os;
 use std::sync::mpsc::{Sender, Receiver, channel};
 use std::thread::Thread;
 use serialize::json;
@@ -33,6 +34,7 @@ use state::LOCAL_SIZE;
 use state::StateChange::ChunkUpdate;
 use data::Data;
 use world::object::{ObjectRef, ObjectRefBase, ClientRef};
+use storage::Storage;
 
 use types::{Time, ToGlobal, ToLocal};
 use types::{WireId, ClientId, EntityId};
@@ -53,6 +55,7 @@ mod lua;
 mod script;
 mod world;
 mod terrain2;
+mod storage;
 
 
 fn read_json(path: &str) -> json::Json {
@@ -63,22 +66,11 @@ fn read_json(path: &str) -> json::Json {
 }
 
 fn main() {
-    let (data, script_path) = {
-        use std::os;
+    let storage = Storage::new(Path::new(&os::args()[1]));
 
-        let block_path = &os::args()[1];
-        log!(10, "reading block data from {}", block_path);
-        let block_json = read_json(block_path.as_slice());
-
-        let template_path = &os::args()[2];
-        log!(10, "reading template data from {}", template_path);
-        let template_json = read_json(template_path.as_slice());
-
-        let data = Data::from_json(block_json, template_json).unwrap();
-
-        let script_path = os::args()[3].clone();
-        (data, script_path)
-    };
+    let block_json = json::from_reader(&mut storage.open_block_data()).unwrap();
+    let template_json = json::from_reader(&mut storage.open_template_data()).unwrap();
+    let data = Data::from_json(block_json, template_json).unwrap();
 
     let (req_send, req_recv) = channel();
     let (resp_send, resp_recv) = channel();
@@ -93,7 +85,7 @@ fn main() {
         tasks::run_output(writer, resp_recv).unwrap();
     });
 
-    let state = state::State::new(&data, &*script_path);
+    let state = state::State::new(&data, storage);
     let mut server = Server::new(resp_send, state);
     server.run(req_recv);
 }

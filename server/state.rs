@@ -20,6 +20,7 @@ use terrain2;
 use world;
 use world::object::{ObjectRefBase, ClientRef, ClientRefMut, EntityRefMut};
 use util::StrError;
+use storage::Storage;
 
 use self::StateChange::ChunkUpdate;
 
@@ -122,6 +123,7 @@ pub enum StateChange {
 
 pub struct State<'a> {
     pub data: &'a Data,
+    pub storage: Storage,
     pub script: ScriptEngine,
     pub mw: terrain2::ManagedWorld<'a>,
     pub terrain_gen: TerrainGenerator,
@@ -129,10 +131,12 @@ pub struct State<'a> {
 }
 
 impl<'a> State<'a> {
-    pub fn new(data: &'a Data, script_path: &str) -> State<'a> {
+    pub fn new(data: &'a Data, storage: Storage) -> State<'a> {
+        let script_dir = storage.script_dir();
         State {
             data: data,
-            script: ScriptEngine::new(&Path::new(script_path)),
+            storage: storage,
+            script: ScriptEngine::new(&script_dir),
 
             mw: terrain2::ManagedWorld::new(data),
 

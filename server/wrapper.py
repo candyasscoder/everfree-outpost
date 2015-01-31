@@ -127,6 +127,6 @@ if __name__ == "__main__":
     tornado.autoreload.watch(objects_json)
     tornado.autoreload.watch(os.path.join(script_dir, 'bootstrap.lua'))
 
-    backend = BackendStream([exe, blocks_json, objects_json, script_dir])
+    backend = BackendStream([exe, root_dir])
     application.listen(8888)
     tornado.ioloop.IOLoop.instance().start()
