@@ -32,6 +32,7 @@ impl Data {
 
 pub struct BlockData {
     shapes: Vec<Shape>,
+    names: Vec<String>,
     name_to_id: HashMap<String, BlockId>,
 }
 
@@ -104,6 +105,7 @@ impl BlockData {
                                   "at top level");
 
         let mut shapes = repeat(Shape::Empty).take(blocks.len()).collect::<Vec<_>>();
+        let mut names = Vec::with_capacity(shapes.len());
         let mut name_to_id = HashMap::new();
 
         for (i, block) in blocks.iter().enumerate() {
@@ -124,17 +126,23 @@ impl BlockData {
                 },
             };
             shapes[i] = shape;
+            names.push(String::from_str(name));
             name_to_id.insert(String::from_str(name), i as BlockId);
         }
 
         Ok(BlockData {
             shapes: shapes,
+            names: names,
             name_to_id: name_to_id,
         })
     }
 
     pub fn shape(&self, id: BlockId) -> Shape {
         self.shapes.as_slice().get(id as usize).map(|&x| x).unwrap_or(Shape::Empty)
+    }
+
+    pub fn name(&self, id: BlockId) -> &str {
+        &*self.names[id as usize]
     }
 
     pub fn get_id(&self, name: &str) -> BlockId {
