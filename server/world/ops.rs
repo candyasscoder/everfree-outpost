@@ -44,6 +44,20 @@ pub fn client_create(w: &mut World,
     Ok(w.clients.insert(c))
 }
 
+pub fn client_create_unchecked(w: &mut World) -> ClientId {
+    w.clients.insert(Client {
+        wire_id: WireId(0),
+        pawn: None,
+        current_input: InputBits::empty(),
+        chunk_offset: (0, 0),
+        view_state: ViewState::new(scalar(0)),
+
+        stable_id: NO_STABLE_ID,
+        child_entities: HashSet::new(),
+        child_inventories: HashSet::new(),
+    })
+}
+
 pub fn client_destroy(w: &mut World,
                       cid: ClientId) -> OpResult<()> {
     let c = unwrap!(w.clients.remove(cid));
@@ -130,6 +144,19 @@ pub fn entity_create(w: &mut World,
     };
 
     Ok(w.entities.insert(e))
+}
+
+pub fn entity_create_unchecked(w: &mut World) -> EntityId {
+    w.entities.insert(Entity {
+        motion: super::Motion::stationary(scalar(0)),
+        anim: 0,
+        facing: scalar(0),
+        target_velocity: scalar(0),
+
+        stable_id: NO_STABLE_ID,
+        attachment: EntityAttachment::World,
+        child_inventories: HashSet::new(),
+    })
 }
 
 pub fn entity_destroy(w: &mut World,
@@ -229,6 +256,43 @@ pub fn structure_create(w: &mut World,
     structure_add_to_lookup(&mut w.structures_by_chunk, sid, bounds);
     invalidate_region(w, bounds);
     Ok(sid)
+}
+
+pub fn structure_create_unchecked(w: &mut World) -> StructureId {
+    w.structures.insert(Structure {
+        pos: scalar(0),
+        template: 0,
+
+        stable_id: NO_STABLE_ID,
+        attachment: StructureAttachment::World,
+        child_inventories: HashSet::new(),
+    })
+}
+
+pub fn structure_post_init(w: &mut World, sid: StructureId) -> OpResult<()> {
+    let bounds = {
+        let s = unwrap!(w.structures.get(sid));
+        let t = unwrap!(w.data.object_templates.get_template(s.template));
+
+        Region::new(s.pos, s.pos + t.size)
+    };
+
+    structure_add_to_lookup(&mut w.structures_by_chunk, sid, bounds);
+    invalidate_region(w, bounds);
+    Ok(())
+}
+
+pub fn structure_pre_fini(w: &mut World, sid: StructureId) -> OpResult<()> {
+    let bounds = {
+        let s = unwrap!(w.structures.get(sid));
+        let t = unwrap!(w.data.object_templates.get_template(s.template));
+
+        Region::new(s.pos, s.pos + t.size)
+    };
+
+    structure_remove_from_lookup(&mut w.structures_by_chunk, sid, bounds);
+    invalidate_region(w, bounds);
+    Ok(())
 }
 
 pub fn structure_destroy(w: &mut World,
@@ -396,3 +460,13 @@ fn invalidate_region(w: &mut World,
         w.record(Update::ChunkInvalidate(chunk_pos));
     }
 }
+
+pub fn inventory_create_unchecked(w: &mut World) -> InventoryId {
+    w.inventories.insert(Inventory {
+        contents: HashMap::new(),
+
+        stable_id: NO_STABLE_ID,
+        attachment: InventoryAttachment::World,
+    })
+}
+

@@ -13,7 +13,9 @@ use types::*;
 use util::IntrusiveStableId;
 use util::StrError;
 use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
-use world::StructureAttachment;
+use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
+use world::Motion;
+use world::ops;
 use world::object::*;
 
 type SaveId = u32;
@@ -56,6 +58,74 @@ impl ToAnyId for StructureId {
 
 impl ToAnyId for InventoryId {
     fn to_any_id(self) -> AnyId { AnyId::Inventory(self) }
+}
+
+
+trait ReadId: ToAnyId+Copy {
+    fn from_any_id(id: AnyId) -> Result<Self>;
+    fn fabricate(w: &mut World) -> Self;
+}
+
+impl ReadId for ClientId {
+    fn from_any_id(id: AnyId) -> Result<ClientId> {
+        match id {
+            AnyId::Client(id) => Ok(id),
+            _ => fail!("expected AnyID::Client"),
+        }
+    }
+
+    fn fabricate(w: &mut World) -> ClientId {
+        ops::client_create_unchecked(w)
+    }
+}
+
+impl ReadId for EntityId {
+    fn from_any_id(id: AnyId) -> Result<EntityId> {
+        match id {
+            AnyId::Entity(id) => Ok(id),
+            _ => fail!("expected AnyID::Entity"),
+        }
+    }
+
+    fn fabricate(w: &mut World) -> EntityId {
+        ops::entity_create_unchecked(w)
+    }
+}
+
+impl ReadId for StructureId {
+    fn from_any_id(id: AnyId) -> Result<StructureId> {
+        match id {
+            AnyId::Structure(id) => Ok(id),
+            _ => fail!("expected AnyID::Structure"),
+        }
+    }
+
+    fn fabricate(w: &mut World) -> StructureId {
+        ops::structure_create_unchecked(w)
+    }
+}
+
+impl ReadId for InventoryId {
+    fn from_any_id(id: AnyId) -> Result<InventoryId> {
+        match id {
+            AnyId::Inventory(id) => Ok(id),
+            _ => fail!("expected AnyID::Inventory"),
+        }
+    }
+
+    fn fabricate(w: &mut World) -> InventoryId {
+        ops::inventory_create_unchecked(w)
+    }
+}
+
+
+#[derive(Copy, PartialEq, Eq, Show, Hash)]
+enum ObjKind {
+    Client,
+    TerrainChunk,
+    Entity,
+    Structure,
+    Inventory,
 }
 
 
@@ -116,12 +186,6 @@ impl<W: Writer> SaveWriter<W> {
             objects_written: HashSet::new(),
             seen_templates: HashSet::new(),
         }
-    }
-
-    fn take_id(&mut self) -> SaveId {
-        let id = self.next_id;
-        self.next_id += 1;
-        id
     }
 
     fn write_header(&mut self) -> Result<()> {
@@ -364,5 +428,345 @@ impl<W: Writer> SaveWriter<W> {
             fail!("reference to object not in tree");
         }
         Ok(())
+    }
+}
+
+
+pub struct SaveReader<R: Reader> {
+    reader: R,
+
+    id_map: HashMap<SaveId, AnyId>,
+    template_map: HashMap<TemplateId, TemplateId>,
+    created_objs: HashSet<AnyId>,
+    inited_objs: HashSet<AnyId>,
+}
+
+impl<R: Reader> SaveReader<R> {
+    pub fn new(reader: R) -> SaveReader<R> {
+        SaveReader {
+            reader: reader,
+            id_map: HashMap::new(),
+            template_map: HashMap::new(),
+            created_objs: HashSet::new(),
+            inited_objs: HashSet::new(),
+        }
+    }
+
+    fn read_header(&mut self) -> Result<()> {
+        let version = try!(self.reader.read_le_u32());
+        if version != CURRENT_VERSION {
+            fail!("file version does not match current version");
+        }
+        Ok(())
+    }
+
+    fn read_id_helper<T: ReadId>(&mut self, w: &mut World, save_id: SaveId) -> Result<T> {
+        use std::collections::hash_map::Entry::{Occupied, Vacant};
+        match self.id_map.entry(save_id) {
+            Occupied(e) => ReadId::from_any_id(*e.get()),
+            Vacant(e) => {
+                let id = <T as ReadId>::fabricate(w);
+                self.created_objs.insert(id.to_any_id());
+                e.insert(id.to_any_id());
+                Ok(id)
+            },
+        }
+    }
+
+    fn read_id<T: ReadId>(&mut self, w: &mut World) -> Result<T> {
+        let save_id = try!(self.reader.read_le_u32());
+        self.read_id_helper(w, save_id)
+    }
+
+    fn read_opt_id<T: ReadId>(&mut self, w: &mut World) -> Result<Option<T>> {
+        let save_id = try!(self.reader.read_le_u32());
+        if save_id == -1 as SaveId {
+            Ok(None)
+        } else {
+            let id = try!(self.read_id_helper(w, save_id));
+            Ok(Some(id))
+        }
+    }
+
+    fn read_object_header<T: ReadId>(&mut self, w: &mut World) -> Result<(T, StableId)> {
+        let id: T = try!(self.read_id(w));
+        let stable_id = try!(self.reader.read_le_u64());
+        self.inited_objs.insert(id.to_any_id());
+        Ok((id, stable_id))
+    }
+
+    fn read_count(&mut self) -> Result<usize> {
+        let count = try!(self.reader.read_le_u32());
+        Ok(unwrap!(count.to_uint()))
+    }
+
+    fn read_v2(&mut self) -> Result<V2> {
+        let x = try!(self.reader.read_le_i32());
+        let y = try!(self.reader.read_le_i32());
+        Ok(V2::new(x, y))
+    }
+
+    fn read_v3(&mut self) -> Result<V3> {
+        let x = try!(self.reader.read_le_i32());
+        let y = try!(self.reader.read_le_i32());
+        let z = try!(self.reader.read_le_i32());
+        Ok(V3::new(x, y, z))
+    }
+
+    fn read_str(&mut self, len: usize) -> Result<String> {
+        let padding = (4 - (len % 4)) % 4;
+        let mut vec = try!(self.reader.read_exact(len + padding));
+        vec.truncate(len);
+        match String::from_utf8(vec) {
+            Ok(s) => Ok(s),
+            Err(e) => fail!("utf8 encoding error"),
+        }
+    }
+
+    fn read_template_id(&mut self, data: &Data) -> Result<TemplateId> {
+        let old_id = try!(self.reader.read_le_u32());
+        match self.template_map.get(&old_id) {
+            Some(&new_id) => return Ok(new_id),
+            None => {},
+        }
+
+        // First time seeing this ID.  Read the definition.
+        let x = try!(self.reader.read_u8());
+        let y = try!(self.reader.read_u8());
+        let z = try!(self.reader.read_u8());
+        let size = V3::new(unwrap!(x.to_i32()),
+                           unwrap!(y.to_i32()),
+                           unwrap!(z.to_i32()));
+        let name_len = try!(self.reader.read_u8());
+        let name = try!(self.read_str(unwrap!(name_len.to_uint())));
+
+        let new_id = unwrap!(data.object_templates.find_id(&*name));
+        let template = data.object_templates.template(new_id);
+
+        if template.size != size {
+            fail!("template size does not match");
+        }
+
+        self.template_map.insert(old_id, new_id);
+        Ok(new_id)
+    }
+
+
+    fn read_client(&mut self, w: &mut World) -> Result<ClientId> {
+        let (cid, stable_id) = try!(self.read_object_header(w));
+
+        let pawn_id = try!(self.read_opt_id(w));
+
+        {
+            let c = &mut w.clients[cid];
+            c.stable_id = stable_id;
+
+            c.pawn = pawn_id;
+        }
+        // At this point all Client invariants hold, except that c.pawn is not yet attached to the
+        // client.
+
+        let child_entity_count = try!(self.read_count());
+        for _ in range(0, child_entity_count) {
+            let eid = try!(self.read_entity(w));
+            try!(ops::entity_attach(w, eid, EntityAttachment::Client(cid)));
+        }
+
+        let child_inventory_count = try!(self.read_count());
+        for _ in range(0, child_inventory_count) {
+            let iid = try!(self.read_inventory(w));
+            // TODO: implement inventory_attach
+            //try!(ops::inventory_attach(self.world, iid, InventoryAttachment::Client(cid)));
+        }
+
+        Ok(cid)
+    }
+
+    fn read_terrain_chunk(&mut self, w: &mut World) -> Result<V2> {
+        let save_id = try!(self.reader.read_le_u32());
+        let chunk_pos = try!(self.read_v2());
+        self.id_map.insert(save_id, AnyId::TerrainChunk(chunk_pos));
+
+        let mut blocks = [0; CHUNK_TOTAL];
+        {
+            let byte_len = blocks.len() * mem::size_of::<BlockId>();
+            let byte_array = unsafe {
+                mem::transmute(raw::Slice {
+                    data: blocks.as_ptr() as *const u8,
+                    len: byte_len,
+                })
+            };
+            try!(self.reader.read_at_least(CHUNK_TOTAL, byte_array));
+        }
+
+        let mut block_map = HashMap::new();
+        let block_id_count = try!(self.read_count());
+        let block_data = &w.data().block_data;
+        for _ in range(0, block_id_count) {
+            let old_id = try!(self.reader.read_le_u16());
+            let shape = try!(self.reader.read_u8());
+            let name_len = try!(self.reader.read_u8());
+            let name = try!(self.read_str(unwrap!(name_len.to_uint())));
+            let new_id = unwrap!(block_data.find_id(&*name));
+
+            if block_data.shape(new_id) as u8 != shape {
+                fail!("block shape does not match");
+            }
+
+            block_map.insert(old_id, new_id);
+        }
+
+        for ptr in blocks.iter_mut() {
+            let id = unwrap!(block_map.get(ptr));
+            *ptr = *id;
+        }
+
+        try!(ops::terrain_chunk_create(w, chunk_pos, blocks));
+
+        let child_structure_count = try!(self.read_count());
+        for _ in range(0, child_structure_count) {
+            try!(self.read_structure(w));
+        }
+
+        Ok(chunk_pos)
+    }
+
+    fn read_entity(&mut self, w: &mut World) -> Result<EntityId> {
+        let (eid, stable_id) = try!(self.read_object_header(w));
+
+        {
+            let e = &mut w.entities[eid];
+            e.stable_id = stable_id;
+
+            e.motion.start_pos = try!(self.read_v3());
+            e.motion.end_pos = try!(self.read_v3());
+            e.motion.start_time = try!(self.reader.read_le_i64());
+            e.motion.duration = try!(self.reader.read_le_u16());
+
+            e.anim = try!(self.reader.read_le_u16());
+            e.facing = try!(self.read_v3());
+            e.target_velocity = try!(self.read_v3());
+        }
+
+        let child_inventory_count = try!(self.read_count());
+        for _ in range(0, child_inventory_count) {
+            let iid = try!(self.read_inventory(w));
+            // TODO: implement inventory_attach
+            //try!(ops::inventory_attach(self.world, iid, InventoryAttachment::Entity(cid)));
+        }
+
+        Ok(eid)
+    }
+
+    fn read_structure(&mut self, w: &mut World) -> Result<StructureId> {
+        let (sid, stable_id) = try!(self.read_object_header(w));
+        let data = w.data();
+
+        {
+            let s = &mut w.structures[sid];
+            s.stable_id = stable_id;
+
+            s.pos = try!(self.read_v3());
+            s.template = try!(self.read_template_id(data));
+        }
+
+        try!(ops::structure_post_init(w, sid));
+
+        let child_inventory_count = try!(self.read_count());
+        for _ in range(0, child_inventory_count) {
+            let iid = try!(self.read_inventory(w));
+            // TODO: implement inventory_attach
+            //try!(ops::inventory_attach(self.world, iid, InventoryAttachment::Structure(cid)));
+        }
+
+        Ok(sid)
+    }
+
+    fn read_inventory(&mut self, w: &mut World) -> Result<InventoryId> {
+        let (iid, stable_id) = try!(self.read_object_header(w));
+
+        {
+            let i = &mut w.inventories[iid];
+            i.stable_id = stable_id;
+
+            let contents_count = try!(self.read_count());
+            for _ in range(0, contents_count) {
+                let count = try!(self.reader.read_u8());
+                let name_len = try!(self.reader.read_u8());
+                try!(self.reader.read_le_u16());
+                let name = try!(self.read_str(unwrap!(name_len.to_uint())));
+                i.contents.insert(name, count);
+            }
+        }
+
+        Ok(iid)
+    }
+
+    fn reset(&mut self) {
+        self.id_map.clear();
+        self.template_map.clear();
+        self.created_objs.clear();
+        self.inited_objs.clear();
+    }
+
+    fn load_wrapper<T, F>(&mut self, w: &mut World, f: F) -> Result<T>
+            where F: FnOnce(&mut SaveReader<R>, &mut World) -> Result<T> {
+        self.reset();
+        try!(self.read_header());
+        let result = f(self, w);
+        let result = result.and_then(|x| { try!(self.check_objs()); Ok(x) });
+
+        if result.is_err() {
+            self.cleanup(w);
+        }
+
+        self.reset();
+        result
+    }
+
+    pub fn load_client(&mut self, w: &mut World) -> Result<ClientId> {
+        self.load_wrapper(w, |self_, w| self_.read_client(w))
+    }
+
+    pub fn load_terrain_chunk(&mut self, w: &mut World) -> Result<V2> {
+        self.load_wrapper(w, |self_, w| self_.read_terrain_chunk(w))
+    }
+
+    fn check_objs(&mut self) -> Result<()> {
+        match self.created_objs.difference(&self.inited_objs).next() {
+            None => Ok(()),
+            Some(_) => fail!("object was referenced but not defined"),
+        }
+    }
+
+    fn cleanup(&mut self, w: &mut World) {
+        fn unwrap_warn<T, E: error::Error>(r: result::Result<T, E>) {
+            match r {
+                Ok(x) => {},
+                Err(e) => warn!("error occurred during cleanup: {}",
+                                error::Error::description(&e)),
+            }
+        }
+
+        for &aid in self.created_objs.iter() {
+            match aid {
+                AnyId::Client(cid) => {
+                    w.clients.remove(cid);
+                },
+                AnyId::TerrainChunk(pos) => {
+                    w.terrain_chunks.remove(&pos);
+                },
+                AnyId::Entity(eid) => {
+                    w.entities.remove(eid);
+                },
+                AnyId::Structure(sid) => {
+                    unwrap_warn(ops::structure_pre_fini(w, sid));
+                    w.structures.remove(sid);
+                },
+                AnyId::Inventory(iid) => {
+                    w.inventories.remove(iid);
+                },
+            }
+        }
     }
 }
