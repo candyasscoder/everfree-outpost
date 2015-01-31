@@ -120,12 +120,11 @@ pub fn terrain_chunk_create(w: &mut World,
 
 pub fn terrain_chunk_destroy(w: &mut World,
                              pos: V2) -> OpResult<()> {
-    let ok = w.terrain_chunks.remove(&pos).is_some();
-    if !ok {
-        fail!("no chunk exists with given position");
-    }
+    let t = unwrap!(w.terrain_chunks.remove(&pos));
 
-    // TODO: remove entities and structures that have Chunk attachment
+    for &sid in t.child_structures.iter() {
+        structure_destroy(w, sid).unwrap();
+    }
 
     Ok(())
 }
@@ -171,6 +170,9 @@ pub fn entity_destroy(w: &mut World,
         World => {},
         Chunk => {},
         Client(cid) => {
+            // The parent Client may not exist due to `x_destroy` operating top-down.
+            // (`client_destroy` destroys the Client first, then calls `entity_destroy` on each
+            // child entity.  In this situation, `cid` will not be found in `w.clients`.)
             if let Some(c) = w.clients.get_mut(cid) {
                 if c.pawn == Some(eid) {
                     // NB: keep this behavior in sync with client_clear_pawn
@@ -178,8 +180,6 @@ pub fn entity_destroy(w: &mut World,
                 }
                 c.child_entities.remove(&eid);
             }
-            // else, we are being called recursively from client_destroy, so there's no need to
-            // update the parent client.
         },
     }
 
@@ -309,7 +309,12 @@ pub fn structure_destroy(w: &mut World,
 
     match s.attachment {
         World => {},
-        Chunk => {},
+        Chunk => {
+            let chunk_pos = s.pos.reduce().div_floor(scalar(CHUNK_SIZE));
+            // Chunk may not be loaded, since destruction proceeds top-down.
+            w.terrain_chunks.get_mut(&chunk_pos)
+             .map(|t| t.child_structures.remove(&sid));
+        },
     }
 
     // TODO: clean up inventories
@@ -323,19 +328,42 @@ pub fn structure_attach(w: &mut World,
     use super::StructureAttachment::*;
 
     let s = unwrap!(w.structures.get_mut(sid));
+    let old_attach = s.attachment;
 
-    if new_attach == s.attachment {
+    if new_attach == old_attach {
         return Ok(new_attach);
     }
 
-    Ok(replace(&mut s.attachment, new_attach))
+    let chunk_pos = s.pos().reduce().div_floor(scalar(CHUNK_SIZE));
+
+    match new_attach {
+        World => {},
+        Chunk => {
+            let t = unwrap!(w.terrain_chunks.get_mut(&chunk_pos),
+                            "can't attach structure to unloaded chunk");
+            // No more checks beyond this point.
+            t.child_structures.insert(sid);
+        },
+    }
+
+    match old_attach {
+        World => {},
+        Chunk => {
+            // If we're detaching from Chunk, we know the containing chunk is loaded because `c` is
+            // loaded and has attachment Chunk.
+            w.terrain_chunks[chunk_pos].child_structures.remove(&sid);
+        },
+    }
+
+    s.attachment = new_attach;
+    Ok(old_attach)
 }
 
 pub fn structure_move(w: &mut World,
                       sid: StructureId,
                       new_pos: V3) -> OpResult<()> {
     let (old_bounds, new_bounds) = {
-        let s = unwrap!(w.structures.get(sid));
+        let s = unwrap!(w.structures.get_mut(sid));
         let t = unwrap!(w.data.object_templates.get_template(s.template));
 
         (Region::new(s.pos, s.pos + t.size),
@@ -345,7 +373,19 @@ pub fn structure_move(w: &mut World,
     structure_remove_from_lookup(&mut w.structures_by_chunk, sid, old_bounds);
 
     if structure_check_placement(w, new_bounds) {
-        w.structures[sid].pos = new_pos;
+        {
+            let s = &mut w.structures[sid];
+            if s.attachment == StructureAttachment::Chunk {
+                let old_chunk_pos = s.pos.reduce().div_floor(scalar(CHUNK_SIZE));
+                let new_chunk_pos = new_pos.reduce().div_floor(scalar(CHUNK_SIZE));
+                // The old chunk is loaded because `s` is loaded and has Chunk attachment.  The new
+                // chunk is loaded because structure_check_placement requires all chunks
+                // overlapping `new_bounds` to be loaded.
+                w.terrain_chunks[old_chunk_pos].child_structures.remove(&sid);
+                w.terrain_chunks[new_chunk_pos].child_structures.insert(sid);
+            }
+            s.pos = new_pos;
+        }
         structure_add_to_lookup(&mut w.structures_by_chunk, sid, new_bounds);
         invalidate_region(w, old_bounds);
         invalidate_region(w, new_bounds);
