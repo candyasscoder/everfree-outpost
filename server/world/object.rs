@@ -1,3 +1,4 @@
+use std::collections::hash_set;
 use std::mem::replace;
 use std::ops::{Deref, DerefMut};
 use std::ptr;
@@ -12,6 +13,8 @@ use types::*;
 use view::ViewState;
 use world::{World, Update};
 use world::{Client, TerrainChunk, Entity, Structure, Inventory};
+use world::{EntitiesById, StructuresById, InventoriesById};
+use world::{ChunkStructures};
 use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::Motion;
 use world::ops::{self, OpResult};
@@ -180,6 +183,22 @@ pub trait ClientRef<'d>: ObjectRefBase<'d, Client> {
     fn camera_pos(&self, now: Time) -> V2 {
         self.pawn().map_or(scalar(0), |p| p.pos(now).reduce())
     }
+
+    fn child_entities<'b>(&'b self)
+            -> EntitiesById<'b, 'd, hash_set::Iter<'b, EntityId>> {
+        EntitiesById {
+            world: self.world(),
+            iter: self.obj().child_entities.iter(),
+        }
+    }
+
+    fn child_inventories<'b>(&'b self)
+            -> InventoriesById<'b, 'd, hash_set::Iter<'b, InventoryId>> {
+        InventoriesById {
+            world: self.world(),
+            iter: self.obj().child_inventories.iter(),
+        }
+    }
 }
 impl<'a, 'd> ClientRef<'d> for ObjectRef<'a, 'd, Client> { }
 impl<'a, 'd> ClientRef<'d> for ObjectRefMut<'a, 'd, Client> { }
@@ -223,6 +242,12 @@ pub trait TerrainChunkRef<'d>: ObjectRefBase<'d, TerrainChunk> {
     fn shape_at(&self, pos: V3) -> Shape {
         self.shape(block_pos_to_idx(self, pos))
     }
+
+    // TODO: We need a function to find all the structures that are actually attached to a
+    // particular chunk (pos within bounds, and attachment == Chunk).  This will probably require
+    // refactoring TerrainChunk to give us somewhere to store a child_structures lookup table.
+    // Once the function is implemented, also clean up SaveWriter::write_terrain_chunk, which is
+    // currently doing the necessary filtering itself.
 }
 impl<'a, 'd> TerrainChunkRef<'d> for ObjectRef<'a, 'd, TerrainChunk> { }
 impl<'a, 'd> TerrainChunkRef<'d> for ObjectRefMut<'a, 'd, TerrainChunk> { }
@@ -237,6 +262,13 @@ fn block_pos_to_idx<'d, R: ?Sized+TerrainChunkRef<'d>>(self_: &R, pos: V3) -> us
 }
 
 pub trait EntityRef<'d>: ObjectRefBase<'d, Entity> {
+    fn child_inventories<'b>(&'b self)
+            -> InventoriesById<'b, 'd, hash_set::Iter<'b, InventoryId>> {
+        InventoriesById {
+            world: self.world(),
+            iter: self.obj().child_inventories.iter(),
+        }
+    }
 }
 impl<'a, 'd> EntityRef<'d> for ObjectRef<'a, 'd, Entity> { }
 impl<'a, 'd> EntityRef<'d> for ObjectRefMut<'a, 'd, Entity> { }
@@ -270,6 +302,14 @@ pub trait StructureRef<'d>: ObjectRefBase<'d, Structure> {
         let size = self.size();
         Region::new(pos, pos + size)
     }
+
+    fn child_inventories<'b>(&'b self)
+            -> InventoriesById<'b, 'd, hash_set::Iter<'b, InventoryId>> {
+        InventoriesById {
+            world: self.world(),
+            iter: self.obj().child_inventories.iter(),
+        }
+    }
 }
 impl<'a, 'd> StructureRef<'d> for ObjectRef<'a, 'd, Structure> { }
 impl<'a, 'd> StructureRef<'d> for ObjectRefMut<'a, 'd, Structure> { }
@@ -283,6 +323,11 @@ pub trait StructureRefMut<'d>: ObjectRefMutBase<'d, Structure> {
     fn set_template_id(&mut self, template: TemplateId) -> OpResult<()> {
         let sid = self.id();
         ops::structure_replace(self.world_mut(), sid, template)
+    }
+
+    fn set_attachment(&mut self, attach: StructureAttachment) -> OpResult<StructureAttachment> {
+        let sid = self.id();
+        ops::structure_attach(self.world_mut(), sid, attach)
     }
 }
 impl<'a, 'd> StructureRefMut<'d> for ObjectRefMut<'a, 'd, Structure> { }

@@ -251,6 +251,20 @@ pub fn structure_destroy(w: &mut World,
     Ok(())
 }
 
+pub fn structure_attach(w: &mut World,
+                        sid: StructureId,
+                        new_attach: StructureAttachment) -> OpResult<StructureAttachment> {
+    use super::StructureAttachment::*;
+
+    let s = unwrap!(w.structures.get_mut(sid));
+
+    if new_attach == s.attachment {
+        return Ok(new_attach);
+    }
+
+    Ok(replace(&mut s.attachment, new_attach))
+}
+
 pub fn structure_move(w: &mut World,
                       sid: StructureId,
                       new_pos: V3) -> OpResult<()> {

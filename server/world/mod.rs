@@ -32,6 +32,7 @@ macro_rules! check {
 pub mod object;
 mod ops;
 mod debug;
+pub mod save;
 
 
 #[derive(Copy, PartialEq, Eq, Show)]
@@ -339,6 +340,35 @@ object_iter!(Clients, Client, ClientId);
 object_iter!(Entities, Entity, EntityId);
 object_iter!(Structures, Structure, StructureId);
 object_iter!(Inevntories, Inventory, InventoryId);
+
+
+macro_rules! object_iter_by_id {
+    ($name:ident, $obj_ty:ty, $id_ty:ty) => {
+        pub struct $name<'a, 'd: 'a, I> {
+            world: &'a World<'d>,
+            iter: I,
+        }
+
+        impl<'a, 'd, 'b, I: Iterator<Item=&'b $id_ty>> Iterator for $name<'a, 'd, I> {
+            type Item = ObjectRef<'a, 'd, $obj_ty>;
+            fn next(&mut self) -> Option<ObjectRef<'a, 'd, $obj_ty>> {
+                let world = self.world;
+                self.iter.next().map(|&oid| {
+                    ObjectRef {
+                        world: world,
+                        id: oid,
+                        obj: <$obj_ty as Object>::get(world, oid).unwrap(),
+                    }
+                })
+            }
+        }
+    };
+}
+
+object_iter_by_id!(ClientsById, Client, ClientId);
+object_iter_by_id!(EntitiesById, Entity, EntityId);
+object_iter_by_id!(StructuresById, Structure, StructureId);
+object_iter_by_id!(InventoriesById, Inventory, InventoryId);
 
 
 impl Client {

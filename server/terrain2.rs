@@ -8,6 +8,7 @@ use data::Data;
 use types::*;
 use util::StrError;
 use world::{World, Update};
+use world::StructureAttachment;
 use world::object::*;
 
 pub struct TerrainCache {
@@ -158,7 +159,10 @@ fn retain_structures<F>(world: &mut World,
         Vacant(e) => {
             for (p, tid) in load_structures(pos).into_iter() {
                 // TODO: check that pos is valid for the chunk
-                world.create_structure(p, tid); //.unwrap();
+                match world.create_structure(p, tid) {
+                    Ok(mut s) => { s.set_attachment(StructureAttachment::Chunk).unwrap(); },
+                    Err(e) => {},
+                }
             }
             e.insert(1);
         },
