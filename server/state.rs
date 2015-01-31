@@ -21,6 +21,7 @@ use world;
 use world::object::{ObjectRefBase, ClientRef, ClientRefMut, EntityRefMut};
 use util::StrError;
 use storage::Storage;
+use world::save::{self, SaveReader, SaveWriter};
 
 use self::StateChange::ChunkUpdate;
 
@@ -179,26 +180,50 @@ impl<'a> State<'a> {
         self.mw.world_mut()
     }
 
-    pub fn add_client<'b>(&'b mut self,
-                          now: Time,
-                          name: &str,
-                          wire_id: WireId) -> world::object::ObjectRefMut<'b, 'a, world::Client> {
-        let pos = V3::new(170, 250, 0);
-        // TODO: hardcoded constant based on entity size
-        let offset = V3::new(16, 16, 0);
-
-        let pawn_id = self.world_mut().create_entity(pos - offset, 0).unwrap().id();
-
+    pub fn load_client<'b>(&'b mut self,
+                           now: Time,
+                           name: &str,
+                           wire_id: WireId)
+                           -> save::Result<world::object::ObjectRefMut<'b, 'a, world::Client>> {
         let chunk_offset = (self.rng.gen_range(0, 8),
                             self.rng.gen_range(0, 8));
 
-        let mut client = self.world_mut().create_client(name, wire_id, chunk_offset).unwrap();
-        client.set_pawn(now, Some(pawn_id)).unwrap();
-        client
+        if let Some(file) = self.storage.open_client_file(name) {
+            info!("loading client {} from file", name);
+            let mut sr = SaveReader::new(file);
+            let cid = try!(sr.load_client(self.mw.world_mut()));
+            let mut c = self.mw.world_mut().client_mut(cid);
+
+            // Fix up transient bits of state that shouldn't be preserved across save/load.
+            c.set_wire_id(wire_id);
+            c.set_current_input(InputBits::empty());
+            c.set_chunk_offset(chunk_offset);
+
+            Ok(c)
+        } else {
+            info!("initializing new client {}", name);
+            let pos = V3::new(170, 250, 0);
+            // TODO: hardcoded constant based on entity size
+            let offset = V3::new(16, 16, 0);
+
+            let pawn_id = self.world_mut().create_entity(pos - offset, 0).unwrap().id();
+
+            let mut client = self.world_mut().create_client(name, wire_id, chunk_offset).unwrap();
+            client.set_pawn(now, Some(pawn_id)).unwrap();
+            Ok(client)
+        }
     }
 
-    pub fn remove_client(&mut self, id: ClientId) {
-        self.world_mut().destroy_client(id).unwrap();
+    pub fn unload_client(&mut self, cid: ClientId) -> save::Result<()> {
+        {
+            let c = self.mw.world().client(cid);
+            let file = self.storage.create_client_file(c.name());
+            let mut sw = SaveWriter::new(file);
+            try!(sw.save_client(&c));
+        }
+
+        try!(self.world_mut().destroy_client(cid));
+        Ok(())
     }
 
     pub fn update_physics(&mut self, now: Time, eid: EntityId, force: bool) -> Result<bool, StrError> {

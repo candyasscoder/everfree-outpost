@@ -113,7 +113,7 @@ impl ReadId for InventoryId {
 
 
 #[derive(Show)]
-enum Error {
+pub enum Error {
     Io(io::IoError),
     Str(StrError),
 }
@@ -146,7 +146,7 @@ impl error::FromError<StrError> for Error {
     }
 }
 
-type Result<T> = result::Result<T, Error>;
+pub type Result<T> = result::Result<T, Error>;
 
 
 pub struct SaveWriter<W: Writer> {

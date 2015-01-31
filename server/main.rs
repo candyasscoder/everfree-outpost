@@ -171,7 +171,7 @@ impl<'a> Server<'a> {
                 log!(10, "login request for {}", name);
 
                 let (cid, eid) = {
-                    let client = self.state.add_client(now, &*name, wire_id);
+                    let client = self.state.load_client(now, &*name, wire_id).unwrap();
                     (client.id(), client.pawn_id())
                 };
                 self.wire_id_map.insert(wire_id, cid);
@@ -194,20 +194,12 @@ impl<'a> Server<'a> {
 
             Request::RemoveClient => {
                 if let Some(client_id) = self.wire_to_client(wire_id) {
-                    use std::io::fs::File;
-                    let file = File::create(&Path::new("save.client")).unwrap();
-                    let mut sw = world::save::SaveWriter::new(file);
-                    sw.save_client(&self.state.world().client(client_id)).unwrap();
-
-                    let region = {
-                        let client = self.state.world().client(client_id);
-                        client.view_state().region()
-                    };
+                    let region = self.state.world().client(client_id).view_state().region();
                     for (x,y) in region.points() {
                         self.state.unload_chunk(x, y);
                     }
 
-                    self.state.remove_client(client_id);
+                    self.state.unload_client(client_id);
                     self.wire_id_map.remove(&wire_id);
                 }
                 self.resps.send((wire_id, Response::ClientRemoved)).unwrap();

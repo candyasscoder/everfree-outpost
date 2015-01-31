@@ -385,6 +385,10 @@ impl Client {
         self.wire_id
     }
 
+    pub fn set_wire_id(&mut self, new: WireId) {
+        self.wire_id = new;
+    }
+
     pub fn pawn_id(&self) -> Option<EntityId> {
         self.pawn
     }
