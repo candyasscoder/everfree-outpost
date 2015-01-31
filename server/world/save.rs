@@ -308,12 +308,8 @@ impl<W: Writer> SaveWriter<W> {
         // Children
         // TODO: We have to do our own filtering here because ClientRef::child_structures is not
         // implemented.
-        let child_structures = t.world().chunk_structures(t.id())
-                                .filter(|s| t.bounds().contains(s.pos) &&
-                                            s.attachment == StructureAttachment::Chunk)
-                                .collect::<Vec<_>>();
-        try!(self.write_count(child_structures.len()));
-        for s in child_structures.into_iter() {
+        try!(self.write_count(t.child_structures.len()));
+        for s in t.child_structures() {
             try!(self.write_structure(&s));
         }
 
@@ -608,7 +604,8 @@ impl<R: Reader> SaveReader<R> {
 
         let child_structure_count = try!(self.read_count());
         for _ in range(0, child_structure_count) {
-            try!(self.read_structure(w));
+            let sid = try!(self.read_structure(w));
+            try!(ops::structure_attach(w, sid, StructureAttachment::Chunk));
         }
 
         Ok(chunk_pos)

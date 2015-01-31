@@ -243,11 +243,13 @@ pub trait TerrainChunkRef<'d>: ObjectRefBase<'d, TerrainChunk> {
         self.shape(block_pos_to_idx(self, pos))
     }
 
-    // TODO: We need a function to find all the structures that are actually attached to a
-    // particular chunk (pos within bounds, and attachment == Chunk).  This will probably require
-    // refactoring TerrainChunk to give us somewhere to store a child_structures lookup table.
-    // Once the function is implemented, also clean up SaveWriter::write_terrain_chunk, which is
-    // currently doing the necessary filtering itself.
+    fn child_structures<'b>(&'b self)
+            -> StructuresById<'b, 'd, hash_set::Iter<'b, StructureId>> {
+        StructuresById {
+            world: self.world(),
+            iter: self.obj().child_structures.iter(),
+        }
+    }
 }
 impl<'a, 'd> TerrainChunkRef<'d> for ObjectRef<'a, 'd, TerrainChunk> { }
 impl<'a, 'd> TerrainChunkRef<'d> for ObjectRefMut<'a, 'd, TerrainChunk> { }
