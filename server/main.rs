@@ -201,12 +201,19 @@ impl<'a> Server<'a> {
             },
 
             Request::RemoveClient => {
-                // TODO: need to unload chunks visible to this client
                 if let Some(client_id) = self.wire_to_client(wire_id) {
                     use std::io::fs::File;
                     let file = File::create(&Path::new("save.client")).unwrap();
                     let mut sw = world::save::SaveWriter::new(file);
                     sw.save_client(&self.state.world().client(client_id)).unwrap();
+
+                    let region = {
+                        let client = self.state.world().client(client_id);
+                        client.view_state().region()
+                    };
+                    for (x,y) in region.points() {
+                        self.state.unload_chunk(x, y);
+                    }
 
                     self.state.remove_client(client_id);
                     self.wire_id_map.remove(&wire_id);
