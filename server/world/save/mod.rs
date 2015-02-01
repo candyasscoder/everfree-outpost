@@ -1,0 +1,60 @@
+use physics::v3::V2;
+
+use types::*;
+
+pub use self::error::{Error, Result};
+pub use self::writer::Writer;
+pub use self::reader::Reader;
+pub use self::object_writer::ObjectWriter;
+pub use self::object_reader::ObjectReader;
+
+mod error;
+mod writer;
+mod reader;
+mod object_writer;
+mod object_reader;
+
+
+type SaveId = u32;
+
+#[derive(Copy, PartialEq, Eq, Show, Hash)]
+pub enum AnyId {
+    Client(ClientId),
+    TerrainChunk(V2),
+    Entity(EntityId),
+    Structure(StructureId),
+    Inventory(InventoryId),
+}
+
+
+trait ToAnyId {
+    fn to_any_id(self) -> AnyId;
+}
+
+impl ToAnyId for AnyId {
+    fn to_any_id(self) -> AnyId { self }
+}
+
+impl ToAnyId for ClientId {
+    fn to_any_id(self) -> AnyId { AnyId::Client(self) }
+}
+
+impl ToAnyId for EntityId {
+    fn to_any_id(self) -> AnyId { AnyId::Entity(self) }
+}
+
+impl ToAnyId for StructureId {
+    fn to_any_id(self) -> AnyId { AnyId::Structure(self) }
+}
+
+impl ToAnyId for InventoryId {
+    fn to_any_id(self) -> AnyId { AnyId::Inventory(self) }
+}
+
+
+const CURRENT_VERSION: u32 = 1;
+
+
+fn padding(len: usize) -> usize {
+    (4 - (len % 4)) % 4
+}
