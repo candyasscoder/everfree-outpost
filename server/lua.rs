@@ -1,3 +1,8 @@
+// rustc likes to complain about the name `L`, which is the standard name for a Lua context.
+#![allow(non_snake_case)]
+// rustc also complains about lua_SomeType typedefs.
+#![allow(non_camel_case_types)]
+
 use std::ffi::CString;
 use std::marker::{ContravariantLifetime, NoCopy};
 use std::mem;
@@ -8,10 +13,9 @@ use std::str;
 use libc;
 use libc::{c_void, c_int, c_char, size_t};
 
-use self::ffi::{lua_State, lua_Alloc, lua_CFunction, lua_Integer, lua_Reader};
+use self::ffi::{lua_State, lua_Integer};
 
 mod ffi {
-    #![allow(non_camel_case_types)]
     use libc::{c_void, c_int, c_char, size_t, ptrdiff_t};
 
     pub type lua_State = c_void;
@@ -110,7 +114,7 @@ impl Drop for OwnedLuaState {
 
 fn lua_alloc(_userdata: *mut c_void,
              ptr: *mut c_void,
-             old_size: size_t,
+             _old_size: size_t,
              new_size: size_t) -> *mut c_void {
     if new_size == 0 {
         unsafe { libc::free(ptr) };
@@ -211,7 +215,7 @@ pub struct LuaState<'a> {
 }
 
 unsafe fn _static_assertions() {
-    let x = mem::transmute::<*mut lua_State, LuaState>(mem::zeroed());
+    let _ = mem::transmute::<*mut lua_State, LuaState>(mem::zeroed());
 }
 
 impl<'a> LuaState<'a> {
@@ -271,8 +275,8 @@ impl<'a> LuaState<'a> {
     pub fn push_string(&mut self, s: &str) {
         let ptr = s.as_ptr() as *const c_char;
         let len = s.len() as size_t;
-        // Make sure the conversion to c_int didn't overflow or underflow.
-        assert!(len >= 0 && len as usize == s.len());
+        // Make sure the conversion to c_int didn't overflow.
+        assert!(len as usize == s.len());
         unsafe { ffi::lua_pushlstring(self.L, ptr, len) };
     }
 
@@ -287,7 +291,7 @@ impl<'a> LuaState<'a> {
     pub fn push_userdata<T: Copy>(&mut self, value: T) {
         let raw_size = mem::size_of::<T>();
         let size = raw_size as size_t;
-        assert!(size >= 0 && size as usize == raw_size);
+        assert!(size as usize == raw_size);
         let ptr = unsafe { ffi::lua_newuserdata(self.L, size) } as *mut T;
         unsafe { *ptr = value; }
     }
@@ -328,29 +332,25 @@ impl<'a> LuaState<'a> {
     }
 
     pub unsafe fn to_userdata<'b, T>(&'b self, index: c_int) -> Option<&'b T> {
-        unsafe {
-            let ptr = ffi::lua_touserdata(self.L, index);
-            if ptr.is_null() {
-                None
-            } else {
-                Some(mem::transmute(ptr))
-            }
+        let ptr = ffi::lua_touserdata(self.L, index);
+        if ptr.is_null() {
+            None
+        } else {
+            Some(mem::transmute(ptr))
         }
     }
 
     pub unsafe fn to_userdata_mut<'b, T>(&'b mut self, index: c_int) -> Option<&'b mut T> {
-        unsafe {
-            let ptr = ffi::lua_touserdata(self.L, index);
-            if ptr.is_null() {
-                None
-            } else {
-                Some(mem::transmute(ptr))
-            }
+        let ptr = ffi::lua_touserdata(self.L, index);
+        if ptr.is_null() {
+            None
+        } else {
+            Some(mem::transmute(ptr))
         }
     }
 
     pub unsafe fn to_userdata_raw<T>(&self, index: c_int) -> *mut T {
-        unsafe { ffi::lua_touserdata(self.L, index) as *mut T }
+        ffi::lua_touserdata(self.L, index) as *mut T
     }
 
     // Table manipulation

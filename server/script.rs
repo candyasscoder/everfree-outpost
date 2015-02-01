@@ -6,7 +6,6 @@ use libc::c_int;
 use physics::{TILE_SIZE, CHUNK_SIZE};
 use physics::v3::{Vn, V3, scalar};
 
-use state;
 use types::{Time, ClientId, EntityId, StructureId};
 use input::ActionBits;
 use util::StrResult;
@@ -111,7 +110,7 @@ impl ScriptEngine {
                          world: &mut world::World,
                          now: Time,
                          id: ClientId,
-                         action: ActionBits) {
+                         _action: ActionBits) {
         let ctx = RefCell::new(ScriptContext {
             world: world,
             now: now,
@@ -443,6 +442,7 @@ trait LuaReturnList {
     fn count() -> c_int;
 }
 
+#[allow(unused_variables)]
 impl LuaReturnList for () {
     fn pack(self, lua: &mut LuaState) { }
     fn count() -> c_int { 0 }
@@ -479,7 +479,7 @@ impl_lua_return_list!(5, A, B, C, D, E);
 impl LuaReturnList for StrResult<()> {
     fn pack(self, lua: &mut LuaState) {
         match self {
-            Ok(x) => {
+            Ok(()) => {
                 lua.push_bool(true);
                 lua.push_nil();
             },
@@ -660,6 +660,7 @@ macro_rules! funcs {
 }
 
 
+#[allow(unused_variables)]
 trait Userdata: TypeName+MetatableKey+Copy {
     fn populate_table(lua: &mut LuaState) { }
     fn populate_metatable(lua: &mut LuaState) { }

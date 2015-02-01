@@ -1,14 +1,13 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry::*;
 
-use physics::{CHUNK_SIZE, CHUNK_BITS};
-use physics::v3::{Vn, V3, V2, scalar, Region};
+use physics::CHUNK_BITS;
+use physics::v3::{Vn, V2, Region};
 
 use data::Data;
 use types::*;
 use util::StrError;
-use world::{World, Update};
-use world::StructureAttachment;
+use world::World;
 use world::object::*;
 
 pub struct TerrainCache {
@@ -125,7 +124,7 @@ impl<'d> ManagedWorld<'d> {
             for subpos in Region::around(pos, 1).points() {
                 self.retain_inner(subpos, &mut load);
             }
-            self.cache.update(&self.world, pos);
+            self.cache.update(&self.world, pos).unwrap();
         }
     }
 

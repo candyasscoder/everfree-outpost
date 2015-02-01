@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::io::{self, IoError, IoErrorKind, IoResult};
+use std::io::{self, IoErrorKind};
 use std::io::fs;
 use std::io::fs::File;
 

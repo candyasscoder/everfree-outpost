@@ -1,21 +1,16 @@
 use std::collections::hash_set;
-use std::mem::replace;
 use std::ops::{Deref, DerefMut};
-use std::ptr;
 
 use physics::CHUNK_SIZE;
 use physics::Shape;
 use physics::v3::{Vn, V3, V2, scalar, Region};
 
 use data::ObjectTemplate;
-use input::InputBits;
 use types::*;
-use view::ViewState;
 use world::{World, Update};
 use world::{Client, TerrainChunk, Entity, Structure, Inventory};
 use world::{EntitiesById, StructuresById, InventoriesById};
-use world::{ChunkStructures};
-use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
+use super::{EntityAttachment, StructureAttachment};
 use world::Motion;
 use world::ops::{self, OpResult};
 

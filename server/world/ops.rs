@@ -3,7 +3,7 @@ use std::collections::hash_map::Hasher;
 use std::hash::Hash;
 use std::mem::replace;
 
-use physics::{CHUNK_SIZE, CHUNK_BITS};
+use physics::CHUNK_SIZE;
 use physics::Shape;
 use physics::v3::{Vn, V3, V2, scalar, Region};
 
@@ -16,12 +16,15 @@ use view::ViewState;
 use super::{World, Update};
 use super::{Client, TerrainChunk, Entity, Structure, Inventory};
 use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
-use super::object::{ObjectRefBase, ObjectRefMutBase};
-use super::object::{ClientRef, ClientRefMut};
-use super::object::{TerrainChunkRef, TerrainChunkRefMut};
-use super::object::{EntityRef, EntityRefMut};
-use super::object::{StructureRef, StructureRefMut};
-//use super::object::{InventoryRef, InventoryRefMut};
+// Using a glob here causes name resolution errors.
+#[allow(unused_imports)]
+use super::object::{
+    ObjectRefBase, ObjectRefMutBase,
+    ClientRef, ClientRefMut,
+    TerrainChunkRef, TerrainChunkRefMut,
+    EntityRef, EntityRefMut,
+    StructureRef, StructureRefMut,
+};
 
 pub type OpResult<T> = Result<T, StrError>;
 
@@ -207,11 +210,11 @@ pub fn entity_attach(w: &mut World,
         Chunk => {
             fail!("EntityAttachment::Chunk is not yet supported");
             // TODO: check that e.motion is stationary
+            /*
             let chunk_id = e.pos(0).reduce().div_floor(scalar(CHUNK_SIZE));
             unwrap!(w.terrain_chunks.get(&chunk_id),
                     "can't attach entity to unloaded chunk");
-            // NB: TerrainChunks don't have explicit "child" sets.  We use the regular
-            // entities-by-position cache instead, and `e` should already be in that cache.
+            */
         },
         Client(cid) => {
             let c = unwrap!(w.clients.get_mut(cid),
@@ -245,8 +248,6 @@ pub fn structure_create(w: &mut World,
     if !structure_check_placement(w, bounds) {
         fail!("structure placement blocked by terrain or other structure");
     }
-
-    let chunk_pos = pos.reduce().div_floor(scalar(CHUNK_SIZE));
 
     let s = Structure {
         pos: pos,
@@ -488,7 +489,7 @@ fn multimap_remove<K, V>(map: &mut HashMap<K, HashSet<V>>, k: K, v: V)
               V: Hash<Hasher>+Eq {
     use std::collections::hash_map::Entry::*;
     match map.entry(k) {
-        Vacant(e) => panic!("bucket is already empty"),
+        Vacant(_) => panic!("bucket is already empty"),
         Occupied(mut e) => {
             e.get_mut().remove(&v);
             if e.get().is_empty() {

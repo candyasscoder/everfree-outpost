@@ -238,7 +238,7 @@ macro_rules! id_newtype_impl {
                     .map(|x| $name(x))
             }
 
-            #[size]
+            #[inline]
             fn size(_: Option<$name>) -> (usize, usize) { <$inner as ReadFrom>::size(None) }
         }
 

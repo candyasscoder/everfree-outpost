@@ -1,8 +1,5 @@
-use std::collections::HashMap;
-use std::collections::hash_map;
 use std::iter::range_inclusive;
 use std::rand::{Rng, SeedableRng, XorShiftRng};
-use std::u16;
 
 use physics;
 use physics::{Shape, ShapeSource};
@@ -10,7 +7,6 @@ use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE, TILE_BITS};
 use physics::v3::{V3, V2, Vn, scalar, Region};
 
 use types::*;
-use view::ViewState;
 use input::{InputBits, INPUT_LEFT, INPUT_RIGHT, INPUT_UP, INPUT_DOWN, INPUT_RUN};
 use input::ActionBits;
 use data::{Data, BlockData};

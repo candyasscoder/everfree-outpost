@@ -24,7 +24,7 @@ use std::sync::mpsc::{Sender, Receiver, channel};
 use std::thread::Thread;
 use serialize::json;
 
-use physics::v3::{Vn, V3, V2, scalar};
+use physics::v3::{Vn, V3, V2};
 
 use timer::WakeQueue;
 use msg::Motion as WireMotion;
@@ -199,7 +199,7 @@ impl<'a> Server<'a> {
                         self.state.unload_chunk(x, y);
                     }
 
-                    self.state.unload_client(client_id);
+                    self.state.unload_client(client_id).unwrap();
                     self.wire_id_map.remove(&wire_id);
                 }
                 self.resps.send((wire_id, Response::ClientRemoved)).unwrap();

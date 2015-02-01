@@ -1,5 +1,5 @@
 use super::World;
-use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
+use super::EntityAttachment;
 
 macro_rules! bad {
     ($ok:expr, $msg:expr) => { bad!($ok, $msg,) };

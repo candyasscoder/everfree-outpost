@@ -1,20 +1,19 @@
 use std::collections::{HashMap, HashSet};
 use std::error;
-use std::io::{self, IoResult};
+use std::io;
 use std::mem;
 use std::num::ToPrimitive;
 use std::raw;
 use std::result;
 
-use physics::v3::{Vn, V3, V2, scalar};
+use physics::v3::{Vn, V3, V2};
 
 use data::Data;
 use types::*;
 use util::IntrusiveStableId;
 use util::StrError;
 use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
-use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
-use world::Motion;
+use world::{EntityAttachment, StructureAttachment};
 use world::ops;
 use world::object::*;
 
@@ -246,7 +245,7 @@ impl<W: Writer> SaveWriter<W> {
             try!(self.writer.write_u8(unwrap!(template.size.y.to_u8())));
             try!(self.writer.write_u8(unwrap!(template.size.z.to_u8())));
             try!(self.writer.write_u8(unwrap!(template.name.len().to_u8())));
-            self.write_str_bytes(&*template.name);
+            try!(self.write_str_bytes(&*template.name));
         }
         Ok(())
     }
@@ -304,7 +303,7 @@ impl<W: Writer> SaveWriter<W> {
             try!(self.writer.write_le_u16(b));
             try!(self.writer.write_u8(shape as u8));
             try!(self.writer.write_u8(unwrap!(name.len().to_u8())));
-            self.write_str_bytes(name);
+            try!(self.write_str_bytes(name));
         }
 
         // Children
@@ -498,7 +497,7 @@ impl<R: Reader> SaveReader<R> {
         vec.truncate(len);
         match String::from_utf8(vec) {
             Ok(s) => Ok(s),
-            Err(e) => fail!("utf8 encoding error"),
+            Err(_) => fail!("utf8 encoding error"),
         }
     }
 
@@ -557,7 +556,7 @@ impl<R: Reader> SaveReader<R> {
 
         let child_inventory_count = try!(self.read_count());
         for _ in range(0, child_inventory_count) {
-            let iid = try!(self.read_inventory(w));
+            let _iid = try!(self.read_inventory(w));
             // TODO: implement inventory_attach
             //try!(ops::inventory_attach(self.world, iid, InventoryAttachment::Client(cid)));
         }
@@ -634,7 +633,7 @@ impl<R: Reader> SaveReader<R> {
 
         let child_inventory_count = try!(self.read_count());
         for _ in range(0, child_inventory_count) {
-            let iid = try!(self.read_inventory(w));
+            let _iid = try!(self.read_inventory(w));
             // TODO: implement inventory_attach
             //try!(ops::inventory_attach(self.world, iid, InventoryAttachment::Entity(cid)));
         }
@@ -658,7 +657,7 @@ impl<R: Reader> SaveReader<R> {
 
         let child_inventory_count = try!(self.read_count());
         for _ in range(0, child_inventory_count) {
-            let iid = try!(self.read_inventory(w));
+            let _iid = try!(self.read_inventory(w));
             // TODO: implement inventory_attach
             //try!(ops::inventory_attach(self.world, iid, InventoryAttachment::Structure(cid)));
         }
@@ -726,7 +725,7 @@ impl<R: Reader> SaveReader<R> {
     fn cleanup(&mut self, w: &mut World) {
         fn unwrap_warn<T, E: error::Error>(r: result::Result<T, E>) {
             match r {
-                Ok(x) => {},
+                Ok(_) => {},
                 Err(e) => warn!("error occurred during cleanup: {}",
                                 error::Error::description(&e)),
             }

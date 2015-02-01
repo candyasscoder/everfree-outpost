@@ -1,13 +1,12 @@
 use std::collections::{HashMap, HashSet, hash_set};
 use std::mem::replace;
 
-use physics::CHUNK_BITS;
 use physics::v3::{Vn, V2, V3, scalar};
 
 use data::Data;
 use input::InputBits;
 use types::*;
-use util::{StableIdMap, Stable, StableIdMapIter};
+use util::{StableIdMap, StableIdMapIter};
 use view::ViewState;
 
 use self::object::{Object, ObjectRef, ObjectRefMut};
@@ -182,6 +181,7 @@ macro_rules! lifecycle_methods {
      $create_method:ident ( $($arg_name:ident : $arg_ty:ty),* ) => $create_op:ident
         [$ref_id_name:ident -> $ref_id_expr:expr],
      $destroy_method:ident ( $id_name:ident : $id_ty:ty ) => $destroy_op:ident) => {
+        #[allow(unused_variables)]
         impl<'d> World<'d> {
             pub fn $create_method<'a>(&'a mut self
                                       $(, $arg_name: $arg_ty)*)
