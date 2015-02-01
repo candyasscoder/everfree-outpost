@@ -63,7 +63,55 @@ function outpost_ffi.types.Structure.metatable.__tostring(x)
     return 'Structure:' .. tostring(x:id())
 end
 
-outpost_ffi.callbacks.test = function(client)
+
+client_extra = {}
+entity_extra = {}
+structure_extra = {}
+
+function get_or_create(t, k)
+    local result = t[k]
+    if result == nil then
+        t[k] = {}
+        result = t[k]
+    end
+    return result
+end
+
+function outpost_ffi.types.Client.table.extra(self)
+    return get_or_create(client_extra, self:id())
+end
+
+function outpost_ffi.types.Entity.table.extra(self)
+    return get_or_create(entity_extra, self:id())
+end
+
+function outpost_ffi.types.Structure.table.extra(self)
+    return get_or_create(structure_extra, self:id())
+end
+
+--function outpost_ffi.types.Inventory.table.extra(self)
+--    return get_or_create(inventory_extra, self:id())
+--end
+
+
+function outpost_ffi.callbacks.client_destroyed(id)
+    client_extra[id] = nil
+end
+
+function outpost_ffi.callbacks.entity_destroyed(id)
+    entity_extra[id] = nil
+end
+
+function outpost_ffi.callbacks.structure_destroyed(id)
+    structure_extra[id] = nil
+end
+
+function outpost_ffi.callbacks.inventory_destroyed(id)
+    inventory_extra[id] = nil
+end
+
+
+function outpost_ffi.callbacks.test(client)
     local entity = client:pawn()
     local pos = entity:pos()
     local target = pos + V3.new(16, 16, 16) + entity:facing() * V3.new(32, 32, 32)
@@ -84,5 +132,9 @@ outpost_ffi.callbacks.test = function(client)
         print('hit a tree')
         ok, err = s:replace('stump')
         if not ok then print('failed to replace', err) end
+
+        local extra = client:extra()
+        extra.trees_kicked = (extra.trees_kicked or 0) + 1
+        print("kicked " .. extra.trees_kicked .. " trees")
     end
 end

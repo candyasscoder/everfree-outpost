@@ -7,7 +7,7 @@ use physics::v3::{Vn, V2, Region};
 use data::Data;
 use types::*;
 use util::StrError;
-use world::World;
+use world::{World, Update};
 use world::object::*;
 
 pub struct TerrainCache {
@@ -95,6 +95,22 @@ impl<'d> ManagedWorld<'d> {
 
     pub fn world_mut(&mut self) -> &mut World<'d> {
         &mut self.world
+    }
+
+    pub fn process_journal<F>(&mut self, mut f: F)
+            where F: FnMut(&mut World, Update) {
+        let cache = &mut self.cache;
+        self.world.process_journal(|w, u| {
+            match u {
+                Update::ChunkInvalidate(pos) => {
+                    // Ignore errors.  The chunk might have been invalidated and then removed, for
+                    // example.
+                    let _ = cache.update(w, pos);
+                },
+                _ => {},
+            }
+            f(w, u);
+        });
     }
 
     pub fn refresh_chunk(&mut self, chunk_pos: V2) {

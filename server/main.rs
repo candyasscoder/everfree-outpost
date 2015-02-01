@@ -210,6 +210,8 @@ impl<'a> Server<'a> {
                       wire_id, opcode.unwrap());
             },
         }
+
+        self.state.process_journal(|_, _| { });
     }
 
     fn handle_wake(&mut self,
@@ -252,7 +254,7 @@ impl<'a> Server<'a> {
             },
         }
 
-        drop(self.state.world_mut().take_journal());
+        self.state.process_journal(|_, _| { });
     }
 
     fn send(&self, client: &ObjectRef<world::Client>, resp: Response) {

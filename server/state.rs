@@ -263,18 +263,34 @@ impl<'a> State<'a> {
         self.script.test_callback(self.mw.world_mut(), now, id, action);
 
         let mut updates = Vec::new();
-        let journal = self.world_mut().take_journal();
-        for update in journal.into_iter() {
-            match update {
+        self.process_journal(|_, u| {
+            match u {
                 world::Update::ChunkInvalidate(pos) => {
-                    self.mw.refresh_chunk(pos);
                     updates.push(ChunkUpdate(pos.x, pos.y));
                 },
                 _ => {},
             }
-        }
-
+        });
         updates
+    }
+
+    pub fn process_journal<F>(&mut self, mut f: F)
+            where F: FnMut(&mut world::World, world::Update) {
+        let script = &mut self.script;
+        self.mw.process_journal(|w, u| {
+            match u {
+                world::Update::ClientDestroyed(id) =>
+                    script.callback_client_destroyed(id),
+                world::Update::EntityDestroyed(id) =>
+                    script.callback_entity_destroyed(id),
+                world::Update::StructureDestroyed(id) =>
+                    script.callback_structure_destroyed(id),
+                world::Update::InventoryDestroyed(id) =>
+                    script.callback_inventory_destroyed(id),
+                _ => {},
+            }
+            f(w, u);
+        });
     }
 
     pub fn load_chunk(&mut self, cx: i32, cy: i32) {

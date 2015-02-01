@@ -6,7 +6,7 @@ use libc::c_int;
 use physics::{TILE_SIZE, CHUNK_SIZE};
 use physics::v3::{Vn, V3, scalar};
 
-use types::{Time, ClientId, EntityId, StructureId};
+use types::*;
 use input::ActionBits;
 use util::StrResult;
 use world;
@@ -105,7 +105,6 @@ impl ScriptEngine {
         x
     }
 
-
     pub fn test_callback(&mut self,
                          world: &mut world::World,
                          now: Time,
@@ -121,6 +120,30 @@ impl ScriptEngine {
             c.push_onto(lua);
             lua.pcall(1, 0, 0).unwrap();
         });
+    }
+
+    pub fn callback_client_destroyed(&mut self, cid: ClientId) {
+        run_callback(&mut self.owned_lua.get(),
+                     "outpost_callback_client_destroyed",
+                     cid.unwrap());
+    }
+
+    pub fn callback_entity_destroyed(&mut self, eid: EntityId) {
+        run_callback(&mut self.owned_lua.get(),
+                     "outpost_callback_entity_destroyed",
+                     eid.unwrap());
+    }
+
+    pub fn callback_structure_destroyed(&mut self, sid: StructureId) {
+        run_callback(&mut self.owned_lua.get(),
+                     "outpost_callback_structure_destroyed",
+                     sid.unwrap());
+    }
+
+    pub fn callback_inventory_destroyed(&mut self, iid: InventoryId) {
+        run_callback(&mut self.owned_lua.get(),
+                     "outpost_callback_inventory_destroyed",
+                     iid.unwrap());
     }
 }
 
@@ -138,6 +161,12 @@ pub fn get_ctx_ref<'a>(lua: &mut LuaState) -> &'a RefCell<ScriptContext<'a, 'a>>
 
 pub fn get_ctx<'a>(lua: &mut LuaState) -> RefMut<'a, ScriptContext<'a, 'a>> {
     get_ctx_ref(lua).borrow_mut()
+}
+
+fn run_callback<A: LuaReturnList>(lua: &mut LuaState, key: &str, args: A) {
+    lua.get_field(REGISTRY_INDEX, key);
+    let arg_count = pack_count(lua, args);
+    lua.pcall(arg_count, 0, 0).unwrap();
 }
 
 fn build_ffi_lib(lua: &mut LuaState) {
@@ -424,8 +453,9 @@ macro_rules! impl_lua_return_int {
     };
 }
 
-impl_lua_return_int!(i32);
+impl_lua_return_int!(u16);
 impl_lua_return_int!(u32);
+impl_lua_return_int!(i32);
 
 impl<T: LuaReturn> LuaReturn for Option<T> {
     fn push_onto(self, lua: &mut LuaState) {

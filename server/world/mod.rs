@@ -121,6 +121,17 @@ pub struct World<'d> {
 }
 
 pub enum Update {
+    ClientCreated(ClientId),
+    ClientDestroyed(ClientId),
+    TerrainChunkCreated(V2),
+    TerrainChunkDestroyed(V2),
+    EntityCreated(EntityId),
+    EntityDestroyed(EntityId),
+    StructureCreated(StructureId),
+    StructureDestroyed(StructureId),
+    InventoryCreated(InventoryId),
+    InventoryDestroyed(InventoryId),
+
     ClientViewReset(ClientId),
     ChunkInvalidate(V2),
     EntityMotionChange(EntityId),
@@ -152,6 +163,20 @@ impl<'d> World<'d> {
 
     pub fn take_journal(&mut self) -> Vec<Update> {
         replace(&mut self.journal, Vec::new())
+    }
+
+    pub fn process_journal<F>(&mut self, mut f: F)
+            where F: FnMut(&mut World, Update) {
+        let mut journal = replace(&mut self.journal, Vec::new());
+        for update in journal.drain() {
+            f(self, update);
+        }
+        // Try to put back the original journal, to avoid an allocation.  But if the callback added
+        // journal entries, skip it - we've already allocated, and we don't want to lose the new
+        // entries.
+        if self.journal.len() == 0 {
+            self.journal = journal;
+        }
     }
 
     pub fn chunk_structures<'a>(&'a self, chunk_id: V2) -> ChunkStructures<'a, 'd> {

@@ -46,11 +46,13 @@ pub fn client_create(w: &mut World,
         child_inventories: HashSet::new(),
     };
 
-    Ok(w.clients.insert(c))
+    let cid = w.clients.insert(c);
+    w.record(Update::ClientCreated(cid));
+    Ok(cid)
 }
 
 pub fn client_create_unchecked(w: &mut World) -> ClientId {
-    w.clients.insert(Client {
+    let cid = w.clients.insert(Client {
         name: String::new(),
         wire_id: WireId(0),
         pawn: None,
@@ -61,7 +63,9 @@ pub fn client_create_unchecked(w: &mut World) -> ClientId {
         stable_id: NO_STABLE_ID,
         child_entities: HashSet::new(),
         child_inventories: HashSet::new(),
-    })
+    });
+    w.record(Update::ClientCreated(cid));
+    cid
 }
 
 pub fn client_destroy(w: &mut World,
@@ -75,6 +79,7 @@ pub fn client_destroy(w: &mut World,
 
     // TODO: clean up inventories
 
+    w.record(Update::ClientDestroyed(cid));
     Ok(())
 }
 
@@ -121,6 +126,7 @@ pub fn terrain_chunk_create(w: &mut World,
     };
 
     w.terrain_chunks.insert(pos, tc);
+    w.record(Update::TerrainChunkCreated(pos));
     Ok(())
 }
 
@@ -132,6 +138,7 @@ pub fn terrain_chunk_destroy(w: &mut World,
         structure_destroy(w, sid).unwrap();
     }
 
+    w.record(Update::TerrainChunkDestroyed(pos));
     Ok(())
 }
 
@@ -150,11 +157,13 @@ pub fn entity_create(w: &mut World,
         child_inventories: HashSet::new(),
     };
 
-    Ok(w.entities.insert(e))
+    let eid = w.entities.insert(e);
+    w.record(Update::EntityCreated(eid));
+    Ok(eid)
 }
 
 pub fn entity_create_unchecked(w: &mut World) -> EntityId {
-    w.entities.insert(Entity {
+    let eid = w.entities.insert(Entity {
         motion: super::Motion::stationary(scalar(0)),
         anim: 0,
         facing: scalar(0),
@@ -163,7 +172,9 @@ pub fn entity_create_unchecked(w: &mut World) -> EntityId {
         stable_id: NO_STABLE_ID,
         attachment: EntityAttachment::World,
         child_inventories: HashSet::new(),
-    })
+    });
+    w.record(Update::EntityCreated(eid));
+    eid
 }
 
 pub fn entity_destroy(w: &mut World,
@@ -191,6 +202,7 @@ pub fn entity_destroy(w: &mut World,
 
     // TODO: clean up inventories
 
+    w.record(Update::EntityDestroyed(eid));
     Ok(())
 }
 
@@ -261,18 +273,21 @@ pub fn structure_create(w: &mut World,
     let sid = w.structures.insert(s);
     structure_add_to_lookup(&mut w.structures_by_chunk, sid, bounds);
     invalidate_region(w, bounds);
+    w.record(Update::StructureCreated(sid));
     Ok(sid)
 }
 
 pub fn structure_create_unchecked(w: &mut World) -> StructureId {
-    w.structures.insert(Structure {
+    let sid = w.structures.insert(Structure {
         pos: scalar(0),
         template: 0,
 
         stable_id: NO_STABLE_ID,
         attachment: StructureAttachment::World,
         child_inventories: HashSet::new(),
-    })
+    });
+    w.record(Update::StructureCreated(sid));
+    sid
 }
 
 pub fn structure_post_init(w: &mut World, sid: StructureId) -> OpResult<()> {
@@ -323,6 +338,7 @@ pub fn structure_destroy(w: &mut World,
 
     // TODO: clean up inventories
 
+    w.record(Update::StructureDestroyed(sid));
     Ok(())
 }
 
@@ -507,12 +523,15 @@ fn invalidate_region(w: &mut World,
     }
 }
 
+
 pub fn inventory_create_unchecked(w: &mut World) -> InventoryId {
-    w.inventories.insert(Inventory {
+    let iid = w.inventories.insert(Inventory {
         contents: HashMap::new(),
 
         stable_id: NO_STABLE_ID,
         attachment: InventoryAttachment::World,
-    })
+    });
+    w.record(Update::InventoryCreated(iid));
+    iid
 }
 
