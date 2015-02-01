@@ -59,8 +59,8 @@ impl Storage {
     pub fn terrain_chunk_path(&self, pos: V2) -> Path {
         let name = format!("{},{}", pos.x, pos.y);
         let mut path = self.base.clone();
-        path.push_many(&[SAVE_DIR, CLIENT_DIR, &*name]);
-        path.set_extension("client");
+        path.push_many(&[SAVE_DIR, TERRAIN_CHUNK_DIR, &*name]);
+        path.set_extension("terrain_chunk");
         path
     }
 
