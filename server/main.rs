@@ -343,11 +343,6 @@ impl<'a> Server<'a> {
 
         if let Some((old_region, new_region)) = result {
             for (x,y) in old_region.points().filter(|&(x,y)| !new_region.contains(x,y)) {
-                use std::io::fs::File;
-                let file = File::create(&Path::new(&*format!("{},{}.chunk", x, y))).unwrap();
-                let mut sw = world::save::SaveWriter::new(file);
-                sw.save_terrain_chunk(&self.state.world().terrain_chunk(V2::new(x, y))).unwrap();
-
                 self.state.unload_chunk(x, y);
                 let idx = chunk_to_idx(x, y, offset);
                 self.send_wire(wire_id, Response::UnloadChunk(idx as u16));

@@ -18,7 +18,7 @@ use gen::TerrainGenerator;
 use script::ScriptEngine;
 use terrain2;
 use world;
-use world::object::{ObjectRefBase, ClientRef, ClientRefMut, EntityRefMut};
+use world::object::*;
 use util::StrError;
 use storage::Storage;
 use world::save::{self, SaveReader, SaveWriter};
@@ -282,27 +282,48 @@ impl<'a> State<'a> {
     }
 
     pub fn load_chunk(&mut self, cx: i32, cy: i32) {
+        let storage = &self.storage;
         let gen = &mut self.terrain_gen;
         let block_data = &self.data.block_data;
         let template_data = &self.data.object_templates;
-        self.mw.retain(V2::new(cx, cy),
-            |c| { Box::new(gen.generate_chunk(block_data, c.x, c.y).0) },
-            |c| {
-                let base = V3::new(c.x * CHUNK_SIZE,
-                                   c.y * CHUNK_SIZE,
-                                   0);
+        self.mw.retain(V2::new(cx, cy), |w, pos| {
+            if let Some(file) = storage.open_terrain_chunk_file(pos) {
+                info!("loading chunk {:?} from file", pos);
+                let mut sr = SaveReader::new(file);
+                sr.load_terrain_chunk(w).unwrap();
+            } else {
+                info!("generating new chunk {:?}", pos);
+                let (blocks, points) = gen.generate_chunk(block_data, pos.x, pos.y);
+                w.create_terrain_chunk(pos, Box::new(blocks)).unwrap();
+
+                let base = pos.extend(0) * scalar(CHUNK_SIZE);
                 let bounds = Region::new(base, base + scalar(CHUNK_SIZE));
-                let points = gen.generate_chunk(block_data, c.x, c.y).1;
-                let id = template_data.get_id("tree");
-                points.into_iter()
-                      .filter(|&p| bounds.contains(p))
-                      .map(|p| (p, id))
-                      .collect()
-            });
+                let template_id = template_data.get_id("tree");
+                for pos in points.into_iter() .filter(|&p| bounds.contains(p)) {
+                    // TODO: need a special entry point to create a structure bypassing overlap
+                    // checks
+                    let mut s = match w.create_structure(pos, template_id) {
+                        Ok(s) => s,
+                        Err(_) => continue,
+                    };
+                    s.set_attachment(world::StructureAttachment::Chunk).unwrap();
+                }
+            }
+        });
     }
 
     pub fn unload_chunk(&mut self, cx: i32, cy: i32) {
-        self.mw.release(V2::new(cx, cy));
+        let storage = &self.storage;
+        self.mw.release(V2::new(cx, cy), |w, pos| {
+            {
+                let t = w.terrain_chunk(pos);
+                let file = storage.create_terrain_chunk_file(pos);
+                let mut sw = SaveWriter::new(file);
+                sw.save_terrain_chunk(&t).unwrap();
+            }
+
+            w.destroy_terrain_chunk(pos).unwrap();
+        });
     }
 }
 

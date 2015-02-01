@@ -70,8 +70,13 @@ pub struct ManagedWorld<'d> {
     world: World<'d>,
     cache: TerrainCache,
 
-    ref_count: HashMap<V2, usize>,
-    structure_ref_count: HashMap<V2, usize>,
+    // Keep two separate refcounts for each chunk.  We do this to deal with the fact that building
+    // the cached terrain for a chunk requires access not only to that chunk but also to its three
+    // neighbors to the north and west.  `ref_count > 0` means the chunk is loaded for some reason.
+    // `user_ref_count > 0` means the chunk is loaded because some external user wants the cached
+    // terrain to be availaible (so the chunk and its three neighbors must all be loaded).
+    ref_count: HashMap<V2, u32>,
+    user_ref_count: HashMap<V2, u32>,
 }
 
 impl<'d> ManagedWorld<'d> {
@@ -81,7 +86,7 @@ impl<'d> ManagedWorld<'d> {
             cache: TerrainCache::new(),
 
             ref_count: HashMap::new(),
-            structure_ref_count: HashMap::new(),
+            user_ref_count: HashMap::new(),
         }
     }
 
@@ -101,97 +106,92 @@ impl<'d> ManagedWorld<'d> {
         self.cache.get(chunk_pos)
     }
 
-    pub fn retain<F1, F2>(&mut self,
-                          pos: V2,
-                          mut load_terrain: F1,
-                          mut load_objects: F2)
-            where F1: FnMut(V2) -> Box<BlockChunk>,
-                  F2: FnMut(V2) -> Vec<(V3, TemplateId)> {
-        match self.ref_count.entry(pos) {
+    pub fn retain<F>(&mut self,
+                     pos: V2,
+                     mut load: F)
+            where F: FnMut(&mut World, V2) {
+        let first = match self.user_ref_count.entry(pos) {
             Vacant(e) => {
-                self.world.create_terrain_chunk(pos, load_terrain(pos)).unwrap();
                 e.insert(1);
-
-                for subpos in Region::around(pos, 1).points() {
-                    retain_structures(&mut self.world,
-                                      &mut self.structure_ref_count,
-                                      subpos,
-                                      |x| load_objects(x));
-                }
-
-                self.cache.update(&self.world, pos);
+                true
             },
             Occupied(e) => {
                 *e.into_mut() += 1;
+                false
             },
+        };
+
+        if first {
+            for subpos in Region::around(pos, 1).points() {
+                self.retain_inner(subpos, &mut load);
+            }
+            self.cache.update(&self.world, pos);
         }
     }
 
-    pub fn release(&mut self,
-                   pos: V2) {
-        if let Occupied(mut e) = self.ref_count.entry(pos) {
+    pub fn release<F>(&mut self,
+                      pos: V2,
+                      mut unload: F)
+            where F: FnMut(&mut World, V2) {
+        let last = if let Occupied(mut e) = self.user_ref_count.entry(pos) {
             *e.get_mut() -= 1;
-
             if *e.get() == 0 {
-                self.cache.forget(pos);
-
-                for subpos in Region::around(pos, 1).points() {
-                    release_structures(&mut self.world,
-                                       &mut self.structure_ref_count,
-                                       subpos);
-                }
-
                 e.remove();
-                self.world.destroy_terrain_chunk(pos).unwrap();
+                true
+            } else {
+                false
             }
         } else {
-            panic!("tried to release non-loaded chunk {:?}", pos);
+            panic!("tried to release chunk {:?}, but its user_ref_count is already zero", pos);
+        };
+
+        if last {
+            for subpos in Region::around(pos, 1).points() {
+                self.release_inner(subpos, &mut unload);
+            }
+            self.cache.forget(pos);
         }
     }
-}
 
-fn retain_structures<F>(world: &mut World,
-                        structure_ref_count: &mut HashMap<V2, usize>,
-                        pos: V2,
-                        mut load_structures: F)
-        where F: FnMut(V2) -> Vec<(V3, TemplateId)> {
-    match structure_ref_count.entry(pos) {
-        Vacant(e) => {
-            for (p, tid) in load_structures(pos).into_iter() {
-                // TODO: check that pos is valid for the chunk
-                match world.create_structure(p, tid) {
-                    Ok(mut s) => { s.set_attachment(StructureAttachment::Chunk).unwrap(); },
-                    Err(e) => {},
-                }
+    pub fn retain_inner<F>(&mut self,
+                           pos: V2,
+                           load: &mut F)
+            where F: FnMut(&mut World, V2) {
+        let first = match self.ref_count.entry(pos) {
+            Vacant(e) => {
+                e.insert(1);
+                true
+            },
+            Occupied(e) => {
+                *e.into_mut() += 1;
+                false
             }
-            e.insert(1);
-        },
-        Occupied(e) => {
-            *e.into_mut() += 1;
-        },
-    }
-}
+        };
 
-fn release_structures(world: &mut World,
-                      structure_ref_count: &mut HashMap<V2, usize>,
-                      pos: V2) {
-    if let Occupied(mut e) = structure_ref_count.entry(pos) {
-        *e.get_mut() -= 1;
-
-        if *e.get() == 0 {
-            let base = pos.extend(0) * scalar(CHUNK_SIZE);
-            let bounds = Region::new(base, base + scalar(CHUNK_SIZE));
-            let sids = world.chunk_structures(pos)
-                            .filter(|s| bounds.contains(s.pos()))
-                            .map(|s| s.id())
-                            .collect::<Vec<_>>();
-            for sid in sids.into_iter() {
-                world.destroy_structure(sid).unwrap();
-            }
-
-            e.remove();
+        if first {
+            (*load)(&mut self.world, pos);
+            assert!(self.world.get_terrain_chunk(pos).is_some());
         }
-    } else {
-        panic!("tried to release non-loaded structs {:?}", pos);
+    }
+
+    pub fn release_inner<F>(&mut self,
+                            pos: V2,
+                            unload: &mut F)
+            where F: FnMut(&mut World, V2) {
+        let last = if let Occupied(mut e) = self.ref_count.entry(pos) {
+            *e.get_mut() -= 1;
+            if *e.get() == 0 {
+                e.remove();
+                true
+            } else {
+                false
+            }
+        } else {
+            panic!("tried to release chunk {:?}, but its ref_count is already zero", pos);
+        };
+
+        if last {
+            (*unload)(&mut self.world, pos);
+        }
     }
 }
