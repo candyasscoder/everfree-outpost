@@ -117,6 +117,7 @@ fn sanitize(s: &str) -> Cow<String, str> {
     if last == 0 {
         Cow::Borrowed(s)
     } else {
+        buf.push_str(s.slice_from(last));
         Cow::Owned(buf)
     }
 }
