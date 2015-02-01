@@ -202,14 +202,14 @@ Connection.prototype.sendInput = function(time, input) {
 
 Connection.prototype.sendLogin = function(secret, name) {
     var name_utf8 = unescape(encodeURIComponent(name));
-    var buf = new DataView(new ArrayBuffer(2 + 32 + name_utf8.length));
+    var buf = new DataView(new ArrayBuffer(2 + 16 + name_utf8.length));
 
     buf.setUint16(0, OP_LOGIN, true);
     for (var i = 0; i < 4; ++i) {
         buf.setInt32(2 + i * 4, secret[i], true);
     }
     for (var i = 0; i < name_utf8.length; ++i) {
-        buf.setUint8(2 + 32 + i, name_utf8.charCodeAt(i));
+        buf.setUint8(2 + 16 + i, name_utf8.charCodeAt(i));
     }
 
     this.socket.send(buf);
