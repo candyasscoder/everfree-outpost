@@ -16,16 +16,37 @@ use super::writer::{Writer, WriterWrapper};
 use super::CURRENT_VERSION;
 
 
-pub struct ObjectWriter<W: io::Writer> {
+pub struct ObjectWriter<W: io::Writer, H: WriteHooks> {
     w: WriterWrapper<W>,
+    hooks: H,
     objects_written: HashSet<AnyId>,
     seen_templates: HashSet<TemplateId>,
 }
 
-impl<W: io::Writer> ObjectWriter<W> {
-    pub fn new(writer: W) -> ObjectWriter<W> {
+#[allow(unused_variables)]
+pub trait WriteHooks {
+    fn post_write_client<W: Writer>(&mut self,
+                                    writer: &mut W,
+                                    c: &ObjectRef<Client>) -> Result<()> { Ok(()) }
+    fn post_write_terrain_chunk<W: Writer>(&mut self,
+                                           writer: &mut W,
+                                           t: &ObjectRef<TerrainChunk>) -> Result<()> { Ok(()) }
+    fn post_write_entity<W: Writer>(&mut self,
+                                    writer: &mut W,
+                                    e: &ObjectRef<Entity>) -> Result<()> { Ok(()) }
+    fn post_write_structure<W: Writer>(&mut self,
+                                       writer: &mut W,
+                                       s: &ObjectRef<Structure>) -> Result<()> { Ok(()) }
+    fn post_write_inventory<W: Writer>(&mut self,
+                                       writer: &mut W,
+                                       i: &ObjectRef<Inventory>) -> Result<()> { Ok(()) }
+}
+
+impl<W: io::Writer, H: WriteHooks> ObjectWriter<W, H> {
+    pub fn new(writer: W, hooks: H) -> ObjectWriter<W, H> {
         ObjectWriter {
             w: WriterWrapper::new(writer),
+            hooks: hooks,
             objects_written: HashSet::new(),
             seen_templates: HashSet::new(),
         }
@@ -68,6 +89,8 @@ impl<W: io::Writer> ObjectWriter<W> {
         // Body
         try!(self.w.write_opt_id(c.pawn));
         try!(self.w.write_str(c.name()));
+
+        try!(self.hooks.post_write_client(&mut self.w, c));
 
         // Children
         try!(self.w.write_count(c.child_entities.len()));
@@ -115,6 +138,8 @@ impl<W: io::Writer> ObjectWriter<W> {
             try!(self.w.write_str_bytes(name));
         }
 
+        try!(self.hooks.post_write_terrain_chunk(&mut self.w, t));
+
         // Children
         try!(self.w.write_count(t.child_structures.len()));
         for s in t.child_structures() {
@@ -136,6 +161,8 @@ impl<W: io::Writer> ObjectWriter<W> {
                            e.facing,
                            e.target_velocity)));
 
+        try!(self.hooks.post_write_entity(&mut self.w, e));
+
         // Children
         try!(self.w.write_count(e.child_inventories.len()));
         for i in e.child_inventories() {
@@ -151,6 +178,8 @@ impl<W: io::Writer> ObjectWriter<W> {
         // Body
         try!(self.w.write(s.pos));
         try!(self.write_template_id(s.world().data(), s.template));
+
+        try!(self.hooks.post_write_structure(&mut self.w, s));
 
         // Children
         try!(self.w.write_count(s.child_inventories.len()));
@@ -172,11 +201,13 @@ impl<W: io::Writer> ObjectWriter<W> {
             try!(self.w.write_str_bytes(&**name));
         }
 
+        try!(self.hooks.post_write_inventory(&mut self.w, i));
+
         Ok(())
     }
 
     fn save_object<F>(&mut self, f: F) -> Result<()>
-            where F: FnOnce(&mut ObjectWriter<W>) -> Result<()> {
+            where F: FnOnce(&mut ObjectWriter<W, H>) -> Result<()> {
         try!(self.write_file_header());
         try!(f(self));
         try!(self.handle_missing());
@@ -202,3 +233,8 @@ impl<W: io::Writer> ObjectWriter<W> {
         Ok(())
     }
 }
+
+
+pub struct NoWriteHooks;
+
+impl WriteHooks for NoWriteHooks { }

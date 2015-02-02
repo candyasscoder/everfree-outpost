@@ -17,7 +17,7 @@ use world;
 use world::object::*;
 use util::StrError;
 use storage::Storage;
-use world::save::{self, ObjectReader, ObjectWriter};
+use world::save::{self, ObjectReader, ObjectWriter, NoReadHooks, NoWriteHooks};
 
 use self::StateChange::ChunkUpdate;
 
@@ -186,7 +186,7 @@ impl<'a> State<'a> {
 
         if let Some(file) = self.storage.open_client_file(name) {
             info!("loading client {} from file", name);
-            let mut sr = ObjectReader::new(file);
+            let mut sr = ObjectReader::new(file, NoReadHooks);
             let cid = try!(sr.load_client(self.mw.world_mut()));
             let mut c = self.mw.world_mut().client_mut(cid);
 
@@ -214,7 +214,7 @@ impl<'a> State<'a> {
         {
             let c = self.mw.world().client(cid);
             let file = self.storage.create_client_file(c.name());
-            let mut sw = ObjectWriter::new(file);
+            let mut sw = ObjectWriter::new(file, NoWriteHooks);
             try!(sw.save_client(&c));
         }
 
@@ -301,7 +301,7 @@ impl<'a> State<'a> {
         self.mw.retain(V2::new(cx, cy), |w, pos| {
             if let Some(file) = storage.open_terrain_chunk_file(pos) {
                 info!("loading chunk {:?} from file", pos);
-                let mut sr = ObjectReader::new(file);
+                let mut sr = ObjectReader::new(file, NoReadHooks);
                 sr.load_terrain_chunk(w).unwrap();
             } else {
                 info!("generating new chunk {:?}", pos);
@@ -330,7 +330,7 @@ impl<'a> State<'a> {
             {
                 let t = w.terrain_chunk(pos);
                 let file = storage.create_terrain_chunk_file(pos);
-                let mut sw = ObjectWriter::new(file);
+                let mut sw = ObjectWriter::new(file, NoWriteHooks);
                 sw.save_terrain_chunk(&t).unwrap();
             }
 

@@ -5,8 +5,8 @@ use types::*;
 pub use self::error::{Error, Result};
 pub use self::writer::Writer;
 pub use self::reader::Reader;
-pub use self::object_writer::ObjectWriter;
-pub use self::object_reader::ObjectReader;
+pub use self::object_writer::{ObjectWriter, WriteHooks, NoWriteHooks};
+pub use self::object_reader::{ObjectReader, ReadHooks, NoReadHooks};
 
 mod error;
 mod writer;
