@@ -13,16 +13,17 @@ use std::str;
 use libc;
 use libc::{c_void, c_int, c_char, size_t};
 
-use self::ffi::{lua_State, lua_Integer};
+use self::ffi::{lua_State, lua_Integer, lua_Number};
 
 mod ffi {
-    use libc::{c_void, c_int, c_char, size_t, ptrdiff_t};
+    use libc::{c_void, c_int, c_char, size_t, ptrdiff_t, c_double};
 
     pub type lua_State = c_void;
 
     pub type lua_Alloc = fn(*mut c_void, *mut c_void, size_t, size_t) -> *mut c_void;
     pub type lua_CFunction = fn(*mut lua_State) -> c_int;
     pub type lua_Integer = ptrdiff_t;
+    pub type lua_Number = c_double;
     pub type lua_Reader = fn(*mut lua_State, data: *mut c_void, size: *mut size_t) -> *const c_char;
 
     #[link(name = "lua5.1")]
@@ -44,11 +45,14 @@ mod ffi {
         pub fn lua_pushcclosure(L: *mut lua_State, f: lua_CFunction, n: c_int);
         pub fn lua_pushinteger(L: *mut lua_State, i: lua_Integer);
         pub fn lua_pushnil(L: *mut lua_State);
+        pub fn lua_pushnumber(L: *mut lua_State, n: lua_Number);
         pub fn lua_pushlightuserdata(L: *mut lua_State, p: *mut c_void);
         pub fn lua_pushlstring(L: *mut lua_State, s: *const c_char, len: size_t);
 
+        pub fn lua_toboolean(L: *mut lua_State, index: c_int) -> c_int;
         pub fn lua_tointeger(L: *mut lua_State, index: c_int) -> lua_Integer;
         pub fn lua_tolstring(L: *mut lua_State, index: c_int, len: *mut size_t) -> *const c_char;
+        pub fn lua_tonumber(L: *mut lua_State, index: c_int) -> lua_Number;
         pub fn lua_topointer(L: *mut lua_State, index: c_int) -> *mut c_void;
         pub fn lua_touserdata(L: *mut lua_State, index: c_int) -> *mut c_void;
 
@@ -64,6 +68,7 @@ mod ffi {
         pub fn lua_rawset(L: *mut lua_State, index: c_int);
         pub fn lua_rawgeti(L: *mut lua_State, index: c_int, n: c_int);
         pub fn lua_rawseti(L: *mut lua_State, index: c_int, n: c_int);
+        pub fn lua_next(L: *mut lua_State, index: c_int) -> c_int;
 
         pub fn lua_getmetatable(L: *mut lua_State, index: c_int);
         pub fn lua_setmetatable(L: *mut lua_State, index: c_int);
@@ -245,13 +250,21 @@ impl<'a> LuaState<'a> {
         unsafe { ffi::lua_settop(self.L, -count - 1) };
     }
 
-    pub fn top_index(&mut self) -> c_int {
+    pub fn top_index(&self) -> c_int {
         unsafe { ffi::lua_gettop(self.L) }
+    }
+
+    pub fn abs_index(&self, index: c_int) -> c_int {
+        if index > 0 || index <= REGISTRY_INDEX {
+            index
+        } else {
+            self.top_index() + 1 + index
+        }
     }
 
     // Pushing values onto the stack
 
-    pub fn push_bool(&mut self, b: bool) {
+    pub fn push_boolean(&mut self, b: bool) {
         unsafe { ffi::lua_pushboolean(self.L, b as c_int) };
     }
 
@@ -261,6 +274,10 @@ impl<'a> LuaState<'a> {
 
     pub fn push_nil(&mut self) {
         unsafe { ffi::lua_pushnil(self.L) };
+    }
+
+    pub fn push_number(&mut self, n: f64) {
+        unsafe { ffi::lua_pushnumber(self.L, n as lua_Number) };
     }
 
     pub fn push_light_userdata<T>(&mut self, ptr: *mut T) {
@@ -298,6 +315,10 @@ impl<'a> LuaState<'a> {
 
     // Reading values from the stack
 
+    pub fn to_boolean(&self, index: c_int) -> bool {
+        unsafe { ffi::lua_toboolean(self.L, index) != 0 }
+    }
+
     pub fn to_bytes<'b>(&'b self, index: c_int) -> Option<&'b [u8]> {
         // lua_tolstring will convert numbers to strings.  We want to avoid that so this function
         // can be &self (instead of &mut self).  Thus, we need to check the type before operating.
@@ -318,6 +339,10 @@ impl<'a> LuaState<'a> {
 
     pub fn to_integer(&self, index: c_int) -> isize {
         unsafe { ffi::lua_tointeger(self.L, index) as isize }
+    }
+
+    pub fn to_number(&self, index: c_int) -> f64 {
+        unsafe { ffi::lua_tonumber(self.L, index) as f64 }
     }
 
     pub fn to_string<'b>(&'b self, index: c_int) -> Option<&'b str> {
@@ -396,6 +421,10 @@ impl<'a> LuaState<'a> {
 
     pub fn set_metatable(&mut self, index: c_int) {
         unsafe { ffi::lua_setmetatable(self.L, index) };
+    }
+
+    pub fn next_entry(&mut self, index: c_int) -> bool {
+        unsafe { ffi::lua_next(self.L, index) != 0 }
     }
 
     // Registry slots

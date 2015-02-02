@@ -92,20 +92,37 @@ end
 --end
 
 
-function outpost_ffi.callbacks.client_destroyed(id)
-    client_extra[id] = nil
+function outpost_ffi.callbacks.get_client_extra(id)
+    return client_extra[id]
 end
 
-function outpost_ffi.callbacks.entity_destroyed(id)
-    entity_extra[id] = nil
+function outpost_ffi.callbacks.get_entity_extra(id)
+    return entity_extra[id]
 end
 
-function outpost_ffi.callbacks.structure_destroyed(id)
-    structure_extra[id] = nil
+function outpost_ffi.callbacks.get_structure_extra(id)
+    return structure_extra[id]
 end
 
-function outpost_ffi.callbacks.inventory_destroyed(id)
-    inventory_extra[id] = nil
+function outpost_ffi.callbacks.get_inventory_extra(id)
+    return inventory_extra[id]
+end
+
+
+function outpost_ffi.callbacks.set_client_extra(id, extra)
+    client_extra[id] = extra
+end
+
+function outpost_ffi.callbacks.set_entity_extra(id, extra)
+    entity_extra[id] = extra
+end
+
+function outpost_ffi.callbacks.set_structure_extra(id, extra)
+    structure_extra[id] = extra
+end
+
+function outpost_ffi.callbacks.set_inventory_extra(id, extra)
+    inventory_extra[id] = extra
 end
 
 

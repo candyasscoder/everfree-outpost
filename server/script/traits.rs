@@ -6,6 +6,7 @@ use lua::ValueType;
 use util::StrResult;
 
 use super::{ScriptContext, get_ctx};
+use super::Nil;
 
 
 /// Trait for obtaining a string representation of the name of a type.  The Lua interface code uses
@@ -304,6 +305,12 @@ impl<T: ToLua> ToLua for StrResult<T> {
     }
 
     fn count() -> c_int { <T as ToLua>::count() + 1 }
+}
+
+impl ToLua for Nil {
+    fn to_lua(self, lua: &mut LuaState) {
+        lua.push_nil();
+    }
 }
 
 pub fn pack_count<T: ToLua>(lua: &mut LuaState, x: T) -> c_int {

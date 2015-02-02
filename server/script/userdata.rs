@@ -100,7 +100,7 @@ impl Userdata for V3 {
 
 
 #[derive(Copy)]
-struct World;
+pub struct World;
 
 impl_type_name!(World);
 impl_metatable_key!(World);
@@ -130,8 +130,8 @@ impl Userdata for World {
 
 
 #[derive(Copy)]
-struct Structure {
-    id: StructureId,
+pub struct Structure {
+    pub id: StructureId,
 }
 
 impl Structure {
@@ -250,8 +250,8 @@ impl Userdata for Client {
 
 
 #[derive(Copy)]
-struct Entity {
-    id: EntityId,
+pub struct Entity {
+    pub id: EntityId,
 }
 
 impl_type_name!(Entity);

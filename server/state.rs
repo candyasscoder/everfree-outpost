@@ -17,7 +17,8 @@ use world;
 use world::object::*;
 use util::StrError;
 use storage::Storage;
-use world::save::{self, ObjectReader, ObjectWriter, NoReadHooks, NoWriteHooks};
+use world::save::{self, ObjectReader, ObjectWriter};
+use script::{ReadHooks, WriteHooks};
 
 use self::StateChange::ChunkUpdate;
 
@@ -186,7 +187,7 @@ impl<'a> State<'a> {
 
         if let Some(file) = self.storage.open_client_file(name) {
             info!("loading client {} from file", name);
-            let mut sr = ObjectReader::new(file, NoReadHooks);
+            let mut sr = ObjectReader::new(file, ReadHooks::new(&mut self.script));
             let cid = try!(sr.load_client(self.mw.world_mut()));
             let mut c = self.mw.world_mut().client_mut(cid);
 
@@ -214,7 +215,7 @@ impl<'a> State<'a> {
         {
             let c = self.mw.world().client(cid);
             let file = self.storage.create_client_file(c.name());
-            let mut sw = ObjectWriter::new(file, NoWriteHooks);
+            let mut sw = ObjectWriter::new(file, WriteHooks::new(&mut self.script));
             try!(sw.save_client(&c));
         }
 
@@ -295,13 +296,14 @@ impl<'a> State<'a> {
 
     pub fn load_chunk(&mut self, cx: i32, cy: i32) {
         let storage = &self.storage;
+        let script = &mut self.script;
         let gen = &mut self.terrain_gen;
         let block_data = &self.data.block_data;
         let template_data = &self.data.object_templates;
         self.mw.retain(V2::new(cx, cy), |w, pos| {
             if let Some(file) = storage.open_terrain_chunk_file(pos) {
                 info!("loading chunk {:?} from file", pos);
-                let mut sr = ObjectReader::new(file, NoReadHooks);
+                let mut sr = ObjectReader::new(file, ReadHooks::new(script));
                 sr.load_terrain_chunk(w).unwrap();
             } else {
                 info!("generating new chunk {:?}", pos);
@@ -326,11 +328,12 @@ impl<'a> State<'a> {
 
     pub fn unload_chunk(&mut self, cx: i32, cy: i32) {
         let storage = &self.storage;
+        let script = &mut self.script;
         self.mw.release(V2::new(cx, cy), |w, pos| {
             {
                 let t = w.terrain_chunk(pos);
                 let file = storage.create_terrain_chunk_file(pos);
-                let mut sw = ObjectWriter::new(file, NoWriteHooks);
+                let mut sw = ObjectWriter::new(file, WriteHooks::new(script));
                 sw.save_terrain_chunk(&t).unwrap();
             }
 

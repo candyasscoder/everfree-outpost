@@ -9,8 +9,10 @@ pub use self::object_writer::{ObjectWriter, WriteHooks, NoWriteHooks};
 pub use self::object_reader::{ObjectReader, ReadHooks, NoReadHooks};
 
 mod error;
-mod writer;
-mod reader;
+// TODO: these shouldn't need to be public, but otherwise rustc complains that "source trait is
+// inaccessible".
+pub mod writer;
+pub mod reader;
 mod object_writer;
 mod object_reader;
 
@@ -27,7 +29,7 @@ pub enum AnyId {
 }
 
 
-trait ToAnyId {
+pub trait ToAnyId {
     fn to_any_id(self) -> AnyId;
 }
 

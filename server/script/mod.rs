@@ -14,10 +14,12 @@ use self::traits::pack_count;
 use self::traits::Userdata;
 use self::traits::ToLua;
 use self::traits::{MetatableKey, metatable_key};
+pub use self::save::{WriteHooks, ReadHooks};
 
 
 #[macro_use] mod traits;
 mod userdata;
+mod save;
 
 
 const FFI_CALLBACKS_KEY: &'static str = "outpost_ffi_callbacks";
@@ -40,6 +42,9 @@ macro_rules! callbacks {
 callbacks! {
     CB_KEY_TEST = "test";
 }
+
+#[derive(Copy, PartialEq, Eq, Hash, Show)]
+pub struct Nil;
 
 pub struct ScriptEngine {
     owned_lua: OwnedLuaState,
@@ -127,26 +132,26 @@ impl ScriptEngine {
 
     pub fn callback_client_destroyed(&mut self, cid: ClientId) {
         run_callback(&mut self.owned_lua.get(),
-                     "outpost_callback_client_destroyed",
-                     cid.unwrap());
+                     "outpost_callback_set_client_extra",
+                     (cid.unwrap(), Nil));
     }
 
     pub fn callback_entity_destroyed(&mut self, eid: EntityId) {
         run_callback(&mut self.owned_lua.get(),
-                     "outpost_callback_entity_destroyed",
-                     eid.unwrap());
+                     "outpost_callback_set_entity_extra",
+                     (eid.unwrap(), Nil));
     }
 
     pub fn callback_structure_destroyed(&mut self, sid: StructureId) {
         run_callback(&mut self.owned_lua.get(),
-                     "outpost_callback_structure_destroyed",
-                     sid.unwrap());
+                     "outpost_callback_set_structure_extra",
+                     (sid.unwrap(), Nil));
     }
 
     pub fn callback_inventory_destroyed(&mut self, iid: InventoryId) {
         run_callback(&mut self.owned_lua.get(),
-                     "outpost_callback_inventory_destroyed",
-                     iid.unwrap());
+                     "outpost_callback_set_inventory_extra",
+                     (iid.unwrap(), Nil));
     }
 }
 
