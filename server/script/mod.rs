@@ -12,7 +12,7 @@ use lua::{GLOBALS_INDEX, REGISTRY_INDEX};
 
 use self::traits::pack_count;
 use self::traits::Userdata;
-use self::traits::{LuaReturn, LuaReturnList};
+use self::traits::ToLua;
 use self::traits::{MetatableKey, metatable_key};
 
 
@@ -120,7 +120,7 @@ impl ScriptEngine {
         self.with_context(&ctx, |lua| {
             lua.get_field(REGISTRY_INDEX, "outpost_callback_test");
             let c = userdata::Client { id: id };
-            c.push_onto(lua);
+            c.to_lua(lua);
             lua.pcall(1, 0, 0).unwrap();
         });
     }
@@ -150,23 +150,28 @@ impl ScriptEngine {
     }
 }
 
-pub fn get_ctx_ref<'a>(lua: &mut LuaState) -> &'a RefCell<ScriptContext<'a, 'a>> {
+pub unsafe fn get_ctx_ref<'a>(lua: &mut LuaState) -> &'a RefCell<ScriptContext<'a, 'a>> {
     lua.get_field(REGISTRY_INDEX, CTX_KEY);
-    let raw_ptr: *mut RefCell<ScriptContext> = unsafe { lua.to_userdata_raw(-1) };
+    let raw_ptr: *mut RefCell<ScriptContext> = lua.to_userdata_raw(-1);
     lua.pop(1);
 
     if raw_ptr.is_null() {
         panic!("tried to access script context, but no context is active");
     }
 
-    unsafe { mem::transmute(raw_ptr) }
+    mem::transmute(raw_ptr)
 }
 
-pub fn get_ctx<'a>(lua: &mut LuaState) -> RefMut<'a, ScriptContext<'a, 'a>> {
+pub unsafe fn get_ctx<'a>(lua: &mut LuaState) -> RefMut<'a, ScriptContext<'a, 'a>> {
     get_ctx_ref(lua).borrow_mut()
 }
 
-fn run_callback<A: LuaReturnList>(lua: &mut LuaState, key: &str, args: A) {
+pub fn with_ctx<T, F: FnOnce(&mut ScriptContext) -> T>(lua: &mut LuaState, f: F) -> T {
+    let mut ctx = unsafe { get_ctx(lua) };
+    f(&mut *ctx)
+}
+
+fn run_callback<A: ToLua>(lua: &mut LuaState, key: &str, args: A) {
     lua.get_field(REGISTRY_INDEX, key);
     let arg_count = pack_count(lua, args);
     lua.pcall(arg_count, 0, 0).unwrap();

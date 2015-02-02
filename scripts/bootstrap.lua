@@ -38,8 +38,6 @@ print(c:x(), c:y(), c:z())
 test = V3.new(-1, 2, -3)
 c = test:abs()
 print(c:x(), c:y(), c:z())
-c:set_y(17)
-print(c:x(), c:y(), c:z())
 print(c:extract())
 
 

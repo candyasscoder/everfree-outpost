@@ -5,6 +5,8 @@ use lua::REGISTRY_INDEX;
 use lua::ValueType;
 use util::StrResult;
 
+use super::{ScriptContext, get_ctx};
+
 
 /// Trait for obtaining a string representation of the name of a type.  The Lua interface code uses
 /// this to provide appropriate error messages for invalid argument types.
@@ -61,236 +63,285 @@ macro_rules! impl_metatable_key {
 
 
 /// Types that can be read from the Lua stack.
-pub trait LuaArg<'a>: TypeName {
-    fn check(lua: &mut LuaState, index: c_int) -> bool;
-    unsafe fn load(lua: &'a LuaState, index: c_int) -> Self;
+pub trait FromLua<'a> {
+    unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str);
+    unsafe fn from_lua(lua: &'a LuaState, index: c_int) -> Self;
+    fn count() -> c_int { 1 }
 }
 
-macro_rules! impl_lua_arg_int {
+macro_rules! type_error {
+    ($lua:expr, $index:expr, $func:expr, $ty_name:expr) => {{
+        $lua.push_string(&*format!("bad argument {} to '{}' ({} expected)",
+                                   $index,
+                                   $func,
+                                   $ty_name));
+        $lua.error();
+    }};
+}
+
+macro_rules! int_from_lua_impl {
     ($ty:ty) => {
-        impl<'a> LuaArg<'a> for $ty {
-            fn check(lua: &mut LuaState, index: c_int) -> bool {
-                lua.type_of(index) == ValueType::Number
+        impl<'a> FromLua<'a> for $ty {
+            unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
+                if lua.type_of(index) != ValueType::Number {
+                    type_error!(lua, index, func, "number");
+                }
             }
 
-            unsafe fn load(lua: &LuaState, index: c_int) -> $ty {
+            unsafe fn from_lua(lua: &LuaState, index: c_int) -> $ty {
                 lua.to_integer(index) as $ty
             }
         }
     };
 }
 
-impl_lua_arg_int!(i32);
-impl_lua_arg_int!(u32);
+int_from_lua_impl!(i32);
+int_from_lua_impl!(u32);
 
-impl<'a> LuaArg<'a> for &'a str {
-    fn check(lua: &mut LuaState, index: c_int) -> bool {
-        lua.type_of(index) == ValueType::String
+impl<'a> FromLua<'a> for &'a str {
+    unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
+        if lua.type_of(index) != ValueType::String {
+            type_error!(lua, index, func, "string");
+        }
     }
 
-    unsafe fn load(lua: &'a LuaState, index: c_int) -> &'a str {
+    unsafe fn from_lua(lua: &'a LuaState, index: c_int) -> &'a str {
         lua.to_string(index).unwrap()
     }
 }
 
-impl<'a, U: Userdata> LuaArg<'a> for &'a U {
-    fn check(lua: &mut LuaState, index: c_int) -> bool {
+impl<'a, U: Userdata> FromLua<'a> for &'a U {
+    unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
         lua.get_metatable(index);
         lua.get_field(REGISTRY_INDEX, metatable_key::<U>());
         let ok = lua.raw_equal(-1, -2);
         lua.pop(2);
-        ok
+
+        if !ok {
+            type_error!(lua, index, func, type_name::<U>());
+        }
     }
 
-    unsafe fn load(lua: &'a LuaState, index: c_int) -> &'a U {
+    unsafe fn from_lua(lua: &'a LuaState, index: c_int) -> &'a U {
         lua.to_userdata::<U>(index).unwrap()
     }
 }
 
+impl<'a, U: Userdata+Copy+'a> FromLua<'a> for U {
+    unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
+        <&'a U as FromLua>::check(lua, index, func);
+    }
 
-/// Lists of arguments that can be read from the Lua stack.
-pub trait LuaArgList<'a>: Sized {
-    unsafe fn check(lua: &mut LuaState, func: &'static str);
-    unsafe fn unpack(lua: &'a mut LuaState) -> Self;
-    fn count() -> c_int;
+    unsafe fn from_lua(lua: &'a LuaState, index: c_int) -> U {
+        let ptr = <&'a U as FromLua>::from_lua(lua, index);
+        *ptr
+    }
 }
 
-macro_rules! check_type {
-    ($lua:expr, $ty:ty, $index:expr, $func:expr) => {
-        if !<$ty as LuaArg>::check($lua, $index) {
-            $lua.push_string(&*format!("bad argument {} to '{}' ({} expected)",
-                                       $index,
-                                       $func,
-                                       <$ty as TypeName>::type_name()));
-            $lua.error();
+macro_rules! tuple_from_lua_impl {
+    ($count:expr, $($ty:ident)*) => {
+        #[allow(unused_variables, unused_mut, unused_attributes, non_snake_case)]
+        impl<'a, $($ty: FromLua<'a>),*> FromLua<'a> for ($($ty,)*) {
+            unsafe fn check(lua: &mut LuaState, mut index: c_int, func: &'static str) {
+                $(
+                    <$ty as FromLua>::check(lua, index, func);
+                    index += <$ty as FromLua>::count();
+                )*
+                let _ = index;  // last value assigned to `index` is never read
+            }
+
+            unsafe fn from_lua(lua: &'a LuaState, mut index: c_int) -> ($($ty,)*) {
+                $(
+                    let $ty: $ty = <$ty as FromLua>::from_lua(lua, index);
+                    index += <$ty as FromLua>::count();
+                )*
+                let _ = index;  // last value assigned to `index` is never read
+                ($($ty,)*)
+            }
+
+            fn count() -> c_int {
+                let mut sum = 0;
+                $( sum += <$ty as FromLua>::count(); )*
+                sum
+            }
         }
     };
 }
 
-macro_rules! impl_lua_arg_list {
-    ($count:expr, $($ty:ident $idx:expr),*) => {
-        impl<'a, $($ty: LuaArg<'a>),*> LuaArgList<'a> for ($($ty,)*) {
-            unsafe fn check(lua: &mut LuaState, func: &'static str) {
-                $( check_type!(lua, $ty, $idx, func); )*
-            }
+tuple_from_lua_impl!(0,);
+tuple_from_lua_impl!(1, A);
+tuple_from_lua_impl!(2, A B);
+tuple_from_lua_impl!(3, A B C);
+tuple_from_lua_impl!(4, A B C D);
+tuple_from_lua_impl!(5, A B C D E);
 
-            unsafe fn unpack(lua: &'a mut LuaState) -> ($($ty,)*) {
-                ($( <$ty as LuaArg>::load(lua, $idx), )*)
-            }
-
-            fn count() -> c_int { $count }
-        }
-    };
-}
-
-impl_lua_arg_list!(1, A 1);
-impl_lua_arg_list!(2, A 1, B 2);
-impl_lua_arg_list!(3, A 1, B 2, C 3);
-impl_lua_arg_list!(4, A 1, B 2, C 3, D 4);
-impl_lua_arg_list!(5, A 1, B 2, C 3, D 4, E 5);
-
-impl<'a, A: LuaArg<'a>> LuaArgList<'a> for A {
-    unsafe fn check(lua: &mut LuaState, func: &'static str) {
-        check_type!(lua, A, 1, func);
+pub unsafe fn check_args<'a, T: FromLua<'a>>(lua: &mut LuaState, func: &'static str) {
+    let actual = lua.top_index();
+    let expected = <T as FromLua>::count();
+    if actual != expected {
+        lua.push_string(&*format!("wrong number of arguments for '{}' ({} expected)",
+                                  func,
+                                  expected));
+        lua.error();
     }
 
-    unsafe fn unpack(lua: &'a mut LuaState) -> A {
-        <A as LuaArg>::load(lua, 1)
-    }
-
-    fn count() -> c_int { 1 }
+    <T as FromLua>::check(lua, 1, func);
 }
 
-pub unsafe fn check_unpack<'a, T: LuaArgList<'a>>(lua: &'a mut LuaState, func: &'static str) -> T {
-    <T as LuaArgList>::check(lua, func);
-    <T as LuaArgList>::unpack(lua)
+pub unsafe fn unpack_args<'a, T: FromLua<'a>>(lua: &'a mut LuaState, func: &'static str) -> T {
+    check_args::<T>(lua, func);
+    let x = <T as FromLua>::from_lua(lua, 1);
+    x
 }
 
-pub unsafe fn check_unpack_count<'a, T: LuaArgList<'a>>(lua: &'a mut LuaState,
-                                                        func: &'static str) -> (T, c_int) {
-    <T as LuaArgList>::check(lua, func);
-    (<T as LuaArgList>::unpack(lua), <T as LuaArgList>::count())
+pub unsafe fn unpack_args_count<'a, T: FromLua<'a>>(lua: &'a mut LuaState,
+                                                    func: &'static str) -> (T, c_int) {
+    let x = unpack_args(lua, func);
+    (x, <T as FromLua>::count())
+}
+
+pub unsafe fn with_args_count_ctx<'a, T, R, F>(lua: &'a mut LuaState,
+                                               func: &'static str,
+                                               f: F) -> (R, c_int)
+        where T: FromLua<'a>,
+              F: FnOnce(&mut ScriptContext, T) -> R {
+
+    check_args::<T>(lua, func);
+
+    let mut ctx = get_ctx(lua);
+    let count = <T as FromLua>::count();
+    let args = <T as FromLua>::from_lua(lua, 1);
+    (f(&mut *ctx, args), count)
 }
 
 
 /// Return types that can be pushed onto the Lua stack.
-pub trait LuaReturn {
-    fn push_onto(self, lua: &mut LuaState);
+pub trait ToLua {
+    fn to_lua(self, lua: &mut LuaState);
+    fn count() -> c_int { 1 }
 }
 
-impl<'a> LuaReturn for &'a str {
-    fn push_onto(self, lua: &mut LuaState) {
-        lua.push_string(self);
-    }
-}
-
-impl<U: Userdata> LuaReturn for U {
-    fn push_onto(self, lua: &mut LuaState) {
-        create_userdata(lua, self);
-    }
-}
-
-macro_rules! impl_lua_return_int {
+macro_rules! int_to_lua_impl {
     ($ty:ty) => {
-        impl LuaReturn for $ty {
-            fn push_onto(self, lua: &mut LuaState) {
+        impl ToLua for $ty {
+            fn to_lua(self, lua: &mut LuaState) {
                 lua.push_integer(self as isize);
             }
         }
     };
 }
 
-impl_lua_return_int!(u16);
-impl_lua_return_int!(u32);
-impl_lua_return_int!(i32);
+int_to_lua_impl!(u16);
+int_to_lua_impl!(u32);
+int_to_lua_impl!(i32);
 
-impl<T: LuaReturn> LuaReturn for Option<T> {
-    fn push_onto(self, lua: &mut LuaState) {
-        match self {
-            Some(x) => x.push_onto(lua),
-            None => lua.push_nil(),
-        }
+impl<'a> ToLua for &'a str {
+    fn to_lua(self, lua: &mut LuaState) {
+        lua.push_string(self);
     }
 }
 
-
-/// Lists of return values that can be pushed onto the Lua stack.
-pub trait LuaReturnList {
-    fn pack(self, lua: &mut LuaState);
-    fn count() -> c_int;
-}
-
-#[allow(unused_variables)]
-impl LuaReturnList for () {
-    fn pack(self, lua: &mut LuaState) { }
-    fn count() -> c_int { 0 }
-}
-
-impl<A: LuaReturn> LuaReturnList for A {
-    fn pack(self, lua: &mut LuaState) {
-        self.push_onto(lua);
+impl<U: Userdata> ToLua for U {
+    fn to_lua(self, lua: &mut LuaState) {
+        create_userdata(lua, self);
     }
-
-    fn count() -> c_int { 1 }
 }
 
-macro_rules! impl_lua_return_list {
-    ($count:expr, $($name:ident),*) => {
-        impl<$($name: LuaReturn),*> LuaReturnList for ($($name,)*) {
-            #[allow(non_snake_case)]
-            fn pack(self, lua: &mut LuaState) {
-                let ($($name,)*) = self;
-                $( $name.push_onto(lua); )*
+macro_rules! tuple_to_lua_impl {
+    ($count:expr, $($ty:ident)*) => {
+        #[allow(unused_variables, unused_mut, unused_attributes, non_snake_case)]
+        impl<$($ty: ToLua),*> ToLua for ($($ty,)*) {
+            fn to_lua(self, lua: &mut LuaState) {
+                let ($($ty,)*): ($($ty,)*) = self;
+                $( $ty.to_lua(lua); )*
             }
 
-            fn count() -> c_int { $count }
+            fn count() -> c_int {
+                let mut sum = 0;
+                $( sum += <$ty as ToLua>::count(); )*
+                sum
+            }
         }
     };
 }
 
-impl_lua_return_list!(1, A);
-impl_lua_return_list!(2, A, B);
-impl_lua_return_list!(3, A, B, C);
-impl_lua_return_list!(4, A, B, C, D);
-impl_lua_return_list!(5, A, B, C, D, E);
+tuple_to_lua_impl!(0,);
+tuple_to_lua_impl!(1, A);
+tuple_to_lua_impl!(2, A B);
+tuple_to_lua_impl!(3, A B C);
+tuple_to_lua_impl!(4, A B C D);
+tuple_to_lua_impl!(5, A B C D E);
 
-impl LuaReturnList for StrResult<()> {
-    fn pack(self, lua: &mut LuaState) {
+impl<T: ToLua> ToLua for Option<T> {
+    fn to_lua(self, lua: &mut LuaState) {
         match self {
-            Ok(()) => {
-                lua.push_bool(true);
-                lua.push_nil();
-            },
-            Err(e) => {
-                lua.push_nil();
-                e.msg.push_onto(lua);
-            },
+            Some(x) => x.to_lua(lua),
+            None => {
+                for _ in range(0, <T as ToLua>::count()) {
+                    lua.push_nil();
+                }
+            }
         }
     }
 
-    fn count() -> c_int { 2 }
+    fn count() -> c_int { <T as ToLua>::count() }
 }
 
-impl<T: LuaReturn> LuaReturnList for StrResult<T> {
-    fn pack(self, lua: &mut LuaState) {
+impl<T: ToLua> ToLua for StrResult<T> {
+    fn to_lua(self, lua: &mut LuaState) {
         match self {
             Ok(x) => {
-                x.push_onto(lua);
+                x.to_lua(lua);
                 lua.push_nil();
             },
             Err(e) => {
-                lua.push_nil();
-                e.msg.push_onto(lua);
+                for _ in range(0, <T as ToLua>::count()) {
+                    lua.push_nil();
+                }
+                e.msg.to_lua(lua);
             },
         }
     }
 
-    fn count() -> c_int { 2 }
+    fn count() -> c_int { <T as ToLua>::count() + 1 }
 }
 
-pub fn pack_count<T: LuaReturnList>(lua: &mut LuaState, x: T) -> c_int {
-    x.pack(lua);
-    <T as LuaReturnList>::count()
+pub fn pack_count<T: ToLua>(lua: &mut LuaState, x: T) -> c_int {
+    x.to_lua(lua);
+    <T as ToLua>::count()
+}
+
+
+macro_rules! lua_fn {
+    (fn $name:ident($($arg_name:ident : $arg_ty:ty),*) -> $ret_ty:ty { $body:expr }) => {
+        fn $name(mut lua: LuaState) -> c_int {
+            let (result, count): ($ret_ty, ::libc::c_int) = {
+                let (($($arg_name,)*), count): (($($arg_ty,)*), ::libc::c_int) = unsafe {
+                    $crate::script::traits::unpack_args_count(&mut lua, stringify!($name))
+                };
+                ($body, count)
+            };
+            lua.pop(count);
+            $crate::script::traits::pack_count(&mut lua, result)
+        }
+    };
+}
+
+macro_rules! lua_ctx_fn {
+    (fn $name:ident($ctx_name:ident, $($arg_name:ident : $arg_ty:ty),*)
+            -> $ret_ty:ty { $body:expr }) => {
+        fn $name(mut lua: LuaState) -> c_int {
+            let (result, count): ($ret_ty, ::libc::c_int) = unsafe {
+                $crate::script::traits::with_args_count_ctx(&mut lua, stringify!($name),
+                    |$ctx_name, args| {
+                        let ($($arg_name,)*): ($($arg_ty,)*) = args;
+                        $body
+                    })
+            };
+            lua.pop(count);
+            $crate::script::traits::pack_count(&mut lua, result)
+        }
+    };
 }
 
 
