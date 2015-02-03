@@ -22,7 +22,7 @@ Dialog.prototype.hide = function() {
     if (this.inner.firstChild != null) {
         this.inner.removeChild(this.inner.firstChild);
     }
-    this.container.style.display = 'none';
+    this.container.classList.add('hidden');
 };
 
 Dialog.prototype.show = function(content, keyboard, handler) {
@@ -36,5 +36,5 @@ Dialog.prototype.show = function(content, keyboard, handler) {
         this.inner.removeChild(this.inner.firstChild);
     }
     this.inner.appendChild(content);
-    this.container.style.display = 'flex';
+    this.container.classList.remove('hidden');
 };

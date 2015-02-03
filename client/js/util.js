@@ -80,3 +80,12 @@ exports.decodeUtf8 = function(view) {
     }
     return utf8_buffer;
 };
+
+
+exports.buildArray = function(size, fn) {
+    var a = new Array(size);
+    for (var i = 0; i < size; ++i) {
+        a[i] = fn();
+    }
+    return a;
+}

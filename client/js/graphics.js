@@ -65,8 +65,8 @@ Renderer.prototype.initGl = function(assets) {
 
 
     this.sprite_classes = {
-        'simple': new SimpleSpriteClass(gl),
-        'layered_tinted': new LayeredTintedSpriteClass(gl),
+        'simple': new SimpleSpriteClass(gl, assets),
+        'layered_tinted': new LayeredTintedSpriteClass(gl, assets),
     };
 
     this.texture_cache = new WeakMap();
@@ -210,7 +210,7 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
 
 
 /** @constructor */
-function SimpleSpriteClass(gl) {
+function SimpleSpriteClass(gl, assets) {
     var vert = assets['sprite.vert'];
     var frag = assets['sprite.frag'];
     var program = new Program(gl, vert, frag);
@@ -267,7 +267,7 @@ SimpleSpriteClass.prototype.draw = function(r, base, off, size, flip, extra) {
 
 
 /** @constructor */
-function LayeredTintedSpriteClass(gl) {
+function LayeredTintedSpriteClass(gl, assets) {
     var vert = assets['sprite.vert'];
     var frag = assets['sprite_layered.frag'];
     var program = new Program(gl, vert, frag);

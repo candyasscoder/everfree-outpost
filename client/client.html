@@ -132,6 +132,34 @@
             .hidden {
                 display: none !important;
             }
+
+
+            .item {
+                display: flex;
+                align-items: center;
+            }
+            .item-list {
+                width: 10rem;
+                overflow-x: hidden;
+                overflow-y: scroll;
+                height: 60vh;
+            }
+            .item:first-child {
+                background-color: lightblue;
+            }
+            .item .item-icon {
+                font-size: 0;
+                background-color: lightgray;
+                flex: 0;
+                min-width: 1rem;
+                min-height: 1rem;
+            }
+            .item .item-name {
+                padding-left: 0.25rem;
+                border: solid 1px red;
+                font-size: 1rem;
+                flex: 1;
+            }
         </style>
     </head>
     <body>
@@ -165,5 +193,44 @@
                 </table>
             </div>
         </div>
+
+        <!--
+        <div id="dialog-container">
+            <div id="dialog">
+                <div id="inventory">
+                    <div style='text-align: center; font-size: 1.3rem;'>Inventory</div>
+                    <div class="item-list">
+                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
+                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
+                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
+                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
+                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
+                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
+                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
+                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
+                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
+                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
+                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
+                    </div>
+                </div>
+
+                <table id="keys">
+                    <tr>
+                        <td>
+                            <kbd>&larr;</kbd>
+                            <kbd>&darr;</kbd>
+                            <kbd>&uarr;</kbd>
+                            <kbd>&rarr;</kbd>
+                        </td>
+                        <td>Move</td>
+                    </tr>
+                    <tr><td><kbd>A</kbd></td><td>Interact</td></tr>
+                    <tr><td><kbd>D</kbd></td><td>Use Item</td></tr>
+                    <tr><td><kbd>E</kbd></td><td>Inventory</td></tr>
+                    <tr><td><kbd>Space</kbd></td><td>Close Dialog</td></tr>
+                </table>
+            </div>
+        </div>
+        -->
     </body>
 </html>

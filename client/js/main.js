@@ -6,6 +6,7 @@ var AnimCanvas = require('canvas').AnimCanvas;
 var OffscreenContext = require('canvas').OffscreenContext;
 var DebugMonitor = require('debug').DebugMonitor;
 var Sheet = require('sheet').Sheet;
+var LayeredTintedSheet = require('sheet').LayeredTintedSheet;
 var Animation = require('sheet').Animation;
 var AssetLoader = require('loader').AssetLoader;
 var BackgroundJobRunner = require('jobs').BackgroundJobRunner;
@@ -16,6 +17,7 @@ var Config = require('config').Config;
 
 var Keyboard = require('keyboard').Keyboard;
 var Dialog = require('dialog').Dialog;
+var Banner = require('banner').Banner;
 
 var Chunk = require('chunk').Chunk;
 var TileDef = require('chunk').TileDef;
@@ -31,6 +33,7 @@ var Connection = require('net').Connection;
 var Timing = require('time').Timing;
 
 var rle16Decode = require('util').rle16Decode;
+var buildArray = require('util').buildArray;
 
 
 var anim_dirs = [
@@ -124,73 +127,88 @@ Pony.prototype.translateMotion = function(offset) {
 };
 
 
+var config;
+
 var canvas;
 var debug;
 var dialog;
+var banner;
+var keyboard;
+
 var runner;
 var loader;
 var assets;
-var keyboard;
 
-var config;
 
-var pony_sheet;
 var entities;
 var player_entity;
 
 var chunks;
 var chunkLoaded;
 var physics;
+
+var pony_sheet;
 var renderer = null;
 
 var conn;
 var timing;
 
+// Top-level initialization function
+
 function init() {
     config = new Config();
 
     canvas = new AnimCanvas(frame, 'webgl');
-    document.body.appendChild(canvas.canvas);
-
     debug = new DebugMonitor();
-    document.body.appendChild(debug.container);
-
-    var key_list = $('key-list');
-    document.body.appendChild(key_list);
-    if (!config.show_controls.get()) {
-        key_list.classList.add('hidden');
-    }
-
     dialog = new Dialog();
-    document.body.appendChild(dialog.container);
+    banner = new Banner();
+    keyboard = new Keyboard();
 
     runner = new BackgroundJobRunner();
-
     loader = new AssetLoader();
     assets = loader.assets;
-    loader.onprogress = assetProgress;
-    loader.onload = postInit;
-    initAssets(loader);
 
     entities = {};
     player_entity = -1;
 
-    chunks = initChunks();
+    chunks = buildArray(LOCAL_SIZE * LOCAL_SIZE, function() { return new Chunk(); });
+    chunkLoaded = buildArray(LOCAL_SIZE * LOCAL_SIZE, function() { return false; });
     physics = new Physics();
-    var tile_sheet = new Sheet(assets['tiles'], 32, 32);
 
-    chunkLoaded = new Array(LOCAL_SIZE * LOCAL_SIZE);
-    for (var i = 0; i < chunkLoaded.length; ++i) {
-        chunkLoaded[i] = false;
-    }
-
+    pony_sheet = null;  // Initialized after assets are loaded.
     renderer = new Renderer(canvas.ctx);
 
-    initInput();
+    conn = null;    // Initialized after assets are loaded.
+    timing = null;  // Initialized after connection is opened.
+
+
+    buildUI();
+
+    loadAssets(function() {
+        renderer.initGl(assets);
+        pony_sheet = buildPonySheet();
+
+        openConn(function() {
+            timing = new Timing(conn);
+            conn.sendLogin([1, 2, 3, 4], "Pony");
+            banner.hide();
+            canvas.start();
+        });
+    });
+
 }
+
 document.addEventListener('DOMContentLoaded', init);
 
-function initAssets() {
+
+// Major initialization steps.
+
+function loadAssets(next) {
+    loader.onprogress = function(loaded, total) {
+        banner.update('Loading... (' + loaded + '/' + total + ')', loaded / total);
+    };
+    loader.onload = next;
+
     loader.addImage('pony_f_base', 'assets/sprites/maresprite.png');
     loader.addImage('pony_f_eyes_blue', 'assets/sprites/type1blue.png');
     loader.addImage('pony_f_horn', 'assets/sprites/marehorn.png');
@@ -218,13 +236,47 @@ function initAssets() {
     loader.addText('sprite_layered.frag', 'assets/shaders/sprite_layered.frag');
 }
 
-function initChunks() {
-    var chunks = [];
-    for (var i = 0; i < LOCAL_SIZE * LOCAL_SIZE; ++i) {
-        chunks.push(new Chunk());
-    }
-    return chunks;
+function openConn(next) {
+    banner.update('Connecting to server...', 0);
+    conn = new Connection('ws://' + window.location.host + '/ws');
+    conn.onOpen = next;
+    conn.onInit = handleInit;
+    conn.onTerrainChunk = handleTerrainChunk;
+    conn.onEntityUpdate = handleEntityUpdate;
+    conn.onUnloadChunk = handleUnloadChunk;
 }
+
+
+// Initialization helpers
+
+function buildUI() {
+    keyboard.attach(document);
+    setupKeyHandler();
+
+    document.body.appendChild(canvas.canvas);
+    document.body.appendChild(debug.container);
+    document.body.appendChild($('key-list'));
+    document.body.appendChild(dialog.container);
+
+    if (!config.show_controls.get()) {
+        $('key-list').classList.add('hidden');
+    }
+
+    banner.show('Loading...', 0, keyboard, function() { return false; });
+}
+
+function buildPonySheet() {
+    return new LayeredTintedSheet([
+            { image: assets['pony_f_wing_back'],    color: 0xcc88ff,    skip: false },
+            { image: assets['pony_f_base'],         color: 0xcc88ff,    skip: false },
+            { image: assets['pony_f_eyes_blue'],    color: 0xffffff,    skip: false },
+            { image: assets['pony_f_wing_front'],   color: 0xcc88ff,    skip: false },
+            { image: assets['pony_f_tail_1'],       color: 0x8844cc,    skip: false },
+            { image: assets['pony_f_mane_1'],       color: 0x8844cc,    skip: false },
+            { image: assets['pony_f_horn'],         color: 0xcc88ff,    skip: false },
+            ], 96, 96);
+}
+
 
 var INPUT_LEFT =    0x0001;
 var INPUT_RIGHT =   0x0002;
@@ -234,7 +286,7 @@ var INPUT_RUN =     0x0010;
 
 var ACTION_USE =    0x0001;
 
-function initInput() {
+function setupKeyHandler() {
     var dirs_held = {
         'Up': false,
         'Down': false,
@@ -242,9 +294,6 @@ function initInput() {
         'Right': false,
         'Shift': false,
     };
-
-    keyboard = new Keyboard();
-    keyboard.attach(document);
 
     keyboard.pushHandler(function(down, evt) {
         if (dirs_held.hasOwnProperty(evt.key)) {
@@ -302,40 +351,8 @@ function initInput() {
     }
 }
 
-function assetProgress(loaded, total) {
-    $('banner-text').textContent = 'Loading... (' + loaded + '/' + total + ')';
-    $('banner-bar').style.width = Math.floor(loaded / total * 100) + '%';
-};
 
-function postInit() {
-    $('banner-text').textContent = 'Connecting to server...';
-    conn = new Connection('ws://' + window.location.host + '/ws');
-    conn.onOpen = connOpen;
-    conn.onInit = handleInit;
-    conn.onTerrainChunk = handleTerrainChunk;
-    conn.onEntityUpdate = handleEntityUpdate;
-    conn.onUnloadChunk = handleUnloadChunk;
-
-    renderer.initGl(assets);
-}
-
-function connOpen() {
-    timing = new Timing(conn);
-    conn.sendLogin([1, 2, 3, 4], "Pony");
-
-    pony_sheet = new LayeredTintedSheet([
-            { image: assets['pony_f_wing_back'],    color: 0xcc88ff,    skip: false },
-            { image: assets['pony_f_base'],         color: 0xcc88ff,    skip: false },
-            { image: assets['pony_f_eyes_blue'],    color: 0xffffff,    skip: false },
-            { image: assets['pony_f_wing_front'],   color: 0xcc88ff,    skip: false },
-            { image: assets['pony_f_tail_1'],       color: 0x8844cc,    skip: false },
-            { image: assets['pony_f_mane_1'],       color: 0x8844cc,    skip: false },
-            { image: assets['pony_f_horn'],         color: 0xcc88ff,    skip: false },
-            ], 96, 96);
-
-    document.body.removeChild($('banner-bg'));
-    canvas.start();
-}
+// Connection message callbacks
 
 function handleInit(entity_id, camera_x, camera_y, chunks, entities) {
     player_entity = entity_id;
@@ -380,6 +397,9 @@ function handleEntityUpdate(id, motion, anim) {
 function handleUnloadChunk(idx) {
     chunkLoaded[idx] = false;
 }
+
+
+// Rendering
 
 function localSprite(now, entity, camera_mid) {
     var local_px = CHUNK_SIZE * TILE_SIZE * LOCAL_SIZE;
