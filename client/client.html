@@ -32,7 +32,7 @@
             .debug-monitor {
                 font-size: 16px;
                 position: fixed;
-                top: 0;
+                bottom: 0;
                 right: 0;
                 background-color: rgba(255, 255, 255, 0.5);
                 /*transform: translateZ(0);*/
@@ -97,6 +97,41 @@
                 border-radius: 0.5rem;
                 padding: 1rem;
             }
+
+            kbd {
+                text-align: center;
+                display: inline-block;
+                border-style: outset;
+                border-width: .2em;
+                border-color: gray;
+                padding: .1em;
+                min-width: 1.3em;
+                min-height: 1.3em;
+            }
+
+            #key-list {
+                position: fixed;
+                right: 0;
+                top: 0;
+                font-size: 0.75rem;
+            }
+
+            #key-list td:first-child {
+                text-align: right;
+            }
+
+            #key-list kbd, #key-list td:nth-child(2) {
+                background-color: rgba(255, 255, 255, 0.5);
+            }
+
+            #key-list td:nth-child(2) {
+                padding: 0 0.5em;
+            }
+
+
+            .hidden {
+                display: none !important;
+            }
         </style>
     </head>
     <body>
@@ -109,5 +144,26 @@
 
         <script type='text/javascript' src='asmlibs.js'></script>
         <script type='text/javascript' src='outpost.js'></script>
+
+        <div style="display: none">
+            <div id="key-list">
+                <table id="key-list">
+                    <tr>
+                        <td>
+                            <kbd>&larr;</kbd>
+                            <kbd>&darr;</kbd>
+                            <kbd>&uarr;</kbd>
+                            <kbd>&rarr;</kbd>
+                        </td>
+                        <td>Move</td>
+                    </tr>
+                    <tr><td><kbd>A</kbd></td><td>Interact</td></tr>
+                    <tr><td><kbd>D</kbd></td><td>Use Item</td></tr>
+                    <tr><td><kbd>E</kbd></td><td>Inventory</td></tr>
+                    <tr><td><kbd>Space</kbd></td><td>Close Dialog</td></tr>
+                    <tr><td><kbd>F1</kbd></td><td>Hide/Show<br>Controls</td></tr>
+                </table>
+            </div>
+        </div>
     </body>
 </html>

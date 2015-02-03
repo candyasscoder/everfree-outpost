@@ -12,6 +12,8 @@ var BackgroundJobRunner = require('jobs').BackgroundJobRunner;
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
 
+var Config = require('config').Config;
+
 var Keyboard = require('keyboard').Keyboard;
 var Dialog = require('dialog').Dialog;
 
@@ -130,6 +132,8 @@ var loader;
 var assets;
 var keyboard;
 
+var config;
+
 var pony_sheet;
 var entities;
 var player_entity;
@@ -143,11 +147,19 @@ var conn;
 var timing;
 
 function init() {
+    config = new Config();
+
     canvas = new AnimCanvas(frame, 'webgl');
     document.body.appendChild(canvas.canvas);
 
     debug = new DebugMonitor();
     document.body.appendChild(debug.container);
+
+    var key_list = $('key-list');
+    document.body.appendChild(key_list);
+    if (!config.show_controls.get()) {
+        key_list.classList.add('hidden');
+    }
 
     dialog = new Dialog();
     document.body.appendChild(dialog.container);
@@ -242,7 +254,13 @@ function initInput() {
             }
             return true;
         } else if (down) {
-            known = sendActionForKey(evt.key);
+            if (evt.key == 'F1') {
+                var show = config.show_controls.toggle();
+                $('key-list').classList.toggle('hidden', !show);
+                return true;
+            } else {
+                return sendActionForKey(evt.key);
+            }
         }
     });
 

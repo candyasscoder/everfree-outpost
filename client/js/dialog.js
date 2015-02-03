@@ -23,7 +23,7 @@ Dialog.prototype.hide = function() {
         this.inner.removeChild(this.inner.firstChild);
     }
     this.container.style.display = 'none';
-}
+};
 
 Dialog.prototype.show = function(content, keyboard, handler) {
     if (keyboard != null) {
@@ -37,4 +37,4 @@ Dialog.prototype.show = function(content, keyboard, handler) {
     }
     this.inner.appendChild(content);
     this.container.style.display = 'flex';
-}
+};
