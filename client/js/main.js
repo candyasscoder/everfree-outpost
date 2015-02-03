@@ -12,6 +12,8 @@ var BackgroundJobRunner = require('jobs').BackgroundJobRunner;
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
 
+var Keyboard = require('keyboard').Keyboard;
+
 var Chunk = require('chunk').Chunk;
 var TileDef = require('chunk').TileDef;
 var CHUNK_SIZE = require('chunk').CHUNK_SIZE;
@@ -124,6 +126,7 @@ var debug;
 var runner;
 var loader;
 var assets;
+var keyboard;
 
 var pony_sheet;
 var entities;
@@ -223,29 +226,18 @@ function initInput() {
         'Shift': false,
     };
 
-    document.addEventListener('keydown', function(evt) {
-        var known = true;
+    keyboard = new Keyboard();
+    keyboard.attach(document);
+
+    keyboard.pushHandler(function(down, evt) {
         if (dirs_held.hasOwnProperty(evt.key)) {
+            dirs_held[evt.key] = down;
             if (!evt.repeat) {
-                dirs_held[evt.key] = true;
                 updateWalkDir();
             }
-        } else {
+            return true;
+        } else if (down) {
             known = sendActionForKey(evt.key);
-        }
-
-        if (known) {
-            evt.preventDefault();
-            evt.stopPropagation();
-        }
-    });
-
-    document.addEventListener('keyup', function(evt) {
-        if (dirs_held.hasOwnProperty(evt.key)) {
-            evt.preventDefault();
-            evt.stopPropagation();
-            dirs_held[evt.key] = false;
-            updateWalkDir();
         }
     });
 
