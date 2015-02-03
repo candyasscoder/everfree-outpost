@@ -13,6 +13,7 @@ var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
 
 var Keyboard = require('keyboard').Keyboard;
+var Dialog = require('dialog').Dialog;
 
 var Chunk = require('chunk').Chunk;
 var TileDef = require('chunk').TileDef;
@@ -123,6 +124,7 @@ Pony.prototype.translateMotion = function(offset) {
 
 var canvas;
 var debug;
+var dialog;
 var runner;
 var loader;
 var assets;
@@ -146,6 +148,9 @@ function init() {
 
     debug = new DebugMonitor();
     document.body.appendChild(debug.container);
+
+    dialog = new Dialog();
+    document.body.appendChild(dialog.container);
 
     runner = new BackgroundJobRunner();
 
