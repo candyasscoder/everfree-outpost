@@ -127,6 +127,69 @@ Pony.prototype.translateMotion = function(offset) {
 };
 
 
+/** @constructor */
+function LoadCounter(banner, keyboard) {
+    this.banner = banner;
+    this.keyboard = keyboard;
+
+    this.chunks = 0;
+    this.entities = 0;
+    this.total_chunks = 0;
+    this.total_entities = 0;
+    this.loading = false;
+}
+
+function load_cost(chunks, entities) {
+    return 2 * chunks + 1 * entities;
+}
+
+LoadCounter.prototype._current = function() {
+    return load_cost(this.chunks, this.entities);
+}
+
+LoadCounter.prototype._total = function() {
+    return load_cost(this.total_chunks, this.total_entities);
+}
+
+LoadCounter.prototype._buildMessage = function() {
+    return 'Loading World... (' + this.chunks + '/' + this.total_chunks  +
+                ' + ' + this.entities + '/' + this.total_entities + ')';
+};
+
+LoadCounter.prototype.begin = function(chunks, entities) {
+    if (chunks == 0 && entities == 0) {
+        return;
+    }
+
+    this.chunks = 0;
+    this.entities = 0;
+    this.total_chunks = chunks;
+    this.total_entities = entities;
+    this.loading = true;
+
+    this.banner.show(this._buildMessage(), 0, this.keyboard, function() { return false; });
+};
+
+LoadCounter.prototype.update = function(chunks, entities) {
+    if (!this.loading) {
+        return;
+    }
+    this.chunks += chunks;
+    this.entities += entities;
+
+    if (this.chunks >= this.total_chunks && this.entities >= this.total_entities) {
+        this.reset();
+    } else {
+        this.banner.update(this._buildMessage(), this._current() / this._total());
+    }
+};
+
+LoadCounter.prototype.reset = function() {
+    this.loading = false;
+    this.banner.hide();
+};
+
+
 var config;
 
 var canvas;
@@ -152,6 +215,7 @@ var renderer = null;
 
 var conn;
 var timing;
+var load_counter;
 
 // Top-level initialization function
 
@@ -180,6 +244,7 @@ function init() {
 
     conn = null;    // Initialized after assets are loaded.
     timing = null;  // Initialized after connection is opened.
+    load_counter = new LoadCounter(banner, keyboard);
 
 
     buildUI();
@@ -187,6 +252,7 @@ function init() {
     loadAssets(function() {
         renderer.initGl(assets);
         pony_sheet = buildPonySheet();
+        runner.job('preload-textures', preloadTextures);
 
         openConn(function() {
             timing = new Timing(conn);
@@ -277,6 +343,24 @@ function buildPonySheet() {
             ], 96, 96);
 }
 
+function preloadTextures() {
+    var textures = ['tiles',
+                    'pony_f_wing_back',
+                    'pony_f_base',
+                    'pony_f_eyes_blue',
+                    'pony_f_wing_front',
+                    'pony_f_tail_1',
+                    'pony_f_mane_1',
+                    'pony_f_horn'];
+    for (var i = 0; i < textures.length; ++i) {
+        (function(key) {
+            runner.subjob(key, function() {
+                renderer.cacheTexture(assets[key]);
+            });
+        })(textures[i]);
+    }
+}
+
 
 var INPUT_LEFT =    0x0001;
 var INPUT_RIGHT =   0x0002;
@@ -356,6 +440,7 @@ function setupKeyHandler() {
 
 function handleInit(entity_id, camera_x, camera_y, chunks, entities) {
     player_entity = entity_id;
+    load_counter.begin(chunks, entities);
 }
 
 function handleTerrainChunk(i, data) {
@@ -373,6 +458,7 @@ function handleTerrainChunk(i, data) {
     });
 
     chunkLoaded[i] = true;
+    load_counter.update(1, 0);
 }
 
 function handleEntityUpdate(id, motion, anim) {
@@ -392,6 +478,8 @@ function handleEntityUpdate(id, motion, anim) {
     }
     entities[id].setMotion(m);
     entities[id].setAnimation(m.start_time, anim);
+
+    load_counter.update(0, 1);
 }
 
 function handleUnloadChunk(idx) {
