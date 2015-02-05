@@ -74,10 +74,13 @@ pub fn client_destroy(w: &mut World,
     // Further lookup failures indicate an invariant violation.
 
     for &eid in c.child_entities.iter() {
+        // TODO: do we really want .unwrap() here?
         entity_destroy(w, eid).unwrap();
     }
 
-    // TODO: clean up inventories
+    for &iid in c.child_inventories.iter() {
+        inventory_destroy(w, iid).unwrap();
+    }
 
     w.record(Update::ClientDestroyed(cid));
     Ok(())
@@ -200,7 +203,9 @@ pub fn entity_destroy(w: &mut World,
         },
     }
 
-    // TODO: clean up inventories
+    for &iid in e.child_inventories.iter() {
+        inventory_destroy(w, iid).unwrap();
+    }
 
     w.record(Update::EntityDestroyed(eid));
     Ok(())
@@ -336,7 +341,9 @@ pub fn structure_destroy(w: &mut World,
         },
     }
 
-    // TODO: clean up inventories
+    for &iid in s.child_inventories.iter() {
+        inventory_destroy(w, iid).unwrap();
+    }
 
     w.record(Update::StructureDestroyed(sid));
     Ok(())
@@ -524,6 +531,10 @@ fn invalidate_region(w: &mut World,
 }
 
 
+pub fn inventory_create(w: &mut World) -> OpResult<InventoryId> {
+    Ok(inventory_create_unchecked(w))
+}
+
 pub fn inventory_create_unchecked(w: &mut World) -> InventoryId {
     let iid = w.inventories.insert(Inventory {
         contents: HashMap::new(),
@@ -535,3 +546,114 @@ pub fn inventory_create_unchecked(w: &mut World) -> InventoryId {
     iid
 }
 
+pub fn inventory_destroy(w: &mut World,
+                         iid: InventoryId) -> OpResult<()> {
+    use super::InventoryAttachment::*;
+    let i = unwrap!(w.inventories.remove(iid));
+
+    match i.attachment {
+        World => {},
+        Client(cid) => {
+            if let Some(c) = w.clients.get_mut(cid) {
+                c.child_inventories.remove(&iid);
+            }
+        },
+        Entity(eid) => {
+            if let Some(e) = w.entities.get_mut(eid) {
+                e.child_inventories.remove(&iid);
+            }
+        },
+        Structure(sid) => {
+            if let Some(s) = w.structures.get_mut(sid) {
+                s.child_inventories.remove(&iid);
+            }
+        },
+    }
+
+    w.record(Update::InventoryDestroyed(iid));
+    Ok(())
+}
+
+pub fn inventory_attach(w: &mut World,
+                        iid: InventoryId,
+                        new_attach: InventoryAttachment) -> OpResult<InventoryAttachment> {
+    use super::InventoryAttachment::*;
+
+    let i = unwrap!(w.inventories.get_mut(iid));
+
+    if new_attach == i.attachment {
+        return Ok(new_attach);
+    }
+
+    match new_attach {
+        World => {},
+        Client(cid) => {
+            let c = unwrap!(w.clients.get_mut(cid),
+                            "can't attach inventory to nonexistent client");
+            c.child_inventories.insert(iid);
+        },
+        Entity(eid) => {
+            let e = unwrap!(w.entities.get_mut(eid),
+                            "can't attach inventory to nonexistent entity");
+            e.child_inventories.insert(iid);
+        },
+        Structure(sid) => {
+            let s = unwrap!(w.structures.get_mut(sid),
+                            "can't attach inventory to nonexistent structure");
+            s.child_inventories.insert(iid);
+        },
+    }
+
+    let old_attach = replace(&mut i.attachment, new_attach);
+
+    match old_attach {
+        World => {},
+        Client(cid) => {
+            w.clients[cid].child_inventories.remove(&iid);
+        },
+        Entity(eid) => {
+            w.entities[eid].child_inventories.remove(&iid);
+        },
+        Structure(sid) => {
+            w.structures[sid].child_inventories.remove(&iid);
+        },
+    }
+
+    Ok(old_attach)
+}
+
+pub fn inventory_update(w: &mut World,
+                        iid: InventoryId,
+                        name: &str,
+                        adjust: i16) -> OpResult<u8> {
+    use std::collections::hash_map::Entry::*;
+
+    let i = unwrap!(w.inventories.get_mut(iid));
+
+    fn combine(old: u8, adjust: i16) -> u8 {
+        use std::u8;
+        let sum = old as i16 + adjust;
+        if sum < u8::MIN as i16 {
+            u8::MIN
+        } else if sum > u8::MAX as i16 {
+            u8::MAX
+        } else {
+            sum as u8
+        }
+    }
+
+    let value = match i.contents.entry(String::from_str(name)) {
+        Vacant(e) => {
+            let value = combine(0, adjust);
+            e.insert(value);
+            value
+        },
+        Occupied(mut e) => {
+            let value = combine(*e.get(), adjust);
+            e.insert(value);
+            value
+        },
+    };
+
+    Ok(value)
+}

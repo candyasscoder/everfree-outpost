@@ -125,7 +125,7 @@ impl<'a> save::WriteHooks for WriteHooks<'a> {
     fn post_write_terrain_chunk<W: Writer>(&mut self,
                                            _writer: &mut W,
                                            _t: &ObjectRef<TerrainChunk>) -> save::Result<()> {
-        // TODO
+        // TODO: support terrain_chunk script data
         Ok(())
     }
 
@@ -325,7 +325,7 @@ impl<'a> save::ReadHooks for ReadHooks<'a> {
                                           _reader: &mut R,
                                           _w: &mut World,
                                           _pos: V2) -> save::Result<()> {
-        // TODO
+        // TODO: support terrain_chunk script data
         Ok(())
     }
 
@@ -359,7 +359,7 @@ impl<'a> save::ReadHooks for ReadHooks<'a> {
     }
 
     fn cleanup_terrain_chunk(&mut self, _w: &mut World, _pos: V2) -> save::Result<()> {
-        // TODO
+        // TODO: support terrain_chunk script data
         Ok(())
     }
 

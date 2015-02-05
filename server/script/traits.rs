@@ -39,8 +39,12 @@ macro_rules! impl_type_name {
     };
 }
 
-impl_type_name!(i32);
+impl_type_name!(u8);
+impl_type_name!(u16);
 impl_type_name!(u32);
+impl_type_name!(i8);
+impl_type_name!(i16);
+impl_type_name!(i32);
 
 
 /// Trait for obtaining the registry key where a type's metatable is stored.
@@ -96,8 +100,12 @@ macro_rules! int_from_lua_impl {
     };
 }
 
-int_from_lua_impl!(i32);
+int_from_lua_impl!(u8);
+int_from_lua_impl!(u16);
 int_from_lua_impl!(u32);
+int_from_lua_impl!(i8);
+int_from_lua_impl!(i16);
+int_from_lua_impl!(i32);
 
 impl<'a> FromLua<'a> for &'a str {
     unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
@@ -232,8 +240,11 @@ macro_rules! int_to_lua_impl {
     };
 }
 
+int_to_lua_impl!(u8);
 int_to_lua_impl!(u16);
 int_to_lua_impl!(u32);
+int_to_lua_impl!(i8);
+int_to_lua_impl!(i16);
 int_to_lua_impl!(i32);
 
 impl<'a> ToLua for &'a str {

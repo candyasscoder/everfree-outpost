@@ -503,6 +503,16 @@ impl Structure {
     }
 }
 
+impl Inventory {
+    pub fn count(&self, name: &str) -> u8 {
+        self.contents.get(name).map_or(0, |&x| x)
+    }
+
+    pub fn contents(&self) -> &HashMap<String, u8> {
+        &self.contents
+    }
+}
+
 
 // TODO: find somewhere better to put Motion
 

@@ -11,7 +11,7 @@ use physics::v3::{V3, V2};
 use data::Data;
 use types::*;
 use world::World;
-use world::{EntityAttachment, StructureAttachment};
+use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::object::*;
 use world::ops;
 
@@ -136,9 +136,8 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
 
         let child_inventory_count = try!(self.r.read_count());
         for _ in range(0, child_inventory_count) {
-            let _iid = try!(self.read_inventory(w));
-            // TODO: implement inventory_attach
-            //try!(ops::inventory_attach(self.world, iid, InventoryAttachment::Client(cid)));
+            let iid = try!(self.read_inventory(w));
+            try!(ops::inventory_attach(w, iid, InventoryAttachment::Client(cid)));
         }
 
         Ok(cid)
@@ -221,9 +220,8 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
 
         let child_inventory_count = try!(self.r.read_count());
         for _ in range(0, child_inventory_count) {
-            let _iid = try!(self.read_inventory(w));
-            // TODO: implement inventory_attach
-            //try!(ops::inventory_attach(self.world, iid, InventoryAttachment::Entity(cid)));
+            let iid = try!(self.read_inventory(w));
+            try!(ops::inventory_attach(w, iid, InventoryAttachment::Entity(eid)));
         }
 
         Ok(eid)
@@ -247,9 +245,8 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
 
         let child_inventory_count = try!(self.r.read_count());
         for _ in range(0, child_inventory_count) {
-            let _iid = try!(self.read_inventory(w));
-            // TODO: implement inventory_attach
-            //try!(ops::inventory_attach(self.world, iid, InventoryAttachment::Structure(cid)));
+            let iid = try!(self.read_inventory(w));
+            try!(ops::inventory_attach(w, iid, InventoryAttachment::Structure(sid)));
         }
 
         Ok(sid)

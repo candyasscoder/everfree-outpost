@@ -10,7 +10,7 @@ use types::*;
 use world::{World, Update};
 use world::{Client, TerrainChunk, Entity, Structure, Inventory};
 use world::{EntitiesById, StructuresById, InventoriesById};
-use super::{EntityAttachment, StructureAttachment};
+use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::Motion;
 use world::ops::{self, OpResult};
 
@@ -167,6 +167,7 @@ impl<'a, 'd, O: Object> DerefMut for ObjectRefMut<'a, 'd, O> {
 }
 
 
+
 pub trait ClientRef<'d>: ObjectRefBase<'d, Client> {
     fn pawn<'b>(&'b self) -> Option<ObjectRef<'b, 'd, Entity>> {
         match self.obj().pawn {
@@ -216,6 +217,7 @@ pub trait ClientRefMut<'d>: ObjectRefMutBase<'d, Client> {
 }
 impl<'a, 'd> ClientRefMut<'d> for ObjectRefMut<'a, 'd, Client> { }
 
+
 pub trait TerrainChunkRef<'d>: ObjectRefBase<'d, TerrainChunk> {
     fn base_pos(&self) -> V3 {
         self.id().extend(0) * scalar(CHUNK_SIZE)
@@ -258,6 +260,7 @@ fn block_pos_to_idx<'d, R: ?Sized+TerrainChunkRef<'d>>(self_: &R, pos: V3) -> us
     Region::new(scalar(0), scalar(CHUNK_SIZE)).index(offset)
 }
 
+
 pub trait EntityRef<'d>: ObjectRefBase<'d, Entity> {
     fn child_inventories<'b>(&'b self)
             -> InventoriesById<'b, 'd, hash_set::Iter<'b, InventoryId>> {
@@ -284,6 +287,7 @@ pub trait EntityRefMut<'d>: ObjectRefMutBase<'d, Entity> {
     }
 }
 impl<'a, 'd> EntityRefMut<'d> for ObjectRefMut<'a, 'd, Entity> { }
+
 
 pub trait StructureRef<'d>: ObjectRefBase<'d, Structure> {
     fn template(&self) -> &'d ObjectTemplate {
@@ -328,3 +332,22 @@ pub trait StructureRefMut<'d>: ObjectRefMutBase<'d, Structure> {
     }
 }
 impl<'a, 'd> StructureRefMut<'d> for ObjectRefMut<'a, 'd, Structure> { }
+
+
+pub trait InventoryRef<'d>: ObjectRefBase<'d, Inventory> {
+}
+impl<'a, 'd> InventoryRef<'d> for ObjectRef<'a, 'd, Inventory> { }
+impl<'a, 'd> InventoryRef<'d> for ObjectRefMut<'a, 'd, Inventory> { }
+
+pub trait InventoryRefMut<'d>: ObjectRefMutBase<'d, Inventory> {
+    fn update(&mut self, name: &str, adjust: i16) -> OpResult<u8> {
+        let iid = self.id();
+        ops::inventory_update(self.world_mut(), iid, name, adjust)
+    }
+
+    fn set_attachment(&mut self, attach: InventoryAttachment) -> OpResult<InventoryAttachment> {
+        let iid = self.id();
+        ops::inventory_attach(self.world_mut(), iid, attach)
+    }
+}
+impl<'a, 'd> InventoryRefMut<'d> for ObjectRefMut<'a, 'd, Inventory> { }

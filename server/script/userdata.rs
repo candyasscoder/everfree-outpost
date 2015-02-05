@@ -279,3 +279,36 @@ impl Userdata for Entity {
         }
     }
 }
+
+
+#[derive(Copy)]
+pub struct Inventory {
+    pub id: InventoryId,
+}
+
+impl_type_name!(Inventory);
+impl_metatable_key!(Inventory);
+
+impl Userdata for Inventory {
+    fn populate_table(lua: &mut LuaState) {
+        lua_table_fns! {
+            lua, -1,
+
+            fn world(_i: &Inventory) -> World { World }
+            fn id(i: &Inventory) -> u32 { i.id.unwrap() }
+        }
+
+        lua_table_ctx_fns! {
+            lua, -1, ctx,
+
+            fn count(i: &Inventory, name: &str) -> Option<u8> {
+                ctx.world.get_inventory(i.id).map(|i| i.count(name))
+            }
+
+            fn update(i: &Inventory, name: &str, adjust: i16) -> StrResult<u8> {{
+                let mut i = unwrap!(ctx.world.get_inventory_mut(i.id));
+                i.update(name, adjust)
+            }}
+        }
+    }
+}
