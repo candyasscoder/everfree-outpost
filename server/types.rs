@@ -57,6 +57,7 @@ pub type StableId = u64;
 
 pub type AnimId = u16;
 pub type BlockId = u16;
+pub type ItemId = u16;
 pub type TileId = u16;
 pub type TemplateId = u32;
 

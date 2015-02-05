@@ -4,7 +4,7 @@ use serialize::json::Json;
 
 use physics::Shape;
 use physics::v3::V3;
-use types::{BlockId, TemplateId};
+use types::{BlockId, ItemId, TemplateId};
 
 
 #[derive(Show)]
@@ -13,28 +13,26 @@ pub struct ParseError(pub String);
 
 pub struct Data {
     pub block_data: BlockData,
+    pub item_data: ItemData,
     pub object_templates: ObjectTemplates,
 }
 
 impl Data {
     pub fn from_json(block_json: Json,
+                     item_json: Json,
                      template_json: Json) -> Result<Data, ParseError> {
         let block_data = try!(BlockData::from_json(block_json));
+        let item_data = try!(ItemData::from_json(item_json));
         let object_templates = try!(ObjectTemplates::from_json(template_json,
                                                                &block_data));
         Ok(Data {
             block_data: block_data,
+            item_data: item_data,
             object_templates: object_templates,
         })
     }
 }
 
-
-pub struct BlockData {
-    shapes: Vec<Shape>,
-    names: Vec<String>,
-    name_to_id: HashMap<String, BlockId>,
-}
 
 
 macro_rules! fail {
@@ -99,6 +97,12 @@ macro_rules! convert {
 }
 
 
+pub struct BlockData {
+    shapes: Vec<Shape>,
+    names: Vec<String>,
+    name_to_id: HashMap<String, BlockId>,
+}
+
 impl BlockData {
     pub fn from_json(json: Json) -> Result<BlockData, ParseError> {
         let blocks = get_convert!(json, "blocks", as_array,
@@ -150,6 +154,47 @@ impl BlockData {
     }
 
     pub fn find_id(&self, name: &str) -> Option<BlockId> {
+        self.name_to_id.get(name).map(|&x| x)
+    }
+}
+
+
+pub struct ItemData {
+    names: Vec<String>,
+    name_to_id: HashMap<String, ItemId>,
+}
+
+impl ItemData {
+    pub fn from_json(json: Json) -> Result<ItemData, ParseError> {
+        let items = get_convert!(json, "items", as_array,
+                                  "at top level");
+
+        let mut names = Vec::with_capacity(items.len());
+        let mut name_to_id = HashMap::new();
+
+        for (i, item) in items.iter().enumerate() {
+            let name = get_convert!(item, "name", as_string,
+                                    "for item {}", i);
+
+            names.push(String::from_str(name));
+            name_to_id.insert(String::from_str(name), i as ItemId);
+        }
+
+        Ok(ItemData {
+            names: names,
+            name_to_id: name_to_id,
+        })
+    }
+
+    pub fn name(&self, id: ItemId) -> &str {
+        &*self.names[id as usize]
+    }
+
+    pub fn get_id(&self, name: &str) -> ItemId {
+        self.find_id(name).unwrap_or_else(|| panic!("unknown item id: {}", name))
+    }
+
+    pub fn find_id(&self, name: &str) -> Option<ItemId> {
         self.name_to_id.get(name).map(|&x| x)
     }
 }

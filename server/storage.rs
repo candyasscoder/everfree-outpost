@@ -8,6 +8,7 @@ use physics::v3::V2;
 
 const DATA_DIR: &'static str = "data";
 const BLOCK_DATA_FILE: &'static str = "blocks.json";
+const ITEM_DATA_FILE: &'static str = "items.json";
 const TEMPLATE_DATA_FILE: &'static str = "objects.json";
 
 const SCRIPT_DIR: &'static str = "scripts";
@@ -38,6 +39,10 @@ impl Storage {
 
     pub fn open_block_data(&self) -> File {
         File::open(&self.data_path(BLOCK_DATA_FILE)).unwrap()
+    }
+
+    pub fn open_item_data(&self) -> File {
+        File::open(&self.data_path(ITEM_DATA_FILE)).unwrap()
     }
 
     pub fn open_template_data(&self) -> File {

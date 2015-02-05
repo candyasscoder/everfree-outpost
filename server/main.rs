@@ -69,8 +69,9 @@ fn main() {
     let storage = Storage::new(Path::new(&os::args()[1]));
 
     let block_json = json::from_reader(&mut storage.open_block_data()).unwrap();
+    let item_json = json::from_reader(&mut storage.open_item_data()).unwrap();
     let template_json = json::from_reader(&mut storage.open_template_data()).unwrap();
-    let data = Data::from_json(block_json, template_json).unwrap();
+    let data = Data::from_json(block_json, item_json, template_json).unwrap();
 
     let (req_send, req_recv) = channel();
     let (resp_send, resp_recv) = channel();
