@@ -252,6 +252,10 @@ lifecycle_methods!(Structure,
                    create_structure(pos: V3, tid: TemplateId) => structure_create,
                    destroy_structure(id: StructureId) => structure_destroy);
 
+lifecycle_methods!(Inventory,
+                   create_inventory() => inventory_create,
+                   destroy_inventory(id: InventoryId) => inventory_destroy);
+
 macro_rules! access_methods {
     ($obj_ty:ty,
      $id_name:ident: $id_ty:ty => $table:ident . get ( $lookup_arg:expr ),

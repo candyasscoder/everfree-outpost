@@ -120,10 +120,114 @@ impl Userdata for World {
                 None
             }}
 
+            fn create_entity(_w: &World, pos: V3, anim: AnimId) -> StrResult<Entity> {
+                ctx.world.create_entity(pos, anim)
+                   .map(|e| Entity { id: e.id() })
+            }
+
             fn create_structure(_w: &World, pos: V3, template_id: u32) -> StrResult<Structure> {
                 ctx.world.create_structure(pos, template_id)
                    .map(|s| Structure { id: s.id() })
             }
+
+            fn create_inventory(_w: &World) -> StrResult<Inventory> {
+                ctx.world.create_inventory()
+                   .map(|i| Inventory { id: i.id() })
+            }
+        }
+    }
+}
+
+
+#[derive(Copy)]
+pub struct Client {
+    pub id: ClientId,
+}
+
+impl_type_name!(Client);
+impl_metatable_key!(Client);
+
+impl Userdata for Client {
+    fn populate_table(lua: &mut LuaState) {
+        lua_table_fns! {
+            lua, -1,
+
+            fn world(_c: &Client) -> World { World }
+            fn id(c: &Client) -> u16 { c.id.unwrap() }
+        }
+
+        lua_table_ctx_fns! {
+            lua, -1, ctx,
+
+            fn pawn(c: &Client) -> Option<Entity> {
+                ctx.world.get_client(c.id)
+                   .and_then(|c| c.pawn_id())
+                   .map(|eid| Entity { id: eid })
+            }
+
+            fn set_pawn(c: &Client, e: &Entity) -> StrResult<()> {{
+                let mut c = unwrap!(ctx.world.get_client_mut(c.id));
+                try!(c.set_pawn(ctx.now, Some(e.id)));
+                Ok(())
+            }}
+
+            fn clear_pawn(c: &Client) -> StrResult<()> {{
+                let mut c = unwrap!(ctx.world.get_client_mut(c.id));
+                try!(c.set_pawn(ctx.now, None));
+                Ok(())
+            }}
+        }
+    }
+}
+
+
+#[derive(Copy)]
+pub struct Entity {
+    pub id: EntityId,
+}
+
+impl_type_name!(Entity);
+impl_metatable_key!(Entity);
+
+impl Userdata for Entity {
+    fn populate_table(lua: &mut LuaState) {
+        use world::EntityAttachment;
+
+        lua_table_fns! {
+            lua, -1,
+
+            fn world(_e: &Entity) -> World { World }
+            fn id(e: &Entity) -> u32 { e.id.unwrap() }
+        }
+
+        lua_table_ctx_fns! {
+            lua, -1, ctx,
+
+            fn destroy(e: &Entity) -> StrResult<()> {
+                ctx.world.destroy_entity(e.id)
+            }
+
+            fn pos(e: &Entity) -> Option<V3> {
+                ctx.world.get_entity(e.id).map(|e| e.pos(ctx.now))
+            }
+
+            fn facing(e: &Entity) -> Option<V3> {
+                ctx.world.get_entity(e.id).map(|e| e.facing())
+            }
+
+            // TODO: come up with a lua representation of attachment so we can unify these methods
+            // and also return the previous attachment (like the underlying op does)
+            fn attach_to_world(e: &Entity) -> StrResult<()> {{
+                let mut e = unwrap!(ctx.world.get_entity_mut(e.id));
+                try!(e.set_attachment(EntityAttachment::World));
+                Ok(())
+            }}
+
+            fn attach_to_client(e: &Entity, c: &Client) -> StrResult<()> {{
+                let mut e = unwrap!(ctx.world.get_entity_mut(e.id));
+                try!(e.set_attachment(EntityAttachment::Client(c.id)));
+                Ok(())
+            }}
         }
     }
 }
@@ -154,6 +258,8 @@ impl_metatable_key!(Structure);
 
 impl Userdata for Structure {
     fn populate_table(lua: &mut LuaState) {
+        use world::StructureAttachment;
+
         lua_table_fns! {
             lua, -1,
 
@@ -163,6 +269,10 @@ impl Userdata for Structure {
 
         lua_table_ctx_fns! {
             lua, -1, ctx,
+
+            fn destroy(s: &Structure) -> StrResult<()> {
+                ctx.world.destroy_structure(s.id)
+            }
 
             fn pos(s: &Structure) -> Option<V3> {
                 ctx.world.get_structure(s.id)
@@ -179,10 +289,6 @@ impl Userdata for Structure {
                    .map(|s| s.template_id())
             }
 
-            fn delete(s: &Structure) -> StrResult<()> {
-                ctx.world.destroy_structure(s.id)
-            }
-
             fn move_to(s: &Structure, new_pos: &V3) -> StrResult<()> {{
                 let mut s = unwrap!(ctx.world.get_structure_mut(s.id));
                 s.set_pos(*new_pos)
@@ -195,6 +301,18 @@ impl Userdata for Structure {
 
                 let mut s = unwrap!(ctx.world.get_structure_mut(s.id));
                 s.set_template_id(new_template_id)
+            }}
+
+            fn attach_to_world(s: &Structure) -> StrResult<()> {{
+                let mut s = unwrap!(ctx.world.get_structure_mut(s.id));
+                try!(s.set_attachment(StructureAttachment::World));
+                Ok(())
+            }}
+
+            fn attach_to_chunk(s: &Structure) -> StrResult<()> {{
+                let mut s = unwrap!(ctx.world.get_structure_mut(s.id));
+                try!(s.set_attachment(StructureAttachment::Chunk));
+                Ok(())
             }}
         }
 
@@ -220,68 +338,6 @@ fn structure_template(mut lua: LuaState) -> c_int {
 
 
 #[derive(Copy)]
-pub struct Client {
-    pub id: ClientId,
-}
-
-impl_type_name!(Client);
-impl_metatable_key!(Client);
-
-impl Userdata for Client {
-    fn populate_table(lua: &mut LuaState) {
-        lua_table_fns! {
-            lua, -1,
-
-            fn world(_c: &Client) -> World { World }
-            fn id(c: &Client) -> u16 { c.id.unwrap() }
-        }
-
-        lua_table_ctx_fns! {
-            lua, -1, ctx,
-
-            fn pawn(c: &Client) -> Option<Entity> {
-                ctx.world.get_client(c.id)
-                   .and_then(|c| c.pawn_id())
-                   .map(|eid| Entity { id: eid })
-            }
-        }
-    }
-}
-
-
-#[derive(Copy)]
-pub struct Entity {
-    pub id: EntityId,
-}
-
-impl_type_name!(Entity);
-impl_metatable_key!(Entity);
-
-impl Userdata for Entity {
-    fn populate_table(lua: &mut LuaState) {
-        lua_table_fns! {
-            lua, -1,
-
-            fn world(_e: &Entity) -> World { World }
-            fn id(e: &Entity) -> u32 { e.id.unwrap() }
-        }
-
-        lua_table_ctx_fns! {
-            lua, -1, ctx,
-
-            fn pos(e: &Entity) -> Option<V3> {
-                ctx.world.get_entity(e.id).map(|e| e.pos(ctx.now))
-            }
-
-            fn facing(e: &Entity) -> Option<V3> {
-                ctx.world.get_entity(e.id).map(|e| e.facing())
-            }
-        }
-    }
-}
-
-
-#[derive(Copy)]
 pub struct Inventory {
     pub id: InventoryId,
 }
@@ -291,6 +347,8 @@ impl_metatable_key!(Inventory);
 
 impl Userdata for Inventory {
     fn populate_table(lua: &mut LuaState) {
+        use world::InventoryAttachment;
+
         lua_table_fns! {
             lua, -1,
 
@@ -301,6 +359,10 @@ impl Userdata for Inventory {
         lua_table_ctx_fns! {
             lua, -1, ctx,
 
+            fn destroy(i: &Inventory) -> StrResult<()> {
+                ctx.world.destroy_inventory(i.id)
+            }
+
             fn count(i: &Inventory, name: &str) -> Option<u8> {
                 ctx.world.get_inventory(i.id).map(|i| i.count(name))
             }
@@ -308,6 +370,30 @@ impl Userdata for Inventory {
             fn update(i: &Inventory, name: &str, adjust: i16) -> StrResult<u8> {{
                 let mut i = unwrap!(ctx.world.get_inventory_mut(i.id));
                 i.update(name, adjust)
+            }}
+
+            fn attach_to_world(i: &Inventory) -> StrResult<()> {{
+                let mut i = unwrap!(ctx.world.get_inventory_mut(i.id));
+                try!(i.set_attachment(InventoryAttachment::World));
+                Ok(())
+            }}
+
+            fn attach_to_client(i: &Inventory, c: &Client) -> StrResult<()> {{
+                let mut i = unwrap!(ctx.world.get_inventory_mut(i.id));
+                try!(i.set_attachment(InventoryAttachment::Client(c.id)));
+                Ok(())
+            }}
+
+            fn attach_to_entity(i: &Inventory, e: &Entity) -> StrResult<()> {{
+                let mut i = unwrap!(ctx.world.get_inventory_mut(i.id));
+                try!(i.set_attachment(InventoryAttachment::Entity(e.id)));
+                Ok(())
+            }}
+
+            fn attach_to_structure(i: &Inventory, s: &Structure) -> StrResult<()> {{
+                let mut i = unwrap!(ctx.world.get_inventory_mut(i.id));
+                try!(i.set_attachment(InventoryAttachment::Structure(s.id)));
+                Ok(())
             }}
         }
     }

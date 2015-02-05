@@ -67,6 +67,20 @@ macro_rules! impl_metatable_key {
 }
 
 
+/// Types that can be passed to Lua as userdata values.
+#[allow(unused_variables)]
+pub trait Userdata: TypeName+MetatableKey+Copy {
+    fn populate_table(lua: &mut LuaState) { }
+    fn populate_metatable(lua: &mut LuaState) { }
+}
+
+pub fn create_userdata<U: Userdata>(lua: &mut LuaState, u: U) {
+    lua.push_userdata(u);
+    lua.get_field(REGISTRY_INDEX, metatable_key::<U>());
+    lua.set_metatable(-2);
+}
+
+
 /// Types that can be read from the Lua stack.
 pub trait FromLua<'a> {
     unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str);
@@ -360,18 +374,4 @@ macro_rules! lua_ctx_fn {
             $crate::script::traits::pack_count(&mut lua, result)
         }
     };
-}
-
-
-/// Types that can be passed to Lua as userdata values.
-#[allow(unused_variables)]
-pub trait Userdata: TypeName+MetatableKey+Copy {
-    fn populate_table(lua: &mut LuaState) { }
-    fn populate_metatable(lua: &mut LuaState) { }
-}
-
-pub fn create_userdata<U: Userdata>(lua: &mut LuaState, u: U) {
-    lua.push_userdata(u);
-    lua.get_field(REGISTRY_INDEX, metatable_key::<U>());
-    lua.set_metatable(-2);
 }
