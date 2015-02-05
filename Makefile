@@ -181,21 +181,29 @@ $(BUILD_NATIVE)/backend: $(SRC)/server/main.rs \
 
 # Rules for misc files
 
-$(BUILD)/tiles.json \
 $(BUILD)/tiles.png \
+$(BUILD)/tiles.json \
 $(BUILD)/blocks-server.json \
+$(BUILD)/items.png \
+$(BUILD)/items.json \
+$(BUILD)/items-server.json \
 $(BUILD)/tile-assets-used.txt: \
 		$(SRC)/client/assets/tiles.yaml \
 		$(SRC)/client/assets/blocks.yaml \
+		$(SRC)/client/assets/items.yaml \
 		$(SRC)/util/process_tiles.py \
 		$(wildcard $(SRC)/util/process_tiles/*.py)
 	$(PYTHON3) $(SRC)/util/process_tiles.py \
-		--block-yaml=$(SRC)/client/assets/blocks.yaml \
 		--tile-yaml=$(SRC)/client/assets/tiles.yaml \
 		--tile-image-dir=$(SRC)/client/assets/tiles \
-		--client-json-out=$(BUILD)/tiles.json \
-		--atlas-image-out=$(BUILD)/tiles.png \
-		--server-json-out=$(BUILD)/blocks-server.json \
+		--block-yaml=$(SRC)/client/assets/blocks.yaml \
+		--item-yaml=$(SRC)/client/assets/items.yaml \
+		--block-atlas-image-out=$(BUILD)/tiles.png \
+		--item-atlas-image-out=$(BUILD)/items.png \
+		--client-block-json-out=$(BUILD)/tiles.json \
+		--server-block-json-out=$(BUILD)/blocks-server.json \
+		--client-item-json-out=$(BUILD)/items.json \
+		--server-item-json-out=$(BUILD)/items-server.json \
 		--asset-list-out=$(BUILD)/tile-assets-used.txt
 
 $(BUILD)/objects.json: \
@@ -203,8 +211,8 @@ $(BUILD)/objects.json: \
 		$(SRC)/util/process_tiles.py \
 		$(wildcard $(SRC)/util/process_tiles/*.py)
 	$(PYTHON3) $(SRC)/util/process_tiles.py \
-		--object-yaml=$(SRC)/client/assets/objects.yaml \
-		--object-json-out=$(BUILD)/objects.json
+		--template-yaml=$(SRC)/client/assets/objects.yaml \
+		--server-template-json-out=$(BUILD)/objects.json
 
 $(BUILD)/client.debug.html: $(SRC)/client/client.html \
 	$(SRC)/util/collect_js_deps.py $(SRC)/util/patch_script_tags.py $(JS_SRCS)
@@ -231,8 +239,11 @@ WWW_FILE = $(call DIST_FILE_,WWW,$(strip $(1)),$(strip $(2)))
 DATA_FILE = $(call DIST_FILE_,DATA,$(strip $(1)),$(strip $(2)))
 
 $(eval $(call WWW_FILE, tiles.json, 	$(BUILD)/tiles.json))
+$(eval $(call WWW_FILE, items.json, 	$(BUILD)/items.json))
 $(eval $(call WWW_FILE, assets/tiles.png, 	$(BUILD)/tiles.png))
+$(eval $(call WWW_FILE, assets/items.png, 	$(BUILD)/items.png))
 $(eval $(call DATA_FILE, blocks.json, 	$(BUILD)/blocks-server.json))
+$(eval $(call DATA_FILE, items.json, 	$(BUILD)/items-server.json))
 $(eval $(call DATA_FILE, objects.json, 	$(BUILD)/objects.json))
 $(eval $(call WWW_FILE, credits.html, 	$(BUILD)/credits.html))
 

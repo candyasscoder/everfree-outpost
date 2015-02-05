@@ -76,3 +76,9 @@ lpc-base-tiles/inside.png:
 
 lpc-base-tiles/stairs.png:
     stair/n: [0, 12]
+
+daneeklu_farming_tilesets/farming_fishing.png:
+    item/woodpile:
+        small: [5, 0]
+        medium: [5, 1]
+        large: [1, 1]

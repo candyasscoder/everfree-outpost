@@ -3,14 +3,12 @@ import os
 
 from PIL import Image
 
-from process_tiles.blocks import SIDES
-
-def compute_atlas(block_arr, tiles):
+def compute_atlas(block_arr, tiles, keys):
     order = [()]
     rev = {}
 
     for block in block_arr:
-        for k in SIDES:
+        for k in keys:
             if k not in block:
                 continue
 

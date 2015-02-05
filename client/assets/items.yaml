@@ -1,0 +1,5 @@
+_.prefix: item
+
+wood:
+    tile: woodpile/medium
+    ui_name: Wood
