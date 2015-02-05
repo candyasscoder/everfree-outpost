@@ -88,4 +88,26 @@ exports.buildArray = function(size, fn) {
         a[i] = fn();
     }
     return a;
-}
+};
+
+
+exports.fromTemplate = function(id, parts) {
+    var template = document.getElementById(id);
+    console.assert(template != null, "no template with id", id);
+
+    var copy = template.cloneNode(/* deep */ true);
+    // Avoid duplicate IDs in the document.
+    copy.removeAttribute('id');
+
+    // Fill in the holes.
+    var holes = copy.getElementsByClassName('hole');
+    for (var i = 0; i < holes.length; ++i) {
+        var hole = holes[i];
+        var key = hole.dataset.key;
+        var part = parts[key];
+        console.assert(part != null, 'missing part for template hole', key);
+        hole.parentNode.replaceChild(part, hole);
+    }
+
+    return copy;
+};

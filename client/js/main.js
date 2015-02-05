@@ -18,6 +18,8 @@ var Config = require('config').Config;
 var Keyboard = require('keyboard').Keyboard;
 var Dialog = require('dialog').Dialog;
 var Banner = require('banner').Banner;
+//var Inventory = require('inventory').Inventory;
+var ItemRow = require('inventory').ItemRow;
 
 var Chunk = require('chunk').Chunk;
 var TileDef = require('chunk').TileDef;

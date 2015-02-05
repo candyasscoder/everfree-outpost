@@ -99,12 +99,14 @@
             }
 
             kbd {
+                font-size: 0.65em;
                 text-align: center;
+                vertical-align: middle;
                 display: inline-block;
                 border-style: outset;
                 border-width: .2em;
                 border-color: gray;
-                padding: .1em;
+                /* padding: .1em; */
                 min-width: 1.3em;
                 min-height: 1.3em;
             }
@@ -113,7 +115,14 @@
                 position: fixed;
                 right: 0;
                 top: 0;
-                font-size: 0.75rem;
+            }
+
+            #key-list kbd {
+                font-size: 0.8em;
+            }
+
+            #key-list td {
+                vertical-align: middle;
             }
 
             #key-list td:first-child {
@@ -138,28 +147,54 @@
                 display: flex;
                 align-items: center;
             }
+
+            .item-list.active > .item.active {
+                background-color: lightblue;
+            }
+
+            .item.active {
+                background-color: lightgray;
+            }
+
+            .item-icon {
+                font-size: 0;
+                flex: 0;
+                width: 1rem;
+                height: 1rem;
+                min-width: 1rem;
+                min-height: 1rem;
+
+                /* TODO: should have a separate tile atlas for item icons */
+                background-image: url("assets/tiles.png");
+            }
+
+            .item-name {
+                padding-left: 0.25rem;
+                font-size: 1rem;
+                flex: 1;
+            }
+
+            .item-qty {
+                flex: 0;
+                min-width: 1.8rem;
+                font-size: 0.75rem;
+                padding-right: 0.125rem;
+                text-align: right;
+            }
+
             .item-list {
                 width: 10rem;
                 overflow-x: hidden;
                 overflow-y: scroll;
                 height: 60vh;
             }
-            .item:first-child {
-                background-color: lightblue;
+
+
+            .title {
+                font-size: 1.3em;
+                    text-align:center;
             }
-            .item .item-icon {
-                font-size: 0;
-                background-color: lightgray;
-                flex: 0;
-                min-width: 1rem;
-                min-height: 1rem;
-            }
-            .item .item-name {
-                padding-left: 0.25rem;
-                border: solid 1px red;
-                font-size: 1rem;
-                flex: 1;
-            }
+
         </style>
     </head>
     <body>
@@ -175,7 +210,7 @@
 
         <div style="display: none">
             <div id="key-list">
-                <table id="key-list">
+                <table>
                     <tr>
                         <td>
                             <kbd>&larr;</kbd>
@@ -191,6 +226,16 @@
                     <tr><td><kbd>Space</kbd></td><td>Close Dialog</td></tr>
                     <tr><td><kbd>F1</kbd></td><td>Hide/Show<br>Controls</td></tr>
                 </table>
+            </div>
+
+            <div id="inventory">
+                <div class="title">Inventory</div>
+                <div class="hole" data-key="item_list"></div>
+                <div class="dialog-keys">
+                    <kbd>&uarr;</kbd>
+                    <kbd>&darr;</kbd>
+                    &ndash; Navigate
+                </div>
             </div>
         </div>
 
