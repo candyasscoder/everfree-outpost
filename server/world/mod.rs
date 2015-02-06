@@ -6,7 +6,7 @@ use physics::v3::{Vn, V2, V3, scalar};
 use data::Data;
 use input::InputBits;
 use types::*;
-use util::{StableIdMap, StableIdMapIter};
+use util::stable_id_map::{self, StableIdMap};
 
 use self::object::{Object, ObjectRef, ObjectRefMut};
 pub use self::ops::OpResult;
@@ -347,7 +347,7 @@ macro_rules! object_iter {
     ($name:ident, $obj_ty:ty, $id_ty:ty) => {
         pub struct $name<'a, 'd: 'a> {
             world: &'a World<'d>,
-            iter: StableIdMapIter<'a, $id_ty, $obj_ty>,
+            iter: stable_id_map::Iter<'a, $id_ty, $obj_ty>,
         }
 
         impl<'a, 'd> Iterator for $name<'a, 'd> {

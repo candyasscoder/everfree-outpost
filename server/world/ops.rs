@@ -10,7 +10,7 @@ use physics::v3::{Vn, V3, V2, scalar, Region};
 use input::InputBits;
 use types::*;
 use util::StrError;
-use util::NO_STABLE_ID;
+use util::stable_id_map::NO_STABLE_ID;
 
 use super::{World, Update};
 use super::{Client, TerrainChunk, Entity, Structure, Inventory};
