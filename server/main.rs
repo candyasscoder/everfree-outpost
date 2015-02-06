@@ -219,6 +219,10 @@ impl<'a> Server<'a> {
                 self.resps.send((wire_id, Response::ClientRemoved)).unwrap();
             },
 
+            Request::UnsubscribeInventory(_iid) => {
+                info!("unimplemented request: UnsubscribeInventory");
+            },
+
             Request::BadMessage(opcode) => {
                 warn!("unrecognized opcode from connection {:?}: {:x}",
                       wire_id, opcode.unwrap());

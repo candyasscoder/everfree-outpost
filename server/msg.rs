@@ -2,7 +2,7 @@ use std::io::IoResult;
 
 use wire;
 use wire::{WireReader, WireWriter};
-use types::{LocalTime, WireId, EntityId};
+use types::*;
 
 pub use self::Request::*;
 pub use self::Response::*;
@@ -51,6 +51,7 @@ pub mod op {
         Input = 0x0004,
         Login = 0x0005,
         Action = 0x0006,
+        UnsubscribeInventory = 0x0007,
 
         TerrainChunk = 0x8001,
         PlayerMotion = 0x8002,
@@ -60,6 +61,8 @@ pub mod op {
         KickReason = 0x8006,
         UnloadChunk = 0x8007,
         // TODO: EntityAdd, EntityRemove
+        OpenDialog = 0x8008,
+        InventoryUpdate = 0x8009,
 
         AddClient = 0xff00,
         RemoveClient = 0xff01,
@@ -78,6 +81,7 @@ pub enum Request {
     Input(LocalTime, u16),
     Login([u32; 4], String),
     Action(LocalTime, u16),
+    UnsubscribeInventory(InventoryId),
 
     // Control messages
     AddClient,
@@ -108,6 +112,10 @@ impl Request {
                 let (a, b) = try!(wr.read());
                 Action(a, b)
             },
+            op::UnsubscribeInventory => {
+                let a = try!(wr.read());
+                UnsubscribeInventory(a)
+            },
             op::AddClient => AddClient,
             op::RemoveClient => RemoveClient,
             _ => BadMessage(opcode),
@@ -131,6 +139,8 @@ pub enum Response {
     Init(InitData),
     KickReason(String),
     UnloadChunk(u16),
+    OpenDialog(u32, Vec<u32>),
+    InventoryUpdate(InventoryId, Vec<(ItemId, u8, u8)>),
 
     ClientRemoved,
 }
@@ -152,7 +162,10 @@ impl Response {
                 ww.write_msg(id, (op::KickReason, msg)),
             UnloadChunk(idx) =>
                 ww.write_msg(id, (op::UnloadChunk, idx)),
-
+            OpenDialog(dialog_id, ref params) =>
+                ww.write_msg(id, (op::OpenDialog, dialog_id, params.as_slice())),
+            InventoryUpdate(inventory_id, ref changes) =>
+                ww.write_msg(id, (op::InventoryUpdate, inventory_id, changes.as_slice())),
             ClientRemoved =>
                 ww.write_msg(id, (op::ClientRemoved)),
         });
