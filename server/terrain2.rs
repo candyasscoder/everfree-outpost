@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry::*;
+use std::ops::{Deref, DerefMut};
 
 use physics::CHUNK_BITS;
 use physics::v3::{Vn, V2, Region};
 
 use data::Data;
 use types::*;
+use util::Cursor;
 use util::StrError;
 use world::{World, Update};
 use world::object::*;
@@ -97,19 +99,25 @@ impl<'d> ManagedWorld<'d> {
         &mut self.world
     }
 
-    pub fn process_journal<F>(&mut self, mut f: F)
-            where F: FnMut(&mut World, Update) {
-        let cache = &mut self.cache;
-        self.world.process_journal(|w, u| {
+    // TODO: This type signature is super gross.  Should be possible to clean this up a bit by
+    // making Cursor::new take any parent type that impls a certain (unsafe) trait, so that we can
+    // let self_ be any 'CursorParent', instead of requiring precisely 'Cursor'.
+    pub fn process_journal<P, S, F>(self_: Cursor<ManagedWorld<'d>, P, S>, mut f: F)
+            where P: DerefMut,
+                  S: Fn(&mut <P as Deref>::Target) -> &mut ManagedWorld<'d>,
+                  F: FnMut(&mut Cursor<ManagedWorld<'d>, P, S>, Update) {
+        World::process_journal(self_.extend(|mw| &mut mw.world), |w, u| {
+            let mut mw = w.up();
             match u {
                 Update::ChunkInvalidate(pos) => {
                     // Ignore errors.  The chunk might have been invalidated and then removed, for
                     // example.
-                    let _ = cache.update(w, pos);
+                    let mw: &mut ManagedWorld = &mut **mw;
+                    let _ = mw.cache.update(&mw.world, pos);
                 },
                 _ => {},
             }
-            f(w, u);
+            f(&mut *mw, u);
         });
     }
 

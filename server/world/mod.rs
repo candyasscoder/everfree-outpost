@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet, hash_set};
 use std::mem::replace;
+use std::ops::{Deref, DerefMut};
 
 use physics::v3::{Vn, V2, V3, scalar};
 
@@ -162,17 +163,18 @@ impl<'d> World<'d> {
         replace(&mut self.journal, Vec::new())
     }
 
-    pub fn process_journal<F>(&mut self, mut f: F)
-            where F: FnMut(&mut World, Update) {
-        let mut journal = replace(&mut self.journal, Vec::new());
+    pub fn process_journal<D, F>(mut self_: D, mut f: F)
+            where D: Deref<Target=World<'d>>+DerefMut,
+                  F: FnMut(&mut D, Update) {
+        let mut journal = replace(&mut self_.journal, Vec::new());
         for update in journal.drain() {
-            f(self, update);
+            f(&mut self_, update);
         }
         // Try to put back the original journal, to avoid an allocation.  But if the callback added
         // journal entries, skip it - we've already allocated, and we don't want to lose the new
         // entries.
-        if self.journal.len() == 0 {
-            self.journal = journal;
+        if self_.journal.len() == 0 {
+            self_.journal = journal;
         }
     }
 

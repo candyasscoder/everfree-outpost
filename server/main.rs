@@ -36,6 +36,7 @@ use data::Data;
 use world::object::{ObjectRef, ObjectRefBase, ClientRef};
 use storage::Storage;
 use view::ViewState;
+use util::Cursor;
 
 use types::{Time, ToGlobal, ToLocal};
 use types::{WireId, ClientId, EntityId};
@@ -229,7 +230,7 @@ impl<'a> Server<'a> {
             },
         }
 
-        self.state.process_journal(|_, _| { });
+        self.process_journal(now);
     }
 
     fn handle_wake(&mut self,
@@ -267,30 +268,15 @@ impl<'a> Server<'a> {
     }
 
     fn process_journal(&mut self, now: Time) {
-        let mut chunk_updates = Vec::new();
-        let mut motion_updates = Vec::new();
-        let mut viewport_updates = Vec::new();
-
-        self.state.process_journal(|w, u| {
+        state::State::process_journal(Cursor::new(self, |s| &mut s.state), |st, u| {
+            let mut s = st.up();
             match u {
-                world::Update::ClientPawnChange(cid) => viewport_updates.push(cid),
-                world::Update::ChunkInvalidate(pos) => chunk_updates.push(pos),
-                world::Update::EntityMotionChange(eid) => motion_updates.push(eid),
+                world::Update::ClientPawnChange(cid) => s.reset_viewport(now, cid),
+                world::Update::ChunkInvalidate(pos) => s.update_chunk(now, pos),
+                world::Update::EntityMotionChange(eid) => s.update_entity_motion(now, eid),
                 _ => {},
             }
         });
-
-        for pos in chunk_updates.into_iter() {
-            self.update_chunk(now, pos);
-        }
-
-        for eid in motion_updates.into_iter() {
-            self.update_entity_motion(now, eid);
-        }
-
-        for cid in viewport_updates.into_iter() {
-            self.reset_viewport(now, cid);
-        }
     }
 
     fn send(&self, client: &ObjectRef<world::Client>, resp: Response) {

@@ -1,4 +1,5 @@
 use std::iter::range_inclusive;
+use std::ops::{Deref, DerefMut};
 use std::rand::{Rng, SeedableRng, XorShiftRng};
 
 use physics;
@@ -19,6 +20,7 @@ use util::StrError;
 use storage::Storage;
 use world::save::{self, ObjectReader, ObjectWriter};
 use script::{ReadHooks, WriteHooks};
+use util::Cursor;
 
 use self::StateChange::ChunkUpdate;
 
@@ -261,22 +263,25 @@ impl<'a> State<'a> {
         self.script.test_callback(self.mw.world_mut(), now, id, action)
     }
 
-    pub fn process_journal<F>(&mut self, mut f: F)
-            where F: FnMut(&mut world::World, world::Update) {
-        let script = &mut self.script;
-        self.mw.process_journal(|w, u| {
+    // TODO: gross type signature.  See comment in terrain2 for a possible fix.
+    pub fn process_journal<P, S, F>(self_: Cursor<State<'a>, P, S>, mut f: F)
+            where P: DerefMut,
+                  S: Fn(&mut <P as Deref>::Target) -> &mut State<'a>,
+                  F: FnMut(&mut Cursor<State<'a>, P, S>, world::Update) {
+        terrain2::ManagedWorld::process_journal(self_.extend(|s| &mut s.mw), |mw, u| {
+            let mut s = mw.up();
             match u {
                 world::Update::ClientDestroyed(id) =>
-                    script.callback_client_destroyed(id),
+                    s.script.callback_client_destroyed(id),
                 world::Update::EntityDestroyed(id) =>
-                    script.callback_entity_destroyed(id),
+                    s.script.callback_entity_destroyed(id),
                 world::Update::StructureDestroyed(id) =>
-                    script.callback_structure_destroyed(id),
+                    s.script.callback_structure_destroyed(id),
                 world::Update::InventoryDestroyed(id) =>
-                    script.callback_inventory_destroyed(id),
+                    s.script.callback_inventory_destroyed(id),
                 _ => {},
             }
-            f(w, u);
+            f(&mut *s, u);
         });
     }
 
