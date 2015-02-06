@@ -237,32 +237,23 @@ impl<'a> Server<'a> {
                    reason: WakeReason) {
         match reason {
             WakeReason::HandleInput(client_id, input) => {
-                let updated = self.state.update_input(now, client_id, input);
-                let entity_id = self.state.world().client(client_id).pawn_id().unwrap();
-                match updated {
-                    Ok(true) => self.update_entity_motion(now, entity_id),
-                    Ok(false) => {},
-                    Err(e) => warn!("update_input error: {}", e.description()),
+                let result = self.state.update_input(now, client_id, input);
+                if let Err(e) = result {
+                    warn!("update_input: {}", e);
                 }
             },
 
             WakeReason::HandleAction(client_id, action) => {
-                let updates = self.state.perform_action(now, client_id, action);
-                for update in updates.into_iter() {
-                    match update {
-                        ChunkUpdate(cx, cy) => {
-                            self.update_chunk(now, V2::new(cx, cy));
-                        },
-                    }
+                let result = self.state.perform_action(now, client_id, action);
+                if let Err(e) = result {
+                    warn!("perform_action: {}", e);
                 }
             },
 
             WakeReason::PhysicsUpdate(entity_id) => {
-                let updated = self.state.update_physics(now, entity_id, false);
-                match updated {
-                    Ok(true) => self.update_entity_motion(now, entity_id),
-                    Ok(false) => {},
-                    Err(e) => warn!("update_physics error: {}", e.description()),
+                let result = self.state.update_physics(now, entity_id, false);
+                if let Err(e) = result {
+                    warn!("update_physics: {}", e);
                 }
             },
 
@@ -272,7 +263,34 @@ impl<'a> Server<'a> {
             },
         }
 
-        self.state.process_journal(|_, _| { });
+        self.process_journal(now);
+    }
+
+    fn process_journal(&mut self, now: Time) {
+        let mut chunk_updates = Vec::new();
+        let mut motion_updates = Vec::new();
+        let mut viewport_updates = Vec::new();
+
+        self.state.process_journal(|w, u| {
+            match u {
+                world::Update::ClientPawnChange(cid) => viewport_updates.push(cid),
+                world::Update::ChunkInvalidate(pos) => chunk_updates.push(pos),
+                world::Update::EntityMotionChange(eid) => motion_updates.push(eid),
+                _ => {},
+            }
+        });
+
+        for pos in chunk_updates.into_iter() {
+            self.update_chunk(now, pos);
+        }
+
+        for eid in motion_updates.into_iter() {
+            self.update_entity_motion(now, eid);
+        }
+
+        for cid in viewport_updates.into_iter() {
+            self.reset_viewport(now, cid);
+        }
     }
 
     fn send(&self, client: &ObjectRef<world::Client>, resp: Response) {

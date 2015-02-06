@@ -220,13 +220,13 @@ impl<'a> State<'a> {
         Ok(())
     }
 
-    pub fn update_physics(&mut self, now: Time, eid: EntityId, force: bool) -> Result<bool, StrError> {
+    pub fn update_physics(&mut self, now: Time, eid: EntityId, force: bool) -> Result<(), StrError> {
         let (motion, anim, facing) = {
             let entity = unwrap!(self.world().get_entity(eid));
             // TODO: weird bug: it should be harmless to always act like `force` is enabled, but
             // doing so causes the entity to get stuck instead of sliding along walls
             if !force && now < entity.motion().end_time() {
-                return Ok(false);
+                return Ok(());
             }
 
             let terrain = build_local_terrain(&self.mw, entity.pos(now), (0, 0));
@@ -238,14 +238,14 @@ impl<'a> State<'a> {
         e.set_motion(motion);
         e.set_anim(anim);
         e.set_facing(facing);
-        Ok(true)
+        Ok(())
     }
 
-    pub fn update_input(&mut self, now: Time, id: ClientId, input: InputBits) -> Result<bool, StrError> {
+    pub fn update_input(&mut self, now: Time, id: ClientId, input: InputBits) -> Result<(), StrError> {
         let eid = {
             let mut client = unwrap!(self.world_mut().get_client_mut(id));
             if client.current_input() == input {
-                return Ok(false);
+                return Ok(());
             }
             client.set_current_input(input);
 
@@ -257,19 +257,8 @@ impl<'a> State<'a> {
         self.update_physics(now, eid, true)
     }
 
-    pub fn perform_action(&mut self, now: Time, id: ClientId, action: ActionBits) -> Vec<StateChange> {
-        self.script.test_callback(self.mw.world_mut(), now, id, action);
-
-        let mut updates = Vec::new();
-        self.process_journal(|_, u| {
-            match u {
-                world::Update::ChunkInvalidate(pos) => {
-                    updates.push(ChunkUpdate(pos.x, pos.y));
-                },
-                _ => {},
-            }
-        });
-        updates
+    pub fn perform_action(&mut self, now: Time, id: ClientId, action: ActionBits) -> Result<(), String> {
+        self.script.test_callback(self.mw.world_mut(), now, id, action)
     }
 
     pub fn process_journal<F>(&mut self, mut f: F)

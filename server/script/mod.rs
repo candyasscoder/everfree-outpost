@@ -117,7 +117,7 @@ impl ScriptEngine {
                          world: &mut world::World,
                          now: Time,
                          id: ClientId,
-                         _action: ActionBits) {
+                         _action: ActionBits) -> Result<(), String> {
         let ctx = RefCell::new(ScriptContext {
             world: world,
             now: now,
@@ -126,8 +126,8 @@ impl ScriptEngine {
             lua.get_field(REGISTRY_INDEX, "outpost_callback_test");
             let c = userdata::Client { id: id };
             c.to_lua(lua);
-            lua.pcall(1, 0, 0).unwrap();
-        });
+            lua.pcall(1, 0, 0).map_err(|(e,s)| format!("{:?}: {}", e, s))
+        })
     }
 
     pub fn callback_client_destroyed(&mut self, cid: ClientId) {

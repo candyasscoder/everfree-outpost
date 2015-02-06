@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt;
 use std::hash::Hash;
 use std::num::{FromPrimitive, ToPrimitive};
 use std::collections::hash_map::Hasher;
@@ -384,6 +385,12 @@ pub struct StrError {
 impl Error for StrError {
     fn description(&self) -> &'static str {
         self.msg
+    }
+}
+
+impl fmt::String for StrError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        fmt::String::fmt(&self.msg, f)
     }
 }
 
