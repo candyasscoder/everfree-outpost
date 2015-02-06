@@ -167,13 +167,13 @@ impl Userdata for Client {
 
             fn set_pawn(c: &Client, e: &Entity) -> StrResult<()> {{
                 let mut c = unwrap!(ctx.world.get_client_mut(c.id));
-                try!(c.set_pawn(ctx.now, Some(e.id)));
+                try!(c.set_pawn(Some(e.id)));
                 Ok(())
             }}
 
             fn clear_pawn(c: &Client) -> StrResult<()> {{
                 let mut c = unwrap!(ctx.world.get_client_mut(c.id));
-                try!(c.set_pawn(ctx.now, None));
+                try!(c.set_pawn(None));
                 Ok(())
             }}
         }

@@ -7,7 +7,6 @@ use data::Data;
 use input::InputBits;
 use types::*;
 use util::{StableIdMap, StableIdMapIter};
-use view::ViewState;
 
 use self::object::{Object, ObjectRef, ObjectRefMut};
 pub use self::ops::OpResult;
@@ -58,11 +57,9 @@ pub enum InventoryAttachment {
 
 pub struct Client {
     name: String,
-    wire_id: WireId,
     pawn: Option<EntityId>,
     current_input: InputBits,
     chunk_offset: (u8, u8),
-    view_state: ViewState,
 
     stable_id: StableId,
     child_entities: HashSet<EntityId>,
@@ -132,7 +129,7 @@ pub enum Update {
     InventoryCreated(InventoryId),
     InventoryDestroyed(InventoryId),
 
-    ClientViewReset(ClientId),
+    ClientPawnChange(ClientId),
     ChunkInvalidate(V2),
     EntityMotionChange(EntityId),
 }
@@ -235,7 +232,6 @@ macro_rules! lifecycle_methods {
 
 lifecycle_methods!(Client,
                    create_client(name: &str,
-                                 wire_id: WireId,
                                  chunk_offset: (u8, u8)) => client_create,
                    destroy_client(id: ClientId) => client_destroy);
 
@@ -410,14 +406,6 @@ impl Client {
         &*self.name
     }
 
-    pub fn wire_id(&self) -> WireId {
-        self.wire_id
-    }
-
-    pub fn set_wire_id(&mut self, new: WireId) {
-        self.wire_id = new;
-    }
-
     pub fn pawn_id(&self) -> Option<EntityId> {
         self.pawn
     }
@@ -436,14 +424,6 @@ impl Client {
 
     pub fn set_chunk_offset(&mut self, new: (u8, u8)) {
         self.chunk_offset = new;
-    }
-
-    pub fn view_state(&self) -> &ViewState {
-        &self.view_state
-    }
-
-    pub fn view_state_mut(&mut self) -> &mut ViewState {
-        &mut self.view_state
     }
 }
 

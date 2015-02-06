@@ -207,10 +207,10 @@ pub trait ClientRefMut<'d>: ObjectRefMutBase<'d, Client> {
         }
     }
 
-    fn set_pawn(&mut self, now: Time, pawn: Option<EntityId>) -> OpResult<Option<EntityId>> {
+    fn set_pawn(&mut self, pawn: Option<EntityId>) -> OpResult<Option<EntityId>> {
         let cid = self.id();
         match pawn {
-            Some(eid) => ops::client_set_pawn(self.world_mut(), now, cid, eid),
+            Some(eid) => ops::client_set_pawn(self.world_mut(), cid, eid),
             None => ops::client_clear_pawn(self.world_mut(), cid),
         }
     }

@@ -178,9 +178,7 @@ impl<'a> State<'a> {
     }
 
     pub fn load_client<'b>(&'b mut self,
-                           now: Time,
-                           name: &str,
-                           wire_id: WireId)
+                           name: &str)
                            -> save::Result<world::object::ObjectRefMut<'b, 'a, world::Client>> {
         let chunk_offset = (self.rng.gen_range(0, 8),
                             self.rng.gen_range(0, 8));
@@ -192,7 +190,6 @@ impl<'a> State<'a> {
             let mut c = self.mw.world_mut().client_mut(cid);
 
             // Fix up transient bits of state that shouldn't be preserved across save/load.
-            c.set_wire_id(wire_id);
             c.set_current_input(InputBits::empty());
             c.set_chunk_offset(chunk_offset);
 
@@ -205,8 +202,8 @@ impl<'a> State<'a> {
 
             let pawn_id = self.world_mut().create_entity(pos - offset, 0).unwrap().id();
 
-            let mut client = self.world_mut().create_client(name, wire_id, chunk_offset).unwrap();
-            client.set_pawn(now, Some(pawn_id)).unwrap();
+            let mut client = self.world_mut().create_client(name, chunk_offset).unwrap();
+            client.set_pawn(Some(pawn_id)).unwrap();
             Ok(client)
         }
     }

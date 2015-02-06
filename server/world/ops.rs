@@ -11,7 +11,6 @@ use input::InputBits;
 use types::*;
 use util::StrError;
 use util::NO_STABLE_ID;
-use view::ViewState;
 
 use super::{World, Update};
 use super::{Client, TerrainChunk, Entity, Structure, Inventory};
@@ -31,15 +30,12 @@ pub type OpResult<T> = Result<T, StrError>;
 
 pub fn client_create(w: &mut World,
                      name: &str,
-                     wire_id: WireId,
                      chunk_offset: (u8, u8)) -> OpResult<ClientId> {
     let c = Client {
         name: String::from_str(name),
-        wire_id: wire_id,
         pawn: None,
         current_input: InputBits::empty(),
         chunk_offset: chunk_offset,
-        view_state: ViewState::new(scalar(0)),
 
         stable_id: NO_STABLE_ID,
         child_entities: HashSet::new(),
@@ -54,11 +50,9 @@ pub fn client_create(w: &mut World,
 pub fn client_create_unchecked(w: &mut World) -> ClientId {
     let cid = w.clients.insert(Client {
         name: String::new(),
-        wire_id: WireId(0),
         pawn: None,
         current_input: InputBits::empty(),
         chunk_offset: (0, 0),
-        view_state: ViewState::new(scalar(0)),
 
         stable_id: NO_STABLE_ID,
         child_entities: HashSet::new(),
@@ -87,7 +81,6 @@ pub fn client_destroy(w: &mut World,
 }
 
 pub fn client_set_pawn(w: &mut World,
-                       now: Time,
                        cid: ClientId,
                        eid: EntityId) -> OpResult<Option<EntityId>> {
     try!(entity_attach(w, eid, EntityAttachment::Client(cid)));
@@ -95,13 +88,11 @@ pub fn client_set_pawn(w: &mut World,
 
     {
         let c = unwrap!(w.clients.get_mut(cid));
-        let e = unwrap!(w.entities.get_mut(eid));
-
+        // We know 'eid' is valid because the 'entity_attach' above succeeded.
         old_eid = replace(&mut c.pawn, Some(eid));
-        c.view_state = ViewState::new(e.pos(now));
     }
 
-    w.record(Update::ClientViewReset(cid));
+    w.record(Update::ClientPawnChange(cid));
 
     Ok(old_eid)
 }

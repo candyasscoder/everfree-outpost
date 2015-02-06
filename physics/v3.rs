@@ -404,13 +404,18 @@ impl<V: Vn> Region<V> {
     }
 
     #[inline]
-    pub fn empty(&self) -> bool {
+    pub fn empty() -> Region<V> {
+        Region { min: scalar(0), max: scalar(0) }
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
         <V as Vn>::fold_axes(false, |a, e| e || self.min.get(a) >= self.max.get(a))
     }
 
     #[inline]
     pub fn points(&self) -> RegionPoints<V> {
-        if self.empty() {
+        if self.is_empty() {
             RegionPoints::empty()
         } else {
             RegionPoints::new(self.min, self.max)
