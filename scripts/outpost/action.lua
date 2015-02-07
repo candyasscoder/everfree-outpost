@@ -16,7 +16,8 @@ local function get_or_noop(t, k)
 end
 
 local action_handlers = {}
-function outpost_ffi.callbacks.action(client, action)
+function outpost_ffi.callbacks.action(client, action, arg)
+    print('arg = ', arg)
     local handler = get_or_noop(action_handlers, action)
     handler(client)
 end

@@ -99,7 +99,7 @@ fn main() {
 #[derive(Copy)]
 pub enum WakeReason {
     HandleInput(ClientId, InputBits),
-    HandleAction(ClientId, ActionId),
+    HandleAction(ClientId, ActionId, u32),
     PhysicsUpdate(EntityId),
     CheckView(ClientId),
 }
@@ -204,10 +204,10 @@ impl<'a> Server<'a> {
                 self.wake_queue.push(now + 1000, WakeReason::CheckView(cid));
             },
 
-            Request::Action(time, action) => {
+            Request::Action(time, action, arg) => {
                 let client_id = unwrap_or!(self.wire_to_client(wire_id));
                 let time = cmp::max(time.to_global(now), now);
-                self.wake_queue.push(time, WakeReason::HandleAction(client_id, ActionId(action)));
+                self.wake_queue.push(time, WakeReason::HandleAction(client_id, ActionId(action), arg));
             },
 
             Request::AddClient => {
@@ -257,8 +257,8 @@ impl<'a> Server<'a> {
                 }
             },
 
-            WakeReason::HandleAction(client_id, action) => {
-                let result = self.state.perform_action(now, client_id, action);
+            WakeReason::HandleAction(client_id, action, arg) => {
+                let result = self.state.perform_action(now, client_id, action, arg);
                 if let Err(e) = result {
                     warn!("perform_action: {}", e);
                 }

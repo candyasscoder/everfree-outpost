@@ -259,8 +259,12 @@ impl<'a> State<'a> {
         self.update_physics(now, eid, true)
     }
 
-    pub fn perform_action(&mut self, now: Time, id: ClientId, action: ActionId) -> Result<(), String> {
-        self.script.test_callback(self.mw.world_mut(), now, id, action)
+    pub fn perform_action(&mut self,
+                          now: Time,
+                          id: ClientId,
+                          action: ActionId,
+                          arg: u32) -> Result<(), String> {
+        self.script.callback_action(self.mw.world_mut(), now, id, action, arg)
     }
 
     // TODO: gross type signature.  See comment in terrain2 for a possible fix.

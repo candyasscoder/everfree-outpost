@@ -129,11 +129,12 @@ impl ScriptEngine {
         x
     }
 
-    pub fn test_callback(&mut self,
-                         world: &mut world::World,
-                         now: Time,
-                         id: ClientId,
-                         action: ActionId) -> Result<(), String> {
+    pub fn callback_action(&mut self,
+                           world: &mut world::World,
+                           now: Time,
+                           id: ClientId,
+                           action: ActionId,
+                           arg: u32) -> Result<(), String> {
         let ctx = RefCell::new(ScriptContext {
             world: world,
             now: now,
@@ -143,7 +144,8 @@ impl ScriptEngine {
             let c = userdata::Client { id: id };
             c.to_lua(lua);
             action.to_lua(lua);
-            lua.pcall(2, 0, 0).map_err(|(e,s)| format!("{:?}: {}", e, s))
+            arg.to_lua(lua);
+            lua.pcall(3, 0, 0).map_err(|(e,s)| format!("{:?}: {}", e, s))
         })
     }
 

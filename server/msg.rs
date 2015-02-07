@@ -80,7 +80,7 @@ pub enum Request {
     Ping(u16),
     Input(LocalTime, u16),
     Login([u32; 4], String),
-    Action(LocalTime, u16),
+    Action(LocalTime, u16, u32),
     UnsubscribeInventory(InventoryId),
 
     // Control messages
@@ -109,8 +109,8 @@ impl Request {
                 Login([a0, a1, a2, a3], b)
             },
             op::Action => {
-                let (a, b) = try!(wr.read());
-                Action(a, b)
+                let (a, b, c) = try!(wr.read());
+                Action(a, b, c)
             },
             op::UnsubscribeInventory => {
                 let a = try!(wr.read());

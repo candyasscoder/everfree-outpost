@@ -201,65 +201,89 @@ Connection.prototype._handleMessage = function(evt) {
     }
 };
 
+
+/** @constructor */
+function MessageBuilder(length) {
+    this._buf = new DataView(new ArrayBuffer(length));
+    this._offset = 0;
+}
+
+MessageBuilder.prototype.put8 = function(n) {
+    this._buf.setUint8(this._offset, n);
+    this._offset += 1;
+};
+
+MessageBuilder.prototype.put16 = function(n) {
+    this._buf.setUint16(this._offset, n, true);
+    this._offset += 2;
+};
+
+MessageBuilder.prototype.put32 = function(n) {
+    this._buf.setUint32(this._offset, n, true);
+    this._offset += 4;
+};
+
+MessageBuilder.prototype.done = function() {
+    console.assert(this._offset == this._buf.byteLength);
+    return this._buf;
+};
+
+
 Connection.prototype.sendGetTerrain = function() {
-    // TODO: using uint16array will break on big-endian
-    var buf = new Uint16Array(1);
-    buf[0] = OP_GET_TERRAIN;
-    this.socket.send(buf);
+    var msg = new MessageBuilder(2);
+    msg.put16(OP_GET_TERRAIN);
+    this.socket.send(msg.done());
 };
 
 Connection.prototype.sendUpdateMotion = function(data) {
-    if (this.socket.readyState != WebSocket.OPEN) {
-        return;
-    }
-
     var buf = new Uint16Array(1 + data.length);
     buf[0] = OP_UPDATE_MOTION;
     buf.subarray(1).set(data);
     this.socket.send(buf);
 };
 
-Connection.prototype.sendPing = function(msg) {
-    var buf = new Uint16Array(2);
-    buf[0] = OP_PING;
-    buf[1] = msg;
-    this.socket.send(buf);
+Connection.prototype.sendPing = function(data) {
+    var msg = new MessageBuilder(4);
+    msg.put16(OP_PING);
+    msg.put16(data);
+    this.socket.send(msg.done());
 };
 
 Connection.prototype.sendInput = function(time, input) {
-    var buf = new Uint16Array(3);
-    buf[0] = OP_INPUT;
-    buf[1] = time;
-    buf[2] = input;
-    this.socket.send(buf);
+    var msg = new MessageBuilder(6);
+    msg.put16(OP_INPUT);
+    msg.put16(time);
+    msg.put16(input);
+    this.socket.send(msg.done());
 };
 
 Connection.prototype.sendLogin = function(secret, name) {
     var name_utf8 = unescape(encodeURIComponent(name));
-    var buf = new DataView(new ArrayBuffer(2 + 16 + name_utf8.length));
+    var msg = new MessageBuilder(2 + 16 + name_utf8.length);
 
-    buf.setUint16(0, OP_LOGIN, true);
+    msg.put16(OP_LOGIN);
     for (var i = 0; i < 4; ++i) {
-        buf.setInt32(2 + i * 4, secret[i], true);
+        msg.put32(secret[i]);
     }
     for (var i = 0; i < name_utf8.length; ++i) {
-        buf.setUint8(2 + 16 + i, name_utf8.charCodeAt(i));
+        msg.put8(secret[i]);
     }
 
-    this.socket.send(buf);
+    this.socket.send(msg.done());
 };
 
-Connection.prototype.sendAction = function(time, action) {
-    var buf = new Uint16Array(3);
-    buf[0] = OP_ACTION;
-    buf[1] = time;
-    buf[2] = action;
-    this.socket.send(buf);
+Connection.prototype.sendAction = function(time, action, arg) {
+    var msg = new MessageBuilder(10);
+    msg.put16(OP_ACTION);
+    msg.put16(time);
+    msg.put16(action);
+    msg.put32(arg);
+    this.socket.send(msg.done());
 };
 
 Connection.prototype.sendUnsubscribeInventory = function(inventory_id) {
-    var buf = new DataView(new ArrayBuffer(2 + 4));
-    buf.setUint16(0, OP_UNSUBSCRIBE_INVENTORY, true);
-    buf.setUint32(2, inventory_id, true);
-    this.socket.send(buf);
+    var msg = new MessageBuilder(6);
+    msg.put16(OP_UNSUBSCRIBE_INVENTORY);
+    msg.put32(inventory_id);
+    this.socket.send(msg.done());
 };
