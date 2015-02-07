@@ -294,6 +294,15 @@ impl<'a> Server<'a> {
                     let wire_id = s.client_info[cid].wire_id;
                     multimap_insert(&mut s.inventory_observers, iid, wire_id);
                     s.send_wire(wire_id, Response::OpenDialog(0, vec![iid.unwrap()]));
+
+                    // TODO: might crash if inventory is destroyed in a later event
+                    let i = s.state.world().inventory(iid);
+                    let contents_map = i.contents();
+                    let mut contents = Vec::with_capacity(contents_map.len());
+                    for (&item_id, &count) in contents_map.iter() {
+                        contents.push((item_id, 0, count));
+                    }
+                    s.send_wire(wire_id, Response::InventoryUpdate(iid, contents));
                 },
                 world::Update::InventoryUpdate(iid, item_id, old_count, new_count) => {
                     let s = &mut **s;

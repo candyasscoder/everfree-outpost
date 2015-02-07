@@ -592,32 +592,41 @@ pub fn inventory_update(w: &mut World,
                         adjust: i16) -> OpResult<u8> {
     use std::collections::hash_map::Entry::*;
 
-    let i = unwrap!(w.inventories.get_mut(iid));
+    let (old_value, new_value) = {
+        let i = unwrap!(w.inventories.get_mut(iid));
 
-    fn combine(old: u8, adjust: i16) -> u8 {
-        use std::u8;
-        let sum = old as i16 + adjust;
-        if sum < u8::MIN as i16 {
-            u8::MIN
-        } else if sum > u8::MAX as i16 {
-            u8::MAX
-        } else {
-            sum as u8
+        match i.contents.entry(item_id) {
+            Vacant(e) => {
+                let new_value = update_item_count(0, adjust);
+                e.insert(new_value);
+                (0, new_value)
+            },
+            Occupied(mut e) => {
+                let old_value = *e.get();
+                let new_value = update_item_count(old_value, adjust);
+                if new_value == 0 {
+                    e.remove();
+                } else {
+                    e.insert(new_value);
+                }
+                (old_value, new_value)
+            },
         }
-    }
-
-    let value = match i.contents.entry(item_id) {
-        Vacant(e) => {
-            let value = combine(0, adjust);
-            e.insert(value);
-            value
-        },
-        Occupied(mut e) => {
-            let value = combine(*e.get(), adjust);
-            e.insert(value);
-            value
-        },
     };
 
-    Ok(value)
+    w.record(Update::InventoryUpdate(iid, item_id, old_value, new_value));
+
+    Ok(new_value)
+}
+
+fn update_item_count(old: u8, adjust: i16) -> u8 {
+    use std::u8;
+    let sum = old as i16 + adjust;
+    if sum < u8::MIN as i16 {
+        u8::MIN
+    } else if sum > u8::MAX as i16 {
+        u8::MAX
+    } else {
+        sum as u8
+    }
 }
