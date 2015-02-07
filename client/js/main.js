@@ -491,11 +491,12 @@ function handleEntityUpdate(id, motion, anim) {
         m.end_time += 0x10000;
     }
 
+    m.anim_id = anim;
+
     if (entities[id] == null) {
         entities[id] = new Entity(pony_sheet, pony_anims, motion.start_pos, {x: 48, y: 90});
     }
-    entities[id].setMotion(m);
-    entities[id].setAnimation(m.start_time, anim);
+    entities[id].queueMotion(m);
 
     load_counter.update(0, 1);
 }
@@ -580,6 +581,7 @@ function frame(gl, now) {
 
     debug.frameEnd();
     debug.updateJobs(runner);
+    debug.updateTiming(timing);
 
     /*
     debug.gfxCtx.clearRect(0, 0, 128, 128);

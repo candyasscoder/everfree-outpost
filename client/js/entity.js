@@ -8,6 +8,7 @@ function Motion(pos) {
     this.end_pos = pos;
     this.start_time = 0;
     this.end_time = 1;
+    this.anim_id = 0;
 }
 exports.Motion = Motion;
 
@@ -36,41 +37,58 @@ Motion.prototype.translate = function(offset) {
 function Entity(sheet, anim_info, pos, anchor) {
     this._anim = new Animation(sheet);
     this._anim_info = anim_info;
-    this._motion = new Motion(pos);
     this._anchor_x = anchor.x;
     this._anchor_y = anchor.y;
 
-    this.setAnimation(0, 0);
+    this._cur_motion = new Motion(pos);
+    this._motions = new Deque();
+
+    this._updateAnimation();
 }
 exports.Entity = Entity;
 
+Entity.prototype._dequeueUntil = function(now) {
+    var did_dequeue = false;
+    while (this._motions.peek() != null && this._motions.peek().start_time <= now) {
+        this._cur_motion = this._motions.dequeue();
+        did_dequeue = true;
+    }
+    if (did_dequeue) {
+        this._updateAnimation();
+    }
+};
+
+Entity.prototype._updateAnimation = function() {
+    var m = this._cur_motion;
+    var info = this._anim_info[m.anim_id];
+    console.assert(info != null, 'no anim_info with id', m.anim_id);
+
+    this._anim.animate(info.i, info.j, info.len, info.fps, info.flip, m.start_time);
+};
+
 Entity.prototype.position = function(now) {
-    return this._motion.position(now);
+    this._dequeueUntil(now);
+    return this._cur_motion.position(now);
 };
 
 Entity.prototype.getSprite = function(now) {
+    this._dequeueUntil(now);
     var cls = this._anim.sheet.getSpriteClass();
     var extra = this._anim.sheet.getSpriteExtra();
     var sprite = new Sprite();
     this._anim.updateSprite(now, sprite);
 
-    var pos = this._motion.position(now);
+    var pos = this._cur_motion.position(now);
     sprite.setDestination(pos, this._anchor_x, this._anchor_y);
 
     return sprite;
 };
 
-Entity.prototype.setAnimation = function(now, anim_id) {
-    var info = this._anim_info[anim_id];
-    console.assert(info != null, 'no anim_info with id', anim_id);
-
-    this._anim.animate(info.i, info.j, info.len, info.fps, info.flip, now);
-};
-
-Entity.prototype.setMotion = function(motion) {
-    this._motion = motion;
+Entity.prototype.queueMotion = function(motion) {
+    this._motions.enqueue(motion);
 };
 
 Entity.prototype.translateMotion = function(offset) {
-    this._motion.translate(offset);
+    this._cur_motion.translate(offset);
+    this._motions.forEach(function(m) { m.translate(offset); });
 };

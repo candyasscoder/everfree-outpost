@@ -41,6 +41,15 @@ Deque.prototype.peek_back = function() {
     }
 };
 
+Deque.prototype.length = function() {
+    return this._cur.length + this._new.length;
+};
+
+Deque.prototype.forEach = function(f, thisArg) {
+    this._cur.forEach(f, thisArg);
+    this._new.forEach(f, thisArg);
+};
+
 
 exports.rle16Decode = function(input, output) {
     var j = 0;

@@ -36,6 +36,7 @@ function DebugMonitor() {
     this.fps = this._addRow('FPS');
     this.load = this._addRow('Load');
     this.jobs = this._addRow('Jobs');
+    this.timing = this._addRow('Timing');
     //this.plan = this._addRow('Plan');
     this.gfxDebug = this._addRow('Gfx');
 
@@ -95,4 +96,11 @@ DebugMonitor.prototype.updatePlan = function(plan) {
 
 DebugMonitor.prototype.updatePos = function(pos) {
     this.pos.innerHTML = pos.x + ', ' + pos.y + ', ' + pos.z;
+};
+
+DebugMonitor.prototype.updateTiming = function(timing) {
+    var send = timing.offset_send;
+    var recv = timing.offset_recv;
+    var ping = (send + recv) & 0xffff;
+    this.timing.innerHTML = ping + ' (' + send + ' + ' + recv + ')';
 };

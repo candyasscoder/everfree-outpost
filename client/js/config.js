@@ -13,21 +13,22 @@ var DEFAULT_CONFIG = {
         27: 'cancel',       // Esc
         32: 'cancel',       // Space
     },
+
+    'debug_timing_delay': [0, 0],
 };
 
 
 exports.Config = {
-    show_controls: new BooleanConfigItem('show_controls'),
-    keybindings: new JsonConfigItem('keybindings'),
+    show_controls: new ConfigItem('show_controls'),
+    keybindings: new ConfigItem('keybindings'),
+    debug_timing_delay: new ConfigItem('debug_timing_delay'),
 };
 
 
 /** @constructor */
-function ConfigItem(key, from, to) {
+function ConfigItem(key) {
     this.key = key;
     this.value = null;
-    this.from_string = from;
-    this.to_string = to;
 }
 
 ConfigItem.prototype.get = function() {
@@ -36,7 +37,7 @@ ConfigItem.prototype.get = function() {
         if (!str) {
             this.value = DEFAULT_CONFIG[this.key];
         } else {
-            this.value = this.from_string(str);
+            this.value = JSON.parse(str);
         }
     }
 
@@ -45,7 +46,7 @@ ConfigItem.prototype.get = function() {
 
 ConfigItem.prototype.set = function(value) {
     this.value = value;
-    localStorage.setItem(this.key, this.to_string(value));
+    localStorage.setItem(this.key, JSON.stringify(value));
 };
 
 ConfigItem.prototype.toggle = function(value) {
@@ -53,52 +54,3 @@ ConfigItem.prototype.toggle = function(value) {
     this.set(new_value);
     return new_value;
 };
-
-
-function StringConfigItem(key) {
-    function from_string(s) {
-        return s;
-    }
-
-    function to_string(v) {
-        return v;
-    }
-
-    return new ConfigItem(key, from_string, to_string);
-}
-
-function NumberConfigItem(key) {
-    function from_string(s) {
-        return +s;
-    }
-
-    function to_string(v) {
-        return v.toString();
-    }
-
-    return new ConfigItem(key, from_string, to_string);
-}
-
-function BooleanConfigItem(key) {
-    function from_string(s) {
-        return s != '0';
-    }
-
-    function to_string(v) {
-        return v ? '1' : '0';
-    }
-
-    return new ConfigItem(key, from_string, to_string);
-}
-
-function JsonConfigItem(key) {
-    function from_string(s) {
-        return JSON.parse(s);
-    }
-
-    function to_string(v) {
-        return JSON.stringify(v);
-    }
-
-    return new ConfigItem(key, from_string, to_string);
-}

@@ -1,3 +1,5 @@
+var Config = require('config').Config;
+
 var TIMER_RANGE = 0x10000;
 var TIMER_MASK = 0xffff;
 
@@ -28,8 +30,9 @@ Timing.prototype._handlePong = function(client_send, server_time, client_recv_ra
     */
 
     var client_recv = client_recv_raw % TIMER_RANGE;
-    this.offset_send = (server_time - client_send) & TIMER_MASK;
-    this.offset_recv = (client_recv - server_time) & TIMER_MASK;
+    var delay = Config.debug_timing_delay.get();
+    this.offset_send = (delay[0] + server_time - client_send) & TIMER_MASK;
+    this.offset_recv = (delay[1] + client_recv - server_time) & TIMER_MASK;
 };
 
 Timing.prototype.encodeSend = function(client) {
