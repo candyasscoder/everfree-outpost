@@ -1,5 +1,36 @@
 var fromTemplate = require('util').fromTemplate;
 
+function InventoryTracker(conn) {
+    this.handler = {};
+    this.conn = conn;
+
+    var this_ = this;
+    this.conn.onInventoryUpdate = function(inventory_id, updates) {
+        this_._handleUpdate(inventory_id, updates);
+    };
+}
+exports.InventoryTracker = InventoryTracker;
+
+InventoryTracker.prototype._handleUpdate = function(inventory_id, updates) {
+    var handler = this.handler[inventory_id];
+    if (handler != null) {
+        handler(updates);
+    } else {
+        console.warn('received unexpected update for inventory', inventory_id);
+        this.conn.sendUnsubscribeInventory(inventory_id);
+    }
+};
+
+InventoryTracker.prototype.addHandler = function(inventory_id, handler) {
+    this.handler[inventory_id] = handler;
+};
+
+InventoryTracker.prototype.removeHandler = function(inventory_id, handler) {
+    delete this.handler[inventory_id];
+    this.conn.sendUnsubscribeInventory(inventory_id);
+};
+
+
 /** @constructor */
 function InventoryUI() {
     this.list = new ItemList();
@@ -11,9 +42,11 @@ exports.InventoryUI = InventoryUI;
 
 
 /** @constructor */
-function ItemList() {
+function ItemList(data) {
     this.container = document.createElement('div');
     this.container.classList.add('item-list');
+
+    this.data = data;
 
     this.rows = [];
     this.current_row = -1;
@@ -53,80 +86,101 @@ ItemList.prototype._scrollToFocus = function() {
     this.container.scrollTop = (idx + 0.5) * item_height - 0.5 * viewport_height;
 };
 
-ItemList.prototype.addRows = function(rows) {
-    rows.sort(function(a, b) { return a.id - b.id; });
-
-    if (this.current_row != -1) {
-        // Update the row index to keep the same ID selected.
-        var current_id = this.rows[this.current_row].id;
-        // The result of the binary search (findRow) will be the number of
-        // items in 'rows' whose 'id' is less than 'current_id'.  Each such
-        // item will be inserted before the current row by 'mergeInto'.
-        this.current_row += findRow(rows, current_id);
-    }
-
-    var this_ = this;
-    mergeInto(this.rows, rows, function(inserted, before) {
-        if (before == null) {
-            this_.container.appendChild(inserted.container);
-        } else {
-            this_.container.insertBefore(inserted.container, before.container);
-        }
-    });
-
-    if (this.current_row != -1) {
-        console.assert(current_id == this.rows[this.current_row].id,
-                "id changed after insert");
-    } else if (this.rows.length > 0) {
-        this._setCurrentRow(0);
-    }
-    this._scrollToFocus();
+ItemList.prototype._buildRow = function(id, qty) {
+    var name = this.data[id].ui_name;
+    var tile = this.data[id].tile;
+    return new ItemRow(id, qty, name, tile & 0x1f, tile >> 5);
 };
 
-ItemList.prototype.removeRows = function(ids) {
-    ids.sort();
+ItemList.prototype.update = function(updates) {
+    // 'updates' contains updates sent with an InventoryUpdate message.  Each
+    // one has the fields 'item_id', 'old_count', and 'new_count'.
 
-    var current_id;
+    updates.sort(function(a, b) { return a.item_id - b.item_id; });
+
+    // Find the ID of the currently selected item.
+    var current_id = -1;
     if (this.current_row != -1) {
-        // Update the row index to keep the same ID selected.
         current_id = this.rows[this.current_row].id;
-        this._setCurrentRow(-1);
-    } else {
-        current_id = -1;
+        this._setCurrentRow(-1)
     }
 
+    var old_rows = this.rows;
+    var new_rows = [];
 
-    var this_ = this;
-    removeFrom(this.rows, ids, function(removed) {
-        this_.container.removeChild(removed.container);
-    });
+    var i = 0;
+    var j = 0;
+    var last_node = null;
 
+    while (i < old_rows.length && j < updates.length) {
+        if (updates[j].old_count == updates[j].new_count) {
+            ++j;
+            continue;
+        }
+
+        var old_id = old_rows[i].id;
+        var update_id = updates[j].item_id;
+
+        if (old_id < update_id) {
+            // Lowest ID is an old row with no corresponding update.
+            new_rows.push(old_rows[i]);
+            last_node = old_rows[i].container;
+            ++i;
+        } else if (old_id > update_id) {
+            // Lowest ID is an update that introduces a new item type.
+            var new_row = this._buildRow(update_id, updates[j].new_count);
+            new_rows.push(new_row);
+            ++j;
+
+            if (last_node == null) {
+                this.container.insertBefore(new_row.container, this.container.firstChild);
+            } else {
+                this.container.insertBefore(new_row.container, last_node.nextSibling);
+            }
+            last_node = new_row.container;
+        } else if (/* old_id == new_id && */ updates[j].new_count == 0) {
+            // Lowest ID is an update that removes an existing row.
+            this.container.removeChild(old_rows[i].container);
+            ++i;
+            ++j;
+        } else /* old_id == new_id && updates[j].new_count > 0 */ {
+            // Lowest ID is an update that changes the quantity of an existing
+            // row.
+            old_rows[i].setQuantity(updates[j].new_count);
+            new_rows.push(old_rows[i]);
+            last_node = old_rows[i].container;
+            ++i;
+            ++j;
+        }
+    }
+
+    while (i < old_rows.length) {
+        new_rows.push(old_rows[i]);
+        ++i;
+    }
+
+    while (j < updates.length) {
+        var new_row = this._buildRow(updates[j].item_id, updates[j].new_count);
+        new_rows.push(new_row);
+        this.container.appendChild(new_row.container);
+        ++j;
+    }
+
+    this.rows = new_rows;
+
+    // Update the current row index to point to the same item type as before,
+    // or to point somewhere reasonable if that item is no longer present.
     if (current_id != -1) {
         var new_row = findRow(this.rows, current_id);
         if (new_row >= this.rows.length) {
             new_row = this.rows.length - 1;
         }
         this._setCurrentRow(new_row);
+    } else if (new_rows.length > 0) {
+        this._setCurrentRow(0);
     }
     this._scrollToFocus();
-};
-
-ItemList.prototype.step = function(offset) {
-    var start_idx = this.current_row;
-    if (start_idx < 0) {
-        start_idx = 0;
-    }
-
-    var new_idx = start_idx + offset;
-    if (new_idx < 0) {
-        new_idx = 0;
-    } else if (new_idx >= this.rows.length) {
-        new_idx = this.rows.length - 1;
-    }
-
-    this._setCurrentRow(new_idx);
-    this._scrollToFocus();
-};
+}
 
 
 /** @constructor */
@@ -157,126 +211,8 @@ exports.ItemRow = ItemRow;
 
 ItemRow.prototype.setQuantity = function(qty) {
     this.qty = qty;
-    this.quantity.textContent = '' + qty;
+    this.quantityDiv.textContent = '' + qty;
 };
-
-
-// Given two lists 'a' and 'b' sorted by their 'id' fields, merge the items of
-// 'b' into 'a', preserving the sorting.
-function mergeInto(a, b, callback) {
-    // Walk backwards over the output array, filling in the new values, which
-    // are drawn from either 'b' or the lower-indexed parts of 'a'.
-    var i = a.length - 1;
-    var j = b.length - 1;
-    var k = a.length + b.length - 1;
-    a.length += b.length;
-
-    while (i >= 0 && j >= 0) {
-        // Use <= so that in case of identical IDs, we keep the ones from 'a'
-        // in their original positions, and put the ones from 'b' after it.
-        if (a[i].id <= b[j].id) {
-            a[k] = b[j];
-            callback(a[k], a[k + 1] || null);
-            --j;
-            --k;
-        } else {
-            a[k] = a[i];
-            --i;
-            --k;
-        }
-    }
-
-    while (j >= 0) {
-        a[k] = b[j];
-        callback(a[k], a[k + 1] || null);
-        --j;
-        --k;
-    }
-
-    // No need for a loop to get the final elements of 'a'.  If 'j < 0', then
-    // 'i == k', and we'd just be copying 'a[0] = a[0]', 'a[1] = a[1]', etc.
-
-    return a;
-}
-
-// Given a sorted list of rows 'a' and a sorted list of IDs 'b', remove each
-// item from 'a' whose ID appears in 'b'.
-function removeFrom(a, b, callback) {
-    var i = 0;
-    var j = 0;
-    var k = 0;
-
-    while (i < a.length && j < b.length) {
-        if (a[i].id == b[j]) {
-            callback(a[i]);
-            ++i;
-        } else if (a[i].id < b[j]) {
-            a[k] = a[i];
-            ++i;
-            ++k;
-        } else /* a[i].id > b[j] */ {
-            ++j;
-        }
-    }
-
-    while (i < a.length) {
-        a[k] = a[i];
-        ++i;
-        ++k;
-    }
-
-    a.length = k;
-
-    return a;
-}
-
-function test_mergeInto_removeFrom() {
-    function run_merge(a_id, b_id) {
-        var a = a_id.map(function(x) { return ({ id: x }); });
-        var b = b_id.map(function(x) { return ({ id: x }); });
-        return mergeInto(a, b, function() {}).map(function(x) { return x.id; });
-    }
-
-    function run_remove(a_id, b_id) {
-        var a = a_id.map(function(x) { return ({ id: x }); });
-        return removeFrom(a, b_id, function() {}).map(function(x) { return x.id; });
-    }
-
-    function check(a, b, c) {
-        var l1 = run_merge(a, b).toString();
-        var l2 = run_merge(b, a).toString();
-        var r = c.toString();
-        console.assert(l1 == r,
-                'mergeInto test failure: ' + a + ' + ' + b + ' = ' + l1 + ', not ' + r);
-        console.assert(l2 == r,
-                'mergeInto test failure: ' + b + ' + ' + a + ' = ' + l2 + ', not ' + r);
-
-        var l = run_remove(c, a).toString();
-        var r = b.toString();
-        console.assert(l == r,
-                'removeFrom test failure: ' + c + ' - ' + a + ' = ' + l + ', not ' + r);
-
-        var l = run_remove(c, b).toString();
-        var r = a.toString();
-        console.assert(l == r,
-                'removeFrom test failure: ' + c + ' - ' + b + ' = ' + l + ', not ' + r);
-    }
-
-    // Basic functionality
-    check([1, 3, 5], [2, 4], [1, 2, 3, 4, 5]);
-
-    // Insertion at the beginning, among others
-    check([1, 3, 5], [0, 2, 4], [0, 1, 2, 3, 4, 5]);
-
-    // Insertion solely at the beginning/end
-    check([2, 3], [0, 1], [0, 1, 2, 3]);
-
-    // Insertion in a block in the middle
-    check([0, 1, 4, 5], [2, 3], [0, 1, 2, 3, 4, 5]);
-
-    // Empty lists
-    check([0, 1, 2, 3], [], [0, 1, 2, 3]);
-}
 
 
 function findRow(a, id) {

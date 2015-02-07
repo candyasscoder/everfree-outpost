@@ -295,6 +295,17 @@ function loadAssets(next) {
         renderer.loadBlockData(TileDef.by_id);
     });
 
+    loader.addJson(null, 'items.json', function(json) {
+        window.items = json['items'];
+        /*
+        var tiles = json['blocks'];
+        for (var i = 0; i < tiles.length; ++i) {
+            TileDef.register(i, tiles[i]);
+        }
+        renderer.loadBlockData(TileDef.by_id);
+        */
+    });
+
     loader.addText('terrain.frag', 'assets/shaders/terrain.frag');
     loader.addText('terrain.vert', 'assets/shaders/terrain.vert');
 
