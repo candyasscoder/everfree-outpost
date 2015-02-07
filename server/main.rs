@@ -6,17 +6,18 @@
 #![allow(dead_code)]
 
 #[macro_use] extern crate bitflags;
-#[macro_use] extern crate log;
+extern crate core;
 extern crate libc;
-extern crate time;
+#[macro_use] extern crate log;
 extern crate serialize;
+extern crate time;
 
 extern crate collect;
 
 extern crate physics;
 
 use std::cmp;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io;
 use std::os;
@@ -37,9 +38,10 @@ use world::object::{ObjectRef, ObjectRefBase, ClientRef};
 use storage::Storage;
 use view::ViewState;
 use util::Cursor;
+use util::{multimap_insert, multimap_remove};
 
 use types::{Time, ToGlobal, ToLocal};
-use types::{WireId, ClientId, EntityId};
+use types::{WireId, ClientId, EntityId, InventoryId};
 
 
 #[macro_use] mod util;
@@ -106,13 +108,16 @@ struct Server<'a> {
     resps: Sender<(WireId, Response)>,
     state: state::State<'a>,
     wake_queue: WakeQueue<WakeReason>,
+
     wire_id_map: HashMap<WireId, ClientId>,
     client_info: HashMap<ClientId, ClientInfo>,
+    inventory_observers: HashMap<InventoryId, HashSet<WireId>>,
 }
 
 struct ClientInfo {
     wire_id: WireId,
     view_state: ViewState,
+    observed_inventories: HashSet<InventoryId>,
 }
 
 impl<'a> Server<'a> {
@@ -122,8 +127,10 @@ impl<'a> Server<'a> {
             resps: resps,
             state: state,
             wake_queue: WakeQueue::new(),
+
             wire_id_map: HashMap::new(),
             client_info: HashMap::new(),
+            inventory_observers: HashMap::new(),
         }
     }
 
@@ -188,6 +195,7 @@ impl<'a> Server<'a> {
                 self.client_info.insert(cid, ClientInfo {
                     wire_id: wire_id,
                     view_state: ViewState::new(),
+                    observed_inventories: HashSet::new(),
                 });
                 self.reset_viewport(now, cid);
                 if let Some(eid) = eid {
@@ -214,13 +222,19 @@ impl<'a> Server<'a> {
 
                     self.state.unload_client(client_id).unwrap();
                     self.wire_id_map.remove(&wire_id);
-                    self.client_info.remove(&client_id);
+                    let info = self.client_info.remove(&client_id).unwrap();
+                    for &iid in info.observed_inventories.iter() {
+                        multimap_remove(&mut self.inventory_observers, iid, wire_id);
+                    }
                 }
                 self.resps.send((wire_id, Response::ClientRemoved)).unwrap();
             },
 
-            Request::UnsubscribeInventory(_iid) => {
-                info!("unimplemented request: UnsubscribeInventory");
+            Request::UnsubscribeInventory(iid) => {
+                if let Some(client_id) = self.wire_to_client(wire_id) {
+                    self.client_info[client_id].observed_inventories.remove(&iid);
+                    multimap_remove(&mut self.inventory_observers, iid, wire_id);
+                }
             },
 
             Request::BadMessage(opcode) => {
@@ -270,9 +284,27 @@ impl<'a> Server<'a> {
         state::State::process_journal(Cursor::new(self, |s| &mut s.state), |st, u| {
             let mut s = st.up();
             match u {
+                // TODO: Client, Inventory lifecycle events
                 world::Update::ClientPawnChange(cid) => s.reset_viewport(now, cid),
                 world::Update::ChunkInvalidate(pos) => s.update_chunk(now, pos),
                 world::Update::EntityMotionChange(eid) => s.update_entity_motion(now, eid),
+                world::Update::ClientShowInventory(cid, iid) => {
+                    let s = &mut **s;
+                    s.client_info[cid].observed_inventories.insert(iid);
+                    let wire_id = s.client_info[cid].wire_id;
+                    multimap_insert(&mut s.inventory_observers, iid, wire_id);
+                    s.send_wire(wire_id, Response::OpenDialog(0, vec![iid.unwrap()]));
+                },
+                world::Update::InventoryUpdate(iid, item_id, old_count, new_count) => {
+                    let s = &mut **s;
+                    if let Some(wire_ids) = s.inventory_observers.get(&iid) {
+                        for &wire_id in wire_ids.iter() {
+                            let resp = Response::InventoryUpdate(
+                                    iid, vec![(item_id, old_count, new_count)]);
+                            s.resps.send((wire_id, resp)).unwrap();
+                        }
+                    }
+                },
                 _ => {},
             }
         });

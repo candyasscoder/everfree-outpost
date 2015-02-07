@@ -6,6 +6,7 @@ use physics::v3::{Vn, V3, scalar};
 use lua::LuaState;
 use types::*;
 use util::StrResult;
+use world::Update;
 use world::object::*;
 
 use super::{ScriptContext, get_ctx};
@@ -174,6 +175,15 @@ impl Userdata for Client {
             fn clear_pawn(c: &Client) -> StrResult<()> {{
                 let mut c = unwrap!(ctx.world.get_client_mut(c.id));
                 try!(c.set_pawn(None));
+                Ok(())
+            }}
+
+            fn open_inventory(c: &Client, i: &Inventory) -> StrResult<()> {{
+                // CHeck inputs are valid.
+                unwrap!(ctx.world.get_client(c.id));
+                unwrap!(ctx.world.get_inventory(i.id));
+
+                ctx.world.record(Update::ClientShowInventory(c.id, i.id));
                 Ok(())
             }}
         }

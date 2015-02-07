@@ -1,6 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::collections::hash_map::Hasher;
-use std::hash::Hash;
 use std::mem::replace;
 
 use physics::CHUNK_SIZE;
@@ -11,6 +9,7 @@ use input::InputBits;
 use types::*;
 use util::StrError;
 use util::stable_id_map::NO_STABLE_ID;
+use util::{multimap_insert, multimap_remove};
 
 use super::{World, Update};
 use super::{Client, TerrainChunk, Entity, Structure, Inventory};
@@ -484,32 +483,6 @@ fn structure_remove_from_lookup(lookup: &mut HashMap<V2, HashSet<StructureId>>,
     let chunk_bounds = bounds.reduce().div_round_signed(CHUNK_SIZE);
     for chunk_pos in chunk_bounds.points() {
         multimap_remove(lookup, chunk_pos, sid);
-    }
-}
-
-fn multimap_insert<K, V>(map: &mut HashMap<K, HashSet<V>>, k: K, v: V)
-        where K: Hash<Hasher>+Eq,
-              V: Hash<Hasher>+Eq {
-    use std::collections::hash_map::Entry::*;
-    let bucket = match map.entry(k) {
-        Vacant(e) => e.insert(HashSet::new()),
-        Occupied(e) => e.into_mut(),
-    };
-    bucket.insert(v);
-}
-
-fn multimap_remove<K, V>(map: &mut HashMap<K, HashSet<V>>, k: K, v: V)
-        where K: Hash<Hasher>+Eq,
-              V: Hash<Hasher>+Eq {
-    use std::collections::hash_map::Entry::*;
-    match map.entry(k) {
-        Vacant(_) => panic!("bucket is already empty"),
-        Occupied(mut e) => {
-            e.get_mut().remove(&v);
-            if e.get().is_empty() {
-                e.remove();
-            }
-        },
     }
 }
 
