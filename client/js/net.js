@@ -1,20 +1,23 @@
 var Vec = require('vec').Vec;
 var decodeUtf8 = require('util').decodeUtf8;
 
-var OP_GET_TERRAIN =        0x0001;
-var OP_UPDATE_MOTION =      0x0002;
-var OP_PING =               0x0003;
-var OP_INPUT =              0x0004;
-var OP_LOGIN =              0x0005;
-var OP_ACTION =             0x0006;
+var OP_GET_TERRAIN =            0x0001;
+var OP_UPDATE_MOTION =          0x0002;
+var OP_PING =                   0x0003;
+var OP_INPUT =                  0x0004;
+var OP_LOGIN =                  0x0005;
+var OP_ACTION =                 0x0006;
+var OP_UNSUBSCRIBE_INVENTORY =  0x0007;
 
-var OP_TERRAIN_CHUNK =      0x8001;
-var OP_PLAYER_MOTION =      0x8002;
-var OP_PONG =               0x8003;
-var OP_ENTITY_UPDATE =      0x8004;
-var OP_INIT =               0x8005;
-var OP_KICK_REASON =        0x8006;
-var OP_UNLOAD_CHUNK =       0x8007;
+var OP_TERRAIN_CHUNK =          0x8001;
+var OP_PLAYER_MOTION =          0x8002;
+var OP_PONG =                   0x8003;
+var OP_ENTITY_UPDATE =          0x8004;
+var OP_INIT =                   0x8005;
+var OP_KICK_REASON =            0x8006;
+var OP_UNLOAD_CHUNK =           0x8007;
+var OP_OPEN_DIALOG =            0x8008;
+var OP_INVENTORY_UPDATE =       0x8009;
 
 /** @constructor */
 function Connection(url) {
@@ -36,6 +39,8 @@ function Connection(url) {
     this.onInit = null;
     this.onKickReason = null;
     this.onUnloadChunk = null;
+    this.onOpenDialog = null;
+    this.onInventoryUpdate = null;
 }
 exports.Connection = Connection;
 
@@ -161,6 +166,35 @@ Connection.prototype._handleMessage = function(evt) {
             };
             break;
 
+        case OP_OPEN_DIALOG:
+            if (this.onOpenDialog != null) {
+                var idx = get32();
+                var args = [];
+                while (offset < view.len) {
+                    args.push(get32());
+                }
+                this.onOpenDialog(idx, args);
+            };
+            break;
+
+        case OP_INVENTORY_UPDATE:
+            if (this.onOpenDialog != null) {
+                var inventory_id = get32();
+                var updates = [];
+                while (offset < view.len) {
+                    var item_id = get16();
+                    var old_count = get8();
+                    var new_count = get8();
+                    args.push({
+                        item_id: item_id,
+                        old_count: old_count,
+                        new_count: new_count,
+                    });
+                }
+                this.onInventoryUpdate(inventory_id, updates);
+            };
+            break;
+
         default:
             console.assert(false, 'received invalid opcode:', opcode.toString(16));
             break;
@@ -221,4 +255,10 @@ Connection.prototype.sendAction = function(time, action) {
     buf[1] = time;
     buf[2] = action;
     this.socket.send(buf);
+};
+
+Connection.prototype.sendUnsubscribeInventory = function(inventory_id) {
+    var buf = new DataView(new ArrayBuffer(2 + 4));
+    buf.setUint16(0, OP_UNSUBSCRIBE_INVENTORY, true);
+    buf.setUint32(2, inventory_id, true);
 };

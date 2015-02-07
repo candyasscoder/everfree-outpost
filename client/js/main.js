@@ -370,53 +370,60 @@ var INPUT_UP =      0x0004;
 var INPUT_DOWN =    0x0008;
 var INPUT_RUN =     0x0010;
 
-var ACTION_USE =    0x0001;
+var ACTION_USE =        1;
+var ACTION_INVENTORY =  2;
 
 function setupKeyHandler() {
     var dirs_held = {
-        'Up': false,
-        'Down': false,
-        'Left': false,
-        'Right': false,
-        'Shift': false,
+        'move_up': false,
+        'move_down': false,
+        'move_left': false,
+        'move_right': false,
+        'run': false,
     };
 
     keyboard.pushHandler(function(down, evt) {
-        if (dirs_held.hasOwnProperty(evt.key)) {
-            dirs_held[evt.key] = down;
-            if (!evt.repeat) {
-                updateWalkDir();
-            }
-            return true;
+        if (evt.repeat) {
+            return false;
+        }
+
+        var binding = config.keybindings.get()[evt.keyCode];
+        if (binding == null) {
+            return false;
+        }
+
+        if (dirs_held.hasOwnProperty(binding)) {
+            dirs_held[binding] = down;
+            updateWalkDir();
         } else if (down) {
-            if (evt.key == 'F1') {
+            if (binding == 'show_controls') {
                 var show = config.show_controls.toggle();
                 $('key-list').classList.toggle('hidden', !show);
-                return true;
             } else {
-                return sendActionForKey(evt.key);
+                sendActionForKey(binding);
             }
         }
+            return true;
     });
 
     function updateWalkDir() {
         var bits = 0;
 
-        if (dirs_held['Left']) {
+        if (dirs_held['move_left']) {
             bits |= INPUT_LEFT;
         }
-        if (dirs_held['Right']) {
+        if (dirs_held['move_right']) {
             bits |= INPUT_RIGHT;
         }
 
-        if (dirs_held['Up']) {
+        if (dirs_held['move_up']) {
             bits |= INPUT_UP;
         }
-        if (dirs_held['Down']) {
+        if (dirs_held['move_down']) {
             bits |= INPUT_DOWN;
         }
 
-        if (dirs_held['Shift']) {
+        if (dirs_held['run']) {
             bits |= INPUT_RUN;
         }
 
@@ -424,10 +431,11 @@ function setupKeyHandler() {
         conn.sendInput(timing.encodeSend(now + 10), bits);
     }
 
-    function sendActionForKey(key) {
+    function sendActionForKey(action) {
         var code = 0;
-        switch (key) {
-            case ' ': code = ACTION_USE; break;
+        switch (action) {
+            case 'interact': code = ACTION_USE; break;
+            case 'inventory': code = ACTION_INVENTORY; break;
             default: return false;
         }
 
