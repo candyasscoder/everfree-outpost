@@ -126,7 +126,7 @@ function outpost_ffi.callbacks.set_inventory_extra(id, extra)
 end
 
 
-function outpost_ffi.callbacks.test(client)
+function outpost_ffi.callbacks.action(client, action)
     local entity = client:pawn()
     local pos = entity:pos()
     local target = pos + V3.new(16, 16, 16) + entity:facing() * V3.new(32, 32, 32)

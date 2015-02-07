@@ -9,7 +9,7 @@ use physics::v3::{V3, V2, Vn, scalar, Region};
 
 use types::*;
 use input::{InputBits, INPUT_LEFT, INPUT_RIGHT, INPUT_UP, INPUT_DOWN, INPUT_RUN};
-use input::ActionBits;
+use input::ActionId;
 use data::{Data, BlockData};
 use gen::TerrainGenerator;
 use script::ScriptEngine;
@@ -259,7 +259,7 @@ impl<'a> State<'a> {
         self.update_physics(now, eid, true)
     }
 
-    pub fn perform_action(&mut self, now: Time, id: ClientId, action: ActionBits) -> Result<(), String> {
+    pub fn perform_action(&mut self, now: Time, id: ClientId, action: ActionId) -> Result<(), String> {
         self.script.test_callback(self.mw.world_mut(), now, id, action)
     }
 

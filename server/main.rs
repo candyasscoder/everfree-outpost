@@ -29,7 +29,7 @@ use physics::v3::{Vn, V3, V2};
 use timer::WakeQueue;
 use msg::Motion as WireMotion;
 use msg::{Request, Response};
-use input::{InputBits, ActionBits};
+use input::{InputBits, ActionId};
 use state::LOCAL_SIZE;
 use state::StateChange::ChunkUpdate;
 use data::Data;
@@ -97,7 +97,7 @@ fn main() {
 #[derive(Copy)]
 pub enum WakeReason {
     HandleInput(ClientId, InputBits),
-    HandleAction(ClientId, ActionBits),
+    HandleAction(ClientId, ActionId),
     PhysicsUpdate(EntityId),
     CheckView(ClientId),
 }
@@ -199,8 +199,7 @@ impl<'a> Server<'a> {
             Request::Action(time, action) => {
                 let client_id = unwrap_or!(self.wire_to_client(wire_id));
                 let time = cmp::max(time.to_global(now), now);
-                let action = ActionBits::from_bits_truncate(action);
-                self.wake_queue.push(time, WakeReason::HandleAction(client_id, action));
+                self.wake_queue.push(time, WakeReason::HandleAction(client_id, ActionId(action)));
             },
 
             Request::AddClient => {

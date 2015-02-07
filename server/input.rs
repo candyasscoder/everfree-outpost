@@ -10,8 +10,17 @@ bitflags! {
     }
 }
 
-bitflags! {
-    flags ActionBits: u16 {
-        const ACTION_USE =      0x0001,
+
+#[derive(Copy, PartialEq, Eq, Show)]
+pub struct ActionId(pub u16);
+
+macro_rules! action_ids {
+    ($($name:ident = $val:expr,)*) => {
+        $( pub const $name: ActionId = ActionId($val); )*
     }
+}
+
+action_ids! {
+    ACTION_USE =        1,
+    ACTION_INVENTORY =  2,
 }
