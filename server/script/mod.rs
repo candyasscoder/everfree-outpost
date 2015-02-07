@@ -73,6 +73,21 @@ impl ScriptEngine {
             let mut lua = owned_lua.get();
             lua.open_libs();
 
+            // Put an empty table into _LOADED.bootstrap, to prevent "require('bootstrap')" from
+            // causing problems.
+            lua.get_field(REGISTRY_INDEX, "_LOADED");
+            lua.push_string("bootstrap");
+            lua.push_table();
+            lua.set_table(-3);
+            lua.pop(1);
+
+            // Set package.path to the script directory.
+            lua.get_field(GLOBALS_INDEX, "package");
+            lua.push_string("path");
+            lua.push_string(&*format!("{}/?.lua", script_dir.as_str().unwrap()));
+            lua.set_table(-3);
+            lua.pop(1);
+
             // Set up the `outpost_ffi` library.
             build_ffi_lib(&mut lua);
 
@@ -86,7 +101,8 @@ impl ScriptEngine {
             // Stack: outpost_ffi
             lua.set_field(GLOBALS_INDEX, FFI_LIB_NAME);
 
-            // Run the startup script.
+
+            // Finally, actually run the startup script.
             lua.load_file(&script_dir.join(BOOTSTRAP_FILE)).unwrap();
             lua.pcall(0, 0, 0).unwrap();
         }

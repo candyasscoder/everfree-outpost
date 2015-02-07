@@ -26,7 +26,7 @@ macro_rules! mk_build_types_table {
     }
 }
 
-mk_build_types_table!(V3, World, Structure, Client, Entity);
+mk_build_types_table!(V3, World, Client, Entity, Structure, Inventory);
 
 
 macro_rules! insert_function {

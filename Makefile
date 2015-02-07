@@ -260,7 +260,7 @@ $(eval $(call WWW_FILE, asmlibs.js, 	$(BUILD_MIN)/asmlibs.js))
 endif
 
 $(DIST)/all: $(patsubst %,$(DIST_WWW)/assets/%,$(shell cat $(SRC)/client/assets/used.txt)) \
-	$(patsubst scripts/%,$(DIST)/scripts/%,$(wildcard scripts/*.lua))
+	$(patsubst scripts/%,$(DIST)/scripts/%,$(shell find scripts -name \*.lua))
 
 $(DIST_WWW)/assets/%: $(SRC)/client/assets/%
 	mkdir -p $$(dirname $@)
