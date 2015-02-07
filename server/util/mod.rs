@@ -9,5 +9,6 @@ pub mod bytes;
 pub mod cursor;
 pub mod id_map;
 pub mod refcount;
+pub mod small_vec;
 #[macro_use] pub mod stable_id_map;
 #[macro_use] pub mod str_error;
