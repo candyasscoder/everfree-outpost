@@ -1,40 +1,34 @@
 /** @constructor */
-function Dialog() {
+function Dialog(keyboard) {
     this.container = document.createElement('div');
     this.container.classList.add('dialog-container');
+    this.container.classList.add('hidden');
 
     this.inner = document.createElement('div');
     this.inner.classList.add('dialog');
     this.container.appendChild(this.inner);
 
-    this._keyboard = null;
-
-    this.hide();
+    this.keyboard = keyboard;
+    this._content = null;
 }
 exports.Dialog = Dialog;
 
 Dialog.prototype.hide = function() {
-    if (this._keyboard != null) {
-        this._keyboard.popHandler();
-        this._keyboard = null;
+    if (this._content.handleClose != null) {
+        this._content.handleClose(this);
     }
 
-    if (this.inner.firstChild != null) {
-        this.inner.removeChild(this.inner.firstChild);
-    }
+    this._content = null;
+    this.inner.removeChild(this.inner.firstChild);
     this.container.classList.add('hidden');
 };
 
-Dialog.prototype.show = function(content, keyboard, handler) {
-    if (keyboard != null) {
-        console.assert(this._keyboard == null);
-        keyboard.pushHandler(handler);
-        this._keyboard = keyboard;
-    }
-
-    if (this.inner.firstChild != null) {
-        this.inner.removeChild(this.inner.firstChild);
-    }
-    this.inner.appendChild(content);
+Dialog.prototype.show = function(content) {
+    this._content = content;
+    this.inner.appendChild(content.container);
     this.container.classList.remove('hidden');
+
+    if (this._content.handleOpen != null) {
+        this._content.handleOpen(this);
+    }
 };

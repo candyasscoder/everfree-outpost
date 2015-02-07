@@ -24,23 +24,64 @@ InventoryTracker.prototype._handleUpdate = function(inventory_id, updates) {
 };
 
 InventoryTracker.prototype.addHandler = function(inventory_id, handler) {
+    console.log('add handler', inventory_id);
     this.handler[inventory_id] = handler;
 };
 
 InventoryTracker.prototype.removeHandler = function(inventory_id) {
+    console.log('remove handler', inventory_id);
     delete this.handler[inventory_id];
     this.conn.sendUnsubscribeInventory(inventory_id);
 };
 
 
 /** @constructor */
-function InventoryUI() {
+function InventoryUI(tracker, inventory_id) {
     this.list = new ItemList();
+    this.list.container.classList.add('active');
+
     this.container = fromTemplate('inventory', { 'item_list': this.list.container });
 
-    this.list.container.classList.add('active');
+    this.tracker = tracker;
+    this.inventory_id = inventory_id;
+    this.dialog = null;
 }
 exports.InventoryUI = InventoryUI;
+
+InventoryUI.prototype._handleKeyEvent = function(down, evt) {
+    if (!down) {
+        return;
+    }
+
+    var binding = config.keybindings.get()[evt.keyCode];
+
+    var mag = evt.shiftKey ? 10 : 1;
+
+    switch (binding) {
+        case 'move_up':
+            this.list.step(-1 * mag);
+            break;
+        case 'move_down':
+            this.list.step(1 * mag);
+            break;
+        case 'cancel':
+            this.dialog.hide();
+            break;
+    }
+};
+
+InventoryUI.prototype.handleOpen = function(dialog) {
+    var this_ = this;
+    this.dialog = dialog;
+    keyboard.pushHandler(function(d, e) { return this_._handleKeyEvent(d, e); });
+    this.list.track(this.tracker, this.inventory_id);
+};
+
+InventoryUI.prototype.handleClose = function(dialog) {
+    this.dialog = null;
+    dialog.keyboard.popHandler();
+    this.tracker.removeHandler(this.inventory_id);
+};
 
 
 /** @constructor */

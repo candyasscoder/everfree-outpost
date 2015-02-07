@@ -18,8 +18,8 @@ var Config = require('config').Config;
 var Keyboard = require('keyboard').Keyboard;
 var Dialog = require('dialog').Dialog;
 var Banner = require('banner').Banner;
-//var Inventory = require('inventory').Inventory;
-var ItemRow = require('inventory').ItemRow;
+var InventoryTracker = require('inventory').InventoryTracker;
+var InventoryUI = require('inventory').InventoryUI;
 
 var TileDef = require('chunk').TileDef;
 var ItemDef = require('items').ItemDef;
@@ -220,6 +220,7 @@ var renderer = null;
 var conn;
 var timing;
 var load_counter;
+var inv_tracker;
 
 // Top-level initialization function
 
@@ -228,9 +229,9 @@ function init() {
 
     canvas = new AnimCanvas(frame, 'webgl');
     debug = new DebugMonitor();
-    dialog = new Dialog();
     banner = new Banner();
     keyboard = new Keyboard();
+    dialog = new Dialog(keyboard);
 
     runner = new BackgroundJobRunner();
     loader = new AssetLoader();
@@ -260,6 +261,7 @@ function init() {
 
         openConn(function() {
             timing = new Timing(conn);
+            inv_tracker = new InventoryTracker(conn);
             conn.sendLogin([1, 2, 3, 4], "Pony");
             banner.hide();
             canvas.start();
@@ -321,6 +323,7 @@ function openConn(next) {
     conn.onTerrainChunk = handleTerrainChunk;
     conn.onEntityUpdate = handleEntityUpdate;
     conn.onUnloadChunk = handleUnloadChunk;
+    conn.onOpenDialog = handleOpenDialog;
 }
 
 
@@ -503,6 +506,11 @@ function handleEntityUpdate(id, motion, anim) {
 
 function handleUnloadChunk(idx) {
     chunkLoaded[idx] = false;
+}
+
+function handleOpenDialog(idx, args) {
+    var ui = new InventoryUI(inv_tracker, args[0]);
+    dialog.show(ui);
 }
 
 

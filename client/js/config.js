@@ -10,6 +10,8 @@ var DEFAULT_CONFIG = {
         65: 'interact',     // A
         69: 'inventory',    // E
         112: 'show_controls', // F1
+        27: 'cancel',       // Esc
+        32: 'cancel',       // Space
     },
 };
 

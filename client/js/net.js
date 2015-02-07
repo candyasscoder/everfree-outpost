@@ -261,4 +261,5 @@ Connection.prototype.sendUnsubscribeInventory = function(inventory_id) {
     var buf = new DataView(new ArrayBuffer(2 + 4));
     buf.setUint16(0, OP_UNSUBSCRIBE_INVENTORY, true);
     buf.setUint32(2, inventory_id, true);
+    this.socket.send(buf);
 };
