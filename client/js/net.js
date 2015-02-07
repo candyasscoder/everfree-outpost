@@ -80,8 +80,6 @@ Connection.prototype._handleMessage = function(evt) {
 
     var opcode = get16();
 
-    console.log('opcode', opcode.toString(16));
-
     switch (opcode) {
         case OP_TERRAIN_CHUNK:
             if (this.onTerrainChunk != null) {
@@ -172,7 +170,7 @@ Connection.prototype._handleMessage = function(evt) {
             if (this.onOpenDialog != null) {
                 var idx = get32();
                 var args = [];
-                while (offset < view.len) {
+                while (offset < view.byteLength) {
                     args.push(get32());
                 }
                 this.onOpenDialog(idx, args);
@@ -180,14 +178,14 @@ Connection.prototype._handleMessage = function(evt) {
             break;
 
         case OP_INVENTORY_UPDATE:
-            if (this.onOpenDialog != null) {
+            if (this.onInventoryUpdate != null) {
                 var inventory_id = get32();
                 var updates = [];
-                while (offset < view.len) {
+                while (offset < view.byteLength) {
                     var item_id = get16();
                     var old_count = get8();
                     var new_count = get8();
-                    args.push({
+                    updates.push({
                         item_id: item_id,
                         old_count: old_count,
                         new_count: new_count,

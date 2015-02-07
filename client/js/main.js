@@ -21,8 +21,10 @@ var Banner = require('banner').Banner;
 //var Inventory = require('inventory').Inventory;
 var ItemRow = require('inventory').ItemRow;
 
-var Chunk = require('chunk').Chunk;
 var TileDef = require('chunk').TileDef;
+var ItemDef = require('items').ItemDef;
+
+var Chunk = require('chunk').Chunk;
 var CHUNK_SIZE = require('chunk').CHUNK_SIZE;
 var TILE_SIZE = require('chunk').TILE_SIZE;
 var LOCAL_SIZE = require('chunk').LOCAL_SIZE;
@@ -296,14 +298,10 @@ function loadAssets(next) {
     });
 
     loader.addJson(null, 'items.json', function(json) {
-        window.items = json['items'];
-        /*
-        var tiles = json['blocks'];
-        for (var i = 0; i < tiles.length; ++i) {
-            TileDef.register(i, tiles[i]);
+        var items = json['items'];
+        for (var i = 0; i < items.length; ++i) {
+            ItemDef.register(i, items[i]);
         }
-        renderer.loadBlockData(TileDef.by_id);
-        */
     });
 
     loader.addText('terrain.frag', 'assets/shaders/terrain.frag');

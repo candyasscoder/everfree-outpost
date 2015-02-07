@@ -1,4 +1,6 @@
+var ItemDef = require('items').ItemDef;
 var fromTemplate = require('util').fromTemplate;
+
 
 function InventoryTracker(conn) {
     this.handler = {};
@@ -25,7 +27,7 @@ InventoryTracker.prototype.addHandler = function(inventory_id, handler) {
     this.handler[inventory_id] = handler;
 };
 
-InventoryTracker.prototype.removeHandler = function(inventory_id, handler) {
+InventoryTracker.prototype.removeHandler = function(inventory_id) {
     delete this.handler[inventory_id];
     this.conn.sendUnsubscribeInventory(inventory_id);
 };
@@ -42,11 +44,9 @@ exports.InventoryUI = InventoryUI;
 
 
 /** @constructor */
-function ItemList(data) {
+function ItemList() {
     this.container = document.createElement('div');
     this.container.classList.add('item-list');
-
-    this.data = data;
 
     this.rows = [];
     this.current_row = -1;
@@ -87,9 +87,15 @@ ItemList.prototype._scrollToFocus = function() {
 };
 
 ItemList.prototype._buildRow = function(id, qty) {
-    var name = this.data[id].ui_name;
-    var tile = this.data[id].tile;
-    return new ItemRow(id, qty, name, tile & 0x1f, tile >> 5);
+    var def = ItemDef.by_id[id];
+    return new ItemRow(id, qty, def.ui_name, def.tile_x, def.tile_y);
+};
+
+ItemList.prototype.track = function(tracker, inventory_id) {
+    var this_ = this;
+    tracker.addHandler(inventory_id, function(updates) {
+        this_.update(updates);
+    });
 };
 
 ItemList.prototype.update = function(updates) {
