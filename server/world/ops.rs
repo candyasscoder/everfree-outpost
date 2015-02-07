@@ -588,7 +588,7 @@ pub fn inventory_attach(w: &mut World,
 
 pub fn inventory_update(w: &mut World,
                         iid: InventoryId,
-                        name: &str,
+                        item_id: ItemId,
                         adjust: i16) -> OpResult<u8> {
     use std::collections::hash_map::Entry::*;
 
@@ -606,7 +606,7 @@ pub fn inventory_update(w: &mut World,
         }
     }
 
-    let value = match i.contents.entry(String::from_str(name)) {
+    let value = match i.contents.entry(item_id) {
         Vacant(e) => {
             let value = combine(0, adjust);
             e.insert(value);

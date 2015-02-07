@@ -373,13 +373,14 @@ impl Userdata for Inventory {
                 ctx.world.destroy_inventory(i.id)
             }
 
-            fn count(i: &Inventory, name: &str) -> Option<u8> {
-                ctx.world.get_inventory(i.id).map(|i| i.count(name))
-            }
+            fn count(i: &Inventory, name: &str) -> StrResult<u8> {{
+                let i = unwrap!(ctx.world.get_inventory(i.id));
+                i.count_by_name(name)
+            }}
 
             fn update(i: &Inventory, name: &str, adjust: i16) -> StrResult<u8> {{
                 let mut i = unwrap!(ctx.world.get_inventory_mut(i.id));
-                i.update(name, adjust)
+                i.update_by_name(name, adjust)
             }}
 
             fn attach_to_world(i: &Inventory) -> StrResult<()> {{

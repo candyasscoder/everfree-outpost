@@ -80,6 +80,8 @@ Connection.prototype._handleMessage = function(evt) {
 
     var opcode = get16();
 
+    console.log('opcode', opcode.toString(16));
+
     switch (opcode) {
         case OP_TERRAIN_CHUNK:
             if (this.onTerrainChunk != null) {

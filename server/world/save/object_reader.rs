@@ -25,6 +25,7 @@ pub struct ObjectReader<R: io::Reader, H: ReadHooks> {
     r: ReaderWrapper<R>,
     hooks: H,
     template_map: HashMap<TemplateId, TemplateId>,
+    item_map: HashMap<ItemId, ItemId>,
     inited_objs: HashSet<AnyId>,
 }
 
@@ -64,6 +65,7 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
             r: ReaderWrapper::new(writer),
             hooks: hooks,
             template_map: HashMap::new(),
+            item_map: HashMap::new(),
             inited_objs: HashSet::new(),
         }
     }
@@ -253,7 +255,9 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
     }
 
     fn read_inventory(&mut self, w: &mut World) -> Result<InventoryId> {
+        use std::collections::hash_map::Entry::*;
         let (iid, stable_id) = try!(self.read_object_header(w));
+        let data = w.data();
 
         {
             let i = &mut w.inventories[iid];
@@ -261,9 +265,18 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
 
             let contents_count = try!(self.r.read_count());
             for _ in range(0, contents_count) {
-                let (count, name_len): (u8, u8) = try!(self.r.read());
-                let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_uint())));
-                i.contents.insert(name, count);
+                let (old_item_id, count, name_len): (u16, u8, u8) = try!(self.r.read());
+                let item_id = match self.item_map.entry(old_item_id) {
+                    Occupied(e) => *e.get(),
+                    Vacant(e) => {
+                        let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_uint())));
+                        let new_id = unwrap!(data.item_data.find_id(&*name));
+                        e.insert(new_id);
+                        new_id
+                    },
+                };
+
+                i.contents.insert(item_id, count);
             }
         }
 

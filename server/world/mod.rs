@@ -97,7 +97,7 @@ pub struct Structure {
 impl_IntrusiveStableId!(Structure, stable_id);
 
 pub struct Inventory {
-    contents: HashMap<String, u8>,
+    contents: HashMap<ItemId, u8>,
 
     stable_id: StableId,
     attachment: InventoryAttachment,
@@ -492,11 +492,11 @@ impl Structure {
 }
 
 impl Inventory {
-    pub fn count(&self, name: &str) -> u8 {
-        self.contents.get(name).map_or(0, |&x| x)
+    pub fn count(&self, item_id: ItemId) -> u8 {
+        self.contents.get(&item_id).map_or(0, |&x| x)
     }
 
-    pub fn contents(&self) -> &HashMap<String, u8> {
+    pub fn contents(&self) -> &HashMap<ItemId, u8> {
         &self.contents
     }
 }

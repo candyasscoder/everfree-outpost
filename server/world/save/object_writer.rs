@@ -21,6 +21,7 @@ pub struct ObjectWriter<W: io::Writer, H: WriteHooks> {
     hooks: H,
     objects_written: HashSet<AnyId>,
     seen_templates: HashSet<TemplateId>,
+    seen_items: HashSet<ItemId>,
 }
 
 #[allow(unused_variables)]
@@ -49,6 +50,7 @@ impl<W: io::Writer, H: WriteHooks> ObjectWriter<W, H> {
             hooks: hooks,
             objects_written: HashSet::new(),
             seen_templates: HashSet::new(),
+            seen_items: HashSet::new(),
         }
     }
 
@@ -192,13 +194,23 @@ impl<W: io::Writer, H: WriteHooks> ObjectWriter<W, H> {
 
     fn write_inventory(&mut self, i: &ObjectRef<Inventory>) -> Result<()> {
         try!(self.write_object_header(i));
+        let data = i.world().data();
 
         // Body
         try!(self.w.write_count(i.contents.len()));
-        for (name, count) in i.contents.iter() {
-            try!(self.w.write((*count,
-                               unwrap!(name.len().to_u8()))));
-            try!(self.w.write_str_bytes(&**name));
+        for (&item_id, &count) in i.contents.iter() {
+            if !self.seen_items.contains(&item_id) {
+                self.seen_items.insert(item_id);
+                let name = data.item_data.name(item_id);
+                try!(self.w.write((item_id,
+                                   count,
+                                   unwrap!(name.len().to_u8()))));
+                try!(self.w.write_str_bytes(name));
+            } else {
+                try!(self.w.write((item_id,
+                                   count,
+                                   0_u8)));
+            }
         }
 
         try!(self.hooks.post_write_inventory(&mut self.w, i));
