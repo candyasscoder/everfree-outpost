@@ -100,6 +100,7 @@ enum Tag {
     Client,
     Entity,
     Structure,
+    Inventory,
 }
 
 pub struct WriteHooks<'a> {
@@ -270,6 +271,7 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
             lua.pop(2);
             unsafe { lua.to_userdata(index) }
         } else {
+            lua.pop(1);
             None
         }
     }
@@ -294,8 +296,14 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
         try!(w.write_id(s.id));
         return Ok(());
     }
+    if let Some(i) = get_userdata_opt::<userdata::Inventory>(lua, index) {
+        try!(w.write(Tag::Inventory as u8));
+        try!(w.write_id(i.id));
+        return Ok(());
+    }
 
     warn!("don't know how to serialize unrecognized userdata");
+    lua.pop(1);
     Ok(())
 }
 
@@ -466,6 +474,11 @@ fn read_value<R: Reader>(lua: &mut LuaState, r: &mut R, world: &mut World) -> Re
             let sid = try!(r.read_id(world));
             let s = userdata::Structure { id: sid };
             s.to_lua(lua);
+        },
+        Tag::Inventory => {
+            let iid = try!(r.read_id(world));
+            let i = userdata::Inventory { id: iid };
+            i.to_lua(lua);
         },
     }
     Ok(())

@@ -37,6 +37,6 @@ function action_handlers.use(client)
 end
 
 return {
-    handlers = action_handlers,
+    handler = action_handlers,
     use = structure_use_handlers,
 }

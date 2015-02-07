@@ -115,10 +115,11 @@ impl<R: io::Reader> Reader for ReaderWrapper<R> {
         let pad = padding(len);
 
         let result: (T, u32) = unsafe { mem::zeroed() };
+        assert!(mem::size_of_val(&result) >= len + pad);
         let buf = unsafe {
             mem::transmute(raw::Slice {
                 data: &result as *const (T, u32) as *const u8,
-                len: len,
+                len: len + pad,
             })
         };
         try!(self.reader.read_at_least(len + pad, buf));

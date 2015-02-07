@@ -38,12 +38,30 @@ require('outpost.extra')
 local action = require('outpost.action')
 
 
+function outpost_ffi.types.Entity.table.inventory(e, name)
+    local extra = e:extra()
+    local k = 'inventory_' .. name
+    if extra[k] == nil then
+        local i, err = e:world():create_inventory()
+        i:attach_to_entity(e)
+        extra[k] = i
+    end
+    return extra[k]
+end
+
 function action.use.tree(c, s)
     s:replace('stump')
 
     local extra = c:extra()
     extra.trees_kicked = (extra.trees_kicked or 0) + 1
     print("kicked " .. extra.trees_kicked .. " trees")
+
+    local count = c:pawn():inventory('main'):update('wood', 5)
+    print('got ' .. count .. ' wood')
+end
+
+function action.handler.inventory(c)
+    c:open_inventory(c:pawn():inventory('main'))
 end
 
 
