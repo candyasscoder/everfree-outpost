@@ -15,13 +15,12 @@ var DEFAULT_CONFIG = {
     },
 };
 
-/** @constructor */
-function Config() {
-    this.show_controls = new BooleanConfigItem('show_controls');
 
-    this.keybindings = new JsonConfigItem('keybindings');
-}
-exports.Config = Config;
+exports.Config = {
+    show_controls: new BooleanConfigItem('show_controls'),
+    keybindings: new JsonConfigItem('keybindings'),
+};
+
 
 /** @constructor */
 function ConfigItem(key, from, to) {

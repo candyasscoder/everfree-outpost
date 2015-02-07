@@ -194,8 +194,6 @@ LoadCounter.prototype.reset = function() {
 };
 
 
-var config;
-
 var canvas;
 var debug;
 var dialog;
@@ -225,8 +223,6 @@ var inv_tracker;
 // Top-level initialization function
 
 function init() {
-    config = new Config();
-
     canvas = new AnimCanvas(frame, 'webgl');
     debug = new DebugMonitor();
     banner = new Banner();
@@ -338,7 +334,7 @@ function buildUI() {
     document.body.appendChild($('key-list'));
     document.body.appendChild(dialog.container);
 
-    if (!config.show_controls.get()) {
+    if (!Config.show_controls.get()) {
         $('key-list').classList.add('hidden');
     }
 
@@ -399,7 +395,7 @@ function setupKeyHandler() {
             return false;
         }
 
-        var binding = config.keybindings.get()[evt.keyCode];
+        var binding = Config.keybindings.get()[evt.keyCode];
         if (binding == null) {
             return false;
         }
@@ -409,7 +405,7 @@ function setupKeyHandler() {
             updateWalkDir();
         } else if (down) {
             if (binding == 'show_controls') {
-                var show = config.show_controls.toggle();
+                var show = Config.show_controls.toggle();
                 $('key-list').classList.toggle('hidden', !show);
             } else {
                 sendActionForKey(binding);

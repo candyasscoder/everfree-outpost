@@ -133,7 +133,7 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
     this.terrain_obj.setUniformValue('cameraPos', [sx, sy]);
     this.terrain_obj.setUniformValue('cameraSize', [sw, sh]);
 
-    for (k in this.sprite_classes) {
+    for (var k in this.sprite_classes) {
         var cls = this.sprite_classes[k];
         cls.setCamera(sx, sy, sw, sh);
     }

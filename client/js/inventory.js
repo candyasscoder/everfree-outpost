@@ -1,7 +1,9 @@
+var Config = require('config').Config;
 var ItemDef = require('items').ItemDef;
 var fromTemplate = require('util').fromTemplate;
 
 
+/** @constructor */
 function InventoryTracker(conn) {
     this.handler = {};
     this.conn = conn;
@@ -53,7 +55,7 @@ InventoryUI.prototype._handleKeyEvent = function(down, evt) {
         return;
     }
 
-    var binding = config.keybindings.get()[evt.keyCode];
+    var binding = Config.keybindings.get()[evt.keyCode];
 
     var mag = evt.shiftKey ? 10 : 1;
 
@@ -73,7 +75,7 @@ InventoryUI.prototype._handleKeyEvent = function(down, evt) {
 InventoryUI.prototype.handleOpen = function(dialog) {
     var this_ = this;
     this.dialog = dialog;
-    keyboard.pushHandler(function(d, e) { return this_._handleKeyEvent(d, e); });
+    dialog.keyboard.pushHandler(function(d, e) { return this_._handleKeyEvent(d, e); });
     this.list.track(this.tracker, this.inventory_id);
 };
 
