@@ -57,3 +57,21 @@ stair:
 floor:
     wood.shape: floor
     wood.bottom: wood_floor
+
+rock:
+    _.shape: solid
+    _.bottom: /grass/center/v0
+    x0.top:     rock/00
+    x0.front:   rock/01
+    x1.top:     rock/10
+    x1.front:   rock/11
+
+anvil:
+    shape: solid
+    bottom: /grass/center/v0
+    front: anvil
+
+chest:
+    shape: solid
+    bottom: /grass/center/v0
+    front: chest

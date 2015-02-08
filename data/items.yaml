@@ -11,3 +11,11 @@ wood:
 stone:
     tile: rock
     ui_name: Stone
+
+anvil:
+    tile: /anvil
+    ui_name: Anvil
+
+chest:
+    tile: /chest
+    ui_name: Chest

@@ -77,11 +77,19 @@ lpc-base-tiles/inside.png:
 lpc-base-tiles/stairs.png:
     stair/n: [0, 12]
 
+lpc-base-tiles/chests.png:
+    chest: [1, 0]
+
 daneeklu_farming_tilesets/farming_fishing.png:
     item/woodpile:
         small: [5, 0]
         medium: [5, 1]
         large: [1, 1]
+    anvil: [6, 0]
 
 lpc-base-tiles/rock.png:
     item/rock: [0, 0]
+
+terrain_atlas.png:
+    rock: [27, 23, 2, 2]
+

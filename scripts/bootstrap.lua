@@ -60,6 +60,8 @@ function action.use.tree(c, s)
     print('got ' .. count .. ' wood')
     c:pawn():inventory('main'):update('stick', 3)
     c:pawn():inventory('main'):update('stone', 1)
+    c:pawn():inventory('main'):update('anvil', 1)
+    c:pawn():inventory('main'):update('chest', 1)
 end
 
 function action.handler.inventory(c)

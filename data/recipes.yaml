@@ -1,0 +1,16 @@
+anvil:
+    ui_name: Anvil
+    station: anvil
+    inputs:
+        wood: 10
+        stone: 10
+    outputs:
+        anvil: 1
+
+chest:
+    ui_name: Chest
+    station: anvil
+    inputs:
+        wood: 20
+    outputs:
+        chest: 1
