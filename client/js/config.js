@@ -1,5 +1,6 @@
 var DEFAULT_CONFIG = {
     'show_controls': true,
+    'ignore_browser_warning': false,
 
     'keybindings': {
         37: 'move_left',    // ArrowLeft
@@ -15,13 +16,19 @@ var DEFAULT_CONFIG = {
     },
 
     'debug_timing_delay': [0, 0],
+    'debug_force_mobile_warning': false,
+    'debug_force_browser_warning': false,
 };
 
 
 exports.Config = {
     show_controls: new ConfigItem('show_controls'),
+    ignore_browser_warning: new ConfigItem('ignore_browser_warning'),
     keybindings: new ConfigItem('keybindings'),
+
     debug_timing_delay: new ConfigItem('debug_timing_delay'),
+    debug_force_mobile_warning: new ConfigItem('debug_force_mobile_warning'),
+    debug_force_browser_warning: new ConfigItem('debug_force_browser_warning'),
 };
 
 

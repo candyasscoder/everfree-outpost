@@ -36,7 +36,6 @@
                 right: 0;
                 background-color: rgba(255, 255, 255, 0.5);
                 /*transform: translateZ(0);*/
-                z-index: 2;
                 border-spacing: 0;
             }
 
@@ -55,7 +54,6 @@
                 width: 100%;
                 height: 100%;
                 background-color: rgba(0,0,0,0.5);
-                z-index: 1;
             }
 
             #banner {
@@ -192,7 +190,7 @@
 
             .title {
                 font-size: 1.3em;
-                    text-align:center;
+                text-align: center;
             }
 
 
@@ -206,6 +204,15 @@
                 border: solid 0.125rem black;
             }
 
+
+            .unsupported-option {
+                font-size: 1.1em;
+                text-align: center;
+            }
+
+            .unsupported-or {
+                text-align: center;
+            }
         </style>
     </head>
     <body>
@@ -219,10 +226,10 @@
         <script type='text/javascript' src='asmlibs.js'></script>
         <script type='text/javascript' src='outpost.js'></script>
 
+        <div style="display: none">
             <div id="item-box">
                 <div class="item-icon"></div>
             </div>
-        <div style="display: none">
 
             <div id="key-list">
                 <table>
@@ -252,45 +259,30 @@
                     &ndash; Navigate
                 </div>
             </div>
-        </div>
 
-        <!--
-        <div id="dialog-container">
-            <div id="dialog">
-                <div id="inventory">
-                    <div style='text-align: center; font-size: 1.3rem;'>Inventory</div>
-                    <div class="item-list">
-                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
-                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
-                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
-                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
-                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
-                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
-                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
-                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
-                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
-                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
-                        <div class="item"> <div class="item-icon">x</div> <div class="item-name">Item name</div> </div>
-                    </div>
+            <div id="unsupported-browser">
+                <div class="title">Browser Warning</div>
+                <p>This game has only been tested with Firefox and Chrome.</p>
+                <p>It may not work properly in other browsers.</p>
+                <div class="unsupported-option">
+                    <a href="https://www.getfirefox.com/">Download Firefox</a>
                 </div>
+                <div class="unsupported-or">OR</div>
+                <div class="unsupported-option">
+                    <a href="#" class="unsupported-try">Try to play anyway</a>
+                </div>
+            </div>
 
-                <table id="keys">
-                    <tr>
-                        <td>
-                            <kbd>&larr;</kbd>
-                            <kbd>&darr;</kbd>
-                            <kbd>&uarr;</kbd>
-                            <kbd>&rarr;</kbd>
-                        </td>
-                        <td>Move</td>
-                    </tr>
-                    <tr><td><kbd>A</kbd></td><td>Interact</td></tr>
-                    <tr><td><kbd>D</kbd></td><td>Use Item</td></tr>
-                    <tr><td><kbd>E</kbd></td><td>Inventory</td></tr>
-                    <tr><td><kbd>Space</kbd></td><td>Close Dialog</td></tr>
-                </table>
+            <div id="unsupported-mobile">
+                <div class="title">Mobile Device Warning</div>
+                <p>This game has not been tested on mobile devices.</p>
+                <p>A keyboard is required to play this game.</p>
+                <div class="unsupported-option">Switch to a desktop computer</div>
+                <div class="unsupported-or">OR</div>
+                <div class="unsupported-option">
+                    <a href="#" class="unsupported-try">Try to play anyway</a>
+                </div>
             </div>
         </div>
-        -->
     </body>
 </html>

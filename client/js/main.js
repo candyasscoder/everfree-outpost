@@ -38,6 +38,7 @@ var Timing = require('time').Timing;
 
 var rle16Decode = require('util').rle16Decode;
 var buildArray = require('util').buildArray;
+var checkBrowser = require('browser').checkBrowser;
 
 
 var anim_dirs = [
@@ -254,20 +255,21 @@ function init() {
 
     buildUI();
 
-    loadAssets(function() {
-        renderer.initGl(assets);
-        pony_sheet = buildPonySheet();
-        runner.job('preload-textures', preloadTextures);
+    checkBrowser(dialog, function() {
+        loadAssets(function() {
+            renderer.initGl(assets);
+            pony_sheet = buildPonySheet();
+            runner.job('preload-textures', preloadTextures);
 
-        openConn(function() {
-            timing = new Timing(conn);
-            inv_tracker = new InventoryTracker(conn);
-            conn.sendLogin([1, 2, 3, 4], "Pony");
-            banner.hide();
-            canvas.start();
+            openConn(function() {
+                timing = new Timing(conn);
+                inv_tracker = new InventoryTracker(conn);
+                conn.sendLogin([1, 2, 3, 4], "Pony");
+                banner.hide();
+                canvas.start();
+            });
         });
     });
-
 }
 
 document.addEventListener('DOMContentLoaded', init);
@@ -334,10 +336,11 @@ function buildUI() {
     setupKeyHandler();
 
     document.body.appendChild(canvas.canvas);
-    document.body.appendChild(debug.container);
     document.body.appendChild($('key-list'));
     document.body.appendChild($('item-box'));
+    document.body.appendChild(banner.container);
     document.body.appendChild(dialog.container);
+    document.body.appendChild(debug.container);
 
     if (!Config.show_controls.get()) {
         $('key-list').classList.add('hidden');
