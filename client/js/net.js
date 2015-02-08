@@ -186,7 +186,7 @@ Connection.prototype._handleMessage = function(evt) {
                     var old_count = get8();
                     var new_count = get8();
                     updates.push({
-                        item_id: item_id,
+                        id: item_id,
                         old_count: old_count,
                         new_count: new_count,
                     });
