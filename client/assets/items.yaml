@@ -1,5 +1,13 @@
 _.prefix: item
 
+stick:
+    tile: woodpile/small
+    ui_name: Stick
+
 wood:
     tile: woodpile/medium
     ui_name: Wood
+
+stone:
+    tile: rock
+    ui_name: Stone

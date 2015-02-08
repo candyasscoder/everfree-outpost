@@ -82,3 +82,6 @@ daneeklu_farming_tilesets/farming_fishing.png:
         small: [5, 0]
         medium: [5, 1]
         large: [1, 1]
+
+lpc-base-tiles/rock.png:
+    item/rock: [0, 0]

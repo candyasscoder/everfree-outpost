@@ -26,12 +26,10 @@ InventoryTracker.prototype._handleUpdate = function(inventory_id, updates) {
 };
 
 InventoryTracker.prototype.addHandler = function(inventory_id, handler) {
-    console.log('add handler', inventory_id);
     this.handler[inventory_id] = handler;
 };
 
 InventoryTracker.prototype.removeHandler = function(inventory_id) {
-    console.log('remove handler', inventory_id);
     delete this.handler[inventory_id];
     this.conn.sendUnsubscribeInventory(inventory_id);
 };
@@ -47,6 +45,8 @@ function InventoryUI(tracker, inventory_id) {
     this.tracker = tracker;
     this.inventory_id = inventory_id;
     this.dialog = null;
+
+    this.on_selection_change = null;
 }
 exports.InventoryUI = InventoryUI;
 
@@ -85,6 +85,16 @@ InventoryUI.prototype.handleClose = function(dialog) {
     this.tracker.removeHandler(this.inventory_id);
 };
 
+InventoryUI.prototype.enableSelect = function(last_selection, onchange) {
+    this.list.default_id = last_selection;
+    this.list.on_change_row = onchange;
+};
+
+InventoryUI.prototype.disableSelect = function() {
+    this.list.default_id = -1;
+    this.list.on_change_row = null;
+}
+
 
 /** @constructor */
 function ItemList() {
@@ -93,6 +103,8 @@ function ItemList() {
 
     this.rows = [];
     this.current_row = -1;
+    this.default_id = -1;
+    this.on_change_row = null;
 }
 exports.ItemList = ItemList;
 
@@ -105,6 +117,14 @@ ItemList.prototype._setCurrentRow = function(new_idx) {
 
     if (new_idx != -1) {
         this.rows[new_idx].container.classList.add('active');
+    }
+
+    if (this.on_change_row != null) {
+        if (new_idx == -1) {
+            this.on_change_row(-1);
+        } else {
+            this.on_change_row(this.rows[new_idx].id);
+        }
     }
 
     this.current_row = new_idx;
@@ -132,6 +152,29 @@ ItemList.prototype._scrollToFocus = function() {
 ItemList.prototype._buildRow = function(id, qty) {
     var def = ItemDef.by_id[id];
     return new ItemRow(id, qty, def.ui_name, def.tile_x, def.tile_y);
+};
+
+ItemList.prototype.step = function(offset) {
+    if (this.rows.length == 0) {
+        return;
+    }
+
+    var new_row = this.current_row + offset;
+    if (new_row < 0) {
+        new_row = 0;
+    } else if (new_row >= this.rows.length) {
+        new_row = this.rows.length - 1;
+    }
+    this._setCurrentRow(new_row);
+    this._scrollToFocus();
+};
+
+ItemList.prototype.getSelectedId = function() {
+    if (this.current_row == -1) {
+        return -1;
+    } else {
+        return this.rows[this.current_row].id;
+    }
 };
 
 ItemList.prototype.track = function(tracker, inventory_id) {
@@ -219,6 +262,10 @@ ItemList.prototype.update = function(updates) {
 
     // Update the current row index to point to the same item type as before,
     // or to point somewhere reasonable if that item is no longer present.
+    if (current_id == -1 && new_rows.length > 0) {
+        current_id = this.default_id;
+    }
+
     if (current_id != -1) {
         var new_row = findRow(this.rows, current_id);
         if (new_row >= this.rows.length) {

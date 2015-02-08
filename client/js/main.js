@@ -220,6 +220,8 @@ var timing;
 var load_counter;
 var inv_tracker;
 
+var current_item;
+
 // Top-level initialization function
 
 function init() {
@@ -246,6 +248,8 @@ function init() {
     conn = null;    // Initialized after assets are loaded.
     timing = null;  // Initialized after connection is opened.
     load_counter = new LoadCounter(banner, keyboard);
+
+    current_item = -1;
 
 
     buildUI();
@@ -332,6 +336,7 @@ function buildUI() {
     document.body.appendChild(canvas.canvas);
     document.body.appendChild(debug.container);
     document.body.appendChild($('key-list'));
+    document.body.appendChild($('item-box'));
     document.body.appendChild(dialog.container);
 
     if (!Config.show_controls.get()) {
@@ -436,7 +441,7 @@ function setupKeyHandler() {
         }
 
         var now = Date.now();
-        conn.sendInput(timing.encodeSend(now + 10), bits);
+        conn.sendInput(timing.encodeSend(now), bits);
     }
 
     function sendActionForKey(action) {
@@ -448,7 +453,7 @@ function setupKeyHandler() {
         }
 
         var now = Date.now();
-        conn.sendAction(timing.encodeSend(now + 10), code);
+        conn.sendAction(timing.encodeSend(now), code);
         return true;
     }
 }
@@ -508,6 +513,16 @@ function handleUnloadChunk(idx) {
 function handleOpenDialog(idx, args) {
     var ui = new InventoryUI(inv_tracker, args[0]);
     dialog.show(ui);
+    ui.enableSelect(current_item, function(new_id) {
+        current_item = new_id;
+        if (new_id == -1) {
+            $('item-box').firstElementChild.style.backgroundPosition = '0rem 0rem';
+        } else {
+            var info = ItemDef.by_id[new_id];
+            $('item-box').firstElementChild.style.backgroundPosition =
+                '-' + info.tile_x + 'rem -' + info.tile_y + 'rem';
+        }
+    });
 }
 
 
