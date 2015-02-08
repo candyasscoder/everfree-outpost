@@ -113,13 +113,29 @@ var SIZEOF = (function() {
 
 // window.Asm wrapper
 
+function next_heap_size(size) {
+    // "the heap object's byteLength must be either 2^n for n in [12, 24) or
+    // 2^24 * n for n ≥ 1"
+    if (size <= (1 << 12)) {
+        return (1 << 12);
+    } else if (size >= (1 << 24)) {
+        return (size | ((1 << 24) - 1)) + 1;
+    } else {
+        for (var i = 12 + 1; i < 24; ++i) {
+            if (size <= (1 << i)) {
+                return (1 << i);
+            }
+        }
+        console.assert(false, 'failed to compute next heap size for', size);
+        return (1 << 24);
+    }
+}
+
 /** @constructor */
 function Asm(heap_size) {
     // Buffer size must be a multiple of 4k.
     var min_size = HEAP_START + heap_size;
-    // TODO: properly implement the actual asm.js heap size rules
-    var buffer_size = (min_size + 0x0ffff) & ~0x0ffff;
-    this.buffer = new ArrayBuffer(buffer_size);
+    this.buffer = new ArrayBuffer(next_heap_size(min_size));
 
     this._callbacks = [];
 
