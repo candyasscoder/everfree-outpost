@@ -289,6 +289,7 @@ impl ToLua for ActionId {
         let name = match self {
             ACTION_USE => "use",
             ACTION_INVENTORY => "inventory",
+            ACTION_USE_ITEM => "use_item",
             ActionId(id) => {
                 lua.push_string(&*format!("unknown_{}", id));
                 return;

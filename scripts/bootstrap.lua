@@ -38,6 +38,8 @@ require('outpost.extra')
 local action = require('outpost.action')
 
 
+local V3 = outpost_ffi.types.V3.table
+
 function outpost_ffi.types.Entity.table.inventory(e, name)
     local extra = e:extra()
     local k = 'inventory_' .. name
@@ -64,9 +66,27 @@ function action.use.tree(c, s)
     c:pawn():inventory('main'):update('chest', 1)
 end
 
-function action.handler.inventory(c)
+function action.handler.inventory(c, arg)
     c:open_inventory(c:pawn():inventory('main'))
 end
+
+local function place_structure(name)
+    return function(client, inv)
+        local entity = client:pawn()
+        local pos = entity:pos()
+        -- TODO: hardcoded constants based on entity size and tile size
+        local target = pos + V3.new(16, 16, 16) + entity:facing() * V3.new(32, 32, 32)
+        local target_tile = target:pixel_to_tile()
+
+        s, err = client:world():create_structure(target_tile, name)
+        if s ~= nil then
+            inv:update(name, -1)
+        end
+    end
+end
+
+action.use_item.anvil = place_structure('anvil')
+action.use_item.chest = place_structure('chest')
 
 
 print('\n\nup and running')

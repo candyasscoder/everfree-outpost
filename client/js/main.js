@@ -388,6 +388,7 @@ var INPUT_RUN =     0x0010;
 
 var ACTION_USE =        1;
 var ACTION_INVENTORY =  2;
+var ACTION_USE_ITEM =   3;
 
 function setupKeyHandler() {
     var dirs_held = {
@@ -449,14 +450,19 @@ function setupKeyHandler() {
 
     function sendActionForKey(action) {
         var code = 0;
+        var arg = 0;
         switch (action) {
             case 'interact': code = ACTION_USE; break;
             case 'inventory': code = ACTION_INVENTORY; break;
+            case 'use_item':
+                code = ACTION_USE_ITEM;
+                arg = current_item;
+                break;
             default: return false;
         }
 
         var now = Date.now();
-        conn.sendAction(timing.encodeSend(now), code);
+        conn.sendAction(timing.encodeSend(now), code, arg);
         return true;
     }
 }

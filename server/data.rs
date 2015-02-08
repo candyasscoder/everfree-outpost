@@ -190,6 +190,10 @@ impl ItemData {
         &*self.names[id as usize]
     }
 
+    pub fn get_name(&self, id: ItemId) -> Option<&str> {
+        self.names.get(id as usize).map(|s| &**s)
+    }
+
     pub fn get_id(&self, name: &str) -> ItemId {
         self.find_id(name).unwrap_or_else(|| panic!("unknown item id: {}", name))
     }

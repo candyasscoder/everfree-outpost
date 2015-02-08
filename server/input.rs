@@ -23,4 +23,5 @@ macro_rules! action_ids {
 action_ids! {
     ACTION_USE =        1,
     ACTION_INVENTORY =  2,
+    ACTION_USE_ITEM =   3,
 }

@@ -126,14 +126,22 @@ impl Userdata for World {
                    .map(|e| Entity { id: e.id() })
             }
 
-            fn create_structure(_w: &World, pos: V3, template_id: u32) -> StrResult<Structure> {
+            fn create_structure(_w: &World, pos: V3, template_name: &str) -> StrResult<Structure> {{
+                let template_id =
+                    unwrap!(ctx.world.data().object_templates.find_id(template_name),
+                            "named structure template does not exist");
+
                 ctx.world.create_structure(pos, template_id)
                    .map(|s| Structure { id: s.id() })
-            }
+            }}
 
             fn create_inventory(_w: &World) -> StrResult<Inventory> {
                 ctx.world.create_inventory()
                    .map(|i| Inventory { id: i.id() })
+            }
+
+            fn item_id_to_name(_w: &World, id: ItemId) -> _ {
+                ctx.world.data().item_data.get_name(id).map(|s| String::from_str(s))
             }
         }
     }

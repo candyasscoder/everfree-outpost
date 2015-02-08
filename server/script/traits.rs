@@ -267,6 +267,12 @@ impl<'a> ToLua for &'a str {
     }
 }
 
+impl ToLua for String {
+    fn to_lua(self, lua: &mut LuaState) {
+        lua.push_string(&*self);
+    }
+}
+
 impl<U: Userdata> ToLua for U {
     fn to_lua(self, lua: &mut LuaState) {
         create_userdata(lua, self);

@@ -9,6 +9,7 @@ var DEFAULT_CONFIG = {
         40: 'move_down',    // ArrowDown
         16: 'run',          // Shift
         65: 'interact',     // A
+        68: 'use_item',     // D
         69: 'inventory',    // E
         112: 'show_controls', // F1
         27: 'cancel',       // Esc
