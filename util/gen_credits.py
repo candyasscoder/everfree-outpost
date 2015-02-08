@@ -165,7 +165,7 @@ def main():
 
         path = os.path.normpath(line)
         if not os.path.isfile(path):
-            try_path = os.path.join('client/assets', path)
+            try_path = os.path.join('assets', path)
             if os.path.isfile(try_path):
                 path = try_path
 

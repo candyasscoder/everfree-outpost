@@ -188,16 +188,16 @@ $(BUILD)/items.png \
 $(BUILD)/items.json \
 $(BUILD)/items-server.json \
 $(BUILD)/tile-assets-used.txt: \
-		$(SRC)/client/assets/tiles.yaml \
-		$(SRC)/client/assets/blocks.yaml \
-		$(SRC)/client/assets/items.yaml \
+		$(SRC)/data/tiles.yaml \
+		$(SRC)/data/blocks.yaml \
+		$(SRC)/data/items.yaml \
 		$(SRC)/util/process_tiles.py \
 		$(wildcard $(SRC)/util/process_tiles/*.py)
 	$(PYTHON3) $(SRC)/util/process_tiles.py \
-		--tile-yaml=$(SRC)/client/assets/tiles.yaml \
-		--tile-image-dir=$(SRC)/client/assets/tiles \
-		--block-yaml=$(SRC)/client/assets/blocks.yaml \
-		--item-yaml=$(SRC)/client/assets/items.yaml \
+		--tile-yaml=$(SRC)/data/tiles.yaml \
+		--tile-image-dir=$(SRC)/assets/tiles \
+		--block-yaml=$(SRC)/data/blocks.yaml \
+		--item-yaml=$(SRC)/data/items.yaml \
 		--block-atlas-image-out=$(BUILD)/tiles.png \
 		--item-atlas-image-out=$(BUILD)/items.png \
 		--client-block-json-out=$(BUILD)/tiles.json \
@@ -207,11 +207,11 @@ $(BUILD)/tile-assets-used.txt: \
 		--asset-list-out=$(BUILD)/tile-assets-used.txt
 
 $(BUILD)/objects.json: \
-		$(SRC)/client/assets/objects.yaml \
+		$(SRC)/data/objects.yaml \
 		$(SRC)/util/process_tiles.py \
 		$(wildcard $(SRC)/util/process_tiles/*.py)
 	$(PYTHON3) $(SRC)/util/process_tiles.py \
-		--template-yaml=$(SRC)/client/assets/objects.yaml \
+		--template-yaml=$(SRC)/data/objects.yaml \
 		--server-template-json-out=$(BUILD)/objects.json
 
 $(BUILD)/client.debug.html: $(SRC)/client/client.html \
@@ -220,9 +220,9 @@ $(BUILD)/client.debug.html: $(SRC)/client/client.html \
 		$(PYTHON3) $(SRC)/util/patch_script_tags.py $< >$@
 
 $(BUILD)/credits.html: $(SRC)/util/gen_credits.py \
-		$(SRC)/client/assets/used.txt \
+		$(SRC)/assets/used.txt \
 		$(BUILD)/tile-assets-used.txt
-	cat $(SRC)/client/assets/used.txt $(BUILD)/tile-assets-used.txt | \
+	cat $(SRC)/assets/used.txt $(BUILD)/tile-assets-used.txt | \
 		grep -vE '(\.frag|\.vert)$$' |\
 		$(PYTHON3) $(SRC)/util/gen_credits.py >$@
 
@@ -259,10 +259,10 @@ $(eval $(call WWW_FILE, outpost.js, 	$(BUILD_MIN)/outpost.js))
 $(eval $(call WWW_FILE, asmlibs.js, 	$(BUILD_MIN)/asmlibs.js))
 endif
 
-$(DIST)/all: $(patsubst %,$(DIST_WWW)/assets/%,$(shell cat $(SRC)/client/assets/used.txt)) \
+$(DIST)/all: $(patsubst %,$(DIST_WWW)/assets/%,$(shell cat $(SRC)/assets/used.txt)) \
 	$(patsubst scripts/%,$(DIST)/scripts/%,$(shell find scripts -name \*.lua))
 
-$(DIST_WWW)/assets/%: $(SRC)/client/assets/%
+$(DIST_WWW)/assets/%: $(SRC)/assets/%
 	mkdir -p $$(dirname $@)
 	cp -v $< $@
 
