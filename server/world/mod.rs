@@ -133,8 +133,10 @@ pub enum Update {
     ClientPawnChange(ClientId),
     ChunkInvalidate(V2),
     EntityMotionChange(EntityId),
-    ClientShowInventory(ClientId, InventoryId),
     InventoryUpdate(InventoryId, ItemId, u8, u8),
+
+    ClientShowInventory(ClientId, InventoryId),
+    ClientOpenContainer(ClientId, InventoryId, InventoryId),
 }
 
 impl<'d> World<'d> {

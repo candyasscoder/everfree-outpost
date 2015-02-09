@@ -213,6 +213,17 @@
             .unsupported-or {
                 text-align: center;
             }
+
+
+            .container-split {
+                display: flex;
+            }
+
+            .vertical-rule {
+                width: 0.125rem;
+                margin: 0.5rem 0.125rem;
+                background-color: black;
+            }
         </style>
     </head>
     <body>
@@ -257,6 +268,24 @@
                     <kbd>&uarr;</kbd>
                     <kbd>&darr;</kbd>
                     &ndash; Navigate
+                </div>
+            </div>
+
+            <div id="container">
+                <div class="title">Container</div>
+                <div class="container-split">
+                    <div class="hole" data-key="item_list1"></div>
+                    <div class="vertical-rule"></div>
+                    <div class="hole" data-key="item_list2"></div>
+                </div>
+                <div class="dialog-keys">
+                    <kbd>&larr;</kbd>
+                    <kbd>&darr;</kbd>
+                    <kbd>&uarr;</kbd>
+                    <kbd>&rarr;</kbd>
+                    &ndash; Navigate;
+                    <kbd>A</kbd>
+                    &ndash; Move Item
                 </div>
             </div>
 

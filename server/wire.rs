@@ -242,6 +242,8 @@ macro_rules! id_newtype_impl {
             fn size(_: Option<$name>) -> (usize, usize) { <$inner as ReadFrom>::size(None) }
         }
 
+        impl ReadFromFixed for $name { }
+
         impl WriteTo for $name {
             #[inline]
             fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {

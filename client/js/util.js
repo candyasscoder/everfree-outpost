@@ -110,7 +110,9 @@ exports.fromTemplate = function(id, parts) {
 
     // Fill in the holes.
     var holes = copy.getElementsByClassName('hole');
-    for (var i = 0; i < holes.length; ++i) {
+    // Iterate in reverse since 'holes' is updated as the holes are removed
+    // with 'replaceChild'.
+    for (var i = holes.length - 1; i >= 0; --i) {
         var hole = holes[i];
         var key = hole.dataset.key;
         var part = parts[key];

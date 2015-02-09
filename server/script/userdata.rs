@@ -194,6 +194,16 @@ impl Userdata for Client {
                 ctx.world.record(Update::ClientShowInventory(c.id, i.id));
                 Ok(())
             }}
+
+            fn open_container(c: &Client, i1: &Inventory, i2: &Inventory) -> StrResult<()> {{
+                // CHeck inputs are valid.
+                unwrap!(ctx.world.get_client(c.id));
+                unwrap!(ctx.world.get_inventory(i1.id));
+                unwrap!(ctx.world.get_inventory(i2.id));
+
+                ctx.world.record(Update::ClientOpenContainer(c.id, i1.id, i2.id));
+                Ok(())
+            }}
         }
     }
 }

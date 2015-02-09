@@ -8,6 +8,7 @@ var OP_INPUT =                  0x0004;
 var OP_LOGIN =                  0x0005;
 var OP_ACTION =                 0x0006;
 var OP_UNSUBSCRIBE_INVENTORY =  0x0007;
+var OP_MOVE_ITEM =              0x0008;
 
 var OP_TERRAIN_CHUNK =          0x8001;
 var OP_PLAYER_MOTION =          0x8002;
@@ -285,5 +286,15 @@ Connection.prototype.sendUnsubscribeInventory = function(inventory_id) {
     var msg = new MessageBuilder(6);
     msg.put16(OP_UNSUBSCRIBE_INVENTORY);
     msg.put32(inventory_id);
+    this.socket.send(msg.done());
+};
+
+Connection.prototype.sendMoveItem = function(from_inventory, to_inventory, item_id, amount) {
+    var msg = new MessageBuilder(14);
+    msg.put16(OP_MOVE_ITEM);
+    msg.put32(from_inventory);
+    msg.put32(to_inventory);
+    msg.put16(item_id);
+    msg.put16(amount);
     this.socket.send(msg.done());
 };

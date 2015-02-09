@@ -20,6 +20,7 @@ var Dialog = require('dialog').Dialog;
 var Banner = require('banner').Banner;
 var InventoryTracker = require('inventory').InventoryTracker;
 var InventoryUI = require('inventory').InventoryUI;
+var ContainerUI = require('inventory').ContainerUI;
 
 var TileDef = require('chunk').TileDef;
 var ItemDef = require('items').ItemDef;
@@ -520,18 +521,26 @@ function handleUnloadChunk(idx) {
 }
 
 function handleOpenDialog(idx, args) {
-    var ui = new InventoryUI(inv_tracker, args[0]);
-    dialog.show(ui);
-    ui.enableSelect(current_item, function(new_id) {
-        current_item = new_id;
-        if (new_id == -1) {
-            $('item-box').firstElementChild.style.backgroundPosition = '0rem 0rem';
-        } else {
-            var info = ItemDef.by_id[new_id];
-            $('item-box').firstElementChild.style.backgroundPosition =
-                '-' + info.tile_x + 'rem -' + info.tile_y + 'rem';
-        }
-    });
+    if (idx == 0) {
+        var ui = new InventoryUI(inv_tracker, args[0]);
+        dialog.show(ui);
+        ui.enableSelect(current_item, function(new_id) {
+            current_item = new_id;
+            if (new_id == -1) {
+                $('item-box').firstElementChild.style.backgroundPosition = '0rem 0rem';
+            } else {
+                var info = ItemDef.by_id[new_id];
+                $('item-box').firstElementChild.style.backgroundPosition =
+                    '-' + info.tile_x + 'rem -' + info.tile_y + 'rem';
+            }
+        });
+    } else if (idx == 1) {
+        var ui = new ContainerUI(inv_tracker, args[0], args[1]);
+        dialog.show(ui);
+        ui.on_transfer = function(from_inventory, to_inventory, item_id, amount) {
+            conn.sendMoveItem(from_inventory, to_inventory, item_id, amount);
+        };
+    }
 }
 
 

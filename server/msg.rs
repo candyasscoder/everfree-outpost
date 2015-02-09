@@ -52,6 +52,7 @@ pub mod op {
         Login = 0x0005,
         Action = 0x0006,
         UnsubscribeInventory = 0x0007,
+        MoveItem = 0x0008,
 
         TerrainChunk = 0x8001,
         PlayerMotion = 0x8002,
@@ -82,6 +83,7 @@ pub enum Request {
     Login([u32; 4], String),
     Action(LocalTime, u16, u32),
     UnsubscribeInventory(InventoryId),
+    MoveItem(InventoryId, InventoryId, ItemId, u16),
 
     // Control messages
     AddClient,
@@ -115,6 +117,10 @@ impl Request {
             op::UnsubscribeInventory => {
                 let a = try!(wr.read());
                 UnsubscribeInventory(a)
+            },
+            op::MoveItem => {
+                let (a, b, c, d) = try!(wr.read());
+                MoveItem(a, b, c, d)
             },
             op::AddClient => AddClient,
             op::RemoveClient => RemoveClient,

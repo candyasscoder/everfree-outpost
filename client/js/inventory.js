@@ -97,6 +97,89 @@ InventoryUI.prototype.disableSelect = function() {
 
 
 /** @constructor */
+function ContainerUI(tracker, inventory1_id, inventory2_id) {
+    this.lists = [new ItemList(), new ItemList()];
+
+    this.container = fromTemplate('container', {
+        'item_list1': this.lists[0].container,
+        'item_list2': this.lists[1].container,
+    });
+
+    this.tracker = tracker;
+    this.inventory_ids = [inventory1_id, inventory2_id];
+    this.dialog = null;
+
+    this.active = 0;
+    this.lists[0].container.classList.add('active');
+
+    this.on_transfer = null;
+}
+exports.ContainerUI = ContainerUI;
+
+ContainerUI.prototype._activate = function(which) {
+    this.lists[this.active].container.classList.remove('active');
+    this.active = which;
+    this.lists[this.active].container.classList.add('active');
+};
+
+ContainerUI.prototype._handleKeyEvent = function(down, evt) {
+    if (!down) {
+        return;
+    }
+
+    var binding = Config.keybindings.get()[evt.keyCode];
+
+    var mag = evt.shiftKey ? 10 : 1;
+
+    switch (binding) {
+        case 'move_up':
+            this.lists[this.active].step(-1 * mag);
+            break;
+        case 'move_down':
+            this.lists[this.active].step(1 * mag);
+            break;
+
+        case 'move_left':
+            if (this.active == 1) {
+                this._activate(0);
+            }
+            break;
+        case 'move_right':
+            if (this.active == 0) {
+                this._activate(1);
+            }
+            break;
+
+        case 'interact':
+            if (this.on_transfer != null) {
+                var item_id = this.lists[this.active].selectedItem();
+                this.on_transfer(this.active, +!this.active, item_id, mag);
+            }
+            break;
+
+        case 'cancel':
+            this.dialog.hide();
+            break;
+    }
+};
+
+ContainerUI.prototype.handleOpen = function(dialog) {
+    var this_ = this;
+    this.dialog = dialog;
+    dialog.keyboard.pushHandler(function(d, e) { return this_._handleKeyEvent(d, e); });
+    this.lists[0].track(this.tracker, this.inventory_ids[0]);
+    this.lists[1].track(this.tracker, this.inventory_ids[1]);
+};
+
+ContainerUI.prototype.handleClose = function(dialog) {
+    this.dialog = null;
+    dialog.keyboard.popHandler();
+    this.tracker.removeHandler(this.inventory_ids[0]);
+    this.tracker.removeHandler(this.inventory_ids[0]);
+};
+
+
+/** @constructor */
 function ItemList() {
     this.list = new SelectionList('item-list');
     this.container = this.list.container;
@@ -105,6 +188,13 @@ function ItemList() {
 
     var this_ = this;
     this.list.onchange = function(row) {
+        if (row == null) {
+            if (this_.on_change_row != null) {
+                this_.on_change_row(-1);
+            }
+            return;
+        }
+
         // If the selection changed because the selected item was removed,
         // don't switch back to that item even if it reappears.
         this_.list.select(row.id);
@@ -163,6 +253,14 @@ ItemList.prototype.update = function(updates) {
     });
 };
 
+ItemList.prototype.selectedItem = function() {
+    var sel = this.list.selection();
+    if (sel == null) {
+        return -1;
+    } else {
+        return sel.id;
+    }
+};
 
 
 /** @constructor */

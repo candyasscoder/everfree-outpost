@@ -51,6 +51,18 @@ function outpost_ffi.types.Entity.table.inventory(e, name)
     return extra[k]
 end
 
+function outpost_ffi.types.Structure.table.inventory(s, name)
+    local extra = s:extra()
+    local k = 'inventory_' .. name
+    if extra[k] == nil then
+        local i, err = s:world():create_inventory()
+        i:attach_to_structure(s)
+        extra[k] = i
+    end
+    extra[k]:update('wood', 1)
+    return extra[k]
+end
+
 function action.use.tree(c, s)
     s:replace('stump')
 
@@ -64,6 +76,11 @@ function action.use.tree(c, s)
     c:pawn():inventory('main'):update('stone', 1)
     c:pawn():inventory('main'):update('anvil', 1)
     c:pawn():inventory('main'):update('chest', 1)
+end
+
+function action.use.chest(c, s)
+    c:open_container(c:pawn():inventory('main'),
+                     s:inventory('contents'))
 end
 
 function action.handler.inventory(c, arg)

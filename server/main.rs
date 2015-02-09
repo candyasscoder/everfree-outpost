@@ -34,7 +34,7 @@ use input::{InputBits, ActionId};
 use state::LOCAL_SIZE;
 use state::StateChange::ChunkUpdate;
 use data::Data;
-use world::object::{ObjectRef, ObjectRefBase, ClientRef};
+use world::object::{ObjectRef, ObjectRefBase, ClientRef, InventoryRefMut};
 use storage::Storage;
 use view::ViewState;
 use util::Cursor;
@@ -210,6 +210,33 @@ impl<'a> Server<'a> {
                 self.wake_queue.push(time, WakeReason::HandleAction(client_id, ActionId(action), arg));
             },
 
+            Request::MoveItem(from_iid, to_iid, item_id, amount) => {
+                let real_amount = {
+                    // TODO: error handling
+                    let i1 = self.state.world().get_inventory(from_iid);
+                    let i2 = self.state.world().get_inventory(to_iid);
+                    if let (Some(i1), Some(i2)) = (i1, i2) {
+                        use std::u8;
+                        let count1 = i1.count(item_id);
+                        let count2 = i1.count(item_id);
+                        cmp::min(cmp::min(count1 as u16, (u8::MAX - count2) as u16), amount) as i16
+                    } else {
+                        0
+                    }
+                };
+                if real_amount > 0 {
+                    self.state.world_mut().inventory_mut(from_iid).update(item_id, -real_amount);
+                    self.state.world_mut().inventory_mut(to_iid).update(item_id, real_amount);
+                }
+            },
+
+            Request::UnsubscribeInventory(iid) => {
+                if let Some(client_id) = self.wire_to_client(wire_id) {
+                    self.client_info[client_id].observed_inventories.remove(&iid);
+                    multimap_remove(&mut self.inventory_observers, iid, wire_id);
+                }
+            },
+
             Request::AddClient => {
             },
 
@@ -228,13 +255,6 @@ impl<'a> Server<'a> {
                     }
                 }
                 self.resps.send((wire_id, Response::ClientRemoved)).unwrap();
-            },
-
-            Request::UnsubscribeInventory(iid) => {
-                if let Some(client_id) = self.wire_to_client(wire_id) {
-                    self.client_info[client_id].observed_inventories.remove(&iid);
-                    multimap_remove(&mut self.inventory_observers, iid, wire_id);
-                }
             },
 
             Request::BadMessage(opcode) => {
@@ -288,22 +308,6 @@ impl<'a> Server<'a> {
                 world::Update::ClientPawnChange(cid) => s.reset_viewport(now, cid),
                 world::Update::ChunkInvalidate(pos) => s.update_chunk(now, pos),
                 world::Update::EntityMotionChange(eid) => s.update_entity_motion(now, eid),
-                world::Update::ClientShowInventory(cid, iid) => {
-                    let s = &mut **s;
-                    s.client_info[cid].observed_inventories.insert(iid);
-                    let wire_id = s.client_info[cid].wire_id;
-                    multimap_insert(&mut s.inventory_observers, iid, wire_id);
-                    s.send_wire(wire_id, Response::OpenDialog(0, vec![iid.unwrap()]));
-
-                    // TODO: might crash if inventory is destroyed in a later event
-                    let i = s.state.world().inventory(iid);
-                    let contents_map = i.contents();
-                    let mut contents = Vec::with_capacity(contents_map.len());
-                    for (&item_id, &count) in contents_map.iter() {
-                        contents.push((item_id, 0, count));
-                    }
-                    s.send_wire(wire_id, Response::InventoryUpdate(iid, contents));
-                },
                 world::Update::InventoryUpdate(iid, item_id, old_count, new_count) => {
                     let s = &mut **s;
                     if let Some(wire_ids) = s.inventory_observers.get(&iid) {
@@ -314,9 +318,41 @@ impl<'a> Server<'a> {
                         }
                     }
                 },
+
+                world::Update::ClientShowInventory(cid, iid) => {
+                    // TODO: check cid, iid are valid.
+                    let wire_id = s.client_info[cid].wire_id;
+                    s.send_wire(wire_id, Response::OpenDialog(0, vec![iid.unwrap()]));
+                    s.subscribe_inventory(cid, iid);
+                },
+
+                world::Update::ClientOpenContainer(cid, iid1, iid2) => {
+                    // TODO: check cid, iid1, iid2 are all valid.
+                    let wire_id = s.client_info[cid].wire_id;
+                    s.send_wire(wire_id, Response::OpenDialog(1, vec![iid1.unwrap(),
+                                                                      iid2.unwrap()]));
+                    s.subscribe_inventory(cid, iid1);
+                    s.subscribe_inventory(cid, iid2);
+                },
+
                 _ => {},
             }
         });
+    }
+
+    fn subscribe_inventory(&mut self, cid: ClientId, iid: InventoryId) {
+        self.client_info[cid].observed_inventories.insert(iid);
+        let wire_id = self.client_info[cid].wire_id;
+        multimap_insert(&mut self.inventory_observers, iid, wire_id);
+
+        // TODO: might crash if inventory is destroyed in a later event
+        let i = self.state.world().inventory(iid);
+        let contents_map = i.contents();
+        let mut contents = Vec::with_capacity(contents_map.len());
+        for (&item_id, &count) in contents_map.iter() {
+            contents.push((item_id, 0, count));
+        }
+        self.send_wire(wire_id, Response::InventoryUpdate(iid, contents));
     }
 
     fn send(&self, client: &ObjectRef<world::Client>, resp: Response) {
