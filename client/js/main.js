@@ -1,45 +1,47 @@
 var $ = document.getElementById.bind(document);
 
 
-var Vec = require('vec').Vec;
-var AnimCanvas = require('canvas').AnimCanvas;
-var OffscreenContext = require('canvas').OffscreenContext;
-var DebugMonitor = require('debug').DebugMonitor;
-var Sheet = require('sheet').Sheet;
-var LayeredTintedSheet = require('sheet').LayeredTintedSheet;
-var Animation = require('sheet').Animation;
 var AssetLoader = require('loader').AssetLoader;
-var BackgroundJobRunner = require('jobs').BackgroundJobRunner;
+var BackgroundJobRunner = require('util/jobs').BackgroundJobRunner;
+var Vec = require('util/vec').Vec;
+var DebugMonitor = require('debug').DebugMonitor;
+
+var AnimCanvas = require('graphics/canvas').AnimCanvas;
+var OffscreenContext = require('graphics/canvas').OffscreenContext;
+var Sheet = require('graphics/sheet').Sheet;
+var LayeredTintedSheet = require('graphics/sheet').LayeredTintedSheet;
+var Animation = require('graphics/sheet').Animation;
+
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
 
 var Config = require('config').Config;
 
 var Keyboard = require('keyboard').Keyboard;
-var Dialog = require('dialog').Dialog;
-var Banner = require('banner').Banner;
-var InventoryTracker = require('inventory').InventoryTracker;
-var InventoryUI = require('inventory').InventoryUI;
-var ContainerUI = require('inventory').ContainerUI;
+var Dialog = require('ui/dialog').Dialog;
+var Banner = require('ui/banner').Banner;
+var InventoryTracker = require('ui/inventory').InventoryTracker;
+var InventoryUI = require('ui/inventory').InventoryUI;
+var ContainerUI = require('ui/inventory').ContainerUI;
 
-var TileDef = require('chunk').TileDef;
-var ItemDef = require('items').ItemDef;
+var TileDef = require('data/chunk').TileDef;
+var ItemDef = require('data/items').ItemDef;
 
-var Chunk = require('chunk').Chunk;
-var CHUNK_SIZE = require('chunk').CHUNK_SIZE;
-var TILE_SIZE = require('chunk').TILE_SIZE;
-var LOCAL_SIZE = require('chunk').LOCAL_SIZE;
+var Chunk = require('data/chunk').Chunk;
+var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
+var TILE_SIZE = require('data/chunk').TILE_SIZE;
+var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
 
-var Renderer = require('graphics').Renderer;
+var Renderer = require('graphics/renderer').Renderer;
 var Physics = require('physics').Physics;
 var Forecast = require('physics').Forecast;
 
 var Connection = require('net').Connection;
 var Timing = require('time').Timing;
 
-var rle16Decode = require('util').rle16Decode;
-var buildArray = require('util').buildArray;
-var checkBrowser = require('browser').checkBrowser;
+var rle16Decode = require('util/misc').rle16Decode;
+var buildArray = require('util/misc').buildArray;
+var checkBrowser = require('util/browser').checkBrowser;
 
 
 var anim_dirs = [

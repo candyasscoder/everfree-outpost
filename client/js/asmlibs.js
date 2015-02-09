@@ -1,8 +1,8 @@
 var module = window['asmlibs_code'];
 var static_data = window['asmlibs_data'];
 
-var Vec = require('vec').Vec;
-var decodeUtf8 = require('util').decodeUtf8;
+var Vec = require('util/vec').Vec;
+var decodeUtf8 = require('util/misc').decodeUtf8;
 
 
 // Memory layout

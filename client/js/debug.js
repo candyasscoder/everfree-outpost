@@ -1,4 +1,4 @@
-var TimeSeries = require('timeseries').TimeSeries;
+var TimeSeries = require('util/timeseries').TimeSeries;
 
 
 function fstr1(x) {

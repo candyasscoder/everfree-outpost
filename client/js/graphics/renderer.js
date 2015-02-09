@@ -1,17 +1,17 @@
 var Asm = require('asmlibs').Asm;
 var getRendererHeapSize = require('asmlibs').getRendererHeapSize;
-var OffscreenContext = require('canvas').OffscreenContext;
-var TileDef = require('chunk').TileDef;
-var CHUNK_SIZE = require('chunk').CHUNK_SIZE;
-var TILE_SIZE = require('chunk').TILE_SIZE;
-var LOCAL_SIZE = require('chunk').LOCAL_SIZE;
-var Program = require('glutil').Program;
-var Texture = require('glutil').Texture;
-var Buffer = require('glutil').Buffer;
+var OffscreenContext = require('graphics/canvas').OffscreenContext;
+var TileDef = require('data/chunk').TileDef;
+var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
+var TILE_SIZE = require('data/chunk').TILE_SIZE;
+var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
+var Program = require('graphics/glutil').Program;
+var Texture = require('graphics/glutil').Texture;
+var Buffer = require('graphics/glutil').Buffer;
 
-var GlObject = require('glutil').GlObject;
-var uniform = require('glutil').uniform;
-var attribute = require('glutil').attribute;
+var GlObject = require('graphics/glutil').GlObject;
+var uniform = require('graphics/glutil').uniform;
+var attribute = require('graphics/glutil').attribute;
 
 
 /** @constructor */

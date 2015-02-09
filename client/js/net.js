@@ -1,5 +1,5 @@
-var Vec = require('vec').Vec;
-var decodeUtf8 = require('util').decodeUtf8;
+var Vec = require('util/vec').Vec;
+var decodeUtf8 = require('util/misc').decodeUtf8;
 
 var OP_GET_TERRAIN =            0x0001;
 var OP_UPDATE_MOTION =          0x0002;

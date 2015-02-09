@@ -1,4 +1,4 @@
-var Deque = require('util').Deque;
+var Deque = require('util/misc').Deque;
 
 /** @constructor */
 function TimeSeries(dur) {

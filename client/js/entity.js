@@ -1,5 +1,6 @@
-var Animation = require('sheet').Animation;
-var Sprite = require('graphics').Sprite;
+var Animation = require('graphics/sheet').Animation;
+var Sprite = require('graphics/renderer').Sprite;
+var Deque = require('util/misc').Deque;
 
 
 /** @constructor */

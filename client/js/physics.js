@@ -1,8 +1,8 @@
-var Vec = require('vec').Vec;
+var Vec = require('util/vec').Vec;
 var Asm = require('asmlibs').Asm;
-var TileDef = require('chunk').TileDef;
-var CHUNK_SIZE = require('chunk').CHUNK_SIZE;
-var LOCAL_SIZE = require('chunk').LOCAL_SIZE;
+var TileDef = require('data/chunk').TileDef;
+var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
+var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
 
 var INT_MAX = 0x7fffffff;
 var INT_MIN = -INT_MAX - 1;

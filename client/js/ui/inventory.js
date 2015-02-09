@@ -1,7 +1,7 @@
 var Config = require('config').Config;
-var ItemDef = require('items').ItemDef;
-var SelectionList = require('sortedlist').SelectionList;
-var fromTemplate = require('util').fromTemplate;
+var ItemDef = require('data/items').ItemDef;
+var SelectionList = require('ui/sortedlist').SelectionList;
+var fromTemplate = require('util/misc').fromTemplate;
 
 
 /** @constructor */

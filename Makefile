@@ -29,7 +29,7 @@ $(shell mkdir -p $(BUILD_ASMJS) $(BUILD_NATIVE_DEBUG) $(BUILD_NATIVE_RELEASE) \
 	$(DIST) $(DIST_BIN) $(DIST_DATA) $(DIST_WWW) $(DIST_WWW)/assets $(DIST)/scripts)
 
 
-JS_SRCS = $(wildcard $(SRC)/client/js/*.js)
+JS_SRCS = $(shell find $(SRC)/client/js -name \*.js)
 
 
 all: $(DIST)/all
@@ -287,6 +287,7 @@ $(DIST)/scripts/%: $(SRC)/scripts/%
 	cp -v $< $@
 
 $(DIST_WWW)/js/%: $(SRC)/client/js/%
+	mkdir -p $$(dirname $@)
 	cp -v $< $@
 
 $(DIST_BIN)/backend: $(BUILD_NATIVE)/backend
