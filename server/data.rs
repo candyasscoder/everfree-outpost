@@ -278,15 +278,13 @@ impl RecipeData {
         })
     }
 
-    /*
-    pub fn name(&self, id: ItemId) -> &str {
-        &*self.names[id as usize]
+    pub fn recipe(&self, id: ItemId) -> &Recipe {
+        &self.recipes[id as usize]
     }
 
-    pub fn get_name(&self, id: ItemId) -> Option<&str> {
-        self.names.get(id as usize).map(|s| &**s)
+    pub fn get_recipe(&self, id: ItemId) -> Option<&Recipe> {
+        self.recipes.get(id as usize)
     }
-    */
 
     pub fn get_id(&self, name: &str) -> RecipeId {
         self.find_id(name).unwrap_or_else(|| panic!("unknown recipe id: {}", name))
