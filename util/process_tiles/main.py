@@ -9,6 +9,7 @@ import process_tiles.atlas as A
 import process_tiles.blocks as B
 import process_tiles.items as I
 import process_tiles.objects as O
+import process_tiles.recipes as R
 import process_tiles.tiles as T
 import process_tiles.util as U
 
@@ -27,6 +28,8 @@ def build_parser():
             help='YAML file describing structure templates')
     parser.add_argument('--item-yaml', metavar='FILE',
             help='YAML file describing items')
+    parser.add_argument('--recipe-yaml', metavar='FILE',
+            help='YAML file describing recipes')
 
 
     parser.add_argument('--block-atlas-image-out', metavar='FILE',
@@ -44,6 +47,10 @@ def build_parser():
             help='where to write the server-side items.json')
     parser.add_argument('--server-template-json-out', metavar='FILE',
             help='where to write the server-side templates.json')
+    parser.add_argument('--client-recipe-json-out', metavar='FILE',
+            help='where to write the client-side recipes.json')
+    parser.add_argument('--server-recipe-json-out', metavar='FILE',
+            help='where to write the server-side recipes.json')
 
     parser.add_argument('--asset-list-out', metavar='FILE',
             help='where to write the list of used assets')
@@ -92,6 +99,13 @@ def main():
         with open(args.template_yaml) as f:
             return yaml.load(f)
 
+    @memoize
+    def raw_recipes():
+        if args.recipe_yaml is None:
+            parser.error('must provide --recipe-yaml')
+        with open(args.recipe_yaml) as f:
+            return yaml.load(f)
+
     tiles = memoize(lambda: T.parse_raw(raw_tiles()))
 
     blocks = memoize(lambda: B.parse_raw(raw_blocks()))
@@ -99,9 +113,14 @@ def main():
 
     items = memoize(lambda: I.parse_raw(raw_items()))
     item_arr = memoize(lambda: U.build_array(items()))
+    items_by_name = memoize(lambda: U.build_name_map(items()))
 
     objects = memoize(lambda: O.parse_raw(raw_objects()))
     object_arr = memoize(lambda: U.build_array(objects()))
+    objects_by_name = memoize(lambda: U.build_name_map(items()))
+
+    recipes = memoize(lambda: R.parse_raw(raw_recipes()))
+    recipe_arr = memoize(lambda: U.build_array(recipes()))
 
 
     block_atlas_order_and_lookup = memoize(lambda: A.compute_atlas(block_arr(), tiles(), B.SIDES))
@@ -168,6 +187,24 @@ def main():
                 }
         with open(args.server_template_json_out, 'w') as f:
             json.dump(j, f)
+
+
+    if args.client_recipe_json_out is not None:
+        did_something = True
+        j = {
+                'recipes': R.build_client_json(recipe_arr(), items_by_name(), objects_by_name()),
+                }
+        with open(args.client_recipe_json_out, 'w') as f:
+            json.dump(j, f)
+
+    if args.server_recipe_json_out is not None:
+        did_something = True
+        j = {
+                'recipes': R.build_server_json(recipe_arr(), items_by_name(), objects_by_name()),
+                }
+        with open(args.server_recipe_json_out, 'w') as f:
+            json.dump(j, f)
+
 
     if args.asset_list_out is not None:
         did_something = True

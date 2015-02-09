@@ -214,6 +214,20 @@ $(BUILD)/objects.json: \
 		--template-yaml=$(SRC)/data/objects.yaml \
 		--server-template-json-out=$(BUILD)/objects.json
 
+$(BUILD)/recipes.json \
+$(BUILD)/recipes-server.json: \
+		$(SRC)/data/recipes.yaml \
+		$(SRC)/data/items.yaml \
+		$(SRC)/data/objects.yaml \
+		$(SRC)/util/process_tiles.py \
+		$(wildcard $(SRC)/util/process_tiles/*.py)
+	$(PYTHON3) $(SRC)/util/process_tiles.py \
+		--item-yaml=$(SRC)/data/items.yaml \
+		--template-yaml=$(SRC)/data/objects.yaml \
+		--recipe-yaml=$(SRC)/data/recipes.yaml \
+		--client-recipe-json-out=$(BUILD)/recipes.json \
+		--server-recipe-json-out=$(BUILD)/recipes-server.json
+
 $(BUILD)/client.debug.html: $(SRC)/client/client.html \
 	$(SRC)/util/collect_js_deps.py $(SRC)/util/patch_script_tags.py $(JS_SRCS)
 	$(PYTHON3) $(SRC)/util/collect_js_deps.py $(SRC)/client/js/main.js | \
@@ -238,14 +252,16 @@ endef
 WWW_FILE = $(call DIST_FILE_,WWW,$(strip $(1)),$(strip $(2)))
 DATA_FILE = $(call DIST_FILE_,DATA,$(strip $(1)),$(strip $(2)))
 
-$(eval $(call WWW_FILE, tiles.json, 	$(BUILD)/tiles.json))
-$(eval $(call WWW_FILE, items.json, 	$(BUILD)/items.json))
-$(eval $(call WWW_FILE, assets/tiles.png, 	$(BUILD)/tiles.png))
-$(eval $(call WWW_FILE, assets/items.png, 	$(BUILD)/items.png))
-$(eval $(call DATA_FILE, blocks.json, 	$(BUILD)/blocks-server.json))
-$(eval $(call DATA_FILE, items.json, 	$(BUILD)/items-server.json))
-$(eval $(call DATA_FILE, objects.json, 	$(BUILD)/objects.json))
-$(eval $(call WWW_FILE, credits.html, 	$(BUILD)/credits.html))
+$(eval $(call WWW_FILE, 	tiles.json,			$(BUILD)/tiles.json))
+$(eval $(call WWW_FILE, 	items.json,			$(BUILD)/items.json))
+$(eval $(call WWW_FILE, 	recipes.json,		$(BUILD)/recipes.json))
+$(eval $(call WWW_FILE, 	assets/tiles.png,	$(BUILD)/tiles.png))
+$(eval $(call WWW_FILE, 	assets/items.png,	$(BUILD)/items.png))
+$(eval $(call DATA_FILE, 	blocks.json,		$(BUILD)/blocks-server.json))
+$(eval $(call DATA_FILE, 	items.json,			$(BUILD)/items-server.json))
+$(eval $(call DATA_FILE, 	objects.json,		$(BUILD)/objects.json))
+$(eval $(call DATA_FILE, 	recipes.json,		$(BUILD)/recipes.json))
+$(eval $(call WWW_FILE, 	credits.html,		$(BUILD)/credits.html))
 
 ifeq ($(RELEASE),)
 $(eval $(call WWW_FILE, client.html, 	$(BUILD)/client.debug.html))

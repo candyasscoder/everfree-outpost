@@ -38,9 +38,9 @@ def expand_tree(yaml, delims='/'):
 
     return go(yaml)
 
-def tag_leaf_dicts(tree):
+def tag_leaf_dicts(tree, subdicts={}):
     def go(tree):
-        if all(not isinstance(v, dict) for v in tree.values()):
+        if all(k in subdicts or not isinstance(v, dict) for k,v in tree.items()):
             return Leaf(tree)
         else:
             for k,v in tree.items():

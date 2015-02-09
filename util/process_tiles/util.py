@@ -21,3 +21,6 @@ def build_array(items):
                 (occupancy * 100))
 
     return array
+
+def build_name_map(items):
+    return dict((x['name'], x) for x in items.values())

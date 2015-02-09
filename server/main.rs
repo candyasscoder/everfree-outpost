@@ -74,8 +74,9 @@ fn main() {
 
     let block_json = json::from_reader(&mut storage.open_block_data()).unwrap();
     let item_json = json::from_reader(&mut storage.open_item_data()).unwrap();
+    let recipe_json = json::from_reader(&mut storage.open_recipe_data()).unwrap();
     let template_json = json::from_reader(&mut storage.open_template_data()).unwrap();
-    let data = Data::from_json(block_json, item_json, template_json).unwrap();
+    let data = Data::from_json(block_json, item_json, recipe_json, template_json).unwrap();
 
     let (req_send, req_recv) = channel();
     let (resp_send, resp_recv) = channel();
@@ -218,7 +219,7 @@ impl<'a> Server<'a> {
                     if let (Some(i1), Some(i2)) = (i1, i2) {
                         use std::u8;
                         let count1 = i1.count(item_id);
-                        let count2 = i1.count(item_id);
+                        let count2 = i2.count(item_id);
                         cmp::min(cmp::min(count1 as u16, (u8::MAX - count2) as u16), amount) as i16
                     } else {
                         0
