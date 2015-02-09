@@ -226,8 +226,8 @@ impl<'a> Server<'a> {
                     }
                 };
                 if real_amount > 0 {
-                    self.state.world_mut().inventory_mut(from_iid).update(item_id, -real_amount);
-                    self.state.world_mut().inventory_mut(to_iid).update(item_id, real_amount);
+                    self.state.world_mut().inventory_mut(from_iid).update(item_id, -real_amount).unwrap();
+                    self.state.world_mut().inventory_mut(to_iid).update(item_id, real_amount).unwrap();
                 }
             },
 
