@@ -3,7 +3,7 @@ import re
 import sys
 
 
-REQUIRE_RE = re.compile(r'''require\(['"]([a-zA-Z0-9_]+)['"]\)''')
+REQUIRE_RE = re.compile(r'''require\(['"]([a-zA-Z0-9_/]+)['"]\)''')
 
 def collect_deps(path):
     deps = set()
