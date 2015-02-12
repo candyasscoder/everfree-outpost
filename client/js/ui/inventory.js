@@ -2,52 +2,20 @@ var Config = require('config').Config;
 var ItemDef = require('data/items').ItemDef;
 var SelectionList = require('ui/sortedlist').SelectionList;
 var fromTemplate = require('util/misc').fromTemplate;
+var InventoryTracker = require('inventory').InventoryTracker;
+var chain = require('util/misc').chain;
 
 
 /** @constructor */
-function InventoryTracker(conn) {
-    this.handler = {};
-    this.conn = conn;
-
-    var this_ = this;
-    this.conn.onInventoryUpdate = function(inventory_id, updates) {
-        this_._handleUpdate(inventory_id, updates);
-    };
-}
-exports.InventoryTracker = InventoryTracker;
-
-InventoryTracker.prototype._handleUpdate = function(inventory_id, updates) {
-    var handler = this.handler[inventory_id];
-    if (handler != null) {
-        handler(updates);
-    } else {
-        console.warn('received unexpected update for inventory', inventory_id);
-        this.conn.sendUnsubscribeInventory(inventory_id);
-    }
-};
-
-InventoryTracker.prototype.addHandler = function(inventory_id, handler) {
-    this.handler[inventory_id] = handler;
-};
-
-InventoryTracker.prototype.removeHandler = function(inventory_id) {
-    delete this.handler[inventory_id];
-    this.conn.sendUnsubscribeInventory(inventory_id);
-};
-
-
-/** @constructor */
-function InventoryUI(tracker, inventory_id) {
-    this.list = new ItemList();
+function InventoryUI(inv) {
+    this.list = new ItemList(inv);
     this.list.container.classList.add('active');
 
     this.container = fromTemplate('inventory', { 'item_list': this.list.container });
 
-    this.tracker = tracker;
-    this.inventory_id = inventory_id;
     this.dialog = null;
 
-    this.on_selection_change = null;
+    this.onclose = null;
 }
 exports.InventoryUI = InventoryUI;
 
@@ -77,42 +45,43 @@ InventoryUI.prototype.handleOpen = function(dialog) {
     var this_ = this;
     this.dialog = dialog;
     dialog.keyboard.pushHandler(function(d, e) { return this_._handleKeyEvent(d, e); });
-    this.list.track(this.tracker, this.inventory_id);
 };
 
 InventoryUI.prototype.handleClose = function(dialog) {
     this.dialog = null;
     dialog.keyboard.popHandler();
-    this.tracker.removeHandler(this.inventory_id);
+
+    if (this.onclose != null) {
+        this.onclose();
+    }
 };
 
 InventoryUI.prototype.enableSelect = function(last_selection, onchange) {
     this.list.select(last_selection);
-    this.list.on_change_row = onchange;
+    this.list.onchange = onchange;
 };
 
 InventoryUI.prototype.disableSelect = function() {
-    this.list.on_change_row = null;
+    this.list.onchange = null;
 }
 
 
 /** @constructor */
-function ContainerUI(tracker, inventory1_id, inventory2_id) {
-    this.lists = [new ItemList(), new ItemList()];
+function ContainerUI(inv1, inv2) {
+    this.lists = [new ItemList(inv1), new ItemList(inv2)];
 
     this.container = fromTemplate('container', {
         'item_list1': this.lists[0].container,
         'item_list2': this.lists[1].container,
     });
 
-    this.tracker = tracker;
-    this.inventory_ids = [inventory1_id, inventory2_id];
     this.dialog = null;
 
     this.active = 0;
     this.lists[0].container.classList.add('active');
 
-    this.on_transfer = null;
+    this.ontransfer = null;
+    this.onclose = null;
 }
 exports.ContainerUI = ContainerUI;
 
@@ -151,9 +120,9 @@ ContainerUI.prototype._handleKeyEvent = function(down, evt) {
             break;
 
         case 'interact':
-            if (this.on_transfer != null) {
+            if (this.ontransfer != null) {
                 var item_id = this.lists[this.active].selectedItem();
-                this.on_transfer(this.active, +!this.active, item_id, mag);
+                this.ontransfer(this.active, +!this.active, item_id, mag);
             }
             break;
 
@@ -167,30 +136,30 @@ ContainerUI.prototype.handleOpen = function(dialog) {
     var this_ = this;
     this.dialog = dialog;
     dialog.keyboard.pushHandler(function(d, e) { return this_._handleKeyEvent(d, e); });
-    this.lists[0].track(this.tracker, this.inventory_ids[0]);
-    this.lists[1].track(this.tracker, this.inventory_ids[1]);
 };
 
 ContainerUI.prototype.handleClose = function(dialog) {
     this.dialog = null;
     dialog.keyboard.popHandler();
-    this.tracker.removeHandler(this.inventory_ids[0]);
-    this.tracker.removeHandler(this.inventory_ids[0]);
+
+    if (this.onclose != null) {
+        this.onclose();
+    }
 };
 
 
 /** @constructor */
-function ItemList() {
+function ItemList(inv) {
     this.list = new SelectionList('item-list');
     this.container = this.list.container;
 
-    this.on_change_row = null;
+    this.onchange = null;
 
     var this_ = this;
     this.list.onchange = function(row) {
         if (row == null) {
-            if (this_.on_change_row != null) {
-                this_.on_change_row(-1);
+            if (this_.onchange != null) {
+                this_.onchange(-1);
             }
             return;
         }
@@ -199,12 +168,21 @@ function ItemList() {
         // don't switch back to that item even if it reappears.
         this_.list.select(row.id);
 
-        if (this_.on_change_row != null) {
-            this_.on_change_row(row.id);
+        if (this_.onchange != null) {
+            this_.onchange(row.id);
         }
 
         this_._scrollToSelection();
     };
+
+    var init = inv.itemIds().map(function(id) {
+        return { id: id, old_count: 0, new_count: inv.count(id) };
+    });
+    this.update(init);
+
+    inv.onUpdate(function(updates) {
+        this_.update(updates);
+    });
 }
 exports.ItemList = ItemList;
 
@@ -228,13 +206,6 @@ ItemList.prototype.select = function(id) {
 
 ItemList.prototype.step = function(offset) {
     this.list.step(offset);
-};
-
-ItemList.prototype.track = function(tracker, inventory_id) {
-    var this_ = this;
-    tracker.addHandler(inventory_id, function(updates) {
-        this_.update(updates);
-    });
 };
 
 ItemList.prototype.update = function(updates) {

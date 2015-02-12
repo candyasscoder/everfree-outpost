@@ -122,3 +122,19 @@ exports.fromTemplate = function(id, parts) {
 
     return copy;
 };
+
+
+exports.chain = function(old, f) {
+    if (old == null) {
+        return f;
+    }
+
+    if (f == null) {
+        return old;
+    }
+
+    return (function() {
+        old.apply(this, arguments);
+        f.apply(this, arguments);
+    });
+};

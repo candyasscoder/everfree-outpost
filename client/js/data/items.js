@@ -2,7 +2,7 @@
 function ItemDef_(id, info) {
     this.id = id;
     this.name = info['name'];
-    this.ui_name = info['name'];
+    this.ui_name = info['ui_name'] || info['name'];
     this.tile_x = info['tile'] & 0x1f;
     this.tile_y = info['tile'] >> 5;
 }

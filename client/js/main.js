@@ -5,6 +5,7 @@ var AssetLoader = require('loader').AssetLoader;
 var BackgroundJobRunner = require('util/jobs').BackgroundJobRunner;
 var Vec = require('util/vec').Vec;
 var DebugMonitor = require('debug').DebugMonitor;
+var Config = require('config').Config;
 
 var AnimCanvas = require('graphics/canvas').AnimCanvas;
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
@@ -15,17 +16,17 @@ var Animation = require('graphics/sheet').Animation;
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
 
-var Config = require('config').Config;
+var InventoryTracker = require('inventory').InventoryTracker;
 
 var Keyboard = require('keyboard').Keyboard;
 var Dialog = require('ui/dialog').Dialog;
 var Banner = require('ui/banner').Banner;
-var InventoryTracker = require('ui/inventory').InventoryTracker;
 var InventoryUI = require('ui/inventory').InventoryUI;
 var ContainerUI = require('ui/inventory').ContainerUI;
 
 var TileDef = require('data/chunk').TileDef;
 var ItemDef = require('data/items').ItemDef;
+var RecipeDef = require('data/recipes').RecipeDef;
 
 var Chunk = require('data/chunk').Chunk;
 var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
@@ -311,6 +312,13 @@ function loadAssets(next) {
         }
     });
 
+    loader.addJson(null, 'recipes.json', function(json) {
+        var recipes = json['recipes'];
+        for (var i = 0; i < recipes.length; ++i) {
+            RecipeDef.register(i, recipes[i]);
+        }
+    });
+
     loader.addText('terrain.frag', 'assets/shaders/terrain.frag');
     loader.addText('terrain.vert', 'assets/shaders/terrain.vert');
 
@@ -524,8 +532,10 @@ function handleUnloadChunk(idx) {
 
 function handleOpenDialog(idx, args) {
     if (idx == 0) {
-        var ui = new InventoryUI(inv_tracker, args[0]);
+        var inv = inv_tracker.subscribe(args[0]);
+        var ui = new InventoryUI(inv);
         dialog.show(ui);
+
         ui.enableSelect(current_item, function(new_id) {
             current_item = new_id;
             if (new_id == -1) {
@@ -536,11 +546,23 @@ function handleOpenDialog(idx, args) {
                     '-' + info.tile_x + 'rem -' + info.tile_y + 'rem';
             }
         });
+
+        ui.onclose = function() {
+            inv.unsubscribe();
+        };
     } else if (idx == 1) {
-        var ui = new ContainerUI(inv_tracker, args[0], args[1]);
+        var inv1 = inv_tracker.subscribe(args[0]);
+        var inv2 = inv_tracker.subscribe(args[1]);
+
+        var ui = new ContainerUI(inv1, inv2);
         dialog.show(ui);
-        ui.on_transfer = function(from_inventory, to_inventory, item_id, amount) {
+        ui.ontransfer = function(from_inventory, to_inventory, item_id, amount) {
             conn.sendMoveItem(from_inventory, to_inventory, item_id, amount);
+        };
+
+        ui.onclose = function() {
+            inv1.unsubscribe();
+            inv2.unsubscribe();
         };
     }
 }
