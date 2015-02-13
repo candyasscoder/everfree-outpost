@@ -23,6 +23,7 @@ var Dialog = require('ui/dialog').Dialog;
 var Banner = require('ui/banner').Banner;
 var InventoryUI = require('ui/inventory').InventoryUI;
 var ContainerUI = require('ui/inventory').ContainerUI;
+var CraftingUI = require('ui/crafting').CraftingUI;
 
 var TileDef = require('data/chunk').TileDef;
 var ItemDef = require('data/items').ItemDef;

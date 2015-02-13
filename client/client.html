@@ -184,7 +184,25 @@
                 width: 10rem;
                 overflow-x: hidden;
                 overflow-y: scroll;
-                height: 60vh;
+            }
+
+
+            .recipe-list {
+                width: 10rem;
+                overflow-x: hidden;
+                overflow-y: scroll;
+            }
+
+            .recipe {
+                padding: 0 0.25rem;
+            }
+
+            .recipe.active {
+                background-color: lightgray;
+            }
+
+            .recipe-list.active > .recipe.active {
+                background-color: lightblue;
             }
 
 
@@ -215,8 +233,10 @@
             }
 
 
-            .container-split {
+            .dialog-body {
+                height: 60vh;
                 display: flex;
+                align-items: stretch;
             }
 
             .vertical-rule {
@@ -263,7 +283,9 @@
 
             <div id="inventory">
                 <div class="title">Inventory</div>
-                <div class="hole" data-key="item_list"></div>
+                <div class="dialog-body">
+                    <div class="hole" data-key="item_list"></div>
+                </div>
                 <div class="dialog-keys">
                     <kbd>&uarr;</kbd>
                     <kbd>&darr;</kbd>
@@ -273,7 +295,7 @@
 
             <div id="container">
                 <div class="title">Container</div>
-                <div class="container-split">
+                <div class="dialog-body">
                     <div class="hole" data-key="item_list1"></div>
                     <div class="vertical-rule"></div>
                     <div class="hole" data-key="item_list2"></div>
@@ -286,6 +308,24 @@
                     &ndash; Navigate;
                     <kbd>A</kbd>
                     &ndash; Move Item
+                </div>
+            </div>
+
+            <div id="crafting">
+                <div class="title">Crafting</div>
+                <div class="dialog-body">
+                    <div class="hole" data-key="recipe_list"></div>
+                    <div class="vertical-rule"></div>
+                    <div class="hole" data-key="item_list"></div>
+                </div>
+                <div class="dialog-keys">
+                    <kbd>&larr;</kbd>
+                    <kbd>&darr;</kbd>
+                    <kbd>&uarr;</kbd>
+                    <kbd>&rarr;</kbd>
+                    &ndash; Navigate;
+                    <kbd>A</kbd>
+                    &ndash; Craft
                 </div>
             </div>
 
