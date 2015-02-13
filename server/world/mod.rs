@@ -137,6 +137,7 @@ pub enum Update {
 
     ClientShowInventory(ClientId, InventoryId),
     ClientOpenContainer(ClientId, InventoryId, InventoryId),
+    ClientOpenCrafting(ClientId, StructureId, InventoryId),
 }
 
 impl<'d> World<'d> {

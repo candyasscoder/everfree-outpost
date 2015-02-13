@@ -263,6 +263,7 @@ macro_rules! id_newtype_impl {
 
 id_newtype_impl!(WireId: u16);
 id_newtype_impl!(EntityId: u32);
+id_newtype_impl!(StructureId: u32);
 id_newtype_impl!(InventoryId: u32);
 
 

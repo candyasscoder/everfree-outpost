@@ -338,6 +338,7 @@ function openConn(next) {
     conn.onEntityUpdate = handleEntityUpdate;
     conn.onUnloadChunk = handleUnloadChunk;
     conn.onOpenDialog = handleOpenDialog;
+    conn.onOpenCrafting = handleOpenCrafting;
 }
 
 
@@ -566,6 +567,21 @@ function handleOpenDialog(idx, args) {
             inv2.unsubscribe();
         };
     }
+}
+
+function handleOpenCrafting(station_type, station_id, inventory_id) {
+    var inv = inv_tracker.subscribe(inventory_id);
+
+    var ui = new CraftingUI(station_type, station_id, inv);
+    dialog.show(ui);
+
+    ui.onaction = function(station_id, inventory_id, recipe_id, count) {
+        conn.sendCraftRecipe(station_id, inventory_id, recipe_id, count);
+    };
+
+    ui.onclose = function() {
+        inv.unsubscribe();
+    };
 }
 
 

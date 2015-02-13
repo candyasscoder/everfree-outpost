@@ -209,6 +209,7 @@ function canCraft(recipe, inv) {
         var item_id = recipe.inputs[i][0];
         var count = recipe.inputs[i][1];
         if (inv.count(item_id) < count) {
+            console.log("can't craft", recipe.name, " - not enough", item_id, inv.count(item_id), count);
             return false;
         }
     }

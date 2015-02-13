@@ -210,10 +210,10 @@ impl ItemData {
 
 
 pub struct Recipe {
-    name: String,
-    inputs: HashMap<ItemId, u8>,
-    outputs: HashMap<ItemId, u8>,
-    station: Option<TemplateId>,
+    pub name: String,
+    pub inputs: HashMap<ItemId, u8>,
+    pub outputs: HashMap<ItemId, u8>,
+    pub station: Option<TemplateId>,
 }
 
 pub struct RecipeData {
@@ -278,11 +278,11 @@ impl RecipeData {
         })
     }
 
-    pub fn recipe(&self, id: ItemId) -> &Recipe {
+    pub fn recipe(&self, id: RecipeId) -> &Recipe {
         &self.recipes[id as usize]
     }
 
-    pub fn get_recipe(&self, id: ItemId) -> Option<&Recipe> {
+    pub fn get_recipe(&self, id: RecipeId) -> Option<&Recipe> {
         self.recipes.get(id as usize)
     }
 

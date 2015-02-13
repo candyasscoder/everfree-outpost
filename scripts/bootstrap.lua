@@ -83,6 +83,10 @@ function action.use.chest(c, s)
                      s:inventory('contents'))
 end
 
+function action.use.anvil(c, s)
+    c:open_crafting(s, c:pawn():inventory('main'))
+end
+
 function action.handler.inventory(c, arg)
     c:open_inventory(c:pawn():inventory('main'))
 end

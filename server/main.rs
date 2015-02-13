@@ -23,6 +23,7 @@ use std::io;
 use std::os;
 use std::sync::mpsc::{Sender, Receiver, channel};
 use std::thread::Thread;
+use std::u8;
 use serialize::json;
 
 use physics::v3::{Vn, V3, V2};
@@ -211,13 +212,19 @@ impl<'a> Server<'a> {
                 self.wake_queue.push(time, WakeReason::HandleAction(client_id, ActionId(action), arg));
             },
 
+            Request::UnsubscribeInventory(iid) => {
+                if let Some(client_id) = self.wire_to_client(wire_id) {
+                    self.client_info[client_id].observed_inventories.remove(&iid);
+                    multimap_remove(&mut self.inventory_observers, iid, wire_id);
+                }
+            },
+
             Request::MoveItem(from_iid, to_iid, item_id, amount) => {
                 let real_amount = {
                     // TODO: error handling
                     let i1 = self.state.world().get_inventory(from_iid);
                     let i2 = self.state.world().get_inventory(to_iid);
                     if let (Some(i1), Some(i2)) = (i1, i2) {
-                        use std::u8;
                         let count1 = i1.count(item_id);
                         let count2 = i2.count(item_id);
                         cmp::min(cmp::min(count1 as u16, (u8::MAX - count2) as u16), amount) as i16
@@ -231,10 +238,36 @@ impl<'a> Server<'a> {
                 }
             },
 
-            Request::UnsubscribeInventory(iid) => {
-                if let Some(client_id) = self.wire_to_client(wire_id) {
-                    self.client_info[client_id].observed_inventories.remove(&iid);
-                    multimap_remove(&mut self.inventory_observers, iid, wire_id);
+            Request::CraftRecipe(station_id, inventory_id, recipe_id, count) => {
+                // TODO: error handling
+                let recipe = self.state.world().data().recipes.recipe(recipe_id);
+
+                let real_count = {
+                    let _ = station_id; // TODO
+                    let i = self.state.world().inventory(inventory_id);
+                    let mut count = count as u8;
+
+                    for (&item_id, &num_required) in recipe.inputs.iter() {
+                        count = cmp::min(count, i.count(item_id) / num_required);
+                    }
+
+                    for (&item_id, &num_produced) in recipe.outputs.iter() {
+                        count = cmp::min(count, (u8::MAX - i.count(item_id)) / num_produced);
+                    }
+
+                    count as i16
+                };
+
+                if real_count > 0 {
+                    let mut i = self.state.world_mut().inventory_mut(inventory_id);
+
+                    for (&item_id, &num_required) in recipe.inputs.iter() {
+                        i.update(item_id, -real_count * num_required as i16).unwrap();
+                    }
+
+                    for (&item_id, &num_produced) in recipe.outputs.iter() {
+                        i.update(item_id, real_count * num_produced as i16).unwrap();
+                    }
                 }
             },
 
@@ -334,6 +367,17 @@ impl<'a> Server<'a> {
                                                                       iid2.unwrap()]));
                     s.subscribe_inventory(cid, iid1);
                     s.subscribe_inventory(cid, iid2);
+                },
+
+                world::Update::ClientOpenCrafting(cid, sid, iid) => {
+                    // TODO: check ids are all valid
+                    let station_type = s.state.world().structure(sid).template_id();
+
+                    let wire_id = s.client_info[cid].wire_id;
+                    s.send_wire(wire_id, Response::OpenCrafting(station_type,
+                                                                sid,
+                                                                iid));
+                    s.subscribe_inventory(cid, iid);
                 },
 
                 _ => {},

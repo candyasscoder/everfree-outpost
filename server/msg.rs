@@ -53,6 +53,7 @@ pub mod op {
         Action = 0x0006,
         UnsubscribeInventory = 0x0007,
         MoveItem = 0x0008,
+        CraftRecipe = 0x0009,
 
         TerrainChunk = 0x8001,
         PlayerMotion = 0x8002,
@@ -64,6 +65,7 @@ pub mod op {
         // TODO: EntityAdd, EntityRemove
         OpenDialog = 0x8008,
         InventoryUpdate = 0x8009,
+        OpenCrafting = 0x800a,
 
         AddClient = 0xff00,
         RemoveClient = 0xff01,
@@ -84,6 +86,7 @@ pub enum Request {
     Action(LocalTime, u16, u32),
     UnsubscribeInventory(InventoryId),
     MoveItem(InventoryId, InventoryId, ItemId, u16),
+    CraftRecipe(StructureId, InventoryId, RecipeId, u16),
 
     // Control messages
     AddClient,
@@ -122,6 +125,10 @@ impl Request {
                 let (a, b, c, d) = try!(wr.read());
                 MoveItem(a, b, c, d)
             },
+            op::CraftRecipe => {
+                let (a, b, c, d) = try!(wr.read());
+                CraftRecipe(a, b, c, d)
+            },
             op::AddClient => AddClient,
             op::RemoveClient => RemoveClient,
             _ => BadMessage(opcode),
@@ -147,6 +154,7 @@ pub enum Response {
     UnloadChunk(u16),
     OpenDialog(u32, Vec<u32>),
     InventoryUpdate(InventoryId, Vec<(ItemId, u8, u8)>),
+    OpenCrafting(TemplateId, StructureId, InventoryId),
 
     ClientRemoved,
 }
@@ -172,6 +180,8 @@ impl Response {
                 ww.write_msg(id, (op::OpenDialog, dialog_id, params.as_slice())),
             InventoryUpdate(inventory_id, ref changes) =>
                 ww.write_msg(id, (op::InventoryUpdate, inventory_id, changes.as_slice())),
+            OpenCrafting(station_type, station_id, inventory_id) =>
+                ww.write_msg(id, (op::OpenCrafting, station_type, station_id, inventory_id)),
             ClientRemoved =>
                 ww.write_msg(id, (op::ClientRemoved)),
         });

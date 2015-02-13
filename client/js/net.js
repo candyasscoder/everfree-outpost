@@ -9,6 +9,7 @@ var OP_LOGIN =                  0x0005;
 var OP_ACTION =                 0x0006;
 var OP_UNSUBSCRIBE_INVENTORY =  0x0007;
 var OP_MOVE_ITEM =              0x0008;
+var OP_CRAFT_RECIPE =           0x0009;
 
 var OP_TERRAIN_CHUNK =          0x8001;
 var OP_PLAYER_MOTION =          0x8002;
@@ -19,6 +20,7 @@ var OP_KICK_REASON =            0x8006;
 var OP_UNLOAD_CHUNK =           0x8007;
 var OP_OPEN_DIALOG =            0x8008;
 var OP_INVENTORY_UPDATE =       0x8009;
+var OP_OPEN_CRAFTING =          0x800a;
 
 /** @constructor */
 function Connection(url) {
@@ -196,6 +198,15 @@ Connection.prototype._handleMessage = function(evt) {
             };
             break;
 
+        case OP_OPEN_CRAFTING:
+            if (this.onOpenCrafting != null) {
+                var station_type = get32();
+                var station_id = get32();
+                var inventory_id = get32();
+                this.onOpenCrafting(station_type, station_id, inventory_id);
+            }
+            break;
+
         default:
             console.assert(false, 'received invalid opcode:', opcode.toString(16));
             break;
@@ -296,5 +307,15 @@ Connection.prototype.sendMoveItem = function(from_inventory, to_inventory, item_
     msg.put32(to_inventory);
     msg.put16(item_id);
     msg.put16(amount);
+    this.socket.send(msg.done());
+};
+
+Connection.prototype.sendCraftRecipe = function(station_id, inventory_id, recipe_id, count) {
+    var msg = new MessageBuilder(14);
+    msg.put16(OP_CRAFT_RECIPE);
+    msg.put32(station_id);
+    msg.put32(inventory_id);
+    msg.put16(recipe_id);
+    msg.put16(count);
     this.socket.send(msg.done());
 };

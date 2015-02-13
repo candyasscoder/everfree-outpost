@@ -204,6 +204,16 @@ impl Userdata for Client {
                 ctx.world.record(Update::ClientOpenContainer(c.id, i1.id, i2.id));
                 Ok(())
             }}
+
+            fn open_crafting(c: &Client, s: &Structure, i: &Inventory) -> StrResult<()> {{
+                // CHeck inputs are valid.
+                unwrap!(ctx.world.get_client(c.id));
+                unwrap!(ctx.world.get_structure(s.id));
+                unwrap!(ctx.world.get_inventory(i.id));
+
+                ctx.world.record(Update::ClientOpenCrafting(c.id, s.id, i.id));
+                Ok(())
+            }}
         }
     }
 }

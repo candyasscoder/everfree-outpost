@@ -63,10 +63,10 @@ Inventory.prototype._update = function(updates) {
         var update = updates[i];
         if (update.new_count == 0) {
             if (update.old_count > 0) {
-                delete this._contents[update.item_id];
+                delete this._contents[update.id];
             }
         } else {
-            this._contents[update.item_id] = update.new_count;
+            this._contents[update.id] = update.new_count;
         }
     }
 
