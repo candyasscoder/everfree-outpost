@@ -122,7 +122,9 @@ ContainerUI.prototype._handleKeyEvent = function(down, evt) {
         case 'interact':
             if (this.ontransfer != null) {
                 var item_id = this.lists[this.active].selectedItem();
-                this.ontransfer(this.active, +!this.active, item_id, mag);
+                var from_inv_id = this.lists[this.active].inventory_id;
+                var to_inv_id = this.lists[+!this.active].inventory_id;
+                this.ontransfer(from_inv_id, to_inv_id, item_id, mag);
             }
             break;
 
@@ -150,6 +152,7 @@ ContainerUI.prototype.handleClose = function(dialog) {
 
 /** @constructor */
 function ItemList(inv) {
+    this.inventory_id = inv.getId();
     this.list = new SelectionList('item-list');
     this.container = this.list.container;
 
