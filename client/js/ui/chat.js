@@ -5,7 +5,8 @@ var Config = require('config').Config;
 function ChatWindow() {
     this.container = util.element('div', ['chat-container']);
     this._content = util.element('div', ['chat'], this.container);
-    this._entry = util.element('input', ['chat-input', 'hidden'], this.container);
+    this._entry = util.element('input', ['chat-input'], this.container);
+    this._entry.disabled = true;
 
     this.count = 0;
 }
@@ -44,10 +45,13 @@ ChatWindow.prototype.addMessage = function(msg) {
 ChatWindow.prototype.startTyping = function(keyboard, conn) {
     var this_ = this;
 
-    this._entry.classList.remove('hidden');
+    this._entry.disabled = false;
     this._entry.focus();
 
     keyboard.pushHandler(function(down, evt) {
+        if (document.activeElement !== this_._entry) {
+            this_._entry.focus();
+        }
         if (!down) {
             return false;
         }
@@ -75,6 +79,6 @@ ChatWindow.prototype.finishTyping = function(keyboard, conn, send) {
     }
 
     this._entry.blur();
-    this._entry.classList.add('hidden');
     this._entry.value = '';
+    this._entry.disabled = true;
 };
