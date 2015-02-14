@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, hash_set};
+use std::collections::{HashMap, hash_map, HashSet, hash_set};
 use std::mem::replace;
 use std::ops::{Deref, DerefMut};
 
@@ -197,10 +197,31 @@ impl<'d> World<'d> {
         }
     }
 
+    pub fn terrain_chunks<'a>(&'a self) -> TerrainChunksById<'a, 'd, hash_map::Keys<'a, V2, TerrainChunk>> {
+        TerrainChunksById {
+            world: self,
+            iter: self.terrain_chunks.keys(),
+        }
+    }
+
     pub fn entities<'a>(&'a self) -> Entities<'a, 'd> {
         Entities {
             world: self,
             iter: self.entities.iter(),
+        }
+    }
+
+    pub fn structures<'a>(&'a self) -> Structures<'a, 'd> {
+        Structures {
+            world: self,
+            iter: self.structures.iter(),
+        }
+    }
+
+    pub fn inventories<'a>(&'a self) -> Inventories<'a, 'd> {
+        Inventories {
+            world: self,
+            iter: self.inventories.iter(),
         }
     }
 }
@@ -376,7 +397,7 @@ macro_rules! object_iter {
 object_iter!(Clients, Client, ClientId);
 object_iter!(Entities, Entity, EntityId);
 object_iter!(Structures, Structure, StructureId);
-object_iter!(Inevntories, Inventory, InventoryId);
+object_iter!(Inventories, Inventory, InventoryId);
 
 
 macro_rules! object_iter_by_id {
@@ -403,6 +424,7 @@ macro_rules! object_iter_by_id {
 }
 
 object_iter_by_id!(ClientsById, Client, ClientId);
+object_iter_by_id!(TerrainChunksById, TerrainChunk, V2);
 object_iter_by_id!(EntitiesById, Entity, EntityId);
 object_iter_by_id!(StructuresById, Structure, StructureId);
 object_iter_by_id!(InventoriesById, Inventory, InventoryId);
@@ -492,6 +514,10 @@ impl Structure {
     pub fn template_id(&self) -> TemplateId {
         self.template
     }
+
+    pub fn attachment(&self) -> StructureAttachment {
+        self.attachment
+    }
 }
 
 impl Inventory {
@@ -501,6 +527,10 @@ impl Inventory {
 
     pub fn contents(&self) -> &HashMap<ItemId, u8> {
         &self.contents
+    }
+
+    pub fn attachment(&self) -> InventoryAttachment {
+        self.attachment
     }
 }
 

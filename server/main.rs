@@ -92,7 +92,8 @@ fn main() {
         tasks::run_output(writer, resp_recv).unwrap();
     });
 
-    let state = state::State::new(&data, storage);
+    let mut state = state::State::new(&data, storage);
+    state.load_world();
     let mut server = Server::new(resp_send, state);
     server.run(req_recv);
 }

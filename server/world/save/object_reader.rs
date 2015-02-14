@@ -285,6 +285,31 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
         Ok(iid)
     }
 
+    fn read_world(&mut self, w: &mut World) -> Result<()> {
+        {
+            let entity_count = try!(self.r.read_count());
+            for _ in range(0, entity_count) {
+                try!(self.read_entity(w));
+            }
+        }
+
+        {
+            let structure_count = try!(self.r.read_count());
+            for _ in range(0, structure_count) {
+                try!(self.read_structure(w));
+            }
+        }
+
+        {
+            let inventory_count = try!(self.r.read_count());
+            for _ in range(0, inventory_count) {
+                try!(self.read_inventory(w));
+            }
+        }
+
+        Ok(())
+    }
+
     fn load_object<T, F>(&mut self, w: &mut World, f: F) -> Result<T>
             where F: FnOnce(&mut ObjectReader<R, H>, &mut World) -> Result<T> {
         try!(self.read_file_header());
@@ -304,6 +329,10 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
 
     pub fn load_terrain_chunk(&mut self, w: &mut World) -> Result<V2> {
         self.load_object(w, |sr, w| sr.read_terrain_chunk(w))
+    }
+
+    pub fn load_world(&mut self, w: &mut World) -> Result<()> {
+        self.load_object(w, |sr, w| sr.read_world(w))
     }
 
     fn check_objs(&mut self) -> Result<()> {

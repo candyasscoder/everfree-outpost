@@ -17,6 +17,7 @@ const SCRIPT_DIR: &'static str = "scripts";
 const SAVE_DIR: &'static str = "save";
 const CLIENT_DIR: &'static str = "clients";
 const TERRAIN_CHUNK_DIR: &'static str = "terrain_chunks";
+const WORLD_FILE_NAME: &'static str = "world.dat";
 
 pub struct Storage {
     base: Path,
@@ -58,6 +59,12 @@ impl Storage {
         self.base.join_many(&[SCRIPT_DIR])
     }
 
+    pub fn world_path(&self) -> Path {
+        let mut path = self.base.clone();
+        path.push_many(&[SAVE_DIR, WORLD_FILE_NAME]);
+        path
+    }
+
     pub fn client_path(&self, name: &str) -> Path {
         let name = sanitize(name);
         let mut path = self.base.clone();
@@ -74,12 +81,20 @@ impl Storage {
         path
     }
 
+    pub fn open_world_file(&self) -> Option<File> {
+        try_open_file(&self.world_path())
+    }
+
     pub fn open_client_file(&self, name: &str) -> Option<File> {
         try_open_file(&self.client_path(name))
     }
 
     pub fn open_terrain_chunk_file(&self, pos: V2) -> Option<File> {
         try_open_file(&self.terrain_chunk_path(pos))
+    }
+
+    pub fn create_world_file(&self) -> File {
+        File::create(&self.world_path()).unwrap()
     }
 
     pub fn create_client_file(&self, name: &str) -> File {

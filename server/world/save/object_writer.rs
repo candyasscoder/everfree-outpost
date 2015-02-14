@@ -7,7 +7,7 @@ use std::raw;
 use data::Data;
 use types::*;
 use util::IntrusiveStableId;
-use world::{Client, TerrainChunk, Entity, Structure, Inventory};
+use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
 use world::object::*;
 
 use super::Result;
@@ -218,6 +218,42 @@ impl<W: io::Writer, H: WriteHooks> ObjectWriter<W, H> {
         Ok(())
     }
 
+    fn write_world(&mut self, w: &World) -> Result<()> {
+        use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
+
+        {
+            let es = w.entities()
+                      .filter(|e| e.attachment() == EntityAttachment::World)
+                      .collect::<Vec<_>>();
+            try!(self.w.write_count(es.len()));
+            for e in es.into_iter() {
+                try!(self.write_entity(&e));
+            }
+        }
+
+        {
+            let ss = w.structures()
+                      .filter(|s| s.attachment() == StructureAttachment::World)
+                      .collect::<Vec<_>>();
+            try!(self.w.write_count(ss.len()));
+            for s in ss.into_iter() {
+                try!(self.write_structure(&s));
+            }
+        }
+
+        {
+            let is = w.inventories()
+                      .filter(|i| i.attachment() == InventoryAttachment::World)
+                      .collect::<Vec<_>>();
+            try!(self.w.write_count(is.len()));
+            for i in is.into_iter() {
+                try!(self.write_inventory(&i));
+            }
+        }
+
+        Ok(())
+    }
+
     fn save_object<F>(&mut self, f: F) -> Result<()>
             where F: FnOnce(&mut ObjectWriter<W, H>) -> Result<()> {
         try!(self.write_file_header());
@@ -232,6 +268,10 @@ impl<W: io::Writer, H: WriteHooks> ObjectWriter<W, H> {
 
     pub fn save_terrain_chunk(&mut self, t: &ObjectRef<TerrainChunk>) -> Result<()> {
         self.save_object(|sw| sw.write_terrain_chunk(t))
+    }
+
+    pub fn save_world(&mut self, w: &World) -> Result<()> {
+        self.save_object(|sw| sw.write_world(w))
     }
 
     fn handle_missing(&mut self) -> Result<()> {

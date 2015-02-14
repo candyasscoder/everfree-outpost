@@ -335,6 +335,38 @@ impl<'a> State<'a> {
             w.destroy_terrain_chunk(pos).unwrap();
         });
     }
+
+    pub fn load_world(&mut self) {
+        if let Some(file) = self.storage.open_world_file() {
+            let mut sr = ObjectReader::new(file, ReadHooks::new(&mut self.script));
+            sr.load_world(self.mw.world_mut()).unwrap();
+        }
+    }
+
+    pub fn save_all(&mut self) {
+        for c in self.mw.world().clients() {
+            let file = self.storage.create_client_file(c.name());
+            let mut sw = ObjectWriter::new(file, WriteHooks::new(&mut self.script));
+            warn_on_err!(sw.save_client(&c));
+        }
+
+        for t in self.mw.world().terrain_chunks() {
+            let file = self.storage.create_terrain_chunk_file(t.id());
+            let mut sw = ObjectWriter::new(file, WriteHooks::new(&mut self.script));
+            warn_on_err!(sw.save_terrain_chunk(&t));
+        }
+
+        let file = self.storage.create_world_file();
+        let mut sw = ObjectWriter::new(file, WriteHooks::new(&mut self.script));
+        warn_on_err!(sw.save_world(self.mw.world()));
+    }
+}
+
+#[unsafe_destructor]
+impl<'a> Drop for State<'a> {
+    fn drop(&mut self) {
+        self.save_all();
+    }
 }
 
 

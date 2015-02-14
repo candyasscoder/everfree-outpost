@@ -44,3 +44,14 @@ pub fn multimap_remove<K, V>(map: &mut HashMap<K, HashSet<V>>, k: K, v: V)
     }
 }
 
+
+macro_rules! warn_on_err {
+    ($e:expr) => {
+        match $e {
+            Ok(_) => {},
+            Err(e) => warn!("{}: {}",
+                            stringify!($e),
+                            ::std::error::Error::description(&e)),
+        }
+    };
+}
