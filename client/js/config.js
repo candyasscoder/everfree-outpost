@@ -13,6 +13,7 @@ var DEFAULT_CONFIG = {
         68: 'use_item',     // D
         69: 'inventory',    // E
         112: 'show_controls', // F1
+        114: 'debug_show_panel', // F3
         27: 'cancel',       // Esc
         32: 'cancel',       // Space
         13: 'chat',         // Enter
@@ -23,6 +24,7 @@ var DEFAULT_CONFIG = {
         27: 'cancel',       // Esc
     },
 
+    'debug_show_panel': false,
     'debug_timing_delay': [0, 0],
     'debug_force_mobile_warning': false,
     'debug_force_browser_warning': false,
@@ -37,6 +39,7 @@ exports.Config = {
     keybindings: new ConfigItem('keybindings'),
     chat_keybindings: new ConfigItem('chat_keybindings'),
 
+    debug_show_panel: new ConfigItem('debug_show_panel'),
     debug_timing_delay: new ConfigItem('debug_timing_delay'),
     debug_force_mobile_warning: new ConfigItem('debug_force_mobile_warning'),
     debug_force_browser_warning: new ConfigItem('debug_force_browser_warning'),

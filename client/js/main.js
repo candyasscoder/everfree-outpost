@@ -364,6 +364,10 @@ function buildUI() {
         $('key-list').classList.add('hidden');
     }
 
+    if (!Config.debug_show_panel.get()) {
+        debug.container.classList.add('hidden');
+    }
+
     banner.show('Loading...', 0, keyboard, function() { return false; });
 }
 
@@ -419,7 +423,7 @@ function setupKeyHandler() {
 
     keyboard.pushHandler(function(down, evt) {
         if (evt.repeat) {
-            return false;
+            return true;
         }
 
         var binding = Config.keybindings.get()[evt.keyCode];
@@ -434,11 +438,16 @@ function setupKeyHandler() {
             if (binding == 'show_controls') {
                 var show = Config.show_controls.toggle();
                 $('key-list').classList.toggle('hidden', !show);
+            } else if (binding == 'debug_show_panel') {
+                var show = Config.debug_show_panel.toggle();
+                debug.container.classList.toggle('hidden', !show);
+            } else if (binding == 'chat') {
+                chat.startTyping(keyboard, conn);
             } else {
                 sendActionForKey(binding);
             }
         }
-            return true;
+        return true;
     });
 
     function updateWalkDir() {
@@ -476,9 +485,6 @@ function setupKeyHandler() {
                 code = ACTION_USE_ITEM;
                 arg = current_item;
                 break;
-            case 'chat':
-                chat.startTyping(keyboard, conn);
-                return true;
             default: return false;
         }
 
