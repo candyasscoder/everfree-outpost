@@ -37,6 +37,7 @@ function DebugMonitor() {
     this.load = this._addRow('Load');
     this.jobs = this._addRow('Jobs');
     this.timing = this._addRow('Timing');
+    this.motions = this._addRow('Motions');
     //this.plan = this._addRow('Plan');
     this.gfxDebug = this._addRow('Gfx');
 
@@ -103,4 +104,18 @@ DebugMonitor.prototype.updateTiming = function(timing) {
     var recv = timing.offset_recv;
     var ping = (send + recv) & 0xffff;
     this.timing.innerHTML = ping + ' (' + send + ' + ' + recv + ')';
+};
+
+DebugMonitor.prototype.updateMotions = function(e) {
+    var motions = [];
+    motions.push(e._cur_motion);
+    for (var i = e._motions._cur.length - 1; i >= 0; --i) {
+        motions.push(e._motions._cur[i]);
+    }
+    for (var i = 0; i < e._motions._new.length; ++i) {
+        motions.push(e._motions._new[i]);
+    }
+    this.motions.innerHTML = (Date.now() % 100000) + '<br>' + motions
+        .map(function(m) { return (m.start_time % 100000) + ' .. ' + (m.end_time % 100000); })
+        .join('<br>');
 };

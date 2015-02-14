@@ -634,6 +634,7 @@ function frame(gl, now) {
     if (player_entity >= 0 && entities[player_entity] != null) {
         pos = entities[player_entity].position(now);
         pony = entities[player_entity];
+        debug.updateMotions(pony);
     }
     debug.updatePos(pos);
 
