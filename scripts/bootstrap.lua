@@ -102,6 +102,7 @@ local function place_structure(name)
         s, err = client:world():create_structure(target_tile, name)
         if s ~= nil then
             inv:update(name, -1)
+            s:attach_to_chunk()
         end
     end
 end
