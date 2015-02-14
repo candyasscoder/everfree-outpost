@@ -1,5 +1,8 @@
+import binascii
+import os
 import socket
 import struct
+import time
 
 import tornado.autoreload
 import tornado.gen
@@ -15,15 +18,32 @@ OP_REMOVE_CLIENT = 0xff01
 OP_CLIENT_REMOVED = 0xff02
 
 
+def now():
+    t = time.time()
+    return int(t * 1000)
+
+LOG_DIR = None
+
+
 class WSHandler(tornado.websocket.WebSocketHandler):
     def open(self):
         self.id = backend.add_client(self)
+        if LOG_DIR is not None:
+            host, port = self.request.connection.address
+            filename = '%d-%s-%d.log' % (now(), host, port)
+            self.log = open(os.path.join(LOG_DIR, filename), 'w')
 
     def on_message(self, message):
+        self.log.write('%d: > %s\n' % (now(), binascii.hexlify(message)))
         backend.send_client_message(self.id, message)
 
     def on_close(self):
+        self.log.write('%d: close\n' % now())
         backend.remove_client(self.id)
+
+    def write_message(self, msg, *args, **kwargs):
+        self.log.write('%d: < %s\n' % (now(), binascii.hexlify(msg)))
+        super(WSHandler, self).write_message(msg, *args, **kwargs)
 
 class FileHandler(tornado.web.StaticFileHandler):
     @classmethod
@@ -111,11 +131,13 @@ class BackendStream(object):
         print('closed!')
 
 if __name__ == "__main__":
-    import os
     import sys
 
     bin_dir = os.path.dirname(sys.argv[0])
     root_dir = os.path.dirname(bin_dir)
+
+    LOG_DIR = os.path.join(root_dir, 'logs')
+    os.makedirs(LOG_DIR, exist_ok=True)
 
     exe = os.path.join(root_dir, 'bin/backend')
     blocks_json = os.path.join(root_dir, 'data/blocks.json')
