@@ -227,6 +227,49 @@
             }
 
 
+            .chat-container {
+                width: 20rem;
+                height: 8rem;
+                background-color: rgba(255, 255, 255, 0.5);
+
+                display: flex;
+                flex-flow: column;
+                align-items: stretch;
+
+                position: fixed;
+                left: 0;
+                bottom: 0;
+
+                font-size: 0.7rem;
+            }
+
+            .chat {
+                flex-grow: 1;
+                overflow-y: scroll;
+            }
+
+            .chat-line {
+                display: flex;
+            }
+
+            .chat-name {
+                vertical-align: top;
+                margin-left: 0.125rem;
+                margin-right: 0.5rem;
+            }
+
+            .chat-text {
+                flex-grow: 1;
+            }
+
+            .server-message {
+                color: blue;
+            }
+
+            .chat-input {
+            }
+
+
             .unsupported-option {
                 font-size: 1.1em;
                 text-align: center;

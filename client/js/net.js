@@ -10,6 +10,7 @@ var OP_ACTION =                 0x0006;
 var OP_UNSUBSCRIBE_INVENTORY =  0x0007;
 var OP_MOVE_ITEM =              0x0008;
 var OP_CRAFT_RECIPE =           0x0009;
+var OP_CHAT =                   0x000a;
 
 var OP_TERRAIN_CHUNK =          0x8001;
 var OP_PLAYER_MOTION =          0x8002;
@@ -21,6 +22,7 @@ var OP_UNLOAD_CHUNK =           0x8007;
 var OP_OPEN_DIALOG =            0x8008;
 var OP_INVENTORY_UPDATE =       0x8009;
 var OP_OPEN_CRAFTING =          0x800a;
+var OP_CHAT_UPDATE =            0x800b;
 
 /** @constructor */
 function Connection(url) {
@@ -44,6 +46,7 @@ function Connection(url) {
     this.onUnloadChunk = null;
     this.onOpenDialog = null;
     this.onInventoryUpdate = null;
+    this.onChatUpdate = null;
 }
 exports.Connection = Connection;
 
@@ -207,6 +210,13 @@ Connection.prototype._handleMessage = function(evt) {
             }
             break;
 
+        case OP_CHAT_UPDATE:
+            if (this.onChatUpdate != null) {
+                var msg = decodeUtf8(new Uint8Array(view.buffer, offset));
+                this.onChatUpdate(msg);
+            }
+            break;
+
         default:
             console.assert(false, 'received invalid opcode:', opcode.toString(16));
             break;
@@ -317,5 +327,15 @@ Connection.prototype.sendCraftRecipe = function(station_id, inventory_id, recipe
     msg.put32(inventory_id);
     msg.put16(recipe_id);
     msg.put16(count);
+    this.socket.send(msg.done());
+};
+
+Connection.prototype.sendChat = function(msg) {
+    var utf8 = unescape(encodeURIComponent(msg));
+    var msg = new MessageBuilder(2 + utf8.length);
+    msg.put16(OP_CHAT);
+    for (var i = 0; i < utf8.length; ++i) {
+        msg.put8(utf8.charCodeAt(i));
+    }
     this.socket.send(msg.done());
 };

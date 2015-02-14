@@ -138,3 +138,22 @@ exports.chain = function(old, f) {
         f.apply(this, arguments);
     });
 };
+
+
+exports.element = function(tag, extra, parent) {
+    var e = document.createElement(tag);
+
+    for (var i = 0; i < extra.length; ++i) {
+        if (extra[i].startsWith('#')) {
+            e.setAttribute('id', extra[i].substr(1));
+        } else {
+            e.classList.add(extra[i]);
+        }
+    }
+
+    if (parent != null) {
+        parent.appendChild(e);
+    }
+
+    return e;
+};

@@ -1,6 +1,7 @@
 var DEFAULT_CONFIG = {
     'show_controls': true,
     'ignore_browser_warning': false,
+    'chat_scrollback': 100,
 
     'keybindings': {
         37: 'move_left',    // ArrowLeft
@@ -14,6 +15,12 @@ var DEFAULT_CONFIG = {
         112: 'show_controls', // F1
         27: 'cancel',       // Esc
         32: 'cancel',       // Space
+        13: 'chat',         // Enter
+    },
+
+    'chat_keybindings': {
+        13: 'send',         // Enter
+        27: 'cancel',       // Esc
     },
 
     'debug_timing_delay': [0, 0],
@@ -25,7 +32,10 @@ var DEFAULT_CONFIG = {
 exports.Config = {
     show_controls: new ConfigItem('show_controls'),
     ignore_browser_warning: new ConfigItem('ignore_browser_warning'),
+    chat_scrollback: new ConfigItem('chat_scrollback'),
+
     keybindings: new ConfigItem('keybindings'),
+    chat_keybindings: new ConfigItem('chat_keybindings'),
 
     debug_timing_delay: new ConfigItem('debug_timing_delay'),
     debug_force_mobile_warning: new ConfigItem('debug_force_mobile_warning'),

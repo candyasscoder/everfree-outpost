@@ -54,6 +54,7 @@ pub mod op {
         UnsubscribeInventory = 0x0007,
         MoveItem = 0x0008,
         CraftRecipe = 0x0009,
+        Chat = 0x000a,
 
         TerrainChunk = 0x8001,
         PlayerMotion = 0x8002,
@@ -66,6 +67,7 @@ pub mod op {
         OpenDialog = 0x8008,
         InventoryUpdate = 0x8009,
         OpenCrafting = 0x800a,
+        ChatUpdate = 0x800b,
 
         AddClient = 0xff00,
         RemoveClient = 0xff01,
@@ -87,6 +89,7 @@ pub enum Request {
     UnsubscribeInventory(InventoryId),
     MoveItem(InventoryId, InventoryId, ItemId, u16),
     CraftRecipe(StructureId, InventoryId, RecipeId, u16),
+    Chat(String),
 
     // Control messages
     AddClient,
@@ -129,6 +132,10 @@ impl Request {
                 let (a, b, c, d) = try!(wr.read());
                 CraftRecipe(a, b, c, d)
             },
+            op::Chat => {
+                let a = try!(wr.read());
+                Chat(a)
+            },
             op::AddClient => AddClient,
             op::RemoveClient => RemoveClient,
             _ => BadMessage(opcode),
@@ -155,6 +162,7 @@ pub enum Response {
     OpenDialog(u32, Vec<u32>),
     InventoryUpdate(InventoryId, Vec<(ItemId, u8, u8)>),
     OpenCrafting(TemplateId, StructureId, InventoryId),
+    ChatUpdate(String),
 
     ClientRemoved,
 }
@@ -182,6 +190,8 @@ impl Response {
                 ww.write_msg(id, (op::InventoryUpdate, inventory_id, changes.as_slice())),
             OpenCrafting(station_type, station_id, inventory_id) =>
                 ww.write_msg(id, (op::OpenCrafting, station_type, station_id, inventory_id)),
+            ChatUpdate(ref msg) =>
+                ww.write_msg(id, (op::ChatUpdate, &*msg)),
             ClientRemoved =>
                 ww.write_msg(id, (op::ClientRemoved)),
         });

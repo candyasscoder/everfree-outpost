@@ -21,6 +21,7 @@ var InventoryTracker = require('inventory').InventoryTracker;
 var Keyboard = require('keyboard').Keyboard;
 var Dialog = require('ui/dialog').Dialog;
 var Banner = require('ui/banner').Banner;
+var ChatWindow = require('ui/chat').ChatWindow;
 var InventoryUI = require('ui/inventory').InventoryUI;
 var ContainerUI = require('ui/inventory').ContainerUI;
 var CraftingUI = require('ui/crafting').CraftingUI;
@@ -205,6 +206,7 @@ var debug;
 var dialog;
 var banner;
 var keyboard;
+var chat;
 
 var runner;
 var loader;
@@ -236,6 +238,7 @@ function init() {
     banner = new Banner();
     keyboard = new Keyboard();
     dialog = new Dialog(keyboard);
+    chat = new ChatWindow();
 
     runner = new BackgroundJobRunner();
     loader = new AssetLoader();
@@ -339,6 +342,7 @@ function openConn(next) {
     conn.onUnloadChunk = handleUnloadChunk;
     conn.onOpenDialog = handleOpenDialog;
     conn.onOpenCrafting = handleOpenCrafting;
+    conn.onChatUpdate = handleChatUpdate;
 }
 
 
@@ -351,6 +355,7 @@ function buildUI() {
     document.body.appendChild(canvas.canvas);
     document.body.appendChild($('key-list'));
     document.body.appendChild($('item-box'));
+    document.body.appendChild(chat.container);
     document.body.appendChild(banner.container);
     document.body.appendChild(dialog.container);
     document.body.appendChild(debug.container);
@@ -471,6 +476,9 @@ function setupKeyHandler() {
                 code = ACTION_USE_ITEM;
                 arg = current_item;
                 break;
+            case 'chat':
+                chat.startTyping(keyboard, conn);
+                return true;
             default: return false;
         }
 
@@ -582,6 +590,10 @@ function handleOpenCrafting(station_type, station_id, inventory_id) {
     ui.onclose = function() {
         inv.unsubscribe();
     };
+}
+
+function handleChatUpdate(msg) {
+    chat.addMessage(msg);
 }
 
 

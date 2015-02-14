@@ -205,6 +205,8 @@ impl<'a> Server<'a> {
                     }
                 });
                 self.wake_queue.push(now + 1000, WakeReason::CheckView(cid));
+
+                self.server_msg(wire_id, &*format!("logged in as {}", name));
             },
 
             Request::Action(time, action, arg) => {
@@ -268,6 +270,18 @@ impl<'a> Server<'a> {
 
                     for (&item_id, &num_produced) in recipe.outputs.iter() {
                         i.update(item_id, real_count * num_produced as i16).unwrap();
+                    }
+                }
+            },
+
+            Request::Chat(msg) => {
+                if let Some(cid) = self.wire_to_client(wire_id) {
+                    let msg_out = format!("<{}>\t{}",
+                                          self.state.world().client(cid).name(),
+                                          msg);
+                    for &out_wire_id in self.wire_id_map.keys() {
+                        self.send_wire(out_wire_id,
+                                       Response::ChatUpdate(msg_out.clone()));
                     }
                 }
             },
@@ -557,6 +571,10 @@ impl<'a> Server<'a> {
         if motion.start_pos != motion.end_pos {
             self.wake_queue.push(motion.end_time(), WakeReason::PhysicsUpdate(eid));
         }
+    }
+
+    fn server_msg(&self, wire_id: WireId, msg: &str) {
+        self.send_wire(wire_id, Response::ChatUpdate(format!("***\t{}", msg)));
     }
 }
 
