@@ -199,10 +199,11 @@ impl<'a> Server<'a> {
                     view_state: ViewState::new(),
                     observed_inventories: HashSet::new(),
                 });
-                self.reset_viewport(now, cid);
-                if let Some(eid) = eid {
-                    self.update_entity_motion(now, eid);
-                }
+                self.reset_viewport(now, cid, |s| {
+                    if let Some(eid) = eid {
+                        s.state.update_physics(now, eid, true).unwrap();
+                    }
+                });
                 self.wake_queue.push(now + 1000, WakeReason::CheckView(cid));
             },
 
@@ -339,7 +340,7 @@ impl<'a> Server<'a> {
             let mut s = st.up();
             match u {
                 // TODO: Client, Inventory lifecycle events
-                world::Update::ClientPawnChange(cid) => s.reset_viewport(now, cid),
+                world::Update::ClientPawnChange(cid) => s.reset_viewport(now, cid, |_| {}),
                 world::Update::ChunkInvalidate(pos) => s.update_chunk(now, pos),
                 world::Update::EntityMotionChange(eid) => s.update_entity_motion(now, eid),
                 world::Update::InventoryUpdate(iid, item_id, old_count, new_count) => {
@@ -409,9 +410,11 @@ impl<'a> Server<'a> {
         self.resps.send((wire_id, resp)).unwrap();
     }
 
-    fn reset_viewport(&mut self,
-                      now: Time,
-                      cid: ClientId) {
+    fn reset_viewport<F>(&mut self,
+                         now: Time,
+                         cid: ClientId,
+                         callback: F)
+            where F: FnOnce(&mut Server) {
         let (old_region, new_region) = {
             let client = match self.state.world().get_client(cid) {
                 Some(x) => x,
@@ -444,6 +447,9 @@ impl<'a> Server<'a> {
         for p in new_region.points() {
             self.state.load_chunk(p.x, p.y);
         }
+
+
+        callback(self);
 
 
         let client = self.state.world().client(cid);
