@@ -68,6 +68,8 @@ pub mod op {
         InventoryUpdate = 0x8009,
         OpenCrafting = 0x800a,
         ChatUpdate = 0x800b,
+        EntityAppear = 0x800c,
+        EntityGone = 0x800d,
 
         AddClient = 0xff00,
         RemoveClient = 0xff01,
@@ -163,6 +165,8 @@ pub enum Response {
     InventoryUpdate(InventoryId, Vec<(ItemId, u8, u8)>),
     OpenCrafting(TemplateId, StructureId, InventoryId),
     ChatUpdate(String),
+    EntityAppear(EntityId, u32),
+    EntityGone(EntityId),
 
     ClientRemoved,
 }
@@ -192,6 +196,10 @@ impl Response {
                 ww.write_msg(id, (op::OpenCrafting, station_type, station_id, inventory_id)),
             ChatUpdate(ref msg) =>
                 ww.write_msg(id, (op::ChatUpdate, &*msg)),
+            EntityAppear(entity_id, appearance) =>
+                ww.write_msg(id, (op::EntityAppear, entity_id, appearance)),
+            EntityGone(entity_id) =>
+                ww.write_msg(id, (op::EntityGone, entity_id)),
             ClientRemoved =>
                 ww.write_msg(id, (op::ClientRemoved)),
         });

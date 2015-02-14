@@ -23,6 +23,8 @@ var OP_OPEN_DIALOG =            0x8008;
 var OP_INVENTORY_UPDATE =       0x8009;
 var OP_OPEN_CRAFTING =          0x800a;
 var OP_CHAT_UPDATE =            0x800b;
+var OP_ENTITY_APPEAR =          0x800c;
+var OP_ENTITY_GONE =            0x800d;
 
 /** @constructor */
 function Connection(url) {
@@ -47,6 +49,8 @@ function Connection(url) {
     this.onOpenDialog = null;
     this.onInventoryUpdate = null;
     this.onChatUpdate = null;
+    this.onEntityAppear = null;
+    this.onEntityGone = null;
 }
 exports.Connection = Connection;
 
@@ -214,6 +218,21 @@ Connection.prototype._handleMessage = function(evt) {
             if (this.onChatUpdate != null) {
                 var msg = decodeUtf8(new Uint8Array(view.buffer, offset));
                 this.onChatUpdate(msg);
+            }
+            break;
+
+        case OP_ENTITY_APPEAR:
+            if (this.onEntityAppear != null) {
+                var entity_id = get32();
+                var appearance = get32();
+                this.onEntityAppear(entity_id, appearance);
+            }
+            break;
+
+        case OP_ENTITY_GONE:
+            if (this.onEntityGone != null) {
+                var entity_id = get32();
+                this.onEntityGone(entity_id);
             }
             break;
 
