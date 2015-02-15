@@ -26,19 +26,26 @@ LOG_DIR = None
 
 
 class WSHandler(tornado.websocket.WebSocketHandler):
+    def __init__(self, *args, **kwargs):
+        super(WSHandler, self).__init__(*args, **kwargs)
+        self.log = None
+
     def open(self):
         self.id = backend.add_client(self)
         if LOG_DIR is not None:
-            host, port = self.request.connection.address
+            # IPv6 addresses can be 4-tuples instead of pairs
+            host, port = self.request.connection.address[:2]
             filename = '%d-%s-%d.log' % (now(), host, port)
             self.log = open(os.path.join(LOG_DIR, filename), 'w')
 
     def on_message(self, message):
-        self.log.write('%d: > %s\n' % (now(), binascii.hexlify(message)))
+        if self.log is not None:
+            self.log.write('%d: > %s\n' % (now(), binascii.hexlify(message)))
         backend.send_client_message(self.id, message)
 
     def on_close(self):
-        self.log.write('%d: close\n' % now())
+        if self.log is not None:
+            self.log.write('%d: close\n' % now())
         backend.remove_client(self.id)
 
     def write_message(self, msg, *args, **kwargs):
