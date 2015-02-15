@@ -1,34 +1,31 @@
 from itertools import count
 
 from process_tiles import tree
-from process_tiles.util import combine_prefix
-
-from process_tiles.blocks import assign_ids
+from process_tiles.util import combine_prefix, apply_prefix, assign_ids
 
 def parse_raw(yaml):
-    t = tree.expand_tree(yaml, '/')
-    tree.tag_leaf_dicts(t)
-    tree.apply_defaults(t, combine={'prefix': combine_prefix})
-    objects = tree.flatten_tree(t)
+    t = tree.expand_tree(yaml, '/.')
+    tree.apply_defaults(t)
+    tree.propagate(t, combine={'prefix': combine_prefix})
+    objects = tree.collect(t, is_item)
 
-    assign_ids(objects)
+    assign_ids(objects, 'templates')
     parse_block_refs(objects)
     for k,v in objects.items():
         v['name'] = k
 
     return objects
 
+def is_item(dct):
+    return 'z0' in dct and \
+            all(k.startswith('z') for k,v in dct.items() if isinstance(v, dict))
+
 def parse_block_refs(objects):
-    def handle_part(part, prefix):
-        part = part.strip()
+    def handle_part(prefix, part):
         if part == '_':
             return 'empty'
-        elif part.startswith('/'):
-            return part[1:]
-        elif prefix is None:
-            return part
         else:
-            return prefix + '/' + part
+            return apply_prefix(prefix, part)
 
     for name, obj in objects.items():
         prefix = obj.get('prefix')
@@ -43,7 +40,7 @@ def parse_block_refs(objects):
 
             layer = []
             for row_str in obj[key]:
-                row = list(handle_part(b, prefix) for b in row_str.split(','))
+                row = list(handle_part(prefix, b.strip()) for b in row_str.split(','))
                 layer.append(row)
             grid.append(layer)
 

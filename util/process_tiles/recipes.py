@@ -1,18 +1,21 @@
 from itertools import count
 
 from process_tiles import tree
-from process_tiles.util import combine_prefix
-
-from process_tiles.blocks import assign_ids
+from process_tiles.util import assign_ids
 
 def parse_raw(yaml):
     t = tree.expand_tree(yaml, '/.')
-    tree.tag_leaf_dicts(t, {'inputs', 'outputs'})
     tree.apply_defaults(t)
-    recipes = tree.flatten_tree(t)
+    tree.propagate(t)
+    recipes = tree.collect_dicts(t,
+            fields=('ui_name', 'station', 'inputs', 'outputs'),
+            dict_fields=('inputs', 'outputs'))
 
-    assign_ids(recipes)
+    assign_ids(recipes, 'recipes')
+
     for k,v in recipes.items():
+        v['inputs'] = tree.collect_scalars(v.get('inputs', {}))
+        v['outputs'] = tree.collect_scalars(v.get('outputs', {}))
         v['name'] = k
 
     return recipes

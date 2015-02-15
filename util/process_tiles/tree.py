@@ -1,122 +1,138 @@
-from collections import namedtuple
+import re
 
-Node = namedtuple('Node', ['children'])
-Leaf = namedtuple('Leaf', ['value'])
 
-def expand_tree(yaml, delims='/'):
-    def put(node, path, value):
-        for k in path[:-1]:
-            if k not in node:
-                node[k] = {}
-            node = node[k]
+def flatten_tree(yaml, delims='/.'):
+    delim_re = re.compile('[%s]' % delims)
 
-        k = path[-1]
-        if k in node and isinstance(value, dict):
-            old = node[k]
-            assert isinstance(old, dict), \
-                    'tried to merge dict with nondict at path %r' % (path,)
-            for j in value:
-                assert j not in old, \
-                        'tried to overwrite key %r during merge at path %r' % (j, path)
-                old[j] = value[j]
-        else:
-            assert k not in node, \
-                    'tried to overwrite existing value at path %r' % (path,)
-            node[k] = value
-
-    def go(yaml):
-        if not isinstance(yaml, dict):
-            return yaml if yaml is not None else {}
-
-        node = {}
-        for k,v in yaml.items():
-            path = [k]
-            for delim in delims:
-                path = [x for xs in path for x in xs.split(delim)]
-            put(node, path, go(v))
-        return node
-
-    return go(yaml)
-
-def tag_leaf_dicts(tree, subdicts={}):
-    def go(tree):
-        if all(k in subdicts or not isinstance(v, dict) for k,v in tree.items()):
-            return Leaf(tree)
-        else:
-            for k,v in tree.items():
-                tree[k] = go(v)
-            return tree
-    go(tree)
-
-def tag_leaf_values(tree):
-    def go(tree):
-        if not isinstance(tree, dict):
-            return Leaf(tree)
-        else:
-            for k,v in tree.items():
-                tree[k] = go(v)
-            return tree
-    go(tree)
-
-def apply_defaults(tree, default_key='_', combine={}):
-    def default_combine(new, old):
-        return new
-
-    def go(tree, defaults):
-        if isinstance(tree, Leaf):
-            for k,v in defaults.items():
-                if k not in tree.value:
-                    tree.value[k] = v
-                elif k in combine:
-                    tree.value[k] = combine[k](tree.value[k], v)
-        else:
-            default_leaf = tree.pop(default_key, None)
-            if default_leaf is not None:
-                new_defaults = default_leaf.value
-                old_defaults = defaults
-                defaults = {}
-
-                for k in old_defaults.keys() | new_defaults.keys():
-                    old = old_defaults.get(k)
-                    new = new_defaults.get(k)
-                    defaults[k] = combine.get(k, default_combine)(new, old)
-
-            for v in tree.values():
-                go(v, defaults)
-
-    go(tree, {})
-
-def flatten_tree(tree):
     result = {}
-
-    def go(tree, base):
-        if isinstance(tree, Leaf):
-            result[base] = tree.value
+    def go(k, v):
+        if isinstance(v, dict):
+            if len(v) == 0:
+                result[k] = v
+            else:
+                for k2, v2 in v.items():
+                    k2 = tuple(delim_re.split(k2))
+                    go(k + k2, v2)
         else:
-            for k,v in tree.items():
-                go(v, base + '/' + k)
+            assert k not in result, \
+                    'duplicate definition for path %r' % (k,)
+            result[k] = v
 
-    for k,v in tree.items():
-        go(v, k)
+    go((), yaml)
+
     return result
 
-
-if __name__ == '__main__':
-    import sys
-    from pprint import pprint
-    import yaml
-    y = yaml.load(sys.stdin)
-    t = expand_tree(y, '/.')
-
-    def combine_prefix(new, old):
-        if old is None:
-            return new
-        elif new is None:
-            return old
+def unflatten_tree(dct):
+    def put(k, v, out):
+        if len(k) == 1:
+            out[k[0]] = v
         else:
-            return old + '/' + new
+            first = k[0]
+            rest = k[1:]
+            if first not in out:
+                out[first] = {}
+            put(rest, v, out[first])
 
-    tag_leaf_dicts(t)
-    apply_defaults(t, combine={'prefix': combine_prefix})
+    result = {}
+    for k,v in dct.items():
+        put(k, v, result)
+    return result
 
-    pprint(flatten_tree(t))
+def expand_tree(yaml, delims='/.'):
+    return unflatten_tree(flatten_tree(yaml, delims=delims))
+
+MISSING = {}
+
+def default_merge(default, current):
+    if current is MISSING:
+        return default
+    else:
+        return current
+
+def maybe_set(dct, k, v):
+    if v is MISSING:
+        if k in dct:
+            del dct[k]
+    else:
+        dct[k] = v
+
+def apply_defaults(tree, merge={}):
+    def go(dct):
+        defaults = dct.pop('_', {})
+
+        for subdct in dct.values():
+            if not isinstance(subdct, dict):
+                continue
+
+            for k, def_val in defaults.items():
+                sub_val = subdct.get(k, MISSING)
+                m = merge.get(k, default_merge)
+                maybe_set(subdct, k, m(def_val, sub_val))
+
+            go(subdct)
+
+    go(tree)
+
+def propagate(tree, combine={}):
+    def go(dct):
+        for subdct in dct.values():
+            if not isinstance(subdct, dict):
+                continue
+
+            for k, c in combine.items():
+                if k not in dct:
+                    continue
+
+                parent_val = dct[k]
+                child_val = subdct.get(k, MISSING)
+                maybe_set(subdct, k, c(parent_val, child_val))
+
+            go(subdct)
+
+    go(tree)
+
+def collect_dicts(tree, fields=(), dict_fields=(), delim='/'):
+    fields = set(fields)
+    dict_fields = set(dict_fields)
+
+    def is_item(dct):
+        if not isinstance(dct, dict):
+            return False
+
+        # Have we seen at least one of the fields listed in 'fields'?
+        saw_good_field = False
+        # Have we seen a dict under a key not listed in 'dict_fields'?
+        saw_bad_dict = False
+        for k,v in dct.items():
+            if isinstance(v, dict) and k not in dict_fields:
+                saw_bad_dict = True
+            if k in fields:
+                saw_good_field = True
+        return saw_good_field and not saw_bad_dict
+
+    return collect(tree, is_item, delim=delim)
+
+def collect_scalars(tree, delim='/'):
+    def is_item(x):
+        return not isinstance(x, dict)
+
+    return collect(tree, is_item, delim=delim)
+
+
+def collect(tree, is_item, delim='/'):
+    result = {}
+
+    def go(k, v):
+        if is_item(v):
+            result[k] = v
+        else:
+            if not isinstance(v, dict):
+                return
+
+            for k2, v2 in v.items():
+                go('%s%s%s' % (k, delim, k2), v2)
+
+    for k, v in tree.items():
+        go(k, v)
+
+    return result

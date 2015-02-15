@@ -2,69 +2,25 @@ from collections import defaultdict
 import sys
 
 from process_tiles import tree
-from process_tiles.util import combine_prefix
+from process_tiles.util import combine_prefix, apply_prefix, assign_ids
 
 SIDES = ('top', 'bottom', 'front', 'back')
 
 def parse_raw(yaml):
     t = tree.expand_tree(yaml, '/.')
-    tree.tag_leaf_dicts(t)
-    tree.apply_defaults(t, combine={'prefix': combine_prefix})
-    blocks = tree.flatten_tree(t)
+    tree.apply_defaults(t)
+    tree.propagate(t, combine={'prefix': combine_prefix, 'shape': tree.default_merge})
+    blocks = tree.collect_dicts(t,
+            fields=('shape',))
 
-    assign_ids(blocks)
+    assign_ids(blocks, 'blocks')
     parse_tile_refs(blocks)
     for k,v in blocks.items():
         v['name'] = k
 
     return blocks
 
-def assign_ids(blocks):
-    sorted_names = sorted(blocks.keys())
-    sorted_blocks = [blocks[n] for n in sorted_names]
-
-    # Assign IDs to blocks with 'id_base' but no 'id'.
-    base_counters = defaultdict(lambda: 0)
-    for block in sorted_blocks:
-        if 'id' in block or 'id_base' not in block:
-            continue
-        id_base = block['id_base']
-        block['id'] = id_base + base_counters[id_base]
-        base_counters[id_base] += 1
-
-    # Assign ids to remaining blocks.
-    used_ids = set(block.get('id') for block in sorted_blocks)
-    used_ids.remove(None)
-
-    next_id = 0
-    for block in sorted_blocks:
-        if 'id' in block:
-           continue
-
-        while next_id in used_ids:
-           next_id += 1
-        block['id'] = next_id
-        used_ids.add(next_id)
-
-    # Check for duplicate ids.
-    seen_ids = defaultdict(set)
-    for name in sorted_names:
-        seen_ids[blocks[name]['id']].add(name)
-    for k in sorted(seen_ids.keys()):
-        vs = seen_ids[k]
-        if len(vs) > 1:
-            raise ValueError('blocks %s share id %r' % (sorted(vs), k))
-
 def parse_tile_refs(blocks):
-    def handle_part(part, prefix):
-        part = part.strip()
-        if part.startswith('/'):
-            return part[1:]
-        elif prefix is None:
-            return part
-        else:
-            return prefix + '/' + part
-
     for block in blocks.values():
         prefix = block.get('prefix')
         for side in SIDES:
@@ -72,7 +28,7 @@ def parse_tile_refs(blocks):
                 continue
 
             parts = block[side].split('+')
-            block[side] = tuple(handle_part(p, prefix) for p in parts)
+            block[side] = tuple(apply_prefix(prefix, p.strip()) for p in parts)
 
 
 SHAPE_ID = {
