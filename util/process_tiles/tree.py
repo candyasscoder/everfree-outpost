@@ -80,10 +80,10 @@ def propagate(tree, combine={}):
                 continue
 
             for k, c in combine.items():
-                if k not in dct:
+                if k not in dct and k not in subdct:
                     continue
 
-                parent_val = dct[k]
+                parent_val = dct.get(k, MISSING)
                 child_val = subdct.get(k, MISSING)
                 maybe_set(subdct, k, c(parent_val, child_val))
 

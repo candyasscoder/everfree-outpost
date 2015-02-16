@@ -3,7 +3,12 @@ from collections import defaultdict
 import process_tiles.tree as tree
 
 def combine_prefix(parent, child):
-    if child is None or child is tree.MISSING:
+    if parent is tree.MISSING:
+        parent = None
+    if child is tree.MISSING:
+        child = None
+
+    if child is None:
         return parent
     elif child.startswith('/'):
         return child[1:]

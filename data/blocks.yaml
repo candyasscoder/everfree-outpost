@@ -77,3 +77,50 @@ chest:
     shape: solid
     bottom: /grass/center/v0
     front: chest
+
+house_wall:
+    prefix: house_wall
+    shape: solid
+
+    n.prefix: n
+    n/z0.bottom: /grass/center/v0 + /wood_floor/edge/n
+    n: &house-wall-template
+        z0.front: "02"
+        z1.front: "01"
+        z1.top:   "00"
+
+    s.prefix: s
+    s/z0.bottom: /grass/center/v0 + /wood_floor/edge/s
+    s: *house-wall-template
+
+    w/z0.bottom: /grass/center/v0 + /wood_floor/edge/w
+    w/z0.front: s_inner/01
+    w/z1.front: s_inner/00
+    w/z1.top:   w/00
+
+    e/z0.bottom: /grass/center/v0 + /wood_floor/edge/e
+    e/z0.front: s_inner/01
+    e/z1.front: s_inner/00
+    e/z1.top:   e/00
+
+    nw/z0.bottom: /grass/center/v0 + /wood_floor/corner/outer/nw
+    nw/z0.front: nw/02 + s_inner/01
+    nw/z1.front: nw/01 + s_inner/00
+    nw/z1.top:   nw/00
+
+    ne/z0.bottom: /grass/center/v0 + /wood_floor/corner/outer/ne
+    ne/z0.front: ne/02 + s_inner/01
+    ne/z1.front: ne/01 + s_inner/00
+    ne/z1.top:   ne/00
+
+    sw.prefix: sw
+    sw/z0.bottom: /grass/center/v0 + /wood_floor/corner/outer/sw
+    sw: *house-wall-template
+
+    se.prefix: se
+    se/z0.bottom: /grass/center/v0 + /wood_floor/corner/outer/se
+    se: *house-wall-template
+
+house_floor:
+    shape: floor
+    bottom: /wood_floor/center/v0

@@ -19,3 +19,34 @@ anvil:
 chest:
     tile: /chest
     ui_name: Chest
+
+house_wall:
+    prefix: /house_wall
+
+    n.ui_name: House Wall (N)
+    n.tile: n/00
+
+    s.ui_name: House Wall (S)
+    s.tile: s/00
+
+    w.ui_name: House Wall (W)
+    w.tile: w/00
+
+    e.ui_name: House Wall (E)
+    e.tile: e/00
+
+    nw.ui_name: House Wall (NW)
+    nw.tile: nw/00
+
+    ne.ui_name: House Wall (NE)
+    ne.tile: ne/00
+
+    sw.ui_name: House Wall (SW)
+    sw.tile: sw/00
+
+    se.ui_name: House Wall (SE)
+    se.tile: se/00
+
+house_floor:
+    ui_name: House Floor
+    tile: /wood_floor/center/v0

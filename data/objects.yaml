@@ -26,3 +26,36 @@ anvil:
 
 chest:
     z0: [chest]
+
+
+house_wall:
+    prefix: house_wall
+
+    n.prefix: n
+    n: &house-wall-template
+        z0: [z0]
+        z1: [z1]
+
+    s.prefix: s
+    s: *house-wall-template
+
+    w.prefix: w
+    w: *house-wall-template
+
+    e.prefix: e
+    e: *house-wall-template
+
+    nw.prefix: nw
+    nw: *house-wall-template
+
+    ne.prefix: ne
+    ne: *house-wall-template
+
+    sw.prefix: sw
+    sw: *house-wall-template
+
+    se.prefix: se
+    se: *house-wall-template
+
+house_floor:
+    z0: [house_floor]

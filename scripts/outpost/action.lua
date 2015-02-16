@@ -40,6 +40,7 @@ end
 local item_use_handlers = {}
 function action_handlers.use_item(c, arg)
     local item_type = c:world():item_id_to_name(arg)
+    print('use item', arg, item_type, item_use_handlers[item_type])
     if item_type == nil then
         return
     end

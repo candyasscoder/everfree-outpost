@@ -276,6 +276,26 @@ lpc-trees-unscaled.xcf: *rescaled-trees
 lpc-trees-scaled.png: *rescaled-trees
 
 
+lpc-house.png: &house-walls
+    title: LPC House Walls
+    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution:
+        Lanea Zimmerman's house interior and exterior tiles, edited together to
+        form a solid 64px-tall wall.
+    derived-from: "lpc-base-tiles/*.png"
+lpc-house.xcf: *house-walls
+
+lpc-wood-floor.png: &wood-floor
+    title: LPC Wood Floor
+    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution:
+        Lanea Zimmerman's wood floor tile, rearranged to match the standard
+        terrain layout.
+    derived-from: "lpc-base-tiles/inside.png"
+lpc-wood-floor.xcf: *wood-floor
+
 "daneeklu_farming_tilesets/*.png":
     title: "[LPC] Farming tilesets, magic animations and UI elements"
     author: Daniel Eddeland (daneeklu)
@@ -286,3 +306,11 @@ lpc-trees-scaled.png: *rescaled-trees
         opengameart.org as well (preferably to the submission for this art
         package) if you use the art. 
 
+
+"AngbandTk/*.gif":
+    title: Roguelike Tiles (large collection)
+    author: David E. Gervais
+    license: CC-BY 3.0
+    url: http://opengameart.org/content/roguelike-tiles-large-collection
+    attribution:
+        Author's website: http://pousse.rapiere.free.fr/tome/

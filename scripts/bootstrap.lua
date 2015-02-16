@@ -107,8 +107,27 @@ local function place_structure(name)
     end
 end
 
+local function take_structure(name)
+    return function(client, s)
+        local inv = client:pawn():inventory('main')
+
+        if inv:count(name) < 255 then
+            s:destroy()
+            inv:update(name, 1)
+        end
+    end
+end
+
 action.use_item.anvil = place_structure('anvil')
 action.use_item.chest = place_structure('chest')
 
+for _, side in ipairs({'n', 's', 'w', 'e', 'nw', 'ne', 'sw', 'se'}) do
+    name = 'house_wall/' .. side
+    action.use_item[name] = place_structure(name)
+    action.use[name] = take_structure(name)
+end
+
+action.use_item['house_floor'] = place_structure('house_floor')
+action.use['house_floor'] = take_structure('house_floor')
 
 print('\n\nup and running')

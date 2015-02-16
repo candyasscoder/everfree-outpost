@@ -200,7 +200,9 @@ ItemList.prototype._scrollToSelection = function() {
     var target_top = parent_bounds.top + parent_bounds.height / 2 - item_bounds.height / 2;
     // Adjust scrollTop to move 'item_bounds.top' to 'target_top'.
     var delta = target_top - item_bounds.top;
-    this.container.scrollTop += delta;
+    // Use -= instead of += because INCREASING scrollTop causes item_bounds.top
+    // to DECREASE.
+    this.container.scrollTop -= delta;
 };
 
 ItemList.prototype.select = function(id) {
