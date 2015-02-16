@@ -26,7 +26,8 @@ use std::thread::Thread;
 use std::u8;
 use serialize::json;
 
-use physics::v3::{Vn, V3, V2};
+use physics::v3::{Vn, V3, V2, scalar, Region};
+use physics::{CHUNK_SIZE, TILE_SIZE};
 
 use timer::WakeQueue;
 use msg::Motion as WireMotion;
@@ -37,7 +38,7 @@ use state::StateChange::ChunkUpdate;
 use data::Data;
 use world::object::{ObjectRef, ObjectRefBase, ClientRef, InventoryRefMut};
 use storage::Storage;
-use view::ViewState;
+use view::{Vision, VisionCallbacks};
 use util::Cursor;
 use util::{multimap_insert, multimap_remove};
 
@@ -111,6 +112,7 @@ struct Server<'a> {
     resps: Sender<(WireId, Response)>,
     state: state::State<'a>,
     wake_queue: WakeQueue<WakeReason>,
+    vision: Vision,
 
     wire_id_map: HashMap<WireId, ClientId>,
     client_info: HashMap<ClientId, ClientInfo>,
@@ -119,8 +121,18 @@ struct Server<'a> {
 
 struct ClientInfo {
     wire_id: WireId,
-    view_state: ViewState,
     observed_inventories: HashSet<InventoryId>,
+}
+
+macro_rules! mk_callbacks {
+    ($self_:expr, $now:expr) => {
+        &mut MessageCallbacks {
+            state: &$self_.state,
+            wire: &$self_.resps,
+            client_info: &$self_.client_info,
+            now: $now,
+        }
+    };
 }
 
 impl<'a> Server<'a> {
@@ -130,6 +142,7 @@ impl<'a> Server<'a> {
             resps: resps,
             state: state,
             wake_queue: WakeQueue::new(),
+            vision: Vision::new(),
 
             wire_id_map: HashMap::new(),
             client_info: HashMap::new(),
@@ -197,9 +210,9 @@ impl<'a> Server<'a> {
                 self.wire_id_map.insert(wire_id, cid);
                 self.client_info.insert(cid, ClientInfo {
                     wire_id: wire_id,
-                    view_state: ViewState::new(),
                     observed_inventories: HashSet::new(),
                 });
+                self.vision.add_client(cid, Region::empty(), &mut DummyCallbacks);
                 self.reset_viewport(now, cid, |s| {
                     if let Some(eid) = eid {
                         s.state.update_physics(now, eid, true).unwrap();
@@ -292,7 +305,8 @@ impl<'a> Server<'a> {
 
             Request::RemoveClient => {
                 if let Some(client_id) = self.wire_to_client(wire_id) {
-                    let region = self.client_info[client_id].view_state.region();
+                    // TODO: error handling
+                    let region = self.vision.client_view_area(client_id).unwrap();
                     for p in region.points() {
                         self.state.unload_chunk(p.x, p.y);
                     }
@@ -303,6 +317,7 @@ impl<'a> Server<'a> {
                     for &iid in info.observed_inventories.iter() {
                         multimap_remove(&mut self.inventory_observers, iid, wire_id);
                     }
+                    self.vision.remove_client(client_id, &mut DummyCallbacks);
                 }
                 self.resps.send((wire_id, Response::ClientRemoved)).unwrap();
             },
@@ -353,13 +368,38 @@ impl<'a> Server<'a> {
     fn process_journal(&mut self, now: Time) {
         state::State::process_journal(Cursor::new(self, |s| &mut s.state), |st, u| {
             let mut s = st.up();
+            let s = &mut **s;
             match u {
+                world::Update::TerrainChunkCreated(pos) =>
+                    s.vision.add_chunk(pos, mk_callbacks!(s, now)),
+                world::Update::TerrainChunkDestroyed(pos) =>
+                    s.vision.remove_chunk(pos, mk_callbacks!(s, now)),
+                world::Update::ChunkInvalidate(pos) =>
+                    s.vision.update_chunk(pos, mk_callbacks!(s, now)),
+
+                world::Update::EntityCreated(eid) => {
+                    // TODO: error handling
+                    let area = entity_area(s.state.world().entity(eid));
+                    s.vision.add_entity(eid, area, mk_callbacks!(s, now))
+                },
+                world::Update::EntityDestroyed(eid) => {
+                    s.vision.remove_entity(eid, mk_callbacks!(s, now));
+                },
+                world::Update::EntityMotionChange(eid) => {
+                    // TODO: error handling
+                    let entity = s.state.world().entity(eid);
+                    let area = entity_area(entity);
+                    s.vision.set_entity_area(eid, area, mk_callbacks!(s, now));
+
+                    if entity.motion().start_pos != entity.motion().end_pos {
+                        s.wake_queue.push(entity.motion().end_time(),
+                                          WakeReason::PhysicsUpdate(eid));
+                    }
+                },
+
                 // TODO: Client, Inventory lifecycle events
                 world::Update::ClientPawnChange(cid) => s.reset_viewport(now, cid, |_| {}),
-                world::Update::ChunkInvalidate(pos) => s.update_chunk(now, pos),
-                world::Update::EntityMotionChange(eid) => s.update_entity_motion(now, eid),
                 world::Update::InventoryUpdate(iid, item_id, old_count, new_count) => {
-                    let s = &mut **s;
                     if let Some(wire_ids) = s.inventory_observers.get(&iid) {
                         for &wire_id in wire_ids.iter() {
                             let resp = Response::InventoryUpdate(
@@ -425,73 +465,76 @@ impl<'a> Server<'a> {
         self.resps.send((wire_id, resp)).unwrap();
     }
 
-    fn reset_viewport<F>(&mut self,
-                         now: Time,
-                         cid: ClientId,
-                         callback: F)
-            where F: FnOnce(&mut Server) {
-        let (old_region, new_region) = {
-            let client = match self.state.world().get_client(cid) {
-                Some(x) => x,
-                None => return,
-            };
-
-            let info = match self.client_info.get_mut(&cid) {
-                Some(x) => x,
-                None => {
-                    warn!("found client {:?} in world, but not in client_info", cid);
-                    return;
-                },
-            };
-
-            let old_region = info.view_state.region();
-
-            match client.pawn().map(|p| p.pos(now)) {
-                Some(pos) => { info.view_state.update(pos); },
-                None => { info.view_state.clear(); },
-            }
-            let new_region = info.view_state.region();
-
-            (old_region, new_region)
+    // `callback` runs just after all chunks have been loaded.
+    fn reset_viewport<CB>(&mut self,
+                          now: Time,
+                          cid: ClientId,
+                          callback: CB)
+            where CB: FnOnce(&mut Server) {
+        let old_region = match self.vision.client_view_area(cid) {
+            Some(x) => x,
+            None => return,
         };
 
         for p in old_region.points() {
             self.state.unload_chunk(p.x, p.y);
         }
 
+        self.vision.set_client_view(cid, Region::empty(), &mut DummyCallbacks);
+
+
+        let new_region = {
+            // TODO: warn on None? - may indicate inconsistency between World and Vision
+            let client = unwrap_or!(self.state.world().get_client(cid));
+
+            // TODO: make sure return is the right thing to do on None
+            let pawn = unwrap_or!(client.pawn());
+
+            view::vision_region(pawn.pos(now))
+        };
+
         for p in new_region.points() {
             self.state.load_chunk(p.x, p.y);
         }
 
-
         callback(self);
+
+        self.process_journal(now);
+
+        let mut buffers = ClientInitBuffers::new(cid);
+        self.vision.set_client_view(cid, new_region, &mut buffers);
+        let buffers = buffers;
 
 
         let client = self.state.world().client(cid);
-        // TODO: filter to only include entities within the viewport
-        let entities = self.state.world().entities().collect::<Vec<_>>();
 
+        info!("sending {} + {}", buffers.chunks.len(), buffers.entities.len());
         // Send an Init message to reset the client.
         let info = msg::InitData {
-            entity_id: client.pawn_id().unwrap_or(EntityId(-1)),
+            entity_id: client.pawn_id()
+                             .expect("pawn was checked to be Some above"),
             // TODO: send pawn position, if available
             camera_pos: (0, 0),
-            chunks: new_region.volume() as u8,
+            chunks: buffers.chunks.len() as u8,
             // TODO: probably want to make this field bigger than u8
-            entities: entities.len() as u8,
+            entities: buffers.entities.len() as u8,
         };
+
         self.send(&client, Response::Init(info));
 
+        // Now send the visible chunks and entities.
         let camera_pos = client.camera_pos(now);
         let offset = chunk_offset(camera_pos.extend(0), client.chunk_offset());
-        for p in new_region.points() {
-            let (x, y) = (p.x, p.y);
-            let idx = chunk_to_idx(x, y, offset);
-            let data = self.state.get_terrain_rle16(x, y);
+
+        for p in buffers.chunks.into_iter() {
+            let idx = chunk_to_idx(p.x, p.y, offset);
+            let data = self.state.get_terrain_rle16(p.x, p.y);
             self.send(&client, Response::TerrainChunk(idx as u16, data));
         }
 
-        for entity in entities.iter() {
+        for eid in buffers.entities.into_iter() {
+            let entity = self.state.world().get_entity(eid)
+                             .expect("inconsistency between World and Vision");
             let motion = entity_motion(now, entity.motion(), client.chunk_offset());
             let anim = entity.anim();
             self.send(&client, Response::EntityUpdate(entity.id(), motion, anim));
@@ -501,77 +544,30 @@ impl<'a> Server<'a> {
     fn update_viewport(&mut self,
                        now: Time,
                        cid: ClientId) {
-        let (wire_id, result, offset) = {
-            let client = match self.state.world().get_client(cid) {
-                Some(x) => x,
-                None => return,
-            };
-            // TODO: bad error handling
-            let pos = client.pawn().unwrap().pos(now);
-
-            let info = &mut self.client_info[client.id()];
-            (info.wire_id,
-             // TODO: hardcoded constant based on entity size
-             info.view_state.update(pos + V3::new(16, 16, 0)),
-             chunk_offset(pos, client.chunk_offset()))
-        };
-
-        if let Some((old_region, new_region)) = result {
-            // TODO: if the two regions don't overlap at all, send an "init" message so the player
-            // gets a loading screen
-            for p in old_region.points().filter(|&p| !new_region.contains(p)) {
-                let (x, y) = (p.x, p.y);
-                self.state.unload_chunk(x, y);
-                let idx = chunk_to_idx(x, y, offset);
-                self.send_wire(wire_id, Response::UnloadChunk(idx as u16));
-            }
-
-            for p in new_region.points().filter(|&p| !old_region.contains(p)) {
-                let (x, y) = (p.x, p.y);
-                self.state.load_chunk(x, y);
-                let idx = chunk_to_idx(x, y, offset);
-                let data = self.state.get_terrain_rle16(x, y);
-                self.send_wire(wire_id, Response::TerrainChunk(idx as u16, data));
-            }
-        }
-    }
-
-    fn update_chunk(&mut self,
-                    now: Time,
-                    chunk_pos: V2) {
-        // TODO: keep an index of which clients are viewing which chunks
-        for c in self.state.world().clients() {
-            let cx = chunk_pos.x;
-            let cy = chunk_pos.y;
-            if !self.client_info[c.id()].view_state.region().contains(chunk_pos) {
-                continue;
-            }
-
-            let offset = chunk_offset(c.camera_pos(now).extend(0), c.chunk_offset());
-            let idx = chunk_to_idx(cx, cy, offset);
-            let data = self.state.get_terrain_rle16(cx, cy);
-            self.send(&c, Response::TerrainChunk(idx as u16, data));
-        }
-    }
-
-    fn update_entity_motion(&mut self,
-                            now: Time,
-                            eid: EntityId) {
-        // TODO: send updates only to clients that might actually see them
-        let entity = match self.state.world().get_entity(eid) {
-            Some(e) => e,
+        let old_region = match self.vision.client_view_area(cid) {
+            Some(x) => x,
             None => return,
         };
-        let motion = entity.motion();
 
-        for client in self.state.world().clients() {
-            let wire_motion = entity_motion(now, motion, client.chunk_offset());
-            self.send(&client, Response::EntityUpdate(eid, wire_motion, entity.anim()));
+        let new_region = {
+            // TODO: warn on None? - may indicate inconsistency between World and Vision
+            let client = unwrap_or!(self.state.world().get_client(cid));
+
+            // TODO: make sure return is the right thing to do on None
+            let pawn = unwrap_or!(client.pawn());
+
+            view::vision_region(pawn.pos(now))
+        };
+
+        for p in old_region.points().filter(|&p| !new_region.contains(p)) {
+            self.state.unload_chunk(p.x, p.y);
         }
 
-        if motion.start_pos != motion.end_pos {
-            self.wake_queue.push(motion.end_time(), WakeReason::PhysicsUpdate(eid));
+        for p in new_region.points().filter(|&p| !old_region.contains(p)) {
+            self.state.load_chunk(p.x, p.y);
         }
+
+        self.vision.set_client_view(cid, new_region, mk_callbacks!(self, now));
     }
 
     fn server_msg(&self, wire_id: WireId, msg: &str) {
@@ -616,4 +612,117 @@ fn chunk_offset(pos: V3, extra_offset: (u8, u8)) -> V3 {
     let world_base = state::base_chunk(pos);
     let local_base = state::offset_base_chunk(world_base, extra_offset);
     local_base - world_base
+}
+
+
+fn entity_area(e: ObjectRef<world::Entity>) -> util::SmallVec<V2> {
+    let motion = e.motion();
+    let mut result = util::SmallVec::new();
+
+    let scale = scalar(CHUNK_SIZE * TILE_SIZE);
+    let start_chunk = motion.start_pos.reduce().div_floor(scale);
+    let end_chunk = motion.end_pos.reduce().div_floor(scale);
+
+    result.push(start_chunk);
+    if end_chunk != start_chunk {
+        result.push(end_chunk);
+    }
+    result
+}
+
+fn entity_appearance(_: &world::Entity) -> u32 {
+    0
+}
+
+
+struct DummyCallbacks;
+
+impl VisionCallbacks for DummyCallbacks {
+}
+
+struct MessageCallbacks<'a, 'd: 'a> {
+    state: &'a state::State<'d>,
+    wire: &'a Sender<(WireId, Response)>,
+    client_info: &'a HashMap<ClientId, ClientInfo>,
+    now: Time,
+}
+
+impl<'a, 'd> VisionCallbacks for MessageCallbacks<'a, 'd> {
+    fn chunk_update(&mut self, cid: ClientId, pos: V2) {
+        let c = unwrap_or!(self.state.world().get_client(cid));
+
+        let wire_id = self.client_info[cid].wire_id;
+
+        let offset = chunk_offset(c.camera_pos(self.now).extend(0), c.chunk_offset());
+        let idx = chunk_to_idx(pos.x, pos.y, offset);
+        let data = self.state.get_terrain_rle16(pos.x, pos.y);
+        self.wire.send((wire_id, Response::TerrainChunk(idx as u16, data))).unwrap();
+    }
+
+    fn entity_appear(&mut self, cid: ClientId, eid: EntityId) {
+        let info = unwrap_or!(self.client_info.get(&cid));
+        let entity = unwrap_or!(self.state.world().get_entity(eid));
+
+        let appearance = entity_appearance(&*entity);
+
+        self.wire.send((info.wire_id, Response::EntityAppear(eid, appearance))).unwrap();
+    }
+
+    fn entity_disappear(&mut self, cid: ClientId, eid: EntityId) {
+        let info = unwrap_or!(self.client_info.get(&cid));
+        let client = unwrap_or!(self.state.world().get_client(cid));
+        let entity = unwrap_or!(self.state.world().get_entity(eid));
+
+        let motion = entity.motion();
+        // TODO: we don't actually need the whole wire_motion here, just the local start_time
+        let wire_motion = entity_motion(self.now, motion, client.chunk_offset());
+        self.wire.send((info.wire_id, Response::EntityGone(eid, wire_motion.start_time))).unwrap();
+    }
+
+    fn entity_update(&mut self, cid: ClientId, eid: EntityId) {
+        let info = unwrap_or!(self.client_info.get(&cid));
+        let client = unwrap_or!(self.state.world().get_client(cid));
+        let entity = unwrap_or!(self.state.world().get_entity(eid));
+
+        let motion = entity.motion();
+        let wire_motion = entity_motion(self.now, motion, client.chunk_offset());
+        self.wire.send((info.wire_id, Response::EntityUpdate(eid, wire_motion, entity.anim())))
+            .unwrap();
+    }
+}
+
+struct ClientInitBuffers {
+    expect_cid: ClientId,
+    chunks: Vec<V2>,
+    entities: Vec<EntityId>,
+}
+
+impl VisionCallbacks for ClientInitBuffers {
+    fn chunk_update(&mut self, cid: ClientId, pos: V2) {
+        assert!(cid == self.expect_cid);
+        self.chunks.push(pos);
+    }
+
+    fn chunk_disappear(&mut self, cid: ClientId, pos: V2) {
+        panic!("chunks shouldn't diasppear during client init (cid={:?}, pos={:?})", cid, pos);
+    }
+
+    fn entity_update(&mut self, cid: ClientId, eid: EntityId) {
+        assert!(cid == self.expect_cid);
+        self.entities.push(eid);
+    }
+
+    fn entity_disappear(&mut self, cid: ClientId, eid: EntityId) {
+        panic!("entities shouldn't diasppear during client init (cid={:?}, eid={:?})", cid, eid);
+    }
+}
+
+impl ClientInitBuffers {
+    fn new(cid: ClientId) -> ClientInitBuffers {
+        ClientInitBuffers {
+            expect_cid: cid,
+            chunks: Vec::new(),
+            entities: Vec::new(),
+        }
+    }
 }

@@ -232,7 +232,8 @@ Connection.prototype._handleMessage = function(evt) {
         case OP_ENTITY_GONE:
             if (this.onEntityGone != null) {
                 var entity_id = get32();
-                this.onEntityGone(entity_id);
+                var time = get16();
+                this.onEntityGone(entity_id, time);
             }
             break;
 

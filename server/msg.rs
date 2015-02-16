@@ -166,7 +166,7 @@ pub enum Response {
     OpenCrafting(TemplateId, StructureId, InventoryId),
     ChatUpdate(String),
     EntityAppear(EntityId, u32),
-    EntityGone(EntityId),
+    EntityGone(EntityId, LocalTime),
 
     ClientRemoved,
 }
@@ -198,8 +198,8 @@ impl Response {
                 ww.write_msg(id, (op::ChatUpdate, &*msg)),
             EntityAppear(entity_id, appearance) =>
                 ww.write_msg(id, (op::EntityAppear, entity_id, appearance)),
-            EntityGone(entity_id) =>
-                ww.write_msg(id, (op::EntityGone, entity_id)),
+            EntityGone(entity_id, time) =>
+                ww.write_msg(id, (op::EntityGone, entity_id, time)),
             ClientRemoved =>
                 ww.write_msg(id, (op::ClientRemoved)),
         });

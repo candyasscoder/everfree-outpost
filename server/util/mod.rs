@@ -6,6 +6,7 @@ pub use self::bytes::Bytes;
 pub use self::cursor::Cursor;
 pub use self::id_map::IdMap;
 pub use self::refcount::RefcountedMap;
+pub use self::small_vec::SmallVec;
 pub use self::stable_id_map::{StableIdMap, IntrusiveStableId};
 pub use self::str_error::{StrError, StrResult};
 
@@ -54,4 +55,38 @@ macro_rules! warn_on_err {
                             ::std::error::Error::description(&e)),
         }
     };
+}
+
+macro_rules! unwrap_or {
+    ($e:expr, $or:expr) => {
+        match $e {
+            Some(x) => x,
+            None => $or,
+        }
+    };
+    ($e:expr) => { unwrap_or!($e, return) };
+}
+
+
+pub struct OptionIter<I>(Option<I>);
+
+impl<I: Iterator> Iterator for OptionIter<I> {
+    type Item = <I as Iterator>::Item;
+
+    fn next(&mut self) -> Option<<I as Iterator>::Item> {
+        match self.0 {
+            Some(ref mut iter) => iter.next(),
+            None => None,
+        }
+    }
+}
+
+pub trait OptionIterExt<I> {
+    fn unwrap_iter(self) -> OptionIter<I>;
+}
+
+impl<I: Iterator> OptionIterExt<I> for Option<I> {
+    fn unwrap_iter(self) -> OptionIter<I> {
+        OptionIter(self)
+    }
 }
