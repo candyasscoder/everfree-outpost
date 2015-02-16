@@ -88,7 +88,10 @@ pub struct ObjectRef<'a, 'd: 'a, O: Object> {
     pub id: <O as Object>::Id,
     pub obj: &'a O,
 }
-impl<'a, 'd, O: Object> Copy for ObjectRef<'a, 'd, O> { }
+// TODO: should really be able to just derive Copy, but it tries O: Copy instead of O::Id: Copy
+// TODO: turns out you can write this copy impl, but actually using it zeroes out the original
+// (memory corruption, null &s)
+//impl<'a, 'd, O: Object> Copy for ObjectRef<'a, 'd, O> { }
 
 pub struct ObjectRefMut<'a, 'd: 'a, O: Object> {
     pub world: &'a mut World<'d>,

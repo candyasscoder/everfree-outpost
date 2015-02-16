@@ -212,14 +212,25 @@ impl<'a> Server<'a> {
                     wire_id: wire_id,
                     observed_inventories: HashSet::new(),
                 });
-                self.vision.add_client(cid, Region::empty(), &mut DummyCallbacks);
-                self.reset_viewport(now, cid, |s| {
-                    if let Some(eid) = eid {
-                        s.state.update_physics(now, eid, true).unwrap();
-                    }
-                });
-                self.wake_queue.push(now + 1000, WakeReason::CheckView(cid));
 
+                let view_region = if let Some(eid) = eid {
+                    let pawn = self.state.world().entity(eid);
+                    view::vision_region(pawn.pos(now))
+                } else {
+                    Region::empty()
+                };
+
+                for p in view_region.points() {
+                    self.state.load_chunk(p.x, p.y);
+                }
+
+                if let Some(eid) = eid {
+                    self.state.update_physics(now, eid, true).unwrap();
+                }
+
+                self.vision.add_client(cid, view_region, mk_callbacks!(self, now));
+
+                self.wake_queue.push(now + 1000, WakeReason::CheckView(cid));
                 self.server_msg(wire_id, &*format!("logged in as {}", name));
             },
 
@@ -366,20 +377,26 @@ impl<'a> Server<'a> {
     }
 
     fn process_journal(&mut self, now: Time) {
+        let mut invalidated_chunks = HashSet::new();
+
         state::State::process_journal(Cursor::new(self, |s| &mut s.state), |st, u| {
             let mut s = st.up();
             let s = &mut **s;
             match u {
-                world::Update::TerrainChunkCreated(pos) =>
-                    s.vision.add_chunk(pos, mk_callbacks!(s, now)),
+                world::Update::TerrainChunkCreated(pos) => {
+                    s.vision.add_chunk(pos, &mut DummyCallbacks);
+                    invalidated_chunks.insert(pos);
+                },
                 world::Update::TerrainChunkDestroyed(pos) =>
                     s.vision.remove_chunk(pos, mk_callbacks!(s, now)),
-                world::Update::ChunkInvalidate(pos) =>
-                    s.vision.update_chunk(pos, mk_callbacks!(s, now)),
+                world::Update::ChunkInvalidate(pos) => {
+                    // Deduplicate ChunkInvalidate updates due to spam on chunk load.
+                    invalidated_chunks.insert(pos);
+                },
 
                 world::Update::EntityCreated(eid) => {
                     // TODO: error handling
-                    let area = entity_area(s.state.world().entity(eid));
+                    let area = entity_area(&s.state.world().entity(eid));
                     s.vision.add_entity(eid, area, mk_callbacks!(s, now))
                 },
                 world::Update::EntityDestroyed(eid) => {
@@ -388,7 +405,7 @@ impl<'a> Server<'a> {
                 world::Update::EntityMotionChange(eid) => {
                     // TODO: error handling
                     let entity = s.state.world().entity(eid);
-                    let area = entity_area(entity);
+                    let area = entity_area(&entity);
                     s.vision.set_entity_area(eid, area, mk_callbacks!(s, now));
 
                     if entity.motion().start_pos != entity.motion().end_pos {
@@ -398,7 +415,22 @@ impl<'a> Server<'a> {
                 },
 
                 // TODO: Client, Inventory lifecycle events
-                world::Update::ClientPawnChange(cid) => s.reset_viewport(now, cid, |_| {}),
+                world::Update::ClientCreated(cid) |
+                world::Update::ClientPawnChange(cid) => {
+                    {
+                        let client = s.state.world().client(cid);
+
+                        let info = msg::InitData {
+                            entity_id: client.pawn_id().unwrap_or(EntityId(-1)),
+                            camera_pos: (0, 0),
+                            chunks: 0,
+                            entities: 0,
+                        };
+                        s.send(&client, Response::Init(info));
+                    }
+
+                    s.update_viewport(now, cid);
+                },
                 world::Update::InventoryUpdate(iid, item_id, old_count, new_count) => {
                     if let Some(wire_ids) = s.inventory_observers.get(&iid) {
                         for &wire_id in wire_ids.iter() {
@@ -439,6 +471,10 @@ impl<'a> Server<'a> {
                 _ => {},
             }
         });
+
+        for &pos in invalidated_chunks.iter() {
+            self.vision.update_chunk(pos, mk_callbacks!(self, now));
+        }
     }
 
     fn subscribe_inventory(&mut self, cid: ClientId, iid: InventoryId) {
@@ -463,82 +499,6 @@ impl<'a> Server<'a> {
 
     fn send_wire(&self, wire_id: WireId, resp: Response) {
         self.resps.send((wire_id, resp)).unwrap();
-    }
-
-    // `callback` runs just after all chunks have been loaded.
-    fn reset_viewport<CB>(&mut self,
-                          now: Time,
-                          cid: ClientId,
-                          callback: CB)
-            where CB: FnOnce(&mut Server) {
-        let old_region = match self.vision.client_view_area(cid) {
-            Some(x) => x,
-            None => return,
-        };
-
-        for p in old_region.points() {
-            self.state.unload_chunk(p.x, p.y);
-        }
-
-        self.vision.set_client_view(cid, Region::empty(), &mut DummyCallbacks);
-
-
-        let new_region = {
-            // TODO: warn on None? - may indicate inconsistency between World and Vision
-            let client = unwrap_or!(self.state.world().get_client(cid));
-
-            // TODO: make sure return is the right thing to do on None
-            let pawn = unwrap_or!(client.pawn());
-
-            view::vision_region(pawn.pos(now))
-        };
-
-        for p in new_region.points() {
-            self.state.load_chunk(p.x, p.y);
-        }
-
-        callback(self);
-
-        self.process_journal(now);
-
-        let mut buffers = ClientInitBuffers::new(cid);
-        self.vision.set_client_view(cid, new_region, &mut buffers);
-        let buffers = buffers;
-
-
-        let client = self.state.world().client(cid);
-
-        info!("sending {} + {}", buffers.chunks.len(), buffers.entities.len());
-        // Send an Init message to reset the client.
-        let info = msg::InitData {
-            entity_id: client.pawn_id()
-                             .expect("pawn was checked to be Some above"),
-            // TODO: send pawn position, if available
-            camera_pos: (0, 0),
-            chunks: buffers.chunks.len() as u8,
-            // TODO: probably want to make this field bigger than u8
-            entities: buffers.entities.len() as u8,
-        };
-
-        self.send(&client, Response::Init(info));
-
-        // Now send the visible chunks and entities.
-        let camera_pos = client.camera_pos(now);
-        let offset = chunk_offset(camera_pos.extend(0), client.chunk_offset());
-
-        for p in buffers.chunks.into_iter() {
-            let idx = chunk_to_idx(p.x, p.y, offset);
-            let data = self.state.get_terrain_rle16(p.x, p.y);
-            self.send(&client, Response::TerrainChunk(idx as u16, data));
-        }
-
-        for eid in buffers.entities.into_iter() {
-            let entity = self.state.world().get_entity(eid)
-                             .expect("inconsistency between World and Vision");
-            let motion = entity_motion(now, entity.motion(), client.chunk_offset());
-            let anim = entity.anim();
-            self.send(&client, Response::EntityUpdate(entity.id(), motion, anim));
-        }
     }
 
     fn update_viewport(&mut self,
@@ -615,7 +575,10 @@ fn chunk_offset(pos: V3, extra_offset: (u8, u8)) -> V3 {
 }
 
 
-fn entity_area(e: ObjectRef<world::Entity>) -> util::SmallVec<V2> {
+// TODO: remove the & once copying ObjectRefs doesn't cause memory corruption (rustc dcaeb6aa2
+// 2015-01-18 has this bug)
+// NB: I used this same workaround in a bunch of other places and I don't remember where
+fn entity_area(e: &ObjectRef<world::Entity>) -> util::SmallVec<V2> {
     let motion = e.motion();
     let mut result = util::SmallVec::new();
 

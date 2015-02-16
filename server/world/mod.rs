@@ -118,6 +118,7 @@ pub struct World<'d> {
     structures_by_chunk: HashMap<V2, HashSet<StructureId>>,
 }
 
+#[derive(Show)]
 pub enum Update {
     ClientCreated(ClientId),
     ClientDestroyed(ClientId),
