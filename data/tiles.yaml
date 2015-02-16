@@ -139,3 +139,12 @@ lpc-house.png:
 
 lpc-wood-floor.png:
     wood_floor: *terrain-template
+
+gervais_roguelike/AngbandTk_axe.png:
+    item/axe: [0, 0]
+
+gervais_roguelike/AngbandTk_pick.png:
+    item/pick: [0, 0]
+
+gervais_roguelike/AngbandTk_shovel.png:
+    item/shovel: [0, 0]

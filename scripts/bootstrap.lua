@@ -64,18 +64,11 @@ function outpost_ffi.types.Structure.table.inventory(s, name)
 end
 
 function action.use.tree(c, s)
-    s:replace('stump')
+    local count = c:pawn():inventory('main'):update('wood', 2)
+end
 
-    local extra = c:extra()
-    extra.trees_kicked = (extra.trees_kicked or 0) + 1
-    print("kicked " .. extra.trees_kicked .. " trees")
-
-    local count = c:pawn():inventory('main'):update('wood', 5)
-    print('got ' .. count .. ' wood')
-    c:pawn():inventory('main'):update('stick', 3)
-    c:pawn():inventory('main'):update('stone', 1)
-    c:pawn():inventory('main'):update('anvil', 1)
-    c:pawn():inventory('main'):update('chest', 1)
+function action.use.rock(c, s)
+    local count = c:pawn():inventory('main'):update('stone', 2)
 end
 
 function action.use.chest(c, s)
@@ -93,12 +86,7 @@ end
 
 local function place_structure(name)
     return function(client, inv)
-        local entity = client:pawn()
-        local pos = entity:pos()
-        -- TODO: hardcoded constants based on entity size and tile size
-        local target = pos + V3.new(16, 16, 16) + entity:facing() * V3.new(32, 32, 32)
-        local target_tile = target:pixel_to_tile()
-
+        local target_tile = hit_tile(client:pawn())
         s, err = client:world():create_structure(target_tile, name)
         if s ~= nil then
             inv:update(name, -1)
@@ -118,6 +106,17 @@ local function take_structure(name)
     end
 end
 
+local function hit_tile(entity)
+    local pos = entity:pos()
+    -- TODO: hardcoded constants based on entity size and tile size
+    local target = pos + V3.new(16, 16, 16) + entity:facing() * V3.new(32, 32, 32)
+    return target:pixel_to_tile()
+end
+
+local function hit_structure(entity)
+    return entity:world():find_structure_at_point(hit_tile(entity))
+end
+
 action.use_item.anvil = place_structure('anvil')
 action.use_item.chest = place_structure('chest')
 
@@ -129,5 +128,34 @@ end
 
 action.use_item['house_floor'] = place_structure('house_floor')
 action.use['house_floor'] = take_structure('house_floor')
+
+function action.use_item.axe(client, inv)
+    local s = hit_structure(client:pawn())
+    if s == nil then
+        return
+    end
+
+    local template = s:template()
+    if template == 'tree' then
+        s:replace('stump')
+        inv:update('wood', 15)
+    elseif template == 'stump' then
+        s:destroy()
+        inv:update('wood', 5)
+    end
+end
+
+function action.use_item.pick(client, inv)
+    local s = hit_structure(client:pawn())
+    if s == nil then
+        return
+    end
+
+    local template = s:template()
+    if template == 'rock' then
+        s:destroy()
+        inv:update('stone', 20)
+    end
+end
 
 print('\n\nup and running')

@@ -295,6 +295,9 @@ impl<'a> State<'a> {
         let gen = &mut self.terrain_gen;
         let block_data = &self.data.block_data;
         let template_data = &self.data.object_templates;
+
+        let mut rng: XorShiftRng = SeedableRng::from_seed([cx as u32, cy as u32, 10, 20]);
+
         self.mw.retain(V2::new(cx, cy), |w, pos| {
             if let Some(file) = storage.open_terrain_chunk_file(pos) {
                 info!("loading chunk {:?} from file", pos);
@@ -307,14 +310,24 @@ impl<'a> State<'a> {
 
                 let base = pos.extend(0) * scalar(CHUNK_SIZE);
                 let bounds = Region::new(base, base + scalar(CHUNK_SIZE));
-                let template_id = template_data.get_id("tree");
+                let template_ids = [
+                    template_data.get_id("tree"),
+                    template_data.get_id("rock"),
+                ];
                 for pos in points.into_iter() .filter(|&p| bounds.contains(p)) {
+                    let template_id = *rng.choose(&template_ids).unwrap();
                     // TODO: need a special entry point to create a structure bypassing overlap
                     // checks
                     let mut s = match w.create_structure(pos, template_id) {
                         Ok(s) => s,
                         Err(_) => continue,
                     };
+                    s.set_attachment(world::StructureAttachment::Chunk).unwrap();
+                }
+
+                if cx == 0 && cy == 0 {
+                    let template_id = template_data.get_id("anvil");
+                    let mut s = w.create_structure(scalar(0), template_id).unwrap();
                     s.set_attachment(world::StructureAttachment::Chunk).unwrap();
                 }
             }

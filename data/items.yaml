@@ -12,6 +12,7 @@ stone:
     tile: rock
     ui_name: Stone
 
+
 anvil:
     tile: /anvil
     ui_name: Anvil
@@ -19,6 +20,7 @@ anvil:
 chest:
     tile: /chest
     ui_name: Chest
+
 
 house_wall:
     prefix: /house_wall
@@ -50,3 +52,16 @@ house_wall:
 house_floor:
     ui_name: House Floor
     tile: /wood_floor/center/v0
+
+
+pick:
+    tile: pick
+    ui_name: Pickaxe
+
+axe:
+    tile: axe
+    ui_name: Axe
+
+shovel:
+    tile: shovel
+    ui_name: Shovel

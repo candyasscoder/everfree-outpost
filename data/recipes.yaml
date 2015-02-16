@@ -50,3 +50,16 @@ house_floor:
     ui_name: House Floor
     inputs: { wood: 10 }
     outputs: { house_floor: 1 }
+
+
+pick:
+    station: anvil
+    ui_name: Pickaxe
+    inputs: { wood: 10, stone: 10 }
+    outputs: { pick: 1 }
+
+axe:
+    station: anvil
+    ui_name: Axe
+    inputs: { wood: 10, stone: 10 }
+    outputs: { axe: 1 }
