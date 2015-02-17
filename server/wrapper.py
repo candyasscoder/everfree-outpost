@@ -137,7 +137,7 @@ class BackendStream(object):
                 opcode, = struct.unpack_from('H', body, 0)
 
                 if opcode == OP_CLIENT_REMOVED:
-                    id = struct.unpack_from('H', body, 2)
+                    id, = struct.unpack_from('H', body, 2)
                     if id in self.clients:
                         # close() is a no-op if it's already been closed
                         self.clients[id].close()
