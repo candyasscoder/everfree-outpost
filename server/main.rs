@@ -269,7 +269,7 @@ impl<'a> Server<'a> {
 
             _ => {
                 warn!("bad pre-login request from {:?}: {:?}", wire_id, req);
-                self.kick_wire(wire_id, "bad request");
+                self.kick_wire(now, wire_id, "bad request");
             },
         }
     }
@@ -365,7 +365,7 @@ impl<'a> Server<'a> {
 
             _ => {
                 warn!("bad request from {:?} ({:?}): {:?}", cid, wire_id, req);
-                self.kick_wire(wire_id, "bad request");
+                self.kick_wire(now, wire_id, "bad request");
             },
         }
     }
@@ -534,14 +534,9 @@ impl<'a> Server<'a> {
         self.resps.send((wire_id, resp)).unwrap();
     }
 
-    fn kick(&self, client: &ObjectRef<world::Client>, msg: &str) {
-        let wire_id = self.client_info(client).wire_id;
-        self.kick_wire(wire_id, msg);
-    }
-
-    fn kick_wire(&self, wire_id: WireId, msg: &str) {
+    fn kick_wire(&mut self, now: Time, wire_id: WireId, msg: &str) {
         self.resps.send((wire_id, Response::KickReason(String::from_str(msg)))).unwrap();
-        self.resps.send((CONTROL_WIRE_ID, Response::ClientRemoved(wire_id))).unwrap();
+        self.handle_control_req(now, Request::RemoveClient(wire_id));
     }
 
     fn update_viewport(&mut self,
