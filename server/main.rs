@@ -228,6 +228,11 @@ impl<'a> Server<'a> {
                                    wire_id: WireId,
                                    req: Request) {
         match req {
+            Request::Ping(cookie) => {
+                self.resps.send((wire_id, Response::Pong(cookie, now.to_local())))
+                    .unwrap();
+            },
+
             Request::Login(_secret, name) => {
                 log!(10, "login request for {}", name);
 
