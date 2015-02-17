@@ -45,6 +45,7 @@ var Timing = require('time').Timing;
 var rle16Decode = require('util/misc').rle16Decode;
 var buildArray = require('util/misc').buildArray;
 var checkBrowser = require('util/browser').checkBrowser;
+var util = require('util/misc');
 
 
 var anim_dirs = [
@@ -336,6 +337,7 @@ function openConn(next) {
     banner.update('Connecting to server...', 0);
     conn = new Connection('ws://' + window.location.host + '/ws');
     conn.onOpen = next;
+    conn.onClose = handleClose;
     conn.onInit = handleInit;
     conn.onTerrainChunk = handleTerrainChunk;
     conn.onEntityUpdate = handleEntityUpdate;
@@ -496,6 +498,19 @@ function setupKeyHandler() {
 
 
 // Connection message callbacks
+
+function handleClose(evt, reason) {
+    var reason_elt = document.createElement('p');
+    if (reason != null) {
+        reason_elt.textContent = 'Reason: ' + reason;
+    }
+    dialog.show({
+        container: util.fromTemplate("disconnected", {'reason': reason_elt}),
+        handleOpen: function(d) {
+            d.keyboard.pushHandler(function() { return false; });
+        },
+    });
+}
 
 function handleInit(entity_id, camera_x, camera_y, chunks, entities) {
     player_entity = entity_id;

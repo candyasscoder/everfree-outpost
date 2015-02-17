@@ -37,6 +37,8 @@ function Connection(url) {
     socket.onclose = function(evt) { this_._handleClose(evt); };
     this.socket = socket;
 
+    this._last_kick_reason = null;
+
     this.onOpen = null;
     this.onClose = null;
     this.onTerrainChunk = null;
@@ -44,7 +46,6 @@ function Connection(url) {
     this.onPong = null;
     this.onEntityUpdate = null;
     this.onInit = null;
-    this.onKickReason = null;
     this.onUnloadChunk = null;
     this.onOpenDialog = null;
     this.onInventoryUpdate = null;
@@ -62,7 +63,7 @@ Connection.prototype._handleOpen = function(evt) {
 
 Connection.prototype._handleClose = function(evt) {
     if (this.onClose != null) {
-        this.onClose(evt);
+        this.onClose(evt, this._last_kick_reason);
     }
 };
 
@@ -165,7 +166,7 @@ Connection.prototype._handleMessage = function(evt) {
         case OP_KICK_REASON:
             if (this.onKickReason != null) {
                 var msg = decodeUtf8(new Uint8Array(view.buffer, 2));
-                this.onKickReason(msg);
+                this._last_kick_reason = msg;
             }
             break;
 
