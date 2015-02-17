@@ -29,6 +29,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
     def __init__(self, *args, **kwargs):
         super(WSHandler, self).__init__(*args, **kwargs)
         self.log = None
+        self.alive = True
 
     def open(self):
         self.id = backend.add_client(self)
@@ -39,18 +40,31 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             self.log = open(os.path.join(LOG_DIR, filename), 'w')
 
     def on_message(self, message):
+        if not self.alive:
+            return
         if self.log is not None:
             self.log.write('%d: > %s\n' % (now(), binascii.hexlify(message)))
         backend.send_client_message(self.id, message)
 
     def on_close(self):
+        if not self.alive:
+            return
         if self.log is not None:
             self.log.write('%d: close\n' % now())
         backend.remove_client(self.id)
+        self.alive = False
 
     def write_message(self, msg, *args, **kwargs):
         self.log.write('%d: < %s\n' % (now(), binascii.hexlify(msg)))
         super(WSHandler, self).write_message(msg, *args, **kwargs)
+
+    def close(self):
+        super(WSHandler, self).close()
+        # Make extra sure we stop processing messages once the socket is
+        # closed.  Otherwise we might close the socket, reuse the ID, and then
+        # interpret messages from the old connection as if they came from the
+        # new one.
+        self.alive = False
 
 class FileHandler(tornado.web.StaticFileHandler):
     @classmethod
@@ -74,7 +88,7 @@ class BackendStream(object):
                 stdin=tornado.process.Subprocess.STREAM,
                 io_loop=self.io_loop)
 
-        self.clients = {}
+        self.clients = { 0: None }
         self.unused_ids = set()
         self.closed_ids = set()
 
@@ -110,7 +124,7 @@ class BackendStream(object):
         self.impl.stdin.write(msg)
 
     def send_special_client_message(self, id, opcode):
-        self.impl.stdin.write(struct.pack('HHH', id, 2, opcode))
+        self.impl.stdin.write(struct.pack('HHHH', 0, 4, opcode, id))
 
     @tornado.gen.coroutine
     def do_read(self):
@@ -119,16 +133,22 @@ class BackendStream(object):
             id, size = struct.unpack('HH', header)
             body = yield tornado.gen.Task(self.impl.stdout.read_bytes, size)
 
-            if size == 2:
-                # It might be a control message.
-                opcode, = struct.unpack('H', body)
+            if id == 0:
+                opcode, = struct.unpack_from('H', body, 0)
 
                 if opcode == OP_CLIENT_REMOVED:
+                    id = struct.unpack_from('H', body, 2)
+                    if id in self.clients:
+                        # close() is a no-op if it's already been closed
+                        self.clients[id].close()
+                        del self.clients[id]
                     if id in self.closed_ids:
                         self.closed_ids.remove(id)
-                        del self.clients[id]
-                        self.unused_ids.add(id)
-                    continue
+                    self.unused_ids.add(id)
+                else:
+                    assert False, \
+                            'bad opcode in control response'
+                continue
 
             # Only dispatch the message if the target is still connected.
             if id not in self.closed_ids:

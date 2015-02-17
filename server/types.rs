@@ -53,6 +53,8 @@ mk_id_newtypes! {
     InventoryId(u32);
 }
 
+pub const CONTROL_WIRE_ID: WireId = WireId(0);
+
 pub type StableId = u64;
 
 pub type AnimId = u16;

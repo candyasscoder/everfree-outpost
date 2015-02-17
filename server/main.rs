@@ -43,7 +43,8 @@ use util::Cursor;
 use util::{multimap_insert, multimap_remove};
 
 use types::{Time, ToGlobal, ToLocal};
-use types::{WireId, ClientId, EntityId, InventoryId};
+use types::{WireId, CONTROL_WIRE_ID};
+use types::{ClientId, EntityId, InventoryId};
 
 
 #[macro_use] mod util;
@@ -179,27 +180,54 @@ impl<'a> Server<'a> {
                   now: Time,
                   wire_id: WireId,
                   req: Request) {
+        if wire_id == CONTROL_WIRE_ID {
+            self.handle_control_req(now, req);
+        } else {
+            if let Some(client_id) = self.wire_to_client(wire_id) {
+                self.handle_client_req(now, wire_id, client_id, req);
+            } else {
+                self.handle_pre_login_client_req(now, wire_id, req);
+            }
+        }
+
+        self.process_journal(now);
+    }
+
+    fn handle_control_req(&mut self,
+                          _now: Time,
+                          req: Request) {
         match req {
-            Request::GetTerrain => {
-                warn!("connection {} used deprecated opcode GetTerrain", wire_id.unwrap());
+            Request::AddClient(_wire_id) => {
             },
 
-            Request::UpdateMotion(_wire_motion) => {
-                warn!("connection {} used deprecated opcode UpdateMotion", wire_id.unwrap());
+            Request::RemoveClient(wire_id) => {
+                if let Some(client_id) = self.wire_to_client(wire_id) {
+                    // TODO: error handling
+                    let region = self.vision.client_view_area(client_id).unwrap();
+                    for p in region.points() {
+                        self.state.unload_chunk(p.x, p.y);
+                    }
+
+                    self.state.unload_client(client_id).unwrap();
+                    self.wire_id_map.remove(&wire_id);
+                    let info = self.client_info.remove(&client_id).unwrap();
+                    for &iid in info.observed_inventories.iter() {
+                        multimap_remove(&mut self.inventory_observers, iid, wire_id);
+                    }
+                    self.vision.remove_client(client_id, &mut DummyCallbacks);
+                }
+                self.resps.send((CONTROL_WIRE_ID, Response::ClientRemoved(wire_id))).unwrap();
             },
 
-            Request::Ping(cookie) => {
-                self.resps.send((wire_id, Response::Pong(cookie, now.to_local())))
-                    .unwrap();
-            },
+            _ => warn!("bad control request: {:?}", req),
+        }
+    }
 
-            Request::Input(time, input) => {
-                let client_id = unwrap_or!(self.wire_to_client(wire_id));
-                let time = cmp::max(time.to_global(now), now);
-                let input = InputBits::from_bits_truncate(input);
-                self.wake_queue.push(time, WakeReason::HandleInput(client_id, input));
-            },
-
+    fn handle_pre_login_client_req(&mut self,
+                                   now: Time,
+                                   wire_id: WireId,
+                                   req: Request) {
+        match req {
             Request::Login(_secret, name) => {
                 log!(10, "login request for {}", name);
 
@@ -234,17 +262,38 @@ impl<'a> Server<'a> {
                 self.server_msg(wire_id, &*format!("logged in as {}", name));
             },
 
-            Request::Action(time, action, arg) => {
-                let client_id = unwrap_or!(self.wire_to_client(wire_id));
+            _ => {
+                warn!("bad pre-login request from {:?}: {:?}", wire_id, req);
+                self.kick_wire(wire_id, "bad request");
+            },
+        }
+    }
+
+    fn handle_client_req(&mut self,
+                         now: Time,
+                         wire_id: WireId,
+                         cid: ClientId,
+                         req: Request) {
+        match req {
+            Request::Ping(cookie) => {
+                self.resps.send((wire_id, Response::Pong(cookie, now.to_local())))
+                    .unwrap();
+            },
+
+            Request::Input(time, input) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake_queue.push(time, WakeReason::HandleAction(client_id, ActionId(action), arg));
+                let input = InputBits::from_bits_truncate(input);
+                self.wake_queue.push(time, WakeReason::HandleInput(cid, input));
+            },
+
+            Request::Action(time, action, arg) => {
+                let time = cmp::max(time.to_global(now), now);
+                self.wake_queue.push(time, WakeReason::HandleAction(cid, ActionId(action), arg));
             },
 
             Request::UnsubscribeInventory(iid) => {
-                if let Some(client_id) = self.wire_to_client(wire_id) {
-                    self.client_info[client_id].observed_inventories.remove(&iid);
-                    multimap_remove(&mut self.inventory_observers, iid, wire_id);
-                }
+                self.client_info[cid].observed_inventories.remove(&iid);
+                multimap_remove(&mut self.inventory_observers, iid, wire_id);
             },
 
             Request::MoveItem(from_iid, to_iid, item_id, amount) => {
@@ -300,46 +349,20 @@ impl<'a> Server<'a> {
             },
 
             Request::Chat(msg) => {
-                if let Some(cid) = self.wire_to_client(wire_id) {
-                    let msg_out = format!("<{}>\t{}",
-                                          self.state.world().client(cid).name(),
-                                          msg);
-                    for &out_wire_id in self.wire_id_map.keys() {
-                        self.send_wire(out_wire_id,
-                                       Response::ChatUpdate(msg_out.clone()));
-                    }
+                let msg_out = format!("<{}>\t{}",
+                                      self.state.world().client(cid).name(),
+                                      msg);
+                for &out_wire_id in self.wire_id_map.keys() {
+                    self.send_wire(out_wire_id,
+                                   Response::ChatUpdate(msg_out.clone()));
                 }
             },
 
-            Request::AddClient => {
-            },
-
-            Request::RemoveClient => {
-                if let Some(client_id) = self.wire_to_client(wire_id) {
-                    // TODO: error handling
-                    let region = self.vision.client_view_area(client_id).unwrap();
-                    for p in region.points() {
-                        self.state.unload_chunk(p.x, p.y);
-                    }
-
-                    self.state.unload_client(client_id).unwrap();
-                    self.wire_id_map.remove(&wire_id);
-                    let info = self.client_info.remove(&client_id).unwrap();
-                    for &iid in info.observed_inventories.iter() {
-                        multimap_remove(&mut self.inventory_observers, iid, wire_id);
-                    }
-                    self.vision.remove_client(client_id, &mut DummyCallbacks);
-                }
-                self.resps.send((wire_id, Response::ClientRemoved)).unwrap();
-            },
-
-            Request::BadMessage(opcode) => {
-                warn!("unrecognized opcode from connection {:?}: {:x}",
-                      wire_id, opcode.unwrap());
+            _ => {
+                warn!("bad request from {:?} ({:?}): {:?}", cid, wire_id, req);
+                self.kick_wire(wire_id, "bad request");
             },
         }
-
-        self.process_journal(now);
     }
 
     fn handle_wake(&mut self,
@@ -492,13 +515,28 @@ impl<'a> Server<'a> {
         self.send_wire(wire_id, Response::InventoryUpdate(iid, contents));
     }
 
+    fn client_info(&self, client: &ObjectRef<world::Client>) -> &ClientInfo {
+        self.client_info.get(&client.id())
+            .expect("inconsistency between world and client_info")
+    }
+
     fn send(&self, client: &ObjectRef<world::Client>, resp: Response) {
-        let wire_id = self.client_info[client.id()].wire_id;
+        let wire_id = self.client_info(client).wire_id;
         self.send_wire(wire_id, resp);
     }
 
     fn send_wire(&self, wire_id: WireId, resp: Response) {
         self.resps.send((wire_id, resp)).unwrap();
+    }
+
+    fn kick(&self, client: &ObjectRef<world::Client>, msg: &str) {
+        let wire_id = self.client_info(client).wire_id;
+        self.kick_wire(wire_id, msg);
+    }
+
+    fn kick_wire(&self, wire_id: WireId, msg: &str) {
+        self.resps.send((wire_id, Response::KickReason(String::from_str(msg)))).unwrap();
+        self.resps.send((CONTROL_WIRE_ID, Response::ClientRemoved(wire_id))).unwrap();
     }
 
     fn update_viewport(&mut self,

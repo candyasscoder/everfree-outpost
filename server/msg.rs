@@ -94,8 +94,8 @@ pub enum Request {
     Chat(String),
 
     // Control messages
-    AddClient,
-    RemoveClient,
+    AddClient(WireId),
+    RemoveClient(WireId),
 
     // Server-internal messages
     BadMessage(Opcode),
@@ -138,8 +138,14 @@ impl Request {
                 let a = try!(wr.read());
                 Chat(a)
             },
-            op::AddClient => AddClient,
-            op::RemoveClient => RemoveClient,
+            op::AddClient => {
+                let a = try!(wr.read());
+                AddClient(a)
+            },
+            op::RemoveClient => {
+                let a = try!(wr.read());
+                RemoveClient(a)
+            },
             _ => BadMessage(opcode),
         };
 
@@ -168,7 +174,7 @@ pub enum Response {
     EntityAppear(EntityId, u32),
     EntityGone(EntityId, LocalTime),
 
-    ClientRemoved,
+    ClientRemoved(WireId),
 }
 
 impl Response {
@@ -200,8 +206,8 @@ impl Response {
                 ww.write_msg(id, (op::EntityAppear, entity_id, appearance)),
             EntityGone(entity_id, time) =>
                 ww.write_msg(id, (op::EntityGone, entity_id, time)),
-            ClientRemoved =>
-                ww.write_msg(id, (op::ClientRemoved)),
+            ClientRemoved(wire_id) =>
+                ww.write_msg(id, (op::ClientRemoved, wire_id)),
         });
         ww.flush()
     }
