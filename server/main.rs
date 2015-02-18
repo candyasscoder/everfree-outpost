@@ -41,6 +41,7 @@ use storage::Storage;
 use view::{Vision, VisionCallbacks};
 use util::Cursor;
 use util::{multimap_insert, multimap_remove};
+use util::StringResult;
 
 use types::{Time, ToGlobal, ToLocal};
 use types::{WireId, CONTROL_WIRE_ID};
@@ -184,9 +185,19 @@ impl<'a> Server<'a> {
             self.handle_control_req(now, req);
         } else {
             if let Some(client_id) = self.wire_to_client(wire_id) {
-                self.handle_client_req(now, wire_id, client_id, req);
+                let result = self.handle_client_req(now, wire_id, client_id, req);
+                if let Err(e) = result {
+                    warn!("error handling request for {:?} ({:?}): {}",
+                          client_id, wire_id, e);
+                    self.kick_wire(now, wire_id, "bad request");
+                }
             } else {
-                self.handle_pre_login_client_req(now, wire_id, req);
+                let result = self.handle_pre_login_client_req(now, wire_id, req);
+                if let Err(e) = result {
+                    warn!("error handling request for {:?}: {}",
+                          wire_id, e);
+                    self.kick_wire(now, wire_id, "bad request");
+                }
             }
         }
 
@@ -226,18 +237,17 @@ impl<'a> Server<'a> {
     fn handle_pre_login_client_req(&mut self,
                                    now: Time,
                                    wire_id: WireId,
-                                   req: Request) {
+                                   req: Request) -> StringResult<()> {
         match req {
             Request::Ping(cookie) => {
-                self.resps.send((wire_id, Response::Pong(cookie, now.to_local())))
-                    .unwrap();
+                self.send_wire(wire_id, Response::Pong(cookie, now.to_local()));
             },
 
             Request::Login(_secret, name) => {
                 log!(10, "login request for {}", name);
 
                 let (cid, eid) = {
-                    let client = self.state.load_client(&*name).unwrap();
+                    let client = try!(self.state.load_client(&*name));
                     (client.id(), client.pawn_id())
                 };
                 self.wire_id_map.insert(wire_id, cid);
@@ -247,6 +257,7 @@ impl<'a> Server<'a> {
                 });
 
                 let view_region = if let Some(eid) = eid {
+                    // OK: obtained eid from client.pawn_id(), which is always valid (or None)
                     let pawn = self.state.world().entity(eid);
                     view::vision_region(pawn.pos(now))
                 } else {
@@ -258,6 +269,7 @@ impl<'a> Server<'a> {
                 }
 
                 if let Some(eid) = eid {
+                    // OK: obtained eid from client.pawn_id(), which is always valid (or None)
                     self.state.update_physics(now, eid, true).unwrap();
                 }
 
@@ -268,21 +280,21 @@ impl<'a> Server<'a> {
             },
 
             _ => {
-                warn!("bad pre-login request from {:?}: {:?}", wire_id, req);
-                self.kick_wire(now, wire_id, "bad request");
+                fail!("bad request (pre-login): {:?}", req);
             },
         }
+
+        Ok(())
     }
 
     fn handle_client_req(&mut self,
                          now: Time,
                          wire_id: WireId,
                          cid: ClientId,
-                         req: Request) {
+                         req: Request) -> StringResult<()> {
         match req {
             Request::Ping(cookie) => {
-                self.resps.send((wire_id, Response::Pong(cookie, now.to_local())))
-                    .unwrap();
+                self.send_wire(wire_id, Response::Pong(cookie, now.to_local()));
             },
 
             Request::Input(time, input) => {
@@ -303,30 +315,27 @@ impl<'a> Server<'a> {
 
             Request::MoveItem(from_iid, to_iid, item_id, amount) => {
                 let real_amount = {
-                    // TODO: error handling
-                    let i1 = self.state.world().get_inventory(from_iid);
-                    let i2 = self.state.world().get_inventory(to_iid);
-                    if let (Some(i1), Some(i2)) = (i1, i2) {
-                        let count1 = i1.count(item_id);
-                        let count2 = i2.count(item_id);
-                        cmp::min(cmp::min(count1 as u16, (u8::MAX - count2) as u16), amount) as i16
-                    } else {
-                        0
-                    }
+                    let i1 = unwrap!(self.state.world().get_inventory(from_iid));
+                    let i2 = unwrap!(self.state.world().get_inventory(to_iid));
+                    let count1 = i1.count(item_id);
+                    let count2 = i2.count(item_id);
+                    cmp::min(cmp::min(count1 as u16, (u8::MAX - count2) as u16), amount) as i16
                 };
                 if real_amount > 0 {
-                    self.state.world_mut().inventory_mut(from_iid).update(item_id, -real_amount).unwrap();
-                    self.state.world_mut().inventory_mut(to_iid).update(item_id, real_amount).unwrap();
+                    // OK: inventory IDs have already been checked.
+                    self.state.world_mut().inventory_mut(from_iid).update(item_id, -real_amount);
+                    self.state.world_mut().inventory_mut(to_iid).update(item_id, real_amount);
                 }
             },
 
             Request::CraftRecipe(station_id, inventory_id, recipe_id, count) => {
                 // TODO: error handling
-                let recipe = self.state.world().data().recipes.recipe(recipe_id);
+                let recipe = unwrap!(self.state.world().data().recipes.get_recipe(recipe_id));
+
+                let _ = station_id; // TODO
+                let mut i = unwrap!(self.state.world_mut().get_inventory_mut(inventory_id));
 
                 let real_count = {
-                    let _ = station_id; // TODO
-                    let i = self.state.world().inventory(inventory_id);
                     let mut count = count as u8;
 
                     for (&item_id, &num_required) in recipe.inputs.iter() {
@@ -341,14 +350,12 @@ impl<'a> Server<'a> {
                 };
 
                 if real_count > 0 {
-                    let mut i = self.state.world_mut().inventory_mut(inventory_id);
-
                     for (&item_id, &num_required) in recipe.inputs.iter() {
-                        i.update(item_id, -real_count * num_required as i16).unwrap();
+                        i.update(item_id, -real_count * num_required as i16);
                     }
 
                     for (&item_id, &num_produced) in recipe.outputs.iter() {
-                        i.update(item_id, real_count * num_produced as i16).unwrap();
+                        i.update(item_id, real_count * num_produced as i16);
                     }
                 }
             },
@@ -364,10 +371,11 @@ impl<'a> Server<'a> {
             },
 
             _ => {
-                warn!("bad request from {:?} ({:?}): {:?}", cid, wire_id, req);
-                self.kick_wire(now, wire_id, "bad request");
+                fail!("bad request: {:?}", req);
             },
         }
+
+        Ok(())
     }
 
     fn handle_wake(&mut self,

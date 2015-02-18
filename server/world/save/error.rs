@@ -2,7 +2,7 @@ use std::error;
 use std::io;
 use std::result;
 
-use util::StrError;
+use util::{StrError, StringError};
 
 #[derive(Show)]
 pub enum Error {
@@ -35,6 +35,12 @@ impl error::FromError<io::IoError> for Error {
 impl error::FromError<StrError> for Error {
     fn from_error(e: StrError) -> Error {
         Error::Str(e)
+    }
+}
+
+impl error::FromError<Error> for StringError {
+    fn from_error(e: Error) -> StringError {
+        error::FromError::from_error(error::Error::description(&e))
     }
 }
 

@@ -586,6 +586,7 @@ pub fn inventory_attach(w: &mut World,
     Ok(old_attach)
 }
 
+/// Fails only if `iid` is not valid.
 pub fn inventory_update(w: &mut World,
                         iid: InventoryId,
                         item_id: ItemId,

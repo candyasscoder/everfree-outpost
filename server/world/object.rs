@@ -347,14 +347,15 @@ impl<'a, 'd> InventoryRef<'d> for ObjectRef<'a, 'd, Inventory> { }
 impl<'a, 'd> InventoryRef<'d> for ObjectRefMut<'a, 'd, Inventory> { }
 
 pub trait InventoryRefMut<'d>: ObjectRefMutBase<'d, Inventory> {
-    fn update(&mut self, item_id: ItemId, adjust: i16) -> OpResult<u8> {
+    fn update(&mut self, item_id: ItemId, adjust: i16) -> u8 {
         let iid = self.id();
-        ops::inventory_update(self.world_mut(), iid, item_id, adjust)
+        // OK: self.id() is always a valid InventoryId
+        ops::inventory_update(self.world_mut(), iid, item_id, adjust).unwrap()
     }
 
     fn update_by_name(&mut self, name: &str, adjust: i16) -> OpResult<u8> {
         let item_id = unwrap!(self.world().data().item_data.find_id(name));
-        self.update(item_id, adjust)
+        Ok(self.update(item_id, adjust))
     }
 
     fn set_attachment(&mut self, attach: InventoryAttachment) -> OpResult<InventoryAttachment> {
