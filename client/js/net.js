@@ -164,10 +164,8 @@ Connection.prototype._handleMessage = function(evt) {
             break;
 
         case OP_KICK_REASON:
-            if (this.onKickReason != null) {
-                var msg = decodeUtf8(new Uint8Array(view.buffer, 2));
-                this._last_kick_reason = msg;
-            }
+            var msg = decodeUtf8(new Uint8Array(view.buffer, 2));
+            this._last_kick_reason = msg;
             break;
 
         case OP_UNLOAD_CHUNK:
