@@ -1,5 +1,5 @@
 use std::cmp;
-use std::io::IoResult;
+use std::io::{self, IoError, IoResult};
 use std::mem;
 
 use types::*;
@@ -113,7 +113,15 @@ macro_rules! prim_impl {
         impl ReadFrom for $ty {
             #[inline]
             fn read_from<R: Reader>(r: &mut R, bytes: usize) -> IoResult<$ty> {
-                assert!(bytes >= mem::size_of::<$ty>());
+                if bytes < mem::size_of::<$ty>() {
+                    return Err(IoError {
+                        kind: io::IoErrorKind::OtherIoError,
+                        desc: "not enough bytes in message",
+                        detail: Some(format!("expected at least {} bytes, but only {} remain",
+                                             mem::size_of::<$ty>(),
+                                             bytes)),
+                    });
+                }
                 r.$read_fn()
             }
 

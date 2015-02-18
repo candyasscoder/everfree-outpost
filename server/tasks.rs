@@ -8,8 +8,25 @@ use types::WireId;
 pub fn run_input<R: Reader>(r: R, send: Sender<(WireId, Request)>) -> IoResult<()> {
     let mut wr = WireReader::new(r);
     loop {
-        let (id, req) = try!(Request::read_from(&mut wr));
-        send.send((id, req)).unwrap();
+        match Request::read_from(&mut wr) {
+            Ok((id, req)) => send.send((id, req)).unwrap(),
+            Err(e) => {
+                use std::io::IoErrorKind::*;
+                warn!("error reading message from wire: {}", e);
+                match e.kind {
+                    EndOfFile |
+                    ConnectionFailed |
+                    Closed |
+                    ConnectionReset |
+                    ConnectionAborted |
+                    NotConnected |
+                    BrokenPipe |
+                    ResourceUnavailable |
+                    NoProgress => return Err(e),
+                    _ => {},
+                }
+            }
+        }
     }
 }
 
