@@ -306,10 +306,10 @@ lpc-wood-floor.xcf: *wood-floor
         opengameart.org as well (preferably to the submission for this art
         package) if you use the art. 
 
-"AngbandTk/*":
+"gervais_roguelike/*":
     title: Roguelike Tiles (large collection)
     author: David E. Gervais
     license: CC-BY 3.0
     url: http://opengameart.org/content/roguelike-tiles-large-collection
-    attribution:
+    attribution: >
         Author's website: http://pousse.rapiere.free.fr/tome/
