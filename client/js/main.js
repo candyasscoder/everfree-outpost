@@ -270,7 +270,7 @@ function init() {
             pony_sheet = buildPonySheet();
             runner.job('preload-textures', preloadTextures);
 
-            openConn(function() {
+            openConn(assets['server_info']['name'], function() {
                 timing = new Timing(conn);
                 timing.scheduleUpdates(5, 30);
                 inv_tracker = new InventoryTracker(conn);
@@ -328,6 +328,8 @@ function loadAssets(next) {
         }
     });
 
+    loader.addJson('server_info', 'server.json');
+
     loader.addText('terrain.frag', 'assets/shaders/terrain.frag');
     loader.addText('terrain.vert', 'assets/shaders/terrain.vert');
 
@@ -337,9 +339,9 @@ function loadAssets(next) {
     loader.addText('sprite_layered.frag', 'assets/shaders/sprite_layered.frag');
 }
 
-function openConn(next) {
+function openConn(url, next) {
     banner.update('Connecting to server...', 0);
-    conn = new Connection('ws://' + window.location.host + '/ws');
+    conn = new Connection(url);
     conn.onOpen = next;
     conn.onClose = handleClose;
     conn.onInit = handleInit;

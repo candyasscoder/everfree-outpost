@@ -262,6 +262,7 @@ $(eval $(call DATA_FILE, 	items.json,			$(BUILD)/items-server.json))
 $(eval $(call DATA_FILE, 	objects.json,		$(BUILD)/objects.json))
 $(eval $(call DATA_FILE, 	recipes.json,		$(BUILD)/recipes.json))
 $(eval $(call WWW_FILE, 	credits.html,		$(BUILD)/credits.html))
+$(eval $(call WWW_FILE, 	server.json,		$(SRC)/util/server.json.default))
 
 ifeq ($(RELEASE),)
 $(eval $(call WWW_FILE, client.html, 	$(BUILD)/client.debug.html))
