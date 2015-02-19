@@ -274,7 +274,10 @@ function init() {
                 timing = new Timing(conn);
                 timing.scheduleUpdates(5, 30);
                 inv_tracker = new InventoryTracker(conn);
-                conn.sendLogin([1, 2, 3, 4], "Pony");
+
+                initLoginName();
+                conn.sendLogin([1, 2, 3, 4], Config.login_name.get());
+
                 banner.hide();
                 canvas.start();
             });
@@ -495,6 +498,24 @@ function setupKeyHandler() {
         conn.sendAction(timing.encodeSend(now), code, arg);
         return true;
     }
+}
+
+function initLoginName() {
+    if (Config.login_name.get() != null) {
+        return;
+    }
+
+    var type = "EPU"[Math.floor(Math.random() * 3)];
+    var color_r = Math.floor(Math.random() * 3) + 1;
+    var color_g = Math.floor(Math.random() * 3) + 1;
+    var color_b = Math.floor(Math.random() * 3) + 1;
+    var extra = '' + Math.floor(Math.random() * 1000);
+    while (extra.length < 3) {
+        extra = '0' + extra;
+    }
+
+    var name = "Anon" + type + color_r + color_g + color_b + extra;
+    Config.login_name.set(name);
 }
 
 
