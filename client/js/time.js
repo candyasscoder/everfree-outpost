@@ -19,6 +19,16 @@ Timing.prototype.update = function() {
     this.conn.sendPing(Date.now() & TIMER_MASK);
 };
 
+Timing.prototype.scheduleUpdates = function(delay, interval) {
+    var this_ = this;
+    function callback() {
+        this_.update();
+        setTimeout(callback, interval * 1000);
+    }
+
+    setTimeout(callback, delay * 1000);
+};
+
 Timing.prototype._handlePong = function(client_send, server_time, client_recv_raw) {
     // TODO: on firefox, event.timeStamp appears to be in microseconds instead
     // of milliseconds.  Just use Date.now() instead.

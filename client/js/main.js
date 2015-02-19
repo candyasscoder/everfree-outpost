@@ -272,6 +272,7 @@ function init() {
 
             openConn(function() {
                 timing = new Timing(conn);
+                timing.scheduleUpdates(5, 30);
                 inv_tracker = new InventoryTracker(conn);
                 conn.sendLogin([1, 2, 3, 4], "Pony");
                 banner.hide();
