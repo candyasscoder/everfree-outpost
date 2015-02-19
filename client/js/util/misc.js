@@ -144,7 +144,7 @@ exports.element = function(tag, extra, parent) {
     var e = document.createElement(tag);
 
     for (var i = 0; i < extra.length; ++i) {
-        if (extra[i].startsWith('#')) {
+        if (extra[i][0] == '#') {
             e.setAttribute('id', extra[i].substr(1));
         } else {
             e.classList.add(extra[i]);
