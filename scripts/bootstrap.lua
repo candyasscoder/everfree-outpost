@@ -84,6 +84,17 @@ function action.handler.inventory(c, arg)
     c:open_inventory(c:pawn():inventory('main'))
 end
 
+local function hit_tile(entity)
+    local pos = entity:pos()
+    -- TODO: hardcoded constants based on entity size and tile size
+    local target = pos + V3.new(16, 16, 16) + entity:facing() * V3.new(32, 32, 32)
+    return target:pixel_to_tile()
+end
+
+local function hit_structure(entity)
+    return entity:world():find_structure_at_point(hit_tile(entity))
+end
+
 local function place_structure(name)
     return function(client, inv)
         local target_tile = hit_tile(client:pawn())
@@ -104,17 +115,6 @@ local function take_structure(name)
             inv:update(name, 1)
         end
     end
-end
-
-local function hit_tile(entity)
-    local pos = entity:pos()
-    -- TODO: hardcoded constants based on entity size and tile size
-    local target = pos + V3.new(16, 16, 16) + entity:facing() * V3.new(32, 32, 32)
-    return target:pixel_to_tile()
-end
-
-local function hit_structure(entity)
-    return entity:world():find_structure_at_point(hit_tile(entity))
 end
 
 action.use_item.anvil = place_structure('anvil')
