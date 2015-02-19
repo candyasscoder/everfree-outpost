@@ -2,6 +2,7 @@ var Config = require('config').Config;
 var ItemDef = require('data/items').ItemDef;
 var RecipeDef = require('data/recipes').RecipeDef;
 var SelectionList = require('ui/sortedlist').SelectionList;
+var ItemList = require('ui/inventory').ItemList;
 var fromTemplate = require('util/misc').fromTemplate;
 var InventoryTracker = require('inventory').InventoryTracker;
 var chain = require('util/misc').chain;
@@ -158,7 +159,8 @@ RecipeList.prototype._scrollToSelection = function() {
     var target_top = parent_bounds.top + parent_bounds.height / 2 - item_bounds.height / 2;
     // Adjust scrollTop to move 'item_bounds.top' to 'target_top'.
     var delta = target_top - item_bounds.top;
-    this.container.scrollTop += delta;
+    // Use -= like in ItemList
+    this.container.scrollTop -= delta;
 };
 
 RecipeList.prototype._markCraftable = function() {
