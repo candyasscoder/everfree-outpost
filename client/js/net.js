@@ -307,7 +307,7 @@ Connection.prototype.sendLogin = function(secret, name) {
         msg.put32(secret[i]);
     }
     for (var i = 0; i < name_utf8.length; ++i) {
-        msg.put8(secret[i]);
+        msg.put8(name_utf8.charCodeAt(i));
     }
 
     this.socket.send(msg.done());
