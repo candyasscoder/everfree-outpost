@@ -27,7 +27,7 @@ var DEFAULT_CONFIG = {
     },
 
     'debug_show_panel': false,
-    'debug_timing_delay': [0, 0],
+    'debug_timing_delay': [0, 25],
     'debug_force_mobile_warning': false,
     'debug_force_browser_warning': false,
 };
