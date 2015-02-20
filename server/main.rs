@@ -677,13 +677,13 @@ impl<'a, 'd> VisionCallbacks for MessageCallbacks<'a, 'd> {
 
     fn entity_disappear(&mut self, cid: ClientId, eid: EntityId) {
         let info = unwrap_or!(self.client_info.get(&cid));
-        let client = unwrap_or!(self.state.world().get_client(cid));
-        let entity = unwrap_or!(self.state.world().get_entity(eid));
 
-        let motion = entity.motion();
-        // TODO: we don't actually need the whole wire_motion here, just the local start_time
-        let wire_motion = entity_motion(self.now, motion, client.chunk_offset());
-        self.wire.send((info.wire_id, Response::EntityGone(eid, wire_motion.start_time))).unwrap();
+        let start_time = match self.state.world().get_entity(eid) {
+            Some(e) => e.motion().start_time,
+            None => self.now,
+        };
+
+        self.wire.send((info.wire_id, Response::EntityGone(eid, start_time.to_local()))).unwrap();
     }
 
     fn entity_update(&mut self, cid: ClientId, eid: EntityId) {
