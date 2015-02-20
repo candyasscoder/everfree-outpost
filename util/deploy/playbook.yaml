@@ -1,0 +1,29 @@
+---
+- hosts: outpost
+  sudo: yes
+  tasks:
+    - name: set up Debian Jessie repo
+      apt_repository: repo='deb http://ftp.us.debian.org/debian jessie main'
+    - apt: name=locales 
+    - apt: name=python3 
+    - apt: name=python3-tornado state=latest
+    - apt: name=liblua5.1-0 
+    - apt: name=htop 
+    - apt: name=rsync 
+    - name: add user {{ daemon_user }}
+      user: name={{ daemon_user }} shell=/bin/bash
+
+    - name: install public key for {{ daemon_user }}
+      authorized_key: user={{ daemon_user }} key='{{ daemon_public_key }}'
+      # fix stupid vim syntax hilighting: '
+
+    - name: upload server files
+      # Don't sudo to root.  Instead, wrap rsync in 'sudo -u daemon_user' so
+      # that uploaded files have the right ownership.
+      sudo: no
+      synchronize: >
+        src={{ dist_dir }}/
+        dest=/home/{{ daemon_user }}/outpost/
+        recursive=yes
+        rsync_opts=--exclude=logs,--exclude=save,--exclude=www
+        rsync_path='sudo -u {{ daemon_user }} rsync'
