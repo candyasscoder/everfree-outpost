@@ -74,6 +74,8 @@ pub mod op {
         AddClient = 0xff00,
         RemoveClient = 0xff01,
         ClientRemoved = 0xff02,
+        ReplCommand = 0xff03,
+        ReplResult = 0xff04,
     }
 }
 
@@ -96,6 +98,7 @@ pub enum Request {
     // Control messages
     AddClient(WireId),
     RemoveClient(WireId),
+    ReplCommand(u16, String),
 
     // Server-internal messages
     BadMessage(Opcode),
@@ -146,6 +149,10 @@ impl Request {
                 let a = try!(wr.read());
                 RemoveClient(a)
             },
+            op::ReplCommand => {
+                let (a, b) = try!(wr.read());
+                ReplCommand(a, b)
+            },
             _ => BadMessage(opcode),
         };
 
@@ -175,6 +182,7 @@ pub enum Response {
     EntityGone(EntityId, LocalTime),
 
     ClientRemoved(WireId),
+    ReplResult(u16, String),
 }
 
 impl Response {
@@ -208,6 +216,8 @@ impl Response {
                 ww.write_msg(id, (op::EntityGone, entity_id, time)),
             ClientRemoved(wire_id) =>
                 ww.write_msg(id, (op::ClientRemoved, wire_id)),
+            ReplResult(cookie, ref msg) =>
+                ww.write_msg(id, (op::ReplResult, cookie, &*msg)),
         });
         ww.flush()
     }

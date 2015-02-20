@@ -230,6 +230,11 @@ impl<'a> Server<'a> {
                 self.resps.send((CONTROL_WIRE_ID, Response::ClientRemoved(wire_id))).unwrap();
             },
 
+            Request::ReplCommand(cookie, cmd) => {
+                info!("got repl command {}: {:?}", cookie, cmd);
+                self.resps.send((CONTROL_WIRE_ID, Response::ReplResult(cookie, cmd))).unwrap();
+            },
+
             _ => warn!("bad control request: {:?}", req),
         }
     }

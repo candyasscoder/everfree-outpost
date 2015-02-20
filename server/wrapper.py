@@ -8,14 +8,17 @@ import tornado.autoreload
 import tornado.gen
 import tornado.ioloop
 import tornado.iostream
+import tornado.netutil
 import tornado.process
 import tornado.web
 import tornado.websocket
 
 
-OP_ADD_CLIENT = 0xff00
-OP_REMOVE_CLIENT = 0xff01
+OP_ADD_CLIENT =     0xff00
+OP_REMOVE_CLIENT =  0xff01
 OP_CLIENT_REMOVED = 0xff02
+OP_REPL_COMMAND =   0xff03
+OP_REPL_RESULT =    0xff04
 
 
 def now():
@@ -95,6 +98,8 @@ class BackendStream(object):
         self.io_loop.add_future(self.do_read(), lambda f: print('read done?', f.result()))
         self.impl.set_exit_callback(self.on_close)
 
+        self.repl_result_callback = lambda c, m: None
+
     def add_client(self, conn):
         if len(self.unused_ids) > 0:
             id = self.unused_ids.pop()
@@ -126,6 +131,10 @@ class BackendStream(object):
     def send_special_client_message(self, id, opcode):
         self.impl.stdin.write(struct.pack('HHHH', 0, 4, opcode, id))
 
+    def send_repl_command(self, cookie, body):
+        header = struct.pack('HHHH', 0, len(body) + 4, OP_REPL_COMMAND, cookie)
+        self.impl.stdin.write(header + body)
+
     @tornado.gen.coroutine
     def do_read(self):
         while True:
@@ -145,6 +154,9 @@ class BackendStream(object):
                     if id in self.closed_ids:
                         self.closed_ids.remove(id)
                     self.unused_ids.add(id)
+                elif opcode == OP_REPL_RESULT:
+                    cookie, = struct.unpack_from('H', body, 2)
+                    self.repl_result_callback(cookie, body[4:])
                 else:
                     assert False, \
                             'bad opcode in control response'
@@ -156,6 +168,76 @@ class BackendStream(object):
 
     def on_close(self, code):
         print('closed!')
+
+
+class ReplServer(object):
+    def __init__(self, backend, io_loop=None):
+        self.io_loop = io_loop or tornado.ioloop.IOLoop.current()
+        if hasattr(tornado.netutil, 'bind_unix_socket'):
+            self.server_sockets = [tornado.netutil.bind_unix_socket('./repl')]
+        else:
+            self.server_sockets = tornado.netutil.bind_sockets(9999, address='localhost')
+
+        for sock in self.server_sockets:
+            tornado.netutil.add_accept_handler(sock, self.on_connect)
+
+        self.pending = {}
+        self.backend = backend
+
+        backend.repl_result_callback = self.on_reply
+
+    def on_connect(self, sock, addr):
+        conn = tornado.iostream.IOStream(sock)
+        self.io_loop.add_future(self.do_read(conn), lambda f: None)
+        conn.set_close_callback(lambda: self.on_close(conn))
+
+    def on_close(self, conn):
+        pending_ids = set()
+        for k,v in self.pending.items():
+            if v[0] is conn:
+                pending_ids.add(k)
+        for k in pending_ids:
+            del self.pending[k]
+
+    def next_cookie(self, conn, cb):
+        for i in range(0, len(self.pending) + 1):
+            if i not in self.pending:
+                self.pending[i] = (conn, cb)
+                return i
+        assert False, 'unreachable'
+
+    def send_repl_command(self, conn, text, callback):
+        cookie = self.next_cookie(conn, callback)
+        self.backend.send_repl_command(cookie, text)
+
+    @tornado.gen.coroutine
+    def do_read(self, conn):
+        def read_line():
+            return tornado.gen.Task(conn.read_until, b'\n')
+
+        while not conn.closed():
+            line = yield read_line()
+            if line.strip() != b'{':
+                text = line
+            else:
+                lines = []
+                while True:
+                    line = yield read_line()
+                    if line.strip() == b'}':
+                        break
+                    lines.append(line)
+                text = b''.join(lines)
+
+            result = yield tornado.gen.Task(self.send_repl_command, conn, text)
+            conn.write(result)
+
+    def on_reply(self, cookie, text):
+        if cookie not in self.pending:
+            print('unexpected reply cookie: %d' % cookie)
+            return
+
+        _, cb = self.pending.pop(cookie)
+        cb(text)
 
 if __name__ == "__main__":
     import sys
@@ -177,5 +259,6 @@ if __name__ == "__main__":
     tornado.autoreload.watch(os.path.join(script_dir, 'bootstrap.lua'))
 
     backend = BackendStream([exe, root_dir])
+    repl = ReplServer(backend)
     application.listen(8888)
     tornado.ioloop.IOLoop.instance().start()
