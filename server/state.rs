@@ -300,11 +300,9 @@ impl<'a> State<'a> {
 
         self.mw.retain(V2::new(cx, cy), |w, pos| {
             if let Some(file) = storage.open_terrain_chunk_file(pos) {
-                info!("loading chunk {:?} from file", pos);
                 let mut sr = ObjectReader::new(file, ReadHooks::new(script));
                 sr.load_terrain_chunk(w).unwrap();
             } else {
-                info!("generating new chunk {:?}", pos);
                 let (blocks, points) = gen.generate_chunk(block_data, pos.x, pos.y);
                 w.create_terrain_chunk(pos, Box::new(blocks)).unwrap();
 

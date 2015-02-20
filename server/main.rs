@@ -624,18 +624,16 @@ fn chunk_offset(pos: V3, extra_offset: (u8, u8)) -> V3 {
 // TODO: remove the & once copying ObjectRefs doesn't cause memory corruption (rustc dcaeb6aa2
 // 2015-01-18 has this bug)
 // NB: I used this same workaround in a bunch of other places and I don't remember where
-fn entity_area(e: &ObjectRef<world::Entity>) -> util::SmallVec<V2> {
+fn entity_area(e: &ObjectRef<world::Entity>) -> util::SmallSet<V2> {
     let motion = e.motion();
-    let mut result = util::SmallVec::new();
+    let mut result = util::SmallSet::new();
 
     let scale = scalar(CHUNK_SIZE * TILE_SIZE);
     let start_chunk = motion.start_pos.reduce().div_floor(scale);
     let end_chunk = motion.end_pos.reduce().div_floor(scale);
 
-    result.push(start_chunk);
-    if end_chunk != start_chunk {
-        result.push(end_chunk);
-    }
+    result.insert(start_chunk);
+    result.insert(end_chunk);
     result
 }
 

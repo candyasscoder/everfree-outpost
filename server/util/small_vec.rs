@@ -26,7 +26,7 @@ fn small_limit<T>() -> usize {
 
 impl<T> SmallVec<T> {
     unsafe fn to_interp(&self) -> SmallVecInterp<T> {
-        if self.len < small_limit::<T>() {
+        if self.len <= small_limit::<T>() {
             SmallVecInterp {
                 ptr: &self.data as *const _ as *mut T,
                 len: self.len,

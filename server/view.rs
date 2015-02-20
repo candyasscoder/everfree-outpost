@@ -8,7 +8,7 @@ use types::*;
 use util::{multimap_insert, multimap_remove};
 use util::RefcountedMap;
 use util::OptionIterExt;
-use util::SmallVec;
+use util::SmallSet;
 
 
 pub const VIEW_SIZE: V2 = V2 { x: 5, y: 6 };
@@ -36,7 +36,7 @@ struct VisionClient {
 }
 
 struct VisionEntity {
-    area: SmallVec<V2>,
+    area: SmallSet<V2>,
     viewers: HashSet<ClientId>,
 }
 
@@ -130,7 +130,7 @@ impl Vision {
 
     pub fn add_entity<CB>(&mut self,
                           eid: EntityId,
-                          area: SmallVec<V2>,
+                          area: SmallSet<V2>,
                           cb: &mut CB)
             where CB: VisionCallbacks {
         self.entities.insert(eid.unwrap() as usize, VisionEntity::new());
@@ -141,21 +141,21 @@ impl Vision {
                              eid: EntityId,
                              cb: &mut CB)
             where CB: VisionCallbacks {
-        self.set_entity_area(eid, SmallVec::new(), cb);
+        self.set_entity_area(eid, SmallSet::new(), cb);
         self.entities.remove(&(eid.unwrap() as usize));
     }
 
     pub fn set_entity_area<CB>(&mut self,
                                eid: EntityId,
-                               new_area: SmallVec<V2>,
+                               new_area: SmallSet<V2>,
                                cb: &mut CB)
             where CB: VisionCallbacks {
         let raw_eid = eid.unwrap() as usize;
         let entity = &mut self.entities[raw_eid];
 
-        let old_area = mem::replace(&mut entity.area, SmallVec::new());
+        let old_area = mem::replace(&mut entity.area, SmallSet::new());
 
-        for &p in old_area.as_slice().iter() {
+        for &p in old_area.iter().filter(|&p| !new_area.contains(p)) {
             for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
                 self.clients[cid.unwrap() as usize].visible_entities.release(eid, |()| {
                     cb.entity_disappear(cid, eid);
@@ -165,7 +165,7 @@ impl Vision {
             multimap_remove(&mut self.entities_by_chunk, p, eid);
         }
 
-        for &p in new_area.as_slice().iter() {
+        for &p in new_area.iter().filter(|&p| !old_area.contains(p)) {
             for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
                 self.clients[cid.unwrap() as usize].visible_entities.retain(eid, || {
                     cb.entity_appear(cid, eid);
@@ -226,7 +226,7 @@ impl VisionClient {
 impl VisionEntity {
     fn new() -> VisionEntity {
         VisionEntity {
-            area: SmallVec::new(),
+            area: SmallSet::new(),
             viewers: HashSet::new(),
         }
     }

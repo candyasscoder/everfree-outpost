@@ -215,6 +215,7 @@ var assets;
 
 
 var entities;
+var entity_appearance;
 var player_entity;
 
 var chunks;
@@ -246,6 +247,7 @@ function init() {
     assets = loader.assets;
 
     entities = {};
+    entity_appearance = {};
     player_entity = -1;
 
     chunks = buildArray(LOCAL_SIZE * LOCAL_SIZE, function() { return new Chunk(); });
@@ -351,6 +353,8 @@ function openConn(url, next) {
     conn.onOpenDialog = handleOpenDialog;
     conn.onOpenCrafting = handleOpenCrafting;
     conn.onChatUpdate = handleChatUpdate;
+    conn.onEntityAppear = handleEntityAppear;
+    conn.onEntityGone = handleEntityGone;
 }
 
 
@@ -560,6 +564,10 @@ function handleTerrainChunk(i, data) {
 }
 
 function handleEntityUpdate(id, motion, anim) {
+    if (entities[id] == null) {
+        return;
+    }
+
     var offset = new Vec(16, 32, 0);
     var m = new Motion(motion.start_pos.add(offset));
     m.end_pos = motion.end_pos.add(offset);
@@ -573,9 +581,6 @@ function handleEntityUpdate(id, motion, anim) {
 
     m.anim_id = anim;
 
-    if (entities[id] == null) {
-        entities[id] = new Entity(pony_sheet, pony_anims, motion.start_pos, {x: 48, y: 90});
-    }
     entities[id].queueMotion(m);
 
     load_counter.update(0, 1);
@@ -639,6 +644,17 @@ function handleOpenCrafting(station_type, station_id, inventory_id) {
 
 function handleChatUpdate(msg) {
     chat.addMessage(msg);
+}
+
+function handleEntityAppear(id, appearance) {
+    console.log('appear: ', id);
+    entities[id] = new Entity(pony_sheet, pony_anims, new Vec(0, 0, 0), {x: 48, y: 90});
+}
+
+function handleEntityGone(id, time) {
+    console.log('gone: ', id);
+    // TODO: actually delay until the specified time
+    delete entities[id];
 }
 
 
