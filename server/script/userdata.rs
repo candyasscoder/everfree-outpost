@@ -121,8 +121,8 @@ impl Userdata for World {
                 None
             }}
 
-            fn create_entity(_w: &World, pos: V3, anim: AnimId) -> StrResult<Entity> {
-                ctx.world.create_entity(pos, anim)
+            fn create_entity(_w: &World, pos: V3, anim: AnimId, appearance: u32) -> StrResult<Entity> {
+                ctx.world.create_entity(pos, anim, appearance)
                    .map(|e| Entity { id: e.id() })
             }
 

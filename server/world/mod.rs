@@ -79,6 +79,7 @@ pub struct Entity {
     anim: AnimId,
     facing: V3,
     target_velocity: V3,
+    appearance: u32,
 
     stable_id: StableId,
     attachment: EntityAttachment,
@@ -270,7 +271,7 @@ lifecycle_methods!(TerrainChunk,
                    destroy_terrain_chunk(pos: V2) => terrain_chunk_destroy);
 
 lifecycle_methods!(Entity,
-                   create_entity(pos: V3, anim: AnimId) => entity_create,
+                   create_entity(pos: V3, anim: AnimId, appearance: u32) => entity_create,
                    destroy_entity(id: EntityId) => entity_destroy);
 
 lifecycle_methods!(Structure,
@@ -496,6 +497,14 @@ impl Entity {
 
     pub fn set_target_velocity(&mut self, new: V3) {
         self.target_velocity = new;
+    }
+
+    pub fn appearance(&self) -> u32 {
+        self.appearance
+    }
+
+    pub fn set_appearance(&mut self, appearance: u32) {
+        self.appearance = appearance;
     }
 
     pub fn pos(&self, now: Time) -> V3 {

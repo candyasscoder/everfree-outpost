@@ -637,10 +637,6 @@ fn entity_area(e: &ObjectRef<world::Entity>) -> util::SmallSet<V2> {
     result
 }
 
-fn entity_appearance(_: &world::Entity) -> u32 {
-    0
-}
-
 
 struct DummyCallbacks;
 
@@ -670,9 +666,7 @@ impl<'a, 'd> VisionCallbacks for MessageCallbacks<'a, 'd> {
         let info = unwrap_or!(self.client_info.get(&cid));
         let entity = unwrap_or!(self.state.world().get_entity(eid));
 
-        let appearance = entity_appearance(&*entity);
-
-        self.wire.send((info.wire_id, Response::EntityAppear(eid, appearance))).unwrap();
+        self.wire.send((info.wire_id, Response::EntityAppear(eid, entity.appearance()))).unwrap();
     }
 
     fn entity_disappear(&mut self, cid: ClientId, eid: EntityId) {

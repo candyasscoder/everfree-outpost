@@ -222,7 +222,6 @@ var chunks;
 var chunkLoaded;
 var physics;
 
-var pony_sheet;
 var renderer = null;
 
 var conn;
@@ -254,7 +253,6 @@ function init() {
     chunkLoaded = buildArray(LOCAL_SIZE * LOCAL_SIZE, function() { return false; });
     physics = new Physics();
 
-    pony_sheet = null;  // Initialized after assets are loaded.
     renderer = new Renderer(canvas.ctx);
 
     conn = null;    // Initialized after assets are loaded.
@@ -269,7 +267,6 @@ function init() {
     checkBrowser(dialog, function() {
         loadAssets(function() {
             renderer.initGl(assets);
-            pony_sheet = buildPonySheet();
             runner.job('preload-textures', preloadTextures);
 
             openConn(assets['server_info']['name'], function() {
@@ -383,15 +380,29 @@ function buildUI() {
     banner.show('Loading...', 0, keyboard, function() { return false; });
 }
 
-function buildPonySheet() {
+function buildPonySheet(appearance) {
+    var horn = (appearance >> 7) & 1;
+    var wings = (appearance >> 6) & 1;
+    var r = (appearance >> 4) & 3;
+    var g = (appearance >> 2) & 3;
+    var b = (appearance >> 0) & 3;
+
+    var steps = [0x44, 0x88, 0xcc, 0xff];
+    var body = (steps[r + 1] << 16) |
+               (steps[g + 1] <<  8) |
+               (steps[b + 1]);
+    var mane = (steps[r] << 16) |
+               (steps[g] <<  8) |
+               (steps[b]);
+
     return new LayeredTintedSheet([
-            { image: assets['pony_f_wing_back'],    color: 0xcc88ff,    skip: false },
-            { image: assets['pony_f_base'],         color: 0xcc88ff,    skip: false },
+            { image: assets['pony_f_wing_back'],    color: body,        skip: !wings },
+            { image: assets['pony_f_base'],         color: body,        skip: false },
             { image: assets['pony_f_eyes_blue'],    color: 0xffffff,    skip: false },
-            { image: assets['pony_f_wing_front'],   color: 0xcc88ff,    skip: false },
-            { image: assets['pony_f_tail_1'],       color: 0x8844cc,    skip: false },
-            { image: assets['pony_f_mane_1'],       color: 0x8844cc,    skip: false },
-            { image: assets['pony_f_horn'],         color: 0xcc88ff,    skip: false },
+            { image: assets['pony_f_wing_front'],   color: body,        skip: !wings },
+            { image: assets['pony_f_tail_1'],       color: mane,        skip: false },
+            { image: assets['pony_f_mane_1'],       color: mane,        skip: false },
+            { image: assets['pony_f_horn'],         color: body,        skip: !horn },
             ], 96, 96);
 }
 
@@ -647,8 +658,9 @@ function handleChatUpdate(msg) {
 }
 
 function handleEntityAppear(id, appearance) {
-    console.log('appear: ', id);
-    entities[id] = new Entity(pony_sheet, pony_anims, new Vec(0, 0, 0), {x: 48, y: 90});
+    console.log('appear: ', id, appearance);
+    var sheet = buildPonySheet(appearance);
+    entities[id] = new Entity(sheet, pony_anims, new Vec(0, 0, 0), {x: 48, y: 90});
 }
 
 function handleEntityGone(id, time) {

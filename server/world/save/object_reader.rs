@@ -206,7 +206,8 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
                  start_time,
                  duration, anim,    // u16 * 2
                  facing,
-                 target_velocity) = try!(self.r.read());
+                 target_velocity,
+                 appearance) = try!(self.r.read());
 
             e.motion.start_pos = start_pos;
             e.motion.end_pos = end_pos;
@@ -216,6 +217,7 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
             e.anim = anim;
             e.facing = facing;
             e.target_velocity = target_velocity;
+            e.appearance = appearance;
         }
 
         try!(self.hooks.post_read_entity(&mut self.r, w, eid));

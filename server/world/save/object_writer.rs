@@ -161,7 +161,8 @@ impl<W: io::Writer, H: WriteHooks> ObjectWriter<W, H> {
                            m.start_time,
                            m.duration, e.anim,  // u16 * 2
                            e.facing,
-                           e.target_velocity)));
+                           e.target_velocity,
+                           e.appearance)));
 
         try!(self.hooks.post_write_entity(&mut self.w, e));
 

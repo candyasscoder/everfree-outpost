@@ -1,6 +1,6 @@
 use std::iter::range_inclusive;
 use std::ops::{Deref, DerefMut};
-use std::rand::{Rng, SeedableRng, XorShiftRng};
+use std::rand::{self, Rng, SeedableRng, XorShiftRng};
 
 use physics;
 use physics::{Shape, ShapeSource};
@@ -198,11 +198,14 @@ impl<'a> State<'a> {
             Ok(c)
         } else {
             info!("initializing new client {}", name);
-            let pos = V3::new(170, 250, 0);
+
+            let pos = V3::new(64, 64, 0);
             // TODO: hardcoded constant based on entity size
             let offset = V3::new(16, 16, 0);
 
-            let pawn_id = self.world_mut().create_entity(pos - offset, 0).unwrap().id();
+            let appearance = appearance_from_name(name);
+            let pawn_id = self.world_mut().create_entity(pos - offset, 0, appearance)
+                              .unwrap().id();
 
             let mut client = self.world_mut().create_client(name, chunk_offset).unwrap();
             client.set_pawn(Some(pawn_id)).unwrap();
@@ -437,4 +440,37 @@ pub fn build_local_terrain<'a>(mw: &'a terrain2::ManagedWorld,
     }
 
     local
+}
+
+fn appearance_from_name(name: &str) -> u32 {
+    let mut rng = rand::thread_rng();
+
+    let (tribe, r, g, b) = if name.starts_with("Anon") && name.len() >= 8 {
+        let mut get = |&mut: c: char, options: &str| {
+            if c == options.char_at(0) {
+                0
+            } else if c == options.char_at(1) {
+                1
+            } else if c == options.char_at(2) {
+                2
+            } else {
+                rng.gen_range(0, 3)
+            }
+        };
+
+        (get(name.char_at(4), "EPU"),
+         get(name.char_at(5), "123"),
+         get(name.char_at(6), "123"),
+         get(name.char_at(7), "123"))
+    } else {
+        (rng.gen_range(0, 3),
+         rng.gen_range(0, 3),
+         rng.gen_range(0, 3),
+         rng.gen_range(0, 3))
+    };
+
+    (tribe << 6) |
+    (r << 4) |
+    (g << 2) |
+    (b)
 }

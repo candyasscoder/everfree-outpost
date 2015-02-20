@@ -138,12 +138,14 @@ pub fn terrain_chunk_destroy(w: &mut World,
 
 pub fn entity_create(w: &mut World,
                      pos: V3,
-                     anim: AnimId) -> OpResult<EntityId> {
+                     anim: AnimId,
+                     appearance: u32) -> OpResult<EntityId> {
     let e = Entity {
         motion: super::Motion::stationary(pos),
         anim: anim,
         facing: V3::new(1, 0, 0),
         target_velocity: scalar(0),
+        appearance: appearance,
 
         stable_id: NO_STABLE_ID,
         attachment: EntityAttachment::World,
@@ -161,6 +163,7 @@ pub fn entity_create_unchecked(w: &mut World) -> EntityId {
         anim: 0,
         facing: scalar(0),
         target_velocity: scalar(0),
+        appearance: 0,
 
         stable_id: NO_STABLE_ID,
         attachment: EntityAttachment::World,
