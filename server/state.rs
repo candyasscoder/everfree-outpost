@@ -313,6 +313,7 @@ impl<'a> State<'a> {
                 let bounds = Region::new(base, base + scalar(CHUNK_SIZE));
                 let template_ids = [
                     template_data.get_id("tree"),
+                    template_data.get_id("tree"),
                     template_data.get_id("rock"),
                 ];
                 for pos in points.into_iter() .filter(|&p| bounds.contains(p)) {

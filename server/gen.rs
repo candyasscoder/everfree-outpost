@@ -321,7 +321,7 @@ impl TerrainGenerator {
     pub fn new(seed: u64) -> TerrainGenerator {
         TerrainGenerator {
             seed: seed,
-            sampler: Box::new(IsoDiskSampler::new(seed, 5, 5, 32, |&: _| 5)) as Box<PointSource>,
+            sampler: Box::new(IsoDiskSampler::new(seed, 4, 4, 32, |&: _| 4)) as Box<PointSource>,
         }
     }
 
