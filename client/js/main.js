@@ -461,7 +461,7 @@ function setupKeyHandler() {
     };
 
     keyboard.pushHandler(function(down, evt) {
-        if (evt.repeat) {
+        if (down && evt.repeat) {
             return true;
         }
 
