@@ -712,10 +712,11 @@ function localSprite(now, entity, camera_mid) {
 }
 
 
-function frame(gl, now) {
+function frame(ac, now) {
     debug.frameStart();
+    var gl = ac.ctx;
 
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.viewport(0, 0, ac.canvas.width, ac.canvas.height);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 
@@ -728,7 +729,10 @@ function frame(gl, now) {
     }
     debug.updatePos(pos);
 
-    var camera_size = new Vec(gl.canvas.width|0, gl.canvas.height|0, 0);
+    var view_width = ac.virtualWidth;
+    var view_height = ac.virtualHeight;
+
+    var camera_size = new Vec(view_width, view_height, 0);
     var camera_pos = pos.sub(camera_size.divScalar(2));
 
 
@@ -741,7 +745,7 @@ function frame(gl, now) {
 
     renderer.render(gl,
             camera_pos.x, camera_pos.y,
-            gl.canvas.width, gl.canvas.height,
+            camera_size.x, camera_size.y,
             sprites);
 
     debug.frameEnd();

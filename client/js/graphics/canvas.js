@@ -31,7 +31,7 @@ function AnimCanvas(frame_callback, ctx_type) {
     });
 
     function frameWrapper() {
-        frame_callback(this_.ctx, Date.now());
+        frame_callback(this_, Date.now());
         if (this_.animating) {
             window.requestAnimationFrame(frameWrapper);
         }
@@ -78,17 +78,22 @@ AnimCanvas.prototype._handleResize = function() {
     var virtWidth = Math.ceil(width * invScale);
     var virtHeight = Math.ceil(height * invScale);
 
+    // Make sure phys* is an exact multiple of virt*, even when the actual
+    // window size is not.  (Example: 2x scale, non-even window width)
     var physWidth = Math.round(virtWidth * scale);
     var physHeight = Math.round(virtHeight * scale);
 
-    this.canvas.width = virtWidth;
-    this.canvas.height = virtHeight;
+    this.canvas.width = physWidth;
+    this.canvas.height = physHeight;
     this.canvas.style.width = physWidth + 'px';
     this.canvas.style.height = physHeight + 'px';
 
     // TODO: this is really not an appropriate place to put this code
     var fontSize = 16 * scale;
     document.firstElementChild.style.fontSize = fontSize + 'px';
+
+    this.virtualWidth = virtWidth;
+    this.virtualHeight = virtHeight;
 };
 
 

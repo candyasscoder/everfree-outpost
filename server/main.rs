@@ -213,6 +213,7 @@ impl<'a> Server<'a> {
 
             Request::RemoveClient(wire_id) => {
                 if let Some(client_id) = self.wire_to_client(wire_id) {
+                    info!("{:?} ({:?}) logging out", client_id, wire_id);
                     // TODO: error handling
                     let region = self.vision.client_view_area(client_id).unwrap();
                     for p in region.points() {
@@ -227,6 +228,7 @@ impl<'a> Server<'a> {
                     }
                     self.vision.remove_client(client_id, &mut DummyCallbacks);
                 }
+                info!("{:?} logged out", wire_id);
                 self.resps.send((CONTROL_WIRE_ID, Response::ClientRemoved(wire_id))).unwrap();
             },
 
@@ -253,7 +255,7 @@ impl<'a> Server<'a> {
             },
 
             Request::Login(_secret, name) => {
-                log!(10, "login request for {}", name);
+                info!("login request for {}", name);
 
                 let (cid, eid) = {
                     let client = try!(self.state.load_client(&*name));
@@ -286,6 +288,8 @@ impl<'a> Server<'a> {
 
                 self.wake_queue.push(now + 1000, WakeReason::CheckView(cid));
                 self.server_msg(wire_id, &*format!("logged in as {}", name));
+
+                info!("{:?} ({:?}) logged in as {:?}", cid, wire_id, name);
             },
 
             _ => {
