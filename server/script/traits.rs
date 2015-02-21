@@ -3,6 +3,7 @@ use libc::c_int;
 use lua::LuaState;
 use lua::REGISTRY_INDEX;
 use lua::ValueType;
+use types::*;
 use util::StrResult;
 
 use super::{ScriptContext, get_ctx};
@@ -197,6 +198,30 @@ tuple_from_lua_impl!(2, A B);
 tuple_from_lua_impl!(3, A B C);
 tuple_from_lua_impl!(4, A B C D);
 tuple_from_lua_impl!(5, A B C D E);
+
+macro_rules! newtype_from_lua_impl {
+    ($ty:ident, $inner_ty:ty) => {
+        impl<'a> FromLua<'a> for $ty {
+            unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
+                <$inner_ty as FromLua>::check(lua, index, func)
+            }
+
+            unsafe fn from_lua(lua: &LuaState, index: c_int) -> $ty {
+                let raw = <$inner_ty as FromLua>::from_lua(lua, index);
+                $ty(raw)
+            }
+
+            fn count() -> c_int {
+                <$inner_ty as FromLua>::count()
+            }
+        }
+    };
+}
+
+newtype_from_lua_impl!(ClientId, u16);
+newtype_from_lua_impl!(EntityId, u32);
+newtype_from_lua_impl!(StructureId, u32);
+newtype_from_lua_impl!(InventoryId, u32);
 
 pub unsafe fn check_args<'a, T: FromLua<'a>>(lua: &mut LuaState, func: &'static str) {
     let actual = lua.top_index();

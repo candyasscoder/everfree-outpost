@@ -374,6 +374,10 @@ impl<'a> State<'a> {
         let mut sw = ObjectWriter::new(file, WriteHooks::new(&mut self.script));
         warn_on_err!(sw.save_world(self.mw.world()));
     }
+
+    pub fn script_eval(&mut self, now: Time, code: &str) -> Result<String, String> {
+        self.script.eval(self.mw.world_mut(), now, code)
+    }
 }
 
 #[unsafe_destructor]

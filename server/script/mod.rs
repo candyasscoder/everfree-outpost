@@ -112,6 +112,26 @@ impl ScriptEngine {
         }
     }
 
+    pub fn eval(&mut self,
+                world: &mut world::World,
+                now: Time,
+                code: &str) -> Result<String, String> {
+        let ctx = RefCell::new(ScriptContext {
+            world: world,
+            now: now,
+        });
+        self.with_context(&ctx, |lua| {
+            lua.get_field(REGISTRY_INDEX, "outpost_callback_eval");
+            userdata::World.to_lua(lua);
+            code.to_lua(lua);
+            try!(lua.pcall(2, 1, 0).map_err(|(e,s)| format!("{:?}: {}", e, s)));
+
+            let result = lua.to_string(-1).unwrap_or("(bad result)");
+            Ok(String::from_str(result))
+
+        })
+    }
+
     fn with_context<F, T>(&mut self,
                           ctx: &RefCell<ScriptContext>,
                           blk: F) -> T

@@ -143,6 +143,22 @@ impl Userdata for World {
             fn item_id_to_name(_w: &World, id: ItemId) -> _ {
                 ctx.world.data().item_data.get_name(id).map(|s| String::from_str(s))
             }
+
+            fn get_client(_w: &World, id: ClientId) -> Option<Client> {
+                ctx.world.get_client(id).map(|_| Client { id: id })
+            }
+
+            fn get_entity(_w: &World, id: EntityId) -> Option<Entity> {
+                ctx.world.get_entity(id).map(|_| Entity { id: id })
+            }
+
+            fn get_structure(_w: &World, id: StructureId) -> Option<Structure> {
+                ctx.world.get_structure(id).map(|_| Structure { id: id })
+            }
+
+            fn get_inventory(_w: &World, id: InventoryId) -> Option<Inventory> {
+                ctx.world.get_inventory(id).map(|_| Inventory { id: id })
+            }
         }
     }
 }

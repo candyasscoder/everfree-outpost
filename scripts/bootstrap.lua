@@ -35,6 +35,7 @@ package.loaded.bootstrap = {
 
 require('outpost.userdata')
 require('outpost.extra')
+require('outpost.eval')
 local action = require('outpost.action')
 
 

@@ -205,7 +205,7 @@ impl<'a> Server<'a> {
     }
 
     fn handle_control_req(&mut self,
-                          _now: Time,
+                          now: Time,
                           req: Request) {
         match req {
             Request::AddClient(_wire_id) => {
@@ -232,7 +232,11 @@ impl<'a> Server<'a> {
 
             Request::ReplCommand(cookie, cmd) => {
                 info!("got repl command {}: {:?}", cookie, cmd);
-                self.resps.send((CONTROL_WIRE_ID, Response::ReplResult(cookie, cmd))).unwrap();
+                let result = match self.state.script_eval(now, &*cmd) {
+                    Ok(msg) => msg,
+                    Err(e) => e,
+                };
+                self.resps.send((CONTROL_WIRE_ID, Response::ReplResult(cookie, result))).unwrap();
             },
 
             _ => warn!("bad control request: {:?}", req),
