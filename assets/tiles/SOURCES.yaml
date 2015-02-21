@@ -260,7 +260,7 @@ terrain_atlas.png: &lpc-tile-sheet-1
 
 lpc-trees-unscaled.png: &rescaled-trees
     title: LPC Trees (edited)
-    author: Lanea Zimmerman (AKA Sharm), Casper Nilsson, Stuart Pernsteiner
+    author: Lanea Zimmerman (AKA Sharm), Casper Nilsson, Everfree Outpost
     license: CC-BY-SA 3.0 / GPL 3.0
     attribution:
         Lanea Zimmerman's tree trunks and Casper Nilsson's tree stump, copied
@@ -278,7 +278,7 @@ lpc-trees-scaled.png: *rescaled-trees
 
 lpc-house.png: &house-walls
     title: LPC House Walls
-    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
+    author: Lanea Zimmerman (AKA Sharm), Everfree Outpost
     license: CC-BY-SA 3.0 / GPL 3.0
     attribution:
         Lanea Zimmerman's house interior and exterior tiles, edited together to
@@ -288,7 +288,7 @@ lpc-house.xcf: *house-walls
 
 lpc-wood-floor.png: &wood-floor
     title: LPC Wood Floor
-    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
+    author: Lanea Zimmerman (AKA Sharm), Everfree Outpost
     license: CC-BY-SA 3.0 / GPL 3.0
     attribution:
         Lanea Zimmerman's wood floor tile, rearranged to match the standard

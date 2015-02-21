@@ -89,7 +89,7 @@ def render_one(info, dct):
     mk(div('license', marker('License') + info['license']))
 
     if 'url' in info:
-        mk(div('download', marker('Download') + link(info['url'], 'link')))
+        mk(div('download', marker('Webpage') + link(info['url'], 'link')))
 
     if 'derived-from' in info:
         def go(path):
@@ -180,7 +180,7 @@ def main():
                 <title>Everfree Outpost - Credits</title>
             </head>
             <body>
-                <h1 class='top-title'>Everfree Outpost</h1>
+                <h1 class='top-title'>Everfree Outpost &ndash; Credits</h1>
         ''')
     for e in entries:
         print('<hr>')
