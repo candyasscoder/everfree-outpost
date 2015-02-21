@@ -19,7 +19,7 @@ chest:
 house_wall:
     _.station: anvil
     _.inputs:
-        wood: 10
+        wood: 5
 
     n.ui_name: House Wall (N)
     n.outputs: { house_wall/n: 1 }
@@ -48,7 +48,7 @@ house_wall:
 house_floor:
     station: anvil
     ui_name: House Floor
-    inputs: { wood: 10 }
+    inputs: { wood: 5 }
     outputs: { house_floor: 1 }
 
 
