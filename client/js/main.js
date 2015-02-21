@@ -26,6 +26,7 @@ var InventoryUI = require('ui/inventory').InventoryUI;
 var ContainerUI = require('ui/inventory').ContainerUI;
 var CraftingUI = require('ui/crafting').CraftingUI;
 var Credits = require('ui/credits').Credits;
+var KeyDisplay = require('ui/keydisplay').KeyDisplay;
 
 var TileDef = require('data/chunk').TileDef;
 var ItemDef = require('data/items').ItemDef;
@@ -371,6 +372,18 @@ function buildUI() {
     document.body.appendChild(banner.container);
     document.body.appendChild(dialog.container);
     document.body.appendChild(debug.container);
+
+    if (Config.show_key_display.get()) {
+        var key_display = new KeyDisplay();
+        document.body.appendChild(key_display.container);
+        keyboard.monitor = function(down, evt) {
+            if (down) {
+                key_display.onKeyDown(evt);
+            } else {
+                key_display.onKeyUp(evt);
+            }
+        };
+    }
 
     if (!Config.show_controls.get()) {
         $('key-list').classList.add('hidden');

@@ -27,6 +27,8 @@ var DEFAULT_CONFIG = {
         27: 'cancel',       // Esc
     },
 
+    'show_key_display': false,
+
     'debug_show_panel': false,
     'debug_timing_delay': [0, 25],
     'debug_force_mobile_warning': false,
@@ -42,6 +44,8 @@ exports.Config = {
 
     keybindings: new ConfigItem('keybindings'),
     chat_keybindings: new ConfigItem('chat_keybindings'),
+
+    show_key_display: new ConfigItem('show_key_display'),
 
     debug_show_panel: new ConfigItem('debug_show_panel'),
     debug_timing_delay: new ConfigItem('debug_timing_delay'),

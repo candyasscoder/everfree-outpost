@@ -2,6 +2,7 @@
 function Keyboard() {
     // Include a no-op handler, so we can always assume the stack is nonempty.
     this._handler_stack = [function() { return false; }];
+    this.monitor = null;
 }
 exports.Keyboard = Keyboard;
 
@@ -23,6 +24,10 @@ Keyboard.prototype.attach = function(elt) {
     var this_ = this;
 
     elt.addEventListener('keydown', function(evt) {
+        if (this_.monitor != null) {
+            this_.monitor(true, evt);
+        }
+
         if (this_._topHandler()(true, evt)) {
             evt.preventDefault();
             evt.stopPropagation();
@@ -30,6 +35,10 @@ Keyboard.prototype.attach = function(elt) {
     });
 
     elt.addEventListener('keyup', function(evt) {
+        if (this_.monitor != null) {
+            this_.monitor(false, evt);
+        }
+
         if (this_._topHandler()(false, evt)) {
             evt.preventDefault();
             evt.stopPropagation();

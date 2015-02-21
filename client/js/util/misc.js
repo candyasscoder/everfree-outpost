@@ -141,6 +141,8 @@ exports.chain = function(old, f) {
 
 
 exports.element = function(tag, extra, parent) {
+    extra = extra || {};
+
     var e = document.createElement(tag);
 
     for (var i = 0; i < extra.length; ++i) {
