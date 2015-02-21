@@ -25,6 +25,7 @@ var ChatWindow = require('ui/chat').ChatWindow;
 var InventoryUI = require('ui/inventory').InventoryUI;
 var ContainerUI = require('ui/inventory').ContainerUI;
 var CraftingUI = require('ui/crafting').CraftingUI;
+var Credits = require('ui/credits').Credits;
 
 var TileDef = require('data/chunk').TileDef;
 var ItemDef = require('data/items').ItemDef;
@@ -208,6 +209,7 @@ var dialog;
 var banner;
 var keyboard;
 var chat;
+var credits;
 
 var runner;
 var loader;
@@ -240,6 +242,7 @@ function init() {
     keyboard = new Keyboard();
     dialog = new Dialog(keyboard);
     chat = new ChatWindow();
+    credits = new Credits();
 
     runner = new BackgroundJobRunner();
     loader = new AssetLoader();
@@ -466,8 +469,10 @@ function setupKeyHandler() {
                 debug.container.classList.toggle('hidden', !show);
             } else if (binding == 'chat') {
                 chat.startTyping(keyboard, conn);
+            } else if (binding == 'show_credits') {
+                dialog.show(credits);
             } else {
-                sendActionForKey(binding);
+                return sendActionForKey(binding);
             }
         }
         return true;

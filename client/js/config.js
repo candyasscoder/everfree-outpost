@@ -16,6 +16,7 @@ var DEFAULT_CONFIG = {
         69: 'inventory',    // E
         112: 'show_controls', // F1
         114: 'debug_show_panel', // F3
+        115: 'show_credits', // F4
         27: 'cancel',       // Esc
         32: 'cancel',       // Space
         13: 'chat',         // Enter
