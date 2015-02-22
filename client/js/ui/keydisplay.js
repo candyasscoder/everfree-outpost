@@ -33,7 +33,6 @@ KeyDisplay.prototype.onKeyDown = function(evt) {
     }
 
     var name = getKeyName(evt.keyCode);
-    console.log('keydown', evt.keyCode, name);
     if (name == null) {
         return;
     }

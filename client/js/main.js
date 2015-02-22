@@ -25,7 +25,7 @@ var ChatWindow = require('ui/chat').ChatWindow;
 var InventoryUI = require('ui/inventory').InventoryUI;
 var ContainerUI = require('ui/inventory').ContainerUI;
 var CraftingUI = require('ui/crafting').CraftingUI;
-var Credits = require('ui/credits').Credits;
+var Iframe = require('ui/iframe').Iframe;
 var KeyDisplay = require('ui/keydisplay').KeyDisplay;
 var Menu = require('ui/menu').Menu;
 
@@ -212,6 +212,7 @@ var banner;
 var keyboard;
 var chat;
 var credits;
+var instructions;
 
 var main_menu;
 var debug_menu;
@@ -247,7 +248,8 @@ function init() {
     keyboard = new Keyboard();
     dialog = new Dialog(keyboard);
     chat = new ChatWindow();
-    credits = new Credits();
+    credits = new Iframe('credits.html');
+    instructions = new Iframe('instructions.html');
 
     initMenus();
 
@@ -404,7 +406,7 @@ function buildUI() {
 
 function initMenus() {
     main_menu = new Menu([
-            ['&Instructions', function() { console.log('not yet implemented'); }],
+            ['&Instructions', function() { dialog.show(instructions); }],
             ['&Debug Menu', function() { dialog.show(debug_menu); }],
             ['&Credits', function() { dialog.show(credits); }],
     ]);
