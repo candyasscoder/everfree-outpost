@@ -213,6 +213,9 @@ var keyboard;
 var chat;
 var credits;
 
+var main_menu;
+var debug_menu;
+
 var runner;
 var loader;
 var assets;
@@ -245,6 +248,8 @@ function init() {
     dialog = new Dialog(keyboard);
     chat = new ChatWindow();
     credits = new Credits();
+
+    initMenus();
 
     runner = new BackgroundJobRunner();
     loader = new AssetLoader();
@@ -397,6 +402,18 @@ function buildUI() {
     banner.show('Loading...', 0, keyboard, function() { return false; });
 }
 
+function initMenus() {
+    main_menu = new Menu([
+            ['&Instructions', function() { console.log('not yet implemented'); }],
+            ['&Debug Menu', function() { dialog.show(debug_menu); }],
+            ['&Credits', function() { dialog.show(credits); }],
+    ]);
+
+    debug_menu = new Menu([
+            ['&Config Editor', function() { console.log('not yet implemented'); }],
+    ]);
+}
+
 function buildPonySheet(appearance) {
     var horn = (appearance >> 7) & 1;
     var wings = (appearance >> 6) & 1;
@@ -442,6 +459,7 @@ function preloadTextures() {
 }
 
 
+
 var INPUT_LEFT =    0x0001;
 var INPUT_RIGHT =   0x0002;
 var INPUT_UP =      0x0004;
@@ -483,8 +501,8 @@ function setupKeyHandler() {
                 debug.container.classList.toggle('hidden', !show);
             } else if (binding == 'chat') {
                 chat.startTyping(keyboard, conn);
-            } else if (binding == 'show_credits') {
-                dialog.show(credits);
+            } else if (binding == 'show_menu') {
+                dialog.show(main_menu);
             } else {
                 return sendActionForKey(binding);
             }
