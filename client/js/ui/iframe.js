@@ -28,6 +28,8 @@ Iframe.prototype.handleOpen = function(dialog) {
 
     this.container.onload = function() {
         dialog.keyboard.attach(this.contentDocument);
+        this.contentDocument.documentElement.style.fontSize =
+            document.documentElement.style.fontSize;
 
         // TODO: hack to get focus to work.  Firefox doesn't seem to allow
         // changing focus inside a keyboard event handler?
