@@ -27,6 +27,7 @@ var ContainerUI = require('ui/inventory').ContainerUI;
 var CraftingUI = require('ui/crafting').CraftingUI;
 var Credits = require('ui/credits').Credits;
 var KeyDisplay = require('ui/keydisplay').KeyDisplay;
+var Menu = require('ui/menu').Menu;
 
 var TileDef = require('data/chunk').TileDef;
 var ItemDef = require('data/items').ItemDef;
