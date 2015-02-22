@@ -99,6 +99,15 @@ end
 local function place_structure(name)
     return function(client, inv)
         local target_tile = hit_tile(client:pawn())
+        -- TODO: HACK
+        if name == 'anvil' or name == 'chest' then
+            local x = target_tile:x()
+            local y = target_tile:y()
+            if x >= -64 and x < 64 and y >= -64 and x < 64 then
+                return
+            end
+        end
+
         s, err = client:world():create_structure(target_tile, name)
         if s ~= nil then
             inv:update(name, -1)
@@ -109,6 +118,15 @@ end
 
 local function take_structure(name)
     return function(client, s)
+        -- TODO: HACK
+        if name == 'anvil' or name == 'chest' then
+            local x = target_tile:x()
+            local y = target_tile:y()
+            if x >= -64 and x < 64 and y >= -64 and x < 64 then
+                return
+            end
+        end
+
         local inv = client:pawn():inventory('main')
 
         if inv:count(name) < 255 then
@@ -143,6 +161,10 @@ function action.use_item.axe(client, inv)
     elseif template == 'stump' then
         s:destroy()
         inv:update('wood', 5)
+    -- TODO: HACK
+    elseif template == 'chest' then
+        s:destroy()
+        inv:update('chest', 1)
     end
 end
 
@@ -156,6 +178,10 @@ function action.use_item.pick(client, inv)
     if template == 'rock' then
         s:destroy()
         inv:update('stone', 20)
+    -- TODO: HACK
+    elseif template == 'anvil' then
+        s:destroy()
+        inv:update('anvil', 1)
     end
 end
 
