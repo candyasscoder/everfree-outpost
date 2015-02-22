@@ -13,6 +13,7 @@ use world::{EntitiesById, StructuresById, InventoriesById};
 use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::Motion;
 use world::ops::{self, OpResult};
+use util::Stable;
 
 
 pub trait Object: 'static {
@@ -203,6 +204,11 @@ impl<'a, 'd> ClientRef<'d> for ObjectRef<'a, 'd, Client> { }
 impl<'a, 'd> ClientRef<'d> for ObjectRefMut<'a, 'd, Client> { }
 
 pub trait ClientRefMut<'d>: ObjectRefMutBase<'d, Client> {
+    fn stable_id(&mut self) -> Stable<ClientId> {
+        let cid = self.id();
+        self.world_mut().clients.pin(cid)
+    }
+
     fn pawn_mut<'b>(&'b mut self) -> Option<ObjectRefMut<'b, 'd, Entity>> {
         match self.obj().pawn {
             None => None,
@@ -277,6 +283,11 @@ impl<'a, 'd> EntityRef<'d> for ObjectRef<'a, 'd, Entity> { }
 impl<'a, 'd> EntityRef<'d> for ObjectRefMut<'a, 'd, Entity> { }
 
 pub trait EntityRefMut<'d>: ObjectRefMutBase<'d, Entity> {
+    fn stable_id(&mut self) -> Stable<EntityId> {
+        let eid = self.id();
+        self.world_mut().entities.pin(eid)
+    }
+
     fn set_motion(&mut self, motion: Motion) {
         let eid = self.id();
         // TODO: update entity-by-chunk cache
@@ -319,6 +330,11 @@ impl<'a, 'd> StructureRef<'d> for ObjectRef<'a, 'd, Structure> { }
 impl<'a, 'd> StructureRef<'d> for ObjectRefMut<'a, 'd, Structure> { }
 
 pub trait StructureRefMut<'d>: ObjectRefMutBase<'d, Structure> {
+    fn stable_id(&mut self) -> Stable<StructureId> {
+        let sid = self.id();
+        self.world_mut().structures.pin(sid)
+    }
+
     fn set_pos(&mut self, pos: V3) -> OpResult<()> {
         let sid = self.id();
         ops::structure_move(self.world_mut(), sid, pos)
@@ -347,6 +363,11 @@ impl<'a, 'd> InventoryRef<'d> for ObjectRef<'a, 'd, Inventory> { }
 impl<'a, 'd> InventoryRef<'d> for ObjectRefMut<'a, 'd, Inventory> { }
 
 pub trait InventoryRefMut<'d>: ObjectRefMutBase<'d, Inventory> {
+    fn stable_id(&mut self) -> Stable<InventoryId> {
+        let iid = self.id();
+        self.world_mut().inventories.pin(iid)
+    }
+
     fn update(&mut self, item_id: ItemId, adjust: i16) -> u8 {
         let iid = self.id();
         // OK: self.id() is always a valid InventoryId

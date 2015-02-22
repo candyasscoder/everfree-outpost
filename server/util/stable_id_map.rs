@@ -4,6 +4,7 @@ use std::ops::{Index, IndexMut};
 
 use types::StableId;
 use util::id_map::{self, IdMap};
+use util::StrResult;
 
 
 pub struct StableIdMap<K, V> {
@@ -50,17 +51,30 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
         }
     }
 
-    pub fn insert(&mut self, v: V) -> K {
+    pub fn next_id(&self) -> StableId {
+        self.next_id
+    }
+
+    pub fn set_next_id(&mut self, next_id: StableId) {
+        assert!(next_id > 0);
+        self.next_id = next_id;
+    }
+
+    pub fn insert(&mut self, v: V) -> Option<K> {
         let stable_id = v.get_stable_id();
+        if stable_id != NO_STABLE_ID && self.stable_ids.contains_key(&stable_id) {
+            return None;
+        }
 
         let raw_transient_id = self.map.insert(v);
         let transient_id = FromPrimitive::from_uint(raw_transient_id).unwrap();
 
         if stable_id != NO_STABLE_ID {
+            info!("add stable id {:x} to map", stable_id);
             self.stable_ids.insert(stable_id, transient_id);
         }
 
-        transient_id
+        Some(transient_id)
     }
 
     pub fn remove(&mut self, transient_id: K) -> Option<V> {
@@ -75,6 +89,26 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
         }
 
         opt_val
+    }
+
+    pub fn set_stable_id(&mut self, transient_id: K, stable_id: StableId) -> StrResult<()> {
+        let raw_transient_id = transient_id.to_uint().unwrap();
+        let v = match self.map.get_mut(raw_transient_id) {
+            Some(x) => x,
+            None => fail!("transient_id is not present in the map"),
+        };
+        if v.get_stable_id() != NO_STABLE_ID {
+            fail!("value already has a stable_id");
+        }
+        if self.stable_ids.contains_key(&stable_id) {
+            fail!("stable_id is already in use");
+        }
+
+        if stable_id != NO_STABLE_ID {
+            v.set_stable_id(stable_id);
+            self.stable_ids.insert(stable_id, transient_id);
+        }
+        Ok(())
     }
 
     pub fn pin(&mut self, transient_id: K) -> Stable<K> {

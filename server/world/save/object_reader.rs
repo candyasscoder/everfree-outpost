@@ -117,6 +117,7 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
 
     fn read_client(&mut self, w: &mut World) -> Result<ClientId> {
         let (cid, stable_id) = try!(self.read_object_header(w));
+        try!(w.clients.set_stable_id(cid, stable_id));
 
         let pawn_id = try!(self.r.read_opt_id(w));
 
@@ -200,6 +201,7 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
 
     fn read_entity(&mut self, w: &mut World) -> Result<EntityId> {
         let (eid, stable_id) = try!(self.read_object_header(w));
+        try!(w.entities.set_stable_id(eid, stable_id));
 
         {
             let e = &mut w.entities[eid];
@@ -237,6 +239,7 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
 
     fn read_structure(&mut self, w: &mut World) -> Result<StructureId> {
         let (sid, stable_id) = try!(self.read_object_header(w));
+        try!(w.structures.set_stable_id(sid, stable_id));
         let data = w.data();
 
         {
@@ -263,6 +266,7 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
     fn read_inventory(&mut self, w: &mut World) -> Result<InventoryId> {
         use std::collections::hash_map::Entry::*;
         let (iid, stable_id) = try!(self.read_object_header(w));
+        try!(w.inventories.set_stable_id(iid, stable_id));
         let data = w.data();
 
         {
@@ -292,6 +296,11 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
     }
 
     fn read_world(&mut self, w: &mut World) -> Result<()> {
+        w.clients.set_next_id(try!(self.r.read()));
+        w.entities.set_next_id(try!(self.r.read()));
+        w.structures.set_next_id(try!(self.r.read()));
+        w.inventories.set_next_id(try!(self.r.read()));
+
         try!(self.hooks.post_read_world(&mut self.r, w));
 
         {

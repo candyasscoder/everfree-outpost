@@ -9,6 +9,7 @@ use physics::v3::V2;
 use lua::{self, LuaState, ValueType, REGISTRY_INDEX};
 use types::*;
 use util::StrError;
+use util::Stable;
 use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
 use world::object::*;
 use world::save::{self, Writer, Reader};
@@ -101,6 +102,11 @@ enum Tag {
     Entity,
     Structure,
     Inventory,
+
+    StableClient,
+    StableEntity,
+    StableStructure,
+    StableInventory,
 }
 
 pub struct WriteHooks<'a> {
@@ -284,6 +290,7 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
         try!(w.write(Tag::World as u8));
         return Ok(());
     }
+
     if let Some(c) = get_userdata_opt::<userdata::Client>(lua, index) {
         try!(w.write(Tag::Client as u8));
         try!(w.write_id(c.id));
@@ -302,6 +309,27 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
     if let Some(i) = get_userdata_opt::<userdata::Inventory>(lua, index) {
         try!(w.write(Tag::Inventory as u8));
         try!(w.write_id(i.id));
+        return Ok(());
+    }
+
+    if let Some(c) = get_userdata_opt::<userdata::StableClient>(lua, index) {
+        try!(w.write(Tag::StableClient as u8));
+        try!(w.write(c.id.0));
+        return Ok(());
+    }
+    if let Some(e) = get_userdata_opt::<userdata::StableEntity>(lua, index) {
+        try!(w.write(Tag::StableEntity as u8));
+        try!(w.write(e.id.0));
+        return Ok(());
+    }
+    if let Some(s) = get_userdata_opt::<userdata::StableStructure>(lua, index) {
+        try!(w.write(Tag::StableStructure as u8));
+        try!(w.write(s.id.0));
+        return Ok(());
+    }
+    if let Some(i) = get_userdata_opt::<userdata::StableInventory>(lua, index) {
+        try!(w.write(Tag::StableInventory as u8));
+        try!(w.write(i.id.0));
         return Ok(());
     }
 
@@ -487,6 +515,7 @@ fn read_value<R: Reader>(lua: &mut LuaState, r: &mut R, world: &mut World) -> Re
             let w = userdata::World;
             w.to_lua(lua);
         },
+
         Tag::Client => {
             let cid = try!(r.read_id(world));
             let c = userdata::Client { id: cid };
@@ -505,6 +534,27 @@ fn read_value<R: Reader>(lua: &mut LuaState, r: &mut R, world: &mut World) -> Re
         Tag::Inventory => {
             let iid = try!(r.read_id(world));
             let i = userdata::Inventory { id: iid };
+            i.to_lua(lua);
+        },
+
+        Tag::StableClient => {
+            let cid = try!(r.read());
+            let c = userdata::StableClient { id: Stable(cid) };
+            c.to_lua(lua);
+        },
+        Tag::StableEntity => {
+            let eid = try!(r.read());
+            let e = userdata::StableEntity { id: Stable(eid) };
+            e.to_lua(lua);
+        },
+        Tag::StableStructure => {
+            let sid = try!(r.read());
+            let s = userdata::StableStructure { id: Stable(sid) };
+            s.to_lua(lua);
+        },
+        Tag::StableInventory => {
+            let iid = try!(r.read());
+            let i = userdata::StableInventory { id: Stable(iid) };
             i.to_lua(lua);
         },
     }

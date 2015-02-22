@@ -66,6 +66,17 @@ function outpost_ffi.types.Structure.table.inventory(s, name)
 end
 
 function action.use.tree(c, s)
+    local last_kicked = c:extra().last_kicked
+    print(last_kicked)
+    if last_kicked ~= nil then
+        lks = last_kicked:get()
+        print(lks)
+        if lks ~= nil and lks:id() == s:id() then
+            print('you just kicked that tree!')
+        end
+    end
+    c:extra().last_kicked = s:stable_id()
+
     local count = c:pawn():inventory('main'):update('wood', 2)
 end
 

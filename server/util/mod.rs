@@ -8,10 +8,11 @@ pub use self::id_map::IdMap;
 pub use self::refcount::RefcountedMap;
 pub use self::small_vec::SmallVec;
 pub use self::small_set::SmallSet;
-pub use self::stable_id_map::{StableIdMap, IntrusiveStableId};
+pub use self::stable_id_map::{StableIdMap, IntrusiveStableId, Stable};
 pub use self::str_error::{StrError, StrResult};
 pub use self::str_error::{StringError, StringResult};
 
+#[macro_use] pub mod str_error;
 pub mod bytes;
 pub mod cursor;
 pub mod id_map;
@@ -19,7 +20,6 @@ pub mod refcount;
 pub mod small_set;
 pub mod small_vec;
 #[macro_use] pub mod stable_id_map;
-#[macro_use] pub mod str_error;
 
 
 pub fn multimap_insert<K, V>(map: &mut HashMap<K, HashSet<V>>, k: K, v: V)

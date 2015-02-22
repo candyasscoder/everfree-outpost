@@ -26,3 +26,20 @@ end
 function outpost_ffi.types.Inventory.metatable.__tostring(x)
     return 'Inventory:' .. tostring(x:id())
 end
+
+
+function outpost_ffi.types.StableClient.metatable.__tostring(x)
+    return 'StableClient:' .. x:id()
+end
+
+function outpost_ffi.types.StableEntity.metatable.__tostring(x)
+    return 'StableEntity:' .. x:id()
+end
+
+function outpost_ffi.types.StableStructure.metatable.__tostring(x)
+    return 'StableStructure:' .. x:id()
+end
+
+function outpost_ffi.types.StableInventory.metatable.__tostring(x)
+    return 'StableInventory:' .. x:id()
+end

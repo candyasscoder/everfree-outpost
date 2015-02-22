@@ -41,7 +41,7 @@ pub fn client_create(w: &mut World,
         child_inventories: HashSet::new(),
     };
 
-    let cid = w.clients.insert(c);
+    let cid = unwrap!(w.clients.insert(c));
     w.record(Update::ClientCreated(cid));
     Ok(cid)
 }
@@ -56,7 +56,7 @@ pub fn client_create_unchecked(w: &mut World) -> ClientId {
         stable_id: NO_STABLE_ID,
         child_entities: HashSet::new(),
         child_inventories: HashSet::new(),
-    });
+    }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
     w.record(Update::ClientCreated(cid));
     cid
 }
@@ -152,7 +152,7 @@ pub fn entity_create(w: &mut World,
         child_inventories: HashSet::new(),
     };
 
-    let eid = w.entities.insert(e);
+    let eid = unwrap!(w.entities.insert(e));
     w.record(Update::EntityCreated(eid));
     Ok(eid)
 }
@@ -168,7 +168,7 @@ pub fn entity_create_unchecked(w: &mut World) -> EntityId {
         stable_id: NO_STABLE_ID,
         attachment: EntityAttachment::World,
         child_inventories: HashSet::new(),
-    });
+    }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
     w.record(Update::EntityCreated(eid));
     eid
 }
@@ -268,7 +268,7 @@ pub fn structure_create(w: &mut World,
         child_inventories: HashSet::new(),
     };
 
-    let sid = w.structures.insert(s);
+    let sid = unwrap!(w.structures.insert(s));
     structure_add_to_lookup(&mut w.structures_by_chunk, sid, bounds);
     invalidate_region(w, bounds);
     w.record(Update::StructureCreated(sid));
@@ -283,7 +283,7 @@ pub fn structure_create_unchecked(w: &mut World) -> StructureId {
         stable_id: NO_STABLE_ID,
         attachment: StructureAttachment::World,
         child_inventories: HashSet::new(),
-    });
+    }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
     w.record(Update::StructureCreated(sid));
     sid
 }
@@ -508,7 +508,7 @@ pub fn inventory_create_unchecked(w: &mut World) -> InventoryId {
 
         stable_id: NO_STABLE_ID,
         attachment: InventoryAttachment::World,
-    });
+    }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
     w.record(Update::InventoryCreated(iid));
     iid
 }

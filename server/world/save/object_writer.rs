@@ -225,7 +225,10 @@ impl<W: io::Writer, H: WriteHooks> ObjectWriter<W, H> {
     fn write_world(&mut self, w: &World) -> Result<()> {
         use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
 
-        // World has no data of its own, aside from its children.
+        try!(self.w.write(w.clients.next_id()));
+        try!(self.w.write(w.entities.next_id()));
+        try!(self.w.write(w.structures.next_id()));
+        try!(self.w.write(w.inventories.next_id()));
 
         try!(self.hooks.post_write_world(&mut self.w, w));
 

@@ -6,6 +6,7 @@ use physics::v3::{Vn, V3, scalar};
 use lua::LuaState;
 use types::*;
 use util::StrResult;
+use util::Stable;
 use world::Update;
 use world::object::*;
 
@@ -27,7 +28,9 @@ macro_rules! mk_build_types_table {
     }
 }
 
-mk_build_types_table!(V3, World, Client, Entity, Structure, Inventory);
+mk_build_types_table!(V3, World,
+                      Client, Entity, Structure, Inventory,
+                      StableClient, StableEntity, StableStructure, StableInventory);
 
 
 macro_rules! insert_function {
@@ -184,6 +187,11 @@ impl Userdata for Client {
         lua_table_ctx_fns! {
             lua, -1, ctx,
 
+            fn stable_id(c: &Client) -> Option<StableClient> {
+                ctx.world.get_client_mut(c.id)
+                   .map(|mut c| StableClient { id: c.stable_id() })
+            }
+
             fn pawn(c: &Client) -> Option<Entity> {
                 ctx.world.get_client(c.id)
                    .and_then(|c| c.pawn_id())
@@ -263,6 +271,11 @@ impl Userdata for Entity {
         lua_table_ctx_fns! {
             lua, -1, ctx,
 
+            fn stable_id(e: &Entity) -> Option<StableEntity> {
+                ctx.world.get_entity_mut(e.id)
+                   .map(|mut e| StableEntity { id: e.stable_id() })
+            }
+
             fn destroy(e: &Entity) -> StrResult<()> {
                 ctx.world.destroy_entity(e.id)
             }
@@ -329,6 +342,11 @@ impl Userdata for Structure {
 
         lua_table_ctx_fns! {
             lua, -1, ctx,
+
+            fn stable_id(s: &Structure) -> Option<StableStructure> {
+                ctx.world.get_structure_mut(s.id)
+                   .map(|mut s| StableStructure { id: s.stable_id() })
+            }
 
             fn destroy(s: &Structure) -> StrResult<()> {
                 ctx.world.destroy_structure(s.id)
@@ -419,6 +437,11 @@ impl Userdata for Inventory {
         lua_table_ctx_fns! {
             lua, -1, ctx,
 
+            fn stable_id(i: &Inventory) -> Option<StableInventory> {
+                ctx.world.get_inventory_mut(i.id)
+                   .map(|mut i| StableInventory { id: i.stable_id() })
+            }
+
             fn destroy(i: &Inventory) -> StrResult<()> {
                 ctx.world.destroy_inventory(i.id)
             }
@@ -459,3 +482,42 @@ impl Userdata for Inventory {
         }
     }
 }
+
+
+macro_rules! define_stable_wrapper {
+    ($name:ident, $obj_ty:ident, $id_ty:ty, $transient_id:ident) => {
+        #[derive(Copy)]
+        pub struct $name {
+            pub id: Stable<$id_ty>,
+        }
+
+        impl_type_name!($name);
+        impl_metatable_key!($name);
+
+        impl Userdata for $name {
+            fn populate_table(lua: &mut LuaState) {
+                lua_table_fns! {
+                    lua, -1,
+
+                    fn id(stable: &$name) -> String {
+                        format!("{:x}", stable.id.0)
+                    }
+                }
+
+                lua_table_ctx_fns! {
+                    lua, -1, ctx,
+
+                    fn get(stable: &$name) -> Option<$obj_ty> {
+                        ctx.world.$transient_id(stable.id)
+                           .map(|id| $obj_ty { id: id })
+                    }
+                }
+            }
+        }
+    };
+}
+
+define_stable_wrapper!(StableClient, Client, ClientId, transient_client_id);
+define_stable_wrapper!(StableEntity, Entity, EntityId, transient_entity_id);
+define_stable_wrapper!(StableStructure, Structure, StructureId, transient_structure_id);
+define_stable_wrapper!(StableInventory, Inventory, InventoryId, transient_inventory_id);

@@ -7,7 +7,7 @@ use physics::v3::{Vn, V2, V3, scalar};
 use data::Data;
 use input::InputBits;
 use types::*;
-use util::stable_id_map::{self, StableIdMap};
+use util::stable_id_map::{self, StableIdMap, Stable};
 
 use self::object::{Object, ObjectRef, ObjectRefMut};
 pub use self::ops::OpResult;
@@ -347,6 +347,21 @@ access_methods!(Structure,
 access_methods!(Inventory,
                 id: InventoryId => inventories.get(id),
                 get_inventory, get_inventory_mut, inventory, inventory_mut);
+
+macro_rules! stable_id_methods {
+    ($id_ty:ty, $table:ident, $transient_id:ident) => {
+        impl<'d> World<'d> {
+            pub fn $transient_id(&self, stable_id: Stable<$id_ty>) -> Option<$id_ty> {
+                self.$table.get_id(stable_id)
+            }
+        }
+    };
+}
+
+stable_id_methods!(ClientId, clients, transient_client_id);
+stable_id_methods!(EntityId, entities, transient_entity_id);
+stable_id_methods!(StructureId, structures, transient_structure_id);
+stable_id_methods!(InventoryId, inventories, transient_inventory_id);
 
 pub struct ChunkStructures<'a, 'd: 'a> {
     world: &'a World<'d>,
