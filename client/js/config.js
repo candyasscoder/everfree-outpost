@@ -92,3 +92,12 @@ ConfigItem.prototype.toggle = function(value) {
     this.set(new_value);
     return new_value;
 };
+
+ConfigItem.prototype.isSet = function() {
+    return localStorage.getItem(this.key) != null;
+};
+
+ConfigItem.prototype.reset = function() {
+    localStorage.removeItem(this.key);
+    this.value = null;
+};

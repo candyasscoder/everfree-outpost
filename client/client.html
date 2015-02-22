@@ -306,6 +306,22 @@
             }
 
 
+            .config-select {
+                display: block;
+                width: 100%;
+            }
+
+            .config-input {
+                display: block;
+                width: 100%;
+            }
+
+            .config-select > option.active:after {
+                content: " *";
+                color: blue;
+            }
+
+
             .dialog-body {
                 height: 60vh;
                 display: flex;
@@ -438,6 +454,17 @@
             <iframe id="credits"></iframe>
 
             <div id="key-display"></div>
+
+            <div id="config-editor">
+                <h1>Config Editor</h1>
+                <select class="config-select" size="10"></select>
+                <textarea class="config-input" rows="10"></textarea>
+                <div>
+                    <button class="config-save">Save</button>
+                    <button class="config-reset">Reset</button>
+                    <button class="config-close">Close</button>
+                </div>
+            </div>
         </div>
     </body>
 </html>

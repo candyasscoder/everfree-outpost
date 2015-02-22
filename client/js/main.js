@@ -28,6 +28,7 @@ var CraftingUI = require('ui/crafting').CraftingUI;
 var Iframe = require('ui/iframe').Iframe;
 var KeyDisplay = require('ui/keydisplay').KeyDisplay;
 var Menu = require('ui/menu').Menu;
+var ConfigEditor = require('ui/configedit').ConfigEditor;
 
 var TileDef = require('data/chunk').TileDef;
 var ItemDef = require('data/items').ItemDef;
@@ -412,7 +413,7 @@ function initMenus() {
     ]);
 
     debug_menu = new Menu([
-            ['&Config Editor', function() { console.log('not yet implemented'); }],
+            ['&Config Editor', function() { dialog.show(new ConfigEditor()); }],
     ]);
 }
 

@@ -143,19 +143,29 @@ exports.chain = function(old, f) {
 exports.element = function(tag, extra, parent) {
     extra = extra || {};
 
-    var e = document.createElement(tag);
+    var elt = document.createElement(tag);
 
     for (var i = 0; i < extra.length; ++i) {
-        if (extra[i][0] == '#') {
-            e.setAttribute('id', extra[i].substr(1));
+        var e = extra[i];
+        var eq_idx = e.indexOf('=');
+        if (eq_idx != -1) {
+            var key = e.substr(0, eq_idx);
+            var val = e.substr(eq_idx + 1);
+            if (key == 'text') {
+                elt.textContent = val;
+            } else {
+                elt.setAttribute(key, val);
+            }
+        } else if (e[0] == '#') {
+            elt.setAttribute('id', e.substr(1));
         } else {
-            e.classList.add(extra[i]);
+            elt.classList.add(e);
         }
     }
 
     if (parent != null) {
-        parent.appendChild(e);
+        parent.appendChild(elt);
     }
 
-    return e;
+    return elt;
 };
