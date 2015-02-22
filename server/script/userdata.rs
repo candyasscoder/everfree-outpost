@@ -230,6 +230,12 @@ impl Userdata for Client {
                 ctx.world.record(Update::ClientOpenCrafting(c.id, s.id, i.id));
                 Ok(())
             }}
+
+            fn send_message(c: &Client, msg: &str) -> StrResult<()> {{
+                unwrap!(ctx.world.get_client(c.id));
+                ctx.world.record(Update::ClientMessage(c.id, String::from_str(msg)));
+                Ok(())
+            }}
         }
     }
 }

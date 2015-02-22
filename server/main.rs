@@ -374,12 +374,16 @@ impl<'a> Server<'a> {
             },
 
             Request::Chat(msg) => {
-                let msg_out = format!("<{}>\t{}",
-                                      self.state.world().client(cid).name(),
-                                      msg);
-                for &out_wire_id in self.wire_id_map.keys() {
-                    self.send_wire(out_wire_id,
-                                   Response::ChatUpdate(msg_out.clone()));
+                if msg.starts_with("/") {
+                    self.state.run_command(now, cid, &*msg);
+                } else {
+                    let msg_out = format!("<{}>\t{}",
+                                          self.state.world().client(cid).name(),
+                                          msg);
+                    for &out_wire_id in self.wire_id_map.keys() {
+                        self.send_wire(out_wire_id,
+                                       Response::ChatUpdate(msg_out.clone()));
+                    }
                 }
             },
 
@@ -515,6 +519,12 @@ impl<'a> Server<'a> {
                                                                 sid,
                                                                 iid));
                     s.subscribe_inventory(cid, iid);
+                },
+
+                world::Update::ClientMessage(cid, msg) => {
+                    // TODO: error handling - client might have been removed?
+                    let wire_id = s.client_info[cid].wire_id;
+                    s.server_msg(wire_id, &*msg);
                 },
 
                 _ => {},

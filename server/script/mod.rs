@@ -169,6 +169,24 @@ impl ScriptEngine {
         })
     }
 
+    pub fn callback_command(&mut self,
+                            world: &mut world::World,
+                            now: Time,
+                            id: ClientId,
+                            msg: &str) -> Result<(), String> {
+        let ctx = RefCell::new(ScriptContext {
+            world: world,
+            now: now,
+        });
+        self.with_context(&ctx, |lua| {
+            lua.get_field(REGISTRY_INDEX, "outpost_callback_command");
+            let c = userdata::Client { id: id };
+            c.to_lua(lua);
+            msg.to_lua(lua);
+            lua.pcall(2, 0, 0).map_err(|(e,s)| format!("{:?}: {}", e, s))
+        })
+    }
+
     pub fn callback_client_destroyed(&mut self, cid: ClientId) {
         run_callback(&mut self.owned_lua.get(),
                      "outpost_callback_set_client_extra",

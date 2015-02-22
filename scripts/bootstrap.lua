@@ -37,6 +37,7 @@ require('outpost.userdata')
 require('outpost.extra')
 require('outpost.eval')
 local action = require('outpost.action')
+local command = require('outpost.command')
 
 
 local V3 = outpost_ffi.types.V3.table
@@ -184,5 +185,14 @@ function action.use_item.pick(client, inv)
         inv:update('anvil', 1)
     end
 end
+
+
+function command.handler.where(client, args)
+    local pos = client:pawn():pos()
+    local x = pos:x()
+    local y = pos:y()
+    client:send_message('Location: ' .. tostring(x) .. ', ' .. tostring(y))
+end
+
 
 print('\n\nup and running')

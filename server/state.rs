@@ -379,6 +379,10 @@ impl<'a> State<'a> {
     pub fn script_eval(&mut self, now: Time, code: &str) -> Result<String, String> {
         self.script.eval(self.mw.world_mut(), now, code)
     }
+
+    pub fn run_command(&mut self, now: Time, cid: ClientId, msg: &str) -> Result<(), String> {
+        self.script.callback_command(self.mw.world_mut(), now, cid, msg)
+    }
 }
 
 #[unsafe_destructor]
