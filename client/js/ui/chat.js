@@ -74,7 +74,7 @@ ChatWindow.prototype.startTyping = function(keyboard, conn) {
 ChatWindow.prototype.finishTyping = function(keyboard, conn, send) {
     keyboard.popHandler();
 
-    if (send) {
+    if (send && this._entry.value != '') {
         conn.sendChat(this._entry.value);
     }
 
