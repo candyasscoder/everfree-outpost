@@ -375,7 +375,9 @@ impl<'a> Server<'a> {
 
             Request::Chat(msg) => {
                 if msg.starts_with("/") {
-                    self.state.run_command(now, cid, &*msg);
+                    if let Err(e) = self.state.run_command(now, cid, &*msg) {
+                        warn!("run_command: {}", e);
+                    }
                 } else {
                     let msg_out = format!("<{}>\t{}",
                                           self.state.world().client(cid).name(),

@@ -26,6 +26,9 @@ pub struct ObjectWriter<W: io::Writer, H: WriteHooks> {
 
 #[allow(unused_variables)]
 pub trait WriteHooks {
+    fn post_write_world<W: Writer>(&mut self,
+                                   writer: &mut W,
+                                   w: &World) -> Result<()> { Ok(()) }
     fn post_write_client<W: Writer>(&mut self,
                                     writer: &mut W,
                                     c: &ObjectRef<Client>) -> Result<()> { Ok(()) }
@@ -221,6 +224,10 @@ impl<W: io::Writer, H: WriteHooks> ObjectWriter<W, H> {
 
     fn write_world(&mut self, w: &World) -> Result<()> {
         use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
+
+        // World has no data of its own, aside from its children.
+
+        try!(self.hooks.post_write_world(&mut self.w, w));
 
         {
             let es = w.entities()

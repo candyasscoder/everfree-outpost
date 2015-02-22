@@ -31,6 +31,9 @@ pub struct ObjectReader<R: io::Reader, H: ReadHooks> {
 
 #[allow(unused_variables)]
 pub trait ReadHooks {
+    fn post_read_world<R: Reader>(&mut self,
+                                  reader: &mut R,
+                                  w: &mut World) -> Result<()> { Ok(()) }
     fn post_read_client<R: Reader>(&mut self,
                                    reader: &mut R,
                                    w: &mut World,
@@ -52,6 +55,7 @@ pub trait ReadHooks {
                                       w: &mut World,
                                       iid: InventoryId) -> Result<()> { Ok(()) }
 
+    fn cleanup_world(&mut self, w: &mut World) -> Result<()> { Ok(()) }
     fn cleanup_client(&mut self, w: &mut World, cid: ClientId) -> Result<()> { Ok(()) }
     fn cleanup_terrain_chunk(&mut self, w: &mut World, pos: V2) -> Result<()> { Ok(()) }
     fn cleanup_entity(&mut self, w: &mut World, eid: EntityId) -> Result<()> { Ok(()) }
@@ -288,6 +292,8 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
     }
 
     fn read_world(&mut self, w: &mut World) -> Result<()> {
+        try!(self.hooks.post_read_world(&mut self.r, w));
+
         {
             let entity_count = try!(self.r.read_count());
             for _ in range(0, entity_count) {
@@ -334,7 +340,11 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
     }
 
     pub fn load_world(&mut self, w: &mut World) -> Result<()> {
-        self.load_object(w, |sr, w| sr.read_world(w))
+        let result =  self.load_object(w, |sr, w| sr.read_world(w));
+        if result.is_err() {
+            unwrap_warn(self.hooks.cleanup_world(w));
+        }
+        result
     }
 
     fn check_objs(&mut self) -> Result<()> {
@@ -345,14 +355,6 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
     }
 
     fn cleanup(&mut self, w: &mut World) {
-        fn unwrap_warn<T, E: error::Error>(r: result::Result<T, E>) {
-            match r {
-                Ok(_) => {},
-                Err(e) => warn!("error occurred during cleanup: {}",
-                                error::Error::description(&e)),
-            }
-        }
-
         for &aid in self.r.created_objs().iter() {
             match aid {
                 AnyId::Client(cid) => {
@@ -378,6 +380,14 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
                 },
             }
         }
+    }
+}
+
+fn unwrap_warn<T, E: error::Error>(r: result::Result<T, E>) {
+    match r {
+        Ok(_) => {},
+        Err(e) => warn!("error occurred during cleanup: {}",
+                        error::Error::description(&e)),
     }
 }
 
