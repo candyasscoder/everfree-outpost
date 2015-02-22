@@ -59,3 +59,6 @@ house_wall:
 
 house_floor:
     z0: [house_floor]
+
+ward:
+    z0: [ward]

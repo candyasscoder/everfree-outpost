@@ -139,6 +139,7 @@ end
 
 action.use_item.anvil = place_structure('anvil')
 action.use_item.chest = place_structure('chest')
+action.use_item.ward = place_structure('ward')
 
 for _, side in ipairs({'n', 's', 'w', 'e', 'nw', 'ne', 'sw', 'se'}) do
     name = 'house_wall/' .. side
@@ -179,6 +180,7 @@ function action.use_item.pick(client, inv)
     if template == 'rock' then
         s:destroy()
         inv:update('stone', 20)
+        inv:update('crystal', 1)
     -- TODO: HACK
     elseif template == 'anvil' then
         s:destroy()

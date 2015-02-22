@@ -63,3 +63,9 @@ axe:
     ui_name: Axe
     inputs: { wood: 10, stone: 10 }
     outputs: { axe: 1 }
+
+ward:
+    station: anvil
+    ui_name: Ward
+    inputs: { wood: 10, crystal: 1 }
+    outputs: { ward: 1 }

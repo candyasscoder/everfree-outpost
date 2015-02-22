@@ -65,3 +65,11 @@ axe:
 shovel:
     tile: shovel
     ui_name: Shovel
+
+crystal:
+    tile: crystal
+    ui_name: Crystal
+
+ward:
+    tile: ward
+    ui_name: Ward

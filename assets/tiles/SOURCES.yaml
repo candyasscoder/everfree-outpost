@@ -313,3 +313,13 @@ lpc-wood-floor.xcf: *wood-floor
     url: http://opengameart.org/content/roguelike-tiles-large-collection
     attribution: >
         Author's website: http://pousse.rapiere.free.fr/tome/
+
+"crystal-ward.png": &crystal-ward
+    title: Crystal Ward
+    author: David E. Gervais, Daniel Eddeland, Everfree Outpost
+    license: CC-BY-SA 3.0
+    attribution: >
+        Fence post from Daniel Eddeland's LPC farming tileset, combined with an
+        edited crystal from David E. Gervais's roguelike tilesets.
+    derived-from: daneeklu_farming_tilesets/fence.png, gervais_roguelike/dg_misc32.gif
+"crystal-ward.xcf": *crystal-ward

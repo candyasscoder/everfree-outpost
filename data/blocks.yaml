@@ -124,3 +124,10 @@ house_wall:
 house_floor:
     shape: floor
     bottom: /wood_floor/center/v0
+
+ward:
+    shape: solid
+    prefix: ward
+    top:    "00"
+    front:  "01"
+    bottom: /grass/center/v0
