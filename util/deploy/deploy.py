@@ -202,7 +202,8 @@ def do_deploy_client(args):
     with open('server.json', 'w') as f:
         downtime_message = args.get('downtime_message')
         if downtime_message is not None:
-            json.dump({ 'message': 'The server is currently offline.<br>' + downtime_message })
+            msg = 'The server is currently offline.<br>' + downtime_message
+            json.dump({ 'message': msg }, f)
         else:
             json.dump({ 'url': args.websocket_url }, f)
     run('s3cmd', 'put', 'server.json', s3_path + 'server.json')
