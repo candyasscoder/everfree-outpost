@@ -73,6 +73,8 @@ def build_parser():
     deploy_client_args.add_argument('--websocket-url', metavar='URL',
             help='''websocket URL to store in server.json
                 (default: derive from --server address)''')
+    deploy_client_args.add_argument('--downtime-message', metavar='MSG',
+            help='message to include in the "server offline" dialog')
 
     deploy_server_args = argparse.ArgumentParser(add_help=False)
     deploy_server_args.add_argument('--daemon-user', metavar='NAME',
@@ -198,7 +200,11 @@ def do_deploy_client(args):
             s3_path)
 
     with open('server.json', 'w') as f:
-        json.dump({ 'name': args.websocket_url }, f)
+        downtime_message = args.get('downtime_message')
+        if downtime_message is not None:
+            json.dump({ 'message': 'The server is currently offline.<br>' + downtime_message })
+        else:
+            json.dump({ 'url': args.websocket_url }, f)
     run('s3cmd', 'put', 'server.json', s3_path + 'server.json')
 
 def do_deploy(args):

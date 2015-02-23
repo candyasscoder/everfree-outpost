@@ -282,7 +282,7 @@ function init() {
             renderer.initGl(assets);
             runner.job('preload-textures', preloadTextures);
 
-            openConn(assets['server_info']['name'], function() {
+            openConn(assets['server_info'], function() {
                 timing = new Timing(conn);
                 timing.scheduleUpdates(5, 30);
                 inv_tracker = new InventoryTracker(conn);
@@ -351,7 +351,18 @@ function loadAssets(next) {
     loader.addText('sprite_layered.frag', 'assets/shaders/sprite_layered.frag');
 }
 
-function openConn(url, next) {
+function openConn(info, next) {
+    var url = info['url'];
+    if (url == null) {
+        var elt = util.element('div', []);
+        elt.innerHTML = info['message'];
+        dialog.show({
+            container: util.fromTemplate('server-offline', {'msg': elt}),
+        });
+        keyboard.pushHandler(function() { return false; });
+        return;
+    }
+
     banner.update('Connecting to server...', 0);
     conn = new Connection(url);
     conn.onOpen = next;

@@ -1,1 +1,1 @@
-{ "name": "ws://localhost:8888/ws" }
+{ "url": "ws://localhost:8888/ws" }
