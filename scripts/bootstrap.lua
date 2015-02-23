@@ -207,5 +207,9 @@ function command.handler.where(client, args)
     client:send_message('Location: ' .. tostring(x) .. ', ' .. tostring(y))
 end
 
+function command.handler.spawn(client, args)
+    client:pawn():teleport(V3.new(32, 32, 0))
+end
+
 
 print('\n\nup and running')

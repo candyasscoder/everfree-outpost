@@ -141,7 +141,7 @@ pub fn entity_create(w: &mut World,
                      anim: AnimId,
                      appearance: u32) -> OpResult<EntityId> {
     let e = Entity {
-        motion: super::Motion::stationary(pos),
+        motion: super::Motion::fixed(pos),
         anim: anim,
         facing: V3::new(1, 0, 0),
         target_velocity: scalar(0),
@@ -159,7 +159,7 @@ pub fn entity_create(w: &mut World,
 
 pub fn entity_create_unchecked(w: &mut World) -> EntityId {
     let eid = w.entities.insert(Entity {
-        motion: super::Motion::stationary(scalar(0)),
+        motion: super::Motion::fixed(scalar(0)),
         anim: 0,
         facing: scalar(0),
         target_velocity: scalar(0),

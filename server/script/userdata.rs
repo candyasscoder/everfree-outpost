@@ -7,6 +7,7 @@ use lua::LuaState;
 use types::*;
 use util::StrResult;
 use util::Stable;
+use world;
 use world::Update;
 use world::object::*;
 
@@ -287,6 +288,12 @@ impl Userdata for Entity {
             fn facing(e: &Entity) -> Option<V3> {
                 ctx.world.get_entity(e.id).map(|e| e.facing())
             }
+
+            fn teleport(e: &Entity, pos: V3) -> StrResult<()> {{
+                let mut e = unwrap!(ctx.world.get_entity_mut(e.id));
+                e.set_motion(world::Motion::stationary(pos, ctx.now));
+                Ok(())
+            }}
 
             // TODO: come up with a lua representation of attachment so we can unify these methods
             // and also return the previous attachment (like the underlying op does)

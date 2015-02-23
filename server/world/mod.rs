@@ -572,10 +572,19 @@ pub struct Motion {
 }
 
 impl Motion {
-    pub fn stationary(pos: V3) -> Motion {
+    pub fn fixed(pos: V3) -> Motion {
         Motion {
             start_time: 0,
             duration: 0,
+            start_pos: pos,
+            end_pos: pos,
+        }
+    }
+
+    pub fn stationary(pos: V3, now: Time) -> Motion {
+        Motion {
+            start_time: now,
+            duration: -1 as Duration,
             start_pos: pos,
             end_pos: pos,
         }
