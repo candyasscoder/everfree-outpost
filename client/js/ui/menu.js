@@ -1,3 +1,7 @@
+var SelectionList = require('ui/sortedlist').SelectionList;
+var util = require('util/misc');
+
+
 /** @constructor */
 function Menu(items) {
     this.list = new SelectionList('menu-container');
