@@ -80,6 +80,8 @@ impl Userdata for V3 {
             fn abs(ud: V3) -> V3 { ud.abs() }
             fn extract(ud: V3) -> (i32, i32, i32) { (ud.x, ud.y, ud.z) }
 
+            fn max(v: V3) -> i32 { v.max() }
+
             fn pixel_to_tile(ud: V3) -> V3 {
                 ud.div_floor(scalar(TILE_SIZE))
             }
@@ -201,6 +203,11 @@ impl Userdata for Client {
                    .map(|mut c| StableClient { id: c.stable_id() })
             }
 
+            fn name(c: &Client) -> Option<String> {
+                ctx.world.get_client(c.id)
+                   .map(|c| String::from_str(c.name()))
+            }
+
             fn pawn(c: &Client) -> Option<Entity> {
                 ctx.world.get_client(c.id)
                    .and_then(|c| c.pawn_id())
@@ -256,6 +263,7 @@ impl Userdata for Client {
         }
     }
 }
+
 
 
 #[derive(Copy)]
@@ -525,6 +533,16 @@ macro_rules! define_stable_wrapper {
                     fn get(stable: &$name) -> Option<$obj_ty> {
                         ctx.world.$transient_id(stable.id)
                            .map(|id| $obj_ty { id: id })
+                    }
+                }
+            }
+
+            fn populate_metatable(lua: &mut LuaState) {
+                lua_table_fns! {
+                    lua, -1,
+
+                    fn __eq(a: &$name, b: &$name) -> bool {
+                        a.id == b.id
                     }
                 }
             }

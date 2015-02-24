@@ -286,6 +286,12 @@ int_to_lua_impl!(i8);
 int_to_lua_impl!(i16);
 int_to_lua_impl!(i32);
 
+impl ToLua for bool {
+    fn to_lua(self, lua: &mut LuaState) {
+        lua.push_boolean(self);
+    }
+}
+
 impl<'a> ToLua for &'a str {
     fn to_lua(self, lua: &mut LuaState) {
         lua.push_string(self);

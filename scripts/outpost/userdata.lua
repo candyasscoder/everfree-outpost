@@ -43,3 +43,22 @@ end
 function outpost_ffi.types.StableInventory.metatable.__tostring(x)
     return 'StableInventory:' .. x:id()
 end
+
+
+-- Don't reuse the same function since Lua makes decisions based on whether the
+-- __eq metamethods of the two objects are themselves == or not.
+function outpost_ffi.types.Client.metatable.__eq(x, y)
+    return x:id() == y:id()
+end
+
+function outpost_ffi.types.Entity.metatable.__eq(x, y)
+    return x:id() == y:id()
+end
+
+function outpost_ffi.types.Structure.metatable.__eq(x, y)
+    return x:id() == y:id()
+end
+
+function outpost_ffi.types.Inventory.metatable.__eq(x, y)
+    return x:id() == y:id()
+end

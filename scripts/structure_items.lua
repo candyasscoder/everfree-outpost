@@ -1,7 +1,7 @@
 local action = require('outpost.action')
 local util = require('outpost.util')
+local ward = require('ward')
 
--- Main entry point for placing a structure item in the world.
 local function place_structure(world, inv, pos, item_name, template_name)
     if inv:count(item_name) == 0 then
         return
@@ -13,6 +13,7 @@ local function place_structure(world, inv, pos, item_name, template_name)
         s:attach_to_chunk()
         inv:update(item_name, -1)
     end
+    return s
 end
 
 local function take_structure(s, inv, item_name)
@@ -24,15 +25,24 @@ local function take_structure(s, inv, item_name)
     if err == nil then
         inv:update(item_name, 1)
     end
+    return err == nil
 end
 
 local function use_item(c, inv, item_name, template_name)
     local pos = util.hit_tile(c:pawn())
-    place_structure(c:world(), inv, pos, item_name, template_name)
+
+    if not ward.check(c, pos) then
+        return
+    end
+
+    return place_structure(c:world(), inv, pos, item_name, template_name)
 end
 
 local function use_structure(c, s, item_name)
-    take_structure(s, c:pawn():inventory('main'), item_name)
+    if not ward.check(c, s:pos()) then
+        return
+    end
+    return take_structure(s, c:pawn():inventory('main'), item_name)
 end
 
 local function add_structure_item(item_name, template_name)

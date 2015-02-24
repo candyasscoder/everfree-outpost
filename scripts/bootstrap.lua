@@ -33,8 +33,9 @@ package.loaded.bootstrap = {
 }
 
 
--- Put V3 in global scope
+-- Put some type tables in global scope
 V3 = outpost_ffi.types.V3.table
+World = outpost_ffi.types.World.table
 
 
 require('outpost.userdata')
@@ -48,6 +49,8 @@ local tools = require('tools')
 require('structure_items')
 require('chest')
 require('anvil')
+require('ward_item')
+local ward = require('ward')
 
 
 function action.handler.inventory(c, arg)
@@ -61,11 +64,19 @@ function action.use.tree(c, s)
 end
 
 function tools.handler.axe.tree(c, s, inv)
+    if not ward.check(c, s:pos()) then
+        return
+    end
+
     s:replace('stump')
     inv:update('wood', 15)
 end
 
 function tools.handler.axe.stump(c, s, inv)
+    if not ward.check(c, s:pos()) then
+        return
+    end
+
     s:destroy()
     inv:update('wood', 5)
 end
@@ -77,8 +88,16 @@ function action.use.rock(c, s)
 end
 
 function tools.handler.pick.rock(c, s, inv)
+    if not ward.check(c, s:pos()) then
+        return
+    end
+
     s:destroy()
     inv:update('stone', 20)
+    print(math.random())
+    if math.random() < 0.2 then
+        print(inv:update('crystal', 1))
+    end
 end
 
 

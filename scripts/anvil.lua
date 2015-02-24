@@ -11,5 +11,5 @@ function action.use_item.anvil(c, inv)
 end
 
 function tools.handler.pick.anvil(c, s, inv)
-    structure_items.take_structure(s, inv, 'anvil')
+    structure_items.use_structure(c, s, 'anvil')
 end
