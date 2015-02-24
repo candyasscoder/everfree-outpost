@@ -18,6 +18,7 @@ const SAVE_DIR: &'static str = "save";
 const CLIENT_DIR: &'static str = "clients";
 const TERRAIN_CHUNK_DIR: &'static str = "terrain_chunks";
 const WORLD_FILE_NAME: &'static str = "world.dat";
+const AUTH_DB_FILE_NAME: &'static str = "auth.sqlite";
 
 pub struct Storage {
     base: Path,
@@ -62,6 +63,12 @@ impl Storage {
     pub fn world_path(&self) -> Path {
         let mut path = self.base.clone();
         path.push_many(&[SAVE_DIR, WORLD_FILE_NAME]);
+        path
+    }
+
+    pub fn auth_db_path(&self) -> Path {
+        let mut path = self.base.clone();
+        path.push_many(&[SAVE_DIR, AUTH_DB_FILE_NAME]);
         path
     }
 

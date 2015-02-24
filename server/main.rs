@@ -13,6 +13,7 @@ extern crate serialize;
 extern crate time;
 
 extern crate collect;
+extern crate rusqlite;
 
 extern crate physics;
 
@@ -64,6 +65,7 @@ mod script;
 mod world;
 mod terrain2;
 mod storage;
+mod auth;
 
 
 fn read_json(path: &str) -> json::Json {
@@ -115,6 +117,7 @@ struct Server<'a> {
     state: state::State<'a>,
     wake_queue: WakeQueue<WakeReason>,
     vision: Vision,
+    auth: auth::Auth,
 
     wire_id_map: HashMap<WireId, ClientId>,
     client_info: HashMap<ClientId, ClientInfo>,
@@ -140,11 +143,13 @@ macro_rules! mk_callbacks {
 impl<'a> Server<'a> {
     fn new(resps: Sender<(WireId, Response)>,
            state: state::State<'a>) -> Server<'a> {
+        let auth = auth::Auth::new(state.storage.auth_db_path()).unwrap();
         Server {
             resps: resps,
             state: state,
             wake_queue: WakeQueue::new(),
             vision: Vision::new(),
+            auth: auth,
 
             wire_id_map: HashMap::new(),
             client_info: HashMap::new(),
@@ -254,8 +259,32 @@ impl<'a> Server<'a> {
                 self.send_wire(wire_id, Response::Pong(cookie, now.to_local()));
             },
 
-            Request::Login(_secret, name) => {
+            Request::Register(name, secret, _appearance) => {
+                info!("registration request for {}", name);
+
+                if let Err(msg) = name_valid(&*name) {
+                    self.send_wire(wire_id,
+                                   Response::RegisterResult(1, String::from_str(msg)));
+                    return Ok(());
+                }
+
+                let ok = self.auth.register(&*name, &secret).unwrap();
+                let (code, msg) =
+                    if ok {
+                        (0, "")
+                    } else {
+                        (1, "That name is already in use.")
+                    };
+                self.send_wire(wire_id, Response::RegisterResult(code, String::from_str(msg)));
+            },
+
+            Request::Login(name, secret) => {
                 info!("login request for {}", name);
+
+                let ok = self.auth.login(&*name, &secret).unwrap();
+                if !ok {
+                    fail!("bad login");
+                }
 
                 let (cid, eid) = {
                     let client = try!(self.state.load_client(&*name));
@@ -660,6 +689,26 @@ fn entity_area(e: &ObjectRef<world::Entity>) -> util::SmallSet<V2> {
     result.insert(start_chunk);
     result.insert(end_chunk);
     result
+}
+
+
+fn name_valid(name: &str) -> Result<(), &'static str> {
+    if name.len() > 16 {
+        return Err("Name is too long (must not exceed 16 characters).");
+    }
+
+    let chars_ok = name.chars().all(|c| {
+        (c >= 'a' && c <= 'z') ||
+        (c >= 'A' && c <= 'Z') ||
+        (c >= '0' && c <= '9') ||
+        c == ' ' ||
+        c == '-'
+    });
+    if !chars_ok {
+        return Err("Names may only contain letters, numbers, spaces, and hyphens.");
+    }
+
+    Ok(())
 }
 
 

@@ -354,3 +354,34 @@ impl WriteTo for String {
         self.len()
     }
 }
+
+
+impl ReadFrom for [u32; 4] {
+    #[inline]
+    fn read_from<R: Reader>(r: &mut R, bytes: usize) -> IoResult<[u32; 4]> {
+        let (a, b, c, d) = try!(ReadFrom::read_from(r, bytes));
+        Ok([a, b, c, d])
+    }
+
+    #[inline]
+    fn size(_: Option<[u32; 4]>) -> (usize, usize) { (16, 0) }
+}
+
+impl ReadFromFixed for [u32; 4] { }
+
+impl WriteTo for [u32; 4] {
+    #[inline]
+    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
+        (self[0], self[1], self[2], self[3]).write_to(w)
+    }
+
+    #[inline]
+    fn size(&self) -> usize { 16 }
+}
+
+impl WriteToFixed for [u32; 4] {
+    #[inline]
+    fn size_fixed(_: Option<[u32; 4]>) -> usize { 16 }
+}
+
+

@@ -287,11 +287,12 @@ function init() {
                 timing.scheduleUpdates(5, 30);
                 inv_tracker = new InventoryTracker(conn);
 
-                initLoginName();
-                conn.sendLogin([1, 2, 3, 4], Config.login_name.get());
+                maybeRegister(function() {
+                    conn.sendLogin(Config.login_name.get(), Config.login_secret.get());
 
-                banner.hide();
-                canvas.start();
+                    banner.hide();
+                    canvas.start();
+                });
             });
         });
     });
@@ -376,6 +377,49 @@ function openConn(info, next) {
     conn.onChatUpdate = handleChatUpdate;
     conn.onEntityAppear = handleEntityAppear;
     conn.onEntityGone = handleEntityGone;
+}
+
+function maybeRegister(next) {
+    if (Config.login_name.isSet() && Config.login_secret.isSet()) {
+        console.log('secret already set');
+        next();
+        return;
+    }
+
+    initLoginName();
+
+    console.log('producing secret');
+    var secret_buf = [0, 0, 0, 0];
+    if (window.crypto.getRandomValues) {
+        var typedBuf = new Uint32Array(4);
+        window.crypto.getRandomValues(typedBuf);
+        for (var i = 0; i < 4; ++i) {
+            secret_buf[i] = typedBuf[i];
+        }
+    } else {
+        console.log("warning: window.crypto.getRandomValues is not available.  " +
+                "Login secret will be weak!");
+        for (var i = 0; i < 4; ++i) {
+            secret_buf[i] = Math.random() * (1 << 32);
+        }
+    }
+
+    conn.onRegisterResult = function(code, msg) {
+        console.log('saw result', code, msg);
+        if (code != 0) {
+            console.log('registration error ' + code + ': ' + msg); 
+            return;
+        }
+
+        Config.login_secret.set(secret_buf);
+        conn.onRegisterResult = null;
+        next();
+    };
+
+    console.log('sending');
+    conn.sendRegister(Config.login_name.get(),
+                      secret_buf,
+                      0);
 }
 
 

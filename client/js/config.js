@@ -4,6 +4,7 @@ var DEFAULT_CONFIG = {
     'chat_scrollback': 100,
 
     'login_name': null,
+    'login_secret': null,
 
     'keybindings': {
         37: 'move_left',    // ArrowLeft
@@ -49,7 +50,9 @@ exports.Config = {
     show_controls: new ConfigItem('show_controls'),
     ignore_browser_warning: new ConfigItem('ignore_browser_warning'),
     chat_scrollback: new ConfigItem('chat_scrollback'),
+
     login_name: new ConfigItem('login_name'),
+    login_secret: new ConfigItem('login_secret'),
 
     keybindings: new ConfigItem('keybindings'),
     chat_keybindings: new ConfigItem('chat_keybindings'),

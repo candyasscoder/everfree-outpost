@@ -11,6 +11,7 @@ var OP_UNSUBSCRIBE_INVENTORY =  0x0007;
 var OP_MOVE_ITEM =              0x0008;
 var OP_CRAFT_RECIPE =           0x0009;
 var OP_CHAT =                   0x000a;
+var OP_REGISTER =               0x000b;
 
 var OP_TERRAIN_CHUNK =          0x8001;
 var OP_PLAYER_MOTION =          0x8002;
@@ -25,6 +26,7 @@ var OP_OPEN_CRAFTING =          0x800a;
 var OP_CHAT_UPDATE =            0x800b;
 var OP_ENTITY_APPEAR =          0x800c;
 var OP_ENTITY_GONE =            0x800d;
+var OP_REGISTER_RESULT =        0x800e;
 
 /** @constructor */
 function Connection(url) {
@@ -52,6 +54,7 @@ function Connection(url) {
     this.onChatUpdate = null;
     this.onEntityAppear = null;
     this.onEntityGone = null;
+    this.onRegisterResult = null;
 }
 exports.Connection = Connection;
 
@@ -86,6 +89,12 @@ Connection.prototype._handleMessage = function(evt) {
     function get32() {
         var result = view.getUint32(offset, true);
         offset += 4;
+        return result;
+    }
+
+    function getString() {
+        var result = decodeUtf8(new Uint8Array(view.buffer, offset));
+        offset = view.buffer.byteLength;
         return result;
     }
 
@@ -164,7 +173,7 @@ Connection.prototype._handleMessage = function(evt) {
             break;
 
         case OP_KICK_REASON:
-            var msg = decodeUtf8(new Uint8Array(view.buffer, 2));
+            var msg = getString();
             this._last_kick_reason = msg;
             break;
 
@@ -215,7 +224,7 @@ Connection.prototype._handleMessage = function(evt) {
 
         case OP_CHAT_UPDATE:
             if (this.onChatUpdate != null) {
-                var msg = decodeUtf8(new Uint8Array(view.buffer, offset));
+                var msg = getString();
                 this.onChatUpdate(msg);
             }
             break;
@@ -233,6 +242,14 @@ Connection.prototype._handleMessage = function(evt) {
                 var entity_id = get32();
                 var time = get16();
                 this.onEntityGone(entity_id, time);
+            }
+            break;
+
+        case OP_REGISTER_RESULT:
+            if (this.onRegisterResult != null) {
+                var code = get32();
+                var msg = getString();
+                this.onRegisterResult(code, msg);
             }
             break;
 
@@ -298,7 +315,7 @@ Connection.prototype.sendInput = function(time, input) {
     this.socket.send(msg.done());
 };
 
-Connection.prototype.sendLogin = function(secret, name) {
+Connection.prototype.sendLogin = function(name, secret) {
     var name_utf8 = unescape(encodeURIComponent(name));
     var msg = new MessageBuilder(2 + 16 + name_utf8.length);
 
@@ -356,5 +373,21 @@ Connection.prototype.sendChat = function(msg) {
     for (var i = 0; i < utf8.length; ++i) {
         msg.put8(utf8.charCodeAt(i));
     }
+    this.socket.send(msg.done());
+};
+
+Connection.prototype.sendRegister = function(name, secret, appearance) {
+    var utf8 = unescape(encodeURIComponent(name));
+    var msg = new MessageBuilder(2 + 16 + 4 + utf8.length);
+
+    msg.put16(OP_REGISTER);
+    for (var i = 0; i < 4; ++i) {
+        msg.put32(secret[i]);
+    }
+    msg.put32(appearance);
+    for (var i = 0; i < utf8.length; ++i) {
+        msg.put8(utf8.charCodeAt(i));
+    }
+
     this.socket.send(msg.done());
 };

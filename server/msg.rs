@@ -55,6 +55,7 @@ pub mod op {
         MoveItem = 0x0008,
         CraftRecipe = 0x0009,
         Chat = 0x000a,
+        Register = 0x000b,
 
         TerrainChunk = 0x8001,
         PlayerMotion = 0x8002,
@@ -70,6 +71,7 @@ pub mod op {
         ChatUpdate = 0x800b,
         EntityAppear = 0x800c,
         EntityGone = 0x800d,
+        RegisterResult = 0x800e,
 
         AddClient = 0xff00,
         RemoveClient = 0xff01,
@@ -88,12 +90,13 @@ pub enum Request {
     UpdateMotion(Motion),
     Ping(u16),
     Input(LocalTime, u16),
-    Login([u32; 4], String),
+    Login(String, [u32; 4]),
     Action(LocalTime, u16, u32),
     UnsubscribeInventory(InventoryId),
     MoveItem(InventoryId, InventoryId, ItemId, u16),
     CraftRecipe(StructureId, InventoryId, RecipeId, u16),
     Chat(String),
+    Register(String, [u32; 4], u32),
 
     // Control messages
     AddClient(WireId),
@@ -118,8 +121,9 @@ impl Request {
                 Input(a, b)
             },
             op::Login => {
-                let ((a0, a1, a2, a3), b): ((u32, u32, u32, u32), String) = try!(wr.read());
-                Login([a0, a1, a2, a3], b)
+                // Shuffle order since the String must be last on the wire
+                let (b, a) = try!(wr.read());
+                Login(a, b)
             },
             op::Action => {
                 let (a, b, c) = try!(wr.read());
@@ -140,6 +144,11 @@ impl Request {
             op::Chat => {
                 let a = try!(wr.read());
                 Chat(a)
+            },
+            op::Register => {
+                // Shuffle order since the String must be last on the wire
+                let (b, c, a) = try!(wr.read());
+                Register(a, b, c)
             },
             op::AddClient => {
                 let a = try!(wr.read());
@@ -180,6 +189,7 @@ pub enum Response {
     ChatUpdate(String),
     EntityAppear(EntityId, u32),
     EntityGone(EntityId, LocalTime),
+    RegisterResult(u32, String),
 
     ClientRemoved(WireId),
     ReplResult(u16, String),
@@ -214,6 +224,8 @@ impl Response {
                 ww.write_msg(id, (op::EntityAppear, entity_id, appearance)),
             EntityGone(entity_id, time) =>
                 ww.write_msg(id, (op::EntityGone, entity_id, time)),
+            RegisterResult(code, ref msg) =>
+                ww.write_msg(id, (op::RegisterResult, code, msg)),
             ClientRemoved(wire_id) =>
                 ww.write_msg(id, (op::ClientRemoved, wire_id)),
             ReplResult(cookie, ref msg) =>
