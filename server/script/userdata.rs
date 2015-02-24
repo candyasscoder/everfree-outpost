@@ -112,6 +112,14 @@ impl_metatable_key!(World);
 
 impl Userdata for World {
     fn populate_table(lua: &mut LuaState) {
+        lua_table_fns! {
+            lua, -1,
+
+            fn get() -> World {
+                World
+            }
+        }
+
         lua_table_ctx_fns! {
             lua, -1, ctx,
 
