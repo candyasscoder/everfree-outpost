@@ -4,7 +4,7 @@ use std::num::{FromPrimitive, ToPrimitive};
 use std::result;
 use libc::c_int;
 
-use physics::v3::V2;
+use physics::v3::{V3, V2};
 
 use lua::{self, LuaState, ValueType, REGISTRY_INDEX};
 use types::*;
@@ -107,6 +107,8 @@ enum Tag {
     StableEntity,
     StableStructure,
     StableInventory,
+
+    V3,
 }
 
 pub struct WriteHooks<'a> {
@@ -333,6 +335,12 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
         return Ok(());
     }
 
+    if let Some(v) = get_userdata_opt::<V3>(lua, index) {
+        try!(w.write(Tag::V3 as u8));
+        try!(w.write((v.x, v.y, v.z)));
+        return Ok(());
+    }
+
     warn!("don't know how to serialize unrecognized userdata");
     lua.pop(1);
     Ok(())
@@ -556,6 +564,11 @@ fn read_value<R: Reader>(lua: &mut LuaState, r: &mut R, world: &mut World) -> Re
             let iid = try!(r.read());
             let i = userdata::StableInventory { id: Stable(iid) };
             i.to_lua(lua);
+        },
+
+        Tag::V3 => {
+            let (x, y, z) = try!(r.read());
+            V3::new(x, y, z).to_lua(lua);
         },
     }
     Ok(())
