@@ -42,10 +42,11 @@ ChatWindow.prototype.addMessage = function(msg) {
     this._content.scrollTop = this._content.scrollHeight;
 };
 
-ChatWindow.prototype.startTyping = function(keyboard, conn) {
+ChatWindow.prototype.startTyping = function(keyboard, conn, init) {
     var this_ = this;
 
     this._entry.disabled = false;
+    this._entry.value = init;
     this._entry.focus();
 
     keyboard.pushHandler(function(down, evt) {

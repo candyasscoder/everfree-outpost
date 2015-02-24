@@ -507,18 +507,26 @@ function setupKeyHandler() {
             dirs_held[binding] = down;
             updateWalkDir();
         } else if (down) {
-            if (binding == 'show_controls') {
-                var show = Config.show_controls.toggle();
-                $('key-list').classList.toggle('hidden', !show);
-            } else if (binding == 'debug_show_panel') {
-                var show = Config.debug_show_panel.toggle();
-                debug.container.classList.toggle('hidden', !show);
-            } else if (binding == 'chat') {
-                chat.startTyping(keyboard, conn);
-            } else if (binding == 'show_menu') {
-                dialog.show(main_menu);
-            } else {
-                return sendActionForKey(binding);
+            switch (binding) {
+                case 'show_controls':
+                    var show = Config.show_controls.toggle();
+                    $('key-list').classList.toggle('hidden', !show);
+                    break;
+                case 'debug_show_panel':
+                    var show = Config.debug_show_panel.toggle();
+                    debug.container.classList.toggle('hidden', !show);
+                    break;
+                case 'chat':
+                    chat.startTyping(keyboard, conn, '');
+                    break;
+                case 'chat_command':
+                    chat.startTyping(keyboard, conn, '/');
+                    break;
+                case 'show_menu':
+                    dialog.show(main_menu);
+                    break;
+                default:
+                    return sendActionForKey(binding);
             }
         }
         return true;

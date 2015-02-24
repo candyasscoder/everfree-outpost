@@ -20,6 +20,7 @@ var DEFAULT_CONFIG = {
         27: 'cancel',       // Esc
         32: 'cancel',       // Space
         13: 'chat',         // Enter
+        191: 'chat_command',
     },
 
     'chat_keybindings': {
