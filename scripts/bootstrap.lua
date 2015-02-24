@@ -90,8 +90,21 @@ function command.handler.where(client, args)
     client:send_message('Location: ' .. tostring(x) .. ', ' .. tostring(y))
 end
 
+local spawn_point = V3.new(32, 32, 0)
+
 function command.handler.spawn(client, args)
-    client:pawn():teleport(V3.new(32, 32, 0))
+    client:pawn():teleport(spawn_point)
+end
+
+function command.handler.sethome(client, args)
+    local home = client:pawn():pos()
+    client:extra().home_pos = home
+    client:send_message('Set home to ' .. tostring(home))
+end
+
+function command.handler.home(client, args)
+    local home = client:extra().home_pos or spawn_point
+    client:pawn():teleport(home)
 end
 
 
