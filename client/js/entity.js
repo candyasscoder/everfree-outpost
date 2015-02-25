@@ -35,11 +35,10 @@ Motion.prototype.translate = function(offset) {
 
 
 /** @constructor */
-function Entity(sheet, anim_info, pos, anchor) {
-    this._anim = new Animation(sheet);
+function Entity(sprite_base, anim_info, pos) {
+    this._sprite_base = sprite_base;
+    this._anim = new Animation();
     this._anim_info = anim_info;
-    this._anchor_x = anchor.x;
-    this._anchor_y = anchor.y;
 
     this._cur_motion = new Motion(pos);
     this._motions = new Deque();
@@ -74,13 +73,11 @@ Entity.prototype.position = function(now) {
 
 Entity.prototype.getSprite = function(now) {
     this._dequeueUntil(now);
-    var cls = this._anim.sheet.getSpriteClass();
-    var extra = this._anim.sheet.getSpriteExtra();
-    var sprite = new Sprite();
+    var sprite = this._sprite_base.instantiate();
     this._anim.updateSprite(now, sprite);
 
     var pos = this._cur_motion.position(now);
-    sprite.setDestination(pos, this._anchor_x, this._anchor_y);
+    sprite.setPos(pos);
 
     return sprite;
 };

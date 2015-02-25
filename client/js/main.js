@@ -9,9 +9,9 @@ var Config = require('config').Config;
 
 var AnimCanvas = require('graphics/canvas').AnimCanvas;
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
-var Sheet = require('graphics/sheet').Sheet;
-var LayeredTintedSheet = require('graphics/sheet').LayeredTintedSheet;
 var Animation = require('graphics/sheet').Animation;
+var LayeredExtra = require('graphics/draw/layered').LayeredExtra;
+var SpriteBase = require('graphics/renderer').SpriteBase;
 
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
@@ -88,59 +88,6 @@ for (var i = 0; i < anim_dirs.length; ++i) {
         };
     }
 }
-
-/** @constructor */
-function Pony(sheet, x, y, z, physics) {
-    this._entity = new Entity(sheet, pony_anims, new Vec(x, y + 16, z), {x: 48, y: 74});
-    this._entity.setAnimation(0, 0);
-    this._last_dir = { x: 1, y: 0 };
-    this._forecast = new Forecast(new Vec(x - 16, y - 16, z), new Vec(32, 32, 32));
-    this._phys = physics;
-    this._phys.resetForecast(0, this._forecast, new Vec(0, 0, 0));
-}
-
-Pony.prototype.walk = function(now, speed, dx, dy) {
-    if (dx != 0 || dy != 0) {
-        this._last_dir = { x: dx, y: dy };
-    } else {
-        dx = this._last_dir.x;
-        dy = this._last_dir.y;
-        speed = 0;
-    }
-
-    var idx = 3 * (dx + 1) + (dy + 1);
-    var dir = [5, 4, 3, 6, -1, 2, 7, 0, 1][idx];
-    this._entity.setAnimation(now, speed * anim_dirs.length + dir);
-
-    var pixel_speed = 50 * speed;
-    var target_v = new Vec(dx * pixel_speed, dy * pixel_speed, 0);
-    this._phys.resetForecast(now, this._forecast, target_v);
-    this._entity.setMotion(Motion.fromForecast(this._forecast, new Vec(16, 32, 0)));
-};
-
-Pony.prototype.position = function(now) {
-    var old_start = this._forecast.start_time;
-    this._phys.updateForecast(now, this._forecast);
-    if (this._forecast.start_time != old_start) {
-        this._entity.setMotion(Motion.fromForecast(this._forecast, new Vec(16, 32, 0)));
-    }
-
-    var pos = this._forecast.position(now);
-    pos.x += 16;
-    pos.y += 16;
-    return pos;
-};
-
-Pony.prototype.getSprite = function(now) {
-    this.position(now); // update forecast, then ignore result
-    return this._entity.getSprite(now);
-};
-
-Pony.prototype.translateMotion = function(offset) {
-    this._entity.translateMotion(offset);
-    this._forecast.start = this._forecast.start.add(offset);
-    this._forecast.end = this._forecast.end.add(offset);
-};
 
 
 /** @constructor */
@@ -400,7 +347,7 @@ function maybeRegister(next) {
         console.log("warning: window.crypto.getRandomValues is not available.  " +
                 "Login secret will be weak!");
         for (var i = 0; i < 4; ++i) {
-            secret_buf[i] = Math.random() * (1 << 32);
+            secret_buf[i] = Math.random() * 0xffffffff;
         }
     }
 
@@ -472,7 +419,7 @@ function initMenus() {
     ]);
 }
 
-function buildPonySheet(appearance) {
+function buildPonySprite(appearance) {
     var horn = (appearance >> 7) & 1;
     var wings = (appearance >> 6) & 1;
     var r = (appearance >> 4) & 3;
@@ -487,7 +434,7 @@ function buildPonySheet(appearance) {
                (steps[g] <<  8) |
                (steps[b]);
 
-    return new LayeredTintedSheet([
+    var extra = new LayeredExtra([
             { image: assets['pony_f_wing_back'],    color: body,        skip: !wings },
             { image: assets['pony_f_base'],         color: body,        skip: false },
             { image: assets['pony_f_eyes_blue'],    color: 0xffffff,    skip: false },
@@ -495,7 +442,9 @@ function buildPonySheet(appearance) {
             { image: assets['pony_f_tail_1'],       color: mane,        skip: false },
             { image: assets['pony_f_mane_1'],       color: mane,        skip: false },
             { image: assets['pony_f_horn'],         color: body,        skip: !horn },
-            ], 96, 96);
+            ]);
+
+    return new SpriteBase(96, 96, 48, 90, extra);
 }
 
 function preloadTextures() {
@@ -762,8 +711,8 @@ function handleChatUpdate(msg) {
 
 function handleEntityAppear(id, appearance) {
     console.log('appear: ', id, appearance);
-    var sheet = buildPonySheet(appearance);
-    entities[id] = new Entity(sheet, pony_anims, new Vec(0, 0, 0), {x: 48, y: 90});
+    var sprite_base = buildPonySprite(appearance);
+    entities[id] = new Entity(sprite_base, pony_anims, new Vec(0, 0, 0));
 }
 
 function handleEntityGone(id, time) {
@@ -850,22 +799,10 @@ function frame(ac, now) {
     debug.updateJobs(runner);
     debug.updateTiming(timing);
 
-    /*
-    debug.gfxCtx.clearRect(0, 0, 128, 128);
-    var chunk_pos = pos.divScalar(CHUNK_SIZE * TILE_SIZE).modScalar(LOCAL_SIZE);
-    var px = 128 / LOCAL_SIZE;
-    for (var y = 0; y < LOCAL_SIZE; ++y) {
-        for (var x = 0; x < LOCAL_SIZE; ++x) {
-            if (x == chunk_pos.x && y == chunk_pos.y) {
-                debug.gfxCtx.fillStyle = 'green';
-            } else {
-                debug.gfxCtx.fillStyle = 'red';
-            }
-
-            if (chunkLoaded[y * LOCAL_SIZE + x]) {
-                debug.gfxCtx.fillRect(x * px, y * px, px, px);
-            }
-        }
+    if (sprites.length > 0) {
+        sprites[0].ref_x = 48;
+        sprites[0].ref_y = 90;
+        sprites[0].ref_z = 0;
+        window.last_sprite = sprites[0];
     }
-    */
 }

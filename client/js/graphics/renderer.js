@@ -13,6 +13,9 @@ var GlObject = require('graphics/glutil').GlObject;
 var uniform = require('graphics/glutil').uniform;
 var attribute = require('graphics/glutil').attribute;
 
+var Simple3D = require('graphics/draw/simple').Simple3D;
+var Layered3D = require('graphics/draw/layered').Layered3D;
+
 
 /** @constructor */
 function Renderer(gl) {
@@ -65,8 +68,8 @@ Renderer.prototype.initGl = function(assets) {
 
 
     this.sprite_classes = {
-        'simple': new SimpleSpriteClass(gl, assets),
-        'layered_tinted': new LayeredTintedSpriteClass(gl, assets),
+        'simple': new Simple3D(gl, assets),
+        'layered': new Layered3D(gl, assets),
     };
 
     this.texture_cache = new WeakMap();
@@ -192,15 +195,15 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
             clip_off_x = sprite.width - clip_off_x - w;
         }
 
-        var cls = this_.sprite_classes[sprite.sheet.getSpriteClass()];
+        var cls = this_.sprite_classes[sprite.cls];
+        console.assert(cls != null,
+                'unknown sprite class', sprite.cls);
 
         cls.draw(this_,
                  [x, y],
-                 [sprite.offset_x + clip_off_x,
-                  sprite.offset_y + clip_off_y],
+                 [clip_off_x, clip_off_y],
                  [w, h],
-                 [sprite.flip, 0],
-                 sprite.sheet.getSpriteExtra());
+                 sprite);
     }
 
     this._asm.render(sx, sy, sw, sh, sprites, buffer_terrain, draw_sprite);
@@ -210,146 +213,20 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
 
 
 /** @constructor */
-function SimpleSpriteClass(gl, assets) {
-    var vert = assets['sprite.vert'];
-    var frag = assets['sprite.frag'];
-    var program = new Program(gl, vert, frag);
-
-    var buffer = new Buffer(gl);
-    buffer.loadData(new Uint8Array([
-            0, 0,
-            0, 1,
-            1, 1,
-
-            0, 0,
-            1, 1,
-            1, 0,
-    ]));
-
-    var uniforms = {
-        'cameraPos': uniform('vec2', null),
-        'cameraSize': uniform('vec2', null),
-        'sheetSize': uniform('vec2', null),
-        'base': uniform('vec2', null),
-        'off': uniform('vec2', null),
-        'size': uniform('vec2', null),
-        'flip': uniform('vec2', null),
-    };
-    this._obj = new GlObject(gl, program,
-            uniforms,
-            {'position': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
-            {'sheetSampler': null});
-}
-
-SimpleSpriteClass.prototype.setCamera = function(sx, sy, sw, sh) {
-    this._obj.setUniformValue('cameraPos', [sx, sy]);
-    this._obj.setUniformValue('cameraSize', [sw, sh]);
-};
-
-SimpleSpriteClass.prototype.draw = function(r, base, off, size, flip, extra) {
-    var tex = r.cacheTexture(extra.image);
-
-    var uniforms = {
-        'base': base,
-        'off': off,
-        'size': size,
-        'flip': flip,
-
-        'sheetSize': [tex.width, tex.height],
-    };
-
-    var textures = {
-        'sheetSampler': tex,
-    };
-
-    this._obj.draw(0, 6, uniforms, {}, textures);
-};
-
-
-/** @constructor */
-function LayeredTintedSpriteClass(gl, assets) {
-    var vert = assets['sprite.vert'];
-    var frag = assets['sprite_layered.frag'];
-    var program = new Program(gl, vert, frag);
-
-    var buffer = new Buffer(gl);
-    buffer.loadData(new Uint8Array([
-            0, 0,
-            0, 1,
-            1, 1,
-
-            0, 0,
-            1, 1,
-            1, 0,
-    ]));
-
-    var uniforms = {
-        'cameraPos': uniform('vec2', null),
-        'cameraSize': uniform('vec2', null),
-        'sheetSize': uniform('vec2', null),
-        'base': uniform('vec2', null),
-        'off': uniform('vec2', null),
-        'size': uniform('vec2', null),
-        'flip': uniform('vec2', null),
-        'color': uniform('vec4', null),
-    };
-    var textures = {};
-    for (var i = 0; i < 8; ++i) {
-        textures['sheetSampler[' + i + ']'] = null;
-    }
-    this._obj = new GlObject(gl, program,
-            uniforms,
-            {'position': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
-            textures);
-}
-
-LayeredTintedSpriteClass.prototype.setCamera = SimpleSpriteClass.prototype.setCamera;
-
-LayeredTintedSpriteClass.prototype.draw = function(r, base, off, size, flip, extra) {
-    var textures = {};
-    var color_arr = [];
-
-    for (var i = 0; i < extra.layers.length; ++i) {
-        var layer = extra.layers[i];
-        var tex = r.cacheTexture(layer.image);
-
-        var color_int = layer.color;
-        color_arr.push(((color_int >> 16) & 0xff) / 255.0);
-        color_arr.push(((color_int >>  8) & 0xff) / 255.0);
-        color_arr.push(((color_int)       & 0xff) / 255.0);
-        color_arr.push(layer.skip ? 0 : 1);
-        textures['sheetSampler[' + i + ']'] = tex;
-    }
-
-    var uniforms = {
-        'base': base,
-        'off': off,
-        'size': size,
-        'flip': flip,
-
-        'sheetSize': [extra.layers[0].image.width, extra.layers[0].image.height],
-
-        'color': color_arr,
-    };
-
-    this._obj.draw(0, 6, uniforms, {}, textures);
-};
-
-
-/** @constructor */
-function Sprite() {
-    this.sheet = null;
-    this.offset_x = 0;
-    this.offset_y = 0;
-    this.width = 0;
-    this.height = 0;
-    this.flip = false;
+function Sprite(width, height, anchor_x, anchor_y, cls, extra) {
+    this.width = width;
+    this.height = height;
 
     this.ref_x = 0;
     this.ref_y = 0;
     this.ref_z = 0;
-    this.anchor_x = 0;
-    this.anchor_y = 0;
+    this.anchor_x = anchor_x;
+    this.anchor_y = anchor_y;
+
+    this.flip = false;
+
+    this.cls = cls;
+    this.extra = extra;
 }
 exports.Sprite = Sprite;
 
@@ -357,22 +234,38 @@ Sprite.prototype.refPosition = function() {
     return new Vec(this.ref_x, this.ref_y, this.ref_z);
 };
 
-Sprite.prototype.setSource = function(sheet, offset_x, offset_y, width, height) {
-    this.sheet = sheet;
-    this.offset_x = offset_x;
-    this.offset_y = offset_y;
-    this.width = width;
-    this.height = height;
+Sprite.prototype.setClass = function(cls, extra) {
+    this.cls = cls;
+    this.extra = extra;
 };
 
 Sprite.prototype.setFlip = function(flip) {
     this.flip = flip;
 };
 
-Sprite.prototype.setDestination = function(ref_pos, anchor_x, anchor_y) {
+Sprite.prototype.setPos = function(ref_pos) {
     this.ref_x = ref_pos.x;
     this.ref_y = ref_pos.y;
     this.ref_z = ref_pos.z;
+};
+
+
+/** @constructor */
+function SpriteBase(width, height, anchor_x, anchor_y, extra) {
+    this.width = width;
+    this.height = height;
     this.anchor_x = anchor_x;
     this.anchor_y = anchor_y;
+    this.cls = extra.getClass();
+    this.extra = extra;
+}
+exports.SpriteBase = SpriteBase;
+
+SpriteBase.prototype.instantiate = function() {
+    return new Sprite(this.width,
+                      this.height,
+                      this.anchor_x,
+                      this.anchor_y,
+                      this.cls,
+                      this.extra);
 };
