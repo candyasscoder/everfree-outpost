@@ -61,10 +61,10 @@ function Simple3D(gl, assets) {
         'cameraPos': uniform('vec2', null),
         'cameraSize': uniform('vec2', null),
         'sheetSize': uniform('vec2', null),
-        'base': uniform('vec2', null),
-        'off': uniform('vec2', null),
-        'size': uniform('vec2', null),
-        'flip': uniform('vec2', null),
+        'srcPos': uniform('vec2', null),
+        'srcSize': uniform('vec2', null),
+        'destPos': uniform('vec2', null),
+        'destSize': uniform('vec2', null),
     };
     this._obj = new GlObject(gl, program,
             uniforms,
@@ -78,16 +78,25 @@ Simple3D.prototype.setCamera = function(sx, sy, sw, sh) {
     this._obj.setUniformValue('cameraSize', [sw, sh]);
 };
 
-Simple3D.prototype.draw = function(r, base, off, size, sprite) {
+Simple3D.prototype.draw = function(r, sprite, base_x, base_y, clip_x, clip_y, clip_w, clip_h) {
     var extra = sprite.extra;
     var tex = r.cacheTexture(extra.image);
 
+    var off_x = clip_x;
+    var off_y = clip_y;
+    if (sprite.flip) {
+        off_x = sprite.width - off_x;
+    }
+
     var uniforms = {
-        'base': base,
-        'off': [off[0] + extra.offset_x,
-                off[1] + extra.offset_y],
-        'size': size,
-        'flip': [sprite.flip, 0],
+        'srcPos':       [extra.offset_x + off_x,
+                         extra.offset_y + off_y],
+        'srcSize':      [(sprite.flip ? -clip_w : clip_w),
+                         clip_h],
+        'destPos':      [base_x + clip_x,
+                         base_y + clip_y],
+        'destSize':     [clip_w,
+                         clip_h],
 
         'sheetSize': [tex.width, tex.height],
     };

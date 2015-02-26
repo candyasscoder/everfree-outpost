@@ -3,19 +3,20 @@ attribute vec2 position;
 uniform vec2 cameraPos;
 uniform vec2 cameraSize;
 uniform vec2 sheetSize;
-uniform vec2 base;
-uniform vec2 size;
-uniform vec2 off;
-uniform vec2 flip;
+uniform vec2 srcPos;
+uniform vec2 srcSize;
+uniform vec2 destPos;
+uniform vec2 destSize;
 
 varying highp vec2 normalizedTexCoord;
 
 void main(void) {
-    vec2 flippedPos = flip + (1.0 - 2.0 * flip) * position;
-    vec2 texCoord = off + flippedPos * size;
+    vec2 texCoord = srcPos + position * srcSize;
     normalizedTexCoord = texCoord / sheetSize;
-    
-    vec2 px = base + position * size - cameraPos;
-    vec2 zeroOne = px / cameraSize;
+
+    vec2 worldPos = destPos + position * destSize;
+    vec2 zeroOne = (worldPos - cameraPos) / cameraSize;
+    // OpenGL normally has the Y axis point upward, but we have it point
+    // downward instead.
     gl_Position = vec4(zeroOne * vec2(2.0, -2.0) + vec2(-1.0, 1.0), 0.0, 1.0);
 }

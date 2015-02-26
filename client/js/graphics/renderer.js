@@ -183,27 +183,17 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
         var x0 = sprite.ref_x - sprite.anchor_x;
         var y0 = sprite.ref_y - sprite.ref_z - sprite.anchor_y;
         // The region x,y,w,h is x0,y0,sprite.width,sprite.height clipped to
-        // lie within some other region.  clip_off is the offset of x,y,w,h
-        // within the sprite's normal region.  The source offsets are adjusted
-        // by this amount to grab the right part of the image for x,y,w,h.
-        var clip_off_x = x - x0;
-        var clip_off_y = y - y0;
-        // If the sprite is flipped, we need to flip the offset.  We draw the
-        // left half of a flipped sprite by drawing a flipped version of the
-        // right half of the source.
-        if (sprite.flip) {
-            clip_off_x = sprite.width - clip_off_x - w;
-        }
+        // lie within some other region.
+        var clip_x = x - x0;
+        var clip_y = y - y0;
 
         var cls = this_.sprite_classes[sprite.cls];
         console.assert(cls != null,
                 'unknown sprite class', sprite.cls);
 
-        cls.draw(this_,
-                 [x, y],
-                 [clip_off_x, clip_off_y],
-                 [w, h],
-                 sprite);
+        cls.draw(this_, sprite,
+                 x0, y0,
+                 clip_x, clip_y, w, h);
     }
 
     this._asm.render(sx, sy, sw, sh, sprites, buffer_terrain, draw_sprite);
