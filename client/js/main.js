@@ -288,6 +288,9 @@ function loadAssets(next) {
         }
     });
 
+    loader.addImage('font', 'assets/font.png');
+    loader.addJson('font_metrics', 'metrics.json');
+
     loader.addJson('server_info', 'server.json');
 
     loader.addText('terrain.frag', 'assets/shaders/terrain.frag');

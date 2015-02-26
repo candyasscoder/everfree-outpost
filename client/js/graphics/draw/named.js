@@ -22,13 +22,11 @@ var NAME_BUFFER_COUNT = NAME_BUFFER_COUNT_X * NAME_BUFFER_COUNT_Y;
 
 
 /** @constructor */
-function NameBuffer() {
+function NameBuffer(assets) {
     this.ctx = new OffscreenContext(NAME_BUFFER_WIDTH, NAME_BUFFER_HEIGHT);
     this.cache = new StringCache(NAME_BUFFER_COUNT);
 
-    this.ctx.font = '9px sans';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillStyle = 'black';
+    this.font = new Font(assets['font'], assets['font_metrics']);
 }
 
 NameBuffer.prototype._draw = function(s, idx) {
@@ -37,12 +35,15 @@ NameBuffer.prototype._draw = function(s, idx) {
     console.log(idx, x, y);
     var ctx = this.ctx;
 
+    var str_width = this.font.measureWidth(s);
+    var offset_x = Math.floor((NAME_WIDTH - str_width) / 2);
+
     ctx.save();
 
     ctx.clearRect(x, y, NAME_WIDTH, NAME_HEIGHT);
     ctx.rect(x, y, NAME_WIDTH, NAME_HEIGHT);
     ctx.clip();
-    ctx.fillText(s, x + NAME_WIDTH / 2, y + 9);
+    this.font.drawString(ctx, s, x + offset_x, y);
 
     ctx.restore();
 };
@@ -67,9 +68,58 @@ NameBuffer.prototype.image = function() {
 
 
 /** @constructor */
+function Font(image, metrics) {
+    this.image = image;
+
+    this.first_char = metrics['first_char'];
+    this.xs = metrics['xs'];
+    this.y = metrics['y'];
+    this.widths = metrics['widths'];
+    this.height = metrics['height'];
+    this.spacing = metrics['spacing'];
+}
+
+Font.prototype.getHeight = function() {
+    return this.height;
+};
+
+Font.prototype.measureWidth = function(s) {
+    var total = 0;
+    for (var i = 0; i < s.length; ++i) {
+        var code = s.charCodeAt(i);
+        var idx = code - this.first_char;
+        total += this.widths[idx];
+        if (i > 0) {
+            total += this.spacing;
+        }
+    }
+    return total;
+};
+
+Font.prototype.drawString = function(ctx, s, x, y) {
+    var h = this.getHeight();
+
+    for (var i = 0; i < s.length; ++i) {
+        var code = s.charCodeAt(i);
+        var idx = code - this.first_char;
+        var src_x = this.xs[idx];
+        var src_y = this.y;
+        var w = this.widths[idx];
+
+        console.log('draw', idx, x, y);
+
+        ctx.drawImage(this.image,
+                src_x, src_y, w, h,
+                x, y, w, h);
+        x += w + this.spacing;
+    }
+};
+
+
+/** @constructor */
 function Named3D(gl, assets) {
     this.layered = new Layered3D(gl, assets);
-    this._names = new NameBuffer();
+    this._names = new NameBuffer(assets);
 
     var vert = assets['sprite.vert'];
     var frag = assets['sprite.frag'];
