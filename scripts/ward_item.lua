@@ -26,7 +26,7 @@ function action.use_item.ward(c, inv)
     local pos = util.hit_tile(c:pawn())
     local other_info = ward.find_ward(c, pos, ward.WARD_SPACING)
     if other_info ~= nil then
-        c:send_message(other_info.name .. '\'s ward is too close.')
+        c:send_message('This area is too close to land belonging to ' .. other_info.name)
         return
     end
 

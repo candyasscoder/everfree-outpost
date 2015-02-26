@@ -6,7 +6,12 @@ local function ward_info_table()
     if info ~= nil then
         return info
     else
-        info = {}
+        info = {
+            server_0 = { pos = V3.new(-16, -16, 0), name = 'the server' },
+            server_1 = { pos = V3.new( 16, -16, 0), name = 'the server' },
+            server_2 = { pos = V3.new( 16,  16, 0), name = 'the server' },
+            server_3 = { pos = V3.new(-16,  16, 0), name = 'the server' },
+        }
         World.get():extra().ward_info = info
         return info
     end
@@ -41,7 +46,7 @@ local function find_ward(c, pos, radius)
     for owner, info in pairs(ward_info_table()) do
         if owner ~= stable_id then
             local dist = (info.pos - pos):abs():max()
-            if dist < radius then
+            if dist <= radius then
                 return info, dist
             end
         end
