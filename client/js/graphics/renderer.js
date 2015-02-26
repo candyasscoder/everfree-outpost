@@ -15,6 +15,7 @@ var attribute = require('graphics/glutil').attribute;
 
 var Simple3D = require('graphics/draw/simple').Simple3D;
 var Layered3D = require('graphics/draw/layered').Layered3D;
+var Named3D = require('graphics/draw/named').Named3D;
 
 
 /** @constructor */
@@ -69,7 +70,7 @@ Renderer.prototype.initGl = function(assets) {
 
     this.sprite_classes = {
         'simple': new Simple3D(gl, assets),
-        'layered': new Layered3D(gl, assets),
+        'layered': new Named3D(gl, assets),
     };
 
     this.texture_cache = new WeakMap();
