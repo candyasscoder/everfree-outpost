@@ -228,6 +228,16 @@ $(BUILD)/recipes-server.json: \
 		--client-recipe-json-out=$(BUILD)/recipes.json \
 		--server-recipe-json-out=$(BUILD)/recipes-server.json
 
+$(BUILD)/font.png \
+$(BUILD)/metrics.json: \
+		$(SRC)/util/process_font.py \
+		$(SRC)/assets/misc/NeoSans.png
+	$(PYTHON3) $(SRC)/util/process_font.py \
+		--font-image-in=$(SRC)/assets/misc/NeoSans.png \
+		--first-char=0x21 \
+		--font-image-out=$(BUILD)/font.png \
+		--font-metrics-out=$(BUILD)/metrics.json
+
 $(BUILD)/client.debug.html: $(SRC)/client/client.html \
 	$(SRC)/util/collect_js_deps.py $(SRC)/util/patch_script_tags.py $(JS_SRCS)
 	$(PYTHON3) $(SRC)/util/collect_js_deps.py $(SRC)/client/js/main.js | \
@@ -257,6 +267,8 @@ $(eval $(call WWW_FILE, 	items.json,			$(BUILD)/items.json))
 $(eval $(call WWW_FILE, 	recipes.json,		$(BUILD)/recipes.json))
 $(eval $(call WWW_FILE, 	assets/tiles.png,	$(BUILD)/tiles.png))
 $(eval $(call WWW_FILE, 	assets/items.png,	$(BUILD)/items.png))
+$(eval $(call WWW_FILE, 	assets/font.png,	$(BUILD)/font.png))
+$(eval $(call WWW_FILE, 	metrics.json,		$(BUILD)/metrics.json))
 $(eval $(call DATA_FILE, 	blocks.json,		$(BUILD)/blocks-server.json))
 $(eval $(call DATA_FILE, 	items.json,			$(BUILD)/items-server.json))
 $(eval $(call DATA_FILE, 	objects.json,		$(BUILD)/objects.json))
