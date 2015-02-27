@@ -29,12 +29,15 @@ var DEFAULT_CONFIG = {
         27: 'cancel',       // Esc
     },
 
-    'menu_keybindings': {
+    'ui_keybindings': {
+        37: 'move_left',    // ArrowLeft
+        39: 'move_right',   // ArrowRight
         38: 'move_up',      // ArrowUp
         40: 'move_down',    // ArrowDown
         27: 'cancel',       // Esc
         32: 'cancel',       // Space
         13: 'select',       // Enter
+        65: 'select',       // A
     },
 
     'show_key_display': false,
@@ -56,7 +59,7 @@ exports.Config = {
 
     keybindings: new ConfigItem('keybindings'),
     chat_keybindings: new ConfigItem('chat_keybindings'),
-    menu_keybindings: new ConfigItem('menu_keybindings'),
+    ui_keybindings: new ConfigItem('ui_keybindings'),
 
     show_key_display: new ConfigItem('show_key_display'),
 

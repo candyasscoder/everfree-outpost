@@ -1,11 +1,13 @@
 var Config = require('config').Config;
 var util = require('util/misc');
+var widget = require('ui/widget');
 
 /** @constructor */
 function ConfigEditor() {
-    this.container = util.fromTemplate('config-editor', {});
-    this.select = this.container.getElementsByClassName('config-select')[0];
-    this.input = this.container.getElementsByClassName('config-input')[0];
+    this.dom = util.fromTemplate('config-editor', {});
+    this.keys = widget.NULL_KEY_HANDLER;
+    this.select = this.dom.getElementsByClassName('config-select')[0];
+    this.input = this.dom.getElementsByClassName('config-input')[0];
 
     this.dialog = null;
 
@@ -30,13 +32,13 @@ function ConfigEditor() {
     this.select.onchange = function() {
         this_._handleChange();
     };
-    this.container.getElementsByClassName('config-save')[0].onclick = function() {
+    this.dom.getElementsByClassName('config-save')[0].onclick = function() {
         this_._doSave();
     };
-    this.container.getElementsByClassName('config-reset')[0].onclick = function() {
+    this.dom.getElementsByClassName('config-reset')[0].onclick = function() {
         this_._doReset();
     };
-    this.container.getElementsByClassName('config-close')[0].onclick = function() {
+    this.dom.getElementsByClassName('config-close')[0].onclick = function() {
         this_.dialog.hide();
     };
 }
@@ -95,7 +97,8 @@ ConfigEditor.prototype._refreshActive = function() {
 ConfigEditor.prototype.handleOpen = function(dialog) {
     this.dialog = dialog;
     dialog.keyboard.pushHandler(function(d, e) {
-        // Close on Esc.
+        // Close on Esc, ignore all other keys.  (In particular, don't close on
+        // Space.)
         if (d && e.keyCode == 27) {
             dialog.hide();
             return true;

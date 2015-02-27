@@ -1,4 +1,5 @@
 var Config = require('config').Config;
+var widget = require('ui/widget');
 
 function isMobile() {
     if (Config.debug_force_mobile_warning.get()) {
@@ -31,12 +32,12 @@ function checkBrowser(dialog, cb) {
         var div = document.getElementById('unsupported-mobile');
         var try_link = div.getElementsByClassName('unsupported-try')[0];
         try_link.addEventListener('click', handler);
-        dialog.show({container: div});
+        dialog.show(new widget.Element(div));
     } else if (!isSupported()) {
         var div = document.getElementById('unsupported-browser');
         var try_link = div.getElementsByClassName('unsupported-try')[0];
         try_link.addEventListener('click', handler);
-        dialog.show({container: div});
+        dialog.show(new widget.Element(div));
     } else {
         cb();
     }

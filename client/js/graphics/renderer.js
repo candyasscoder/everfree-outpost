@@ -17,6 +17,8 @@ var Simple3D = require('graphics/draw/simple').Simple3D;
 var Layered3D = require('graphics/draw/layered').Layered3D;
 var Named3D = require('graphics/draw/named').Named3D;
 
+var Vec = require('util/vec').Vec;
+
 
 /** @constructor */
 function Renderer(gl) {

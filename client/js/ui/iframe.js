@@ -1,8 +1,10 @@
 var Config = require('config').Config;
+var widget = require('ui/widget');
 
 /** @constructor */
 function Iframe(src) {
-    this.container = document.getElementById('credits');
+    this.dom = document.getElementById('credits');
+    this.keys = widget.NULL_KEY_HANDLER;
     this.src = src;
 }
 exports.Iframe = Iframe;
@@ -24,9 +26,9 @@ Iframe.prototype.handleOpen = function(dialog) {
         return false;
     });
 
-    this.container.src = this.src;
+    this.dom.src = this.src;
 
-    this.container.onload = function() {
+    this.dom.onload = function() {
         dialog.keyboard.attach(this.contentDocument);
         this.contentDocument.documentElement.style.fontSize =
             document.documentElement.style.fontSize;
@@ -42,8 +44,8 @@ Iframe.prototype.handleClose = function(dialog) {
     this.dialog = null;
     dialog.keyboard.popHandler();
 
-    this.container.onload = null;   // In case it hasn't finished loading yet.
-    dialog.keyboard.detach(this.container.contentDocument);
+    this.dom.onload = null;   // In case it hasn't finished loading yet.
+    dialog.keyboard.detach(this.dom.contentDocument);
 
     setTimeout(function() { window.focus(); }, 0);
 };

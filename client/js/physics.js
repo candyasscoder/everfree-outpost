@@ -109,8 +109,3 @@ Forecast.prototype.target_velocity = function() {
 Forecast.prototype.live = function(now) {
     return now >= this.start_time && now < this.end_time;
 };
-
-
-window.physBenchmark = function() {
-    return phys._asm.collide(new Vec(0, 0, 0), new Vec(32, 32, 32), new Vec(30, 0, 0));
-};

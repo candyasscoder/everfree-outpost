@@ -1,12 +1,16 @@
-// UI widget for maintaining a sorted list of items.  Each item must contain an
-// 'id' field (the key used for sorting) and a 'container' field (the DOM
-// element used to display the item in the list).  Adding, removing, or
-// modifying items can be done through the 'update' method.
+var Config = require('config').Config;
+var widget = require('ui/widget');
+
+// UI widget for maintaining a sorted list of items.  Each item must follow the
+// Widget protocol ('dom' + 'keys') and must have an 'id' field (the key used
+// for sorting).  Adding, removing, or modifying items can be done through the
+// 'update' method.
 /** @constructor */
 function SortedList(cls) {
-    this.container = document.createElement('div');
+    this.dom = document.createElement('div');
+    this.keys = widget.NULL_KEY_HANDLER;
     if (cls != null) {
-        this.container.classList.add(cls);
+        this.dom.classList.add(cls);
     }
 
     this.items = [];
@@ -35,7 +39,7 @@ SortedList.prototype.update = function(updates, callback) {
         if (old_id < update_id) {
             // Copying an old item that needs no update.
             new_items.push(old_items[i]);
-            last_dom = old_items[i].container;
+            last_dom = old_items[i].dom;
             ++i;
         } else {
             // Applying an update of some kind.
@@ -58,16 +62,16 @@ SortedList.prototype.update = function(updates, callback) {
             ++j;
 
             if (old_item != null && new_item != null) {
-                this.container.replaceChild(old_item.container, new_item.container);
-                last_dom = new_item.container;
+                this.dom.replaceChild(old_item.dom, new_item.dom);
+                last_dom = new_item.dom;
                 new_items.push(new_item);
             } else if (old_item != null /* && new_item == null */) {
-                this.container.removeChild(old_item.container);
+                this.dom.removeChild(old_item.dom);
             } else if (new_item != null /* && old_item == null */) {
                 var next_dom = last_dom == null ?
-                        this.container.firstChild : last_dom.nextSibling;
-                this.container.insertBefore(new_item.container, next_dom);
-                last_dom = new_item.container;
+                        this.dom.firstChild : last_dom.nextSibling;
+                this.dom.insertBefore(new_item.dom, next_dom);
+                last_dom = new_item.dom;
                 new_items.push(new_item);
             }
             // Else old_item == null && new_item == null, in which case there's
@@ -85,7 +89,7 @@ SortedList.prototype.update = function(updates, callback) {
         ++j;
 
         if (new_item != null) {
-            this.container.appendChild(new_item.container);
+            this.dom.appendChild(new_item.dom);
             new_items.push(new_item);
         }
     }
@@ -161,7 +165,8 @@ function test_findId() {
 /** @constructor */
 function SelectionList(cls) {
     this.list = new SortedList(cls);
-    this.container = this.list.container;
+    this.dom = this.list.dom;
+    this.keys = this;
 
     this.target_id = 0;
     this.actual_index = -1;
@@ -170,6 +175,32 @@ function SelectionList(cls) {
     this.onchange = null;
 }
 exports.SelectionList = SelectionList;
+
+SelectionList.prototype.handleKey = function(down, evt) {
+    var mag = evt.shiftKey ? 10 : 1;
+    var binding = Config.ui_keybindings.get(evt.keyCode)[evt.keyCode];
+
+    switch (binding) {
+        case 'move_up':
+            if (down) {
+                this.step(-mag);
+            }
+            break;
+
+        case 'move_down':
+            if (down) {
+                this.step(mag);
+            }
+            break;
+
+        default:
+            var sel = this.selection();
+            if (sel != null) {
+                sel.keys.handleKey(down, evt);
+            }
+            break;
+    }
+};
 
 SelectionList.prototype.update = function(updates, callback) {
     this._preUpdate();
@@ -198,10 +229,10 @@ SelectionList.prototype._postUpdate = function() {
     var new_row = this.selection();
     if (old_row !== new_row) {
         if (old_row != null) {
-            old_row.container.classList.remove('active');
+            old_row.dom.classList.remove('active');
         }
         if (new_row != null) {
-            new_row.container.classList.add('active');
+            new_row.dom.classList.add('active');
         }
         if (this.onchange != null) {
             this.onchange(new_row);

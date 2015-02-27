@@ -29,6 +29,7 @@ var Iframe = require('ui/iframe').Iframe;
 var KeyDisplay = require('ui/keydisplay').KeyDisplay;
 var Menu = require('ui/menu').Menu;
 var ConfigEditor = require('ui/configedit').ConfigEditor;
+var widget = require('ui/widget');
 
 var TileDef = require('data/chunk').TileDef;
 var ItemDef = require('data/items').ItemDef;
@@ -307,10 +308,7 @@ function openConn(info, next) {
     if (url == null) {
         var elt = util.element('div', []);
         elt.innerHTML = info['message'];
-        dialog.show({
-            container: util.fromTemplate('server-offline', {'msg': elt}),
-        });
-        keyboard.pushHandler(function() { return false; });
+        dialog.show(new widget.Template('server-offline', {'msg': elt}));
         return;
     }
 
@@ -598,12 +596,7 @@ function handleClose(evt, reason) {
     if (reason != null) {
         reason_elt.textContent = 'Reason: ' + reason;
     }
-    dialog.show({
-        container: util.fromTemplate("disconnected", {'reason': reason_elt}),
-        handleOpen: function(d) {
-            d.keyboard.pushHandler(function() { return false; });
-        },
-    });
+    dialog.show(new widget.Template('disconnected', {'reason': reason_elt}));
 }
 
 function handleInit(entity_id, camera_x, camera_y, chunks, entities) {
