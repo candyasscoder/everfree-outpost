@@ -18,6 +18,7 @@ var DEFAULT_CONFIG = {
         112: 'show_controls', // F1
         113: 'show_menu',   // F2
         114: 'debug_show_panel', // F3
+        115: 'debug_test',  // F4
         27: 'cancel',       // Esc
         32: 'cancel',       // Space
         13: 'chat',         // Enter

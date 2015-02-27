@@ -32,7 +32,6 @@ function NameBuffer(assets) {
 NameBuffer.prototype._draw = function(s, idx) {
     var x = NAME_WIDTH * (idx % NAME_BUFFER_COUNT_X);
     var y = NAME_HEIGHT * ((idx / NAME_BUFFER_COUNT_Y)|0);
-    console.log(idx, x, y);
     var ctx = this.ctx;
 
     var str_width = this.font.measureWidth(s);
@@ -105,8 +104,6 @@ Font.prototype.drawString = function(ctx, s, x, y) {
         var src_x = this.xs[idx];
         var src_y = this.y;
         var w = this.widths[idx];
-
-        console.log('draw', idx, x, y);
 
         ctx.drawImage(this.image,
                 src_x, src_y, w, h,

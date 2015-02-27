@@ -91,6 +91,7 @@ AnimCanvas.prototype._handleResize = function() {
     // TODO: this is really not an appropriate place to put this code
     var fontSize = 16 * scale;
     document.firstElementChild.style.fontSize = fontSize + 'px';
+    document.body.dataset.scale = scale;
 
     this.virtualWidth = virtWidth;
     this.virtualHeight = virtHeight;

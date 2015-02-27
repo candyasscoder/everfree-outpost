@@ -34,6 +34,9 @@ Layered2D.prototype.drawInto = function(ctx, base, sprite) {
 
     for (var i = 0; i < extra.layers.length; ++i) {
         var layer = extra.layers[i];
+        if (layer.skip) {
+            continue;
+        }
 
         buf.globalCompositeOperation = 'copy';
         buf.drawImage(layer.image,

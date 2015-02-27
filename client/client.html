@@ -326,6 +326,72 @@
             }
 
 
+            .pony-row.active,
+            .pony-done.active {
+                background-color: lightblue;
+            }
+
+            .pony-label {
+                /* Make it match the other option labels. */
+                width: 4rem;
+                padding: 0.125rem;
+                text-align: left;
+                flex-shrink: 0;
+            }
+            .pony-name {
+                border: none;
+                font-size: 1rem;
+                background-color: transparent;
+                flex-grow: 1;
+            }
+
+            .pony-option-cell {
+                padding: 0.125rem;
+                width: 1rem;
+                text-align: center;
+            }
+            .pony-option-cell.active {
+                border: solid 0.125rem black;
+                padding: 0;
+            }
+
+            .pony-done {
+                padding: 0 0.125rem;
+            }
+
+            .pony-row,
+            .pony-editor-middle {
+                display: flex;
+            }
+
+            .pony-editor-middle {
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .pony-editor-middle > * {
+                flex-shrink: 0;
+            }
+
+            .pony-row {
+                margin: 0.125rem 0;
+            }
+
+            .pony-display {
+                margin-left: 1rem;
+            }
+
+            .pony-done {
+                margin: auto;
+                cursor: pointer;
+            }
+
+            .pony-message.error {
+                font-size: 0.75rem;
+                color: red;
+            }
+
+
             .dialog-body {
                 height: 60vh;
                 display: flex;
@@ -473,6 +539,21 @@
                     <button class="config-reset">Reset</button>
                     <button class="config-close">Close</button>
                 </div>
+            </div>
+
+            <div id="pony-editor">
+                <div class="pony-name-row pony-row">
+                    <div class="pony-label">Name: </div>
+                    <input type="text" class="pony-name" size="16">
+                </div>
+                <div class="pony-editor-middle">
+                    <div class="pony-options"></div>
+                    <canvas class="pony-display"></canvas>
+                </div>
+                <div>
+                    <span class="pony-done">Done</span>
+                </div>
+                <div class="pony-message"></div>
             </div>
         </div>
     </body>

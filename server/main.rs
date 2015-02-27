@@ -259,7 +259,7 @@ impl<'a> Server<'a> {
                 self.send_wire(wire_id, Response::Pong(cookie, now.to_local()));
             },
 
-            Request::Register(name, secret, _appearance) => {
+            Request::Register(name, secret, appearance) => {
                 info!("registration request for {}", name);
 
                 if let Err(msg) = name_valid(&*name) {
@@ -275,6 +275,16 @@ impl<'a> Server<'a> {
                     } else {
                         (1, "That name is already in use.")
                     };
+
+                // TODO: super hacky journal handling.  Fix process_journal to not die when objects
+                // are created and destroyed in a single update.
+                self.process_journal(now);
+                // TODO: error handling + atomicity
+                self.state.register_client(&*name, appearance).unwrap();
+                // Discard journal.
+                state::State::process_journal(Cursor::new(self, |s| &mut s.state), |_, _| { });
+
+
                 self.send_wire(wire_id, Response::RegisterResult(code, String::from_str(msg)));
             },
 

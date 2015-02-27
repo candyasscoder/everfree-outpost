@@ -29,6 +29,7 @@ var Iframe = require('ui/iframe').Iframe;
 var KeyDisplay = require('ui/keydisplay').KeyDisplay;
 var Menu = require('ui/menu').Menu;
 var ConfigEditor = require('ui/configedit').ConfigEditor;
+var PonyEditor = require('ui/ponyedit').PonyEditor;
 var widget = require('ui/widget');
 
 var TileDef = require('data/chunk').TileDef;
@@ -334,40 +335,40 @@ function maybeRegister(next) {
         return;
     }
 
-    initLoginName();
+    var default_name = Config.login_name.get() || generateName();
+    var secret = makeSecret();
 
-    console.log('producing secret');
-    var secret_buf = [0, 0, 0, 0];
-    if (window.crypto.getRandomValues) {
-        var typedBuf = new Uint32Array(4);
-        window.crypto.getRandomValues(typedBuf);
-        for (var i = 0; i < 4; ++i) {
-            secret_buf[i] = typedBuf[i];
-        }
-    } else {
-        console.log("warning: window.crypto.getRandomValues is not available.  " +
-                "Login secret will be weak!");
-        for (var i = 0; i < 4; ++i) {
-            secret_buf[i] = Math.random() * 0xffffffff;
+    var editor = new PonyEditor(default_name, drawPony);
+
+    var last_name = null;
+
+    function send_register(name, tribe, r, g, b) {
+        editor.onfinish = null;
+        editor.setMessage("Registering...");
+        last_name = name;
+
+        var appearance = calcAppearance(tribe, r, g, b);
+        conn.onRegisterResult = handle_result;
+        conn.sendRegister(name,
+                          secret,
+                          appearance);
+    }
+
+    function handle_result(code, msg) {
+        conn.onRegisterResult = null;
+        if (code == 0) {
+            Config.login_name.set(last_name);
+            Config.login_secret.set(secret);
+            dialog.hide();
+            next();
+        } else {
+            editor.setError(code, msg);
+            editor.onfinish = send_register;
         }
     }
 
-    conn.onRegisterResult = function(code, msg) {
-        console.log('saw result', code, msg);
-        if (code != 0) {
-            console.log('registration error ' + code + ': ' + msg); 
-            return;
-        }
-
-        Config.login_secret.set(secret_buf);
-        conn.onRegisterResult = null;
-        next();
-    };
-
-    console.log('sending');
-    conn.sendRegister(Config.login_name.get(),
-                      secret_buf,
-                      0);
+    editor.onfinish = send_register;
+    dialog.show(editor);
 }
 
 
@@ -420,6 +421,34 @@ function initMenus() {
     ]);
 }
 
+function generateName() {
+    var number = '' + Math.floor(Math.random() * 10000);
+    while (number.length < 4) {
+        number = '0' + number;
+    }
+
+    return "Anon" + number;
+}
+
+function makeSecret() {
+    console.log('producing secret');
+    var secret_buf = [0, 0, 0, 0];
+    if (window.crypto.getRandomValues) {
+        var typedBuf = new Uint32Array(4);
+        window.crypto.getRandomValues(typedBuf);
+        for (var i = 0; i < 4; ++i) {
+            secret_buf[i] = typedBuf[i];
+        }
+    } else {
+        console.log("warning: window.crypto.getRandomValues is not available.  " +
+                "Login secret will be weak!");
+        for (var i = 0; i < 4; ++i) {
+            secret_buf[i] = Math.random() * 0xffffffff;
+        }
+    }
+    return secret_buf;
+}
+
 function buildPonySprite(appearance) {
     var horn = (appearance >> 7) & 1;
     var wings = (appearance >> 6) & 1;
@@ -446,6 +475,35 @@ function buildPonySprite(appearance) {
             ]);
 
     return new SpriteBase(96, 96, 48, 90, extra);
+}
+
+function calcAppearance(tribe, r, g, b) {
+    var appearance =
+        ((r - 1) << 4) |
+        ((g - 1) << 2) |
+        (b - 1);
+
+    if (tribe == 'P') {
+        appearance |= 1 << 6;
+    }
+    if (tribe == 'U') {
+        appearance |= 1 << 7;
+    }
+
+    return appearance;
+}
+
+function drawPony(ctx, tribe, r, g, b) {
+    var base = buildPonySprite(calcAppearance(tribe, r, g, b));
+    var sprite = base.instantiate();
+    sprite.ref_x = sprite.anchor_x;
+    sprite.ref_y = sprite.anchor_y;
+    // Make pony face to the left.
+    sprite.extra.updateIJ(sprite, 0, 2);
+    sprite.setFlip(true);
+
+    ctx.clearRect(0, 0, 96, 96);
+    new Layered2D().drawInto(ctx, [0, 0], sprite);
 }
 
 function preloadTextures() {
@@ -510,6 +568,9 @@ function setupKeyHandler() {
                     var show = Config.debug_show_panel.toggle();
                     debug.container.classList.toggle('hidden', !show);
                     break;
+                case 'debug_test':
+                    dialog.show(new PonyEditor(Config.login_name.get()));
+                    break;
                 case 'chat':
                     chat.startTyping(keyboard, conn, '');
                     break;
@@ -568,24 +629,6 @@ function setupKeyHandler() {
         conn.sendAction(timing.encodeSend(now), code, arg);
         return true;
     }
-}
-
-function initLoginName() {
-    if (Config.login_name.get() != null) {
-        return;
-    }
-
-    var type = "EPU"[Math.floor(Math.random() * 3)];
-    var color_r = Math.floor(Math.random() * 3) + 1;
-    var color_g = Math.floor(Math.random() * 3) + 1;
-    var color_b = Math.floor(Math.random() * 3) + 1;
-    var extra = '' + Math.floor(Math.random() * 1000);
-    while (extra.length < 3) {
-        extra = '0' + extra;
-    }
-
-    var name = "Anon" + type + color_r + color_g + color_b + extra;
-    Config.login_name.set(name);
 }
 
 
