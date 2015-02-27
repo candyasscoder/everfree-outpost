@@ -7,10 +7,7 @@ local function ward_info_table()
         return info
     else
         info = {
-            server_0 = { pos = V3.new(-16, -16, 0), name = 'the server' },
-            server_1 = { pos = V3.new( 16, -16, 0), name = 'the server' },
-            server_2 = { pos = V3.new( 16,  16, 0), name = 'the server' },
-            server_3 = { pos = V3.new(-16,  16, 0), name = 'the server' },
+            server = { pos = V3.new(0, 0, 0), name = 'the server' },
         }
         World.get():extra().ward_info = info
         return info
