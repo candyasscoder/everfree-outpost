@@ -63,8 +63,13 @@ end
 local dirs = {'n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw', 'n'}
 for i = 1, 8 do
     local dir = dirs[i]
+
     add_structure_item('house_wall/' .. dir)
     mallet.replacements['house_wall/' .. dir] = 'house_wall/' .. dirs[i + 1]
+
+    add_structure_item('fence/' .. dir)
+    mallet.replacements['fence/' .. dir] = 'fence/' .. dirs[i + 1]
+
 end
 add_structure_item('house_floor')
 

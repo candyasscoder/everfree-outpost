@@ -39,6 +39,12 @@ function alwaysStop(evt) {
     if (evt.keyCode >= 111 + 5 && evt.keyCode <= 111 + 12) {
         return false;
     }
+
+    // Allow typing in text fields.
+    if (document.activeElement.tagName.toLowerCase() == 'input') {
+        return false;
+    }
+
     // Stop all other events.
     return true;
 }

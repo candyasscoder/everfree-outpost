@@ -55,3 +55,10 @@ ward:
     ui_name: Ward
     inputs: { wood: 10, crystal: 1 }
     outputs: { ward: 1 }
+
+
+fence:
+    station: anvil
+    ui_name: Fence
+    inputs: { wood: 5 }
+    outputs: { fence/n: 1 }

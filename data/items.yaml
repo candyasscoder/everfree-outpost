@@ -78,3 +78,31 @@ crystal:
 ward:
     tile: ward
     ui_name: Ward
+
+
+fence:
+    prefix: /fence
+
+    n.ui_name: Fence (N)
+    n.tile: we
+
+    s.ui_name: Fence (S)
+    s.tile: we
+
+    w.ui_name: Fence (W)
+    w.tile: ns
+
+    e.ui_name: Fence (E)
+    e.tile: ns
+
+    nw.ui_name: Fence (NE)
+    nw.tile: se
+
+    ne.ui_name: Fence (NE)
+    ne.tile: sw
+
+    sw.ui_name: Fence (SW)
+    sw.tile: ne
+
+    se.ui_name: Fence (SE)
+    se.tile: nw

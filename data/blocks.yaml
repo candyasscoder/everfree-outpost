@@ -131,3 +131,20 @@ ward:
     top:    "00"
     front:  "01"
     bottom: /grass/center/v0
+
+
+fence:
+    prefix: fence
+    shape: solid
+    _.bottom: /grass/center/v0
+
+
+    n.front: we
+    s.front: we
+    e.front: ns
+    w.front: ns
+
+    nw.front: se
+    ne.front: sw
+    sw.front: ne
+    se.front: nw

@@ -62,3 +62,16 @@ house_floor:
 
 ward:
     z0: [ward]
+
+
+fence:
+    prefix: fence
+
+    n.z0: [n]
+    s.z0: [s]
+    w.z0: [w]
+    e.z0: [e]
+    nw.z0: [nw]
+    ne.z0: [ne]
+    sw.z0: [sw]
+    se.z0: [se]
