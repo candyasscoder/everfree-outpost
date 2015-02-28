@@ -36,7 +36,7 @@ function PonyEditor(name, draw) {
     };
 
 
-    this.keys = new FocusTracker([
+    this.keys = new widget.FocusTracker([
             nameWidget, this.tribe, this.red, this.green, this.blue, buttonWidget
     ]);
 
@@ -168,7 +168,7 @@ function ChoiceRow(label, options) {
         this.dom.appendChild(cell.dom);
     }
 
-    this.keys = new FocusTracker(this.cells, ['move_left', 'move_right']);
+    this.keys = new widget.FocusTracker(this.cells, ['move_left', 'move_right']);
 
     this.onchange = null;
     var this_ = this;

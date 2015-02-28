@@ -42,6 +42,7 @@ var TILE_SIZE = require('data/chunk').TILE_SIZE;
 var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
 
 var Renderer = require('graphics/renderer').Renderer;
+var Layered2D = require('graphics/draw/layered').Layered2D;
 var Physics = require('physics').Physics;
 var Forecast = require('physics').Forecast;
 
