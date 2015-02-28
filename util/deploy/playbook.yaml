@@ -24,7 +24,7 @@
     - name: mount instance storage
       mount: >
           name=/home/{{ daemon_user }}/outpost
-          src=/dev/xvda1
+          src=/dev/xvdb
           fstype=ext4
           state=mounted
 
