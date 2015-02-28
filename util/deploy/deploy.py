@@ -159,10 +159,10 @@ def make_ansible_inventory(args):
         f.write('outpost %s\n' % vars_str)
 
 def run_ansible(*args):
-    run('ansible', 'outpost', '-i', 'inventory', *args)
+    run('ansible', 'outpost', '-M', get_deploy_dir(), '-i', 'inventory', *args)
 
 def run_ansible_playbook(playbook, **kwargs):
-    run('ansible-playbook', playbook, '-i', 'inventory', '-e', json.dumps(kwargs))
+    run('ansible-playbook', playbook, '-M', get_deploy_dir(), '-i', 'inventory', '-e', json.dumps(kwargs))
 
 def get_public_key(private_key_file):
     # Run 'ssh-keygen -y' to convert the private key into a public key.

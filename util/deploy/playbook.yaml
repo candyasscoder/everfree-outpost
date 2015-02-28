@@ -4,12 +4,16 @@
   tasks:
     - name: set up Debian Jessie repo
       apt_repository: repo='deb http://ftp.us.debian.org/debian jessie main'
+
     - apt: name=locales 
     - apt: name=python3 
     - apt: name=python3-tornado state=latest
     - apt: name=liblua5.1-0 
     - apt: name=htop 
     - apt: name=rsync 
+    - apt: name=socat 
+    - apt: name=tmux 
+
     - name: add user {{ daemon_user }}
       user: name={{ daemon_user }} shell=/bin/bash
 
@@ -27,3 +31,10 @@
         recursive=yes
         rsync_opts=--exclude=logs,--exclude=save,--exclude=www
         rsync_path='sudo -u {{ daemon_user }} rsync'
+
+    - name: start server
+      sudo_user: '{{ daemon_user }}'
+      tmux: >
+          name=outpost
+          pwd=/home/{{ daemon_user }}/outpost
+          cmd=bin/run_server.sh

@@ -1,0 +1,48 @@
+#!/usr/bin/python
+
+import subprocess
+
+def main():
+    module = AnsibleModule(
+        argument_spec = dict(
+            name    = dict(required=True),
+            cmd     = dict(required=True),
+            pwd     = dict(default=None),
+            restart = dict(default=False, choices=BOOLEANS),
+        )
+    )
+
+    name = module.params['name']
+    cmd = module.params['cmd']
+    pwd = module.params['pwd']
+    restart = module.boolean(module.params['restart'])
+
+    rc, out, err = module.run_command(['tmux', 'has-session', '-t', name])
+    exists = rc == 0
+
+    changed = False
+
+    if exists and restart:
+        rc, out, err = module.run_command(['tmux', 'kill-session', '-t', name])
+        if rc != 0:
+            module.fail_json(msg='failed to kill existing session',
+                    stdout=out, stderr=err)
+        exists = False
+        changed = True
+
+    if not exists:
+        args = ['tmux', 'new-session', '-d', '-s', name]
+        if pwd is not None:
+            args += ['-c', pwd]
+        args += [cmd]
+
+        rc, out, err = module.run_command(args)
+        if rc != 0:
+            module.fail_json(msg='failed to start session',
+                    stdout=out, stderr=err)
+        changed = True
+
+    module.exit_json(changed=changed)
+
+from ansible.module_utils.basic import *
+main()

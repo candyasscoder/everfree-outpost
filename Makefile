@@ -261,8 +261,12 @@ $(DIST_$(1))/$(2): $(3)
 
 $(DIST)/all: $(DIST_$(1))/$(2)
 endef
+BIN_FILE = $(call DIST_FILE_,BIN,$(strip $(1)),$(strip $(2)))
 WWW_FILE = $(call DIST_FILE_,WWW,$(strip $(1)),$(strip $(2)))
 DATA_FILE = $(call DIST_FILE_,DATA,$(strip $(1)),$(strip $(2)))
+
+$(eval $(call BIN_FILE,		wrapper.py,			$(SRC)/server/wrapper.py))
+$(eval $(call BIN_FILE,		run_server.sh,		$(SRC)/util/run_server.sh))
 
 $(eval $(call WWW_FILE, 	tiles.json,			$(BUILD)/tiles.json))
 $(eval $(call WWW_FILE, 	items.json,			$(BUILD)/items.json))
@@ -308,9 +312,6 @@ $(DIST_WWW)/js/%: $(SRC)/client/js/%
 
 $(DIST_BIN)/backend: $(BUILD_NATIVE)/backend
 	rm -fv $@
-	cp -v $< $@
-
-$(DIST_BIN)/wrapper.py: $(SRC)/server/wrapper.py
 	cp -v $< $@
 
 $(DIST)/all: $(DIST_BIN)/backend $(DIST_BIN)/wrapper.py
