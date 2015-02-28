@@ -72,6 +72,7 @@ for i = 1, 8 do
 
 end
 add_structure_item('house_floor')
+add_structure_item('house_door')
 
 add_structure_item('fence/gate_post_e')
 add_structure_item('fence/gate_post_w')

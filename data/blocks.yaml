@@ -125,6 +125,25 @@ house_floor:
     shape: floor
     bottom: /wood_floor/center/v0
 
+house_door:
+    shape: solid
+    prefix: house_door
+
+    z0:
+        _.bottom: /grass/center/v0 + /wood_floor/edge/s
+        x0.front: "02"
+        x1.shape: floor
+        x2.front: "22"
+
+    z1:
+        x0.front:   "01"
+        x0.top:     "00"
+        x1.front:   "11"
+        x1.top:     "10"
+        x1.shape:   empty
+        x2.front:   "21"
+        x2.top:     "20"
+
 ward:
     shape: solid
     prefix: ward

@@ -30,6 +30,12 @@ house_floor:
     inputs: { wood: 5 }
     outputs: { house_floor: 1 }
 
+house_door:
+    station: anvil
+    ui_name: House Door
+    inputs: { wood: 15 }
+    outputs: { house_door: 1 }
+
 
 pick:
     station: anvil

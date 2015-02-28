@@ -53,6 +53,10 @@ house_floor:
     ui_name: House Floor
     tile: /wood_floor/center/v0
 
+house_door:
+    ui_name: House Door
+    tile: house_door
+
 
 pick:
     tile: pick
