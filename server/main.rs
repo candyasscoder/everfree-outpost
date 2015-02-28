@@ -122,6 +122,11 @@ struct Server<'a> {
     wire_id_map: HashMap<WireId, ClientId>,
     client_info: HashMap<ClientId, ClientInfo>,
     inventory_observers: HashMap<InventoryId, HashSet<WireId>>,
+
+    // TODO: bit of a hack.  An alternative solution is to give each Client a StableId and use
+    // StableId conflicts to prevent duplicate logins.  This requires fixing process_journal to
+    // handle create/destroy in a single cycle.
+    client_names: HashSet<String>,
 }
 
 struct ClientInfo {
@@ -154,6 +159,7 @@ impl<'a> Server<'a> {
             wire_id_map: HashMap::new(),
             client_info: HashMap::new(),
             inventory_observers: HashMap::new(),
+            client_names: HashSet::new(),
         }
     }
 
@@ -225,6 +231,8 @@ impl<'a> Server<'a> {
                         self.state.unload_chunk(p.x, p.y);
                     }
 
+                    self.client_names.remove(self.state.world().client(client_id).name());
+
                     self.state.unload_client(client_id).unwrap();
                     self.wire_id_map.remove(&wire_id);
                     let info = self.client_info.remove(&client_id).unwrap();
@@ -291,6 +299,10 @@ impl<'a> Server<'a> {
             Request::Login(name, secret) => {
                 info!("login request for {}", name);
 
+                if self.client_names.contains(&name) {
+                    fail!("duplicate login");
+                }
+
                 let ok = self.auth.login(&*name, &secret).unwrap();
                 if !ok {
                     fail!("bad login");
@@ -327,6 +339,8 @@ impl<'a> Server<'a> {
 
                 self.wake_queue.push(now + 1000, WakeReason::CheckView(cid));
                 self.server_msg(wire_id, &*format!("logged in as {}", name));
+
+                self.client_names.insert(name.clone());
 
                 info!("{:?} ({:?}) logged in as {:?}", cid, wire_id, name);
             },
