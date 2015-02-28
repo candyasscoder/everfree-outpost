@@ -26,7 +26,11 @@ function CraftingUI(station_type, station_id, inv) {
             ['move_left', 'move_right']);
     this.keys = new widget.ActionKeyHandler(
             'select',
-            function(evt) { this_._craft(evt.shiftKey ? 10 : 1); },
+            function(evt) {
+                if (this_.focus.selectedIndex() == 0) {
+                    this_._craft(evt.shiftKey ? 10 : 1);
+                }
+            },
             this.focus);
 
     this.dialog = null;
@@ -127,6 +131,7 @@ function canCraft(recipe, inv) {
 function RecipeRow(id, name) {
     this.dom = document.createElement('div');
     this.dom.classList.add('recipe');
+    this.keys = widget.NULL_KEY_HANDLER;
 
     var nameDiv = document.createElement('div');
     nameDiv.classList.add('recipe-name');

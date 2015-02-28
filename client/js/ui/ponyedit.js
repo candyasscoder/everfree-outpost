@@ -68,9 +68,9 @@ function PonyEditor(name, draw) {
 
     this.ctx = canvas.getContext('2d');
     this.ctx.scale(scale, scale);
-    this.ctx.imageSmoothingEnabled = false;
     this.ctx.mozImageSmoothingEnabled = false;
     this.ctx.webkitImageSmoothingEnabled = false;
+    this.ctx.imageSmoothingEnabled = false;
 
     this.onfinish = null;
     this.dialog = null;
@@ -81,16 +81,16 @@ function PonyEditor(name, draw) {
 
     this.name.value = name;
     // TODO: remove this eventually
-    if (name.substr(0, 4) == 'Anon' && name.length >= 8) {
+    if (name.substr(0, 4) == 'Anon' && name.length == 11) {
         this.tribe.setValue(name[4]);
         this.red.setValue(name[5]);
         this.green.setValue(name[6]);
         this.blue.setValue(name[7]);
     } else {
-        this.tribe.setIndex((Math.random() % 3)|0);
-        this.red.setIndex((Math.random() % 3)|0);
-        this.green.setIndex((Math.random() % 3)|0);
-        this.blue.setIndex((Math.random() % 3)|0);
+        this.tribe.setIndex((Math.random() * 3)|0);
+        this.red.setIndex((Math.random() * 3)|0);
+        this.green.setIndex((Math.random() * 3)|0);
+        this.blue.setIndex((Math.random() * 3)|0);
     }
 
     // Now actually draw.

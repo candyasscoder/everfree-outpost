@@ -11,7 +11,7 @@ function Keyboard() {
             this_.monitor(true, evt);
         }
 
-        if (this_._topHandler()(true, evt)) {
+        if (this_._topHandler()(true, evt) || alwaysStop(evt)) {
             evt.preventDefault();
             evt.stopPropagation();
         }
@@ -22,13 +22,26 @@ function Keyboard() {
             this_.monitor(false, evt);
         }
 
-        if (this_._topHandler()(false, evt)) {
+        if (this_._topHandler()(false, evt) || alwaysStop(evt)) {
             evt.preventDefault();
             evt.stopPropagation();
         }
     };
 }
 exports.Keyboard = Keyboard;
+
+function alwaysStop(evt) {
+    // Allow Ctrl + anything
+    if (evt.ctrlKey) {
+        return false;
+    }
+    // Allow F5-F12
+    if (evt.keyCode >= 111 + 5 && evt.keyCode <= 111 + 12) {
+        return false;
+    }
+    // Stop all other events.
+    return true;
+}
 
 Keyboard.prototype.pushHandler = function(handler) {
     this._handler_stack.push(handler);

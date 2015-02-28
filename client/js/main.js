@@ -640,7 +640,20 @@ function handleClose(evt, reason) {
     if (reason != null) {
         reason_elt.textContent = 'Reason: ' + reason;
     }
-    dialog.show(new widget.Template('disconnected', {'reason': reason_elt}));
+
+    var w = new widget.Template('disconnected', {'reason': reason_elt});
+    w.keys = {
+        handleKey: function(down, evt) {
+            if (down && !evt.repeat) {
+                var binding = Config.keybindings.get()[evt.keyCode];
+                if (binding == 'show_menu') {
+                    // TODO: might want to show a more restricted menu
+                    dialog.show(main_menu);
+                }
+            }
+        },
+    };
+    dialog.show(w);
 }
 
 function handleInit(entity_id, camera_x, camera_y, chunks, entities) {
