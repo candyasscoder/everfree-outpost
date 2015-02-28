@@ -21,6 +21,16 @@
       authorized_key: user={{ daemon_user }} key='{{ daemon_public_key }}'
       # fix stupid vim syntax hilighting: '
 
+    - name: mount instance storage
+      mount: >
+          name=/home/{{ daemon_user }}/outpost
+          src=/dev/xvda1
+          fstype=ext4
+          state=mounted
+
+    - name: fix ownership
+      file: path=/home/{{ daemon_user }}/outpost owner={{ daemon_user }}
+
     - name: upload server files
       # Don't sudo to root.  Instead, wrap rsync in 'sudo -u daemon_user' so
       # that uploaded files have the right ownership.
