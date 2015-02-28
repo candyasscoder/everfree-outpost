@@ -66,6 +66,11 @@ shovel:
     tile: shovel
     ui_name: Shovel
 
+mallet:
+    tile: mallet
+    ui_name: Mallet
+
+
 crystal:
     tile: crystal
     ui_name: Crystal

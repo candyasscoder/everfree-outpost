@@ -149,6 +149,9 @@ gervais_roguelike/AngbandTk_pick.png:
 gervais_roguelike/AngbandTk_shovel.png:
     item/shovel: [0, 0]
 
+gervais_roguelike/AngbandTk_mallet.png:
+    item/mallet: [0, 0]
+
 crystal-ward.png:
     item/crystal: [1, 0]
     item/ward: [1, 1]

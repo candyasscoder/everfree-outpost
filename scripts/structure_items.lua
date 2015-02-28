@@ -1,6 +1,7 @@
 local action = require('outpost.action')
 local util = require('outpost.util')
 local ward = require('ward')
+local mallet = require('mallet')
 
 local function place_structure(world, inv, pos, item_name, template_name)
     if inv:count(item_name) == 0 then
@@ -59,8 +60,11 @@ local function add_structure_item(item_name, template_name)
     end
 end
 
-for _, side in ipairs({'n', 's', 'w', 'e', 'nw', 'ne', 'sw', 'se'}) do
-    add_structure_item('house_wall/' .. side)
+local dirs = {'n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw', 'n'}
+for i = 1, 8 do
+    local dir = dirs[i]
+    add_structure_item('house_wall/' .. dir)
+    mallet.replacements['house_wall/' .. dir] = 'house_wall/' .. dirs[i + 1]
 end
 add_structure_item('house_floor')
 

@@ -24,27 +24,6 @@ house_wall:
     n.ui_name: House Wall (N)
     n.outputs: { house_wall/n: 1 }
 
-    s.ui_name: House Wall (S)
-    s.outputs: { house_wall/s: 1 }
-
-    w.ui_name: House Wall (W)
-    w.outputs: { house_wall/w: 1 }
-
-    e.ui_name: House Wall (E)
-    e.outputs: { house_wall/e: 1 }
-
-    nw.ui_name: House Wall (NW)
-    nw.outputs: { house_wall/nw: 1 }
-
-    ne.ui_name: House Wall (NE)
-    ne.outputs: { house_wall/ne: 1 }
-
-    sw.ui_name: House Wall (SW)
-    sw.outputs: { house_wall/sw: 1 }
-
-    se.ui_name: House Wall (SE)
-    se.outputs: { house_wall/se: 1 }
-
 house_floor:
     station: anvil
     ui_name: House Floor
@@ -63,6 +42,13 @@ axe:
     ui_name: Axe
     inputs: { wood: 10, stone: 10 }
     outputs: { axe: 1 }
+
+mallet:
+    station: anvil
+    ui_name: Mallet
+    inputs: { wood: 20 }
+    outputs: { mallet: 1 }
+
 
 ward:
     station: anvil
