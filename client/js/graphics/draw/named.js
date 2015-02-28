@@ -31,7 +31,7 @@ function NameBuffer(assets) {
 
 NameBuffer.prototype._draw = function(s, idx) {
     var x = NAME_WIDTH * (idx % NAME_BUFFER_COUNT_X);
-    var y = NAME_HEIGHT * ((idx / NAME_BUFFER_COUNT_Y)|0);
+    var y = NAME_HEIGHT * ((idx / NAME_BUFFER_COUNT_X)|0);
     var ctx = this.ctx;
 
     var str_width = this.font.measureWidth(s);
@@ -58,7 +58,7 @@ NameBuffer.prototype.offset = function(s) {
     }
 
     var x = NAME_WIDTH * (idx % NAME_BUFFER_COUNT_X);
-    var y = NAME_HEIGHT * ((idx / NAME_BUFFER_COUNT_Y)|0);
+    var y = NAME_HEIGHT * ((idx / NAME_BUFFER_COUNT_X)|0);
     return { x: x, y: y, created: created };
 };
 
