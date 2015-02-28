@@ -75,3 +75,5 @@ fence:
     ne.z0: [ne]
     sw.z0: [sw]
     se.z0: [se]
+    gate_post_w.z0: [gate_post_w]
+    gate_post_e.z0: [gate_post_e]

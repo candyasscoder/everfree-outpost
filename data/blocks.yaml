@@ -148,3 +148,6 @@ fence:
     ne.front: sw
     sw.front: ne
     se.front: nw
+
+    gate_post_w.front: gate_post_w
+    gate_post_e.front: gate_post_e

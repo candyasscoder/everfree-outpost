@@ -62,3 +62,9 @@ fence:
     ui_name: Fence
     inputs: { wood: 5 }
     outputs: { fence/n: 1 }
+
+fence_post:
+    station: anvil
+    ui_name: Fence Post
+    inputs: { wood: 5 }
+    outputs: { fence/gate_post_w: 1 }

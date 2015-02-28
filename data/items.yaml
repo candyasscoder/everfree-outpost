@@ -106,3 +106,8 @@ fence:
 
     se.ui_name: Fence (SE)
     se.tile: nw
+
+    gate_post_w.ui_name: Fence Post (W)
+    gate_post_w.tile: gate_post_w
+    gate_post_e.ui_name: Fence Post (E)
+    gate_post_e.tile: gate_post_e
