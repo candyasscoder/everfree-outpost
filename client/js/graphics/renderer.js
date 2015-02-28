@@ -72,7 +72,8 @@ Renderer.prototype.initGl = function(assets) {
 
     this.sprite_classes = {
         'simple': new Simple3D(gl, assets),
-        'layered': new Named3D(gl, assets),
+        'layered': new Layered3D(gl, assets),
+        'named': new Named3D(gl, assets),
     };
 
     this.texture_cache = new WeakMap();

@@ -14,8 +14,11 @@ def build_parser():
             required=True,
             help='path to the original font image')
     parser.add_argument('--first-char', metavar='CODE',
-            required=True,
+            default=0x21,
             help='ASCII code of the first glyph in the font')
+    parser.add_argument('--space-width', metavar='SIZE',
+            default=2,
+            help='width of the space character in pixels')
 
     parser.add_argument('--font-image-out', metavar='FILE',
             required=True,
@@ -134,6 +137,7 @@ def main():
 
     metrics['spacing'] = 0
     metrics['first_char'] = int(args.first_char, 0)
+    metrics['space_width'] = int(args.space_width)
 
     with open(args.font_metrics_out, 'w') as f:
         json.dump(metrics, f)

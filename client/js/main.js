@@ -10,8 +10,10 @@ var Config = require('config').Config;
 var AnimCanvas = require('graphics/canvas').AnimCanvas;
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
 var Animation = require('graphics/sheet').Animation;
-var LayeredExtra = require('graphics/draw/layered').LayeredExtra;
+var NamedExtra = require('graphics/draw/named').NamedExtra;
 var SpriteBase = require('graphics/renderer').SpriteBase;
+var Renderer = require('graphics/renderer').Renderer;
+var Layered2D = require('graphics/draw/layered').Layered2D;
 
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
@@ -41,8 +43,6 @@ var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
 var TILE_SIZE = require('data/chunk').TILE_SIZE;
 var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
 
-var Renderer = require('graphics/renderer').Renderer;
-var Layered2D = require('graphics/draw/layered').Layered2D;
 var Physics = require('physics').Physics;
 var Forecast = require('physics').Forecast;
 
@@ -450,7 +450,7 @@ function makeSecret() {
     return secret_buf;
 }
 
-function buildPonySprite(appearance) {
+function buildPonySprite(appearance, name) {
     var horn = (appearance >> 7) & 1;
     var wings = (appearance >> 6) & 1;
     var r = (appearance >> 4) & 3;
@@ -465,7 +465,7 @@ function buildPonySprite(appearance) {
                (steps[g] <<  8) |
                (steps[b]);
 
-    var extra = new LayeredExtra([
+    var extra = new NamedExtra([
             { image: assets['pony_f_wing_back'],    color: body,        skip: !wings },
             { image: assets['pony_f_base'],         color: body,        skip: false },
             { image: assets['pony_f_eyes_blue'],    color: 0xffffff,    skip: false },
@@ -473,7 +473,7 @@ function buildPonySprite(appearance) {
             { image: assets['pony_f_tail_1'],       color: mane,        skip: false },
             { image: assets['pony_f_mane_1'],       color: mane,        skip: false },
             { image: assets['pony_f_horn'],         color: body,        skip: !horn },
-            ]);
+            ], name);
 
     return new SpriteBase(96, 96, 48, 90, extra);
 }
@@ -495,7 +495,7 @@ function calcAppearance(tribe, r, g, b) {
 }
 
 function drawPony(ctx, tribe, r, g, b) {
-    var base = buildPonySprite(calcAppearance(tribe, r, g, b));
+    var base = buildPonySprite(calcAppearance(tribe, r, g, b), '');
     var sprite = base.instantiate();
     sprite.ref_x = sprite.anchor_x;
     sprite.ref_y = sprite.anchor_y;
@@ -762,9 +762,12 @@ function handleChatUpdate(msg) {
     chat.addMessage(msg);
 }
 
-function handleEntityAppear(id, appearance) {
-    console.log('appear: ', id, appearance);
-    var sprite_base = buildPonySprite(appearance);
+function handleEntityAppear(id, appearance, name) {
+    console.log('appear: ', id, appearance, name);
+    if (id == player_entity) {
+        name = '';
+    }
+    var sprite_base = buildPonySprite(appearance, name);
     entities[id] = new Entity(sprite_base, pony_anims, new Vec(0, 0, 0));
 }
 

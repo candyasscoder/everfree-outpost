@@ -187,7 +187,7 @@ pub enum Response {
     InventoryUpdate(InventoryId, Vec<(ItemId, u8, u8)>),
     OpenCrafting(TemplateId, StructureId, InventoryId),
     ChatUpdate(String),
-    EntityAppear(EntityId, u32),
+    EntityAppear(EntityId, u32, String),
     EntityGone(EntityId, LocalTime),
     RegisterResult(u32, String),
 
@@ -219,9 +219,9 @@ impl Response {
             OpenCrafting(station_type, station_id, inventory_id) =>
                 ww.write_msg(id, (op::OpenCrafting, station_type, station_id, inventory_id)),
             ChatUpdate(ref msg) =>
-                ww.write_msg(id, (op::ChatUpdate, &*msg)),
-            EntityAppear(entity_id, appearance) =>
-                ww.write_msg(id, (op::EntityAppear, entity_id, appearance)),
+                ww.write_msg(id, (op::ChatUpdate, msg)),
+            EntityAppear(entity_id, appearance, ref name) =>
+                ww.write_msg(id, (op::EntityAppear, entity_id, appearance, name)),
             EntityGone(entity_id, time) =>
                 ww.write_msg(id, (op::EntityGone, entity_id, time)),
             RegisterResult(code, ref msg) =>
@@ -229,7 +229,7 @@ impl Response {
             ClientRemoved(wire_id) =>
                 ww.write_msg(id, (op::ClientRemoved, wire_id)),
             ReplResult(cookie, ref msg) =>
-                ww.write_msg(id, (op::ReplResult, cookie, &*msg)),
+                ww.write_msg(id, (op::ReplResult, cookie, msg)),
         });
         ww.flush()
     }

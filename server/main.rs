@@ -764,7 +764,16 @@ impl<'a, 'd> VisionCallbacks for MessageCallbacks<'a, 'd> {
         let info = unwrap_or!(self.client_info.get(&cid));
         let entity = unwrap_or!(self.state.world().get_entity(eid));
 
-        self.wire.send((info.wire_id, Response::EntityAppear(eid, entity.appearance()))).unwrap();
+        // TODO: hack.  Should have an "entity name" stored somewhere.
+        let name =
+            if let world::EntityAttachment::Client(controller_cid) = entity.attachment() {
+                String::from_str(self.state.world().client(controller_cid).name())
+            } else {
+                String::new()
+            };
+
+        self.wire.send((info.wire_id,
+                        Response::EntityAppear(eid, entity.appearance(), name))).unwrap();
     }
 
     fn entity_disappear(&mut self, cid: ClientId, eid: EntityId) {

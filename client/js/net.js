@@ -233,7 +233,8 @@ Connection.prototype._handleMessage = function(evt) {
             if (this.onEntityAppear != null) {
                 var entity_id = get32();
                 var appearance = get32();
-                this.onEntityAppear(entity_id, appearance);
+                var name = getString();
+                this.onEntityAppear(entity_id, appearance, name);
             }
             break;
 

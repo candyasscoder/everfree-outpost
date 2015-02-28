@@ -40,6 +40,7 @@ NameBuffer.prototype._draw = function(s, idx) {
     ctx.save();
 
     ctx.clearRect(x, y, NAME_WIDTH, NAME_HEIGHT);
+    console.log('clip to ', x, y, NAME_WIDTH, NAME_HEIGHT);
     ctx.rect(x, y, NAME_WIDTH, NAME_HEIGHT);
     ctx.clip();
     this.font.drawString(ctx, s, x + offset_x, y);
@@ -52,7 +53,7 @@ NameBuffer.prototype.offset = function(s) {
     var created = false;
     if (idx == null) {
         idx = this.cache.put(s);
-        this._draw(s, idx * 2);
+        this._draw(s, idx);
         created = true;
     }
 
@@ -76,6 +77,7 @@ function Font(image, metrics) {
     this.widths = metrics['widths'];
     this.height = metrics['height'];
     this.spacing = metrics['spacing'];
+    this.space_width = metrics['space_width'];
 }
 
 Font.prototype.getHeight = function() {
@@ -87,7 +89,15 @@ Font.prototype.measureWidth = function(s) {
     for (var i = 0; i < s.length; ++i) {
         var code = s.charCodeAt(i);
         var idx = code - this.first_char;
-        total += this.widths[idx];
+
+        var width;
+        if (code == 0x20) {
+            width = this.space_width;
+        } else {
+            width = this.widths[idx] || 0;
+        }
+
+        total += width;
         if (i > 0) {
             total += this.spacing;
         }
@@ -101,9 +111,20 @@ Font.prototype.drawString = function(ctx, s, x, y) {
     for (var i = 0; i < s.length; ++i) {
         var code = s.charCodeAt(i);
         var idx = code - this.first_char;
+
+        if (code == 0x20) {
+            x += this.space_width;
+            continue;
+        } else if (idx < 0 || idx >= this.widths.length) {
+            // Invalid character
+            continue;
+        }
+
         var src_x = this.xs[idx];
         var src_y = this.y;
         var w = this.widths[idx];
+
+        console.log('draw', s.charCodeAt(i), code, idx, x, y);
 
         ctx.drawImage(this.image,
                 src_x, src_y, w, h,
@@ -182,7 +203,7 @@ Named3D.prototype.draw = function(r, sprite, base_x, base_y, clip_x, clip_y, cli
         return;
     }
 
-    var off = this._names.offset('Pony');
+    var off = this._names.offset(sprite.extra.name);
     if (off.created) {
         this._refreshTexture();
     }
@@ -198,4 +219,23 @@ Named3D.prototype.draw = function(r, sprite, base_x, base_y, clip_x, clip_y, cli
                          name_h],
     };
     this._name_obj.draw(0, 6, uniforms, {}, {});
+};
+
+
+/** @constructor */
+function NamedExtra(layers, name) {
+    this.layers = layers;
+    this.offset_x = 0;
+    this.offset_y = 0;
+    this.name = name;
+}
+exports.NamedExtra = NamedExtra;
+
+NamedExtra.prototype.getClass = function() {
+    return 'named';
+};
+
+NamedExtra.prototype.updateIJ = function(sprite, i, j) {
+    this.offset_x = j * sprite.width;
+    this.offset_y = i * sprite.height;
 };
