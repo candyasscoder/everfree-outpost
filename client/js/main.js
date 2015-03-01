@@ -14,6 +14,7 @@ var NamedExtra = require('graphics/draw/named').NamedExtra;
 var SpriteBase = require('graphics/renderer').SpriteBase;
 var Renderer = require('graphics/renderer').Renderer;
 var Layered2D = require('graphics/draw/layered').Layered2D;
+var Cursor = require('graphics/cursor').Cursor;
 
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
@@ -182,6 +183,8 @@ var chunkLoaded;
 var physics;
 
 var renderer = null;
+var cursor;
+var show_cursor = false;
 
 var conn;
 var timing;
@@ -217,6 +220,8 @@ function init() {
     physics = new Physics();
 
     renderer = new Renderer(canvas.ctx);
+    cursor = null;
+    show_cursor = false;
 
     conn = null;    // Initialized after assets are loaded.
     timing = null;  // Initialized after connection is opened.
@@ -231,6 +236,8 @@ function init() {
         loadAssets(function() {
             renderer.initGl(assets);
             runner.job('preload-textures', preloadTextures);
+
+            cursor = new Cursor(canvas.ctx, assets, TILE_SIZE / 2 + 1);
 
             openConn(assets['server_info'], function() {
                 timing = new Timing(conn);
@@ -303,6 +310,9 @@ function loadAssets(next) {
     loader.addText('sprite.vert', 'assets/shaders/sprite.vert');
 
     loader.addText('sprite_layered.frag', 'assets/shaders/sprite_layered.frag');
+
+    loader.addText('cursor.frag', 'assets/shaders/cursor.frag');
+    loader.addText('cursor.vert', 'assets/shaders/cursor.vert');
 }
 
 function openConn(info, next) {
@@ -581,6 +591,9 @@ function setupKeyHandler() {
                 case 'show_menu':
                     dialog.show(main_menu);
                     break;
+                case 'toggle_cursor':
+                    show_cursor = !show_cursor;
+                    break;
                 default:
                     return sendActionForKey(binding);
             }
@@ -684,6 +697,7 @@ function handleEntityUpdate(id, motion, anim) {
         return;
     }
 
+    // TODO: hacky adjustment
     var offset = new Vec(16, 32, 0);
     var m = new Motion(motion.start_pos.add(offset));
     m.end_pos = motion.end_pos.add(offset);
@@ -814,6 +828,16 @@ function localSprite(now, entity, camera_mid) {
     return sprite;
 }
 
+var FACINGS = [
+    new Vec( 1,  0,  0),
+    new Vec( 1,  1,  0),
+    new Vec( 0,  1,  0),
+    new Vec(-1,  1,  0),
+    new Vec(-1,  0,  0),
+    new Vec(-1, -1,  0),
+    new Vec( 0, -1,  0),
+    new Vec( 1, -1,  0),
+];
 
 function frame(ac, now) {
     debug.frameStart();
@@ -850,6 +874,13 @@ function frame(ac, now) {
             camera_pos.x, camera_pos.y,
             camera_size.x, camera_size.y,
             sprites);
+
+    if (show_cursor && player_entity >= 0) {
+        var facing = FACINGS[entities[player_entity].animId() % FACINGS.length];
+        // TODO: hacky offset (see comment in handleEntityUpdate)
+        var cursor_pos = pos.sub(new Vec(0, 16, 0)).divScalar(TILE_SIZE).add(facing);
+        cursor.draw(camera_pos, camera_size, cursor_pos);
+    }
 
     debug.frameEnd();
     debug.updateJobs(runner);

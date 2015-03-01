@@ -90,3 +90,8 @@ Entity.prototype.translateMotion = function(offset) {
     this._cur_motion.translate(offset);
     this._motions.forEach(function(m) { m.translate(offset); });
 };
+
+Entity.prototype.animId = function(now) {
+    this._dequeueUntil(now);
+    return this._cur_motion.anim_id;
+};
