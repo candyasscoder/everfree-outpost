@@ -41,7 +41,8 @@ function alwaysStop(evt) {
     }
 
     // Allow typing in text fields.
-    if (document.activeElement.tagName.toLowerCase() == 'input') {
+    var focus_tag = document.activeElement.tagName.toLowerCase();
+    if (focus_tag == 'input' || focus_tag == 'textarea') {
         return false;
     }
 
