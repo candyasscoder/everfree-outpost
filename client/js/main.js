@@ -34,6 +34,7 @@ var Menu = require('ui/menu').Menu;
 var ConfigEditor = require('ui/configedit').ConfigEditor;
 var PonyEditor = require('ui/ponyedit').PonyEditor;
 var widget = require('ui/widget');
+var ErrorList = require('ui/errorlist').ErrorList;
 
 var TileDef = require('data/chunk').TileDef;
 var ItemDef = require('data/items').ItemDef;
@@ -165,6 +166,7 @@ var keyboard;
 var chat;
 var credits;
 var instructions;
+var error_list;
 
 var main_menu;
 var debug_menu;
@@ -204,6 +206,7 @@ function init() {
     chat = new ChatWindow();
     credits = new Iframe('credits.html');
     instructions = new Iframe('instructions.html');
+    error_list = new ErrorList();
 
     initMenus();
 
@@ -387,6 +390,7 @@ function maybeRegister(next) {
 
 function buildUI() {
     keyboard.attach(document);
+    error_list.attach(window);
     setupKeyHandler();
 
     document.body.appendChild(canvas.canvas);
@@ -395,6 +399,7 @@ function buildUI() {
     document.body.appendChild(chat.container);
     document.body.appendChild(banner.container);
     document.body.appendChild(dialog.container);
+    document.body.appendChild(error_list.container);
     document.body.appendChild(debug.container);
 
     if (Config.show_key_display.get()) {
