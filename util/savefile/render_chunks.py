@@ -36,11 +36,14 @@ def render(data, area, out_file):
     min_x, max_x, min_y, max_y = area
 
     w = 32 * 16 * (max_x - min_x)
-    h = 32 * 16 * (max_y - min_y + 1)
+    h = 32 * 16 * (max_y - min_y)
     img = Image.new('RGBA', (w, h))
 
     def draw_tile(idx, dx, dy):
         if idx == 0:
+            return
+
+        if dy < 0 or dy >= h:
             return
 
         sx = 32 * (idx % 32)
@@ -49,7 +52,7 @@ def render(data, area, out_file):
         img.paste(src, (dx, dy), src)
 
     saw_chunk = False
-    for cy in range(min_y, max_y):
+    for cy in range(min_y, max_y + 1):
         for cx in range(min_x, max_x):
             if (cx, cy) not in chunk_map:
                 continue
@@ -57,7 +60,7 @@ def render(data, area, out_file):
 
             chunk = chunk_map[(cx, cy)]
             base_x = (cx - min_x) * 32 * 16
-            base_y = (cy - min_y + 1) * 32 * 16
+            base_y = (cy - min_y) * 32 * 16
 
             for i, (dx, dy, dz) in enumerate(points(16, 16, 16)):
                 b = chunk[i]
@@ -79,6 +82,7 @@ def render(data, area, out_file):
         img.save(out_file)
 
 def render_tiled(data, area, out_file, tile_size):
+    chunk_map, blocks, atlas = data
     min_x, max_x, min_y, max_y = area
 
     min_tx = min_x // tile_size
@@ -87,20 +91,31 @@ def render_tiled(data, area, out_file, tile_size):
     min_ty = min_y // tile_size
     max_ty = (max_y + tile_size - 1) // tile_size
 
-    count = (max_tx - min_tx) * (max_ty - min_ty)
-    idx = 0
+
+    inhabited_tiles = set()
 
     for ty in range(min_ty, max_ty):
         for tx in range(min_tx, max_tx):
-            idx += 1
-            log('%4d / %4d' % (idx, count))
             base_x = tx * tile_size
             base_y = ty * tile_size
-            tile_area = (base_x, base_x + tile_size, base_y, base_y + tile_size)
 
-            base, _, ext = out_file.partition('.')
-            tile_out_file = '%s-%d,%d.%s' % (base, tx, ty, ext)
-            render(data, tile_area, tile_out_file)
+            for dy in range(tile_size):
+                for dx in range(tile_size):
+                    if (base_x + dx, base_y + dy) in chunk_map:
+                        inhabited_tiles.add((tx, ty))
+
+    idx = 0
+    count = len(inhabited_tiles)
+    for tx, ty in inhabited_tiles:
+        idx += 1
+        log('%4d / %4d' % (idx, count))
+        base_x = tx * tile_size
+        base_y = ty * tile_size
+        tile_area = (base_x, base_x + tile_size, base_y, base_y + tile_size)
+
+        base, _, ext = out_file.partition('.')
+        tile_out_file = '%s-%d,%d.%s' % (base, tx - min_tx, ty - min_ty, ext)
+        render(data, tile_area, tile_out_file)
 
 
 def main():

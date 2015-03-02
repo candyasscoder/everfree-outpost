@@ -6,10 +6,7 @@ def log(s):
     sys.stderr.write('%s\n' % s)
 
 def main():
-    nodes = []
-    for line in sys.stdin:
-        x, y = map(int, line.strip().split())
-        nodes.append((x, y))
+    nodes = list(map(tuple, json.load(sys.stdin)))
     log('loaded %d points' % len(nodes))
     node_set = set(nodes)
 

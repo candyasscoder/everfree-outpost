@@ -336,8 +336,7 @@ def find_player_structures(save_dir):
                 result.append((int(x_str), int(y_str)))
                 break
 
-    for (x, y) in result:
-        print('%d %d' % (x, y))
+    json.dump(result, sys.stdout)
 
 def points(max_x, max_y, max_z):
     for z in range(max_z):
@@ -370,7 +369,11 @@ def dump_blocks(save_dir, data_dir):
         return chunk_cache[(x, y)]
 
     result_map = {}
-    for x, y in json.load(sys.stdin):
+    chunks = json.load(sys.stdin)
+    for i, (x, y) in enumerate(chunks):
+        if i % 100 == 0:
+            log('%5d / %5d' % (i, len(chunks)))
+
         chunk = get_chunk(x, y)
         chunk_block_map = dict((k, block_map[v[0]]) for k,v in chunk['block_map'].items())
         blocks = list(chunk_block_map[b] for b in chunk['blocks'])
