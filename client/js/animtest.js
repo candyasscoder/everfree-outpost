@@ -102,7 +102,6 @@ function update_anim() {
     var extra = new simple.SimpleExtra(sheet);
     sprite_base = new SpriteBase(96, 96, 48, 90, extra);
 }
-update_anim();
 
 $('upload').onchange = function() {
     var r = new FileReader();
@@ -144,4 +143,5 @@ function frameWrapper() {
 }
 window.requestAnimationFrame(frameWrapper);
 
-console.log(simple);
+
+load_preset(0, 1);
