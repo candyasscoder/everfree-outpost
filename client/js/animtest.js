@@ -131,10 +131,12 @@ function frame() {
     ctx.fillStyle = '#2f8136';
     ctx.fillRect(0, 0, 500, 500);
 
-    ctx.save();
-    ctx.scale(2, 2);
-    renderer.drawInto(ctx, [0, 0], sprite);
-    ctx.restore();
+    if (sheet.complete) {
+        ctx.save();
+        ctx.scale(2, 2);
+        renderer.drawInto(ctx, [0, 0], sprite);
+        ctx.restore();
+    }
 }
 
 function frameWrapper() {
