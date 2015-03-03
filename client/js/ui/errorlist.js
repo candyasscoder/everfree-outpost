@@ -1,3 +1,4 @@
+var util = require('util/misc');
 var ToastList = require('ui/toast').ToastList;
 
 
