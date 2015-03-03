@@ -1,0 +1,65 @@
+<!doctype html>
+<html style="font-size: 16px">
+    <head>
+        <title>Everfree Outpost &ndash; Animation Test</title>
+        <style type='text/css'>
+            canvas {
+                image-rendering: optimizeSpeed;
+                image-rendering: -moz-crisp-edges;
+                image-rendering: -webkit-optimize-contrast;
+                image-rendering: -o-crisp-edges;
+                image-rendering: pixelated;
+                -ms-interpolation-mode: nearest-neighbor;
+
+                border: solid 2px black;
+            }
+
+            body {
+                display: flex;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas width="500" height="500" id="canvas"></canvas>
+
+        <div id="controls">
+            <h3>Sprite Sheet</h3>
+            <div>Load sprite sheet: <input id="upload" type="file"></div>
+
+            <hr>
+
+            <h3>Animation</h3>
+            <table>
+                <tr><td>Start row:</td><td><input id="anim_i" size="2"></td></tr>
+                <tr><td>Start column:</td><td><input id="anim_j" size="2"></td></tr>
+                <tr><td>Frames:</td><td><input id="anim_len" size="2"></td></tr>
+                <tr><td>FPS:</td><td><input id="anim_fps" size="2"></td></tr>
+                <tr><td>Flip:</td><td><input id="anim_flip" type="checkbox"></td></tr>
+                <tr>
+                    <td>
+                        <input id="move_toggle" type="checkbox" checked>
+                        Move:
+                    </td>
+                    <td>
+                        X: <input id="move_speed_x" size="2">,
+                        Y: <input id="move_speed_y" size="2">
+                    </td>
+                </tr>
+            </table>
+
+            <br>
+
+            <table>
+                <tr><th>Presets</th><th></th></tr>
+                <tr><td>Direction:</td>
+                    <td><input id="preset_dir" size="2" value="0"> (0-7)</td></tr>
+                <tr><td>Speed:</td>
+                    <td><input id="preset_speed" size="2" value="0"> (0-3)</td></tr>
+                <tr><td><button id="preset_use">Load Preset</button></td></tr>
+            </table>
+        </div>
+
+        <script type='text/javascript' src='asmlibs.js'></script>
+        <script type='text/javascript' src='animtest.js'></script>
+    </body>
+</html>

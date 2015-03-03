@@ -167,9 +167,20 @@ $(BUILD_MIN)/asmlibs.js: $(BUILD_ASMLIBS)/asmlibs.js
 
 $(BUILD_MIN)/outpost.js: $(JS_SRCS)
 	$(CLOSURE_COMPILER) $(CLOSURE_FLAGS) \
-		$^ --js_output_file=$@ --compilation_level=ADVANCED_OPTIMIZATIONS \
+		$(shell $(PYTHON3) $(SRC)/util/collect_js_deps.py $(SRC)/client/client.html | \
+			sed -e 's:.*:$(SRC)/client/js/&.js:') \
+		--js_output_file=$@ --compilation_level=ADVANCED_OPTIMIZATIONS \
 		--process_common_js_modules --common_js_entry_module=main \
-		--common_js_module_path_prefix=$$(dirname $<) \
+		--common_js_module_path_prefix=$(SRC)/client/js \
+		--externs=$(SRC)/util/closure_externs.js
+
+$(BUILD_MIN)/%.js: $(JS_SRCS)
+	$(CLOSURE_COMPILER) $(CLOSURE_FLAGS) \
+		$(shell $(PYTHON3) $(SRC)/util/collect_js_deps.py $(SRC)/client/$*.html | \
+			sed -e 's:.*:$(SRC)/client/js/&.js:') \
+		--js_output_file=$@ --compilation_level=ADVANCED_OPTIMIZATIONS \
+		--process_common_js_modules --common_js_entry_module=$* \
+		--common_js_module_path_prefix=$(SRC)/client/js \
 		--externs=$(SRC)/util/closure_externs.js
 
 
@@ -240,9 +251,9 @@ $(BUILD)/metrics.json: \
 		--font-image-out=$(BUILD)/font.png \
 		--font-metrics-out=$(BUILD)/metrics.json
 
-$(BUILD)/client.debug.html: $(SRC)/client/client.html \
+$(BUILD)/%.debug.html: $(SRC)/client/%.html \
 	$(SRC)/util/collect_js_deps.py $(SRC)/util/patch_script_tags.py $(JS_SRCS)
-	$(PYTHON3) $(SRC)/util/collect_js_deps.py $(SRC)/client/js/main.js | \
+	$(PYTHON3) $(SRC)/util/collect_js_deps.py $< | \
 		$(PYTHON3) $(SRC)/util/patch_script_tags.py $< >$@
 
 $(BUILD)/credits.html: $(SRC)/util/gen_credits.py \
@@ -285,6 +296,7 @@ $(eval $(call WWW_FILE, 	server.json,		$(SRC)/util/server.json.default))
 
 ifeq ($(RELEASE),)
 $(eval $(call WWW_FILE, client.html, 	$(BUILD)/client.debug.html))
+$(eval $(call WWW_FILE, animtest.html, 	$(BUILD)/animtest.debug.html))
 $(eval $(call WWW_FILE, shim.js, 		$(SRC)/client/shim.js))
 $(eval $(call WWW_FILE, asmlibs.js, 	$(BUILD_ASMLIBS)/asmlibs.js))
 $(shell mkdir -p $(DIST_WWW)/js)
@@ -292,6 +304,8 @@ dist/all: $(patsubst $(SRC)/client/js/%,$(DIST_WWW)/js/%,$(JS_SRCS))
 else
 $(eval $(call WWW_FILE, client.html, 	$(SRC)/client/client.html))
 $(eval $(call WWW_FILE, outpost.js, 	$(BUILD_MIN)/outpost.js))
+$(eval $(call WWW_FILE, animtest.html, 	$(SRC)/client/animtest.html))
+$(eval $(call WWW_FILE, animtest.js, 	$(BUILD_MIN)/animtest.js))
 $(eval $(call WWW_FILE, asmlibs.js, 	$(BUILD_MIN)/asmlibs.js))
 endif
 
