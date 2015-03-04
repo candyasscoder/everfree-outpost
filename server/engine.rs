@@ -67,10 +67,12 @@ impl<'d> Engine<'d> {
     fn handle(&mut self,
               now: Time,
               evt: Event) {
+        /*
         match evt {
             Event::Request(sender_id, req) => self.handle_request(now, sender_id, req),
             Event::Wakeup(cid, wake) => self.handle_wakeup(now, cid, wake),
         }
+        */
     }
 
     fn handle_request(&mut self,
@@ -88,6 +90,8 @@ impl<'d> Engine<'d> {
                               now: Time,
                               req: Request) {
         match req {
+            Request::AddClient(_) => {},
+
             Request::RemoveClient(wire_id) => {
                 if let Some(client_id) = self.events.wire_to_client(wire_id) {
                     self.cleanup_client(now, wire_id, client_id);

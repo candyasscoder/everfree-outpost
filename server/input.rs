@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+use types::*;
+
 
 bitflags! {
     flags InputBits: u16 {
@@ -24,4 +26,23 @@ action_ids! {
     ACTION_USE =        1,
     ACTION_INVENTORY =  2,
     ACTION_USE_ITEM =   3,
+}
+
+
+#[derive(Copy, PartialEq, Eq, Show)]
+pub enum Action {
+    Use,
+    Inventory,
+    UseItem(ItemId),
+}
+
+impl Action {
+    pub fn decode(action: u16, arg: u32) -> Option<Action> {
+        match (action, arg) {
+            (1, 0) => Some(Action::Use),
+            (2, 0) => Some(Action::Inventory),
+            (3, _) => Some(Action::UseItem(arg as ItemId)),
+            _ => None,
+        }
+    }
 }
