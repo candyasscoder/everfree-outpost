@@ -17,6 +17,7 @@ extern crate rusqlite;
 
 extern crate physics;
 
+/*
 use std::cmp;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
@@ -47,6 +48,7 @@ use util::StringResult;
 use types::{Time, ToGlobal, ToLocal};
 use types::{WireId, CONTROL_WIRE_ID};
 use types::{ClientId, EntityId, InventoryId};
+*/
 
 
 #[macro_use] mod util;
@@ -67,22 +69,32 @@ mod terrain2;
 mod storage;
 mod auth;
 
+mod engine;
+mod events;
+// TODO: rename to 'physics'; import lib as 'physics_lib'
+mod physics_;
+mod chunks;
+mod terrain_gen;
 
-fn read_json(path: &str) -> json::Json {
-    use std::io::fs::File;
-    let mut file = File::open(&Path::new(path)).unwrap();
-    let json = json::from_reader(&mut file).unwrap();
-    json
-}
 
 fn main() {
-    let storage = Storage::new(Path::new(&os::args()[1]));
+    //use std::cmp;
+    //use std::collections::{HashMap, HashSet};
+    //use std::error::Error;
+    use std::io;
+    use std::os;
+    use std::sync::mpsc::channel;
+    use std::thread::Thread;
+    //use std::u8;
+    use serialize::json;
+
+    let storage = storage::Storage::new(Path::new(&os::args()[1]));
 
     let block_json = json::from_reader(&mut storage.open_block_data()).unwrap();
     let item_json = json::from_reader(&mut storage.open_item_data()).unwrap();
     let recipe_json = json::from_reader(&mut storage.open_recipe_data()).unwrap();
     let template_json = json::from_reader(&mut storage.open_template_data()).unwrap();
-    let data = Data::from_json(block_json, item_json, recipe_json, template_json).unwrap();
+    let data = data::Data::from_json(block_json, item_json, recipe_json, template_json).unwrap();
 
     let (req_send, req_recv) = channel();
     let (resp_send, resp_recv) = channel();
@@ -97,11 +109,13 @@ fn main() {
         tasks::run_output(writer, resp_recv).unwrap();
     });
 
-    let mut state = state::State::new(&data, storage);
-    state.load_world();
-    let mut server = Server::new(resp_send, state);
-    server.run(req_recv);
+    let mut engine = engine::Engine::new(&data, &storage, req_recv, resp_send);
+    engine.run();
 }
+
+/*
+
+
 
 
 #[derive(Copy)]
@@ -834,3 +848,4 @@ impl ClientInitBuffers {
         }
     }
 }
+*/
