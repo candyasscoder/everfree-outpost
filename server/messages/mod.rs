@@ -43,8 +43,8 @@ pub enum WakeReason {
 
 
 pub enum ControlEvent {
-    AddClient(WireId),
-    RemoveClient(WireId, Option<ClientId>),
+    OpenWire(WireId),
+    CloseWire(WireId, Option<ClientId>),
     ReplCommand(u16, String),
 }
 
@@ -72,12 +72,14 @@ pub enum OtherEvent {
 
 #[derive(Show)]
 pub enum ControlResponse {
+    WireClosed(WireId),
     ReplResult(u16, String),
 }
 
 #[derive(Show)]
 pub enum WireResponse {
     RegisterResult(u32, String),
+    KickReason(String),
 }
 
 #[derive(Show)]
@@ -126,6 +128,14 @@ impl Messages {
 
     pub fn remove_client(&mut self, cid: ClientId) {
         self.clients.remove(cid);
+    }
+
+    pub fn wire_to_client(&self, wire_id: WireId) -> Option<ClientId> {
+        self.clients.wire_to_client(wire_id)
+    }
+
+    pub fn client_to_wire(&self, cid: ClientId) -> Option<WireId> {
+        self.clients.get(cid).map(|c| c.wire_id())
     }
 
 
@@ -215,11 +225,11 @@ impl Messages {
         match req {
             Request::AddClient(wire_id) =>
                 // Let the caller decide when to actually add the client.
-                Some(Event::Control(ControlEvent::AddClient(wire_id))),
+                Some(Event::Control(ControlEvent::OpenWire(wire_id))),
             Request::RemoveClient(wire_id) => {
                 // Let the caller decide when to actually remove the client.
                 let opt_cid = self.clients.wire_to_client(wire_id);
-                Some(Event::Control(ControlEvent::RemoveClient(wire_id, opt_cid)))
+                Some(Event::Control(ControlEvent::CloseWire(wire_id, opt_cid)))
             },
             Request::ReplCommand(cookie, cmd) =>
                 Some(Event::Control(ControlEvent::ReplCommand(cookie, cmd))),
@@ -312,6 +322,8 @@ impl Messages {
 
     pub fn send_control(&self, resp: ControlResponse) {
         match resp {
+            ControlResponse::WireClosed(wire_id) =>
+                self.send_raw(CONTROL_WIRE_ID, Response::ClientRemoved(wire_id)),
             ControlResponse::ReplResult(cookie, msg) =>
                 self.send_raw(CONTROL_WIRE_ID, Response::ReplResult(cookie, msg)),
         }
@@ -321,6 +333,8 @@ impl Messages {
         match resp {
             WireResponse::RegisterResult(code, msg) =>
                 self.send_raw(wire_id, Response::RegisterResult(code, msg)),
+            WireResponse::KickReason(msg) =>
+                self.send_raw(wire_id, Response::KickReason(msg)),
         }
     }
 

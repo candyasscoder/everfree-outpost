@@ -6,7 +6,9 @@ use util::Cursor;
 use auth::Auth;
 use chunks::Chunks;
 use data::Data;
-use messages::{Messages, Event, WakeReason};
+use messages::{Messages};
+use messages::{Event, ControlEvent, WireEvent, ClientEvent, OtherEvent};
+use messages::{ControlResponse, WireResponse, ClientResponse};
 use msg::{Request, Response};
 use physics_::Physics;
 use script::ScriptEngine;
@@ -67,84 +69,126 @@ impl<'d> Engine<'d> {
     fn handle(&mut self,
               now: Time,
               evt: Event) {
-        /*
+        use messages::Event::*;
         match evt {
-            Event::Request(sender_id, req) => self.handle_request(now, sender_id, req),
-            Event::Wakeup(cid, wake) => self.handle_wakeup(now, cid, wake),
+            Control(e) => self.handle_control(now, e),
+            Wire(wire_id, e) => self.handle_wire(now, wire_id, e),
+            Client(cid, e) => self.handle_client(now, cid, e),
+            Other(e) => self.handle_other(now, e),
         }
-        */
     }
 
-    /*
-    fn handle_request(&mut self,
+    fn handle_control(&mut self,
                       now: Time,
-                      sender_id: SenderId,
-                      req: Request) {
-        /*
-        match sender_id {
-            SenderId::Control => self.handle_request_control(now, req),
-            SenderId::Wire(wire_id) => self.handle_request_pre_login(now, wire_id, req),
-            SenderId::Client(cid) => self.handle_request_client(now, cid, req),
-        }
-        */
-    }
-    */
+                      evt: ControlEvent) {
+        use messages::ControlEvent::*;
+        use messages::ControlResponse::*;
+        match evt {
+            OpenWire(wire_id) => {},
 
-    fn handle_request_control(&mut self,
-                              now: Time,
-                              req: Request) {
-        /*
-        match req {
-            Request::AddClient(_) => {},
-
-            Request::RemoveClient(wire_id) => {
-                if let Some(client_id) = self.events.wire_to_client(wire_id) {
-                    self.cleanup_client(now, wire_id, client_id);
+            CloseWire(wire_id, opt_cid) => {
+                if let Some(cid) = opt_cid {
+                    self.cleanup_client(cid);
                 }
-                self.events.send_control(Response::ClientRemoved(wire_id));
+                self.messages.send_control(WireClosed(wire_id));
             },
 
-            /*
-            Request::ReplCommand(cookie, cmd) => {
-                info!("got repl command {}: {:?}", cookie, cmd);
-
-                let cursor = Cursor::new(self, |e| &mut e.script);
-                let result = match ScriptEngine::script_eval(cursor, now, &*cmd) {
-                    Ok(msg) => msg,
-                    Err(e) => e,
-                };
-                self.events.send_control(Response::ReplResult(cookie, result));
+            ReplCommand(cookie, msg) => {
+                unimplemented!();
             },
-            */
-
-            _ => warn!("bad control request: {:?}", req),
         }
-        */
     }
 
-    fn handle_request_pre_login(&mut self,
-                                now: Time,
-                                wire_id: WireId,
-                                req: Request) {
-        unimplemented!()
+    fn handle_wire(&mut self,
+                   now: Time,
+                   wire_id: WireId,
+                   evt: WireEvent) {
+        use messages::WireEvent::*;
+        use messages::WireResponse::*;
+        match evt {
+            Login(name, secret) => {
+                unimplemented!();
+            },
+
+            Register(name, secret, appearance) => {
+                unimplemented!();
+            },
+
+            BadRequest => {
+                let msg = String::from_str("bad request");
+                self.messages.send_wire(wire_id, KickReason(msg));
+                self.cleanup_wire(wire_id);
+                self.messages.send_control(ControlResponse::WireClosed(wire_id));
+            },
+        }
     }
 
-    fn handle_request_client(&mut self,
-                             now: Time,
-                             cid: ClientId,
-                             req: Request) {
-        unimplemented!()
-    }
-
-    fn handle_wakeup(&mut self,
+    fn handle_client(&mut self,
                      now: Time,
                      cid: ClientId,
-                     wake: WakeReason) {
-        unimplemented!()
+                     evt: ClientEvent) {
+        use messages::ClientEvent::*;
+        use messages::ClientResponse::*;
+        match evt {
+            Input(input) => {
+                unimplemented!()
+            },
+
+            Action(action) => {
+                unimplemented!()
+            },
+
+            UnsubscribeInventory(iid) => {
+                unimplemented!()
+            },
+
+            MoveItem(from_iid, to_iid, item_id, count) => {
+                unimplemented!()
+            },
+
+            CraftRecipe(station_sid, iid, recipe_id, count) => {
+                unimplemented!()
+            },
+
+            Chat(msg) => {
+                unimplemented!()
+            },
+
+            CheckView => {
+                unimplemented!()
+            },
+
+            BadRequest => {
+                let wire_id = self.messages.client_to_wire(cid)
+                        .expect("missing WireId for existing client");
+
+                let msg = String::from_str("bad request");
+                self.messages.send_client(cid, KickReason(msg));
+                self.cleanup_client(cid);
+                self.messages.send_control(ControlResponse::WireClosed(wire_id));
+            },
+        }
+    }
+
+    fn handle_other(&mut self,
+                    now: Time,
+                    evt: OtherEvent) {
+        use messages::OtherEvent::*;
+        match evt {
+            PhysicsUpdate(eid) => {
+                unimplemented!();
+            },
+        }
     }
 
 
-    fn cleanup_client(&mut self, now: Time, wire_id: WireId, cid: ClientId) {
-        unimplemented!()
+    fn cleanup_client(&mut self, cid: ClientId) {
+        self.messages.remove_client(cid);
+    }
+
+    fn cleanup_wire(&mut self, wire_id: WireId) {
+        if let Some(cid) = self.messages.wire_to_client(wire_id) {
+            self.cleanup_client(cid);
+        }
     }
 }
