@@ -6,7 +6,7 @@ use util::Cursor;
 use auth::Auth;
 use chunks::Chunks;
 use data::Data;
-use events::{Events, Event, SenderId, WakeReason};
+use events::{Events, Event, WakeReason};
 use msg::{Request, Response};
 use physics_::Physics;
 use script::ScriptEngine;
@@ -75,20 +75,25 @@ impl<'d> Engine<'d> {
         */
     }
 
+    /*
     fn handle_request(&mut self,
                       now: Time,
                       sender_id: SenderId,
                       req: Request) {
+        /*
         match sender_id {
             SenderId::Control => self.handle_request_control(now, req),
             SenderId::Wire(wire_id) => self.handle_request_pre_login(now, wire_id, req),
             SenderId::Client(cid) => self.handle_request_client(now, cid, req),
         }
+        */
     }
+    */
 
     fn handle_request_control(&mut self,
                               now: Time,
                               req: Request) {
+        /*
         match req {
             Request::AddClient(_) => {},
 
@@ -114,6 +119,7 @@ impl<'d> Engine<'d> {
 
             _ => warn!("bad control request: {:?}", req),
         }
+        */
     }
 
     fn handle_request_pre_login(&mut self,

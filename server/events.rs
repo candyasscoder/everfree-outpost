@@ -11,6 +11,7 @@ use input::InputBits;
 use input::Action;
 use msg::{Request, Response};
 use timer::WakeQueue;
+use world::Motion;
 
 pub struct Events {
     send: Sender<(WireId, Response)>,
@@ -20,15 +21,9 @@ pub struct Events {
 
 pub enum Event {
     Control(ControlEvent),
-    PreLogin(WireId, PreLoginEvent),
+    Wire(WireId, WireEvent),
     Client(ClientId, ClientEvent),
     Other(OtherEvent),
-}
-
-pub enum SenderId {
-    Control,
-    Wire(WireId),
-    Client(ClientId),
 }
 
 #[derive(Copy)]
@@ -46,9 +41,10 @@ pub enum ControlEvent {
     ReplCommand(u16, String),
 }
 
-pub enum PreLoginEvent {
+pub enum WireEvent {
     Login(String, Secret),
     Register(String, Secret, u32),
+    BadRequest,
 }
 
 pub enum ClientEvent {
@@ -59,10 +55,47 @@ pub enum ClientEvent {
     CraftRecipe(StructureId, InventoryId, RecipeId, u16),
     Chat(String),
     CheckView,
+    BadRequest,
 }
 
 pub enum OtherEvent {
     PhysicsUpdate(EntityId),
+}
+
+
+#[derive(Show)]
+pub enum ControlResponse {
+    ReplResult(u16, String),
+}
+
+#[derive(Show)]
+pub enum WireResponse {
+    RegisterResult(u32, String),
+}
+
+#[derive(Show)]
+pub enum ClientResponse {
+    TerrainChunk(V2, Vec<u16>),
+    UnloadChunk(V2),
+
+    EntityAppear(EntityId, u32, String),
+    EntityUpdate(EntityId, Motion, AnimId),
+    EntityGone(EntityId, Time),
+
+    //InventoryAppear(InventoryId, Vec<(ItemId, u8)>),
+    InventoryUpdate(InventoryId, Vec<(ItemId, u8, u8)>),
+    //InventoryGone(InventoryId),
+
+    OpenDialog(Dialog),
+    ChatUpdate(String),
+    KickReason(String),
+}
+
+#[derive(Show)]
+pub enum Dialog {
+    Inventory(InventoryId),
+    Container(InventoryId, InventoryId),
+    Crafting(TemplateId, StructureId, InventoryId),
 }
 
 
@@ -159,10 +192,10 @@ impl Events {
     fn handle_control_req(&mut self, now: Time, req: Request) -> Option<Event> {
         match req {
             Request::AddClient(wire_id) =>
-                // Let the caller decide whether to actually add the client.
+                // Let the caller decide when to actually add the client.
                 Some(Event::Control(ControlEvent::AddClient(wire_id))),
             Request::RemoveClient(wire_id) => {
-                // Let the caller decide whether we should actually remove the client.
+                // Let the caller decide when to actually remove the client.
                 let opt_cid = self.wire_to_client(wire_id);
                 Some(Event::Control(ControlEvent::RemoveClient(wire_id, opt_cid)))
             },
@@ -179,17 +212,16 @@ impl Events {
     fn handle_pre_login_req(&mut self, now: Time, wire_id: WireId, req: Request) -> Option<Event> {
         match req {
             Request::Ping(cookie) => {
-                self.send_wire(wire_id, Response::Pong(cookie, now.to_local()));
+                self.send_raw(wire_id, Response::Pong(cookie, now.to_local()));
                 None
             },
             Request::Login(name, secret) =>
-                Some(Event::PreLogin(wire_id, PreLoginEvent::Login(name, secret))),
+                Some(Event::Wire(wire_id, WireEvent::Login(name, secret))),
             Request::Register(name, secret, appearance) =>
-                Some(Event::PreLogin(wire_id, PreLoginEvent::Register(name, secret, appearance))),
+                Some(Event::Wire(wire_id, WireEvent::Register(name, secret, appearance))),
             _ => {
                 warn!("bad pre-login request from {:?}: {:?}", wire_id, req);
-                self.kick_wire(wire_id, "bad request");
-                None
+                Some(Event::Wire(wire_id, WireEvent::BadRequest))
             },
         }
     }
@@ -199,8 +231,7 @@ impl Events {
             Ok(evt) => evt.map(|e| Event::Client(cid, e)),
             Err(e) => {
                 warn!("bad request from {:?}: {}", cid, e.description());
-                self.kick(cid, "bad request");
-                None
+                Some(Event::Client(cid, ClientEvent::BadRequest))
             },
         }
     }
@@ -250,24 +281,85 @@ impl Events {
         unimplemented!()
     }
 
-    fn send_wire(&self, wire_id: WireId, msg: Response) {
+    pub fn client_to_wire(&self, cid: ClientId) -> Option<WireId> {
+        unimplemented!()
+    }
+
+    fn send_raw(&self, wire_id: WireId, msg: Response) {
         self.send.send((wire_id, msg)).unwrap();
     }
 
-    pub fn send_control(&self, msg: Response) {
-        self.send_wire(CONTROL_WIRE_ID, msg);
+    pub fn send_control(&self, resp: ControlResponse) {
+        match resp {
+            ControlResponse::ReplResult(cookie, msg) =>
+                self.send_raw(CONTROL_WIRE_ID, Response::ReplResult(cookie, msg)),
+        }
+    }
+
+    pub fn send_wire(&self, wire_id: WireId, resp: WireResponse) {
+        match resp {
+            WireResponse::RegisterResult(code, msg) =>
+                self.send_raw(wire_id, Response::RegisterResult(code, msg)),
+        }
+    }
+
+    pub fn send_client(&self, cid: ClientId, resp: ClientResponse) {
+        let wire_id = match self.client_to_wire(cid) {
+            Some(x) => x,
+            None => {
+                warn!("can't send to client {:?} (no wire): {:?}", cid, resp);
+                return;
+            },
+        };
+
+        match resp {
+            ClientResponse::TerrainChunk(cpos, data) => {
+                let index = unimplemented!();
+                self.send_raw(wire_id, Response::TerrainChunk(index, data));
+            },
+
+            ClientResponse::UnloadChunk(cpos) => {
+                let index = unimplemented!();
+                self.send_raw(wire_id, Response::UnloadChunk(index));
+            },
+
+            ClientResponse::EntityAppear(eid, appear, name) =>
+                self.send_raw(wire_id, Response::EntityAppear(eid, appear, name)),
+
+            ClientResponse::EntityUpdate(eid, motion, anim) => {
+                let wire_motion = unimplemented!();
+                self.send_raw(wire_id, Response::EntityUpdate(eid, wire_motion, anim));
+            },
+
+            ClientResponse::EntityGone(eid, time) => {
+                let time = unimplemented!();
+                self.send_raw(wire_id, Response::EntityGone(eid, time));
+            },
+
+            ClientResponse::InventoryUpdate(iid, update) =>
+                self.send_raw(wire_id, Response::InventoryUpdate(iid, update)),
+
+            ClientResponse::OpenDialog(dialog) => {
+                match dialog {
+                    Dialog::Inventory(iid) => 
+                        self.send_raw(wire_id, Response::OpenDialog(0, vec![iid.unwrap()])),
+                    Dialog::Container(iid1, iid2) => 
+                        self.send_raw(wire_id, Response::OpenDialog(0, vec![iid1.unwrap(),
+                                                                            iid2.unwrap()])),
+                    Dialog::Crafting(template_id, sid, iid) =>
+                        self.send_raw(wire_id, Response::OpenCrafting(template_id, sid, iid)),
+                }
+            },
+
+            ClientResponse::ChatUpdate(msg) =>
+                self.send_raw(wire_id, Response::ChatUpdate(msg)),
+
+            ClientResponse::KickReason(msg) =>
+                self.send_raw(wire_id, Response::KickReason(msg)),
+        }
     }
 
     pub fn send(&self, cid: ClientId, msg: Response) {
-        unimplemented!()
-    }
-
-
-    fn kick_wire(&mut self, wire_id: WireId, msg: &str) {
-        unimplemented!()
-    }
-
-    fn kick(&mut self, cid: ClientId, msg: &str) {
         unimplemented!()
     }
 }

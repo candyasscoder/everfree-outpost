@@ -561,7 +561,7 @@ impl Inventory {
 
 // TODO: find somewhere better to put Motion
 
-#[derive(Clone)]
+#[derive(Clone, Show)]
 pub struct Motion {
     pub start_time: Time,
     pub duration: Duration,
