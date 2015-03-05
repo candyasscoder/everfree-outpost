@@ -6,8 +6,6 @@ use std::num::ToPrimitive;
 use std::raw;
 use std::result;
 
-use physics::v3::{V3, V2};
-
 use data::Data;
 use types::*;
 use world::World;

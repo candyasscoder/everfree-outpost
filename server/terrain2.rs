@@ -3,7 +3,6 @@ use std::collections::hash_map::Entry::*;
 use std::ops::{Deref, DerefMut};
 
 use physics::CHUNK_BITS;
-use physics::v3::{Vn, V2, Region};
 
 use data::Data;
 use types::*;

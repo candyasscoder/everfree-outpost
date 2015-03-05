@@ -3,7 +3,6 @@ use std::mem::replace;
 
 use physics::CHUNK_SIZE;
 use physics::Shape;
-use physics::v3::{Vn, V3, V2, scalar, Region};
 
 use input::InputBits;
 use types::*;

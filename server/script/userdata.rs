@@ -1,7 +1,6 @@
 use libc::c_int;
 
 use physics::{TILE_SIZE, CHUNK_SIZE};
-use physics::v3::{Vn, V3, scalar};
 
 use lua::LuaState;
 use types::*;

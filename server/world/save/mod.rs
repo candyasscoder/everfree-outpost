@@ -1,5 +1,3 @@
-use physics::v3::V2;
-
 use types::*;
 
 pub use self::error::{Error, Result};

@@ -2,6 +2,8 @@ use std::num::{FromPrimitive, ToPrimitive};
 use std::u16;
 use physics::CHUNK_BITS;
 
+pub use physics::v3::{V2, V3, Vn, scalar, Region, Region2};
+
 pub type LocalTime = u16;
 pub type LocalCoord = u16;
 

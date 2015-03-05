@@ -4,8 +4,6 @@ use std::num::{FromPrimitive, ToPrimitive};
 use std::result;
 use libc::c_int;
 
-use physics::v3::{V3, V2};
-
 use lua::{self, LuaState, ValueType, REGISTRY_INDEX};
 use types::*;
 use util::StrError;

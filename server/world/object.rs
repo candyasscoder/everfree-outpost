@@ -3,7 +3,6 @@ use std::ops::{Deref, DerefMut};
 
 use physics::CHUNK_SIZE;
 use physics::Shape;
-use physics::v3::{Vn, V3, V2, scalar, Region};
 
 use data::ObjectTemplate;
 use types::*;

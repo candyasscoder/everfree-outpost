@@ -5,7 +5,6 @@ use std::rand::{Rng, SeedableRng, XorShiftRng};
 use physics;
 use physics::{Shape, ShapeSource};
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE, TILE_BITS};
-use physics::v3::{V3, V2, Vn, scalar, Region};
 
 use types::*;
 use input::{InputBits, INPUT_LEFT, INPUT_RIGHT, INPUT_UP, INPUT_DOWN, INPUT_RUN};

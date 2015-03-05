@@ -2,8 +2,6 @@ use std::collections::{HashMap, hash_map, HashSet, hash_set};
 use std::mem::replace;
 use std::ops::{Deref, DerefMut};
 
-use physics::v3::{Vn, V2, V3, scalar};
-
 use data::Data;
 use input::InputBits;
 use types::*;

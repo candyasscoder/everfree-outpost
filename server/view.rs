@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet, VecMap};
 use std::mem;
 
-use physics::v3::{Vn, V3, V2, scalar, Region};
 use physics::{CHUNK_SIZE, TILE_SIZE};
 
 use types::*;
