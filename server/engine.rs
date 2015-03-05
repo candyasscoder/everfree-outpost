@@ -1,9 +1,11 @@
+use std::borrow::IntoCow;
+use std::error::Error;
 use std::sync::mpsc::{Sender, Receiver};
 
 use types::*;
 use util::Cursor;
 
-use auth::Auth;
+use auth::{Auth, Secret};
 use chunks::Chunks;
 use data::Data;
 use messages::{Messages};
@@ -25,8 +27,11 @@ pub struct Engine<'d> {
     pub world: World<'d>,
     pub script: ScriptEngine,
 
+    // any update
     pub messages: Messages,
+    // terrain or structure change
     pub physics: Physics<'d>,
+    // any update
     pub vision: Vision,
     pub auth: Auth,
     pub chunks: Chunks<'d>,
@@ -107,18 +112,31 @@ impl<'d> Engine<'d> {
         use messages::WireResponse::*;
         match evt {
             Login(name, secret) => {
-                unimplemented!();
+                match self.auth.login(&*name, &secret) {
+                    Ok(true) => {
+                        info!("{:?}: logged in as {}", wire_id, name);
+                        unimplemented!()
+                    },
+                    Ok(false) => {
+                        info!("{:?}: login as {} failed: bad name/secret",
+                              wire_id, name);
+                        self.kick_wire(wire_id, "login failed")
+                    },
+                    Err(e) => {
+                        info!("{:?}: login as {} failed: auth error: {}",
+                              wire_id, name, e.description());
+                        self.kick_wire(wire_id, "login failed")
+                    },
+                }
             },
 
             Register(name, secret, appearance) => {
-                unimplemented!();
+                let (code, msg) = self.do_register(wire_id, name, secret, appearance);
+                self.messages.send_wire(wire_id, RegisterResult(code, msg));
             },
 
             BadRequest => {
-                let msg = String::from_str("bad request");
-                self.messages.send_wire(wire_id, KickReason(msg));
-                self.cleanup_wire(wire_id);
-                self.messages.send_control(ControlResponse::WireClosed(wire_id));
+                self.kick_wire(wire_id, "bad request");
             },
         }
     }
@@ -159,13 +177,7 @@ impl<'d> Engine<'d> {
             },
 
             BadRequest => {
-                let wire_id = self.messages.client_to_wire(cid)
-                        .expect("missing WireId for existing client");
-
-                let msg = String::from_str("bad request");
-                self.messages.send_client(cid, KickReason(msg));
-                self.cleanup_client(cid);
-                self.messages.send_control(ControlResponse::WireClosed(wire_id));
+                self.kick_client(cid, "bad request");
             },
         }
     }
@@ -191,4 +203,79 @@ impl<'d> Engine<'d> {
             self.cleanup_client(cid);
         }
     }
+
+    fn kick_client<'a, S: IntoCow<'a, String, str>>(&mut self, cid: ClientId, msg: S) {
+        let wire_id = self.messages.client_to_wire(cid)
+                .expect("missing WireId for existing client");
+
+        self.messages.send_client(cid, ClientResponse::KickReason(msg.into_cow().into_owned()));
+        self.cleanup_client(cid);
+        self.messages.send_control(ControlResponse::WireClosed(wire_id));
+    }
+
+    fn kick_wire<'a, S: IntoCow<'a, String, str>>(&mut self, wire_id: WireId, msg: S) {
+        self.messages.send_wire(wire_id, WireResponse::KickReason(msg.into_cow().into_owned()));
+        self.cleanup_wire(wire_id);
+        self.messages.send_control(ControlResponse::WireClosed(wire_id));
+    }
+
+
+    fn do_register(&mut self,
+                   wire_id: WireId,
+                   name: String,
+                   secret: Secret,
+                   appearance: u32) -> (u32, String) {
+        if let Err(msg) = name_valid(&*name) {
+            return (1, String::from_str(msg));
+        }
+
+        match self.auth.register(&*name, &secret) {
+            Ok(true) => {
+                info!("{:?}: registered as {}", wire_id, name);
+                unimplemented!()
+            },
+            Ok(false) => {
+                info!("{:?}: registration as {} failed: name is in use",
+                      wire_id, name);
+                (1, String::from_str("That name is already in use."))
+            },
+            Err(e) => {
+                info!("{:?}: registration as {} failed: database error: {}",
+                      wire_id, name, e.description());
+                (1, String::from_str("An internal error occurred."))
+            }
+        }
+    }
+}
+
+fn name_valid(name: &str) -> Result<(), &'static str> {
+    if name.len() == 0 {
+        return Err("Please enter a name.");
+    }
+
+    if name.len() > 16 {
+        return Err("Name is too long (must not exceed 16 characters).");
+    }
+
+    let chars_ok = name.chars().all(|c| {
+        (c >= 'a' && c <= 'z') ||
+        (c >= 'A' && c <= 'Z') ||
+        (c >= '0' && c <= '9') ||
+        c == ' ' ||
+        c == '-'
+    });
+    if !chars_ok {
+        return Err("Names may only contain letters, numbers, spaces, and hyphens.");
+    }
+
+    let has_alnum = name.chars().all(|c| {
+        (c >= 'a' && c <= 'z') ||
+        (c >= 'A' && c <= 'Z') ||
+        (c >= '0' && c <= '9')
+    });
+    if !has_alnum {
+        return Err("Names must contain at least one letter or digit.");
+    }
+
+    Ok(())
 }
