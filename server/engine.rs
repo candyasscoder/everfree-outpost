@@ -6,7 +6,7 @@ use util::Cursor;
 use auth::Auth;
 use chunks::Chunks;
 use data::Data;
-use events::{Events, Event, WakeReason};
+use messages::{Messages, Event, WakeReason};
 use msg::{Request, Response};
 use physics_::Physics;
 use script::ScriptEngine;
@@ -23,7 +23,7 @@ pub struct Engine<'d> {
     pub world: World<'d>,
     pub script: ScriptEngine,
 
-    pub events: Events,
+    pub messages: Messages,
     pub physics: Physics<'d>,
     pub vision: Vision,
     pub auth: Auth,
@@ -43,7 +43,7 @@ impl<'d> Engine<'d> {
             world: World::new(data),
             script: ScriptEngine::new(&storage.script_dir()),
 
-            events: Events::new(receiver, sender),
+            messages: Messages::new(receiver, sender),
             physics: Physics::new(data),
             vision: Vision::new(),
             auth: Auth::new(storage.auth_db_path()).unwrap(),
@@ -54,7 +54,7 @@ impl<'d> Engine<'d> {
 
     pub fn run(&mut self) -> ! {
         loop {
-            let (evt, now) = self.events.next();
+            let (evt, now) = self.messages.next_event();
             self.handle(now, evt);
             /*
             self.vision.finish(&self.world,

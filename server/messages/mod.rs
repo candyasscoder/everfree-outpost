@@ -13,7 +13,7 @@ use msg::{Request, Response};
 use timer::WakeQueue;
 use world::Motion;
 
-pub struct Events {
+pub struct Messages {
     send: Sender<(WireId, Response)>,
     recv: Receiver<(WireId, Request)>,
     wake: WakeQueue<WakeReason>,
@@ -99,17 +99,17 @@ pub enum Dialog {
 }
 
 
-impl Events {
+impl Messages {
     pub fn new(recv: Receiver<(WireId, Request)>,
-               send: Sender<(WireId, Response)>) -> Events {
-        Events {
+               send: Sender<(WireId, Response)>) -> Messages {
+        Messages {
             send: send,
             recv: recv,
             wake: WakeQueue::new(),
         }
     }
 
-    pub fn next(&mut self) -> (Event, Time) {
+    pub fn next_event(&mut self) -> (Event, Time) {
         loop {
             enum Msg {
                 Wake(()),
@@ -182,7 +182,7 @@ impl Events {
             self.handle_control_req(now, req)
         } else {
             if let Some(cid) = self.wire_to_client(wire_id) {
-                self.handle_client_req(now, cid, req)
+                self.handle_client_req(now, wire_id, cid, req)
             } else {
                 self.handle_pre_login_req(now, wire_id, req)
             }
@@ -226,8 +226,12 @@ impl Events {
         }
     }
 
-    fn handle_client_req(&mut self, now: Time, cid: ClientId, req: Request) -> Option<Event> {
-        match self.try_handle_client_req(now, cid, req) {
+    fn handle_client_req(&mut self,
+                         now: Time,
+                         wire_id: WireId,
+                         cid: ClientId,
+                         req: Request) -> Option<Event> {
+        match self.try_handle_client_req(now, wire_id, cid, req) {
             Ok(evt) => evt.map(|e| Event::Client(cid, e)),
             Err(e) => {
                 warn!("bad request from {:?}: {}", cid, e.description());
@@ -238,11 +242,12 @@ impl Events {
 
     fn try_handle_client_req(&mut self,
                              now: Time,
+                             wire_id: WireId,
                              cid: ClientId,
                              req: Request) -> StringResult<Option<ClientEvent>> {
         match req {
             Request::Ping(cookie) => {
-                self.send(cid, Response::Pong(cookie, now.to_local()));
+                self.send_raw(wire_id, Response::Pong(cookie, now.to_local()));
                 Ok(None)
             },
 
@@ -284,6 +289,7 @@ impl Events {
     pub fn client_to_wire(&self, cid: ClientId) -> Option<WireId> {
         unimplemented!()
     }
+
 
     fn send_raw(&self, wire_id: WireId, msg: Response) {
         self.send.send((wire_id, msg)).unwrap();
@@ -357,10 +363,6 @@ impl Events {
             ClientResponse::KickReason(msg) =>
                 self.send_raw(wire_id, Response::KickReason(msg)),
         }
-    }
-
-    pub fn send(&self, cid: ClientId, msg: Response) {
-        unimplemented!()
     }
 }
 

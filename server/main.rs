@@ -70,7 +70,7 @@ mod storage;
 mod auth;
 
 mod engine;
-mod events;
+mod messages;
 // TODO: rename to 'physics'; import lib as 'physics_lib'
 mod physics_;
 mod chunks;
