@@ -43,7 +43,7 @@ callbacks! {
     CB_KEY_TEST = "test";
 }
 
-#[derive(Copy, PartialEq, Eq, Hash, Show)]
+#[derive(Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Nil;
 
 pub struct ScriptEngine {

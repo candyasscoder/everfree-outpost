@@ -1,6 +1,7 @@
 #![crate_name = "backend"]
 #![feature(unboxed_closures)]
 #![feature(unsafe_destructor)]
+#![feature(unsafe_no_drop_flag)]
 #![allow(non_upper_case_globals)]
 #![allow(unstable)]
 #![allow(dead_code)]
@@ -14,13 +15,14 @@ extern crate time;
 
 extern crate collect;
 extern crate rusqlite;
+extern crate "libsqlite3-sys" as rusqlite_ffi;
 
 extern crate physics;
 
 use std::cmp;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::io;
+use std::old_io;
 use std::os;
 use std::sync::mpsc::{Sender, Receiver, channel};
 use std::thread::Thread;
@@ -69,7 +71,7 @@ mod auth;
 
 
 fn read_json(path: &str) -> json::Json {
-    use std::io::fs::File;
+    use std::old_io::fs::File;
     let mut file = File::open(&Path::new(path)).unwrap();
     let json = json::from_reader(&mut file).unwrap();
     json
@@ -88,12 +90,12 @@ fn main() {
     let (resp_send, resp_recv) = channel();
 
     Thread::spawn(move || {
-        let reader = io::stdin();
+        let reader = old_io::stdin();
         tasks::run_input(reader, req_send).unwrap();
     });
 
     Thread::spawn(move || {
-        let writer = io::BufferedWriter::new(io::stdout());
+        let writer = old_io::BufferedWriter::new(old_io::stdout());
         tasks::run_output(writer, resp_recv).unwrap();
     });
 
@@ -549,7 +551,7 @@ impl<'a> Server<'a> {
                     }
                 },
 
-                world::Update::ClientShowInventory(cid, iid) => {
+                world::Update::ClientDebugInventory(cid, iid) => {
                     // TODO: check cid, iid are valid.
                     let wire_id = s.client_info[cid].wire_id;
                     s.send_wire(wire_id, Response::OpenDialog(0, vec![iid.unwrap()]));

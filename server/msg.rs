@@ -1,4 +1,4 @@
-use std::io::IoResult;
+use std::old_io::IoResult;
 
 use wire;
 use wire::{WireReader, WireWriter};
@@ -8,7 +8,7 @@ pub use self::Request::*;
 pub use self::Response::*;
 
 
-#[derive(Copy, PartialEq, Eq, Show)]
+#[derive(Copy, PartialEq, Eq, Debug)]
 struct Opcode(u16);
 
 impl Opcode {
@@ -83,7 +83,7 @@ pub mod op {
 
 
 #[allow(dead_code)]
-#[derive(Show)]
+#[derive(Debug)]
 pub enum Request {
     // Ordinary requests
     GetTerrain,
@@ -251,7 +251,7 @@ impl InitData {
 }
 
 
-#[derive(Show, Clone)]
+#[derive(Debug, Clone)]
 pub struct Motion {
     pub start_pos: (u16, u16, u16),
     pub start_time: LocalTime,

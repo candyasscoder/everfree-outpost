@@ -22,7 +22,7 @@ fn disk_sample<T, Place, Choose, R>(mut place: Place,
                                     rng: &mut R,
                                     init: &[T],
                                     tries: usize)
-        where T: Copy + ::std::fmt::Show,
+        where T: Copy + ::std::fmt::Debug,
               Place: FnMut(T) -> bool,
               Choose: FnMut(T) -> T,
               R: Rng {
@@ -61,7 +61,7 @@ fn disk_sample2<R, GS>(rng: &mut R,
         where R: Rng,
               GS: Fn(V2) -> i32 {
     let mut rng = rng;
-    let get_spacing = |&: pos| { (*get_spacing)(pos) };
+    let get_spacing = |pos| { (*get_spacing)(pos) };
 
     // Choose cell size such that a circle of radius `min_spacing` centered anywhere in the cell
     // must always cover the entire cell.
@@ -83,7 +83,7 @@ fn disk_sample2<R, GS>(rng: &mut R,
     }
 
     {
-        let place = |&mut: pos: V2| {
+        let place = |pos: V2| {
             if !bounds.contains(pos) {
                 return false;
             }
@@ -118,7 +118,7 @@ fn disk_sample2<R, GS>(rng: &mut R,
         };
 
         let mut choose_rng = rng.gen::<XorShiftRng>();
-        let choose = |&mut: pos: V2| {
+        let choose = |pos: V2| {
             let min_space = get_spacing(pos);
             let max_space = min_space * 2;
 
@@ -283,7 +283,7 @@ impl<GS: Fn(V2) -> i32> PointSource for IsoDiskSampler<GS> {
 // horizontal edges connected to those corners.  Finally, centers depend on the four adjacent edges
 // and four adjacent corners.
 
-#[derive(Copy, PartialEq, Eq, Hash, Show)]
+#[derive(Copy, PartialEq, Eq, Hash, Debug)]
 enum Section {
     Corner,
     Top,
@@ -321,7 +321,7 @@ impl TerrainGenerator {
     pub fn new(seed: u64) -> TerrainGenerator {
         TerrainGenerator {
             seed: seed,
-            sampler: Box::new(IsoDiskSampler::new(seed, 4, 4, 32, |&: _| 4)) as Box<PointSource>,
+            sampler: Box::new(IsoDiskSampler::new(seed, 4, 4, 32, |_| 4)) as Box<PointSource>,
         }
     }
 

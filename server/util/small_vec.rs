@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
 use std::raw;
@@ -11,6 +12,7 @@ type Storage = [u64; SMALL_VEC_WORDS];
 pub struct SmallVec<T> {
     len: usize,
     data: [u64; SMALL_VEC_WORDS],
+    _marker0: PhantomData<T>,
 }
 
 struct SmallVecInterp<T> {

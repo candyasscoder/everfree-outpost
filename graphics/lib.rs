@@ -1,10 +1,10 @@
 #![crate_name = "graphics"]
 #![no_std]
 
-#![feature(unboxed_closures)]
+#![feature(no_std)]
+#![feature(core)]
 
 #![allow(unsigned_negation)]
-#![allow(unstable)] // many parts of libcore are unstable as of Rust 1.0
 
 #[macro_use] extern crate core;
 #[cfg(asmjs)] #[macro_use] extern crate asmrt;
@@ -68,10 +68,10 @@ pub fn update_xv(xv: &mut XvData, blocks: &BlockData, chunk: &ChunkData, i: u8, 
     let i1 = (i + LOCAL_SIZE as usize - 1) % LOCAL_SIZE as usize;
     let chunk_idx1 = (i1 << LOCAL_BITS) + j;
 
-    let mut copy = |&mut: x: u16, u: u16, v: u16,
-                          chunk_idx: usize,
-                          cx: u16, cu: u16, cv: u16,
-                          upper: bool| {
+    let mut copy = |x: u16, u: u16, v: u16,
+                    chunk_idx: usize,
+                    cx: u16, cu: u16, cv: u16,
+                    upper: bool| {
         let tiles_idx = ((v << CHUNK_BITS) + x) as usize;
         let stack = &mut xv.chunks[chunk_idx].tiles[tiles_idx];
 
@@ -144,11 +144,11 @@ pub fn generate_geometry(xv: &mut XvData,
                          i: u8, j: u8) -> usize {
     let pos = Cell::new(0);
 
-    let mut push = |&mut: x, y, s, t| {
+    let mut push = |x, y, s, t| {
         geom[pos.get()] = VertexData { x: x, y: y, s: s, t: t };
         pos.set(pos.get() + 1);
     };
-    let mut push_face = |&mut: x: u16, y: u16, tile: u16| {
+    let mut push_face = |x: u16, y: u16, tile: u16| {
         let (x, y) = (x as u8, y as u8);
         let s = (tile % ATLAS_SIZE) as u8;
         let t = (tile / ATLAS_SIZE) as u8;
@@ -185,7 +185,7 @@ pub fn generate_geometry(xv: &mut XvData,
 }
 
 
-#[derive(PartialEq, Eq, Show)]
+#[derive(PartialEq, Eq, Debug)]
 enum SpriteStatus {
     // Sprite does not overlap the chunk.
     Outside,
@@ -195,7 +195,7 @@ enum SpriteStatus {
     Between,
 }
 
-#[derive(Show)]
+#[derive(Debug)]
 pub struct Sprite {
     id: u16,
     ref_x: u16,
@@ -457,8 +457,8 @@ fn quicksort<T, C>(xs: &mut [T], comp: C)
     }
 
     let pivot = partition(xs, comp);
-    quicksort(xs.slice_to_mut(pivot), comp);
-    quicksort(xs.slice_from_mut(pivot + 1), comp);
+    quicksort(&mut xs[.. pivot], comp);
+    quicksort(&mut xs[pivot + 1 ..], comp);
 
     fn partition<T, C>(xs: &mut [T], comp: C) -> usize
             where C: Compare<T> + Copy {

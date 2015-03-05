@@ -1,11 +1,13 @@
 use std::error;
+use std::fmt;
 use std::hash::{SipHasher, Hash, Hasher};
+use std::path::Path as NewPath;
 use std::rand;
 use std::result;
 
 use rusqlite::{SqliteConnection, SqliteError};
 use rusqlite::types::ToSql;
-use rusqlite::ffi::SQLITE_CONSTRAINT;
+use rusqlite_ffi::SQLITE_CONSTRAINT;
 
 use util::StrError;
 
@@ -16,8 +18,7 @@ pub struct Auth {
 
 impl Auth {
     pub fn new(db_path: Path) -> Result<Auth> {
-        let path_str = db_path.as_str().unwrap();
-        let conn = try!(SqliteConnection::open(path_str));
+        let conn = try!(SqliteConnection::open(&NewPath::new(&db_path)));
         try!(conn.execute("CREATE TABLE IF NOT EXISTS auth (
                            name      TEXT NOT NULL UNIQUE,
                            secret    TEXT NOT NULL
@@ -117,10 +118,19 @@ pub fn check_secret(s: &Secret, hash: &str) -> SecretMatch {
 }
 
 
-#[derive(Show)]
+#[derive(Debug)]
 pub enum Error {
     Str(StrError),
     Sqlite(SqliteError),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Str(ref e) => e.fmt(f),
+            Error::Sqlite(ref e) => e.fmt(f),
+        }
+    }
 }
 
 impl error::Error for Error {

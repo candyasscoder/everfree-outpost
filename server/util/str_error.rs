@@ -2,7 +2,7 @@ use std::error::{Error, FromError};
 use std::fmt;
 
 
-#[derive(Copy, Show)]
+#[derive(Copy, Debug)]
 pub struct StrError {
     pub msg: &'static str,
 }
@@ -13,9 +13,9 @@ impl Error for StrError {
     }
 }
 
-impl fmt::String for StrError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        fmt::String::fmt(&self.msg, f)
+impl fmt::Display for StrError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&self.msg, f)
     }
 }
 
@@ -29,7 +29,7 @@ impl FromError<&'static str> for StrError {
 
 pub type StrResult<T> = Result<T, StrError>;
 
-#[derive(Show)]
+#[derive(Debug)]
 pub struct StringError {
     pub msg: String,
 }
@@ -40,9 +40,9 @@ impl Error for StringError {
     }
 }
 
-impl fmt::String for StringError {
+impl fmt::Display for StringError {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        fmt::String::fmt(&self.msg, f)
+        fmt::Display::fmt(&self.msg, f)
     }
 }
 

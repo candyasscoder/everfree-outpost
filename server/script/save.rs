@@ -1,6 +1,7 @@
 use std::error;
-use std::io;
+use std::fmt;
 use std::num::{FromPrimitive, ToPrimitive};
+use std::old_io;
 use std::result;
 use libc::c_int;
 
@@ -20,9 +21,19 @@ use super::userdata;
 
 
 pub enum Error {
-    Io(io::IoError),
+    Io(old_io::IoError),
     Str(StrError),
     Lua(String),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Io(ref e) => e.fmt(f),
+            Error::Str(ref e) => e.fmt(f),
+            Error::Lua(ref e) => e.fmt(f),
+        }
+    }
 }
 
 impl error::Error for Error {
@@ -43,8 +54,8 @@ impl error::Error for Error {
     }
 }
 
-impl error::FromError<io::IoError> for Error {
-    fn from_error(e: io::IoError) -> Error {
+impl error::FromError<old_io::IoError> for Error {
+    fn from_error(e: old_io::IoError) -> Error {
         Error::Io(e)
     }
 }
@@ -86,7 +97,7 @@ pub type Result<T> = result::Result<T, Error>;
 
 
 
-#[derive(Copy, PartialEq, Eq, Show, FromPrimitive)]
+#[derive(Copy, PartialEq, Eq, Debug, FromPrimitive)]
 enum Tag {
     Nil,
     Bool,
@@ -316,22 +327,22 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
 
     if let Some(c) = get_userdata_opt::<userdata::StableClient>(lua, index) {
         try!(w.write(Tag::StableClient as u8));
-        try!(w.write(c.id.0));
+        try!(w.write(c.id.val));
         return Ok(());
     }
     if let Some(e) = get_userdata_opt::<userdata::StableEntity>(lua, index) {
         try!(w.write(Tag::StableEntity as u8));
-        try!(w.write(e.id.0));
+        try!(w.write(e.id.val));
         return Ok(());
     }
     if let Some(s) = get_userdata_opt::<userdata::StableStructure>(lua, index) {
         try!(w.write(Tag::StableStructure as u8));
-        try!(w.write(s.id.0));
+        try!(w.write(s.id.val));
         return Ok(());
     }
     if let Some(i) = get_userdata_opt::<userdata::StableInventory>(lua, index) {
         try!(w.write(Tag::StableInventory as u8));
-        try!(w.write(i.id.0));
+        try!(w.write(i.id.val));
         return Ok(());
     }
 
@@ -547,22 +558,22 @@ fn read_value<R: Reader>(lua: &mut LuaState, r: &mut R, world: &mut World) -> Re
 
         Tag::StableClient => {
             let cid = try!(r.read());
-            let c = userdata::StableClient { id: Stable(cid) };
+            let c = userdata::StableClient { id: Stable::new(cid) };
             c.to_lua(lua);
         },
         Tag::StableEntity => {
             let eid = try!(r.read());
-            let e = userdata::StableEntity { id: Stable(eid) };
+            let e = userdata::StableEntity { id: Stable::new(eid) };
             e.to_lua(lua);
         },
         Tag::StableStructure => {
             let sid = try!(r.read());
-            let s = userdata::StableStructure { id: Stable(sid) };
+            let s = userdata::StableStructure { id: Stable::new(sid) };
             s.to_lua(lua);
         },
         Tag::StableInventory => {
             let iid = try!(r.read());
-            let i = userdata::StableInventory { id: Stable(iid) };
+            let i = userdata::StableInventory { id: Stable::new(iid) };
             i.to_lua(lua);
         },
 

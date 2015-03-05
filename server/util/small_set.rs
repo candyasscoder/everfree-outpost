@@ -1,6 +1,6 @@
-use std::collections::hash_map::Hasher;
 use std::collections::hash_set::{self, HashSet};
 use std::hash::Hash;
+use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
 use std::raw;
@@ -12,16 +12,17 @@ const SMALL_SET_WORDS: usize = 5;
 type Storage = [u64; SMALL_SET_WORDS];
 
 #[unsafe_no_drop_flag]
-pub struct SmallSet<T: Eq+Hash<Hasher>> {
+pub struct SmallSet<T: Eq+Hash> {
     len: usize,
     data: [u64; SMALL_SET_WORDS],
+    _marker0: PhantomData<T>,
 }
 
 fn small_limit<T>() -> usize {
     SMALL_SET_WORDS * mem::size_of::<u64>() / mem::size_of::<T>()
 }
 
-impl<T: Eq+Hash<Hasher>> SmallSet<T> {
+impl<T: Eq+Hash> SmallSet<T> {
     pub fn new() -> SmallSet<T> {
         let result: SmallSet<T> = unsafe { mem::zeroed() };
         assert!(mem::size_of_val(&result.data) >= mem::size_of::<HashSet<T>>());
@@ -169,7 +170,7 @@ impl<T: Eq+Hash<Hasher>> SmallSet<T> {
 }
 
 #[unsafe_destructor]
-impl<T: Eq+Hash<Hasher>> Drop for SmallSet<T> {
+impl<T: Eq+Hash> Drop for SmallSet<T> {
     fn drop(&mut self) {
         if self.is_small() {
             let base = self.base_ptr();

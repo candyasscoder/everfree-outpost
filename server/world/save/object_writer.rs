@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::io;
+use std::old_io;
 use std::mem;
 use std::num::ToPrimitive;
 use std::raw;
@@ -16,7 +16,7 @@ use super::writer::{Writer, WriterWrapper};
 use super::CURRENT_VERSION;
 
 
-pub struct ObjectWriter<W: io::Writer, H: WriteHooks> {
+pub struct ObjectWriter<W: old_io::Writer, H: WriteHooks> {
     w: WriterWrapper<W>,
     hooks: H,
     objects_written: HashSet<AnyId>,
@@ -46,7 +46,7 @@ pub trait WriteHooks {
                                        i: &ObjectRef<Inventory>) -> Result<()> { Ok(()) }
 }
 
-impl<W: io::Writer, H: WriteHooks> ObjectWriter<W, H> {
+impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
     pub fn new(writer: W, hooks: H) -> ObjectWriter<W, H> {
         ObjectWriter {
             w: WriterWrapper::new(writer),

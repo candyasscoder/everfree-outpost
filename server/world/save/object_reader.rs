@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::error;
-use std::io;
+use std::old_io;
 use std::mem;
 use std::num::ToPrimitive;
 use std::raw;
@@ -21,7 +21,7 @@ use super::reader::{Reader, ReaderWrapper, ReadId};
 use super::CURRENT_VERSION;
 
 
-pub struct ObjectReader<R: io::Reader, H: ReadHooks> {
+pub struct ObjectReader<R: old_io::Reader, H: ReadHooks> {
     r: ReaderWrapper<R>,
     hooks: H,
     template_map: HashMap<TemplateId, TemplateId>,
@@ -63,7 +63,7 @@ pub trait ReadHooks {
     fn cleanup_inventory(&mut self, w: &mut World, iid: InventoryId) -> Result<()> { Ok(()) }
 }
 
-impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
+impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
     pub fn new(writer: R, hooks: H) -> ObjectReader<R, H> {
         ObjectReader {
             r: ReaderWrapper::new(writer),

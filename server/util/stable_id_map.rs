@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::num::{FromPrimitive, ToPrimitive};
 use std::ops::{Index, IndexMut};
 
@@ -11,10 +12,23 @@ pub struct StableIdMap<K, V> {
     map: IdMap<V>,
     stable_ids: HashMap<StableId, K>,
     next_id: StableId,
+    _marker0: PhantomData<K>,
 }
 
-#[derive(Copy, PartialEq, Eq, Show)]
-pub struct Stable<Id>(pub StableId);
+#[derive(Copy, PartialEq, Eq, Debug)]
+pub struct Stable<Id> {
+    pub val: StableId,
+    _marker0: PhantomData<Id>,
+}
+
+impl<Id> Stable<Id> {
+    pub fn new(val: StableId) -> Stable<Id> {
+        Stable {
+            val: val,
+            _marker0: PhantomData,
+        }
+    }
+}
 
 pub const NO_STABLE_ID: StableId = 0;
 
@@ -48,6 +62,7 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
             map: IdMap::new(),
             stable_ids: HashMap::new(),
             next_id: next_id,
+            _marker0: PhantomData,
         }
     }
 
@@ -116,7 +131,7 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
         let val = &mut self.map[raw_transient_id];
 
         if val.get_stable_id() != NO_STABLE_ID {
-            return Stable(val.get_stable_id());
+            return Stable::new(val.get_stable_id());
         }
 
         let stable_id = self.next_id;
@@ -125,7 +140,7 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
         val.set_stable_id(stable_id);
         self.stable_ids.insert(stable_id, transient_id);
 
-        Stable(stable_id)
+        Stable::new(stable_id)
     }
 
     pub fn unpin(&mut self, transient_id: K) {
@@ -142,7 +157,7 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
     }
 
     pub fn get_id(&self, stable_id: Stable<K>) -> Option<K> {
-        let Stable(stable_id) = stable_id;
+        let stable_id = stable_id.val;
         self.stable_ids.get(&stable_id).map(|&x| x)
     }
 
@@ -157,6 +172,7 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
     pub fn iter(&self) -> Iter<K, V> {
         Iter {
             iter: self.map.iter(),
+            _marker0: PhantomData,
         }
     }
 }
@@ -174,15 +190,14 @@ impl<K, V> Index<K> for StableIdMap<K, V>
 impl<K, V> IndexMut<K> for StableIdMap<K, V>
         where K: Copy+FromPrimitive+ToPrimitive,
               V: IntrusiveStableId {
-    type Output = V;
-
     fn index_mut(&mut self, index: &K) -> &mut V {
         self.get_mut(*index).expect("no entry found for key")
     }
 }
 
-pub struct Iter<'a, K, V: 'a> {
+pub struct Iter<'a, K: 'a, V: 'a> {
     iter: id_map::Iter<'a, V>,
+    _marker0: PhantomData<&'a K>,
 }
 
 impl<'a, K: FromPrimitive, V> Iterator for Iter<'a, K, V> {

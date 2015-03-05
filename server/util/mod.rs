@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::collections::hash_map::Hasher;
 use std::hash::Hash;
 
 pub use self::bytes::Bytes;
@@ -23,8 +22,8 @@ pub mod small_vec;
 
 
 pub fn multimap_insert<K, V>(map: &mut HashMap<K, HashSet<V>>, k: K, v: V)
-        where K: Hash<Hasher>+Eq,
-              V: Hash<Hasher>+Eq {
+        where K: Hash+Eq,
+              V: Hash+Eq {
     use std::collections::hash_map::Entry::*;
     let bucket = match map.entry(k) {
         Vacant(e) => e.insert(HashSet::new()),
@@ -34,8 +33,8 @@ pub fn multimap_insert<K, V>(map: &mut HashMap<K, HashSet<V>>, k: K, v: V)
 }
 
 pub fn multimap_remove<K, V>(map: &mut HashMap<K, HashSet<V>>, k: K, v: V)
-        where K: Hash<Hasher>+Eq,
-              V: Hash<Hasher>+Eq {
+        where K: Hash+Eq,
+              V: Hash+Eq {
     use std::collections::hash_map::Entry::*;
     match map.entry(k) {
         Vacant(_) => { },

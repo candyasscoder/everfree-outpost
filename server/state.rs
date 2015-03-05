@@ -115,7 +115,7 @@ pub fn run_physics<S>(entity: &world::Entity,
 
 
 
-#[derive(Show)]
+#[derive(Debug)]
 pub enum StateChange {
     ChunkUpdate(i32, i32),
 }

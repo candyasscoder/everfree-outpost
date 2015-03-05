@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io;
+use std::old_io;
 use std::mem;
 use std::num::ToPrimitive;
 use std::raw;
@@ -29,13 +29,13 @@ pub trait Writer {
     }
 }
 
-pub struct WriterWrapper<W: io::Writer> {
+pub struct WriterWrapper<W: old_io::Writer> {
     writer: W,
     id_map: HashMap<AnyId, SaveId>,
     next_id: SaveId,
 }
 
-impl<W: io::Writer> WriterWrapper<W> {
+impl<W: old_io::Writer> WriterWrapper<W> {
     pub fn new(writer: W) -> WriterWrapper<W> {
         WriterWrapper {
             writer: writer,
@@ -57,7 +57,7 @@ impl<W: io::Writer> WriterWrapper<W> {
     }
 }
 
-impl<W: io::Writer> Writer for WriterWrapper<W> {
+impl<W: old_io::Writer> Writer for WriterWrapper<W> {
 
     fn write_id<T: ToAnyId>(&mut self, id: T) -> Result<()> {
         use std::collections::hash_map::Entry::{Occupied, Vacant};

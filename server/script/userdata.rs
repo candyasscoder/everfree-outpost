@@ -231,7 +231,7 @@ impl Userdata for Client {
                 unwrap!(ctx.world.get_client(c.id));
                 unwrap!(ctx.world.get_inventory(i.id));
 
-                ctx.world.record(Update::ClientShowInventory(c.id, i.id));
+                ctx.world.record(Update::ClientDebugInventory(c.id, i.id));
                 Ok(())
             }}
 
@@ -523,7 +523,7 @@ macro_rules! define_stable_wrapper {
                     lua, -1,
 
                     fn id(stable: &$name) -> String {
-                        format!("{:x}", stable.id.0)
+                        format!("{:x}", stable.id.val)
                     }
                 }
 

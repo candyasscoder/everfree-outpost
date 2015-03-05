@@ -7,7 +7,7 @@ use physics::v3::V3;
 use types::{BlockId, ItemId, TemplateId, RecipeId};
 
 
-#[derive(Show)]
+#[derive(Debug)]
 pub struct ParseError(pub String);
 
 

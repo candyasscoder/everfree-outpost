@@ -132,7 +132,7 @@ fn lua_alloc(_userdata: *mut c_void,
 }
 
 
-#[derive(Copy, PartialEq, Eq, Show)]
+#[derive(Copy, PartialEq, Eq, Debug)]
 pub enum ErrorType {
     Yield = 1,
     ErrRun = 2,
@@ -172,7 +172,7 @@ fn make_result<'a>(lua: &'a mut LuaState, code: c_int) -> LuaResult<'a, ()> {
 }
 
 
-#[derive(Copy, PartialEq, Eq, Show)]
+#[derive(Copy, PartialEq, Eq, Debug)]
 pub enum ValueType {
     Nil = 0,
     Boolean = 1,
@@ -474,7 +474,9 @@ impl<'a> LuaState<'a> {
         // NB: from_slice will panic if the path contains null characters, but that's impossible
         // because Path checks for \0 and rejects the string if found.
         let s = CString::from_slice(path.as_vec());
-        let code = unsafe { ffi::luaL_loadfile(self.L, s.as_slice_with_nul().as_ptr()) };
+        let code = unsafe {
+            ffi::luaL_loadfile(self.L, s.as_bytes_with_nul().as_ptr() as *const i8)
+        };
         make_result(self, code)
     }
 
