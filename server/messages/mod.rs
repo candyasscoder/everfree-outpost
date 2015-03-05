@@ -13,10 +13,17 @@ use msg::{Request, Response};
 use timer::WakeQueue;
 use world::Motion;
 
+use self::clients::Clients;
+
+
+mod clients;
+
+
 pub struct Messages {
     send: Sender<(WireId, Response)>,
     recv: Receiver<(WireId, Request)>,
     wake: WakeQueue<WakeReason>,
+    clients: Clients,
 }
 
 pub enum Event {
@@ -106,8 +113,23 @@ impl Messages {
             send: send,
             recv: recv,
             wake: WakeQueue::new(),
+            clients: Clients::new(),
         }
     }
+
+
+    // Client lifecycle
+
+    pub fn add_client(&mut self, cid: ClientId, wire_id: WireId) {
+        self.clients.add(cid, wire_id);
+    }
+
+    pub fn remove_client(&mut self, cid: ClientId) {
+        self.clients.remove(cid);
+    }
+
+
+    // Event processing
 
     pub fn next_event(&mut self) -> (Event, Time) {
         loop {
@@ -181,7 +203,7 @@ impl Messages {
         if wire_id == CONTROL_WIRE_ID {
             self.handle_control_req(now, req)
         } else {
-            if let Some(cid) = self.wire_to_client(wire_id) {
+            if let Some(cid) = self.clients.wire_to_client(wire_id) {
                 self.handle_client_req(now, wire_id, cid, req)
             } else {
                 self.handle_pre_login_req(now, wire_id, req)
@@ -196,7 +218,7 @@ impl Messages {
                 Some(Event::Control(ControlEvent::AddClient(wire_id))),
             Request::RemoveClient(wire_id) => {
                 // Let the caller decide when to actually remove the client.
-                let opt_cid = self.wire_to_client(wire_id);
+                let opt_cid = self.clients.wire_to_client(wire_id);
                 Some(Event::Control(ControlEvent::RemoveClient(wire_id, opt_cid)))
             },
             Request::ReplCommand(cookie, cmd) =>
@@ -282,14 +304,7 @@ impl Messages {
     }
 
 
-    pub fn wire_to_client(&self, wire: WireId) -> Option<ClientId> {
-        unimplemented!()
-    }
-
-    pub fn client_to_wire(&self, cid: ClientId) -> Option<WireId> {
-        unimplemented!()
-    }
-
+    // Response sending
 
     fn send_raw(&self, wire_id: WireId, msg: Response) {
         self.send.send((wire_id, msg)).unwrap();
@@ -310,22 +325,23 @@ impl Messages {
     }
 
     pub fn send_client(&self, cid: ClientId, resp: ClientResponse) {
-        let wire_id = match self.client_to_wire(cid) {
+        let client = match self.clients.get(cid) {
             Some(x) => x,
             None => {
                 warn!("can't send to client {:?} (no wire): {:?}", cid, resp);
                 return;
             },
         };
+        let wire_id = client.wire_id();
 
         match resp {
             ClientResponse::TerrainChunk(cpos, data) => {
-                let index = unimplemented!();
+                let index = client.local_chunk_index(cpos);
                 self.send_raw(wire_id, Response::TerrainChunk(index, data));
             },
 
             ClientResponse::UnloadChunk(cpos) => {
-                let index = unimplemented!();
+                let index = client.local_chunk_index(cpos);
                 self.send_raw(wire_id, Response::UnloadChunk(index));
             },
 
@@ -333,12 +349,12 @@ impl Messages {
                 self.send_raw(wire_id, Response::EntityAppear(eid, appear, name)),
 
             ClientResponse::EntityUpdate(eid, motion, anim) => {
-                let wire_motion = unimplemented!();
+                let wire_motion = client.local_motion(motion);
                 self.send_raw(wire_id, Response::EntityUpdate(eid, wire_motion, anim));
             },
 
             ClientResponse::EntityGone(eid, time) => {
-                let time = unimplemented!();
+                let time = time.to_local();
                 self.send_raw(wire_id, Response::EntityGone(eid, time));
             },
 
