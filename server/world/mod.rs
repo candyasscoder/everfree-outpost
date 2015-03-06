@@ -256,127 +256,169 @@ impl<'d> World<'d> {
 
 }
 
-macro_rules! lifecycle_methods {
-    ($obj_ty:ty,
-     $create_method:ident ( $($arg_name:ident : $arg_ty:ty),* ) => $create_op:ident
-        [$ref_id_name:ident -> $ref_id_expr:expr],
-     $destroy_method:ident ( $id_name:ident : $id_ty:ty ) => $destroy_op:ident) => {
-        #[allow(unused_variables)]
-        impl<'a, 'd, H: Hooks> WorldHooks<'a, 'd, H> {
-            pub fn $create_method<'b>(&'b mut self
-                                      $(, $arg_name: $arg_ty)*)
-                                      -> OpResult<ObjectRefMut<'b, 'd, $obj_ty, H>>
-                    where H: Hooks {
-                let $ref_id_name = try!(ops::$create_op(self.world, self.hooks $(, $arg_name)*));
-                Ok(ObjectRefMut {
-                    world: self.world,
-                    hooks: self.hooks,
-                    id: $ref_id_expr,
-                })
+macro_rules! process_objects {
+    ($m:ident ! $($args:tt)*) => {
+        $m!($($args)*
+            object Client {
+                id ClientId;
+                map clients;
+                lifecycle (name: &str, chunk_offset: (u8, u8))
+                    create_client => client_create [id -> id],
+                    destroy_client => client_destroy,
+                    create_client_hooks, destroy_client_hooks;
+                lookups [id -> id]
+                    get_client, client,
+                    get_client_mut, client_mut,
+                    get_client_mut_hooks, client_mut_hooks;
+                stable_ids
+                    transient_client_id;
             }
 
-            pub fn $destroy_method(&mut self,
-                                   $id_name: $id_ty) -> OpResult<()>
-                    where H: Hooks {
-                ops::$destroy_op(self.world, self.hooks, $id_name)
-            }
-        }
-
-        impl<'d> World<'d> {
-            pub fn $create_method<'b>(&'b mut self
-                                      $(, $arg_name: $arg_ty)*)
-                                      -> OpResult<ObjectRefMut<'b, 'd, $obj_ty>> {
-                let $ref_id_name = try!(ops::$create_op(self, no_hooks() $(, $arg_name)*));
-                Ok(ObjectRefMut {
-                    world: self,
-                    hooks: no_hooks(),
-                    id: $ref_id_expr,
-                })
+            object TerrainChunk {
+                id V2;
+                map terrain_chunks;
+                lifecycle (pos: V2, blocks: Box<BlockChunk>)
+                    create_terrain_chunk => terrain_chunk_create [id -> pos],
+                    destroy_terrain_chunk => terrain_chunk_destroy,
+                    create_terrain_chunk_hooks, destroy_terrain_chunk_hooks;
+                lookups [id -> &id]
+                    get_terrain_chunk, terrain_chunk,
+                    get_terrain_chunk_mut, terrain_chunk_mut,
+                    get_terrain_chunk_mut_hooks, terrain_chunk_mut_hooks;
             }
 
-            pub fn $destroy_method(&mut self,
-                                   $id_name: $id_ty) -> OpResult<()> {
-                ops::$destroy_op(self, no_hooks(), $id_name)
+            object Entity {
+                id EntityId;
+                map entities;
+                lifecycle (pos: V3, anim: AnimId, appearance: u32)
+                    create_entity => entity_create [id -> id],
+                    destroy_entity => entity_destroy,
+                    create_entity_hooks, destroy_entity_hooks;
+                lookups [id -> id]
+                    get_entity, entity,
+                    get_entity_mut, entity_mut,
+                    get_entity_mut_hooks, entity_mut_hooks;
+                stable_ids
+                    transient_entity_id;
             }
-        }
-    };
-    ($obj_ty:ty,
-     $create_method:ident ( $($arg_name:ident : $arg_ty:ty),* ) => $create_op:ident,
-     $destroy_method:ident ( $id_name:ident : $id_ty:ty ) => $destroy_op:ident) => {
-        lifecycle_methods!($obj_ty,
-                           $create_method($($arg_name: $arg_ty),*) => $create_op
-                            [id -> id],
-                           $destroy_method($id_name: $id_ty) => $destroy_op);
+
+            object Structure {
+                id StructureId;
+                map structures;
+                lifecycle (pos: V3, tid: TemplateId)
+                    create_structure => structure_create [id -> id],
+                    destroy_structure => structure_destroy,
+                    create_structure_hooks, destroy_structure_hooks;
+                lookups [id -> id]
+                    get_structure, structure,
+                    get_structure_mut, structure_mut,
+                    get_structure_mut_hooks, structure_mut_hooks;
+                stable_ids
+                    transient_structure_id;
+            }
+
+            object Inventory {
+                id InventoryId;
+                map inventories;
+                lifecycle ()
+                    create_inventory => inventory_create [id -> id],
+                    destroy_inventory => inventory_destroy,
+                    create_inventory_hooks, destroy_inventory_hooks;
+                lookups [id -> id]
+                    get_inventory, inventory,
+                    get_inventory_mut, inventory_mut,
+                    get_inventory_mut_hooks, inventory_mut_hooks;
+                stable_ids
+                    transient_inventory_id;
+            }
+        );
     };
 }
 
-lifecycle_methods!(Client,
-                   create_client(name: &str,
-                                 chunk_offset: (u8, u8)) => client_create,
-                   destroy_client(id: ClientId) => client_destroy);
+macro_rules! world_methods {
+    ($(
+        object $Obj:ident {
+            id $Id:ident;
+            map $objs:ident;
+            lifecycle ($($create_arg:ident: $create_arg_ty:ty),*)
+                $create_obj:ident => $create_obj_op:ident
+                    [$create_id_name:ident -> $create_id_expr:expr],
+                $destroy_obj:ident => $destroy_obj_op:ident,
+                $create_obj_hooks:ident, $destroy_obj_hooks:ident;
+            lookups [$lookup_id_name:ident -> $lookup_id_expr:expr]
+                $get_obj:ident, $obj:ident,
+                $get_obj_mut:ident, $obj_mut:ident,
+                $get_obj_mut_hooks:ident, $obj_mut_hooks:ident;
+            $(stable_ids
+                $transient_obj_id:ident;)*
+        }
+    )*) => {
+        impl<'d> World<'d> { $(
+            pub fn $create_obj<'a>(&'a mut self,
+                                   $($create_arg: $create_arg_ty,)*)
+                                   -> OpResult<ObjectRefMut<'a, 'd, $Obj>> {
+                self.$create_obj_hooks(no_hooks(), $($create_arg,)*)
+            }
 
-lifecycle_methods!(TerrainChunk,
-                   create_terrain_chunk(pos: V2, blocks: Box<BlockChunk>) => terrain_chunk_create
-                    [id -> pos],
-                   destroy_terrain_chunk(pos: V2) => terrain_chunk_destroy);
+            pub fn $create_obj_hooks<'a, H>(&'a mut self,
+                                            h: &'a mut H,
+                                            $($create_arg: $create_arg_ty,)*)
+                                            -> OpResult<ObjectRefMut<'a, 'd, $Obj, H>>
+                    where H: Hooks {
+                let $create_id_name = try!(ops::$create_obj_op(self, h, $($create_arg,)*));
+                Ok(ObjectRefMut {
+                    world: self,
+                    hooks: h,
+                    id: $create_id_expr,
+                })
+            }
 
-lifecycle_methods!(Entity,
-                   create_entity(pos: V3, anim: AnimId, appearance: u32) => entity_create,
-                   destroy_entity(id: EntityId) => entity_destroy);
+            pub fn $destroy_obj(&mut self, id: $Id) -> OpResult<()> {
+                self.$destroy_obj_hooks(no_hooks(), id)
+            }
 
-lifecycle_methods!(Structure,
-                   create_structure(pos: V3, tid: TemplateId) => structure_create,
-                   destroy_structure(id: StructureId) => structure_destroy);
+            pub fn $destroy_obj_hooks<H>(&mut self, h: &mut H, id: $Id) -> OpResult<()>
+                    where H: Hooks {
+                ops::$destroy_obj_op(self, h, id)
+            }
 
-lifecycle_methods!(Inventory,
-                   create_inventory() => inventory_create,
-                   destroy_inventory(id: InventoryId) => inventory_destroy);
 
-macro_rules! access_methods {
-    ($obj_ty:ty,
-     $id_name:ident: $id_ty:ty => $table:ident . get ( $lookup_arg:expr ),
-     $get_obj:ident, $obj:ident,
-     $get_obj_mut:ident, $obj_mut:ident,
-     $get_obj_mut_hooks:ident, $obj_mut_hooks:ident) => {
-        impl<'d> World<'d> {
             pub fn $get_obj<'a>(&'a self,
-                                $id_name: $id_ty) -> Option<ObjectRef<'a, 'd, $obj_ty>> {
-                let obj = match self.$table.get($lookup_arg) {
+                                $lookup_id_name: $Id) -> Option<ObjectRef<'a, 'd, $Obj>> {
+                let obj = match self.$objs.get($lookup_id_expr) {
                     None => return None,
                     Some(x) => x,
                 };
 
                 Some(ObjectRef {
                     world: self,
-                    id: $id_name,
+                    id: $lookup_id_name,
                     obj: obj,
                 })
             }
 
-            pub fn $obj<'a>(&'a self, $id_name: $id_ty) -> ObjectRef<'a, 'd, $obj_ty> {
-                self.$get_obj($id_name)
-                    .expect(concat!("no ", stringify!($obj_ty), " with given id"))
+            pub fn $obj<'a>(&'a self, id: $Id) -> ObjectRef<'a, 'd, $Obj> {
+                self.$get_obj(id)
+                    .expect(concat!("no ", stringify!($Obj), " with given id"))
             }
 
-            pub fn $get_obj_mut<'b>(&'b mut self,
-                                    $id_name: $id_ty)
-                                    -> Option<ObjectRefMut<'b, 'd, $obj_ty>> {
-                self.$get_obj_mut_hooks(no_hooks(), $id_name)
+            pub fn $get_obj_mut<'a>(&'a mut self, id: $Id)
+                                    -> Option<ObjectRefMut<'a, 'd, $Obj>> {
+                self.$get_obj_mut_hooks(no_hooks(), id)
             }
 
-            pub fn $obj_mut<'b>(&'b mut self, $id_name: $id_ty)
-                                -> ObjectRefMut<'b, 'd, $obj_ty> {
-                self.$get_obj_mut($id_name)
-                    .expect(concat!("no ", stringify!($obj_ty), " with given id"))
+            pub fn $obj_mut<'a>(&'a mut self, id: $Id)
+                                -> ObjectRefMut<'a, 'd, $Obj> {
+                self.$obj_mut_hooks(no_hooks(), id)
             }
 
-            pub fn $get_obj_mut_hooks<'b, H>(&'b mut self,
-                                             h: &'b mut H,
-                                             $id_name: $id_ty)
-                                             -> Option<ObjectRefMut<'b, 'd, $obj_ty, H>>
+            pub fn $get_obj_mut_hooks<'a, H>(&'a mut self,
+                                             h: &'a mut H,
+                                             $lookup_id_name: $Id)
+                                             -> Option<ObjectRefMut<'a, 'd, $Obj, H>>
                     where H: Hooks {
                 // Check that the ID is valid.
-                match self.$table.get($lookup_arg) {
+                match self.$objs.get($lookup_id_expr) {
                     None => return None,
                     Some(_) => {},
                 }
@@ -384,91 +426,31 @@ macro_rules! access_methods {
                 Some(ObjectRefMut {
                     world: self,
                     hooks: h,
-                    id: $id_name,
+                    id: $lookup_id_name,
                 })
             }
 
-            pub fn $obj_mut_hooks<'b, H>(&'b mut self,
-                                         h: &'b mut H,
-                                         $id_name: $id_ty)
-                                -> ObjectRefMut<'b, 'd, $obj_ty, H>
+            pub fn $obj_mut_hooks<'a, H>(&'a mut self,
+                                         h: &'a mut H,
+                                         id: $Id)
+                                         -> ObjectRefMut<'a, 'd, $Obj, H>
                     where H: Hooks {
-                self.$get_obj_mut_hooks(h, $id_name)
-                    .expect(concat!("no ", stringify!($obj_ty), " with given id"))
+                self.$get_obj_mut_hooks(h, id)
+                    .expect(concat!("no ", stringify!($Obj), " with given id"))
             }
-        }
 
-        impl<'a, 'd, H: Hooks> WorldHooks<'a, 'd, H> {
-            pub fn $get_obj_mut<'b>(&'b mut self,
-                                    $id_name: $id_ty)
-                                    -> Option<ObjectRefMut<'b, 'd, $obj_ty, H>>
-                    where H: Hooks {
-                // Check that the ID is valid.
-                match self.world.$table.get($lookup_arg) {
-                    None => return None,
-                    Some(_) => {},
+
+            $(
+                pub fn $transient_obj_id(&self, stable_id: Stable<$Id>) -> Option<$Id> {
+                    self.$objs.get_id(stable_id)
                 }
+            )*
 
-                Some(ObjectRefMut {
-                    world: self.world,
-                    hooks: self.hooks,
-                    id: $id_name,
-                })
-            }
-
-            pub fn $obj_mut<'b>(&'b mut self, $id_name: $id_ty)
-                                -> ObjectRefMut<'b, 'd, $obj_ty, H> {
-                self.$get_obj_mut($id_name)
-                    .expect(concat!("no ", stringify!($obj_ty), " with given id"))
-            }
-        }
-    };
+        )* }
+    }
 }
 
-access_methods!(Client,
-                id: ClientId => clients.get(id),
-                get_client, client,
-                get_client_mut, client_mut,
-                get_client_mut_hooks, client_mut_hooks);
-
-access_methods!(TerrainChunk,
-                id: V2 => terrain_chunks.get(&id),
-                get_terrain_chunk, terrain_chunk,
-                get_terrain_chunk_mut, terrain_chunk_mut,
-                get_terrain_chunk_mut_hooks, terrain_chunk_mut_hooks);
-
-access_methods!(Entity,
-                id: EntityId => entities.get(id),
-                get_entity, entity,
-                get_entity_mut, entity_mut,
-                get_entity_mut_hooks, entity_mut_hooks);
-
-access_methods!(Structure,
-                id: StructureId => structures.get(id),
-                get_structure, structure,
-                get_structure_mut, structure_mut,
-                get_structure_mut_hooks, structure_mut_hooks);
-
-access_methods!(Inventory,
-                id: InventoryId => inventories.get(id),
-                get_inventory, inventory,
-                get_inventory_mut, inventory_mut,
-                get_inventory_mut_hooks, inventory_mut_hooks);
-
-macro_rules! stable_id_methods {
-    ($id_ty:ty, $table:ident, $transient_id:ident) => {
-        impl<'d> World<'d> {
-            pub fn $transient_id(&self, stable_id: Stable<$id_ty>) -> Option<$id_ty> {
-                self.$table.get_id(stable_id)
-            }
-        }
-    };
-}
-
-stable_id_methods!(ClientId, clients, transient_client_id);
-stable_id_methods!(EntityId, entities, transient_entity_id);
-stable_id_methods!(StructureId, structures, transient_structure_id);
-stable_id_methods!(InventoryId, inventories, transient_inventory_id);
+process_objects!(world_methods!);
 
 pub struct ChunkStructures<'a, 'd: 'a> {
     world: &'a World<'d>,
@@ -553,6 +535,23 @@ object_iter_by_id!(TerrainChunksById, TerrainChunk, V2);
 object_iter_by_id!(EntitiesById, Entity, EntityId);
 object_iter_by_id!(StructuresById, Structure, StructureId);
 object_iter_by_id!(InventoriesById, Inventory, InventoryId);
+
+
+/*
+pub trait WorldMut<'d> {
+    type Hooks: Hooks;
+
+    fn wh_mut(&mut self) -> (&mut World<'d>, &mut Hooks);
+
+    fn create_client<'a>(&'a mut self,
+                         name: &str,
+                         chunk_offset: (u8, u8))
+                         -> OpResult<ObjectRefMut<'a, 'd, Client, <Self as WorldMut>::Hooks>> {
+        let (w,h) = self.wh_mut();
+
+    }
+}
+*/
 
 
 impl Client {
