@@ -537,22 +537,6 @@ object_iter_by_id!(StructuresById, Structure, StructureId);
 object_iter_by_id!(InventoriesById, Inventory, InventoryId);
 
 
-/*
-pub trait WorldMut<'d> {
-    type Hooks: Hooks;
-
-    fn wh_mut(&mut self) -> (&mut World<'d>, &mut Hooks);
-
-    fn create_client<'a>(&'a mut self,
-                         name: &str,
-                         chunk_offset: (u8, u8))
-                         -> OpResult<ObjectRefMut<'a, 'd, Client, <Self as WorldMut>::Hooks>> {
-        let (w,h) = self.wh_mut();
-
-    }
-}
-*/
-
 macro_rules! define_WorldMut {
     ($(
         object $Obj:ident {
@@ -580,6 +564,8 @@ macro_rules! define_WorldMut {
             fn world(&self) -> &World;
             fn wh_mut(&mut self) -> (&mut World, &mut <Self as WorldMut>::Hooks);
 
+            // TODO: Once WorldMut<'d> works, impl Deref/DerefMut instead of providing
+            // world/world_mut
             fn world_mut<'a>(&'a mut self) -> &'a mut World<'a>
                     where <Self as WorldMut>::Hooks: 'a {
                 self.wh_mut().0

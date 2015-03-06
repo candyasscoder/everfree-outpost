@@ -5,9 +5,8 @@ use std::raw;
 
 use types::*;
 use util::{Bytes, Convert};
-use world::World;
+use world::WorldMut;
 use world::ops;
-use world::hooks::no_hooks;
 
 use super::Result;
 use super::SaveId;
@@ -16,8 +15,8 @@ use super::padding;
 
 
 pub trait Reader {
-    fn read_id<T: ReadId>(&mut self, w: &mut World) -> Result<T>;
-    fn read_opt_id<T: ReadId>(&mut self, w: &mut World) -> Result<Option<T>>;
+    fn read_id<T: ReadId, W: WorldMut>(&mut self, w: &mut W) -> Result<T>;
+    fn read_opt_id<T: ReadId, W: WorldMut>(&mut self, w: &mut W) -> Result<Option<T>>;
     fn read_count(&mut self) -> Result<usize>;
     fn read_bytes(&mut self, len: usize) -> Result<Vec<u8>>;
     fn read_buf(&mut self, buf: &mut [u8]) -> Result<()>;
@@ -63,7 +62,7 @@ impl<R: old_io::Reader> ReaderWrapper<R> {
         &self.created_objs
     }
 
-    fn read_id_helper<T: ReadId>(&mut self, w: &mut World, save_id: SaveId) -> Result<T> {
+    fn read_id_helper<T: ReadId, W: WorldMut>(&mut self, w: &mut W, save_id: SaveId) -> Result<T> {
         use std::collections::hash_map::Entry::{Occupied, Vacant};
         match self.id_map.entry(save_id) {
             Occupied(e) => ReadId::from_any_id(*e.get()),
@@ -78,12 +77,12 @@ impl<R: old_io::Reader> ReaderWrapper<R> {
 }
 
 impl<R: old_io::Reader> Reader for ReaderWrapper<R> {
-    fn read_id<T: ReadId>(&mut self, w: &mut World) -> Result<T> {
+    fn read_id<T: ReadId, W: WorldMut>(&mut self, w: &mut W) -> Result<T> {
         let save_id = try!(self.reader.read_le_u32());
         self.read_id_helper(w, save_id)
     }
 
-    fn read_opt_id<T: ReadId>(&mut self, w: &mut World) -> Result<Option<T>> {
+    fn read_opt_id<T: ReadId, W: WorldMut>(&mut self, w: &mut W) -> Result<Option<T>> {
         let save_id = try!(self.reader.read_le_u32());
         if save_id == -1 as SaveId {
             Ok(None)
@@ -130,7 +129,7 @@ impl<R: old_io::Reader> Reader for ReaderWrapper<R> {
 
 pub trait ReadId: ToAnyId+Copy {
     fn from_any_id(id: AnyId) -> Result<Self>;
-    fn fabricate(w: &mut World) -> Self;
+    fn fabricate<W: WorldMut>(w: &mut W) -> Self;
 }
 
 impl ReadId for ClientId {
@@ -141,8 +140,9 @@ impl ReadId for ClientId {
         }
     }
 
-    fn fabricate(w: &mut World) -> ClientId {
-        ops::client_create_unchecked(w, no_hooks())
+    fn fabricate<W: WorldMut>(w: &mut W) -> ClientId {
+        let (w,h) = w.wh_mut();
+        ops::client_create_unchecked(w, h)
     }
 }
 
@@ -154,8 +154,9 @@ impl ReadId for EntityId {
         }
     }
 
-    fn fabricate(w: &mut World) -> EntityId {
-        ops::entity_create_unchecked(w, no_hooks())
+    fn fabricate<W: WorldMut>(w: &mut W) -> EntityId {
+        let (w,h) = w.wh_mut();
+        ops::entity_create_unchecked(w, h)
     }
 }
 
@@ -167,8 +168,9 @@ impl ReadId for StructureId {
         }
     }
 
-    fn fabricate(w: &mut World) -> StructureId {
-        ops::structure_create_unchecked(w, no_hooks())
+    fn fabricate<W: WorldMut>(w: &mut W) -> StructureId {
+        let (w,h) = w.wh_mut();
+        ops::structure_create_unchecked(w, h)
     }
 }
 
@@ -180,7 +182,8 @@ impl ReadId for InventoryId {
         }
     }
 
-    fn fabricate(w: &mut World) -> InventoryId {
-        ops::inventory_create_unchecked(w, no_hooks())
+    fn fabricate<W: WorldMut>(w: &mut W) -> InventoryId {
+        let (w,h) = w.wh_mut();
+        ops::inventory_create_unchecked(w, h)
     }
 }

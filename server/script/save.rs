@@ -369,7 +369,7 @@ impl<'a> ReadHooks<'a> {
     }
 }
 
-impl<'a> save::ReadHooks for ReadHooks<'a> {
+impl<'a, 'd> save::ReadHooks<World<'d>> for ReadHooks<'a> {
     fn post_read_world<R: Reader>(&mut self,
                                   reader: &mut R,
                                   w: &mut World) -> save::Result<()> {

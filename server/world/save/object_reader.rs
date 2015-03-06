@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::error;
 use std::old_io;
+use std::marker::PhantomData;
 use std::mem;
 use std::raw;
 use std::result;
@@ -8,11 +9,10 @@ use std::result;
 use data::Data;
 use types::*;
 use util::Convert;
-use world::World;
+use world::WorldMut;
 use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::object::*;
 use world::ops;
-use world::hooks::no_hooks;
 
 use super::Result;
 use super::{AnyId, ToAnyId};
@@ -20,56 +20,58 @@ use super::reader::{Reader, ReaderWrapper, ReadId};
 use super::CURRENT_VERSION;
 
 
-pub struct ObjectReader<R: old_io::Reader, H: ReadHooks> {
+pub struct ObjectReader<R: old_io::Reader, W: WorldMut, H: ReadHooks<W>> {
     r: ReaderWrapper<R>,
     hooks: H,
     template_map: HashMap<TemplateId, TemplateId>,
     item_map: HashMap<ItemId, ItemId>,
     inited_objs: HashSet<AnyId>,
+    _marker0: PhantomData<fn(&mut W)>,
 }
 
 #[allow(unused_variables)]
-pub trait ReadHooks {
+pub trait ReadHooks<W: WorldMut> {
     fn post_read_world<R: Reader>(&mut self,
                                   reader: &mut R,
-                                  w: &mut World) -> Result<()> { Ok(()) }
+                                  w: &mut W) -> Result<()> { Ok(()) }
     fn post_read_client<R: Reader>(&mut self,
                                    reader: &mut R,
-                                   w: &mut World,
+                                   w: &mut W,
                                    cid: ClientId) -> Result<()> { Ok(()) }
     fn post_read_terrain_chunk<R: Reader>(&mut self,
                                           reader: &mut R,
-                                          w: &mut World,
+                                          w: &mut W,
                                           pos: V2) -> Result<()> { Ok(()) }
     fn post_read_entity<R: Reader>(&mut self,
                                    reader: &mut R,
-                                   w: &mut World,
+                                   w: &mut W,
                                    eid: EntityId) -> Result<()> { Ok(()) }
     fn post_read_structure<R: Reader>(&mut self,
                                       reader: &mut R,
-                                      w: &mut World,
+                                      w: &mut W,
                                       sid: StructureId) -> Result<()> { Ok(()) }
     fn post_read_inventory<R: Reader>(&mut self,
                                       reader: &mut R,
-                                      w: &mut World,
+                                      w: &mut W,
                                       iid: InventoryId) -> Result<()> { Ok(()) }
 
-    fn cleanup_world(&mut self, w: &mut World) -> Result<()> { Ok(()) }
-    fn cleanup_client(&mut self, w: &mut World, cid: ClientId) -> Result<()> { Ok(()) }
-    fn cleanup_terrain_chunk(&mut self, w: &mut World, pos: V2) -> Result<()> { Ok(()) }
-    fn cleanup_entity(&mut self, w: &mut World, eid: EntityId) -> Result<()> { Ok(()) }
-    fn cleanup_structure(&mut self, w: &mut World, sid: StructureId) -> Result<()> { Ok(()) }
-    fn cleanup_inventory(&mut self, w: &mut World, iid: InventoryId) -> Result<()> { Ok(()) }
+    fn cleanup_world(&mut self, w: &mut W) -> Result<()> { Ok(()) }
+    fn cleanup_client(&mut self, w: &mut W, cid: ClientId) -> Result<()> { Ok(()) }
+    fn cleanup_terrain_chunk(&mut self, w: &mut W, pos: V2) -> Result<()> { Ok(()) }
+    fn cleanup_entity(&mut self, w: &mut W, eid: EntityId) -> Result<()> { Ok(()) }
+    fn cleanup_structure(&mut self, w: &mut W, sid: StructureId) -> Result<()> { Ok(()) }
+    fn cleanup_inventory(&mut self, w: &mut W, iid: InventoryId) -> Result<()> { Ok(()) }
 }
 
-impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
-    pub fn new(writer: R, hooks: H) -> ObjectReader<R, H> {
+impl<R: old_io::Reader, W: WorldMut, H: ReadHooks<W>> ObjectReader<R, W, H> {
+    pub fn new(writer: R, hooks: H) -> ObjectReader<R, W, H> {
         ObjectReader {
             r: ReaderWrapper::new(writer),
             hooks: hooks,
             template_map: HashMap::new(),
             item_map: HashMap::new(),
             inited_objs: HashSet::new(),
+            _marker0: PhantomData,
         }
     }
 
@@ -81,7 +83,7 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
         Ok(())
     }
 
-    fn read_object_header<T: ReadId>(&mut self, w: &mut World) -> Result<(T, StableId)> {
+    fn read_object_header<T: ReadId>(&mut self, w: &mut W) -> Result<(T, StableId)> {
         let id: T = try!(self.r.read_id(w));
         let stable_id = try!(self.r.read());
         self.inited_objs.insert(id.to_any_id());
@@ -114,14 +116,14 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
     }
 
 
-    fn read_client(&mut self, w: &mut World) -> Result<ClientId> {
+    fn read_client(&mut self, w: &mut W) -> Result<ClientId> {
         let (cid, stable_id) = try!(self.read_object_header(w));
-        try!(w.clients.set_stable_id(cid, stable_id));
+        try!(w.world_mut().clients.set_stable_id(cid, stable_id));
 
         let pawn_id = try!(self.r.read_opt_id(w));
 
         {
-            let c = &mut w.clients[cid];
+            let c = &mut w.world_mut().clients[cid];
             c.stable_id = stable_id;
 
             let name = try!(self.r.read_str());
@@ -137,19 +139,21 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
         let child_entity_count = try!(self.r.read_count());
         for _ in 0..child_entity_count {
             let eid = try!(self.read_entity(w));
-            try!(ops::entity_attach(w, no_hooks(), eid, EntityAttachment::Client(cid)));
+            let (w,h) = w.wh_mut();
+            try!(ops::entity_attach(w, h, eid, EntityAttachment::Client(cid)));
         }
 
         let child_inventory_count = try!(self.r.read_count());
         for _ in 0..child_inventory_count {
             let iid = try!(self.read_inventory(w));
-            try!(ops::inventory_attach(w, no_hooks(), iid, InventoryAttachment::Client(cid)));
+            let (w,h) = w.wh_mut();
+            try!(ops::inventory_attach(w, h, iid, InventoryAttachment::Client(cid)));
         }
 
         Ok(cid)
     }
 
-    fn read_terrain_chunk(&mut self, w: &mut World) -> Result<V2> {
+    fn read_terrain_chunk(&mut self, w: &mut W) -> Result<V2> {
         let (save_id, chunk_pos) = try!(self.r.read());
         self.r.id_map_mut().insert(save_id, AnyId::TerrainChunk(chunk_pos));
 
@@ -167,17 +171,19 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
 
         let mut block_map = HashMap::new();
         let block_id_count = try!(self.r.read_count());
-        let block_data = &w.data().block_data;
-        for _ in 0..block_id_count {
-            let (old_id, shape, name_len): (u16, u8, u8) = try!(self.r.read());
-            let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_usize())));
-            let new_id = unwrap!(block_data.find_id(&*name));
+        {
+            let block_data = &w.world().data().block_data;
+            for _ in 0..block_id_count {
+                let (old_id, shape, name_len): (u16, u8, u8) = try!(self.r.read());
+                let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_usize())));
+                let new_id = unwrap!(block_data.find_id(&*name));
 
-            if block_data.shape(new_id) as u8 != shape {
-                fail!("block shape does not match");
+                if block_data.shape(new_id) as u8 != shape {
+                    fail!("block shape does not match");
+                }
+
+                block_map.insert(old_id, new_id);
             }
-
-            block_map.insert(old_id, new_id);
         }
 
         for ptr in blocks.iter_mut() {
@@ -185,25 +191,29 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
             *ptr = *id;
         }
 
-        try!(ops::terrain_chunk_create(w, no_hooks(), chunk_pos, blocks));
+        {
+            let (w,h) = w.wh_mut();
+            try!(ops::terrain_chunk_create(w, h, chunk_pos, blocks));
+        }
 
         try!(self.hooks.post_read_terrain_chunk(&mut self.r, w, chunk_pos));
 
         let child_structure_count = try!(self.r.read_count());
         for _ in 0..child_structure_count {
             let sid = try!(self.read_structure(w));
-            try!(ops::structure_attach(w, no_hooks(), sid, StructureAttachment::Chunk));
+            let (w,h) = w.wh_mut();
+            try!(ops::structure_attach(w, h, sid, StructureAttachment::Chunk));
         }
 
         Ok(chunk_pos)
     }
 
-    fn read_entity(&mut self, w: &mut World) -> Result<EntityId> {
+    fn read_entity(&mut self, w: &mut W) -> Result<EntityId> {
         let (eid, stable_id) = try!(self.read_object_header(w));
-        try!(w.entities.set_stable_id(eid, stable_id));
+        try!(w.world_mut().entities.set_stable_id(eid, stable_id));
 
         {
-            let e = &mut w.entities[eid];
+            let e = &mut w.world_mut().entities[eid];
             e.stable_id = stable_id;
 
             let (start_pos,
@@ -230,46 +240,53 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
         let child_inventory_count = try!(self.r.read_count());
         for _ in 0..child_inventory_count {
             let iid = try!(self.read_inventory(w));
-            try!(ops::inventory_attach(w, no_hooks(), iid, InventoryAttachment::Entity(eid)));
+            let (w,h) = w.wh_mut();
+            try!(ops::inventory_attach(w, h, iid, InventoryAttachment::Entity(eid)));
         }
 
         Ok(eid)
     }
 
-    fn read_structure(&mut self, w: &mut World) -> Result<StructureId> {
+    fn read_structure(&mut self, w: &mut W) -> Result<StructureId> {
         let (sid, stable_id) = try!(self.read_object_header(w));
-        try!(w.structures.set_stable_id(sid, stable_id));
-        let data = w.data();
+        try!(w.world_mut().structures.set_stable_id(sid, stable_id));
+        // TODO: this transmute will be unnecessary once WorldMut<'d> works
+        let data = unsafe { mem::transmute::<_, &Data>(w.world().data()) };
 
         {
-            let s = &mut w.structures[sid];
+            let s = &mut w.world_mut().structures[sid];
             s.stable_id = stable_id;
 
             s.pos = try!(self.r.read());
             s.template = try!(self.read_template_id(data));
         }
 
-        try!(ops::structure_post_init(w, no_hooks(), sid));
+        {
+            let (w,h) = w.wh_mut();
+            try!(ops::structure_post_init(w, h, sid));
+        }
 
         try!(self.hooks.post_read_structure(&mut self.r, w, sid));
 
         let child_inventory_count = try!(self.r.read_count());
         for _ in 0..child_inventory_count {
             let iid = try!(self.read_inventory(w));
-            try!(ops::inventory_attach(w, no_hooks(), iid, InventoryAttachment::Structure(sid)));
+            let (w,h) = w.wh_mut();
+            try!(ops::inventory_attach(w, h, iid, InventoryAttachment::Structure(sid)));
         }
 
         Ok(sid)
     }
 
-    fn read_inventory(&mut self, w: &mut World) -> Result<InventoryId> {
+    fn read_inventory(&mut self, w: &mut W) -> Result<InventoryId> {
         use std::collections::hash_map::Entry::*;
         let (iid, stable_id) = try!(self.read_object_header(w));
-        try!(w.inventories.set_stable_id(iid, stable_id));
-        let data = w.data();
+        try!(w.world_mut().inventories.set_stable_id(iid, stable_id));
+        // TODO: this transmute will be unnecessary once WorldMut<'d> works
+        let data = unsafe { mem::transmute::<_, &Data>(w.world().data()) };
 
         {
-            let i = &mut w.inventories[iid];
+            let i = &mut w.world_mut().inventories[iid];
             i.stable_id = stable_id;
 
             let contents_count = try!(self.r.read_count());
@@ -294,11 +311,14 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
         Ok(iid)
     }
 
-    fn read_world(&mut self, w: &mut World) -> Result<()> {
-        w.clients.set_next_id(try!(self.r.read()));
-        w.entities.set_next_id(try!(self.r.read()));
-        w.structures.set_next_id(try!(self.r.read()));
-        w.inventories.set_next_id(try!(self.r.read()));
+    fn read_world(&mut self, w: &mut W) -> Result<()> {
+        {
+            let w = w.world_mut();
+            w.clients.set_next_id(try!(self.r.read()));
+            w.entities.set_next_id(try!(self.r.read()));
+            w.structures.set_next_id(try!(self.r.read()));
+            w.inventories.set_next_id(try!(self.r.read()));
+        }
 
         try!(self.hooks.post_read_world(&mut self.r, w));
 
@@ -326,8 +346,8 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
         Ok(())
     }
 
-    fn load_object<T, F>(&mut self, w: &mut World, f: F) -> Result<T>
-            where F: FnOnce(&mut ObjectReader<R, H>, &mut World) -> Result<T> {
+    fn load_object<T, F>(&mut self, w: &mut W, f: F) -> Result<T>
+            where F: FnOnce(&mut ObjectReader<R, W, H>, &mut W) -> Result<T> {
         try!(self.read_file_header());
         let result = f(self, w);
         let result = result.and_then(|x| { try!(self.check_objs()); Ok(x) });
@@ -339,15 +359,15 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
         result
     }
 
-    pub fn load_client(&mut self, w: &mut World) -> Result<ClientId> {
+    pub fn load_client(&mut self, w: &mut W) -> Result<ClientId> {
         self.load_object(w, |sr, w| sr.read_client(w))
     }
 
-    pub fn load_terrain_chunk(&mut self, w: &mut World) -> Result<V2> {
+    pub fn load_terrain_chunk(&mut self, w: &mut W) -> Result<V2> {
         self.load_object(w, |sr, w| sr.read_terrain_chunk(w))
     }
 
-    pub fn load_world(&mut self, w: &mut World) -> Result<()> {
+    pub fn load_world(&mut self, w: &mut W) -> Result<()> {
         let result =  self.load_object(w, |sr, w| sr.read_world(w));
         if result.is_err() {
             unwrap_warn(self.hooks.cleanup_world(w));
@@ -362,29 +382,32 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
         }
     }
 
-    fn cleanup(&mut self, w: &mut World) {
+    fn cleanup(&mut self, w: &mut W) {
         for &aid in self.r.created_objs().iter() {
             match aid {
                 AnyId::Client(cid) => {
                     unwrap_warn(self.hooks.cleanup_client(w, cid));
-                    w.clients.remove(cid);
+                    w.world_mut().clients.remove(cid);
                 },
                 AnyId::TerrainChunk(pos) => {
                     unwrap_warn(self.hooks.cleanup_terrain_chunk(w, pos));
-                    w.terrain_chunks.remove(&pos);
+                    w.world_mut().terrain_chunks.remove(&pos);
                 },
                 AnyId::Entity(eid) => {
                     unwrap_warn(self.hooks.cleanup_entity(w, eid));
-                    w.entities.remove(eid);
+                    w.world_mut().entities.remove(eid);
                 },
                 AnyId::Structure(sid) => {
                     unwrap_warn(self.hooks.cleanup_structure(w, sid));
-                    unwrap_warn(ops::structure_pre_fini(w, no_hooks(), sid));
-                    w.structures.remove(sid);
+                    {
+                        let (w,h) = w.wh_mut();
+                        unwrap_warn(ops::structure_pre_fini(w, h, sid));
+                    }
+                    w.world_mut().structures.remove(sid);
                 },
                 AnyId::Inventory(iid) => {
                     unwrap_warn(self.hooks.cleanup_inventory(w, iid));
-                    w.inventories.remove(iid);
+                    w.world_mut().inventories.remove(iid);
                 },
             }
         }
@@ -402,4 +425,4 @@ fn unwrap_warn<T, E: error::Error>(r: result::Result<T, E>) {
 
 pub struct NoReadHooks;
 
-impl ReadHooks for NoReadHooks { }
+impl<W: WorldMut> ReadHooks<W> for NoReadHooks { }
