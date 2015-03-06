@@ -45,6 +45,7 @@ pub fn client_create<H>(w: &mut World,
     };
 
     let cid = unwrap!(w.clients.insert(c));
+    w.record(Update::ClientCreated(cid));
     h.on_client_create(w, cid);
     Ok(cid)
 }
@@ -62,6 +63,7 @@ pub fn client_create_unchecked<H>(w: &mut World,
         child_entities: HashSet::new(),
         child_inventories: HashSet::new(),
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
+    w.record(Update::ClientCreated(cid));
     h.on_client_create(w, cid);
     cid
 }
@@ -82,6 +84,7 @@ pub fn client_destroy<H>(w: &mut World,
         inventory_destroy(w, h, iid).unwrap();
     }
 
+    w.record(Update::ClientDestroyed(cid));
     h.on_client_destroy(w, cid);
     Ok(())
 }
@@ -115,6 +118,7 @@ pub fn client_clear_pawn<H>(w: &mut World,
         old_eid = replace(&mut c.pawn, None);
     }
 
+    w.record(Update::ClientPawnChange(cid));
     h.on_client_change_pawn(w, cid, old_eid, None);
     Ok(old_eid)
 }
@@ -137,6 +141,7 @@ pub fn terrain_chunk_create<H>(w: &mut World,
 
     w.terrain_chunks.insert(pos, tc);
     w.record(Update::TerrainChunkCreated(pos));
+    h.on_terrain_chunk_create(w, pos);
     Ok(())
 }
 
@@ -151,6 +156,7 @@ pub fn terrain_chunk_destroy<H>(w: &mut World,
     }
 
     w.record(Update::TerrainChunkDestroyed(pos));
+    h.on_terrain_chunk_destroy(w, pos);
     Ok(())
 }
 
@@ -175,6 +181,7 @@ pub fn entity_create<H>(w: &mut World,
 
     let eid = unwrap!(w.entities.insert(e));
     w.record(Update::EntityCreated(eid));
+    h.on_entity_create(w, eid);
     Ok(eid)
 }
 
@@ -193,6 +200,7 @@ pub fn entity_create_unchecked<H>(w: &mut World,
         child_inventories: HashSet::new(),
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
     w.record(Update::EntityCreated(eid));
+    h.on_entity_create(w, eid);
     eid
 }
 
@@ -226,6 +234,7 @@ pub fn entity_destroy<H>(w: &mut World,
     }
 
     w.record(Update::EntityDestroyed(eid));
+    h.on_entity_destroy(w, eid);
     Ok(())
 }
 
@@ -299,8 +308,9 @@ pub fn structure_create<H>(w: &mut World,
 
     let sid = unwrap!(w.structures.insert(s));
     structure_add_to_lookup(&mut w.structures_by_chunk, sid, bounds);
-    invalidate_region(w, bounds);
+    invalidate_region(w, h, bounds);
     w.record(Update::StructureCreated(sid));
+    h.on_structure_create(w, sid);
     Ok(sid)
 }
 
@@ -316,6 +326,7 @@ pub fn structure_create_unchecked<H>(w: &mut World,
         child_inventories: HashSet::new(),
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
     w.record(Update::StructureCreated(sid));
+    h.on_structure_create(w, sid);
     sid
 }
 
@@ -331,7 +342,7 @@ pub fn structure_post_init<H>(w: &mut World,
     };
 
     structure_add_to_lookup(&mut w.structures_by_chunk, sid, bounds);
-    invalidate_region(w, bounds);
+    invalidate_region(w, h, bounds);
     Ok(())
 }
 
@@ -347,7 +358,7 @@ pub fn structure_pre_fini<H>(w: &mut World,
     };
 
     structure_remove_from_lookup(&mut w.structures_by_chunk, sid, bounds);
-    invalidate_region(w, bounds);
+    invalidate_region(w, h, bounds);
     Ok(())
 }
 
@@ -361,7 +372,7 @@ pub fn structure_destroy<H>(w: &mut World,
     let t = w.data.object_templates.template(s.template);
     let bounds = Region::new(s.pos, s.pos + t.size);
     structure_remove_from_lookup(&mut w.structures_by_chunk, sid, bounds);
-    invalidate_region(w, bounds);
+    invalidate_region(w, h, bounds);
 
     match s.attachment {
         World => {},
@@ -378,6 +389,7 @@ pub fn structure_destroy<H>(w: &mut World,
     }
 
     w.record(Update::StructureDestroyed(sid));
+    h.on_structure_destroy(w, sid);
     Ok(())
 }
 
@@ -450,8 +462,8 @@ pub fn structure_move<H>(w: &mut World,
             s.pos = new_pos;
         }
         structure_add_to_lookup(&mut w.structures_by_chunk, sid, new_bounds);
-        invalidate_region(w, old_bounds);
-        invalidate_region(w, new_bounds);
+        invalidate_region(w, h, old_bounds);
+        invalidate_region(w, h, new_bounds);
         Ok(())
     } else {
         structure_add_to_lookup(&mut w.structures_by_chunk, sid, old_bounds);
@@ -478,8 +490,8 @@ pub fn structure_replace<H>(w: &mut World,
     if structure_check_placement(w, new_bounds) {
         w.structures[sid].template = new_tid;
         structure_add_to_lookup(&mut w.structures_by_chunk, sid, new_bounds);
-        invalidate_region(w, old_bounds);
-        invalidate_region(w, new_bounds);
+        invalidate_region(w, h, old_bounds);
+        invalidate_region(w, h, new_bounds);
         Ok(())
     } else {
         structure_add_to_lookup(&mut w.structures_by_chunk, sid, old_bounds);
@@ -534,11 +546,14 @@ fn structure_remove_from_lookup(lookup: &mut HashMap<V2, HashSet<StructureId>>,
     }
 }
 
-fn invalidate_region(w: &mut World,
-                     bounds: Region) {
+fn invalidate_region<H>(w: &mut World,
+                        h: &mut H,
+                        bounds: Region)
+        where H: Hooks {
     let chunk_bounds = bounds.reduce().div_round_signed(CHUNK_SIZE);
     for chunk_pos in chunk_bounds.points() {
         w.record(Update::ChunkInvalidate(chunk_pos));
+        h.on_chunk_invalidate(w, chunk_pos);
     }
 }
 
@@ -559,6 +574,7 @@ pub fn inventory_create_unchecked<H>(w: &mut World,
         attachment: InventoryAttachment::World,
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
     w.record(Update::InventoryCreated(iid));
+    h.on_inventory_create(w, iid);
     iid
 }
 
@@ -589,6 +605,7 @@ pub fn inventory_destroy<H>(w: &mut World,
     }
 
     w.record(Update::InventoryDestroyed(iid));
+    h.on_inventory_destroy(w, iid);
     Ok(())
 }
 
@@ -674,6 +691,7 @@ pub fn inventory_update<H>(w: &mut World,
     };
 
     w.record(Update::InventoryUpdate(iid, item_id, old_value, new_value));
+    h.on_inventory_update(w, iid, item_id, old_value, new_value);
 
     Ok(new_value)
 }

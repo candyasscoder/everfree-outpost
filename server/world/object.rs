@@ -307,7 +307,9 @@ pub trait EntityRefMut<'d, H: Hooks>: ObjectRefMutBase<'d, Entity, H> {
         let eid = self.id();
         // TODO: update entity-by-chunk cache
         self.obj_mut().motion = motion;
-        self.world_mut().record(Update::EntityMotionChange(eid));
+        let (w,h) = self.wh_mut();
+        w.record(Update::EntityMotionChange(eid));
+        h.on_entity_motion_change(w, eid);
     }
 
     fn set_attachment(&mut self, attach: EntityAttachment) -> OpResult<EntityAttachment> {
