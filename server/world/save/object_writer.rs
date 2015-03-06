@@ -1,11 +1,11 @@
 use std::collections::HashSet;
-use std::io;
+use std::old_io;
 use std::mem;
-use std::num::ToPrimitive;
-use std::raw;
+use std::slice;
 
 use data::Data;
 use types::*;
+use util::Convert;
 use util::IntrusiveStableId;
 use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
 use world::object::*;
@@ -16,7 +16,7 @@ use super::writer::{Writer, WriterWrapper};
 use super::CURRENT_VERSION;
 
 
-pub struct ObjectWriter<W: io::Writer, H: WriteHooks> {
+pub struct ObjectWriter<W: old_io::Writer, H: WriteHooks> {
     w: WriterWrapper<W>,
     hooks: H,
     objects_written: HashSet<AnyId>,
@@ -46,7 +46,7 @@ pub trait WriteHooks {
                                        i: &ObjectRef<Inventory>) -> Result<()> { Ok(()) }
 }
 
-impl<W: io::Writer, H: WriteHooks> ObjectWriter<W, H> {
+impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
     pub fn new(writer: W, hooks: H) -> ObjectWriter<W, H> {
         ObjectWriter {
             w: WriterWrapper::new(writer),
@@ -123,10 +123,7 @@ impl<W: io::Writer, H: WriteHooks> ObjectWriter<W, H> {
         let len = t.blocks.len();
         let byte_len = len * mem::size_of::<BlockId>();
         let byte_array = unsafe {
-            mem::transmute(raw::Slice {
-                data: t.blocks.as_ptr() as *const u8,
-                len: byte_len,
-            })
+            slice::from_raw_parts(t.blocks.as_ptr() as *const u8, byte_len)
         };
         try!(self.w.write_bytes(byte_array));
 

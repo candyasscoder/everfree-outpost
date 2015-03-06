@@ -4,7 +4,7 @@
 #![allow(non_camel_case_types)]
 
 use std::ffi::CString;
-use std::marker::{ContravariantLifetime, NoCopy};
+use std::marker::{PhantomData, NoCopy};
 use std::mem;
 use std::ptr;
 use std::slice;
@@ -132,7 +132,7 @@ fn lua_alloc(_userdata: *mut c_void,
 }
 
 
-#[derive(Copy, PartialEq, Eq, Show)]
+#[derive(Copy, PartialEq, Eq, Debug)]
 pub enum ErrorType {
     Yield = 1,
     ErrRun = 2,
@@ -172,7 +172,7 @@ fn make_result<'a>(lua: &'a mut LuaState, code: c_int) -> LuaResult<'a, ()> {
 }
 
 
-#[derive(Copy, PartialEq, Eq, Show)]
+#[derive(Copy, PartialEq, Eq, Debug)]
 pub enum ValueType {
     Nil = 0,
     Boolean = 1,
@@ -215,8 +215,8 @@ pub type lua_RustFunction = fn(LuaState) -> c_int;
 
 pub struct LuaState<'a> {
     L: *mut lua_State,
-    _marker1: ContravariantLifetime<'a>,
-    _marker2: NoCopy,
+    _marker0: PhantomData<&'a mut OwnedLuaState>,
+    _marker1: NoCopy,
 }
 
 unsafe fn _static_assertions() {
@@ -227,8 +227,8 @@ impl<'a> LuaState<'a> {
     pub unsafe fn new(L: *mut lua_State) -> LuaState<'a> {
         LuaState {
             L: L,
-            _marker1: ContravariantLifetime,
-            _marker2: NoCopy,
+            _marker0: PhantomData,
+            _marker1: NoCopy,
         }
     }
 
@@ -331,8 +331,7 @@ impl<'a> LuaState<'a> {
         if ptr.is_null() {
             None
         } else {
-            let ptr_ptr: & *const u8 = unsafe { mem::transmute(&ptr) };
-            let vec = unsafe { slice::from_raw_buf(ptr_ptr, len as usize) };
+            let vec = unsafe { slice::from_raw_parts(ptr as *const u8, len as usize) };
             Some(vec)
         }
     }
@@ -471,10 +470,12 @@ impl<'a> LuaState<'a> {
     }
 
     pub fn load_file(&mut self, path: &Path) -> LuaResult<()> {
-        // NB: from_slice will panic if the path contains null characters, but that's impossible
-        // because Path checks for \0 and rejects the string if found.
-        let s = CString::from_slice(path.as_vec());
-        let code = unsafe { ffi::luaL_loadfile(self.L, s.as_slice_with_nul().as_ptr()) };
+        // This would panic if the path contained null characters, but that's impossible because
+        // Path checks for \0 and rejects the string if found.
+        let s = CString::new(path.as_vec()).unwrap();
+        let code = unsafe {
+            ffi::luaL_loadfile(self.L, s.as_bytes_with_nul().as_ptr() as *const i8)
+        };
         make_result(self, code)
     }
 
@@ -489,7 +490,7 @@ impl<'a> LuaState<'a> {
 
     pub fn dump_stack(&mut self, msg: &str) {
         info!("lua stack dump - {}", msg);
-        for i in range(1, self.top_index() + 1) {
+        for i in 1 .. self.top_index() + 1 {
             let ty_code = unsafe { ffi::lua_type(self.L, i) };
             let ty = ValueType::from_code(ty_code);
 

@@ -1,31 +1,42 @@
 #![crate_name = "backend"]
 #![feature(unboxed_closures)]
 #![feature(unsafe_destructor)]
+#![feature(unsafe_no_drop_flag)]
 #![allow(non_upper_case_globals)]
-#![allow(unstable)]
 #![allow(dead_code)]
+
+#![feature(old_path)]
+#![feature(old_io)]
+#![feature(libc)]
+#![feature(path)]
+#![feature(core)]
+#![feature(collections)]
+#![feature(hash)]
+#![feature(std_misc)]
 
 #[macro_use] extern crate bitflags;
 extern crate core;
 extern crate libc;
 #[macro_use] extern crate log;
-extern crate serialize;
+extern crate rand;
+extern crate "rustc-serialize" as rustc_serialize;
 extern crate time;
 
 extern crate collect;
 extern crate rusqlite;
+extern crate "libsqlite3-sys" as rusqlite_ffi;
 
 extern crate physics;
 
+use std::borrow::ToOwned;
 use std::cmp;
 use std::collections::{HashMap, HashSet};
-use std::error::Error;
-use std::io;
-use std::os;
+use std::env;
+use std::old_io::{self, File};
 use std::sync::mpsc::{Sender, Receiver, channel};
-use std::thread::Thread;
+use std::thread;
 use std::u8;
-use serialize::json;
+use rustc_serialize::json;
 
 use physics::v3::{Vn, V3, V2, scalar, Region};
 use physics::{CHUNK_SIZE, TILE_SIZE};
@@ -35,7 +46,6 @@ use msg::Motion as WireMotion;
 use msg::{Request, Response};
 use input::{InputBits, ActionId};
 use state::LOCAL_SIZE;
-use state::StateChange::ChunkUpdate;
 use data::Data;
 use world::object::{ObjectRef, ObjectRefBase, ClientRef, InventoryRefMut};
 use storage::Storage;
@@ -68,32 +78,31 @@ mod storage;
 mod auth;
 
 
-fn read_json(path: &str) -> json::Json {
-    use std::io::fs::File;
-    let mut file = File::open(&Path::new(path)).unwrap();
-    let json = json::from_reader(&mut file).unwrap();
-    json
+fn read_json(mut file: File) -> json::Json {
+    let content = file.read_to_string().unwrap();
+    json::Json::from_str(&*content).unwrap()
 }
 
 fn main() {
-    let storage = Storage::new(Path::new(&os::args()[1]));
+    let args = env::args().collect::<Vec<_>>();
+    let storage = Storage::new(Path::new(&args[1]));
 
-    let block_json = json::from_reader(&mut storage.open_block_data()).unwrap();
-    let item_json = json::from_reader(&mut storage.open_item_data()).unwrap();
-    let recipe_json = json::from_reader(&mut storage.open_recipe_data()).unwrap();
-    let template_json = json::from_reader(&mut storage.open_template_data()).unwrap();
+    let block_json = read_json(storage.open_block_data());
+    let item_json = read_json(storage.open_item_data());
+    let recipe_json = read_json(storage.open_recipe_data());
+    let template_json = read_json(storage.open_template_data());
     let data = Data::from_json(block_json, item_json, recipe_json, template_json).unwrap();
 
     let (req_send, req_recv) = channel();
     let (resp_send, resp_recv) = channel();
 
-    Thread::spawn(move || {
-        let reader = io::stdin();
+    thread::spawn(move || {
+        let reader = old_io::stdin();
         tasks::run_input(reader, req_send).unwrap();
     });
 
-    Thread::spawn(move || {
-        let writer = io::BufferedWriter::new(io::stdout());
+    thread::spawn(move || {
+        let writer = old_io::BufferedWriter::new(old_io::stdout());
         tasks::run_output(writer, resp_recv).unwrap();
     });
 
@@ -272,7 +281,7 @@ impl<'a> Server<'a> {
 
                 if let Err(msg) = name_valid(&*name) {
                     self.send_wire(wire_id,
-                                   Response::RegisterResult(1, String::from_str(msg)));
+                                   Response::RegisterResult(1, msg.to_owned()));
                     return Ok(());
                 }
 
@@ -293,7 +302,7 @@ impl<'a> Server<'a> {
                 state::State::process_journal(Cursor::new(self, |s| &mut s.state), |_, _| { });
 
 
-                self.send_wire(wire_id, Response::RegisterResult(code, String::from_str(msg)));
+                self.send_wire(wire_id, Response::RegisterResult(code, msg.to_owned()));
             },
 
             Request::Login(name, secret) => {
@@ -549,7 +558,7 @@ impl<'a> Server<'a> {
                     }
                 },
 
-                world::Update::ClientShowInventory(cid, iid) => {
+                world::Update::ClientDebugInventory(cid, iid) => {
                     // TODO: check cid, iid are valid.
                     let wire_id = s.client_info[cid].wire_id;
                     s.send_wire(wire_id, Response::OpenDialog(0, vec![iid.unwrap()]));
@@ -621,7 +630,7 @@ impl<'a> Server<'a> {
     }
 
     fn kick_wire(&mut self, now: Time, wire_id: WireId, msg: &str) {
-        self.resps.send((wire_id, Response::KickReason(String::from_str(msg)))).unwrap();
+        self.resps.send((wire_id, Response::KickReason(msg.to_owned()))).unwrap();
         self.handle_control_req(now, Request::RemoveClient(wire_id));
     }
 
@@ -767,7 +776,7 @@ impl<'a, 'd> VisionCallbacks for MessageCallbacks<'a, 'd> {
         // TODO: hack.  Should have an "entity name" stored somewhere.
         let name =
             if let world::EntityAttachment::Client(controller_cid) = entity.attachment() {
-                String::from_str(self.state.world().client(controller_cid).name())
+                self.state.world().client(controller_cid).name().to_owned()
             } else {
                 String::new()
             };

@@ -2,9 +2,9 @@
 #![crate_type = "lib"]
 #![no_std]
 
+#![feature(no_std)]
+#![feature(core)]
 #![feature(lang_items)]
-
-#![allow(unstable)] // much of libcore is unstable as of Rust 1.0
 
 #[macro_use] extern crate core;
 
@@ -55,7 +55,7 @@ extern {
 
 struct AsmJsFormatWriter;
 
-impl fmt::Writer for AsmJsFormatWriter {
+impl fmt::Write for AsmJsFormatWriter {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         unsafe { write_str(s.as_ptr(), s.len() as i32) };
         Ok(())

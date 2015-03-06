@@ -1,3 +1,4 @@
+use std::borrow::ToOwned;
 use std::collections::{HashMap, HashSet};
 use std::mem::replace;
 
@@ -31,7 +32,7 @@ pub fn client_create(w: &mut World,
                      name: &str,
                      chunk_offset: (u8, u8)) -> OpResult<ClientId> {
     let c = Client {
-        name: String::from_str(name),
+        name: name.to_owned(),
         pawn: None,
         current_input: InputBits::empty(),
         chunk_offset: chunk_offset,

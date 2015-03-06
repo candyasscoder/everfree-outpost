@@ -1,8 +1,7 @@
 use std::cell::RefCell;
 use std::iter::repeat;
-use std::rand::{Rng, XorShiftRng, SeedableRng};
-
 use collect::lru_cache::LruCache;
+use rand::{Rng, XorShiftRng, SeedableRng};
 
 use data::BlockData;
 use physics::v3::{Vn, V3, V2, Region, Region2, scalar};
@@ -22,7 +21,7 @@ fn disk_sample<T, Place, Choose, R>(mut place: Place,
                                     rng: &mut R,
                                     init: &[T],
                                     tries: usize)
-        where T: Copy + ::std::fmt::Show,
+        where T: Copy + ::std::fmt::Debug,
               Place: FnMut(T) -> bool,
               Choose: FnMut(T) -> T,
               R: Rng {
@@ -39,7 +38,7 @@ fn disk_sample<T, Place, Choose, R>(mut place: Place,
         let idx = rng.gen_range(0, queue.len());
         let x0 = queue.swap_remove(idx);
 
-        for _ in range(0, tries) {
+        for _ in 0..tries {
             let x = choose(x0);
             if place(x) {
                 queue.push(x);
@@ -61,7 +60,7 @@ fn disk_sample2<R, GS>(rng: &mut R,
         where R: Rng,
               GS: Fn(V2) -> i32 {
     let mut rng = rng;
-    let get_spacing = |&: pos| { (*get_spacing)(pos) };
+    let get_spacing = |pos| { (*get_spacing)(pos) };
 
     // Choose cell size such that a circle of radius `min_spacing` centered anywhere in the cell
     // must always cover the entire cell.
@@ -83,7 +82,7 @@ fn disk_sample2<R, GS>(rng: &mut R,
     }
 
     {
-        let place = |&mut: pos: V2| {
+        let place = |pos: V2| {
             if !bounds.contains(pos) {
                 return false;
             }
@@ -118,7 +117,7 @@ fn disk_sample2<R, GS>(rng: &mut R,
         };
 
         let mut choose_rng = rng.gen::<XorShiftRng>();
-        let choose = |&mut: pos: V2| {
+        let choose = |pos: V2| {
             let min_space = get_spacing(pos);
             let max_space = min_space * 2;
 
@@ -134,14 +133,14 @@ fn disk_sample2<R, GS>(rng: &mut R,
 
         let mut init_rng = rng.gen::<XorShiftRng>();
         let mut init = Vec::with_capacity(5);
-        for _ in range(0u32, 5) {
+        for _ in 0..5 {
             let x = init_rng.gen_range(bounds.min.x, bounds.max.x);
             let y = init_rng.gen_range(bounds.min.y, bounds.max.y);
             init.push(V2::new(x, y));
         }
 
         let mut sample_rng = rng.gen::<XorShiftRng>();
-        disk_sample(place, choose, &mut sample_rng, init.as_slice(), 30);
+        disk_sample(place, choose, &mut sample_rng, &*init, 30);
     }
 
     points
@@ -189,7 +188,7 @@ impl<GS: Fn(V2) -> i32> IsoDiskSampler<GS> {
         if cache.get(&key).is_none() {
             self.generate_chunk(cache, x, y, section);
         }
-        cache.get(&key).unwrap().as_slice()
+        &*cache.get(&key).unwrap()
     }
 
     fn generate_chunk(&self,
@@ -238,7 +237,7 @@ impl<GS: Fn(V2) -> i32> IsoDiskSampler<GS> {
                                 self.min_spacing,
                                 self.max_spacing,
                                 &self.get_spacing,
-                                initial.as_slice());
+                                &*initial);
         cache.insert((x, y, section), data);
     }
 }
@@ -283,7 +282,7 @@ impl<GS: Fn(V2) -> i32> PointSource for IsoDiskSampler<GS> {
 // horizontal edges connected to those corners.  Finally, centers depend on the four adjacent edges
 // and four adjacent corners.
 
-#[derive(Copy, PartialEq, Eq, Hash, Show)]
+#[derive(Copy, PartialEq, Eq, Hash, Debug)]
 enum Section {
     Corner,
     Top,
@@ -321,7 +320,7 @@ impl TerrainGenerator {
     pub fn new(seed: u64) -> TerrainGenerator {
         TerrainGenerator {
             seed: seed,
-            sampler: Box::new(IsoDiskSampler::new(seed, 4, 4, 32, |&: _| 4)) as Box<PointSource>,
+            sampler: Box::new(IsoDiskSampler::new(seed, 4, 4, 32, |_| 4)) as Box<PointSource>,
         }
     }
 
@@ -341,7 +340,7 @@ impl TerrainGenerator {
                    block_data.get_id("grass/center/v1"),
                    block_data.get_id("grass/center/v2"),
                    block_data.get_id("grass/center/v3")];
-        for i in range(0, 1 << (2 * CHUNK_BITS)) {
+        for i in 0 .. 1 << (2 * CHUNK_BITS) {
             chunk[i] = *rng.choose(ids.as_slice()).unwrap();
         }
 

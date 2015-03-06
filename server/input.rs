@@ -11,7 +11,7 @@ bitflags! {
 }
 
 
-#[derive(Copy, PartialEq, Eq, Show)]
+#[derive(Copy, PartialEq, Eq, Debug)]
 pub struct ActionId(pub u16);
 
 macro_rules! action_ids {

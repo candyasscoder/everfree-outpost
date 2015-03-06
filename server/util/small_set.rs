@@ -1,9 +1,8 @@
-use std::collections::hash_map::Hasher;
 use std::collections::hash_set::{self, HashSet};
 use std::hash::Hash;
+use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
-use std::raw;
 use std::slice;
 
 
@@ -12,16 +11,17 @@ const SMALL_SET_WORDS: usize = 5;
 type Storage = [u64; SMALL_SET_WORDS];
 
 #[unsafe_no_drop_flag]
-pub struct SmallSet<T: Eq+Hash<Hasher>> {
+pub struct SmallSet<T: Eq+Hash> {
     len: usize,
     data: [u64; SMALL_SET_WORDS],
+    _marker0: PhantomData<T>,
 }
 
 fn small_limit<T>() -> usize {
     SMALL_SET_WORDS * mem::size_of::<u64>() / mem::size_of::<T>()
 }
 
-impl<T: Eq+Hash<Hasher>> SmallSet<T> {
+impl<T: Eq+Hash> SmallSet<T> {
     pub fn new() -> SmallSet<T> {
         let result: SmallSet<T> = unsafe { mem::zeroed() };
         assert!(mem::size_of_val(&result.data) >= mem::size_of::<HashSet<T>>());
@@ -99,7 +99,7 @@ impl<T: Eq+Hash<Hasher>> SmallSet<T> {
 
         let mut large = HashSet::with_capacity(self.len + 1);
         large.insert(val);
-        for i in range(0, self.len) {
+        for i in 0..self.len {
             large.insert(ptr::read(base.offset(i as isize)));
         }
 
@@ -112,7 +112,7 @@ impl<T: Eq+Hash<Hasher>> SmallSet<T> {
         let base = self.base_ptr() as *mut T;
         // self.len > 0 because 'val' is in the set.
         let last = base.offset(self.len as isize - 1);
-        for i in range(0, self.len) {
+        for i in 0..self.len {
             let ptr = base.offset(i as isize);
             if *val == *ptr {
                 mem::swap(&mut *ptr, &mut *last);
@@ -126,7 +126,7 @@ impl<T: Eq+Hash<Hasher>> SmallSet<T> {
 
     unsafe fn contains_small(&self, val: &T) -> bool {
         let base = self.base_ptr();
-        for i in range(0, self.len) {
+        for i in 0..self.len {
             let ptr = base.offset(i as isize);
             if *val == *ptr {
                 return true;
@@ -156,10 +156,7 @@ impl<T: Eq+Hash<Hasher>> SmallSet<T> {
     pub fn iter(&self) -> Iter<T> {
         if self.is_small() {
             let slice: &[T] = unsafe {
-                mem::transmute(raw::Slice {
-                    data: self.base_ptr() as *const T,
-                    len: self.len,
-                })
+                slice::from_raw_parts(self.base_ptr() as *const T, self.len)
             };
             Iter::Small(slice.iter())
         } else {
@@ -169,11 +166,11 @@ impl<T: Eq+Hash<Hasher>> SmallSet<T> {
 }
 
 #[unsafe_destructor]
-impl<T: Eq+Hash<Hasher>> Drop for SmallSet<T> {
+impl<T: Eq+Hash> Drop for SmallSet<T> {
     fn drop(&mut self) {
         if self.is_small() {
             let base = self.base_ptr();
-            for i in range(0, self.len) {
+            for i in 0..self.len {
                 unsafe { ptr::read(base.offset(i as isize)) };
             }
         } else {

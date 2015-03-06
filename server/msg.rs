@@ -1,4 +1,4 @@
-use std::io::IoResult;
+use std::old_io::IoResult;
 
 use wire;
 use wire::{WireReader, WireWriter};
@@ -8,7 +8,7 @@ pub use self::Request::*;
 pub use self::Response::*;
 
 
-#[derive(Copy, PartialEq, Eq, Show)]
+#[derive(Copy, PartialEq, Eq, Debug)]
 struct Opcode(u16);
 
 impl Opcode {
@@ -83,7 +83,7 @@ pub mod op {
 
 
 #[allow(dead_code)]
-#[derive(Show)]
+#[derive(Debug)]
 pub enum Request {
     // Ordinary requests
     GetTerrain,
@@ -199,7 +199,7 @@ impl Response {
     pub fn write_to<W: Writer>(&self, id: WireId, ww: &mut WireWriter<W>) -> IoResult<()> {
         try!(match *self {
             TerrainChunk(idx, ref data) =>
-                ww.write_msg(id, (op::TerrainChunk, idx, data.as_slice())),
+                ww.write_msg(id, (op::TerrainChunk, idx, data)),
             PlayerMotion(entity, ref motion) =>
                 ww.write_msg(id, (op::PlayerMotion, entity, motion)),
             Pong(data, time) =>
@@ -213,9 +213,9 @@ impl Response {
             UnloadChunk(idx) =>
                 ww.write_msg(id, (op::UnloadChunk, idx)),
             OpenDialog(dialog_id, ref params) =>
-                ww.write_msg(id, (op::OpenDialog, dialog_id, params.as_slice())),
+                ww.write_msg(id, (op::OpenDialog, dialog_id, params)),
             InventoryUpdate(inventory_id, ref changes) =>
-                ww.write_msg(id, (op::InventoryUpdate, inventory_id, changes.as_slice())),
+                ww.write_msg(id, (op::InventoryUpdate, inventory_id, changes)),
             OpenCrafting(station_type, station_id, inventory_id) =>
                 ww.write_msg(id, (op::OpenCrafting, station_type, station_id, inventory_id)),
             ChatUpdate(ref msg) =>
@@ -251,7 +251,7 @@ impl InitData {
 }
 
 
-#[derive(Show, Clone)]
+#[derive(Debug, Clone)]
 pub struct Motion {
     pub start_pos: (u16, u16, u16),
     pub start_time: LocalTime,

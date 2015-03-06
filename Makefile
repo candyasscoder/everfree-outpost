@@ -81,10 +81,13 @@ endif
 # emscripten-fastcomp doesn't like.
 RUSTFLAGS_asmjs = -L $(BUILD_ASMJS) -L $(BUILD_NATIVE) \
 		-C opt-level=3 --target=$(TARGET) \
-		-Z no-landing-pads -C no-stack-check --cfg asmjs
+		-Z no-landing-pads -C no-stack-check --cfg asmjs \
+		-C no-vectorize-loops -C no-vectorize-slp
 
 ifneq ($(RUST_EXTRA_LIBDIR),)
-	RUSTFLAGS_extra_libdir = -L $(RUST_EXTRA_LIBDIR)
+	RUSTFLAGS_extra_libdir = -L $(RUST_EXTRA_LIBDIR) \
+							 --extern log=$(RUST_EXTRA_LIBDIR)/liblog.rlib \
+							 --extern rand=$(RUST_EXTRA_LIBDIR)/librand.rlib
 endif
 
 RUSTFLAGS_native = -L $(BUILD_NATIVE) $(RUSTFLAGS_extra_libdir) \
@@ -117,9 +120,13 @@ $(ASMLIBS).ll: $(SRC)/client/asmlibs.rs $(foreach dep,$(DEPS_asmlibs),$(BUILD_AS
 	$(RUSTC) $< -o $@ --emit=llvm-ir --crate-type=staticlib $(RUSTFLAGS_asmjs) -C lto
 
 $(ASMLIBS).clean.ll: $(ASMLIBS).ll
-	sed -e 's/\<\(readonly\|readnone\|cold\)\>//g' \
+	sed -e '' \
 		-e 's/\<dereferenceable([0-9]*)//g' \
+		-e '/^!/s/\(.\)!/\1metadata !/g' \
+		-e '/^!/s/distinct //g' \
 		$< >$@
+		#-e 's/\<\(readonly\|readnone\|cold\)\>//g' \
+		#x
 
 $(ASMLIBS).bc: $(ASMLIBS).clean.ll
 	$(EM_FASTCOMP)/bin/llvm-as $< -o $@
@@ -127,10 +134,12 @@ $(ASMLIBS).bc: $(ASMLIBS).clean.ll
 ASMLIBS_APIS = $(shell tr '\n' ',' <$(SRC)/client/asmlibs_exports.txt)
 $(ASMLIBS).opt.bc: $(ASMLIBS).bc $(SRC)/client/asmlibs_exports.txt
 	$(EM_FASTCOMP)/bin/opt $< \
-		-load=$(EM_PLUGINS)/BreakStructArguments.so \
+		-load=$(EM_PLUGINS)/RemoveOverflowChecks.so \
+		-load=$(EM_PLUGINS)/RemoveAssume.so \
 		-strip-debug \
 		-internalize -internalize-public-api-list=$(ASMLIBS_APIS) \
-		-break-struct-arguments \
+		-remove-overflow-checks \
+		-remove-assume \
 		-globaldce \
 		-pnacl-abi-simplify-preopt -pnacl-abi-simplify-postopt \
 		-enable-emscripten-cxx-exceptions \
@@ -190,6 +199,7 @@ $(BUILD_NATIVE)/backend: $(SRC)/server/main.rs \
 		$(foreach dep,$(DEPS_backend),$(BUILD_NATIVE)/lib$(dep).rlib)
 	$(RUSTC) $< --out-dir $(BUILD_NATIVE) $(RUSTFLAGS_native) $(RUSTFLAGS_extra_libdir) \
 		$(RELEASE_RUSTFLAGS_lto) --emit=link,dep-info
+		
 
 
 # Rules for misc files

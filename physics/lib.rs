@@ -1,8 +1,9 @@
 #![crate_name = "physics"]
 #![no_std]
-#![feature(unboxed_closures)]
 
-#![allow(unstable)] // many parts of libcore are unstable as of Rust 1.0
+#![feature(no_std)]
+#![feature(core)]
+#![feature(static_assert)]
 
 #[macro_use] extern crate core;
 #[cfg(asmjs)] #[macro_use] extern crate asmrt;
@@ -42,7 +43,7 @@ pub const CHUNK_MASK: i32 = CHUNK_SIZE - 1;
 static CHUNK_SIZE_BITS: bool = CHUNK_SIZE == 1 << CHUNK_BITS as usize;
 
 
-#[derive(Copy, Eq, PartialEq, Show, Clone)]
+#[derive(Copy, Eq, PartialEq, Debug, Clone)]
 #[repr(u8)]
 pub enum Shape {
     Empty = 0,
@@ -271,7 +272,7 @@ fn walk_path<S, CB>(chunk: &S, start_pos: V3, _size: V3, velocity: V3,
 
     let mut last_pos = start_pos;
 
-    for _ in range(0us, 500) {
+    for _ in 0..500 {
         accum = accum + mag;
         let mut pos = last_pos;
 
