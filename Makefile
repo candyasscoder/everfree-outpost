@@ -134,11 +134,12 @@ $(ASMLIBS).bc: $(ASMLIBS).clean.ll
 ASMLIBS_APIS = $(shell tr '\n' ',' <$(SRC)/client/asmlibs_exports.txt)
 $(ASMLIBS).opt.bc: $(ASMLIBS).bc $(SRC)/client/asmlibs_exports.txt
 	$(EM_FASTCOMP)/bin/opt $< \
-		-load=$(EM_PLUGINS)/BreakStructArguments.so \
 		-load=$(EM_PLUGINS)/RemoveOverflowChecks.so \
+		-load=$(EM_PLUGINS)/RemoveAssume.so \
 		-strip-debug \
 		-internalize -internalize-public-api-list=$(ASMLIBS_APIS) \
 		-remove-overflow-checks \
+		-remove-assume \
 		-globaldce \
 		-pnacl-abi-simplify-preopt -pnacl-abi-simplify-postopt \
 		-enable-emscripten-cxx-exceptions \
