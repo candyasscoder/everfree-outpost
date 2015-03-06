@@ -10,7 +10,7 @@ use types::*;
 use util::Convert;
 use util::Stable;
 use util::StrError;
-use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
+use world::{World, WorldMut, Client, TerrainChunk, Entity, Structure, Inventory};
 use world::object::*;
 use world::save::{self, Writer, Reader};
 
@@ -369,10 +369,10 @@ impl<'a> ReadHooks<'a> {
     }
 }
 
-impl<'a, 'd> save::ReadHooks<World<'d>> for ReadHooks<'a> {
+impl<'a, W: WorldMut> save::ReadHooks<W> for ReadHooks<'a> {
     fn post_read_world<R: Reader>(&mut self,
                                   reader: &mut R,
-                                  w: &mut World) -> save::Result<()> {
+                                  w: &mut W) -> save::Result<()> {
         try!(read_extra(self.script.owned_lua.get(), reader, w, |lua| {
             lua.get_field(REGISTRY_INDEX, "outpost_callback_set_world_extra");
         }));
@@ -381,7 +381,7 @@ impl<'a, 'd> save::ReadHooks<World<'d>> for ReadHooks<'a> {
 
     fn post_read_client<R: Reader>(&mut self,
                                    reader: &mut R,
-                                   w: &mut World,
+                                   w: &mut W,
                                    cid: ClientId) -> save::Result<()> {
         try!(read_extra(self.script.owned_lua.get(), reader, w, |lua| {
             push_setter_and_id(lua, "outpost_callback_set_client_extra", cid.unwrap())
@@ -391,7 +391,7 @@ impl<'a, 'd> save::ReadHooks<World<'d>> for ReadHooks<'a> {
 
     fn post_read_terrain_chunk<R: Reader>(&mut self,
                                           _reader: &mut R,
-                                          _w: &mut World,
+                                          _w: &mut W,
                                           _pos: V2) -> save::Result<()> {
         // TODO: support terrain_chunk script data
         Ok(())
@@ -399,7 +399,7 @@ impl<'a, 'd> save::ReadHooks<World<'d>> for ReadHooks<'a> {
 
     fn post_read_entity<R: Reader>(&mut self,
                                    reader: &mut R,
-                                   w: &mut World,
+                                   w: &mut W,
                                    eid: EntityId) -> save::Result<()> {
         try!(read_extra(self.script.owned_lua.get(), reader, w, |lua| {
             push_setter_and_id(lua, "outpost_callback_set_entity_extra", eid.unwrap())
@@ -409,7 +409,7 @@ impl<'a, 'd> save::ReadHooks<World<'d>> for ReadHooks<'a> {
 
     fn post_read_structure<R: Reader>(&mut self,
                                       reader: &mut R,
-                                      w: &mut World,
+                                      w: &mut W,
                                       sid: StructureId) -> save::Result<()> {
         try!(read_extra(self.script.owned_lua.get(), reader, w, |lua| {
             push_setter_and_id(lua, "outpost_callback_set_structure_extra", sid.unwrap())
@@ -419,7 +419,7 @@ impl<'a, 'd> save::ReadHooks<World<'d>> for ReadHooks<'a> {
 
     fn post_read_inventory<R: Reader>(&mut self,
                                       reader: &mut R,
-                                      w: &mut World,
+                                      w: &mut W,
                                       iid: InventoryId) -> save::Result<()> {
         try!(read_extra(self.script.owned_lua.get(), reader, w, |lua| {
             push_setter_and_id(lua, "outpost_callback_set_inventory_extra", iid.unwrap())
@@ -427,40 +427,40 @@ impl<'a, 'd> save::ReadHooks<World<'d>> for ReadHooks<'a> {
         Ok(())
     }
 
-    fn cleanup_world(&mut self, _w: &mut World) -> save::Result<()> {
+    fn cleanup_world(&mut self, _w: &mut W) -> save::Result<()> {
         try!(clear_extra(self.script.owned_lua.get(), |lua| {
             lua.get_field(REGISTRY_INDEX, "outpost_callback_set_world_extra");
         }));
         Ok(())
     }
 
-    fn cleanup_client(&mut self, _w: &mut World, cid: ClientId) -> save::Result<()> {
+    fn cleanup_client(&mut self, _w: &mut W, cid: ClientId) -> save::Result<()> {
         try!(clear_extra(self.script.owned_lua.get(), |lua| {
             push_setter_and_id(lua, "outpost_callback_set_client_extra", cid.unwrap())
         }));
         Ok(())
     }
 
-    fn cleanup_terrain_chunk(&mut self, _w: &mut World, _pos: V2) -> save::Result<()> {
+    fn cleanup_terrain_chunk(&mut self, _w: &mut W, _pos: V2) -> save::Result<()> {
         // TODO: support terrain_chunk script data
         Ok(())
     }
 
-    fn cleanup_entity(&mut self, _w: &mut World, eid: EntityId) -> save::Result<()> {
+    fn cleanup_entity(&mut self, _w: &mut W, eid: EntityId) -> save::Result<()> {
         try!(clear_extra(self.script.owned_lua.get(), |lua| {
             push_setter_and_id(lua, "outpost_callback_set_entity_extra", eid.unwrap())
         }));
         Ok(())
     }
 
-    fn cleanup_structure(&mut self, _w: &mut World, sid: StructureId) -> save::Result<()> {
+    fn cleanup_structure(&mut self, _w: &mut W, sid: StructureId) -> save::Result<()> {
         try!(clear_extra(self.script.owned_lua.get(), |lua| {
             push_setter_and_id(lua, "outpost_callback_set_structure_extra", sid.unwrap())
         }));
         Ok(())
     }
 
-    fn cleanup_inventory(&mut self, _w: &mut World, iid: InventoryId) -> save::Result<()> {
+    fn cleanup_inventory(&mut self, _w: &mut W, iid: InventoryId) -> save::Result<()> {
         try!(clear_extra(self.script.owned_lua.get(), |lua| {
             push_setter_and_id(lua, "outpost_callback_set_inventory_extra", iid.unwrap())
         }));
@@ -468,10 +468,10 @@ impl<'a, 'd> save::ReadHooks<World<'d>> for ReadHooks<'a> {
     }
 }
 
-fn read_extra<R: Reader, F>(mut lua: LuaState,
-                            r: &mut R,
-                            world: &mut World,
-                            push_setter: F) -> Result<()>
+fn read_extra<R: Reader, F, W: WorldMut>(mut lua: LuaState,
+                                         r: &mut R,
+                                         world: &mut W,
+                                         push_setter: F) -> Result<()>
         where F: FnOnce(&mut LuaState) {
     let base = lua.top_index();
     push_setter(&mut lua);
@@ -496,7 +496,7 @@ fn push_setter_and_id<T: ToLua>(lua: &mut LuaState, func: &str, id: T) {
     id.to_lua(lua);
 }
 
-fn read_value<R: Reader>(lua: &mut LuaState, r: &mut R, world: &mut World) -> Result<()> {
+fn read_value<R: Reader, W: WorldMut>(lua: &mut LuaState, r: &mut R, world: &mut W) -> Result<()> {
     let (tag, a, b): (u8, u8, u16) = try!(r.read());
     let tag = unwrap!(FromPrimitive::from_u8(tag));
     match tag {
@@ -584,7 +584,9 @@ fn read_value<R: Reader>(lua: &mut LuaState, r: &mut R, world: &mut World) -> Re
     Ok(())
 }
 
-fn read_table<R: Reader>(lua: &mut LuaState, r: &mut R, world: &mut World) -> Result<()> {
+fn read_table<R: Reader, W: WorldMut>(lua: &mut LuaState,
+                                      r: &mut R,
+                                      world: &mut W) -> Result<()> {
     lua.push_table();
     loop {
         try!(read_value(lua, r, world));    // Key
