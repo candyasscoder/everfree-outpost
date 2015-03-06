@@ -70,19 +70,19 @@ pub enum OtherEvent {
 }
 
 
-#[derive(Show)]
+#[derive(Debug)]
 pub enum ControlResponse {
     WireClosed(WireId),
     ReplResult(u16, String),
 }
 
-#[derive(Show)]
+#[derive(Debug)]
 pub enum WireResponse {
     RegisterResult(u32, String),
     KickReason(String),
 }
 
-#[derive(Show)]
+#[derive(Debug)]
 pub enum ClientResponse {
     TerrainChunk(V2, Vec<u16>),
     UnloadChunk(V2),
@@ -100,7 +100,7 @@ pub enum ClientResponse {
     KickReason(String),
 }
 
-#[derive(Show)]
+#[derive(Debug)]
 pub enum Dialog {
     Inventory(InventoryId),
     Container(InventoryId, InventoryId),

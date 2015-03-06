@@ -1,4 +1,4 @@
-use std::io::IoResult;
+use std::old_io::IoResult;
 use std::sync::mpsc::{Sender, Receiver};
 
 use msg::{Request, Response};
@@ -11,7 +11,7 @@ pub fn run_input<R: Reader>(r: R, send: Sender<(WireId, Request)>) -> IoResult<(
         match Request::read_from(&mut wr) {
             Ok((id, req)) => send.send((id, req)).unwrap(),
             Err(e) => {
-                use std::io::IoErrorKind::*;
+                use std::old_io::IoErrorKind::*;
                 warn!("error reading message from wire: {}", e);
                 match e.kind {
                     EndOfFile |

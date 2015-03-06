@@ -32,20 +32,20 @@ mod debug;
 pub mod save;
 
 
-#[derive(Copy, PartialEq, Eq, Show)]
+#[derive(Copy, PartialEq, Eq, Debug)]
 pub enum EntityAttachment {
     World,
     Chunk,
     Client(ClientId),
 }
 
-#[derive(Copy, PartialEq, Eq, Show)]
+#[derive(Copy, PartialEq, Eq, Debug)]
 pub enum StructureAttachment {
     World,
     Chunk,
 }
 
-#[derive(Copy, PartialEq, Eq, Show)]
+#[derive(Copy, PartialEq, Eq, Debug)]
 pub enum InventoryAttachment {
     World,
     Client(ClientId),
@@ -117,7 +117,7 @@ pub struct World<'d> {
     structures_by_chunk: HashMap<V2, HashSet<StructureId>>,
 }
 
-#[derive(Show)]
+#[derive(Debug)]
 pub enum Update {
     ClientCreated(ClientId),
     ClientDestroyed(ClientId),
@@ -135,7 +135,7 @@ pub enum Update {
     EntityMotionChange(EntityId),
     InventoryUpdate(InventoryId, ItemId, u8, u8),
 
-    ClientShowInventory(ClientId, InventoryId),
+    ClientDebugInventory(ClientId, InventoryId),
     ClientOpenContainer(ClientId, InventoryId, InventoryId),
     ClientOpenCrafting(ClientId, StructureId, InventoryId),
     ClientMessage(ClientId, String),
@@ -561,7 +561,7 @@ impl Inventory {
 
 // TODO: find somewhere better to put Motion
 
-#[derive(Clone, Show)]
+#[derive(Clone, Debug)]
 pub struct Motion {
     pub start_time: Time,
     pub duration: Duration,

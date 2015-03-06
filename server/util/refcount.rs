@@ -1,4 +1,4 @@
-use std::collections::hash_map::{HashMap, Hasher};
+use std::collections::hash_map::HashMap;
 use std::hash::Hash;
 
 
@@ -42,7 +42,7 @@ pub struct RefcountedMap<K, V> {
     map: HashMap<K, Refcounted<V>>,
 }
 
-impl<K: Eq+Hash<Hasher>, V> RefcountedMap<K, V> {
+impl<K: Eq+Hash, V> RefcountedMap<K, V> {
     pub fn new() -> RefcountedMap<K, V> {
         RefcountedMap {
             map: HashMap::new(),

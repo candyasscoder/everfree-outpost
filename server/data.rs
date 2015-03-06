@@ -1,13 +1,14 @@
+use std::borrow::ToOwned;
 use std::collections::HashMap;
 use std::iter::repeat;
-use serialize::json::Json;
+use rustc_serialize::json::Json;
 
 use physics::Shape;
 use physics::v3::V3;
 use types::{BlockId, ItemId, TemplateId, RecipeId};
 
 
-#[derive(Show)]
+#[derive(Debug)]
 pub struct ParseError(pub String);
 
 
@@ -135,8 +136,8 @@ impl BlockData {
                 },
             };
             shapes[i] = shape;
-            names.push(String::from_str(name));
-            name_to_id.insert(String::from_str(name), i as BlockId);
+            names.push(name.to_owned());
+            name_to_id.insert(name.to_owned(), i as BlockId);
         }
 
         Ok(BlockData {
@@ -147,7 +148,7 @@ impl BlockData {
     }
 
     pub fn shape(&self, id: BlockId) -> Shape {
-        self.shapes.as_slice().get(id as usize).map(|&x| x).unwrap_or(Shape::Empty)
+        self.shapes.get(id as usize).map(|&x| x).unwrap_or(Shape::Empty)
     }
 
     pub fn name(&self, id: BlockId) -> &str {
@@ -181,8 +182,8 @@ impl ItemData {
             let name = get_convert!(item, "name", as_string,
                                     "for item {}", i);
 
-            names.push(String::from_str(name));
-            name_to_id.insert(String::from_str(name), i as ItemId);
+            names.push(name.to_owned());
+            name_to_id.insert(name.to_owned(), i as ItemId);
         }
 
         Ok(ItemData {
@@ -264,12 +265,12 @@ impl RecipeData {
             let outputs = try!(build_map(&**outputs, "input", i));
 
             recipes.push(Recipe {
-                name: String::from_str(name),
+                name: name.to_owned(),
                 inputs: inputs,
                 outputs: outputs,
                 station: station,
             });
-            name_to_id.insert(String::from_str(name.clone()), i as RecipeId); 
+            name_to_id.insert(name.to_owned(), i as RecipeId); 
         }
 
         Ok(RecipeData {
@@ -347,9 +348,9 @@ impl ObjectTemplates {
             by_id.push(ObjectTemplate {
                 size: size,
                 blocks: blocks,
-                name: String::from_str(name),
+                name: name.to_owned(),
             });
-            name_to_id.insert(String::from_str(name), i as TemplateId);
+            name_to_id.insert(name.to_owned(), i as TemplateId);
         }
 
         Ok(ObjectTemplates {
@@ -363,7 +364,7 @@ impl ObjectTemplates {
     }
 
     pub fn get_template(&self, id: TemplateId) -> Option<&ObjectTemplate> {
-        self.templates.as_slice().get(id as usize)
+        self.templates.get(id as usize)
     }
 
     pub fn get_id(&self, name: &str) -> TemplateId {

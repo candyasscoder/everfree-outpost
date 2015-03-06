@@ -17,7 +17,7 @@ mod object_reader;
 
 type SaveId = u32;
 
-#[derive(Copy, PartialEq, Eq, Show, Hash)]
+#[derive(Copy, PartialEq, Eq, Debug, Hash)]
 pub enum AnyId {
     Client(ClientId),
     TerrainChunk(V2),

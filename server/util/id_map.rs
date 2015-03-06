@@ -17,7 +17,7 @@ impl<V> IdMap<V> {
     }
 
     fn compact(&mut self) {
-        for idx in range(0, self.map.len()).rev() {
+        for idx in (0 .. self.map.len()).rev() {
             if self.map[idx].is_some() {
                 break;
             }
@@ -89,8 +89,6 @@ impl<V> Index<usize> for IdMap<V> {
 }
 
 impl<V> IndexMut<usize> for IdMap<V> {
-    type Output = V;
-
     fn index_mut(&mut self, index: &usize) -> &mut V {
         self.get_mut(*index).expect("no entry found for key")
     }
@@ -105,7 +103,7 @@ impl<'a, V> Iterator for Iter<'a, V> {
     type Item = (usize, &'a V);
     fn next(&mut self) -> Option<(usize, &'a V)> {
         let mut result = None;
-        for opt_ref in self.iter {
+        for opt_ref in &mut self.iter {
             self.idx += 1;
             if let Some(ref x) = *opt_ref {
                 result = Some((self.idx - 1, x));

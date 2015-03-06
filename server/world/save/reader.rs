@@ -1,11 +1,10 @@
 use std::collections::{HashMap, HashSet};
-use std::io;
+use std::old_io;
 use std::mem;
-use std::num::ToPrimitive;
 use std::raw;
 
 use types::*;
-use util::Bytes;
+use util::{Bytes, Convert};
 use world::World;
 use world::ops;
 
@@ -36,13 +35,13 @@ pub trait Reader {
     }
 }
 
-pub struct ReaderWrapper<R: io::Reader> {
+pub struct ReaderWrapper<R: old_io::Reader> {
     reader: R,
     id_map: HashMap<SaveId, AnyId>,
     created_objs: HashSet<AnyId>,
 }
 
-impl<R: io::Reader> ReaderWrapper<R> {
+impl<R: old_io::Reader> ReaderWrapper<R> {
     pub fn new(reader: R) -> ReaderWrapper<R> {
         ReaderWrapper {
             reader: reader,
@@ -77,7 +76,7 @@ impl<R: io::Reader> ReaderWrapper<R> {
     }
 }
 
-impl<R: io::Reader> Reader for ReaderWrapper<R> {
+impl<R: old_io::Reader> Reader for ReaderWrapper<R> {
     fn read_id<T: ReadId>(&mut self, w: &mut World) -> Result<T> {
         let save_id = try!(self.reader.read_le_u32());
         self.read_id_helper(w, save_id)
@@ -95,7 +94,7 @@ impl<R: io::Reader> Reader for ReaderWrapper<R> {
 
     fn read_count(&mut self) -> Result<usize> {
         let count = try!(self.reader.read_le_u32());
-        Ok(unwrap!(count.to_uint()))
+        Ok(unwrap!(count.to_usize()))
     }
 
     fn read_bytes(&mut self, len: usize) -> Result<Vec<u8>> {

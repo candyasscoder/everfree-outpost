@@ -53,7 +53,9 @@ impl<T, P, S> Cursor<T, P, S>
     }
 }
 
-impl<T, P, S> Deref for Cursor<T, P, S> {
+impl<T, P, S> Deref for Cursor<T, P, S>
+        where P: DerefMut,
+              S: Fn(&mut <P as Deref>::Target) -> &mut T {
     type Target = T;
 
     fn deref<'a>(&'a self) -> &'a T {
@@ -61,7 +63,9 @@ impl<T, P, S> Deref for Cursor<T, P, S> {
     }
 }
 
-impl<T, P, S> DerefMut for Cursor<T, P, S> {
+impl<T, P, S> DerefMut for Cursor<T, P, S>
+        where P: DerefMut,
+              S: Fn(&mut <P as Deref>::Target) -> &mut T {
     fn deref_mut<'a>(&'a mut self) -> &'a mut T {
         unsafe { mem::transmute(self.ptr) }
     }
@@ -69,7 +73,10 @@ impl<T, P, S> DerefMut for Cursor<T, P, S> {
 
 
 pub struct ParentRef<'a, T, P, S>
-        where T: 'a, P: 'a, S: 'a {
+        where T: 'a,
+              P: 'a + DerefMut,
+              <P as Deref>::Target: 'a,
+              S: 'a + Fn(&mut <P as Deref>::Target) -> &mut T {
     owner: &'a mut Cursor<T, P, S>,
 }
 
@@ -77,6 +84,7 @@ pub struct ParentRef<'a, T, P, S>
 impl<'a, T, P, S> Drop for ParentRef<'a, T, P, S>
         where T: 'a,
               P: 'a+DerefMut,
+              <P as Deref>::Target: 'a,
               S: 'a+Fn(&mut <P as Deref>::Target) -> &mut T {
     fn drop(&mut self) {
         let o = &mut self.owner;
@@ -85,7 +93,10 @@ impl<'a, T, P, S> Drop for ParentRef<'a, T, P, S>
 }
 
 impl<'a, T, P, S> Deref for ParentRef<'a, T, P, S>
-        where T: 'a, P: 'a, S: 'a {
+        where T: 'a,
+              P: 'a+DerefMut,
+              <P as Deref>::Target: 'a,
+              S: 'a+Fn(&mut <P as Deref>::Target) -> &mut T {
     type Target = P;
 
     fn deref<'b>(&'b self) -> &'b P {
@@ -94,7 +105,10 @@ impl<'a, T, P, S> Deref for ParentRef<'a, T, P, S>
 }
 
 impl<'a, T, P, S> DerefMut for ParentRef<'a, T, P, S>
-        where T: 'a, P: 'a, S: 'a {
+        where T: 'a,
+              P: 'a+DerefMut,
+              <P as Deref>::Target: 'a,
+              S: 'a+Fn(&mut <P as Deref>::Target) -> &mut T {
     fn deref_mut<'b>(&'b mut self) -> &'b mut P {
         &mut self.owner.parent
     }

@@ -1,7 +1,9 @@
 #![crate_name = "asmlibs"]
 #![no_std]
 
-#![allow(unstable)] // many parts of libcore are unstable as of Rust 1.0
+#![feature(no_std)]
+#![feature(core)]
+#![feature(static_assert)]
 
 extern crate core;
 extern crate physics;
@@ -84,12 +86,12 @@ pub extern fn render(xv_data: &XvData,
                      sprites_ptr: *mut Sprite, sprites_len: i32,
                      draw_terrain_idx: i32,
                      draw_sprite_idx: i32) {
-    let draw_terrain = |&: cx: u16, cy: u16, begin: u16, end: u16| {
+    let draw_terrain = |cx: u16, cy: u16, begin: u16, end: u16| {
         let args = [cx as i32, cy as i32, begin as i32, end as i32];
         run_callback(draw_terrain_idx, args.as_slice());
     };
 
-    let draw_sprite = |&: id: u16, x: u16, y: u16, w: u16, h: u16| {
+    let draw_sprite = |id: u16, x: u16, y: u16, w: u16, h: u16| {
         let args = [id as i32, x as i32, y as i32, w as i32, h as i32];
         run_callback(draw_sprite_idx, args.as_slice());
     };
@@ -123,7 +125,7 @@ pub extern fn generate_geometry(xv_data: &mut XvData,
 
 
 #[repr(C)]
-#[derive(Copy, Show)]
+#[derive(Copy, Debug)]
 pub struct Sizes {
     xv_data: usize,
     sprite: usize,

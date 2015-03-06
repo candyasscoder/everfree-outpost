@@ -1,13 +1,13 @@
 use std::collections::{HashMap, HashSet};
 use std::error;
-use std::io;
+use std::old_io;
 use std::mem;
-use std::num::ToPrimitive;
 use std::raw;
 use std::result;
 
 use data::Data;
 use types::*;
+use util::Convert;
 use world::World;
 use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::object::*;
@@ -19,7 +19,7 @@ use super::reader::{Reader, ReaderWrapper, ReadId};
 use super::CURRENT_VERSION;
 
 
-pub struct ObjectReader<R: io::Reader, H: ReadHooks> {
+pub struct ObjectReader<R: old_io::Reader, H: ReadHooks> {
     r: ReaderWrapper<R>,
     hooks: H,
     template_map: HashMap<TemplateId, TemplateId>,
@@ -61,7 +61,7 @@ pub trait ReadHooks {
     fn cleanup_inventory(&mut self, w: &mut World, iid: InventoryId) -> Result<()> { Ok(()) }
 }
 
-impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
+impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
     pub fn new(writer: R, hooks: H) -> ObjectReader<R, H> {
         ObjectReader {
             r: ReaderWrapper::new(writer),
@@ -99,7 +99,7 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
         let size = V3::new(unwrap!(x.to_i32()),
                            unwrap!(y.to_i32()),
                            unwrap!(z.to_i32()));
-        let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_uint())));
+        let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_usize())));
 
         let new_id = unwrap!(data.object_templates.find_id(&*name));
         let template = data.object_templates.template(new_id);
@@ -134,13 +134,13 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
         try!(self.hooks.post_read_client(&mut self.r, w, cid));
 
         let child_entity_count = try!(self.r.read_count());
-        for _ in range(0, child_entity_count) {
+        for _ in 0..child_entity_count {
             let eid = try!(self.read_entity(w));
             try!(ops::entity_attach(w, eid, EntityAttachment::Client(cid)));
         }
 
         let child_inventory_count = try!(self.r.read_count());
-        for _ in range(0, child_inventory_count) {
+        for _ in 0..child_inventory_count {
             let iid = try!(self.read_inventory(w));
             try!(ops::inventory_attach(w, iid, InventoryAttachment::Client(cid)));
         }
@@ -167,9 +167,9 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
         let mut block_map = HashMap::new();
         let block_id_count = try!(self.r.read_count());
         let block_data = &w.data().block_data;
-        for _ in range(0, block_id_count) {
+        for _ in 0..block_id_count {
             let (old_id, shape, name_len): (u16, u8, u8) = try!(self.r.read());
-            let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_uint())));
+            let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_usize())));
             let new_id = unwrap!(block_data.find_id(&*name));
 
             if block_data.shape(new_id) as u8 != shape {
@@ -189,7 +189,7 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
         try!(self.hooks.post_read_terrain_chunk(&mut self.r, w, chunk_pos));
 
         let child_structure_count = try!(self.r.read_count());
-        for _ in range(0, child_structure_count) {
+        for _ in 0..child_structure_count {
             let sid = try!(self.read_structure(w));
             try!(ops::structure_attach(w, sid, StructureAttachment::Chunk));
         }
@@ -227,7 +227,7 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
         try!(self.hooks.post_read_entity(&mut self.r, w, eid));
 
         let child_inventory_count = try!(self.r.read_count());
-        for _ in range(0, child_inventory_count) {
+        for _ in 0..child_inventory_count {
             let iid = try!(self.read_inventory(w));
             try!(ops::inventory_attach(w, iid, InventoryAttachment::Entity(eid)));
         }
@@ -253,7 +253,7 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
         try!(self.hooks.post_read_structure(&mut self.r, w, sid));
 
         let child_inventory_count = try!(self.r.read_count());
-        for _ in range(0, child_inventory_count) {
+        for _ in 0..child_inventory_count {
             let iid = try!(self.read_inventory(w));
             try!(ops::inventory_attach(w, iid, InventoryAttachment::Structure(sid)));
         }
@@ -272,12 +272,12 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
             i.stable_id = stable_id;
 
             let contents_count = try!(self.r.read_count());
-            for _ in range(0, contents_count) {
+            for _ in 0..contents_count {
                 let (old_item_id, count, name_len): (u16, u8, u8) = try!(self.r.read());
                 let item_id = match self.item_map.entry(old_item_id) {
                     Occupied(e) => *e.get(),
                     Vacant(e) => {
-                        let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_uint())));
+                        let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_usize())));
                         let new_id = unwrap!(data.item_data.find_id(&*name));
                         e.insert(new_id);
                         new_id
@@ -303,21 +303,21 @@ impl<R: io::Reader, H: ReadHooks> ObjectReader<R, H> {
 
         {
             let entity_count = try!(self.r.read_count());
-            for _ in range(0, entity_count) {
+            for _ in 0..entity_count {
                 try!(self.read_entity(w));
             }
         }
 
         {
             let structure_count = try!(self.r.read_count());
-            for _ in range(0, structure_count) {
+            for _ in 0..structure_count {
                 try!(self.read_structure(w));
             }
         }
 
         {
             let inventory_count = try!(self.r.read_count());
-            for _ in range(0, inventory_count) {
+            for _ in 0..inventory_count {
                 try!(self.read_inventory(w));
             }
         }

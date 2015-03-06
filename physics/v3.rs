@@ -5,7 +5,7 @@ use core::num::{Int, SignedInt, UnsignedInt};
 use core::ops::{Add, Sub, Mul, Div, Rem, Neg, Shl, Shr, BitAnd, BitOr, BitXor, Not};
 
 
-#[derive(Copy, Eq, PartialEq, Show)]
+#[derive(Copy, Eq, PartialEq, Debug)]
 pub enum Axis {
     X,
     Y,
@@ -13,16 +13,19 @@ pub enum Axis {
 }
 
 pub type DirAxis = (Axis, bool);
-pub mod DirAxis {
-    #![allow(non_snake_case, non_upper_case_globals)]
-    use super::{Axis, DirAxis};
-    pub const PosX: DirAxis = (Axis::X, false);
-    pub const PosY: DirAxis = (Axis::Y, false);
-    pub const PosZ: DirAxis = (Axis::Z, false);
-    pub const NegX: DirAxis = (Axis::X, true);
-    pub const NegY: DirAxis = (Axis::Y, true);
-    pub const NegZ: DirAxis = (Axis::Z, true);
-}
+
+#[allow(non_snake_case, non_upper_case_globals)]
+pub const PosX: DirAxis = (Axis::X, false);
+#[allow(non_snake_case, non_upper_case_globals)]
+pub const PosY: DirAxis = (Axis::Y, false);
+#[allow(non_snake_case, non_upper_case_globals)]
+pub const PosZ: DirAxis = (Axis::Z, false);
+#[allow(non_snake_case, non_upper_case_globals)]
+pub const NegX: DirAxis = (Axis::X, true);
+#[allow(non_snake_case, non_upper_case_globals)]
+pub const NegY: DirAxis = (Axis::Y, true);
+#[allow(non_snake_case, non_upper_case_globals)]
+pub const NegZ: DirAxis = (Axis::Z, true);
 
 #[derive(Copy, Eq, PartialEq, Clone)]
 #[cfg_attr(not(asmjs), derive(Hash))]
@@ -32,7 +35,7 @@ pub struct V3 {
     pub z: i32,
 }
 
-impl fmt::Show for V3 {
+impl fmt::Debug for V3 {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         (self.x, self.y, self.z).fmt(f)
     }
@@ -87,7 +90,7 @@ impl Vn for V3 {
 }
 
 
-#[derive(Copy, Eq, PartialEq, Show)]
+#[derive(Copy, Eq, PartialEq, Debug)]
 pub enum Axis2 {
     X,
     Y,
@@ -100,7 +103,7 @@ pub struct V2 {
     pub y: i32,
 }
 
-impl fmt::Show for V2 {
+impl fmt::Debug for V2 {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         (self.x, self.y).fmt(f)
     }
@@ -391,7 +394,7 @@ pub struct Region<V=V3> {
 
 pub type Region2 = Region<V2>;
 
-impl<V: Copy+fmt::Show> fmt::Show for Region<V> {
+impl<V: Copy+fmt::Debug> fmt::Debug for Region<V> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         (self.min, self.max).fmt(f)
     }

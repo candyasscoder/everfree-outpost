@@ -1,3 +1,4 @@
+use std::marker::MarkerTrait;
 use libc::c_int;
 
 use lua::LuaState;
@@ -12,7 +13,7 @@ use super::Nil;
 
 /// Trait for obtaining a string representation of the name of a type.  The Lua interface code uses
 /// this to provide appropriate error messages for invalid argument types.
-pub trait TypeName {
+pub trait TypeName: MarkerTrait {
     fn type_name() -> &'static str;
 }
 
@@ -49,7 +50,7 @@ impl_type_name!(i32);
 
 
 /// Trait for obtaining the registry key where a type's metatable is stored.
-pub trait MetatableKey {
+pub trait MetatableKey: MarkerTrait {
     fn metatable_key() -> &'static str;
 }
 
@@ -340,7 +341,7 @@ impl<T: ToLua> ToLua for Option<T> {
         match self {
             Some(x) => x.to_lua(lua),
             None => {
-                for _ in range(0, <T as ToLua>::count()) {
+                for _ in 0 .. (<T as ToLua>::count()) {
                     lua.push_nil();
                 }
             }
@@ -358,7 +359,7 @@ impl<T: ToLua> ToLua for StrResult<T> {
                 lua.push_nil();
             },
             Err(e) => {
-                for _ in range(0, <T as ToLua>::count()) {
+                for _ in 0 .. (<T as ToLua>::count()) {
                     lua.push_nil();
                 }
                 e.msg.to_lua(lua);

@@ -1,7 +1,7 @@
 use std::borrow::Cow;
-use std::io::{self, IoErrorKind};
-use std::io::fs;
-use std::io::fs::File;
+use std::old_io::{self, IoErrorKind};
+use std::old_io::fs;
+use std::old_io::fs::File;
 
 use physics::v3::V2;
 
@@ -27,9 +27,9 @@ pub struct Storage {
 impl Storage {
     pub fn new(base: Path) -> Storage {
         fs::mkdir_recursive(&base.join_many(&[SAVE_DIR, CLIENT_DIR]),
-                            io::ALL_PERMISSIONS).unwrap();
+                            old_io::ALL_PERMISSIONS).unwrap();
         fs::mkdir_recursive(&base.join_many(&[SAVE_DIR, TERRAIN_CHUNK_DIR]), 
-                            io::ALL_PERMISSIONS).unwrap();
+                            old_io::ALL_PERMISSIONS).unwrap();
 
         Storage {
             base: base,
@@ -124,7 +124,7 @@ fn char_legal(c: char) -> bool {
     // itself gets encoded as '-x2d'.
 }
 
-fn sanitize(s: &str) -> Cow<String, str> {
+fn sanitize(s: &str) -> Cow<str> {
     let mut last = 0;
     let mut buf = String::new();
 
@@ -133,7 +133,7 @@ fn sanitize(s: &str) -> Cow<String, str> {
             continue;
         }
 
-        buf.push_str(s.slice(last, i));
+        buf.push_str(&s[last..i]);
 
         if c as u32 <= 0xff {
             buf.push_str(&*format!("-x{:02x}", c as u32));
@@ -149,7 +149,7 @@ fn sanitize(s: &str) -> Cow<String, str> {
     if last == 0 {
         Cow::Borrowed(s)
     } else {
-        buf.push_str(s.slice_from(last));
+        buf.push_str(&s[last..]);
         Cow::Owned(buf)
     }
 }

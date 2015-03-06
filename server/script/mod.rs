@@ -1,3 +1,4 @@
+use std::borrow::ToOwned;
 use std::cell::{RefCell, RefMut};
 use std::mem;
 use libc::c_int;
@@ -43,7 +44,7 @@ callbacks! {
     CB_KEY_TEST = "test";
 }
 
-#[derive(Copy, PartialEq, Eq, Hash, Show)]
+#[derive(Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Nil;
 
 pub struct ScriptEngine {
@@ -127,7 +128,7 @@ impl ScriptEngine {
             try!(lua.pcall(2, 1, 0).map_err(|(e,s)| format!("{:?}: {}", e, s)));
 
             let result = lua.to_string(-1).unwrap_or("(bad result)");
-            Ok(String::from_str(result))
+            Ok(result.to_owned())
 
         })
     }

@@ -204,7 +204,7 @@ impl<'d> Engine<'d> {
         }
     }
 
-    fn kick_client<'a, S: IntoCow<'a, String, str>>(&mut self, cid: ClientId, msg: S) {
+    fn kick_client<'a, S: IntoCow<'a, str>>(&mut self, cid: ClientId, msg: S) {
         let wire_id = self.messages.client_to_wire(cid)
                 .expect("missing WireId for existing client");
 
@@ -213,7 +213,7 @@ impl<'d> Engine<'d> {
         self.messages.send_control(ControlResponse::WireClosed(wire_id));
     }
 
-    fn kick_wire<'a, S: IntoCow<'a, String, str>>(&mut self, wire_id: WireId, msg: S) {
+    fn kick_wire<'a, S: IntoCow<'a, str>>(&mut self, wire_id: WireId, msg: S) {
         self.messages.send_wire(wire_id, WireResponse::KickReason(msg.into_cow().into_owned()));
         self.cleanup_wire(wire_id);
         self.messages.send_control(ControlResponse::WireClosed(wire_id));
