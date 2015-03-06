@@ -12,6 +12,7 @@ use world::World;
 use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::object::*;
 use world::ops;
+use world::hooks::no_hooks;
 
 use super::Result;
 use super::{AnyId, ToAnyId};
@@ -136,13 +137,13 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
         let child_entity_count = try!(self.r.read_count());
         for _ in 0..child_entity_count {
             let eid = try!(self.read_entity(w));
-            try!(ops::entity_attach(w, eid, EntityAttachment::Client(cid)));
+            try!(ops::entity_attach(w, no_hooks(), eid, EntityAttachment::Client(cid)));
         }
 
         let child_inventory_count = try!(self.r.read_count());
         for _ in 0..child_inventory_count {
             let iid = try!(self.read_inventory(w));
-            try!(ops::inventory_attach(w, iid, InventoryAttachment::Client(cid)));
+            try!(ops::inventory_attach(w, no_hooks(), iid, InventoryAttachment::Client(cid)));
         }
 
         Ok(cid)
@@ -184,14 +185,14 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
             *ptr = *id;
         }
 
-        try!(ops::terrain_chunk_create(w, chunk_pos, blocks));
+        try!(ops::terrain_chunk_create(w, no_hooks(), chunk_pos, blocks));
 
         try!(self.hooks.post_read_terrain_chunk(&mut self.r, w, chunk_pos));
 
         let child_structure_count = try!(self.r.read_count());
         for _ in 0..child_structure_count {
             let sid = try!(self.read_structure(w));
-            try!(ops::structure_attach(w, sid, StructureAttachment::Chunk));
+            try!(ops::structure_attach(w, no_hooks(), sid, StructureAttachment::Chunk));
         }
 
         Ok(chunk_pos)
@@ -229,7 +230,7 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
         let child_inventory_count = try!(self.r.read_count());
         for _ in 0..child_inventory_count {
             let iid = try!(self.read_inventory(w));
-            try!(ops::inventory_attach(w, iid, InventoryAttachment::Entity(eid)));
+            try!(ops::inventory_attach(w, no_hooks(), iid, InventoryAttachment::Entity(eid)));
         }
 
         Ok(eid)
@@ -248,14 +249,14 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
             s.template = try!(self.read_template_id(data));
         }
 
-        try!(ops::structure_post_init(w, sid));
+        try!(ops::structure_post_init(w, no_hooks(), sid));
 
         try!(self.hooks.post_read_structure(&mut self.r, w, sid));
 
         let child_inventory_count = try!(self.r.read_count());
         for _ in 0..child_inventory_count {
             let iid = try!(self.read_inventory(w));
-            try!(ops::inventory_attach(w, iid, InventoryAttachment::Structure(sid)));
+            try!(ops::inventory_attach(w, no_hooks(), iid, InventoryAttachment::Structure(sid)));
         }
 
         Ok(sid)
@@ -378,7 +379,7 @@ impl<R: old_io::Reader, H: ReadHooks> ObjectReader<R, H> {
                 },
                 AnyId::Structure(sid) => {
                     unwrap_warn(self.hooks.cleanup_structure(w, sid));
-                    unwrap_warn(ops::structure_pre_fini(w, sid));
+                    unwrap_warn(ops::structure_pre_fini(w, no_hooks(), sid));
                     w.structures.remove(sid);
                 },
                 AnyId::Inventory(iid) => {

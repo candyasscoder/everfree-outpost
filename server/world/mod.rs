@@ -8,6 +8,7 @@ use types::*;
 use util::stable_id_map::{self, StableIdMap, Stable};
 
 use self::object::{Object, ObjectRef, ObjectRefMut};
+use self::hooks::{Hooks, no_hooks};
 pub use self::ops::OpResult;
 
 macro_rules! bad {
@@ -30,6 +31,7 @@ pub mod object;
 mod ops;
 mod debug;
 pub mod save;
+pub mod hooks;
 
 
 #[derive(Copy, PartialEq, Eq, Debug)]
@@ -117,6 +119,24 @@ pub struct World<'d> {
     structures_by_chunk: HashMap<V2, HashSet<StructureId>>,
 }
 
+pub struct WorldHooks<'a, 'd: 'a, H: Hooks+'a> {
+    world: &'a mut World<'d>,
+    hooks: &'a mut H,
+}
+
+impl<'a, 'd, H: Hooks> Deref for WorldHooks<'a, 'd, H> {
+    type Target = World<'d>;
+    fn deref(&self) -> &World<'d> {
+        self.world
+    }
+}
+
+impl<'a, 'd, H: Hooks> DerefMut for WorldHooks<'a, 'd, H> {
+    fn deref_mut(&mut self) -> &mut World<'d> {
+        self.world
+    }
+}
+
 #[derive(Debug)]
 pub enum Update {
     ClientCreated(ClientId),
@@ -161,6 +181,13 @@ impl<'d> World<'d> {
         self.data
     }
 
+    pub fn hook<'a, H: Hooks>(&'a mut self, h: &'a mut H) -> WorldHooks<'a, 'd, H> {
+        WorldHooks {
+            world: self,
+            hooks: h,
+        }
+    }
+
     pub fn record(&mut self, update: Update) {
         self.journal.push(update);
     }
@@ -183,6 +210,7 @@ impl<'d> World<'d> {
             self_.journal = journal;
         }
     }
+
 
     pub fn chunk_structures<'a>(&'a self, chunk_id: V2) -> ChunkStructures<'a, 'd> {
         ChunkStructures {
@@ -225,6 +253,7 @@ impl<'d> World<'d> {
             iter: self.inventories.iter(),
         }
     }
+
 }
 
 macro_rules! lifecycle_methods {
@@ -233,19 +262,41 @@ macro_rules! lifecycle_methods {
         [$ref_id_name:ident -> $ref_id_expr:expr],
      $destroy_method:ident ( $id_name:ident : $id_ty:ty ) => $destroy_op:ident) => {
         #[allow(unused_variables)]
-        impl<'d> World<'d> {
-            pub fn $create_method<'a>(&'a mut self
+        impl<'a, 'd, H: Hooks> WorldHooks<'a, 'd, H> {
+            pub fn $create_method<'b>(&'b mut self
                                       $(, $arg_name: $arg_ty)*)
-                                      -> OpResult<ObjectRefMut<'a, 'd, $obj_ty>> {
-                let $ref_id_name = try!(ops::$create_op(self $(, $arg_name)*));
+                                      -> OpResult<ObjectRefMut<'b, 'd, $obj_ty, H>>
+                    where H: Hooks {
+                let $ref_id_name = try!(ops::$create_op(self.world, self.hooks $(, $arg_name)*));
                 Ok(ObjectRefMut {
-                    world: self,
+                    world: self.world,
+                    hooks: self.hooks,
                     id: $ref_id_expr,
                 })
             }
 
-            pub fn $destroy_method(&mut self, $id_name: $id_ty) -> OpResult<()> {
-                ops::$destroy_op(self, $id_name)
+            pub fn $destroy_method(&mut self,
+                                   $id_name: $id_ty) -> OpResult<()>
+                    where H: Hooks {
+                ops::$destroy_op(self.world, self.hooks, $id_name)
+            }
+        }
+
+        impl<'d> World<'d> {
+            pub fn $create_method<'b>(&'b mut self
+                                      $(, $arg_name: $arg_ty)*)
+                                      -> OpResult<ObjectRefMut<'b, 'd, $obj_ty>> {
+                let $ref_id_name = try!(ops::$create_op(self, no_hooks() $(, $arg_name)*));
+                Ok(ObjectRefMut {
+                    world: self,
+                    hooks: no_hooks(),
+                    id: $ref_id_expr,
+                })
+            }
+
+            pub fn $destroy_method(&mut self,
+                                   $id_name: $id_ty) -> OpResult<()> {
+                ops::$destroy_op(self, no_hooks(), $id_name)
             }
         }
     };
@@ -284,7 +335,9 @@ lifecycle_methods!(Inventory,
 macro_rules! access_methods {
     ($obj_ty:ty,
      $id_name:ident: $id_ty:ty => $table:ident . get ( $lookup_arg:expr ),
-     $get_obj:ident, $get_obj_mut:ident, $obj:ident, $obj_mut:ident) => {
+     $get_obj:ident, $obj:ident,
+     $get_obj_mut:ident, $obj_mut:ident,
+     $get_obj_mut_hooks:ident, $obj_mut_hooks:ident) => {
         impl<'d> World<'d> {
             pub fn $get_obj<'a>(&'a self,
                                 $id_name: $id_ty) -> Option<ObjectRef<'a, 'd, $obj_ty>> {
@@ -300,8 +353,29 @@ macro_rules! access_methods {
                 })
             }
 
-            pub fn $get_obj_mut<'a>(&'a mut self,
-                                    $id_name: $id_ty) -> Option<ObjectRefMut<'a, 'd, $obj_ty>> {
+            pub fn $obj<'a>(&'a self, $id_name: $id_ty) -> ObjectRef<'a, 'd, $obj_ty> {
+                self.$get_obj($id_name)
+                    .expect(concat!("no ", stringify!($obj_ty), " with given id"))
+            }
+
+            pub fn $get_obj_mut<'b>(&'b mut self,
+                                    $id_name: $id_ty)
+                                    -> Option<ObjectRefMut<'b, 'd, $obj_ty>> {
+                self.$get_obj_mut_hooks(no_hooks(), $id_name)
+            }
+
+            pub fn $obj_mut<'b>(&'b mut self, $id_name: $id_ty)
+                                -> ObjectRefMut<'b, 'd, $obj_ty> {
+                self.$get_obj_mut($id_name)
+                    .expect(concat!("no ", stringify!($obj_ty), " with given id"))
+            }
+
+            pub fn $get_obj_mut_hooks<'b, H>(&'b mut self,
+                                             h: &'b mut H,
+                                             $id_name: $id_ty)
+                                             -> Option<ObjectRefMut<'b, 'd, $obj_ty, H>>
+                    where H: Hooks {
+                // Check that the ID is valid.
                 match self.$table.get($lookup_arg) {
                     None => return None,
                     Some(_) => {},
@@ -309,16 +383,41 @@ macro_rules! access_methods {
 
                 Some(ObjectRefMut {
                     world: self,
+                    hooks: h,
                     id: $id_name,
                 })
             }
 
-            pub fn $obj<'a>(&'a self, $id_name: $id_ty) -> ObjectRef<'a, 'd, $obj_ty> {
-                self.$get_obj($id_name)
+            pub fn $obj_mut_hooks<'b, H>(&'b mut self,
+                                         h: &'b mut H,
+                                         $id_name: $id_ty)
+                                -> ObjectRefMut<'b, 'd, $obj_ty, H>
+                    where H: Hooks {
+                self.$get_obj_mut_hooks(h, $id_name)
                     .expect(concat!("no ", stringify!($obj_ty), " with given id"))
             }
+        }
 
-            pub fn $obj_mut<'a>(&'a mut self, $id_name: $id_ty) -> ObjectRefMut<'a, 'd, $obj_ty> {
+        impl<'a, 'd, H: Hooks> WorldHooks<'a, 'd, H> {
+            pub fn $get_obj_mut<'b>(&'b mut self,
+                                    $id_name: $id_ty)
+                                    -> Option<ObjectRefMut<'b, 'd, $obj_ty, H>>
+                    where H: Hooks {
+                // Check that the ID is valid.
+                match self.world.$table.get($lookup_arg) {
+                    None => return None,
+                    Some(_) => {},
+                }
+
+                Some(ObjectRefMut {
+                    world: self.world,
+                    hooks: self.hooks,
+                    id: $id_name,
+                })
+            }
+
+            pub fn $obj_mut<'b>(&'b mut self, $id_name: $id_ty)
+                                -> ObjectRefMut<'b, 'd, $obj_ty, H> {
                 self.$get_obj_mut($id_name)
                     .expect(concat!("no ", stringify!($obj_ty), " with given id"))
             }
@@ -328,23 +427,33 @@ macro_rules! access_methods {
 
 access_methods!(Client,
                 id: ClientId => clients.get(id),
-                get_client, get_client_mut, client, client_mut);
+                get_client, client,
+                get_client_mut, client_mut,
+                get_client_mut_hooks, client_mut_hooks);
 
 access_methods!(TerrainChunk,
                 id: V2 => terrain_chunks.get(&id),
-                get_terrain_chunk, get_terrain_chunk_mut, terrain_chunk, terrain_chunk_mut);
+                get_terrain_chunk, terrain_chunk,
+                get_terrain_chunk_mut, terrain_chunk_mut,
+                get_terrain_chunk_mut_hooks, terrain_chunk_mut_hooks);
 
 access_methods!(Entity,
                 id: EntityId => entities.get(id),
-                get_entity, get_entity_mut, entity, entity_mut);
+                get_entity, entity,
+                get_entity_mut, entity_mut,
+                get_entity_mut_hooks, entity_mut_hooks);
 
 access_methods!(Structure,
                 id: StructureId => structures.get(id),
-                get_structure, get_structure_mut, structure, structure_mut);
+                get_structure, structure,
+                get_structure_mut, structure_mut,
+                get_structure_mut_hooks, structure_mut_hooks);
 
 access_methods!(Inventory,
                 id: InventoryId => inventories.get(id),
-                get_inventory, get_inventory_mut, inventory, inventory_mut);
+                get_inventory, inventory,
+                get_inventory_mut, inventory_mut,
+                get_inventory_mut_hooks, inventory_mut_hooks);
 
 macro_rules! stable_id_methods {
     ($id_ty:ty, $table:ident, $transient_id:ident) => {

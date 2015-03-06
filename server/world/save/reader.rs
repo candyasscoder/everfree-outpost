@@ -7,6 +7,7 @@ use types::*;
 use util::{Bytes, Convert};
 use world::World;
 use world::ops;
+use world::hooks::no_hooks;
 
 use super::Result;
 use super::SaveId;
@@ -141,7 +142,7 @@ impl ReadId for ClientId {
     }
 
     fn fabricate(w: &mut World) -> ClientId {
-        ops::client_create_unchecked(w)
+        ops::client_create_unchecked(w, no_hooks())
     }
 }
 
@@ -154,7 +155,7 @@ impl ReadId for EntityId {
     }
 
     fn fabricate(w: &mut World) -> EntityId {
-        ops::entity_create_unchecked(w)
+        ops::entity_create_unchecked(w, no_hooks())
     }
 }
 
@@ -167,7 +168,7 @@ impl ReadId for StructureId {
     }
 
     fn fabricate(w: &mut World) -> StructureId {
-        ops::structure_create_unchecked(w)
+        ops::structure_create_unchecked(w, no_hooks())
     }
 }
 
@@ -180,6 +181,6 @@ impl ReadId for InventoryId {
     }
 
     fn fabricate(w: &mut World) -> InventoryId {
-        ops::inventory_create_unchecked(w)
+        ops::inventory_create_unchecked(w, no_hooks())
     }
 }

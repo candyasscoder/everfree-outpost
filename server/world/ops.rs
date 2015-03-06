@@ -23,13 +23,16 @@ use super::object::{
     EntityRef, EntityRefMut,
     StructureRef, StructureRefMut,
 };
+use super::hooks::Hooks;
 
 pub type OpResult<T> = Result<T, StrError>;
 
 
-pub fn client_create(w: &mut World,
-                     name: &str,
-                     chunk_offset: (u8, u8)) -> OpResult<ClientId> {
+pub fn client_create<H>(w: &mut World,
+                        h: &mut H,
+                        name: &str,
+                        chunk_offset: (u8, u8)) -> OpResult<ClientId>
+        where H: Hooks {
     let c = Client {
         name: name.to_owned(),
         pawn: None,
@@ -42,11 +45,13 @@ pub fn client_create(w: &mut World,
     };
 
     let cid = unwrap!(w.clients.insert(c));
-    w.record(Update::ClientCreated(cid));
+    h.on_client_create(w, cid);
     Ok(cid)
 }
 
-pub fn client_create_unchecked(w: &mut World) -> ClientId {
+pub fn client_create_unchecked<H>(w: &mut World,
+                                  h: &mut H) -> ClientId
+        where H: Hooks {
     let cid = w.clients.insert(Client {
         name: String::new(),
         pawn: None,
@@ -57,32 +62,36 @@ pub fn client_create_unchecked(w: &mut World) -> ClientId {
         child_entities: HashSet::new(),
         child_inventories: HashSet::new(),
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
-    w.record(Update::ClientCreated(cid));
+    h.on_client_create(w, cid);
     cid
 }
 
-pub fn client_destroy(w: &mut World,
-                      cid: ClientId) -> OpResult<()> {
+pub fn client_destroy<H>(w: &mut World,
+                         h: &mut H,
+                         cid: ClientId) -> OpResult<()>
+        where H: Hooks {
     let c = unwrap!(w.clients.remove(cid));
     // Further lookup failures indicate an invariant violation.
 
     for &eid in c.child_entities.iter() {
         // TODO: do we really want .unwrap() here?
-        entity_destroy(w, eid).unwrap();
+        entity_destroy(w, h, eid).unwrap();
     }
 
     for &iid in c.child_inventories.iter() {
-        inventory_destroy(w, iid).unwrap();
+        inventory_destroy(w, h, iid).unwrap();
     }
 
-    w.record(Update::ClientDestroyed(cid));
+    h.on_client_destroy(w, cid);
     Ok(())
 }
 
-pub fn client_set_pawn(w: &mut World,
-                       cid: ClientId,
-                       eid: EntityId) -> OpResult<Option<EntityId>> {
-    try!(entity_attach(w, eid, EntityAttachment::Client(cid)));
+pub fn client_set_pawn<H>(w: &mut World,
+                          h: &mut H,
+                          cid: ClientId,
+                          eid: EntityId) -> OpResult<Option<EntityId>>
+        where H: Hooks {
+    try!(entity_attach(w, h, eid, EntityAttachment::Client(cid)));
     let old_eid;
 
     {
@@ -91,23 +100,31 @@ pub fn client_set_pawn(w: &mut World,
         old_eid = replace(&mut c.pawn, Some(eid));
     }
 
-    w.record(Update::ClientPawnChange(cid));
-
+    h.on_client_change_pawn(w, cid, old_eid, Some(eid));
     Ok(old_eid)
 }
 
-pub fn client_clear_pawn(w: &mut World,
-                         cid: ClientId) -> OpResult<Option<EntityId>> {
-    let c = unwrap!(w.clients.get_mut(cid));
-    // NB: Keep this behavior in sync with entity_destroy.
-    let old_eid = replace(&mut c.pawn, None);
+pub fn client_clear_pawn<H>(w: &mut World,
+                            h: &mut H,
+                            cid: ClientId) -> OpResult<Option<EntityId>>
+        where H: Hooks {
+    let old_eid;
+    {
+        let c = unwrap!(w.clients.get_mut(cid));
+        // NB: Keep this behavior in sync with entity_destroy.
+        old_eid = replace(&mut c.pawn, None);
+    }
+
+    h.on_client_change_pawn(w, cid, old_eid, None);
     Ok(old_eid)
 }
 
 
-pub fn terrain_chunk_create(w: &mut World,
-                            pos: V2,
-                            blocks: Box<BlockChunk>) -> OpResult<()> {
+pub fn terrain_chunk_create<H>(w: &mut World,
+                               h: &mut H,
+                               pos: V2,
+                               blocks: Box<BlockChunk>) -> OpResult<()>
+        where H: Hooks {
     if w.terrain_chunks.contains_key(&pos) {
         fail!("chunk already exists with same position");
     }
@@ -123,12 +140,14 @@ pub fn terrain_chunk_create(w: &mut World,
     Ok(())
 }
 
-pub fn terrain_chunk_destroy(w: &mut World,
-                             pos: V2) -> OpResult<()> {
+pub fn terrain_chunk_destroy<H>(w: &mut World,
+                                h: &mut H,
+                                pos: V2) -> OpResult<()>
+        where H: Hooks {
     let t = unwrap!(w.terrain_chunks.remove(&pos));
 
     for &sid in t.child_structures.iter() {
-        structure_destroy(w, sid).unwrap();
+        structure_destroy(w, h, sid).unwrap();
     }
 
     w.record(Update::TerrainChunkDestroyed(pos));
@@ -136,10 +155,12 @@ pub fn terrain_chunk_destroy(w: &mut World,
 }
 
 
-pub fn entity_create(w: &mut World,
-                     pos: V3,
-                     anim: AnimId,
-                     appearance: u32) -> OpResult<EntityId> {
+pub fn entity_create<H>(w: &mut World,
+                        h: &mut H,
+                        pos: V3,
+                        anim: AnimId,
+                        appearance: u32) -> OpResult<EntityId>
+        where H: Hooks {
     let e = Entity {
         motion: super::Motion::fixed(pos),
         anim: anim,
@@ -157,7 +178,9 @@ pub fn entity_create(w: &mut World,
     Ok(eid)
 }
 
-pub fn entity_create_unchecked(w: &mut World) -> EntityId {
+pub fn entity_create_unchecked<H>(w: &mut World,
+                                  h: &mut H) -> EntityId
+        where H: Hooks {
     let eid = w.entities.insert(Entity {
         motion: super::Motion::fixed(scalar(0)),
         anim: 0,
@@ -173,8 +196,10 @@ pub fn entity_create_unchecked(w: &mut World) -> EntityId {
     eid
 }
 
-pub fn entity_destroy(w: &mut World,
-                      eid: EntityId) -> OpResult<()> {
+pub fn entity_destroy<H>(w: &mut World,
+                         h: &mut H,
+                         eid: EntityId) -> OpResult<()>
+        where H: Hooks {
     use super::EntityAttachment::*;
     let e = unwrap!(w.entities.remove(eid));
     // Further lookup failures indicate an invariant violation.
@@ -197,16 +222,18 @@ pub fn entity_destroy(w: &mut World,
     }
 
     for &iid in e.child_inventories.iter() {
-        inventory_destroy(w, iid).unwrap();
+        inventory_destroy(w, h, iid).unwrap();
     }
 
     w.record(Update::EntityDestroyed(eid));
     Ok(())
 }
 
-pub fn entity_attach(w: &mut World,
-                     eid: EntityId,
-                     new_attach: EntityAttachment) -> OpResult<EntityAttachment> {
+pub fn entity_attach<H>(w: &mut World,
+                        h: &mut H,
+                        eid: EntityId,
+                        new_attach: EntityAttachment) -> OpResult<EntityAttachment>
+        where H: Hooks {
     use super::EntityAttachment::*;
 
     let e = unwrap!(w.entities.get_mut(eid));
@@ -249,9 +276,11 @@ pub fn entity_attach(w: &mut World,
 }
 
 
-pub fn structure_create(w: &mut World,
-                        pos: V3,
-                        tid: TemplateId) -> OpResult<StructureId> {
+pub fn structure_create<H>(w: &mut World,
+                           h: &mut H,
+                           pos: V3,
+                           tid: TemplateId) -> OpResult<StructureId>
+        where H: Hooks {
     let t = unwrap!(w.data.object_templates.get_template(tid));
     let bounds = Region::new(pos, pos + t.size);
 
@@ -275,7 +304,9 @@ pub fn structure_create(w: &mut World,
     Ok(sid)
 }
 
-pub fn structure_create_unchecked(w: &mut World) -> StructureId {
+pub fn structure_create_unchecked<H>(w: &mut World,
+                                     h: &mut H) -> StructureId
+        where H: Hooks {
     let sid = w.structures.insert(Structure {
         pos: scalar(0),
         template: 0,
@@ -288,7 +319,10 @@ pub fn structure_create_unchecked(w: &mut World) -> StructureId {
     sid
 }
 
-pub fn structure_post_init(w: &mut World, sid: StructureId) -> OpResult<()> {
+pub fn structure_post_init<H>(w: &mut World,
+                              h: &mut H,
+                              sid: StructureId) -> OpResult<()>
+        where H: Hooks {
     let bounds = {
         let s = unwrap!(w.structures.get(sid));
         let t = unwrap!(w.data.object_templates.get_template(s.template));
@@ -301,7 +335,10 @@ pub fn structure_post_init(w: &mut World, sid: StructureId) -> OpResult<()> {
     Ok(())
 }
 
-pub fn structure_pre_fini(w: &mut World, sid: StructureId) -> OpResult<()> {
+pub fn structure_pre_fini<H>(w: &mut World,
+                             h: &mut H,
+                             sid: StructureId) -> OpResult<()>
+        where H: Hooks {
     let bounds = {
         let s = unwrap!(w.structures.get(sid));
         let t = unwrap!(w.data.object_templates.get_template(s.template));
@@ -314,8 +351,10 @@ pub fn structure_pre_fini(w: &mut World, sid: StructureId) -> OpResult<()> {
     Ok(())
 }
 
-pub fn structure_destroy(w: &mut World,
-                         sid: StructureId) -> OpResult<()> {
+pub fn structure_destroy<H>(w: &mut World,
+                            h: &mut H,
+                            sid: StructureId) -> OpResult<()>
+        where H: Hooks {
     use super::StructureAttachment::*;
     let s = unwrap!(w.structures.remove(sid));
 
@@ -335,16 +374,18 @@ pub fn structure_destroy(w: &mut World,
     }
 
     for &iid in s.child_inventories.iter() {
-        inventory_destroy(w, iid).unwrap();
+        inventory_destroy(w, h, iid).unwrap();
     }
 
     w.record(Update::StructureDestroyed(sid));
     Ok(())
 }
 
-pub fn structure_attach(w: &mut World,
-                        sid: StructureId,
-                        new_attach: StructureAttachment) -> OpResult<StructureAttachment> {
+pub fn structure_attach<H>(w: &mut World,
+                           h: &mut H,
+                           sid: StructureId,
+                           new_attach: StructureAttachment) -> OpResult<StructureAttachment>
+        where H: Hooks {
     use super::StructureAttachment::*;
 
     let s = unwrap!(w.structures.get_mut(sid));
@@ -379,9 +420,11 @@ pub fn structure_attach(w: &mut World,
     Ok(old_attach)
 }
 
-pub fn structure_move(w: &mut World,
-                      sid: StructureId,
-                      new_pos: V3) -> OpResult<()> {
+pub fn structure_move<H>(w: &mut World,
+                         h: &mut H,
+                         sid: StructureId,
+                         new_pos: V3) -> OpResult<()>
+        where H: Hooks {
     let (old_bounds, new_bounds) = {
         let s = unwrap!(w.structures.get_mut(sid));
         let t = unwrap!(w.data.object_templates.get_template(s.template));
@@ -416,9 +459,11 @@ pub fn structure_move(w: &mut World,
     }
 }
 
-pub fn structure_replace(w: &mut World,
-                         sid: StructureId,
-                         new_tid: TemplateId) -> OpResult<()> {
+pub fn structure_replace<H>(w: &mut World,
+                            h: &mut H,
+                            sid: StructureId,
+                            new_tid: TemplateId) -> OpResult<()>
+        where H: Hooks {
     let (old_bounds, new_bounds) = {
         let s = unwrap!(w.structures.get_mut(sid));
         let old_t = unwrap!(w.data.object_templates.get_template(s.template));
@@ -498,11 +543,15 @@ fn invalidate_region(w: &mut World,
 }
 
 
-pub fn inventory_create(w: &mut World) -> OpResult<InventoryId> {
-    Ok(inventory_create_unchecked(w))
+pub fn inventory_create<H>(w: &mut World,
+                           h: &mut H) -> OpResult<InventoryId>
+        where H: Hooks {
+    Ok(inventory_create_unchecked(w, h))
 }
 
-pub fn inventory_create_unchecked(w: &mut World) -> InventoryId {
+pub fn inventory_create_unchecked<H>(w: &mut World,
+                                     h: &mut H) -> InventoryId
+        where H: Hooks {
     let iid = w.inventories.insert(Inventory {
         contents: HashMap::new(),
 
@@ -513,8 +562,10 @@ pub fn inventory_create_unchecked(w: &mut World) -> InventoryId {
     iid
 }
 
-pub fn inventory_destroy(w: &mut World,
-                         iid: InventoryId) -> OpResult<()> {
+pub fn inventory_destroy<H>(w: &mut World,
+                            h: &mut H,
+                            iid: InventoryId) -> OpResult<()>
+        where H: Hooks {
     use super::InventoryAttachment::*;
     let i = unwrap!(w.inventories.remove(iid));
 
@@ -541,9 +592,11 @@ pub fn inventory_destroy(w: &mut World,
     Ok(())
 }
 
-pub fn inventory_attach(w: &mut World,
-                        iid: InventoryId,
-                        new_attach: InventoryAttachment) -> OpResult<InventoryAttachment> {
+pub fn inventory_attach<H>(w: &mut World,
+                           h: &mut H,
+                           iid: InventoryId,
+                           new_attach: InventoryAttachment) -> OpResult<InventoryAttachment>
+        where H: Hooks {
     use super::InventoryAttachment::*;
 
     let i = unwrap!(w.inventories.get_mut(iid));
@@ -590,10 +643,12 @@ pub fn inventory_attach(w: &mut World,
 }
 
 /// Fails only if `iid` is not valid.
-pub fn inventory_update(w: &mut World,
-                        iid: InventoryId,
-                        item_id: ItemId,
-                        adjust: i16) -> OpResult<u8> {
+pub fn inventory_update<H>(w: &mut World,
+                           h: &mut H,
+                           iid: InventoryId,
+                           item_id: ItemId,
+                           adjust: i16) -> OpResult<u8>
+        where H: Hooks {
     use std::collections::hash_map::Entry::*;
 
     let (old_value, new_value) = {

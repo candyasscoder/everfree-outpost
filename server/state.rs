@@ -205,7 +205,8 @@ impl<'a> State<'a> {
 
     pub fn load_client<'b>(&'b mut self,
                            name: &str)
-                           -> save::Result<world::object::ObjectRefMut<'b, 'a, world::Client>> {
+                           -> save::Result<world::object::ObjectRefMut<
+                                    'b, 'a, world::Client, world::hooks::NoHooks>> {
         let chunk_offset = (self.rng.gen_range(0, 8),
                             self.rng.gen_range(0, 8));
 
