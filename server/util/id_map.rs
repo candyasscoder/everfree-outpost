@@ -17,7 +17,7 @@ impl<V> IdMap<V> {
     }
 
     fn compact(&mut self) {
-        for idx in range(0, self.map.len()).rev() {
+        for idx in (0 .. self.map.len()).rev() {
             if self.map[idx].is_some() {
                 break;
             }

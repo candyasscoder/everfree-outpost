@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 use std::old_io;
 use std::mem;
-use std::num::ToPrimitive;
-use std::raw;
+use std::slice;
 
-use util::Bytes;
+use util::{Bytes, Convert};
 
 use super::Result;
 use super::SaveId;
@@ -51,7 +50,7 @@ impl<W: old_io::Writer> WriterWrapper<W> {
     fn write_padding(&mut self, len: usize) -> Result<()> {
         let pad = padding(len);
         if pad > 0 {
-            try!(self.writer.write([0; 3].slice_to(pad)));
+            try!(self.writer.write_all(&[0; 3][..pad]));
         }
         Ok(())
     }
@@ -88,7 +87,7 @@ impl<W: old_io::Writer> Writer for WriterWrapper<W> {
     }
 
     fn write_bytes(&mut self, buf: &[u8]) -> Result<()> {
-        try!(self.writer.write(buf));
+        try!(self.writer.write_all(buf));
         try!(self.write_padding(buf.len()));
         Ok(())
     }
@@ -97,12 +96,9 @@ impl<W: old_io::Writer> Writer for WriterWrapper<W> {
         let len = mem::size_of::<T>();
 
         let buf = unsafe {
-            mem::transmute(raw::Slice {
-                data: &x as *const T as *const u8,
-                len: len,
-            })
+            slice::from_raw_parts(&x as *const T as *const u8, len)
         };
-        try!(self.writer.write(buf));
+        try!(self.writer.write_all(buf));
         try!(self.write_padding(len));
         Ok(())
     }

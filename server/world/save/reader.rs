@@ -1,11 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::old_io;
 use std::mem;
-use std::num::ToPrimitive;
 use std::raw;
 
 use types::*;
-use util::Bytes;
+use util::{Bytes, Convert};
 use world::World;
 use world::ops;
 
@@ -95,7 +94,7 @@ impl<R: old_io::Reader> Reader for ReaderWrapper<R> {
 
     fn read_count(&mut self) -> Result<usize> {
         let count = try!(self.reader.read_le_u32());
-        Ok(unwrap!(count.to_uint()))
+        Ok(unwrap!(count.to_usize()))
     }
 
     fn read_bytes(&mut self, len: usize) -> Result<Vec<u8>> {

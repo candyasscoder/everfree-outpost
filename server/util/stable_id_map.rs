@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::num::{FromPrimitive, ToPrimitive};
 use std::ops::{Index, IndexMut};
 
-use types::StableId;
+use types::*;
 use util::id_map::{self, IdMap};
 use util::StrResult;
 
@@ -51,7 +50,7 @@ macro_rules! impl_IntrusiveStableId {
     };
 }
 
-impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> {
+impl<K: Copy+ObjectId, V: IntrusiveStableId> StableIdMap<K, V> {
     pub fn new() -> StableIdMap<K, V> {
         StableIdMap::new_starting_from(1)
     }
@@ -82,7 +81,7 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
         }
 
         let raw_transient_id = self.map.insert(v);
-        let transient_id = FromPrimitive::from_uint(raw_transient_id).unwrap();
+        let transient_id = ObjectId::from_usize(raw_transient_id);
 
         if stable_id != NO_STABLE_ID {
             info!("add stable id {:x} to map", stable_id);
@@ -93,7 +92,7 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
     }
 
     pub fn remove(&mut self, transient_id: K) -> Option<V> {
-        let raw_transient_id = transient_id.to_uint().unwrap();
+        let raw_transient_id = transient_id.to_usize();
         let opt_val = self.map.remove(raw_transient_id);
 
         if let Some(ref val) = opt_val {
@@ -107,7 +106,7 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
     }
 
     pub fn set_stable_id(&mut self, transient_id: K, stable_id: StableId) -> StrResult<()> {
-        let raw_transient_id = transient_id.to_uint().unwrap();
+        let raw_transient_id = transient_id.to_usize();
         let v = match self.map.get_mut(raw_transient_id) {
             Some(x) => x,
             None => fail!("transient_id is not present in the map"),
@@ -127,7 +126,7 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
     }
 
     pub fn pin(&mut self, transient_id: K) -> Stable<K> {
-        let raw_transient_id = transient_id.to_uint().unwrap();
+        let raw_transient_id = transient_id.to_usize();
         let val = &mut self.map[raw_transient_id];
 
         if val.get_stable_id() != NO_STABLE_ID {
@@ -144,7 +143,7 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
     }
 
     pub fn unpin(&mut self, transient_id: K) {
-        let raw_transient_id = transient_id.to_uint().unwrap();
+        let raw_transient_id = transient_id.to_usize();
         let val = &mut self.map[raw_transient_id];
 
         let stable_id = val.get_stable_id();
@@ -162,11 +161,11 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
     }
 
     pub fn get(&self, transient_id: K) -> Option<&V> {
-        self.map.get(transient_id.to_uint().unwrap())
+        self.map.get(transient_id.to_usize())
     }
 
     pub fn get_mut(&mut self, transient_id: K) -> Option<&mut V> {
-        self.map.get_mut(transient_id.to_uint().unwrap())
+        self.map.get_mut(transient_id.to_usize())
     }
 
     pub fn iter(&self) -> Iter<K, V> {
@@ -178,7 +177,7 @@ impl<K: Copy+FromPrimitive+ToPrimitive, V: IntrusiveStableId> StableIdMap<K, V> 
 }
 
 impl<K, V> Index<K> for StableIdMap<K, V>
-        where K: Copy+FromPrimitive+ToPrimitive,
+        where K: Copy+ObjectId,
               V: IntrusiveStableId {
     type Output = V;
 
@@ -188,7 +187,7 @@ impl<K, V> Index<K> for StableIdMap<K, V>
 }
 
 impl<K, V> IndexMut<K> for StableIdMap<K, V>
-        where K: Copy+FromPrimitive+ToPrimitive,
+        where K: Copy+ObjectId,
               V: IntrusiveStableId {
     fn index_mut(&mut self, index: &K) -> &mut V {
         self.get_mut(*index).expect("no entry found for key")
@@ -200,10 +199,34 @@ pub struct Iter<'a, K: 'a, V: 'a> {
     _marker0: PhantomData<&'a K>,
 }
 
-impl<'a, K: FromPrimitive, V> Iterator for Iter<'a, K, V> {
+impl<'a, K: ObjectId, V> Iterator for Iter<'a, K, V> {
     type Item = (K, &'a V);
     fn next(&mut self) -> Option<(K, &'a V)> {
-        self.iter.next().map(|(k,v)| (FromPrimitive::from_uint(k).unwrap(), v))
+        self.iter.next().map(|(k,v)| (ObjectId::from_usize(k), v))
     }
 }
 
+
+pub trait ObjectId: Sized {
+    fn to_usize(self) -> usize;
+    fn from_usize(x: usize) -> Self;
+}
+
+macro_rules! ObjectId_impl {
+    ($ty:ident, $inner_ty:ident) => {
+        impl ObjectId for $ty {
+            fn to_usize(self) -> usize {
+                self.0 as usize
+            }
+
+            fn from_usize(x: usize) -> $ty {
+                $ty(x as $inner_ty)
+            }
+        }
+    };
+}
+
+ObjectId_impl!(ClientId, u16);
+ObjectId_impl!(EntityId, u32);
+ObjectId_impl!(StructureId, u32);
+ObjectId_impl!(InventoryId, u32);

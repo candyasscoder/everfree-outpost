@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 use std::old_io;
 use std::mem;
-use std::num::ToPrimitive;
-use std::raw;
+use std::slice;
 
 use data::Data;
 use types::*;
+use util::Convert;
 use util::IntrusiveStableId;
 use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
 use world::object::*;
@@ -123,10 +123,7 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
         let len = t.blocks.len();
         let byte_len = len * mem::size_of::<BlockId>();
         let byte_array = unsafe {
-            mem::transmute(raw::Slice {
-                data: t.blocks.as_ptr() as *const u8,
-                len: byte_len,
-            })
+            slice::from_raw_parts(t.blocks.as_ptr() as *const u8, byte_len)
         };
         try!(self.w.write_bytes(byte_array));
 

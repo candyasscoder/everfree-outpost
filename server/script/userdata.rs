@@ -1,3 +1,4 @@
+use std::borrow::ToOwned;
 use libc::c_int;
 
 use physics::{TILE_SIZE, CHUNK_SIZE};
@@ -155,7 +156,7 @@ impl Userdata for World {
             }
 
             fn item_id_to_name(_w: &World, id: ItemId) -> _ {
-                ctx.world.data().item_data.get_name(id).map(|s| String::from_str(s))
+                ctx.world.data().item_data.get_name(id).map(|s| s.to_owned())
             }
 
             fn get_client(_w: &World, id: ClientId) -> Option<Client> {
@@ -205,7 +206,7 @@ impl Userdata for Client {
 
             fn name(c: &Client) -> Option<String> {
                 ctx.world.get_client(c.id)
-                   .map(|c| String::from_str(c.name()))
+                   .map(|c| c.name().to_owned())
             }
 
             fn pawn(c: &Client) -> Option<Entity> {
@@ -257,7 +258,7 @@ impl Userdata for Client {
 
             fn send_message(c: &Client, msg: &str) -> StrResult<()> {{
                 unwrap!(ctx.world.get_client(c.id));
-                ctx.world.record(Update::ClientMessage(c.id, String::from_str(msg)));
+                ctx.world.record(Update::ClientMessage(c.id, msg.to_owned()));
                 Ok(())
             }}
         }

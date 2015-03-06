@@ -1,4 +1,3 @@
-use std::num::{FromPrimitive, ToPrimitive};
 use std::u16;
 use physics::CHUNK_BITS;
 
@@ -19,26 +18,6 @@ macro_rules! mk_id_newtypes {
                 pub fn unwrap(self) -> $inner {
                     let $name(x) = self;
                     x
-                }
-            }
-
-            impl FromPrimitive for $name {
-                fn from_i64(n: i64) -> Option<$name> {
-                    FromPrimitive::from_i64(n).map(|x| $name(x))
-                }
-
-                fn from_u64(n: u64) -> Option<$name> {
-                    FromPrimitive::from_u64(n).map(|x| $name(x))
-                }
-            }
-
-            impl ToPrimitive for $name {
-                fn to_i64(&self) -> Option<i64> {
-                    self.unwrap().to_i64()
-                }
-
-                fn to_u64(&self) -> Option<u64> {
-                    self.unwrap().to_u64()
                 }
             }
         )*

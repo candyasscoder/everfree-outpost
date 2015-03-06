@@ -85,7 +85,9 @@ RUSTFLAGS_asmjs = -L $(BUILD_ASMJS) -L $(BUILD_NATIVE) \
 		-C no-vectorize-loops -C no-vectorize-slp
 
 ifneq ($(RUST_EXTRA_LIBDIR),)
-	RUSTFLAGS_extra_libdir = -L $(RUST_EXTRA_LIBDIR)
+	RUSTFLAGS_extra_libdir = -L $(RUST_EXTRA_LIBDIR) \
+							 --extern log=$(RUST_EXTRA_LIBDIR)/liblog.rlib \
+							 --extern rand=$(RUST_EXTRA_LIBDIR)/librand.rlib
 endif
 
 RUSTFLAGS_native = -L $(BUILD_NATIVE) $(RUSTFLAGS_extra_libdir) \
@@ -196,6 +198,7 @@ $(BUILD_NATIVE)/backend: $(SRC)/server/main.rs \
 		$(foreach dep,$(DEPS_backend),$(BUILD_NATIVE)/lib$(dep).rlib)
 	$(RUSTC) $< --out-dir $(BUILD_NATIVE) $(RUSTFLAGS_native) $(RUSTFLAGS_extra_libdir) \
 		$(RELEASE_RUSTFLAGS_lto) --emit=link,dep-info
+		
 
 
 # Rules for misc files

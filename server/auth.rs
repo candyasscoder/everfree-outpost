@@ -2,8 +2,8 @@ use std::error;
 use std::fmt;
 use std::hash::{SipHasher, Hash, Hasher};
 use std::path::Path as NewPath;
-use std::rand;
 use std::result;
+use rand;
 
 use rusqlite::{SqliteConnection, SqliteError};
 use rusqlite::types::ToSql;
@@ -93,10 +93,10 @@ pub fn check_secret(s: &Secret, hash: &str) -> SecretMatch {
     // TODO: use a better hash
 
     let idx = hash.find(';').unwrap();
-    let version: u32 = hash.slice_to(idx).parse().unwrap();
+    let version: u32 = hash[..idx].parse().unwrap();
 
     if version == 0 {
-        let mut iter = hash.slice_from(idx + 1).split(';');
+        let mut iter = hash[(idx + 1)..].split(';');
         let salt0 = iter.next().unwrap().parse().unwrap();
         let salt1 = iter.next().unwrap().parse().unwrap();
         let expect_hash = iter.next().unwrap().parse().unwrap();

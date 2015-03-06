@@ -133,7 +133,7 @@ fn sanitize(s: &str) -> Cow<str> {
             continue;
         }
 
-        buf.push_str(s.slice(last, i));
+        buf.push_str(&s[last..i]);
 
         if c as u32 <= 0xff {
             buf.push_str(&*format!("-x{:02x}", c as u32));
@@ -149,7 +149,7 @@ fn sanitize(s: &str) -> Cow<str> {
     if last == 0 {
         Cow::Borrowed(s)
     } else {
-        buf.push_str(s.slice_from(last));
+        buf.push_str(&s[last..]);
         Cow::Owned(buf)
     }
 }

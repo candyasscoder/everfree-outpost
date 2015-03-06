@@ -1,3 +1,4 @@
+use std::borrow::ToOwned;
 use std::error::{Error, FromError};
 use std::fmt;
 
@@ -55,7 +56,7 @@ impl FromError<StrError> for StringError {
 impl<'a> FromError<&'a str> for StringError {
     fn from_error(s: &'a str) -> StringError {
         StringError {
-            msg: String::from_str(s),
+            msg: s.to_owned(),
         }
     }
 }

@@ -1,8 +1,7 @@
 use std::cell::RefCell;
 use std::iter::repeat;
-use std::rand::{Rng, XorShiftRng, SeedableRng};
-
 use collect::lru_cache::LruCache;
+use rand::{Rng, XorShiftRng, SeedableRng};
 
 use data::BlockData;
 use physics::v3::{Vn, V3, V2, Region, Region2, scalar};
@@ -39,7 +38,7 @@ fn disk_sample<T, Place, Choose, R>(mut place: Place,
         let idx = rng.gen_range(0, queue.len());
         let x0 = queue.swap_remove(idx);
 
-        for _ in range(0, tries) {
+        for _ in 0..tries {
             let x = choose(x0);
             if place(x) {
                 queue.push(x);
@@ -134,14 +133,14 @@ fn disk_sample2<R, GS>(rng: &mut R,
 
         let mut init_rng = rng.gen::<XorShiftRng>();
         let mut init = Vec::with_capacity(5);
-        for _ in range(0u32, 5) {
+        for _ in 0..5 {
             let x = init_rng.gen_range(bounds.min.x, bounds.max.x);
             let y = init_rng.gen_range(bounds.min.y, bounds.max.y);
             init.push(V2::new(x, y));
         }
 
         let mut sample_rng = rng.gen::<XorShiftRng>();
-        disk_sample(place, choose, &mut sample_rng, init.as_slice(), 30);
+        disk_sample(place, choose, &mut sample_rng, &*init, 30);
     }
 
     points
@@ -189,7 +188,7 @@ impl<GS: Fn(V2) -> i32> IsoDiskSampler<GS> {
         if cache.get(&key).is_none() {
             self.generate_chunk(cache, x, y, section);
         }
-        cache.get(&key).unwrap().as_slice()
+        &*cache.get(&key).unwrap()
     }
 
     fn generate_chunk(&self,
@@ -238,7 +237,7 @@ impl<GS: Fn(V2) -> i32> IsoDiskSampler<GS> {
                                 self.min_spacing,
                                 self.max_spacing,
                                 &self.get_spacing,
-                                initial.as_slice());
+                                &*initial);
         cache.insert((x, y, section), data);
     }
 }
@@ -341,7 +340,7 @@ impl TerrainGenerator {
                    block_data.get_id("grass/center/v1"),
                    block_data.get_id("grass/center/v2"),
                    block_data.get_id("grass/center/v3")];
-        for i in range(0, 1 << (2 * CHUNK_BITS)) {
+        for i in 0 .. 1 << (2 * CHUNK_BITS) {
             chunk[i] = *rng.choose(ids.as_slice()).unwrap();
         }
 

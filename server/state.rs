@@ -1,6 +1,6 @@
 use std::iter::range_inclusive;
 use std::ops::{Deref, DerefMut};
-use std::rand::{Rng, SeedableRng, XorShiftRng};
+use rand::{Rng, SeedableRng, XorShiftRng};
 
 use physics;
 use physics::{Shape, ShapeSource};
@@ -151,7 +151,7 @@ impl<'a> State<'a> {
         let chunk = self.mw.get_terrain(V2::new(cx, cy)).unwrap();
 
         let mut iter = chunk.iter().peekable();
-        while !iter.is_empty() {
+        while !iter.peek().is_none() {
             let cur = *iter.next().unwrap();
 
             if iter.peek().map(|x| **x) != Some(cur) {

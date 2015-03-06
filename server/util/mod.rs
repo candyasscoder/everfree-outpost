@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
 pub use self::bytes::Bytes;
+pub use self::convert::Convert;
 pub use self::cursor::Cursor;
 pub use self::id_map::IdMap;
 pub use self::refcount::RefcountedMap;
@@ -13,6 +14,7 @@ pub use self::str_error::{StringError, StringResult};
 
 #[macro_use] pub mod str_error;
 pub mod bytes;
+pub mod convert;
 pub mod cursor;
 pub mod id_map;
 pub mod refcount;

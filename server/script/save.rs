@@ -1,6 +1,6 @@
 use std::error;
 use std::fmt;
-use std::num::{FromPrimitive, ToPrimitive};
+use std::num::FromPrimitive;
 use std::old_io;
 use std::result;
 use libc::c_int;
@@ -9,8 +9,9 @@ use physics::v3::{V3, V2};
 
 use lua::{self, LuaState, ValueType, REGISTRY_INDEX};
 use types::*;
-use util::StrError;
+use util::Convert;
 use util::Stable;
+use util::StrError;
 use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
 use world::object::*;
 use world::save::{self, Writer, Reader};

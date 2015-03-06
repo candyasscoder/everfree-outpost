@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
-use std::raw;
+use std::slice;
 
 
 const SMALL_VEC_WORDS: usize = 3;
@@ -101,19 +101,13 @@ impl<T> SmallVec<T> {
 
     pub fn as_slice(&self) -> &[T] {
         unsafe {
-            mem::transmute(raw::Slice {
-                data: self.as_ptr(),
-                len: self.len(),
-            })
+            slice::from_raw_parts(self.as_ptr(), self.len())
         }
     }
 
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe {
-            mem::transmute(raw::Slice {
-                data: self.as_ptr(),
-                len: self.len(),
-            })
+            slice::from_raw_parts_mut(self.as_mut_ptr(), self.len())
         }
     }
 
@@ -121,7 +115,7 @@ impl<T> SmallVec<T> {
         let mut v = Vec::with_capacity(self.len() * 2 + 1);
 
         let mut interp = unsafe { self.to_interp() };
-        for i in range(0, interp.len) {
+        for i in 0..interp.len {
             let val = unsafe { ptr::read(interp.ptr.offset(i as isize)) };
             v.push(val);
         }
@@ -154,7 +148,7 @@ impl<T> Drop for SmallVec<T> {
     fn drop(&mut self) {
         let mut interp = unsafe { self.to_interp() };
         if !interp.is_large {
-            for i in range(0, interp.len) {
+            for i in 0..interp.len {
                 unsafe { ptr::read(interp.ptr.offset(i as isize)) };
             }
         } else {

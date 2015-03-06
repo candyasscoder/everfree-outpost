@@ -341,7 +341,7 @@ impl<T: ToLua> ToLua for Option<T> {
         match self {
             Some(x) => x.to_lua(lua),
             None => {
-                for _ in range(0, <T as ToLua>::count()) {
+                for _ in 0 .. (<T as ToLua>::count()) {
                     lua.push_nil();
                 }
             }
@@ -359,7 +359,7 @@ impl<T: ToLua> ToLua for StrResult<T> {
                 lua.push_nil();
             },
             Err(e) => {
-                for _ in range(0, <T as ToLua>::count()) {
+                for _ in 0 .. (<T as ToLua>::count()) {
                     lua.push_nil();
                 }
                 e.msg.to_lua(lua);

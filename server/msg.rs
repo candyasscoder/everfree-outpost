@@ -199,7 +199,7 @@ impl Response {
     pub fn write_to<W: Writer>(&self, id: WireId, ww: &mut WireWriter<W>) -> IoResult<()> {
         try!(match *self {
             TerrainChunk(idx, ref data) =>
-                ww.write_msg(id, (op::TerrainChunk, idx, data.as_slice())),
+                ww.write_msg(id, (op::TerrainChunk, idx, data)),
             PlayerMotion(entity, ref motion) =>
                 ww.write_msg(id, (op::PlayerMotion, entity, motion)),
             Pong(data, time) =>
@@ -213,9 +213,9 @@ impl Response {
             UnloadChunk(idx) =>
                 ww.write_msg(id, (op::UnloadChunk, idx)),
             OpenDialog(dialog_id, ref params) =>
-                ww.write_msg(id, (op::OpenDialog, dialog_id, params.as_slice())),
+                ww.write_msg(id, (op::OpenDialog, dialog_id, params)),
             InventoryUpdate(inventory_id, ref changes) =>
-                ww.write_msg(id, (op::InventoryUpdate, inventory_id, changes.as_slice())),
+                ww.write_msg(id, (op::InventoryUpdate, inventory_id, changes)),
             OpenCrafting(station_type, station_id, inventory_id) =>
                 ww.write_msg(id, (op::OpenCrafting, station_type, station_id, inventory_id)),
             ChatUpdate(ref msg) =>

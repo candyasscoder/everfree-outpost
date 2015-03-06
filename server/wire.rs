@@ -280,7 +280,7 @@ impl<A: ReadFromFixed> ReadFrom for Vec<A> {
         let step = ReadFromFixed::size_fixed(None::<A>);
         let count = bytes / step;
         let mut result = Vec::with_capacity(count);
-        for _ in range(0, count) {
+        for _ in 0..count {
             result.push(try!(ReadFrom::read_from(r, step)));
         }
         Ok(result)
@@ -337,7 +337,7 @@ impl<'a, A: WriteToFixed> WriteToFixed for &'a A {
 impl ReadFrom for String {
     fn read_from<R: Reader>(r: &mut R, bytes: usize) -> IoResult<String> {
         let bytes: Vec<u8> = try!(ReadFrom::read_from(r, bytes));
-        Ok(String::from_utf8_lossy(bytes.as_slice()).into_owned())
+        Ok(String::from_utf8_lossy(&*bytes).into_owned())
     }
 
     fn size(_: Option<String>) -> (usize, usize) {
