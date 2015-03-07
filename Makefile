@@ -169,7 +169,8 @@ $(ASMLIBS).js: $(SRC)/client/asmlibs.tmpl.js $(ASMLIBS).1.js \
 CLOSURE_FLAGS=--language_in=ECMASCRIPT5_STRICT \
 			  --output_wrapper='(function(){%output%})();' \
 			  --jscomp_error=undefinedNames \
-			  --jscomp_error=undefinedVars
+			  --jscomp_error=undefinedVars \
+			  --create_name_map_files
 
 $(BUILD_MIN)/asmlibs.js: $(BUILD_ASMLIBS)/asmlibs.js
 	$(YUI_COMPRESSOR) --disable-optimizations --line-break 200 $< | \
