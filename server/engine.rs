@@ -16,7 +16,7 @@ use physics_::Physics;
 use script::ScriptEngine;
 use storage::Storage;
 use terrain_gen::TerrainGen;
-use view::Vision;
+use vision::Vision;
 use world::World;
 
 

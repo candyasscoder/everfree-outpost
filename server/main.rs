@@ -69,7 +69,6 @@ mod tasks;
 mod state;
 mod timer;
 mod types;
-mod view;
 mod input;
 mod gen;
 mod data;
@@ -86,6 +85,7 @@ mod messages;
 mod physics_;
 mod chunks;
 mod terrain_gen;
+mod vision;
 
 
 fn read_json(mut file: File) -> json::Json {
