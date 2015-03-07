@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::rand;
+use rand;
 
 use physics::{CHUNK_SIZE, CHUNK_BITS};
 
