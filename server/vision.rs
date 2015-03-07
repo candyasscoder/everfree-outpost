@@ -40,14 +40,14 @@ struct VisionEntity {
 }
 
 #[allow(unused_variables)]
-pub trait VisionCallbacks {
-    fn chunk_appear(&mut self, cid: ClientId, pos: V2) {}
-    fn chunk_disappear(&mut self, cid: ClientId, pos: V2) {}
-    fn chunk_update(&mut self, cid: ClientId, pos: V2) {}
+pub trait Hooks {
+    fn on_chunk_appear(&mut self, cid: ClientId, pos: V2) {}
+    fn on_chunk_disappear(&mut self, cid: ClientId, pos: V2) {}
+    fn on_chunk_update(&mut self, cid: ClientId, pos: V2) {}
 
-    fn entity_appear(&mut self, cid: ClientId, eid: EntityId) {}
-    fn entity_disappear(&mut self, cid: ClientId, eid: EntityId) {}
-    fn entity_update(&mut self, cid: ClientId, eid: EntityId) {}
+    fn on_entity_appear(&mut self, cid: ClientId, eid: EntityId) {}
+    fn on_entity_disappear(&mut self, cid: ClientId, eid: EntityId) {}
+    fn on_entity_update(&mut self, cid: ClientId, eid: EntityId) {}
 }
 
 impl Vision {
@@ -63,28 +63,28 @@ impl Vision {
 }
 
 impl Vision {
-    pub fn add_client<CB>(&mut self,
-                          cid: ClientId,
-                          view: Region<V2>,
-                          cb: &mut CB)
-            where CB: VisionCallbacks {
+    pub fn add_client<H>(&mut self,
+                         cid: ClientId,
+                         view: Region<V2>,
+                         h: &mut H)
+            where H: Hooks {
         self.clients.insert(cid.unwrap() as usize, VisionClient::new());
-        self.set_client_view(cid, view, cb);
+        self.set_client_view(cid, view, h);
     }
 
-    pub fn remove_client<CB>(&mut self,
-                             cid: ClientId,
-                             cb: &mut CB)
-            where CB: VisionCallbacks {
-        self.set_client_view(cid, Region::empty(), cb);
+    pub fn remove_client<H>(&mut self,
+                            cid: ClientId,
+                            h: &mut H)
+            where H: Hooks {
+        self.set_client_view(cid, Region::empty(), h);
         self.clients.remove(&(cid.unwrap() as usize));
     }
 
-    pub fn set_client_view<CB>(&mut self,
-                               cid: ClientId,
-                               new_view: Region<V2>,
-                               cb: &mut CB)
-            where CB: VisionCallbacks {
+    pub fn set_client_view<H>(&mut self,
+                              cid: ClientId,
+                              new_view: Region<V2>,
+                              h: &mut H)
+            where H: Hooks {
         let raw_cid = cid.unwrap() as usize;
         let client = &mut self.clients[raw_cid];
         let old_view = mem::replace(&mut client.view, new_view);
@@ -93,13 +93,13 @@ impl Vision {
         for p in old_view.points().filter(|&p| !new_view.contains(p)) {
             for &eid in self.entities_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
                 client.visible_entities.release(eid, |()| {
-                    cb.entity_disappear(cid, eid);
+                    h.on_entity_disappear(cid, eid);
                     entities[eid.unwrap() as usize].viewers.remove(&cid);
                 });
             }
 
             if self.loaded_chunks.contains(&p) {
-                cb.chunk_disappear(cid, p);
+                h.on_chunk_disappear(cid, p);
             }
 
             multimap_remove(&mut self.clients_by_chunk, p, cid);
@@ -108,15 +108,15 @@ impl Vision {
         for p in new_view.points().filter(|&p| !old_view.contains(p)) {
             for &eid in self.entities_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
                 client.visible_entities.retain(eid, || {
-                    cb.entity_appear(cid, eid);
-                    cb.entity_update(cid, eid);
+                    h.on_entity_appear(cid, eid);
+                    h.on_entity_update(cid, eid);
                     entities[eid.unwrap() as usize].viewers.insert(cid);
                 });
             }
 
             if self.loaded_chunks.contains(&p) {
-                cb.chunk_appear(cid, p);
-                cb.chunk_update(cid, p);
+                h.on_chunk_appear(cid, p);
+                h.on_chunk_update(cid, p);
             }
             multimap_insert(&mut self.clients_by_chunk, p, cid);
         }
@@ -127,28 +127,28 @@ impl Vision {
     }
 
 
-    pub fn add_entity<CB>(&mut self,
-                          eid: EntityId,
-                          area: SmallSet<V2>,
-                          cb: &mut CB)
-            where CB: VisionCallbacks {
+    pub fn add_entity<H>(&mut self,
+                         eid: EntityId,
+                         area: SmallSet<V2>,
+                         h: &mut H)
+            where H: Hooks {
         self.entities.insert(eid.unwrap() as usize, VisionEntity::new());
-        self.set_entity_area(eid, area, cb);
+        self.set_entity_area(eid, area, h);
     }
 
-    pub fn remove_entity<CB>(&mut self,
-                             eid: EntityId,
-                             cb: &mut CB)
-            where CB: VisionCallbacks {
-        self.set_entity_area(eid, SmallSet::new(), cb);
+    pub fn remove_entity<H>(&mut self,
+                            eid: EntityId,
+                            h: &mut H)
+            where H: Hooks {
+        self.set_entity_area(eid, SmallSet::new(), h);
         self.entities.remove(&(eid.unwrap() as usize));
     }
 
-    pub fn set_entity_area<CB>(&mut self,
-                               eid: EntityId,
-                               new_area: SmallSet<V2>,
-                               cb: &mut CB)
-            where CB: VisionCallbacks {
+    pub fn set_entity_area<H>(&mut self,
+                              eid: EntityId,
+                              new_area: SmallSet<V2>,
+                              h: &mut H)
+            where H: Hooks {
         let raw_eid = eid.unwrap() as usize;
         let entity = &mut self.entities[raw_eid];
 
@@ -157,7 +157,7 @@ impl Vision {
         for &p in old_area.iter().filter(|&p| !new_area.contains(p)) {
             for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
                 self.clients[cid.unwrap() as usize].visible_entities.release(eid, |()| {
-                    cb.entity_disappear(cid, eid);
+                    h.on_entity_disappear(cid, eid);
                     entity.viewers.remove(&cid);
                 });
             }
@@ -167,7 +167,7 @@ impl Vision {
         for &p in new_area.iter().filter(|&p| !old_area.contains(p)) {
             for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
                 self.clients[cid.unwrap() as usize].visible_entities.retain(eid, || {
-                    cb.entity_appear(cid, eid);
+                    h.on_entity_appear(cid, eid);
                     entity.viewers.insert(cid);
                 });
             }
@@ -175,40 +175,40 @@ impl Vision {
         }
 
         for &cid in entity.viewers.iter() {
-            cb.entity_update(cid, eid);
+            h.on_entity_update(cid, eid);
         }
 
         entity.area = new_area;
     }
 
 
-    pub fn add_chunk<CB>(&mut self,
-                         pos: V2,
-                         cb: &mut CB)
-            where CB: VisionCallbacks {
+    pub fn add_chunk<H>(&mut self,
+                        pos: V2,
+                        h: &mut H)
+            where H: Hooks {
         self.loaded_chunks.insert(pos);
         for &cid in self.clients_by_chunk.get(&pos).map(|x| x.iter()).unwrap_iter() {
-            cb.chunk_appear(cid, pos);
-            cb.chunk_update(cid, pos);
+            h.on_chunk_appear(cid, pos);
+            h.on_chunk_update(cid, pos);
         }
     }
 
-    pub fn remove_chunk<CB>(&mut self,
-                            pos: V2,
-                            cb: &mut CB)
-            where CB: VisionCallbacks {
+    pub fn remove_chunk<H>(&mut self,
+                           pos: V2,
+                           h: &mut H)
+            where H: Hooks {
         for &cid in self.clients_by_chunk.get(&pos).map(|x| x.iter()).unwrap_iter() {
-            cb.chunk_disappear(cid, pos);
+            h.on_chunk_disappear(cid, pos);
         }
         self.loaded_chunks.remove(&pos);
     }
 
-    pub fn update_chunk<CB>(&mut self,
-                            pos: V2,
-                            cb: &mut CB)
-            where CB: VisionCallbacks {
+    pub fn update_chunk<H>(&mut self,
+                           pos: V2,
+                           h: &mut H)
+            where H: Hooks {
         for &cid in self.clients_by_chunk.get(&pos).map(|x| x.iter()).unwrap_iter() {
-            cb.chunk_update(cid, pos);
+            h.on_chunk_update(cid, pos);
         }
     }
 }

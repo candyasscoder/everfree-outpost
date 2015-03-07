@@ -20,6 +20,9 @@ use vision::Vision;
 use world::World;
 
 
+#[macro_use] mod hooks;
+
+
 pub struct Engine<'d> {
     pub data: &'d Data,
     pub storage: &'d Storage,

@@ -8,8 +8,9 @@ use types::*;
 use util::stable_id_map::{self, StableIdMap, Stable};
 
 use self::object::{Object, ObjectRef, ObjectRefMut};
-use self::hooks::{Hooks, NoHooks, no_hooks};
+use self::hooks::{NoHooks, no_hooks};
 pub use self::ops::OpResult;
+pub use self::hooks::Hooks;
 
 macro_rules! bad {
     ($ok:expr, $msg:expr) => { bad!($ok, $msg,) };
