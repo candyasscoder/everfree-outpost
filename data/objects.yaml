@@ -106,3 +106,6 @@ fence:
     se.z0: [se]
     gate_post_w.z0: [gate_post_w]
     gate_post_e.z0: [gate_post_e]
+
+road:
+    z0: [road]

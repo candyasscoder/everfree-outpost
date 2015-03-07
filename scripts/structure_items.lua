@@ -67,6 +67,7 @@ add_structure_item('house_wall/corner', 'house_wall/corner/inner/nw')
 add_structure_item('house_wall/tee', 'house_wall/tee/interior/e')
 add_structure_item('house_floor')
 add_structure_item('house_door')
+add_structure_item('road')
 
 
 local function mallet_cycle(base, xs)

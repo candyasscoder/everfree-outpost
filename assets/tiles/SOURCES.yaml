@@ -323,3 +323,21 @@ lpc-wood-floor.xcf: *wood-floor
         edited crystal from David E. Gervais's roguelike tilesets.
     derived-from: daneeklu_farming_tilesets/fence.png, gervais_roguelike/dg_misc32.gif
 "crystal-ward.xcf": *crystal-ward
+
+"nilsson_lpc_entry/*/*":
+    title: LPC C.Nilsson
+    author: Casper Nilsson
+    license: CC-BY-SA 3.0 / GPL 3.0
+    url: http://opengameart.org/content/lpc-cnilsson
+    attribution: >
+        LICENSE
+        ---------------------------------
+        The art is dual licensed under the following licenses.
+        *CC-BY-SA 3.0
+        *GNU GPL 3.0 or later
+         
+        http://creativecommons.org/licenses/by-sa/3.0/
+        http://www.gnu.org/licenses/gpl-3.0.html
+
+        Please attribute creator as Casper Nilsson.
+        Please include a link to opengameart.org as well (preferably to the submission for this art package) if you use the art.

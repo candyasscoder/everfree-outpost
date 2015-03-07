@@ -76,3 +76,7 @@ fence:
 fence_post:
     ui_name: Fence Post
     tile: /fence/gate_post_w
+
+road:
+    ui_name: Road
+    tile: /road

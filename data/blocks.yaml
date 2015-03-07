@@ -277,3 +277,7 @@ fence:
 
     gate_post_w.front: gate_post_w
     gate_post_e.front: gate_post_e
+
+road:
+    shape: floor
+    bottom: road

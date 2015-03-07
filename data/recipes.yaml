@@ -90,3 +90,9 @@ fence_post:
     ui_name: Fence Post
     inputs: { wood: 5 }
     outputs: { fence_post: 1 }
+
+road:
+    station: anvil
+    ui_name: Road
+    inputs: { stone: 5 }
+    outputs: { road: 2 }
