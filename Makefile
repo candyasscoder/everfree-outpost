@@ -36,6 +36,7 @@ all: $(DIST)/all
 
 redist:
 	rm -r $(DIST)
+	rm $(BUILD)/server.json
 	$(MAKE) -f $(SRC)/Makefile $(DIST)/all
 
 clean:
@@ -273,6 +274,9 @@ $(BUILD)/credits.html: $(SRC)/util/gen_credits.py \
 		grep -vE '(\.frag|\.vert)$$' |\
 		$(PYTHON3) $(SRC)/util/gen_credits.py >$@
 
+$(BUILD)/server.json: $(SRC)/util/gen_server_json.py
+	$(PYTHON3) $< >$@
+
 
 # Rules for copying files into dist/
 
@@ -302,7 +306,7 @@ $(eval $(call DATA_FILE, 	objects.json,		$(BUILD)/objects.json))
 $(eval $(call DATA_FILE, 	recipes.json,		$(BUILD)/recipes.json))
 $(eval $(call WWW_FILE, 	credits.html,		$(BUILD)/credits.html))
 $(eval $(call WWW_FILE, 	instructions.html,	$(SRC)/client/instructions.html))
-$(eval $(call WWW_FILE, 	server.json,		$(SRC)/util/server.json.default))
+$(eval $(call WWW_FILE, 	server.json,		$(SRC)/build/server.json))
 
 ifeq ($(RELEASE),)
 $(eval $(call WWW_FILE, client.html, 	$(BUILD)/client.debug.html))

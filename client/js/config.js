@@ -5,6 +5,7 @@ var DEFAULT_CONFIG = {
 
     'login_name': null,
     'login_secret': null,
+    'world_version': null,
 
     'keybindings': {
         37: 'move_left',    // ArrowLeft
@@ -58,6 +59,7 @@ exports.Config = {
 
     login_name: new ConfigItem('login_name'),
     login_secret: new ConfigItem('login_secret'),
+    world_version: new ConfigItem('world_version'),
 
     keybindings: new ConfigItem('keybindings'),
     chat_keybindings: new ConfigItem('chat_keybindings'),

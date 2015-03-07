@@ -242,12 +242,13 @@ function init() {
 
             cursor = new Cursor(canvas.ctx, assets, TILE_SIZE / 2 + 1);
 
-            openConn(assets['server_info'], function() {
+            var info = assets['server_info'];
+            openConn(info, function() {
                 timing = new Timing(conn);
                 timing.scheduleUpdates(5, 30);
                 inv_tracker = new InventoryTracker(conn);
 
-                maybeRegister(function() {
+                maybeRegister(info, function() {
                     conn.sendLogin(Config.login_name.get(), Config.login_secret.get());
 
                     banner.hide();
@@ -342,8 +343,9 @@ function openConn(info, next) {
     conn.onEntityGone = handleEntityGone;
 }
 
-function maybeRegister(next) {
-    if (Config.login_name.isSet() && Config.login_secret.isSet()) {
+function maybeRegister(info, next) {
+    if (Config.login_name.isSet() && Config.login_secret.isSet() &&
+            Config.world_version.get() == info['world_version']) {
         console.log('secret already set');
         next();
         return;
@@ -373,6 +375,7 @@ function maybeRegister(next) {
         if (code == 0) {
             Config.login_name.set(last_name);
             Config.login_secret.set(secret);
+            Config.world_version.set(info['world_version']);
             dialog.hide();
             next();
         } else {
