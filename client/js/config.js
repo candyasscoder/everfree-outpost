@@ -44,6 +44,8 @@ var DEFAULT_CONFIG = {
 
     'show_key_display': false,
 
+    'ignores': {},
+
     'debug_show_panel': false,
     'debug_timing_delay': [0, 25],
     'debug_force_mobile_warning': false,
@@ -64,6 +66,8 @@ exports.Config = {
     ui_keybindings: new ConfigItem('ui_keybindings'),
 
     show_key_display: new ConfigItem('show_key_display'),
+
+    ignores: new ConfigItem('ignores'),
 
     debug_show_panel: new ConfigItem('debug_show_panel'),
     debug_timing_delay: new ConfigItem('debug_timing_delay'),
@@ -93,7 +97,7 @@ ConfigItem.prototype.get = function() {
 
 ConfigItem.prototype.set = function(value) {
     this.value = value;
-    localStorage.setItem(this.key, JSON.stringify(value));
+    this.save();
 };
 
 ConfigItem.prototype.toggle = function(value) {
@@ -109,4 +113,8 @@ ConfigItem.prototype.isSet = function() {
 ConfigItem.prototype.reset = function() {
     localStorage.removeItem(this.key);
     this.value = null;
+};
+
+ConfigItem.prototype.save = function() {
+    localStorage.setItem(this.key, JSON.stringify(this.value));
 };

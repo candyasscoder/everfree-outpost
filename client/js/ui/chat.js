@@ -5,7 +5,7 @@ var Config = require('config').Config;
 function ChatWindow() {
     this.container = util.element('div', ['chat-container']);
     this._content = util.element('div', ['chat'], this.container);
-    this._entry = util.element('input', ['chat-input'], this.container);
+    this._entry = util.element('input', ['chat-input', 'maxlength=100'], this.container);
     this._entry.disabled = true;
 
     this.count = 0;
@@ -19,8 +19,11 @@ ChatWindow.prototype.addMessage = function(msg) {
         return;
     }
 
-    var name = msg.substr(0, idx);
-    var text = msg.substr(idx + 1);
+    var name = msg.substring(0, idx);
+    if (Config.ignores.get()[name]) {
+        return;
+    }
+    var text = msg.substring(idx + 1);
 
     var lineDiv = util.element('div', ['chat-line'], this._content);
     var nameDiv = util.element('div', ['chat-name'], lineDiv);
@@ -40,6 +43,18 @@ ChatWindow.prototype.addMessage = function(msg) {
     }
 
     this._content.scrollTop = this._content.scrollHeight;
+};
+
+ChatWindow.prototype.addIgnore = function(name) {
+    var ignores = Config.ignores.get();
+    ignores['<' + name + '>'] = true;
+    Config.ignores.save();
+};
+
+ChatWindow.prototype.removeIgnore = function(name) {
+    var ignores = Config.ignores.get();
+    delete ignores['<' + name + '>'];
+    Config.ignores.save();
 };
 
 ChatWindow.prototype.startTyping = function(keyboard, conn, init) {
@@ -75,8 +90,27 @@ ChatWindow.prototype.startTyping = function(keyboard, conn, init) {
 ChatWindow.prototype.finishTyping = function(keyboard, conn, send) {
     keyboard.popHandler();
 
-    if (send && this._entry.value != '') {
-        conn.sendChat(this._entry.value);
+    var msg = this._entry.value;
+    var handled = false;
+    if (msg[0] == '/') {
+        var idx = msg.indexOf(' ');
+        console.log(msg, idx);
+        if (idx != -1) {
+            var cmd = msg.substring(1, idx);
+            var arg = msg.substring(idx + 1);
+            console.log(cmd, arg);
+            if (cmd == 'ignore') {
+                this.addIgnore(arg);
+                handled = true;
+            } else if (cmd == 'unignore') {
+                this.removeIgnore(arg);
+                handled = true;
+            }
+        }
+    }
+
+    if (send && !handled && msg != '') {
+        conn.sendChat(msg);
     }
 
     this._entry.blur();
