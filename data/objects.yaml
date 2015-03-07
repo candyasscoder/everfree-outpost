@@ -114,3 +114,15 @@ cabinets:
     prefix: cabinets
     z0: [z0]
     z1: [z1]
+
+bed:
+    prefix: bed
+    z0:
+        - 00, 10
+        - 01, 11
+
+table:
+    prefix: table
+    z0:
+        - 00, 10
+        - 01, 11

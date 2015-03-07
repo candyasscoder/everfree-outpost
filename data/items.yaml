@@ -84,3 +84,11 @@ road:
 cabinets:
     ui_name: Cabinets
     tile: /cabinets/01
+
+bed:
+    ui_name: Bed
+    tile: bed
+
+table:
+    ui_name: Table
+    tile: table

@@ -289,3 +289,25 @@ cabinets:
     z0.front: n/02 + /cabinets/02
     z1.front: n/01 + /cabinets/01
     z1.top:   n/00 + /cabinets/00
+
+bed:
+    shape: solid
+    prefix: bed
+    _.bottom: /wood_floor/center/v0
+    00.top:   "00"
+    10.top:   "10"
+    01.top:   "01"
+    01.front: "02"
+    11.top:   "11"
+    11.front: "12"
+
+table:
+    shape: solid
+    prefix: table
+    _.bottom: /wood_floor/center/v0
+    00.top:   "00"
+    10.top:   "10"
+    01.top:   "01"
+    01.front: "02"
+    11.top:   "11"
+    11.front: "12"

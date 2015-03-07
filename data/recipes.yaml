@@ -102,3 +102,15 @@ cabinets:
     ui_name: Cabinets
     inputs: { wood: 20 }
     outputs: { cabinets: 1 }
+
+bed:
+    station: anvil
+    ui_name: Bed
+    inputs: { wood: 20 }
+    outputs: { bed: 1 }
+
+table:
+    station: anvil
+    ui_name: Table
+    inputs: { wood: 20 }
+    outputs: { table: 1 }

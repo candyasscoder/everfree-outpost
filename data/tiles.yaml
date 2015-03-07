@@ -183,3 +183,9 @@ nilsson_lpc_entry/Harbor/harbor.png:
 
 lpc-furniture.png:
     cabinets: [0, 0, 1, 3]
+    item/bed: [1, 0]
+    item/table: [1, 1]
+
+lpc-base-tiles/victoria.png:
+    bed: [2, 0, 2, 3]
+    table: [4, 0, 2, 3]
