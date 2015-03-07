@@ -436,6 +436,10 @@ impl<'a> Server<'a> {
             },
 
             Request::Chat(msg) => {
+                if msg.len() > 100 {
+                    fail!("bad request: chat message too long ({})", msg.len());
+                }
+
                 if &*msg == "/count" {
                     let count = self.client_info.len();
                     let msg_out = format!("***\t{} player{} online",
