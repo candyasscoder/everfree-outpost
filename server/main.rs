@@ -76,6 +76,7 @@ mod world;
 mod terrain2;
 mod storage;
 mod auth;
+mod logging;
 
 
 fn read_json(mut file: File) -> json::Json {
@@ -84,6 +85,8 @@ fn read_json(mut file: File) -> json::Json {
 }
 
 fn main() {
+    logging::init();
+
     let args = env::args().collect::<Vec<_>>();
     let storage = Storage::new(Path::new(&args[1]));
 
