@@ -281,3 +281,11 @@ fence:
 road:
     shape: floor
     bottom: road
+
+cabinets:
+    shape: solid
+    prefix: house_wall/side
+    z0.bottom: /grass/center/v0 + /wood_floor/edge/n
+    z0.front: n/02 + /cabinets/02
+    z1.front: n/01 + /cabinets/01
+    z1.top:   n/00 + /cabinets/00

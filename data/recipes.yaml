@@ -96,3 +96,9 @@ road:
     ui_name: Road
     inputs: { stone: 5 }
     outputs: { road: 2 }
+
+cabinets:
+    station: anvil
+    ui_name: Cabinets
+    inputs: { wood: 20 }
+    outputs: { cabinets: 1 }

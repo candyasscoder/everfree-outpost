@@ -180,3 +180,6 @@ crystal-ward.png:
 
 nilsson_lpc_entry/Harbor/harbor.png:
     road: [2, 2]
+
+lpc-furniture.png:
+    cabinets: [0, 0, 1, 3]

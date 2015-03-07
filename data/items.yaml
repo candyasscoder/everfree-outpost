@@ -80,3 +80,7 @@ fence_post:
 road:
     ui_name: Road
     tile: /road
+
+cabinets:
+    ui_name: Cabinets
+    tile: /cabinets/01

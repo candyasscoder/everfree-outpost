@@ -20,3 +20,22 @@ function tools.handler.axe.chest(c, s, inv)
     -- TODO: do something with the chest contents
     structure_items.use_structure(c, s, 'chest')
 end
+
+
+function action.use.cabinets(c, s)
+    if not ward.check(c, s:pos()) then
+        return
+    end
+
+    c:open_container(c:pawn():inventory('main'),
+                     s:inventory('contents'))
+end
+
+function action.use_item.cabinets(c, inv)
+    structure_items.use_item(c, inv, 'cabinets', 'cabinets')
+end
+
+function tools.handler.axe.cabinets(c, s, inv)
+    -- TODO: do something with the contents
+    structure_items.use_structure(c, s, 'cabinets')
+end

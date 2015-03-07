@@ -296,6 +296,16 @@ lpc-wood-floor.png: &wood-floor
     derived-from: "lpc-base-tiles/inside.png"
 lpc-wood-floor.xcf: *wood-floor
 
+lpc-furniture.png: &furniture
+    title: LPC Furniture
+    author: Lanea Zimmerman (AKA Sharm), Everfree Outpost
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution:
+        Lanea Zimmerman's LPC house furniture, rearranged to line up with the
+        modified house walls.
+    derived-from: "lpc-base-tiles/cabinets.png"
+lpc-furniture.xcf: *furniture
+
 "daneeklu_farming_tilesets/*.png":
     title: "[LPC] Farming tilesets, magic animations and UI elements"
     author: Daniel Eddeland (daneeklu)
@@ -324,7 +334,7 @@ lpc-wood-floor.xcf: *wood-floor
     derived-from: daneeklu_farming_tilesets/fence.png, gervais_roguelike/dg_misc32.gif
 "crystal-ward.xcf": *crystal-ward
 
-"nilsson_lpc_entry/*/*":
+nilsson_lpc_entry/Harbor/*.png:
     title: LPC C.Nilsson
     author: Casper Nilsson
     license: CC-BY-SA 3.0 / GPL 3.0
