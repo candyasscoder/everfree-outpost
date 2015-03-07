@@ -77,8 +77,9 @@ mod script;
 mod world;
 mod terrain2;
 mod storage;
-mod auth;
+mod logging;
 
+mod auth;
 mod engine;
 mod messages;
 // TODO: rename to 'physics'; import lib as 'physics_lib'
@@ -102,6 +103,8 @@ fn main() {
     use std::thread;
     //use std::u8;
     use rustc_serialize::json;
+
+    logging::init();
 
     let args = env::args().collect::<Vec<_>>();
     let storage = storage::Storage::new(Path::new(&args[1]));
