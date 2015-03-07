@@ -1,4 +1,5 @@
 import binascii
+import math
 import os
 import socket
 import struct
@@ -14,6 +15,12 @@ import tornado.web
 import tornado.websocket
 
 
+OP_INPUT =          0x0004
+OP_ACTION =         0x0006
+OP_CHAT =           0x000a
+
+OP_CHAT_UPDATE =    0x800b
+
 OP_ADD_CLIENT =     0xff00
 OP_REMOVE_CLIENT =  0xff01
 OP_CLIENT_REMOVED = 0xff02
@@ -25,14 +32,51 @@ def now():
     t = time.time()
     return int(t * 1000)
 
+class TimeVarying(object):
+    def __init__(self, init, low, high, velocity, time=None):
+        self.init = init
+        self.last_val = init
+        self.last_time = time or now()
+        self.low = low
+        self.high = high
+        self.velocity = velocity
+
+    def get(self, time=None):
+        time = time or now()
+        cur = self.last_val + (time - self.last_time) * self.velocity
+        return min(self.high, max(self.low, cur))
+
+    def adjust(self, delta, time=None):
+        time = time or now()
+        self.last_val = self.get(time) + delta
+        self.last_time = time
+        return self.last_val
+
+    def reset(self, val=None, time=None):
+        time = time or now()
+        self.last_val = val or self.init
+        self.last_time = time
+        return self.last_val
+
+
+
 LOG_DIR = None
 
+OPCODE_COST = {
+        OP_INPUT: 100,
+        OP_ACTION: 50,
+        OP_CHAT: 1000,
+}
 
 class WSHandler(tornado.websocket.WebSocketHandler):
     def __init__(self, *args, **kwargs):
         super(WSHandler, self).__init__(*args, **kwargs)
         self.log = None
         self.alive = True
+
+        self.msgs_in = TimeVarying(1000, 0, 5000, 1)
+        self.backoff_until = None
+        self.backoff_exp = TimeVarying(0, 0, 100, -0.01 / 1000)
 
     def open(self):
         self.id = backend.add_client(self)
@@ -45,8 +89,21 @@ class WSHandler(tornado.websocket.WebSocketHandler):
     def on_message(self, message):
         if not self.alive:
             return
+
+        if self.backoff_until is not None:
+            if self.backoff_until < now():
+                self._backoff_end()
+            else:
+                return
+
         if self.log is not None:
             self.log.write('%d: > %s\n' % (now(), binascii.hexlify(message)))
+
+        opcode, = struct.unpack_from('H', message, 0)
+        cost = OPCODE_COST.get(opcode, 0)
+        if cost > 0 and self.msgs_in.adjust(-cost) <= 0:
+            self._backoff_begin()
+
         backend.send_client_message(self.id, message)
 
     def on_close(self):
@@ -58,7 +115,9 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         self.alive = False
 
     def write_message(self, msg, *args, **kwargs):
-        self.log.write('%d: < %s\n' % (now(), binascii.hexlify(msg)))
+        if self.log is not None:
+            self.log.write('%d: < %s\n' % (now(), binascii.hexlify(msg)))
+
         super(WSHandler, self).write_message(msg, *args, **kwargs)
 
     def close(self):
@@ -68,6 +127,30 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         # interpret messages from the old connection as if they came from the
         # new one.
         self.alive = False
+
+    def _backoff_begin(self):
+        if self.backoff_until is not None:
+            return
+
+        backoff = math.pow(2, self.backoff_exp.adjust(1))
+        self.backoff_until = now() + backoff * 1000
+        msg_text = '***\tBlocked for %.1f seconds due to spam' % backoff
+        msg = struct.pack('H', OP_CHAT_UPDATE) + msg_text.encode('utf-8')
+        super(WSHandler, self).write_message(msg, binary=True)
+
+        if self.log is not None:
+            self.log.write('%d: block input due to spam\n' % now())
+
+    def _backoff_end(self):
+        if self.backoff_until is None:
+            return
+
+        self.backoff_until = None
+        self.msgs_in.reset()
+
+        if self.log is not None:
+            self.log.write('%d: input unblocked\n' % now())
+
 
 class FileHandler(tornado.web.StaticFileHandler):
     @classmethod
