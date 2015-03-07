@@ -883,8 +883,8 @@ function frame(ac, now) {
             camera_size.x, camera_size.y,
             sprites);
 
-    if (show_cursor && player_entity >= 0) {
-        var facing = FACINGS[entities[player_entity].animId() % FACINGS.length];
+    if (show_cursor && pony != null) {
+        var facing = FACINGS[pony.animId() % FACINGS.length];
         // TODO: hacky offset (see comment in handleEntityUpdate)
         var cursor_pos = pos.sub(new Vec(0, 16, 0)).divScalar(TILE_SIZE).add(facing);
         cursor.draw(camera_pos, camera_size, cursor_pos);
