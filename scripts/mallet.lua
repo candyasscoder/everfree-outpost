@@ -5,7 +5,6 @@ local ward = require('ward')
 local replacements = {}
 
 action.use_item.mallet = function(c, inv)
-    print('whack')
     local s = util.hit_structure(c:pawn())
     if s == nil then
         return
