@@ -1,10 +1,10 @@
-use std::io::{self, Stderr, Write};
+use std::io::{self, Write};
 use log::{self, Log, LogLevel, LogLevelFilter, LogRecord};
 
 struct Logger;
 
 impl Log for Logger {
-    fn enabled(&self, level: LogLevel, module: &str) -> bool {
+    fn enabled(&self, _level: LogLevel, _module: &str) -> bool {
         true
     }
 
@@ -17,7 +17,7 @@ impl Log for Logger {
             LogLevel::Trace => "TRC",
         };
 
-        writeln!(&mut io::stderr(), "[{:4}] {}", level, record.args());
+        let _ = writeln!(&mut io::stderr(), "[{:4}] {}", level, record.args());
     }
 }
 
@@ -25,5 +25,5 @@ pub fn init() {
     log::set_logger(|max| {
         max.set(LogLevelFilter::Trace);
         Box::new(Logger) as Box<Log>
-    });
+    }).unwrap();
 }
