@@ -66,7 +66,7 @@ impl ToGlobal for LocalTime {
 
     #[inline]
     fn to_global(self, base: Time) -> Time {
-        let delta = self - base as u16;
+        let delta = self.wrapping_sub(base as u16);
         base + delta as i16 as i64
     }
 }
