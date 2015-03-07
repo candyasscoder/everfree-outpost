@@ -74,8 +74,8 @@ def build_parser():
             help='''websocket URL to store in server.json
                 (default: derive from --server address)''')
     deploy_client_args.add_argument('--world-version', metavar='TEXT',
-            help='version string to identify the current save file
-                (change to invalidate saved logins)')
+            help='''version string to identify the current save file
+                (change to invalidate saved logins)''')
     deploy_client_args.add_argument('--downtime-message', metavar='MSG',
             help='message to include in the "server offline" dialog')
 
