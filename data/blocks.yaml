@@ -82,44 +82,132 @@ house_wall:
     prefix: house_wall
     shape: solid
 
-    n.prefix: n
-    n/z0.bottom: /grass/center/v0 + /wood_floor/edge/n
-    n: &house-wall-template
-        z0.front: "02"
-        z1.front: "01"
-        z1.top:   "00"
+    side:
+        prefix: side
 
-    s.prefix: s
-    s/z0.bottom: /grass/center/v0 + /wood_floor/edge/s
-    s: *house-wall-template
+        n.prefix: n
+        n/z0.bottom: /grass/center/v0 + /wood_floor/edge/n
+        n/z0.front: "02"
+        n/z1.front: "01"
+        n/z1.top:   "00"
 
-    w/z0.bottom: /grass/center/v0 + /wood_floor/edge/w
-    w/z0.front: s_inner/01
-    w/z1.front: s_inner/00
-    w/z1.top:   w/00
+        s.prefix: s
+        s/z0.bottom: /grass/center/v0 + /wood_floor/edge/s
+        s/z0.front: "02"
+        s/z1.front: "01"
+        s/z1.top:   "00"
 
-    e/z0.bottom: /grass/center/v0 + /wood_floor/edge/e
-    e/z0.front: s_inner/01
-    e/z1.front: s_inner/00
-    e/z1.top:   e/00
+        w/z0.bottom: /grass/center/v0 + /wood_floor/edge/w
+        w/z0.front: /house_wall/s_middle/01
+        w/z1.front: /house_wall/s_middle/00
+        w/z1.top:   w/00
 
-    nw/z0.bottom: /grass/center/v0 + /wood_floor/corner/outer/nw
-    nw/z0.front: nw/02 + s_inner/01
-    nw/z1.front: nw/01 + s_inner/00
-    nw/z1.top:   nw/00
+        w_interior/z0.bottom: /wood_floor/center/v0
+        w_interior/z0.front: /house_wall/s_middle/01
+        w_interior/z1.front: /house_wall/s_middle/00
+        w_interior/z1.top:   w/00
 
-    ne/z0.bottom: /grass/center/v0 + /wood_floor/corner/outer/ne
-    ne/z0.front: ne/02 + s_inner/01
-    ne/z1.front: ne/01 + s_inner/00
-    ne/z1.top:   ne/00
+        e/z0.bottom: /grass/center/v0 + /wood_floor/edge/e
+        e/z0.front: /house_wall/s_middle/01
+        e/z1.front: /house_wall/s_middle/00
+        e/z1.top:   e/00
 
-    sw.prefix: sw
-    sw/z0.bottom: /grass/center/v0 + /wood_floor/corner/outer/sw
-    sw: *house-wall-template
+        e_interior/z0.bottom: /wood_floor/center/v0
+        e_interior/z0.front: /house_wall/s_middle/01
+        e_interior/z1.front: /house_wall/s_middle/00
+        e_interior/z1.top:   e/00
 
-    se.prefix: se
-    se/z0.bottom: /grass/center/v0 + /wood_floor/corner/outer/se
-    se: *house-wall-template
+    outer:
+        prefix: outer
+
+        nw/z0.bottom: /grass/center/v0 + /wood_floor/corner/outer/nw
+        nw/z0.front: nw/02 + /house_wall/s_middle/01
+        nw/z1.front: nw/01 + /house_wall/s_middle/00
+        nw/z1.top:   nw/00
+
+        ne/z0.bottom: /grass/center/v0 + /wood_floor/corner/outer/ne
+        ne/z0.front: ne/02 + /house_wall/s_middle/01
+        ne/z1.front: ne/01 + /house_wall/s_middle/00
+        ne/z1.top:   ne/00
+
+        sw.prefix: sw
+        sw/z0.bottom: /grass/center/v0 + /wood_floor/corner/outer/sw
+        sw/z0.front: "02"
+        sw/z1.front: "01"
+        sw/z1.top:   "00"
+
+        se.prefix: se
+        se/z0.bottom: /grass/center/v0 + /wood_floor/corner/outer/se
+        se/z0.front: "02"
+        se/z1.front: "01"
+        se/z1.top:   "00"
+
+    inner:
+        prefix: inner
+
+        nw/z0.bottom: /grass/center/v0 + /wood_floor/corner/inner/se
+        nw/z0.front: nw/02 + /house_wall/s_middle/01
+        nw/z1.front: nw/01 + /house_wall/s_middle/00
+        nw/z1.top:   nw/00
+
+        ne/z0.bottom: /grass/center/v0 + /wood_floor/corner/inner/sw
+        ne/z0.front: ne/02 + /house_wall/s_middle/01
+        ne/z1.front: ne/01 + /house_wall/s_middle/00
+        ne/z1.top:   ne/00
+
+        sw.prefix: sw
+        sw/z0.bottom: /grass/center/v0 + /wood_floor/corner/inner/ne
+        sw/z0.front: "02"
+        sw/z1.front: "01"
+        sw/z1.top:   "00"
+
+        se.prefix: se
+        se/z0.bottom: /grass/center/v0 + /wood_floor/corner/inner/nw
+        se/z0.front: "02"
+        se/z1.front: "01"
+        se/z1.top:   "00"
+
+    tee/interior:
+        e/z0.bottom: /wood_floor/center/v0
+        e/z0.front: outer/nw/02 + s_middle/01
+        e/z1.front: outer/nw/01 + s_middle/00
+        e/z1.top:   outer/nw/00 + tee/e
+
+        w/z0.bottom: /wood_floor/center/v0
+        w/z0.front: outer/ne/02 + s_middle/01
+        w/z1.front: outer/ne/01 + s_middle/00
+        w/z1.top:   outer/ne/00 + tee/w
+
+        s/z0.bottom: /wood_floor/center/v0
+        s/z0.front: outer/nw/02 + outer/ne/02 + s_middle/01
+        s/z1.front: outer/nw/01 + outer/ne/01 + s_middle/00
+        s/z1.top:   outer/nw/00 + outer/ne/00 + tee/s
+
+        n/z0.bottom: /wood_floor/center/v0
+        n/z0.front: side/n/02
+        n/z1.front: side/n/01
+        n/z1.top:   side/n/00 + tee/n
+
+    tee/exterior:
+        e/z0.bottom: /grass/center/v0 + /wood_floor/edge/w
+        e/z0.front: outer/nw/02 + s_middle/01
+        e/z1.front: outer/nw/01 + s_middle/00
+        e/z1.top:   outer/nw/00 + tee/e
+
+        w/z0.bottom: /grass/center/v0 + /wood_floor/edge/e
+        w/z0.front: outer/ne/02 + s_middle/01
+        w/z1.front: outer/ne/01 + s_middle/00
+        w/z1.top:   outer/ne/00 + tee/w
+
+        s/z0.bottom: /grass/center/v0 + /wood_floor/edge/n
+        s/z0.front: outer/nw/02 + outer/ne/02 + s_middle/01
+        s/z1.front: outer/nw/01 + outer/ne/01 + s_middle/00
+        s/z1.top:   outer/nw/00 + outer/ne/00 + tee/s
+
+        n/z0.bottom: /grass/center/v0 + /wood_floor/edge/s
+        n/z0.front: side/s/02
+        n/z1.front: side/s/01
+        n/z1.top:   side/s/00 + tee/n
 
 house_floor:
     shape: floor
@@ -131,6 +219,25 @@ house_door:
 
     z0:
         _.bottom: /grass/center/v0 + /wood_floor/edge/s
+        x0.front: "02"
+        x1.shape: floor
+        x2.front: "22"
+
+    z1:
+        x0.front:   "01"
+        x0.top:     "00"
+        x1.front:   "11"
+        x1.top:     "10"
+        x1.shape:   empty
+        x2.front:   "21"
+        x2.top:     "20"
+
+house_door_interior:
+    shape: solid
+    prefix: house_door_interior
+
+    z0:
+        _.bottom: /wood_floor/center/v0
         x0.front: "02"
         x1.shape: floor
         x2.front: "22"

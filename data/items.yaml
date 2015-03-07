@@ -25,29 +25,14 @@ chest:
 house_wall:
     prefix: /house_wall
 
-    n.ui_name: House Wall (N)
-    n.tile: n/00
+    side.ui_name: House Side
+    side.tile: side/n/00
 
-    s.ui_name: House Wall (S)
-    s.tile: s/00
+    corner.ui_name: House Corner
+    corner.tile: inner/nw/00
 
-    w.ui_name: House Wall (W)
-    w.tile: w/00
-
-    e.ui_name: House Wall (E)
-    e.tile: e/00
-
-    nw.ui_name: House Wall (NW)
-    nw.tile: nw/00
-
-    ne.ui_name: House Wall (NE)
-    ne.tile: ne/00
-
-    sw.ui_name: House Wall (SW)
-    sw.tile: sw/00
-
-    se.ui_name: House Wall (SE)
-    se.tile: se/00
+    tee.ui_name: House Tee
+    tee.tile: inner/nw/00 + tee/e
 
 house_floor:
     ui_name: House Floor
@@ -85,33 +70,9 @@ ward:
 
 
 fence:
-    prefix: /fence
+    ui_name: Fence
+    tile: /fence/we
 
-    n.ui_name: Fence (N)
-    n.tile: we
-
-    s.ui_name: Fence (S)
-    s.tile: we
-
-    w.ui_name: Fence (W)
-    w.tile: ns
-
-    e.ui_name: Fence (E)
-    e.tile: ns
-
-    nw.ui_name: Fence (NE)
-    nw.tile: se
-
-    ne.ui_name: Fence (NE)
-    ne.tile: sw
-
-    sw.ui_name: Fence (SW)
-    sw.tile: ne
-
-    se.ui_name: Fence (SE)
-    se.tile: nw
-
-    gate_post_w.ui_name: Fence Post (W)
-    gate_post_w.tile: gate_post_w
-    gate_post_e.ui_name: Fence Post (E)
-    gate_post_e.tile: gate_post_e
+fence_post:
+    ui_name: Fence Post
+    tile: /fence/gate_post_w

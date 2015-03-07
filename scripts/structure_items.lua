@@ -60,24 +60,34 @@ local function add_structure_item(item_name, template_name)
     end
 end
 
-local dirs = {'n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw', 'n'}
-for i = 1, 8 do
-    local dir = dirs[i]
-
-    add_structure_item('house_wall/' .. dir)
-    mallet.replacements['house_wall/' .. dir] = 'house_wall/' .. dirs[i + 1]
-
-    add_structure_item('fence/' .. dir)
-    mallet.replacements['fence/' .. dir] = 'fence/' .. dirs[i + 1]
-
-end
+add_structure_item('fence', 'fence/n')
+add_structure_item('fence_post', 'fence/gate_post_w')
+add_structure_item('house_wall/side', 'house_wall/side/n')
+add_structure_item('house_wall/corner', 'house_wall/corner/inner/nw')
+add_structure_item('house_wall/tee', 'house_wall/tee/interior/e')
 add_structure_item('house_floor')
 add_structure_item('house_door')
 
-add_structure_item('fence/gate_post_e')
-add_structure_item('fence/gate_post_w')
-mallet.replacements['fence/gate_post_e'] = 'fence/gate_post_w'
-mallet.replacements['fence/gate_post_w'] = 'fence/gate_post_e'
+
+local function mallet_cycle(base, xs)
+    for i = 1, #xs - 1 do
+        mallet.replacements[base .. xs[i]] = base .. xs[i + 1]
+        action.use[base .. xs[i + 1]] = action.use[base .. xs[i]]
+    end
+    mallet.replacements[base .. xs[#xs]] = base .. xs[1]
+end
+
+mallet_cycle('fence/', {'n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'})
+mallet_cycle('house_wall/side/', {'n', 'e', 'e_interior', 's', 'w', 'w_interior'})
+mallet_cycle('house_wall/corner/',
+    {'inner/nw', 'inner/ne', 'inner/se', 'inner/sw',
+     'outer/nw', 'outer/ne', 'outer/se', 'outer/sw'})
+mallet_cycle('house_wall/tee/',
+    {'interior/e', 'interior/s', 'interior/w', 'interior/n',
+     'exterior/e', 'exterior/s', 'exterior/w', 'exterior/n'})
+mallet_cycle('house_door', {'', '_interior'})
+mallet_cycle('fence/gate_post_', {'w', 'e'})
+
 
 return {
     place_structure = place_structure,

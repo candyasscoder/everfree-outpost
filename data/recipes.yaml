@@ -16,13 +16,29 @@ chest:
         chest: 1
 
 
-house_wall:
+house_wall/side:
     _.station: anvil
     _.inputs:
         wood: 5
 
-    n.ui_name: House Wall (N)
-    n.outputs: { house_wall/n: 1 }
+    n.ui_name: House Side
+    n.outputs: { house_wall/side: 1 }
+
+house_wall/corner:
+    _.station: anvil
+    _.inputs:
+        wood: 5
+
+    n.ui_name: House Corner
+    n.outputs: { house_wall/corner: 1 }
+
+house_wall/tee:
+    _.station: anvil
+    _.inputs:
+        wood: 5
+
+    n.ui_name: House Tee
+    n.outputs: { house_wall/tee: 1 }
 
 house_floor:
     station: anvil
@@ -67,10 +83,10 @@ fence:
     station: anvil
     ui_name: Fence
     inputs: { wood: 5 }
-    outputs: { fence/n: 1 }
+    outputs: { fence: 1 }
 
 fence_post:
     station: anvil
     ui_name: Fence Post
     inputs: { wood: 5 }
-    outputs: { fence/gate_post_w: 1 }
+    outputs: { fence_post: 1 }
