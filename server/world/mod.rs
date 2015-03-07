@@ -61,7 +61,6 @@ pub struct Client {
     name: String,
     pawn: Option<EntityId>,
     current_input: InputBits,
-    chunk_offset: (u8, u8),
 
     stable_id: StableId,
     child_entities: HashSet<EntityId>,
@@ -263,7 +262,7 @@ macro_rules! process_objects {
             object Client {
                 id ClientId;
                 map clients;
-                lifecycle (name: &str, chunk_offset: (u8, u8))
+                lifecycle (name: &str)
                     create_client => client_create [id -> id],
                     destroy_client => client_destroy,
                     create_client_hooks, destroy_client_hooks;
@@ -664,12 +663,9 @@ impl Client {
         self.current_input = new;
     }
 
+    #[deprecated]
     pub fn chunk_offset(&self) -> (u8, u8) {
-        self.chunk_offset
-    }
-
-    pub fn set_chunk_offset(&mut self, new: (u8, u8)) {
-        self.chunk_offset = new;
+        (0, 0)
     }
 }
 

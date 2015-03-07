@@ -30,14 +30,12 @@ pub type OpResult<T> = Result<T, StrError>;
 
 pub fn client_create<H>(w: &mut World,
                         h: &mut H,
-                        name: &str,
-                        chunk_offset: (u8, u8)) -> OpResult<ClientId>
+                        name: &str) -> OpResult<ClientId>
         where H: Hooks {
     let c = Client {
         name: name.to_owned(),
         pawn: None,
         current_input: InputBits::empty(),
-        chunk_offset: chunk_offset,
 
         stable_id: NO_STABLE_ID,
         child_entities: HashSet::new(),
@@ -57,7 +55,6 @@ pub fn client_create_unchecked<H>(w: &mut World,
         name: String::new(),
         pawn: None,
         current_input: InputBits::empty(),
-        chunk_offset: (0, 0),
 
         stable_id: NO_STABLE_ID,
         child_entities: HashSet::new(),

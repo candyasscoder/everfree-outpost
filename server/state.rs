@@ -180,9 +180,6 @@ impl<'a> State<'a> {
 
     // Create a new Client (and pawn Entity), then save it to disk.
     pub fn register_client(&mut self, name: &str, appearance: u32) -> save::Result<()> {
-        let chunk_offset = (self.rng.gen_range(0, 8),
-                            self.rng.gen_range(0, 8));
-
         // TODO: error handling + atomicity
         let cid = {
             info!("initializing new client {}", name);
@@ -194,7 +191,7 @@ impl<'a> State<'a> {
             let pawn_id = self.world_mut().create_entity(pos - offset, 0, appearance)
                               .unwrap().id();
 
-            let mut client = self.world_mut().create_client(name, chunk_offset).unwrap();
+            let mut client = self.world_mut().create_client(name).unwrap();
             client.set_pawn(Some(pawn_id)).unwrap();
 
             client.id()
@@ -207,9 +204,6 @@ impl<'a> State<'a> {
                            name: &str)
                            -> save::Result<world::object::ObjectRefMut<
                                     'b, 'a, world::Client, world::hooks::NoHooks>> {
-        let chunk_offset = (self.rng.gen_range(0, 8),
-                            self.rng.gen_range(0, 8));
-
         if let Some(file) = self.storage.open_client_file(name) {
             info!("loading client {} from file", name);
             let mut sr = ObjectReader::new(file, ReadHooks::new(&mut self.script));
@@ -218,7 +212,6 @@ impl<'a> State<'a> {
 
             // Fix up transient bits of state that shouldn't be preserved across save/load.
             c.set_current_input(InputBits::empty());
-            c.set_chunk_offset(chunk_offset);
 
             Ok(c)
         } else {
