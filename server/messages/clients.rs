@@ -55,6 +55,10 @@ impl Clients {
     pub fn iter(&self) -> hash_map::Iter<ClientId, ClientInfo> {
         self.clients.iter()
     }
+
+    pub fn len(&self) -> usize {
+        self.clients.len()
+    }
 }
 
 const LOCAL_BITS: usize = 3;

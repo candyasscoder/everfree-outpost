@@ -140,6 +140,10 @@ impl Messages {
         self.clients.get(cid).map(|c| c.wire_id())
     }
 
+    pub fn clients_len(&self) -> usize {
+        self.clients.len()
+    }
+
 
     // Event processing
 
