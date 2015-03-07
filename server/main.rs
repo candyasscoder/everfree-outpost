@@ -436,7 +436,13 @@ impl<'a> Server<'a> {
             },
 
             Request::Chat(msg) => {
-                if msg.starts_with("/") {
+                if &*msg == "/count" {
+                    let count = self.client_info.len();
+                    let msg_out = format!("***\t{} player{} online",
+                                          count,
+                                          if count != 1 { "s" } else { "" });
+                    self.send_wire(wire_id, Response::ChatUpdate(msg_out));
+                } else if msg.starts_with("/") {
                     if let Err(e) = self.state.run_command(now, cid, &*msg) {
                         warn!("run_command: {}", e);
                     }
