@@ -855,8 +855,11 @@ function frame(ac, now) {
     var pos = new Vec(4096, 4096, 0);
     var pony = null;
     if (player_entity >= 0 && entities[player_entity] != null) {
-        pos = entities[player_entity].position(now);
         pony = entities[player_entity];
+        // Make sure the camera remains within the middle of the local space.
+        localSprite(now, pony, null);
+        pos = pony.position(now);
+
         debug.updateMotions(pony);
     }
     debug.updatePos(pos);

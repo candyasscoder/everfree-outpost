@@ -9,7 +9,7 @@ use util::StringResult;
 use auth::Secret;
 use input::InputBits;
 use input::Action;
-use msg::{Request, Response};
+use msg::{Request, Response, InitData};
 use timer::WakeQueue;
 use world::Motion;
 
@@ -84,6 +84,8 @@ pub enum WireResponse {
 
 #[derive(Debug)]
 pub enum ClientResponse {
+    Init(EntityId),
+
     TerrainChunk(V2, Vec<u16>),
     UnloadChunk(V2),
 
@@ -349,6 +351,16 @@ impl Messages {
         let wire_id = client.wire_id();
 
         match resp {
+            ClientResponse::Init(eid) => {
+                let data = InitData {
+                    entity_id: eid,
+                    camera_pos: (0, 0),
+                    chunks: 0,
+                    entities: 0,
+                };
+                self.send_raw(wire_id, Response::Init(data));
+            },
+
             ClientResponse::TerrainChunk(cpos, data) => {
                 let index = client.local_chunk_index(cpos);
                 self.send_raw(wire_id, Response::TerrainChunk(index, data));

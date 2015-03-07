@@ -17,7 +17,9 @@ use script::ScriptEngine;
 use storage::Storage;
 use terrain_gen::TerrainGen;
 use vision::Vision;
-use world::World;
+use world::{World, WorldMut};
+use world::hooks::no_hooks;
+use world::object::*;
 
 
 #[macro_use] mod hooks;
@@ -117,8 +119,26 @@ impl<'d> Engine<'d> {
             Login(name, secret) => {
                 match self.auth.login(&*name, &secret) {
                     Ok(true) => {
+                        use world::Hooks;
+
                         info!("{:?}: logged in as {}", wire_id, name);
-                        unimplemented!()
+                        let pawn_id = {
+                            let mut h = WorldHooks_new!(self, now);
+                            self.world.create_entity_hooks(&mut h, scalar(0), 0, 0)
+                                .unwrap().id()
+                        };
+                        // Create client WITHOUT hooks.  We don't want to run the vision hooks
+                        // until the client has been registered with self.messages.
+                        let cid = {
+                            let mut client = self.world.create_client_hooks(no_hooks(), &*name)
+                                                 .unwrap();
+                            client.set_pawn(Some(pawn_id)).unwrap();
+                            client.id()
+                        };
+
+                        self.messages.add_client(cid, wire_id);
+                        self.messages.send_client(cid, ClientResponse::Init(pawn_id));
+                        WorldHooks_new!(self, now).on_client_create(&self.world, cid);
                     },
                     Ok(false) => {
                         info!("{:?}: login as {} failed: bad name/secret",

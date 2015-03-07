@@ -19,7 +19,7 @@ pub struct WorldHooks<'a> {
 
 macro_rules! WorldHooks_new {
     ($owner:expr, $now:expr) => {
-        WorldHooks {
+        $crate::engine::hooks::WorldHooks {
             now: $now,
             vision: &mut $owner.vision,
             messages: &mut $owner.messages,
@@ -35,7 +35,7 @@ pub struct VisionHooks<'a, 'd: 'a> {
 
 macro_rules! VisionHooks_new {
     ($owner:expr, $world:expr) => {
-        VisionHooks {
+        $crate::engine::hooks::VisionHooks {
             messages: &mut $owner.messages,
             world: $world,
         }
