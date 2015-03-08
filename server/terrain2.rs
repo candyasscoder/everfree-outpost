@@ -11,59 +11,7 @@ use util::StrError;
 use world::{World, Update};
 use world::object::*;
 
-pub struct TerrainCache {
-    cache: HashMap<V2, CacheEntry>,
-}
-
-struct CacheEntry {
-    blocks: [BlockId; 1 << (3 * CHUNK_BITS)],
-}
-
-impl TerrainCache {
-    pub fn new() -> TerrainCache {
-        TerrainCache {
-            cache: HashMap::new(),
-        }
-    }
-
-    pub fn update(&mut self, w: &World, chunk_pos: V2) -> Result<(), StrError> {
-        let chunk = unwrap!(w.get_terrain_chunk(chunk_pos));
-        let mut entry = CacheEntry::new(*chunk.blocks());
-
-        let chunk_bounds = chunk.bounds();
-        for s in w.chunk_structures(chunk_pos) {
-            let struct_bounds = s.bounds();
-            let t = s.template();
-            for point in struct_bounds.intersect(chunk_bounds).points() {
-                let block = t.blocks[struct_bounds.index(point)];
-                entry.blocks[chunk_bounds.index(point)] = block;
-            }
-        }
-
-        match self.cache.entry(chunk_pos) {
-            Vacant(e) => { e.insert(entry); },
-            Occupied(e) => { *e.into_mut() = entry; },
-        }
-
-        Ok(())
-    }
-
-    pub fn forget(&mut self, chunk_pos: V2) {
-        self.cache.remove(&chunk_pos);
-    }
-
-    pub fn get(&self, chunk_pos: V2) -> Option<&BlockChunk> {
-        self.cache.get(&chunk_pos).map(|c| &c.blocks)
-    }
-}
-
-impl CacheEntry {
-    pub fn new(blocks: [BlockId; 1 << (3 * CHUNK_BITS)]) -> CacheEntry {
-        CacheEntry {
-            blocks: blocks,
-        }
-    }
-}
+pub use chunks::TerrainCache;
 
 
 pub struct ManagedWorld<'d> {
