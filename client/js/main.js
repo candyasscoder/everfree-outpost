@@ -208,6 +208,10 @@ function init() {
     instructions = new Iframe('instructions.html');
     error_list = new ErrorList();
 
+    canvas.canvas.addEventListener('webglcontextlost', function(evt) {
+        throw 'context lost!';
+    });
+
     initMenus();
 
     runner = new BackgroundJobRunner();
@@ -785,7 +789,6 @@ function handleChatUpdate(msg) {
 }
 
 function handleEntityAppear(id, appearance, name) {
-    console.log('appear: ', id, appearance, name);
     if (id == player_entity) {
         name = '';
     }
@@ -794,7 +797,6 @@ function handleEntityAppear(id, appearance, name) {
 }
 
 function handleEntityGone(id, time) {
-    console.log('gone: ', id);
     // TODO: actually delay until the specified time
     delete entities[id];
 }

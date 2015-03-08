@@ -12,9 +12,7 @@ function ToastList(cls, max, timeout) {
 exports.ToastList = ToastList;
 
 ToastList.prototype.add = function(row) {
-    console.log('insert one');
     if (this.items.length() >= this.max) {
-        console.log('remove due to len cap');
         this._remove();
     }
 

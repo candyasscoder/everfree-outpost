@@ -94,11 +94,9 @@ ChatWindow.prototype.finishTyping = function(keyboard, conn, send) {
     var handled = false;
     if (msg[0] == '/') {
         var idx = msg.indexOf(' ');
-        console.log(msg, idx);
         if (idx != -1) {
             var cmd = msg.substring(1, idx);
             var arg = msg.substring(idx + 1);
-            console.log(cmd, arg);
             if (cmd == 'ignore') {
                 this.addIgnore(arg);
                 handled = true;

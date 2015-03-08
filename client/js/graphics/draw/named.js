@@ -40,7 +40,6 @@ NameBuffer.prototype._draw = function(s, idx) {
     ctx.save();
 
     ctx.clearRect(x, y, NAME_WIDTH, NAME_HEIGHT);
-    console.log('clip to ', x, y, NAME_WIDTH, NAME_HEIGHT);
     ctx.rect(x, y, NAME_WIDTH, NAME_HEIGHT);
     ctx.clip();
     this.font.drawString(ctx, s, x + offset_x, y);
@@ -123,8 +122,6 @@ Font.prototype.drawString = function(ctx, s, x, y) {
         var src_x = this.xs[idx];
         var src_y = this.y;
         var w = this.widths[idx];
-
-        console.log('draw', s.charCodeAt(i), code, idx, x, y);
 
         ctx.drawImage(this.image,
                 src_x, src_y, w, h,
