@@ -86,7 +86,7 @@ impl Vision {
                               h: &mut H)
             where H: Hooks {
         let raw_cid = cid.unwrap() as usize;
-        let client = &mut self.clients[raw_cid];
+        let client = unwrap_or!(self.clients.get_mut(&raw_cid));
         let old_view = mem::replace(&mut client.view, new_view);
         let entities = &mut self.entities;
 

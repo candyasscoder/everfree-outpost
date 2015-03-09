@@ -30,8 +30,8 @@ impl<'d> Chunks<'d> {
 }
 
 pub trait Hooks {
-    fn post_load(&mut self, chunk_pos: V2);
-    fn pre_unload(&mut self, chunk_pos: V2);
+    fn post_load(&mut self, chunk_pos: V2) {}
+    fn pre_unload(&mut self, chunk_pos: V2) {}
 }
 
 pub trait Provider {
@@ -41,41 +41,41 @@ pub trait Provider {
 }
 
 pub trait Fragment<'d> {
-    fn world(&mut self) -> (&mut Chunks<'d>, &World<'d>);
+    fn with_world<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut Chunks<'d>, &World<'d>) -> R;
 
     type H: Hooks;
-    fn hooks(&mut self) -> &mut Self::H;
+    fn with_hooks<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut Self::H) -> R;
 
     type P: Provider;
-    fn provider(&mut self) -> (&mut Chunks<'d>, &mut Self::P);
+    fn with_provider<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut Chunks<'d>, &mut Self::P) -> R;
 
     fn load(&mut self, cpos: V2) {
-        {
-            let (sys, provider) = self.provider();
+        self.with_provider(|sys, provider| {
             sys.lifecycle.retain(cpos, |cpos| warn_on_err!(provider.load(cpos)));
-        }
-        {
-            let (sys, world) = self.world();
+        });
+        self.with_world(|sys, world| {
             warn_on_err!(sys.cache.update(world, cpos));
-        }
-        self.hooks().post_load(cpos);
+        });
+        self.with_hooks(|hooks| hooks.post_load(cpos));
     }
 
     fn unload(&mut self, cpos: V2) {
-        self.hooks().pre_unload(cpos);
-        {
-            let (sys, world) = self.world();
+        self.with_hooks(|hooks| hooks.pre_unload(cpos));
+        self.with_world(|sys, _world| {
             sys.cache.forget(cpos);
-        }
-        {
-            let (sys, provider) = self.provider();
+        });
+        self.with_provider(|sys, provider| {
             sys.lifecycle.release(cpos, |cpos| warn_on_err!(provider.unload(cpos)));
-        }
+        });
     }
 
     fn update(&mut self, cpos: V2) -> StrResult<()> {
-        let (sys, world) = self.world();
-        sys.cache.update_if_present(world, cpos)
+        self.with_world(|sys, world| {
+            sys.cache.update_if_present(world, cpos)
+        })
     }
 }
 

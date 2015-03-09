@@ -23,6 +23,8 @@ use world::object::*;
 
 
 #[macro_use] mod hooks;
+mod glue;
+mod logic;
 
 
 pub struct Engine<'d> {
@@ -119,26 +121,7 @@ impl<'d> Engine<'d> {
             Login(name, secret) => {
                 match self.auth.login(&*name, &secret) {
                     Ok(true) => {
-                        use world::Hooks;
-
-                        info!("{:?}: logged in as {}", wire_id, name);
-                        let pawn_id = {
-                            let mut h = WorldHooks_new!(self, now);
-                            self.world.create_entity_hooks(&mut h, scalar(0), 0, 0)
-                                .unwrap().id()
-                        };
-                        // Create client WITHOUT hooks.  We don't want to run the vision hooks
-                        // until the client has been registered with self.messages.
-                        let cid = {
-                            let mut client = self.world.create_client_hooks(no_hooks(), &*name)
-                                                 .unwrap();
-                            client.set_pawn(Some(pawn_id)).unwrap();
-                            client.id()
-                        };
-
-                        self.messages.add_client(cid, wire_id);
-                        self.messages.send_client(cid, ClientResponse::Init(pawn_id));
-                        WorldHooks_new!(self, now).on_client_create(&self.world, cid);
+                        logic::login(self, now, wire_id, &*name);
                     },
                     Ok(false) => {
                         info!("{:?}: login as {} failed: bad name/secret",
@@ -255,7 +238,14 @@ impl<'d> Engine<'d> {
         match self.auth.register(&*name, &secret) {
             Ok(true) => {
                 info!("{:?}: registered as {}", wire_id, name);
-                unimplemented!()
+                match logic::register(self, &*name, appearance) {
+                    Ok(()) => (0, String::new()),
+                    Err(e) => {
+                        warn!("{:?}: error registering as {}: {}",
+                              wire_id, name, e.description());
+                        (2, String::from_str("An internal error occurred."))
+                    }
+                }
             },
             Ok(false) => {
                 info!("{:?}: registration as {} failed: name is in use",
@@ -265,7 +255,7 @@ impl<'d> Engine<'d> {
             Err(e) => {
                 info!("{:?}: registration as {} failed: database error: {}",
                       wire_id, name, e.description());
-                (1, String::from_str("An internal error occurred."))
+                (2, String::from_str("An internal error occurred."))
             }
         }
     }

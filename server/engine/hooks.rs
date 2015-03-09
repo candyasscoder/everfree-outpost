@@ -45,13 +45,6 @@ macro_rules! VisionHooks_new {
 
 impl<'a> world::Hooks for WorldHooks<'a> {
     fn on_client_create(&mut self, w: &World, cid: ClientId) {
-        let center = match w.client(cid).pawn() {
-            Some(e) => e.pos(self.now),
-            None => scalar(0),
-        };
-        self.vision.add_client(cid,
-                               vision_region(center),
-                               &mut VisionHooks_new!(self, w));
     }
 
     fn on_client_destroy(&mut self, w: &World, cid: ClientId) {

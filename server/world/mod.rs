@@ -119,24 +119,6 @@ pub struct World<'d> {
     structures_by_chunk: HashMap<V2, HashSet<StructureId>>,
 }
 
-pub struct WorldHooks<'a, 'd: 'a, H: Hooks+'a> {
-    world: &'a mut World<'d>,
-    hooks: &'a mut H,
-}
-
-impl<'a, 'd, H: Hooks> Deref for WorldHooks<'a, 'd, H> {
-    type Target = World<'d>;
-    fn deref(&self) -> &World<'d> {
-        self.world
-    }
-}
-
-impl<'a, 'd, H: Hooks> DerefMut for WorldHooks<'a, 'd, H> {
-    fn deref_mut(&mut self) -> &mut World<'d> {
-        self.world
-    }
-}
-
 #[derive(Debug)]
 pub enum Update {
     ClientCreated(ClientId),
@@ -181,11 +163,8 @@ impl<'d> World<'d> {
         self.data
     }
 
-    pub fn hook<'a, H: Hooks>(&'a mut self, h: &'a mut H) -> WorldHooks<'a, 'd, H> {
-        WorldHooks {
-            world: self,
-            hooks: h,
-        }
+    pub fn hook<'a, H: Hooks>(&'a mut self, h: &'a mut H) -> (&'a mut World<'d>, &'a mut H) {
+        (self, h)
     }
 
     pub fn record(&mut self, update: Update) {
