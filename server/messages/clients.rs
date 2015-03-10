@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use rand;
+use rand::{self, Rng};
 
-use physics::{CHUNK_SIZE, CHUNK_BITS};
+use physics::{CHUNK_SIZE, CHUNK_BITS, TILE_SIZE, TILE_BITS};
 
 use types::*;
 
@@ -58,9 +58,13 @@ const LOCAL_MASK: i32 = LOCAL_SIZE - 1;
 
 impl ClientInfo {
     pub fn new(wire_id: WireId) -> ClientInfo {
+        let mut rng = rand::thread_rng();
+        let offset_x = rng.gen_range(0, 8);
+        let offset_y = rng.gen_range(0, 8);
+        info!("offset: {} {}", offset_x, offset_y);
         ClientInfo {
             wire_id: wire_id,
-            chunk_offset: rand::random(),
+            chunk_offset: (offset_x, offset_y),
         }
     }
 
@@ -75,26 +79,27 @@ impl ClientInfo {
     }
 
     pub fn local_pos(&self, pos: V3) -> V3 {
-        const MASK: i32 = (1 << (CHUNK_BITS + LOCAL_BITS)) - 1;
-        let x = (pos.x + self.chunk_offset.0 as i32 * CHUNK_SIZE) & MASK;
-        let y = (pos.y + self.chunk_offset.1 as i32 * CHUNK_SIZE) & MASK;
+        const MASK: i32 = (1 << (TILE_BITS + CHUNK_BITS + LOCAL_BITS)) - 1;
+        let x = (pos.x + self.chunk_offset.0 as i32 * CHUNK_SIZE * TILE_SIZE) & MASK;
+        let y = (pos.y + self.chunk_offset.1 as i32 * CHUNK_SIZE * TILE_SIZE) & MASK;
         let z = pos.z;
         V3::new(x, y, z)
     }
 
     pub fn local_motion(&self, m: world::Motion) -> msg::Motion {
-        let V3 { x: sx, y: sy, z: sz } = self.local_pos(m.start_pos);
-        let V3 { x: ex, y: ey, z: ez } = self.local_pos(m.end_pos);
+        let base = TILE_SIZE * CHUNK_SIZE * LOCAL_SIZE;
+        let start = self.local_pos(m.start_pos) + V3::new(base, base, 0);
+        let end = start + (m.end_pos - m.start_pos);
 
         msg::Motion {
-            start_pos: (sx as u16,
-                        sy as u16,
-                        sz as u16),
+            start_pos: (start.x as u16,
+                        start.y as u16,
+                        start.z as u16),
             start_time: m.start_time.to_local(),
 
-            end_pos: (ex as u16,
-                      ey as u16,
-                      ez as u16),
+            end_pos: (end.x as u16,
+                      end.y as u16,
+                      end.z as u16),
             end_time: (m.start_time + m.duration as Time).to_local(),
         }
     }
