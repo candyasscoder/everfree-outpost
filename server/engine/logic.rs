@@ -70,6 +70,7 @@ pub fn login(e: &mut Engine, now: Time, wire_id: WireId, name: &str) -> save::Re
     info!("{:?}: logged in as {} ({:?})",
           wire_id, name, cid);
     e.messages.add_client(cid, wire_id);
+    e.messages.schedule_check_view(cid, now + 1000);
 
     // Send the client's startup messages.
     if let Some(pawn_id) = e.world.client(cid).pawn_id() {
@@ -104,4 +105,37 @@ pub fn logout(e: &mut Engine, cid: ClientId) -> save::Result<()> {
     let mut w = e.world.hook(&mut h);
     try!(w.destroy_client(cid));
     Ok(())
+}
+
+
+pub fn update_view(e: &mut Engine, now: Time, cid: ClientId) {
+    let old_region = match e.vision.client_view_area(cid) {
+        Some(x) => x,
+        None => return,
+    };
+
+    let new_region = {
+        // TODO: warn on None? - may indicate inconsistency between World and Vision
+        let client = unwrap_or!(e.world.get_client(cid));
+
+        // TODO: make sure return is the right thing to do on None
+        let pawn = unwrap_or!(client.pawn());
+
+        vision::vision_region(pawn.pos(now))
+    };
+
+    for cpos in old_region.points().filter(|&p| !new_region.contains(p)) {
+        chunks::Fragment::unload(&mut EngineRef(e), cpos);
+    }
+
+    for cpos in new_region.points().filter(|&p| !old_region.contains(p)) {
+        chunks::Fragment::load(&mut EngineRef(e), cpos);
+    }
+
+    e.vision.set_client_view(cid,
+                             new_region,
+                             &mut VisionHooks {
+                                 messages: &mut e.messages,
+                                 world: &e.world,
+                             });
 }

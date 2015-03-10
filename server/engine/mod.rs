@@ -189,7 +189,8 @@ impl<'d> Engine<'d> {
             },
 
             CheckView => {
-                unimplemented!()
+                logic::update_view(self, now, cid);
+                self.messages.schedule_check_view(cid, now + 1000);
             },
 
             BadRequest => {
@@ -204,7 +205,14 @@ impl<'d> Engine<'d> {
         use messages::OtherEvent::*;
         match evt {
             PhysicsUpdate(eid) => {
-                if let Some(_) = self.world.get_entity(eid) {
+                let really_update =
+                    if let Some(e) = self.world.get_entity(eid) {
+                        e.motion().end_time() <= now
+                    } else {
+                        false
+                    };
+
+                if really_update {
                     warn_on_err!(physics_::Fragment::update(&mut EngineRef(self), now, eid));
 
                     let e = self.world.entity(eid);

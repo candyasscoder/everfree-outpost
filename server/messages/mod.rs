@@ -206,8 +206,17 @@ impl Messages {
                 Some(Event::Client(cid, ClientEvent::Action(action))),
             WakeReason::PhysicsUpdate(eid) =>
                 Some(Event::Other(OtherEvent::PhysicsUpdate(eid))),
-            WakeReason::CheckView(cid) =>
-                Some(Event::Client(cid, ClientEvent::CheckView)),
+            WakeReason::CheckView(cid) => {
+                if let Some(info) = self.clients.get_mut(cid) {
+                    if info.maybe_check(now) {
+                        Some(Event::Client(cid, ClientEvent::CheckView))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            },
         }
     }
 
@@ -409,6 +418,10 @@ impl Messages {
 
 
     // Scheduling timed updates
+    pub fn schedule_check_view(&mut self, cid: ClientId, when: Time) {
+        self.wake.push(when, WakeReason::CheckView(cid));
+    }
+
     pub fn schedule_physics_update(&mut self, eid: EntityId, when: Time) {
         self.wake.push(when, WakeReason::PhysicsUpdate(eid));
     }

@@ -17,6 +17,7 @@ pub struct Clients {
 pub struct ClientInfo {
     wire_id: WireId,
     chunk_offset: (u8, u8),
+    last_check: Time,
 }
 
 impl Clients {
@@ -65,6 +66,7 @@ impl ClientInfo {
         ClientInfo {
             wire_id: wire_id,
             chunk_offset: (offset_x, offset_y),
+            last_check: TIME_MIN,
         }
     }
 
@@ -101,6 +103,15 @@ impl ClientInfo {
                       end.y as u16,
                       end.z as u16),
             end_time: (m.start_time + m.duration as Time).to_local(),
+        }
+    }
+
+    pub fn maybe_check(&mut self, now: Time) -> bool {
+        if now < self.last_check + 1000 {
+            false
+        } else {
+            self.last_check = now;
+            true
         }
     }
 }
