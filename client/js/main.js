@@ -710,6 +710,9 @@ function handleEntityUpdate(id, motion, anim) {
     var now = Date.now();
     m.start_time = timing.decodeRecv(motion.start_time, now);
     m.end_time = timing.decodeRecv(motion.end_time, now);
+    if (m.start_time > now + 2000) {
+        m.start_time -= 0x10000;
+    }
     if (m.end_time < m.start_time) {
         m.end_time += 0x10000;
     }
