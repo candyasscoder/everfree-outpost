@@ -9,7 +9,7 @@ use std::result;
 use data::Data;
 use types::*;
 use util::Convert;
-use world::WorldMut;
+use world::{WorldMut, Hooks};
 use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::object::*;
 use world::ops;
@@ -233,6 +233,12 @@ impl<R: old_io::Reader, W: WorldMut, H: ReadHooks<W>> ObjectReader<R, W, H> {
             e.facing = facing;
             e.target_velocity = target_velocity;
             e.appearance = appearance;
+        }
+
+        {
+            let (w,h) = w.wh_mut();
+            w.record(::world::Update::EntityMotionChange(eid));
+            h.on_entity_motion_change(w, eid);
         }
 
         try!(self.hooks.post_read_entity(&mut self.r, w, eid));

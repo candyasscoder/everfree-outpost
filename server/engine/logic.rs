@@ -87,3 +87,21 @@ pub fn login(e: &mut Engine, now: Time, wire_id: WireId, name: &str) -> save::Re
 
     Ok(())
 }
+
+pub fn logout(e: &mut Engine, cid: ClientId) -> save::Result<()> {
+    {
+        let c = e.world.client(cid);
+        let file = e.storage.create_client_file(c.name());
+        let mut sw = ObjectWriter::new(file, WriteHooks::new(&mut e.script));
+        try!(sw.save_client(&c));
+    }
+
+    let mut h = WorldHooks {
+        now: 0,
+        vision: &mut e.vision,
+        messages: &mut e.messages,
+    };
+    let mut w = e.world.hook(&mut h);
+    try!(w.destroy_client(cid));
+    Ok(())
+}

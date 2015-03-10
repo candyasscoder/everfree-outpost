@@ -218,6 +218,7 @@ impl<'d> Engine<'d> {
 
 
     fn cleanup_client(&mut self, cid: ClientId) {
+        warn_on_err!(logic::logout(self, cid));
         self.messages.remove_client(cid);
     }
 

@@ -106,7 +106,14 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
             let mut sw = ObjectWriter::new(file, WriteHooks::new(self.script));
             try!(sw.save_terrain_chunk(&t));
         }
-        try!(self.world.destroy_terrain_chunk(cpos));
+
+        let mut h = WorldHooks {
+            now: 0,
+            vision: self.vision,
+            messages: self.messages,
+        };
+        let mut w = self.world.hook(&mut h);
+        try!(w.destroy_terrain_chunk(cpos));
         Ok(())
     }
 }

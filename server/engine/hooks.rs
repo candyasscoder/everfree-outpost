@@ -132,8 +132,14 @@ impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
     }
 
     fn on_entity_disappear(&mut self, cid: ClientId, eid: EntityId) {
-        let entity = self.world.entity(eid);
-        let time = entity.motion().start_time;
+        let time =
+            if let Some(entity) = self.world.get_entity(eid) {
+                entity.motion().start_time
+            } else {
+                0
+            };
+        // TODO: figure out if it's actually useful to send the time here.  The client currently
+        // ignores it.
         self.messages.send_client(cid, ClientResponse::EntityGone(eid, time));
     }
 
