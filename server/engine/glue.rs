@@ -7,6 +7,7 @@ use data::Data;
 use engine::Engine;
 use engine::hooks::*;
 use messages::Messages;
+use physics_::{self, Physics};
 use script::{ScriptEngine, ReadHooks, WriteHooks};
 use storage::Storage;
 use vision::Vision;
@@ -110,3 +111,24 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
     }
 }
 
+
+impl<'a, 'd> physics_::Fragment<'d> for EngineRef<'a, 'd> {
+    fn with_chunks<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut Physics<'d>, &Chunks<'d>, &World<'d>) -> R {
+        f(&mut self.0.physics, &self.0.chunks, &self.0.world)
+    }
+
+    type WH = WorldHooks<'a>;
+    fn with_world<F, R>(&mut self, f: F) -> R
+            where F: for <'b> FnOnce(&mut Physics<'d>,
+                                     &'b mut World<'d>,
+                                     &'b mut WorldHooks<'a>) -> R {
+        let e = unsafe { self.fiddle() };
+        let mut h = WorldHooks {
+            now: 0,
+            vision: &mut e.vision,
+            messages: &mut e.messages,
+        };
+        f(&mut e.physics, &mut e.world, &mut h)
+    }
+}

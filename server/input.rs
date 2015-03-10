@@ -12,6 +12,20 @@ bitflags! {
     }
 }
 
+impl InputBits {
+    pub fn to_velocity(&self) -> V3 {
+        let x =
+            if self.contains(INPUT_LEFT) { -1 } else { 0 } +
+            if self.contains(INPUT_RIGHT) { 1 } else { 0 };
+        let y =
+            if self.contains(INPUT_UP) { -1 } else { 0 } +
+            if self.contains(INPUT_DOWN) { 1 } else { 0 };
+        // TODO: player speed handling shouldn't be here
+        let speed = if self.contains(INPUT_RUN) { 150 } else { 50 };
+        V3::new(x, y, 0) * scalar(speed)
+    }
+}
+
 
 #[derive(Copy, PartialEq, Eq, Debug)]
 pub struct ActionId(pub u16);

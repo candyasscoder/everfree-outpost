@@ -406,6 +406,12 @@ impl Messages {
                 self.send_raw(wire_id, Response::KickReason(msg)),
         }
     }
+
+
+    // Scheduling timed updates
+    pub fn schedule_physics_update(&mut self, eid: EntityId, when: Time) {
+        self.wake.push(when, WakeReason::PhysicsUpdate(eid));
+    }
 }
 
 

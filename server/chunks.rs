@@ -27,6 +27,10 @@ impl<'d> Chunks<'d> {
             lifecycle: Lifecycle::new(),
         }
     }
+
+    pub fn get_terrain(&self, cpos: V2) -> Option<&BlockChunk> {
+        self.cache.get(cpos)
+    }
 }
 
 pub trait Hooks {

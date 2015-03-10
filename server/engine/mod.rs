@@ -12,7 +12,7 @@ use messages::{Messages};
 use messages::{Event, ControlEvent, WireEvent, ClientEvent, OtherEvent};
 use messages::{ControlResponse, WireResponse, ClientResponse};
 use msg::{Request, Response};
-use physics_::Physics;
+use physics_::{self, Physics};
 use script::ScriptEngine;
 use storage::Storage;
 use terrain_gen::TerrainGen;
@@ -20,6 +20,8 @@ use vision::Vision;
 use world::{World, WorldMut};
 use world::hooks::no_hooks;
 use world::object::*;
+
+use self::glue::EngineRef;
 
 
 #[macro_use] mod hooks;
@@ -155,7 +157,15 @@ impl<'d> Engine<'d> {
         use messages::ClientResponse::*;
         match evt {
             Input(input) => {
-                unimplemented!()
+                let target_velocity = input.to_velocity();
+                if let Some(eid) = self.world.get_client(cid).and_then(|c| c.pawn_id()) {
+                    warn_on_err!(physics_::Fragment::set_velocity(
+                            &mut EngineRef(self), now, eid, target_velocity));
+                    let e = self.world.entity(eid);
+                    if e.motion().end_pos != e.motion().start_pos {
+                        self.messages.schedule_physics_update(eid, e.motion().end_time());
+                    }
+                }
             },
 
             Action(action) => {
@@ -194,7 +204,14 @@ impl<'d> Engine<'d> {
         use messages::OtherEvent::*;
         match evt {
             PhysicsUpdate(eid) => {
-                unimplemented!();
+                if let Some(_) = self.world.get_entity(eid) {
+                    warn_on_err!(physics_::Fragment::update(&mut EngineRef(self), now, eid));
+
+                    let e = self.world.entity(eid);
+                    if e.motion().end_pos != e.motion().start_pos {
+                        self.messages.schedule_physics_update(eid, e.motion().end_time());
+                    }
+                }
             },
         }
     }
