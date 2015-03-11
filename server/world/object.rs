@@ -197,18 +197,12 @@ pub trait ClientRef<'d>: ObjectRefBase<'d, Client> {
 
     fn child_entities<'b>(&'b self)
             -> EntitiesById<'b, 'd, hash_set::Iter<'b, EntityId>> {
-        EntitiesById {
-            world: self.world(),
-            iter: self.obj().child_entities.iter(),
-        }
+        EntitiesById::new(self.world(), self.obj().child_entities.iter())
     }
 
     fn child_inventories<'b>(&'b self)
             -> InventoriesById<'b, 'd, hash_set::Iter<'b, InventoryId>> {
-        InventoriesById {
-            world: self.world(),
-            iter: self.obj().child_inventories.iter(),
-        }
+        InventoriesById::new(self.world(), self.obj().child_inventories.iter())
     }
 }
 impl<'a, 'd> ClientRef<'d> for ObjectRef<'a, 'd, Client> { }
@@ -266,10 +260,7 @@ pub trait TerrainChunkRef<'d>: ObjectRefBase<'d, TerrainChunk> {
 
     fn child_structures<'b>(&'b self)
             -> StructuresById<'b, 'd, hash_set::Iter<'b, StructureId>> {
-        StructuresById {
-            world: self.world(),
-            iter: self.obj().child_structures.iter(),
-        }
+        StructuresById::new(self.world(), self.obj().child_structures.iter())
     }
 }
 impl<'a, 'd> TerrainChunkRef<'d> for ObjectRef<'a, 'd, TerrainChunk> { }
@@ -288,10 +279,7 @@ fn block_pos_to_idx<'d, R: ?Sized+TerrainChunkRef<'d>>(self_: &R, pos: V3) -> us
 pub trait EntityRef<'d>: ObjectRefBase<'d, Entity> {
     fn child_inventories<'b>(&'b self)
             -> InventoriesById<'b, 'd, hash_set::Iter<'b, InventoryId>> {
-        InventoriesById {
-            world: self.world(),
-            iter: self.obj().child_inventories.iter(),
-        }
+        InventoriesById::new(self.world(), self.obj().child_inventories.iter())
     }
 }
 impl<'a, 'd> EntityRef<'d> for ObjectRef<'a, 'd, Entity> { }
@@ -338,10 +326,7 @@ pub trait StructureRef<'d>: ObjectRefBase<'d, Structure> {
 
     fn child_inventories<'b>(&'b self)
             -> InventoriesById<'b, 'd, hash_set::Iter<'b, InventoryId>> {
-        InventoriesById {
-            world: self.world(),
-            iter: self.obj().child_inventories.iter(),
-        }
+        InventoriesById::new(self.world(), self.obj().child_inventories.iter())
     }
 }
 impl<'a, 'd> StructureRef<'d> for ObjectRef<'a, 'd, Structure> { }
