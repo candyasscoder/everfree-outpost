@@ -2,7 +2,7 @@ use types::*;
 
 use chunks;
 use engine::Engine;
-use engine::glue::EngineRef;
+use engine::split::EngineRef;
 use engine::hooks::{WorldHooks, VisionHooks};
 use messages::ClientResponse;
 use script::{ReadHooks, WriteHooks};
@@ -12,11 +12,9 @@ use world::save::{self, ObjectReader, ObjectWriter};
 use vision;
 
 pub fn register(e: &mut Engine, name: &str, appearance: u32) -> save::Result<()> {
-    let mut h = WorldHooks {
-        now: 0,
-        vision: &mut e.vision,
-        messages: &mut e.messages,
-    };
+    let (h, mut e) = EngineRef::new(e).split_off();
+    let e = e.open();
+    let mut h = WorldHooks::new(0, h);
     let mut w = e.world.hook(&mut h);
 
     let pawn_id = try!(w.create_entity(scalar(0), 2, appearance)).id();
@@ -30,7 +28,7 @@ pub fn register(e: &mut Engine, name: &str, appearance: u32) -> save::Result<()>
     {
         let c = w.world().client(cid);
         let file = e.storage.create_client_file(c.name());
-        let mut sw = ObjectWriter::new(file, WriteHooks::new(&mut e.script));
+        let mut sw = ObjectWriter::new(file, WriteHooks::new(e.script));
         try!(sw.save_client(&c));
     }
     try!(w.destroy_client(cid));
@@ -42,14 +40,12 @@ pub fn login(e: &mut Engine, now: Time, wire_id: WireId, name: &str) -> save::Re
     // Load the client into the world.
     let cid =
         if let Some(file) = e.storage.open_client_file(name) {
-            let mut h = WorldHooks {
-                now: 0,
-                vision: &mut e.vision,
-                messages: &mut e.messages,
-            };
+            let (h, mut e) = EngineRef::new(e).split_off();
+            let e = e.open();
+            let mut h = WorldHooks::new(0, h);
             let mut w = e.world.hook(&mut h);
 
-            let mut sr = ObjectReader::new(file, ReadHooks::new(&mut e.script));
+            let mut sr = ObjectReader::new(file, ReadHooks::new(e.script));
             try!(sr.load_client(&mut w))
         } else {
             fail!("client file not found");
@@ -63,7 +59,7 @@ pub fn login(e: &mut Engine, now: Time, wire_id: WireId, name: &str) -> save::Re
     let region = vision::vision_region(center);
 
     for cpos in region.points() {
-        chunks::Fragment::load(&mut EngineRef(e), cpos);
+        chunks::Fragment::load(&mut EngineRef::new(e), cpos);
     }
 
     // Set up the client to receive messages.
@@ -90,19 +86,17 @@ pub fn login(e: &mut Engine, now: Time, wire_id: WireId, name: &str) -> save::Re
 }
 
 pub fn logout(e: &mut Engine, cid: ClientId) -> save::Result<()> {
+    let (h, mut e) = EngineRef::new(e).split_off();
+    let e = e.open();
+    let mut h = WorldHooks::new(0, h);
+    let mut w = e.world.hook(&mut h);
+
     {
-        let c = e.world.client(cid);
+        let c = w.world().client(cid);
         let file = e.storage.create_client_file(c.name());
-        let mut sw = ObjectWriter::new(file, WriteHooks::new(&mut e.script));
+        let mut sw = ObjectWriter::new(file, WriteHooks::new(e.script));
         try!(sw.save_client(&c));
     }
-
-    let mut h = WorldHooks {
-        now: 0,
-        vision: &mut e.vision,
-        messages: &mut e.messages,
-    };
-    let mut w = e.world.hook(&mut h);
     try!(w.destroy_client(cid));
     Ok(())
 }
@@ -125,11 +119,11 @@ pub fn update_view(e: &mut Engine, now: Time, cid: ClientId) {
     };
 
     for cpos in old_region.points().filter(|&p| !new_region.contains(p)) {
-        chunks::Fragment::unload(&mut EngineRef(e), cpos);
+        chunks::Fragment::unload(&mut EngineRef::new(e), cpos);
     }
 
     for cpos in new_region.points().filter(|&p| !old_region.contains(p)) {
-        chunks::Fragment::load(&mut EngineRef(e), cpos);
+        chunks::Fragment::load(&mut EngineRef::new(e), cpos);
     }
 
     e.vision.set_client_view(cid,

@@ -4,6 +4,7 @@ use physics::{CHUNK_SIZE, TILE_SIZE};
 use types::*;
 use util::SmallSet;
 
+use engine::split::*;
 use messages::ClientResponse;
 use messages::Messages;
 use vision::{self, Vision, vision_region};
@@ -11,26 +12,38 @@ use world::{self, World};
 use world::object::*;
 
 
-pub struct WorldHooks<'a> {
+
+engine_part_typedef!(pub WorldHooksPart(vision, messages));
+
+pub struct WorldHooks<'a, 'd> {
     pub now: Time,
-    pub vision: &'a mut Vision,
-    pub messages: &'a mut Messages,
+    pub e: WorldHooksPart<'a, 'd>,
 }
 
-macro_rules! WorldHooks_new {
-    ($owner:expr, $now:expr) => {
-        $crate::engine::hooks::WorldHooks {
-            now: $now,
-            vision: &mut $owner.vision,
-            messages: &mut $owner.messages,
+impl<'a, 'd> WorldHooks<'a, 'd> {
+    pub fn new(now: Time, e: WorldHooksPart<'a, 'd>) -> WorldHooks<'a, 'd> {
+        WorldHooks {
+            now: now,
+            e: e,
         }
-    };
+    }
 }
+
+
 
 
 pub struct VisionHooks<'a, 'd: 'a> {
     pub messages: &'a mut Messages,
     pub world: &'a World<'d>,
+}
+
+impl<'a, 'd> VisionHooks<'a, 'd> {
+    pub fn new(messages: &'a mut Messages, world: &'a World<'d>) -> VisionHooks<'a, 'd> {
+        VisionHooks {
+            messages: messages,
+            world: world,
+        }
+    }
 }
 
 macro_rules! VisionHooks_new {
@@ -43,12 +56,13 @@ macro_rules! VisionHooks_new {
 }
 
 
-impl<'a> world::Hooks for WorldHooks<'a> {
+impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
     fn on_client_create(&mut self, w: &World, cid: ClientId) {
     }
 
     fn on_client_destroy(&mut self, w: &World, cid: ClientId) {
-        self.vision.remove_client(cid, &mut VisionHooks_new!(self, w));
+        let Open { vision, messages, .. } = self.e.open();
+        vision.remove_client(cid, &mut VisionHooks::new(messages, w));
     }
 
     fn on_client_change_pawn(&mut self,
@@ -56,43 +70,50 @@ impl<'a> world::Hooks for WorldHooks<'a> {
                              cid: ClientId,
                              old_pawn: Option<EntityId>,
                              new_pawn: Option<EntityId>) {
+        let Open { vision, messages, .. } = self.e.open();
         let center = match w.client(cid).pawn() {
             Some(e) => e.pos(self.now),
             None => scalar(0),
         };
-        self.vision.set_client_view(cid,
-                                    vision_region(center),
-                                    &mut VisionHooks_new!(self, w));
+        vision.set_client_view(cid,
+                               vision_region(center),
+                               &mut VisionHooks::new(messages, w));
     }
 
 
     fn on_terrain_chunk_create(&mut self, w: &World, pos: V2) {
-        self.vision.add_chunk(pos, &mut VisionHooks_new!(self, w));
+        let Open { vision, messages, .. } = self.e.open();
+        vision.add_chunk(pos, &mut VisionHooks::new(messages, w));
     }
 
     fn on_terrain_chunk_destroy(&mut self, w: &World, pos: V2) {
-        self.vision.remove_chunk(pos, &mut VisionHooks_new!(self, w));
+        let Open { vision, messages, .. } = self.e.open();
+        vision.remove_chunk(pos, &mut VisionHooks::new(messages, w));
     }
 
     fn on_chunk_invalidate(&mut self, w: &World, pos: V2) {
-        self.vision.update_chunk(pos, &mut VisionHooks_new!(self, w));
+        let Open { vision, messages, .. } = self.e.open();
+        vision.update_chunk(pos, &mut VisionHooks::new(messages, w));
     }
 
 
     fn on_entity_create(&mut self, w: &World, eid: EntityId) {
-        self.vision.add_entity(eid,
-                               entity_area(w, eid),
-                               &mut VisionHooks_new!(self, w));
+        let Open { vision, messages, .. } = self.e.open();
+        vision.add_entity(eid,
+                          entity_area(w, eid),
+                          &mut VisionHooks::new(messages, w));
     }
 
     fn on_entity_destroy(&mut self, w: &World, eid: EntityId) {
-        self.vision.remove_entity(eid, &mut VisionHooks_new!(self, w));
+        let Open { vision, messages, .. } = self.e.open();
+        vision.remove_entity(eid, &mut VisionHooks::new(messages, w));
     }
 
     fn on_entity_motion_change(&mut self, w: &World, eid: EntityId) {
-        self.vision.set_entity_area(eid,
-                                    entity_area(w, eid),
-                                    &mut VisionHooks_new!(self, w));
+        let Open { vision, messages, .. } = self.e.open();
+        vision.set_entity_area(eid,
+                               entity_area(w, eid),
+                               &mut VisionHooks::new(messages, w));
     }
 }
 

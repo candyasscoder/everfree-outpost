@@ -13,6 +13,7 @@
 #![feature(collections)]
 #![feature(hash)]
 #![feature(std_misc)]
+#![feature(trace_macros)]
 
 #[macro_use] extern crate bitflags;
 extern crate core;

@@ -21,9 +21,10 @@ use world::{World, WorldMut};
 use world::hooks::no_hooks;
 use world::object::*;
 
-use self::glue::EngineRef;
+use self::split::EngineRef;
 
 
+#[macro_use] mod split;
 #[macro_use] mod hooks;
 mod glue;
 mod logic;
@@ -160,7 +161,7 @@ impl<'d> Engine<'d> {
                 let target_velocity = input.to_velocity();
                 if let Some(eid) = self.world.get_client(cid).and_then(|c| c.pawn_id()) {
                     warn_on_err!(physics_::Fragment::set_velocity(
-                            &mut EngineRef(self), now, eid, target_velocity));
+                            &mut EngineRef::new(self), now, eid, target_velocity));
                     let e = self.world.entity(eid);
                     if e.motion().end_pos != e.motion().start_pos {
                         self.messages.schedule_physics_update(eid, e.motion().end_time());
@@ -213,7 +214,7 @@ impl<'d> Engine<'d> {
                     };
 
                 if really_update {
-                    warn_on_err!(physics_::Fragment::update(&mut EngineRef(self), now, eid));
+                    warn_on_err!(physics_::Fragment::update(&mut EngineRef::new(self), now, eid));
 
                     let e = self.world.entity(eid);
                     if e.motion().end_pos != e.motion().start_pos {
