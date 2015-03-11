@@ -67,7 +67,6 @@ use types::{ClientId, EntityId, InventoryId};
 mod msg;
 mod wire;
 mod tasks;
-mod state;
 mod timer;
 mod types;
 mod input;
@@ -76,7 +75,6 @@ mod data;
 mod lua;
 mod script;
 mod world;
-mod terrain2;
 mod storage;
 mod logging;
 
