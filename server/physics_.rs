@@ -6,7 +6,7 @@ use util::StrResult;
 
 use chunks::Chunks;
 use data::Data;
-use world::{self, World, WorldMut};
+use world::{self, World};
 use world::Motion;
 use world::object::*;
 
@@ -48,14 +48,14 @@ pub trait Fragment<'d> {
     fn with_chunks<F, R>(&mut self, f: F) -> R
         where F: FnOnce(&mut Physics<'d>, &Chunks<'d>, &World<'d>) -> R;
 
-    type WH: world::Hooks;
+    type WF: world::Fragment<'d>;
     fn with_world<F, R>(&mut self, f: F) -> R
-        where F: for <'a> FnOnce(&mut Physics<'d>, &'a mut World<'d>, &'a mut Self::WH) -> R;
+        where F: FnOnce(&mut Self::WF) -> R;
 
     fn set_velocity(&mut self, now: Time, eid: EntityId, target: V3) -> StrResult<()> {
-        try!(self.with_world(|_sys, w, h| -> StrResult<()> {
-            let mut wh = (w, h);
-            let mut e = unwrap!(wh.get_entity_mut(eid));
+        use world::Fragment;
+        try!(self.with_world(|wf| -> StrResult<()> {
+            let mut e = unwrap!(wf.get_entity_mut(eid));
             e.set_target_velocity(target);
             Ok(())
         }));
@@ -63,6 +63,8 @@ pub trait Fragment<'d> {
     }
 
     fn update(&mut self, now: Time, eid: EntityId) -> StrResult<()> {
+        use world::Fragment;
+
         let motion = try!(self.with_chunks(|_sys, chunks, world| -> StrResult<_> {
             let e = unwrap!(world.get_entity(eid));
 
@@ -95,9 +97,8 @@ pub trait Fragment<'d> {
             })
         }));
 
-        self.with_world(|_sys, w, h| {
-            let mut wh = (w, h);
-            let mut e = wh.entity_mut(eid);
+        self.with_world(|wf| {
+            let mut e = wf.entity_mut(eid);
 
             // Compute extra information for the entity.
             let velocity = e.target_velocity();

@@ -4,6 +4,9 @@ use std::mem;
 use libc::c_int;
 
 use types::*;
+
+use data::Data;
+use engine;
 use input::ActionId;
 use world;
 use world::object::*;
@@ -52,16 +55,32 @@ pub struct ScriptEngine {
 }
 
 struct ScriptContext<'a, 'd: 'a> {
-    world: &'a mut world::World<'d>,
+    engine: &'a mut engine::Engine<'d>,
     now: Time,
 }
 
 impl<'a, 'd> ScriptContext<'a, 'd> {
-    pub fn new(world: &'a mut world::World<'d>, now: Time) -> ScriptContext<'a, 'd> {
+    pub fn new(engine: &'a mut engine::Engine<'d>, now: Time) -> ScriptContext<'a, 'd> {
         ScriptContext {
-            world: world,
+            engine: engine,
             now: now,
         }
+    }
+
+    pub fn data(&self) -> &'d Data {
+        self.world().data()
+    }
+
+    pub fn world(&self) -> &world::World<'d> {
+        &self.engine.world
+    }
+
+    pub fn world_mut(&mut self) -> &mut world::World<'d> {
+        &mut self.engine.world
+    }
+
+    pub fn world_frag<'b>(&'b mut self) -> engine::glue::WorldFragment<'b, 'd> {
+        engine::split::EngineRef::new(&mut self.engine).slice()
     }
 }
 
@@ -113,6 +132,7 @@ impl ScriptEngine {
         }
     }
 
+    /*
     pub fn eval(&mut self,
                 world: &mut world::World,
                 now: Time,
@@ -187,6 +207,7 @@ impl ScriptEngine {
             lua.pcall(2, 0, 0).map_err(|(e,s)| format!("{:?}: {}", e, s))
         })
     }
+    */
 
     pub fn callback_client_destroyed(&mut self, cid: ClientId) {
         run_callback(&mut self.owned_lua.get(),

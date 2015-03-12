@@ -8,7 +8,8 @@ use types::*;
 use util::stable_id_map::{self, StableIdMap, Stable};
 
 use self::object::{Object, ObjectRef, ObjectRefMut};
-use self::hooks::{NoHooks, no_hooks};
+use self::hooks::NoHooks;
+pub use self::fragment::Fragment;
 pub use self::ops::OpResult;
 pub use self::hooks::Hooks;
 pub use self::types::{
@@ -18,7 +19,6 @@ pub use self::types::{
     Motion,
     Update,
 };
-pub use self::world::WorldMut;
 pub use self::world::{EntitiesById, StructuresById, InventoriesById};
 
 macro_rules! bad {
@@ -37,13 +37,14 @@ macro_rules! check {
     };
 }
 
+#[macro_use] pub mod world;
 pub mod object;
 mod ops;
 mod debug;
 pub mod save;
 pub mod hooks;
 mod types;
-pub mod world;
+pub mod fragment;
 
 
 // Structs must be declared at top level so that the submodules can access their private fields.

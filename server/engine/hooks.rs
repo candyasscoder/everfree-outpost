@@ -57,6 +57,7 @@ macro_rules! VisionHooks_new {
 
 
 impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
+    /*
     fn on_client_create(&mut self, w: &World, cid: ClientId) {
     }
 
@@ -115,6 +116,7 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
                                entity_area(w, eid),
                                &mut VisionHooks::new(messages, w));
     }
+    */
 }
 
 fn entity_area(w: &World, eid: EntityId) -> SmallSet<V2> {

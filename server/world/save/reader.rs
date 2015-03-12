@@ -5,7 +5,7 @@ use std::raw;
 
 use types::*;
 use util::{Bytes, Convert};
-use world::WorldMut;
+use world::fragment::Fragment;
 use world::ops;
 
 use super::Result;
@@ -15,8 +15,8 @@ use super::padding;
 
 
 pub trait Reader {
-    fn read_id<T: ReadId, W: WorldMut>(&mut self, w: &mut W) -> Result<T>;
-    fn read_opt_id<T: ReadId, W: WorldMut>(&mut self, w: &mut W) -> Result<Option<T>>;
+    fn read_id<'d, T: ReadId, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<T>;
+    fn read_opt_id<'d, T: ReadId, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<Option<T>>;
     fn read_count(&mut self) -> Result<usize>;
     fn read_bytes(&mut self, len: usize) -> Result<Vec<u8>>;
     fn read_buf(&mut self, buf: &mut [u8]) -> Result<()>;
@@ -62,12 +62,14 @@ impl<R: old_io::Reader> ReaderWrapper<R> {
         &self.created_objs
     }
 
-    fn read_id_helper<T: ReadId, W: WorldMut>(&mut self, w: &mut W, save_id: SaveId) -> Result<T> {
+    fn read_id_helper<'d, T: ReadId, F: Fragment<'d>>(&mut self,
+                                                      f: &mut F,
+                                                      save_id: SaveId) -> Result<T> {
         use std::collections::hash_map::Entry::{Occupied, Vacant};
         match self.id_map.entry(save_id) {
             Occupied(e) => ReadId::from_any_id(*e.get()),
             Vacant(e) => {
-                let id = <T as ReadId>::fabricate(w);
+                let id = <T as ReadId>::fabricate(f);
                 self.created_objs.insert(id.to_any_id());
                 e.insert(id.to_any_id());
                 Ok(id)
@@ -77,17 +79,17 @@ impl<R: old_io::Reader> ReaderWrapper<R> {
 }
 
 impl<R: old_io::Reader> Reader for ReaderWrapper<R> {
-    fn read_id<T: ReadId, W: WorldMut>(&mut self, w: &mut W) -> Result<T> {
+    fn read_id<'d, T: ReadId, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<T> {
         let save_id = try!(self.reader.read_le_u32());
-        self.read_id_helper(w, save_id)
+        self.read_id_helper(f, save_id)
     }
 
-    fn read_opt_id<T: ReadId, W: WorldMut>(&mut self, w: &mut W) -> Result<Option<T>> {
+    fn read_opt_id<'d, T: ReadId, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<Option<T>> {
         let save_id = try!(self.reader.read_le_u32());
         if save_id == -1 as SaveId {
             Ok(None)
         } else {
-            let id = try!(self.read_id_helper(w, save_id));
+            let id = try!(self.read_id_helper(f, save_id));
             Ok(Some(id))
         }
     }
@@ -129,7 +131,7 @@ impl<R: old_io::Reader> Reader for ReaderWrapper<R> {
 
 pub trait ReadId: ToAnyId+Copy {
     fn from_any_id(id: AnyId) -> Result<Self>;
-    fn fabricate<W: WorldMut>(w: &mut W) -> Self;
+    fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> Self;
 }
 
 impl ReadId for ClientId {
@@ -140,9 +142,8 @@ impl ReadId for ClientId {
         }
     }
 
-    fn fabricate<W: WorldMut>(w: &mut W) -> ClientId {
-        let (w,h) = w.wh_mut();
-        ops::client_create_unchecked(w, h)
+    fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> ClientId {
+        ops::client_create_unchecked(f)
     }
 }
 
@@ -154,9 +155,8 @@ impl ReadId for EntityId {
         }
     }
 
-    fn fabricate<W: WorldMut>(w: &mut W) -> EntityId {
-        let (w,h) = w.wh_mut();
-        ops::entity_create_unchecked(w, h)
+    fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> EntityId {
+        ops::entity_create_unchecked(f)
     }
 }
 
@@ -168,9 +168,8 @@ impl ReadId for StructureId {
         }
     }
 
-    fn fabricate<W: WorldMut>(w: &mut W) -> StructureId {
-        let (w,h) = w.wh_mut();
-        ops::structure_create_unchecked(w, h)
+    fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> StructureId {
+        ops::structure_create_unchecked(f)
     }
 }
 
@@ -182,8 +181,7 @@ impl ReadId for InventoryId {
         }
     }
 
-    fn fabricate<W: WorldMut>(w: &mut W) -> InventoryId {
-        let (w,h) = w.wh_mut();
-        ops::inventory_create_unchecked(w, h)
+    fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> InventoryId {
+        ops::inventory_create_unchecked(f)
     }
 }

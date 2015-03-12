@@ -1,13 +1,15 @@
 use std::marker::{PhantomData, PhantomFn};
 use std::mem;
 
+use types::*;
+
 use data::Data;
 use engine::Engine;
 use storage::Storage;
 
 
 macro_rules! EnginePart_decl {
-    ($($tv:ident $tv2:ident $tv3:ident ($field:ident, $fty:ty),)*) => {
+    ($($tv:ident $tv2:ident $tv3:ident ($field:ident, $field_mut:ident, $fty:ty),)*) => {
         pub struct EnginePart<'a, 'd, $($tv: 'a),*> {
             ptr: *mut Engine<'d>,
             _marker0: PhantomData<&'d Data>,
@@ -54,7 +56,8 @@ macro_rules! EnginePart_decl {
                          EnginePart<'a, 'd, $(<$tv as SplitOffRHS<$tv2>>::RHS),*>)
                     where $($tv: SplitOffRHS<$tv2>,)*
                           (EnginePart<'a, 'd, $($tv2),*>,
-                           EnginePart<'a, 'd, $(<$tv as SplitOffRHS<$tv2>>::RHS),*>) : Subpart2<Self> {
+                           EnginePart<'a, 'd, $(<$tv as SplitOffRHS<$tv2>>::RHS),*>):
+                              Subpart2<Self> {
                 self.split()
             }
 
@@ -78,8 +81,18 @@ macro_rules! EnginePart_decl {
                 unsafe { (*self.ptr).storage }
             }
 
+            pub fn now(&self) -> Time {
+                unsafe { (*self.ptr).now }
+            }
+
             $(
-                pub fn $field<'b>(&'b mut self) -> &'b mut $tv {
+                pub fn $field<'b>(&'b self) -> &'b $tv {
+                    unsafe {
+                        mem::transmute(&(*self.ptr).$field)
+                    }
+                }
+
+                pub fn $field_mut<'b>(&'b mut self) -> &'b mut $tv {
                     unsafe {
                         mem::transmute(&mut (*self.ptr).$field)
                     }
@@ -124,14 +137,14 @@ macro_rules! subitem_impls {
 }
 
 EnginePart_decl! {
-    Wr Wr2 Wr3 (world, ::world::World<'d>),
-    Sc Sc2 Sc3 (script, ::script::ScriptEngine),
-    Ms Ms2 Ms3 (messages, ::messages::Messages),
-    Ph Ph2 Ph3 (physics, ::physics_::Physics<'d>),
-    Vi Vi2 Vi3 (vision, ::vision::Vision),
-    Au Au2 Au3 (auth, ::auth::Auth),
-    Ch Ch2 Ch3 (chunks, ::chunks::Chunks<'d>),
-    Tg Tg2 Tg3 (terrain_gen, ::terrain_gen::TerrainGen<'d>),
+    Wr Wr2 Wr3 (world, world_mut, ::world::World<'d>),
+    Sc Sc2 Sc3 (script, script_mut, ::script::ScriptEngine),
+    Ms Ms2 Ms3 (messages, messages_mut, ::messages::Messages),
+    Ph Ph2 Ph3 (physics, physics_mut, ::physics_::Physics<'d>),
+    Vi Vi2 Vi3 (vision, vision_mut, ::vision::Vision),
+    Au Au2 Au3 (auth, auth_mut, ::auth::Auth),
+    Ch Ch2 Ch3 (chunks, chunks_mut, ::chunks::Chunks<'d>),
+    Tg Tg2 Tg3 (terrain_gen, terrain_gen_mut, ::terrain_gen::TerrainGen<'d>),
 }
 
 

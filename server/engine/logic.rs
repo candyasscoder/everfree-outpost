@@ -1,37 +1,48 @@
+use std::borrow::ToOwned;
+
+use physics::{CHUNK_SIZE, TILE_SIZE};
+
 use types::*;
 
 use chunks;
 use engine::Engine;
+use engine::glue::*;
 use engine::split::EngineRef;
-use engine::hooks::{WorldHooks, VisionHooks};
 use messages::ClientResponse;
-use script::{ReadHooks, WriteHooks};
-use world::WorldMut;
+use util::SmallSet;
+use world::{self, World};
 use world::object::*;
 use world::save::{self, ObjectReader, ObjectWriter};
-use vision;
+use vision::{self, vision_region};
+
 
 pub fn register(e: &mut Engine, name: &str, appearance: u32) -> save::Result<()> {
-    let (h, mut e) = EngineRef::new(e).split_off();
-    let e = e.open();
-    let mut h = WorldHooks::new(0, h);
-    let mut w = e.world.hook(&mut h);
-
-    let pawn_id = try!(w.create_entity(scalar(0), 2, appearance)).id();
-
-    let cid = {
-        let mut c = try!(w.create_client(name));
-        try!(c.set_pawn(Some(pawn_id)));
-        c.id()
-    };
+    let pawn_id;
+    let cid;
 
     {
-        let c = w.world().client(cid);
-        let file = e.storage.create_client_file(c.name());
-        let mut sw = ObjectWriter::new(file, WriteHooks::new(e.script));
+        let mut e: WorldFragment = EngineRef::new(e).slice();
+
+        pawn_id = try!(world::Fragment::create_entity(&mut e, scalar(0), 2, appearance)).id();
+
+        cid = {
+            let mut c = try!(world::Fragment::create_client(&mut e, name));
+            try!(c.set_pawn(Some(pawn_id)));
+            c.id()
+        };
+    }
+
+    {
+        let (h, e): (SaveWriteHooks, _) = EngineRef::new(e).split_off();
+        let c = e.world().client(cid);
+        let file = e.storage().create_client_file(c.name());
+        let mut sw = ObjectWriter::new(file, h);
         try!(sw.save_client(&c));
     }
-    try!(w.destroy_client(cid));
+    {
+        let mut e: WorldFragment = EngineRef::new(e).slice();
+        try!(world::Fragment::destroy_client(&mut e, cid));
+    }
 
     Ok(())
 }
@@ -40,13 +51,9 @@ pub fn login(e: &mut Engine, now: Time, wire_id: WireId, name: &str) -> save::Re
     // Load the client into the world.
     let cid =
         if let Some(file) = e.storage.open_client_file(name) {
-            let (h, mut e) = EngineRef::new(e).split_off();
-            let e = e.open();
-            let mut h = WorldHooks::new(0, h);
-            let mut w = e.world.hook(&mut h);
-
-            let mut sr = ObjectReader::new(file, ReadHooks::new(e.script));
-            try!(sr.load_client(&mut w))
+            let mut e: SaveReadFragment = EngineRef::new(e).slice();
+            let mut sr = ObjectReader::new(file);
+            try!(sr.load_client(&mut e))
         } else {
             fail!("client file not found");
         };
@@ -59,7 +66,8 @@ pub fn login(e: &mut Engine, now: Time, wire_id: WireId, name: &str) -> save::Re
     let region = vision::vision_region(center);
 
     for cpos in region.points() {
-        chunks::Fragment::load(&mut EngineRef::new(e), cpos);
+        let mut e: ChunksFragment = EngineRef::new(e).slice();
+        chunks::Fragment::load(&mut e, cpos);
     }
 
     // Set up the client to receive messages.
@@ -75,29 +83,26 @@ pub fn login(e: &mut Engine, now: Time, wire_id: WireId, name: &str) -> save::Re
         warn!("{:?}: client has no pawn", cid);
     }
 
-    e.vision.add_client(cid,
-                        region,
-                        &mut VisionHooks {
-                            messages: &mut e.messages,
-                            world: &e.world,
-                        });
+    {
+        let (mut h, mut e): (VisionHooks, _) = EngineRef::new(e).split_off();
+        e.vision_mut().add_client(cid, region, &mut h);
+    }
 
     Ok(())
 }
 
 pub fn logout(e: &mut Engine, cid: ClientId) -> save::Result<()> {
-    let (h, mut e) = EngineRef::new(e).split_off();
-    let e = e.open();
-    let mut h = WorldHooks::new(0, h);
-    let mut w = e.world.hook(&mut h);
-
     {
-        let c = w.world().client(cid);
-        let file = e.storage.create_client_file(c.name());
-        let mut sw = ObjectWriter::new(file, WriteHooks::new(e.script));
+        let (h, e): (SaveWriteHooks, _) = EngineRef::new(e).split_off();
+        let c = e.world().client(cid);
+        let file = e.storage().create_client_file(c.name());
+        let mut sw = ObjectWriter::new(file, h);
         try!(sw.save_client(&c));
     }
-    try!(w.destroy_client(cid));
+    {
+        let mut e: WorldFragment = EngineRef::new(e).slice();
+        try!(world::Fragment::destroy_client(&mut e, cid));
+    }
     Ok(())
 }
 
@@ -119,17 +124,181 @@ pub fn update_view(e: &mut Engine, now: Time, cid: ClientId) {
     };
 
     for cpos in old_region.points().filter(|&p| !new_region.contains(p)) {
-        chunks::Fragment::unload(&mut EngineRef::new(e), cpos);
+        let mut e: ChunksFragment = EngineRef::new(e).slice();
+        chunks::Fragment::unload(&mut e, cpos);
     }
 
     for cpos in new_region.points().filter(|&p| !old_region.contains(p)) {
-        chunks::Fragment::load(&mut EngineRef::new(e), cpos);
+        let mut e: ChunksFragment = EngineRef::new(e).slice();
+        chunks::Fragment::load(&mut e, cpos);
     }
 
-    e.vision.set_client_view(cid,
-                             new_region,
-                             &mut VisionHooks {
-                                 messages: &mut e.messages,
-                                 world: &e.world,
-                             });
+    {
+        let (mut h, mut e): (VisionHooks, _) = EngineRef::new(e).split_off();
+        e.vision_mut().add_client(cid, new_region, &mut h);
+    }
+}
+
+
+impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
+    fn on_client_create(&mut self, cid: ClientId) {
+    }
+
+    fn on_client_destroy(&mut self, cid: ClientId) {
+        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
+        e.vision_mut().remove_client(cid, &mut h);
+    }
+
+    fn on_client_change_pawn(&mut self,
+                             cid: ClientId,
+                             old_pawn: Option<EntityId>,
+                             new_pawn: Option<EntityId>) {
+        let now = self.now();
+        let center = match self.world().client(cid).pawn() {
+            Some(e) => e.pos(now),
+            None => scalar(0),
+        };
+
+        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
+        e.vision_mut().set_client_view(cid, vision_region(center), &mut h);
+    }
+
+
+    fn on_terrain_chunk_create(&mut self, pos: V2) {
+        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
+        e.vision_mut().add_chunk(pos, &mut h);
+    }
+
+    fn on_terrain_chunk_destroy(&mut self, pos: V2) {
+        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
+        e.vision_mut().remove_chunk(pos, &mut h);
+    }
+
+    fn on_chunk_invalidate(&mut self, pos: V2) {
+        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
+        e.vision_mut().update_chunk(pos, &mut h);
+    }
+
+
+    fn on_entity_create(&mut self, eid: EntityId) {
+        let area = entity_area(self.world(), eid);
+        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
+        e.vision_mut().add_entity(eid, area, &mut h);
+    }
+
+    fn on_entity_destroy(&mut self, eid: EntityId) {
+        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
+        e.vision_mut().remove_entity(eid, &mut h);
+    }
+
+    fn on_entity_motion_change(&mut self, eid: EntityId) {
+        let area = entity_area(self.world(), eid);
+        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
+        e.vision_mut().set_entity_area(eid, area, &mut h);
+    }
+}
+
+fn entity_area(w: &World, eid: EntityId) -> SmallSet<V2> {
+    let e = w.entity(eid);
+    let mut area = SmallSet::new();
+
+    let a = e.motion().start_pos.reduce().div_floor(scalar(CHUNK_SIZE * TILE_SIZE));
+    let b = e.motion().end_pos.reduce().div_floor(scalar(CHUNK_SIZE * TILE_SIZE));
+
+    area.insert(a);
+    area.insert(b);
+    area
+}
+
+
+impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
+    fn on_chunk_update(&mut self, cid: ClientId, pos: V2) {
+        use util::encode_rle16;
+        let tc = self.world().terrain_chunk(pos);
+        let data = encode_rle16(tc.blocks().iter().map(|&x| x));
+        self.messages().send_client(cid, ClientResponse::TerrainChunk(pos, data));
+    }
+
+    fn on_entity_appear(&mut self, cid: ClientId, eid: EntityId) {
+        let entity = self.world().entity(eid);
+
+        let appearance = entity.appearance();
+        // TODO: hack.  Should have a separate "entity name" field somewhere.
+        let name =
+            if let world::EntityAttachment::Client(controller_cid) = entity.attachment() {
+                self.world().client(controller_cid).name().to_owned()
+            } else {
+                String::new()
+            };
+
+        self.messages().send_client(cid, ClientResponse::EntityAppear(eid, appearance, name));
+    }
+
+    fn on_entity_disappear(&mut self, cid: ClientId, eid: EntityId) {
+        let time =
+            if let Some(entity) = self.world().get_entity(eid) {
+                entity.motion().start_time
+            } else {
+                0
+            };
+        // TODO: figure out if it's actually useful to send the time here.  The client currently
+        // ignores it.
+        self.messages().send_client(cid, ClientResponse::EntityGone(eid, time));
+    }
+
+    fn on_entity_update(&mut self, cid: ClientId, eid: EntityId) {
+        let entity = self.world().entity(eid);
+
+        let motion = entity.motion().clone();
+        let anim = entity.anim();
+        self.messages().send_client(cid, ClientResponse::EntityUpdate(eid, motion, anim));
+    }
+
+}
+
+
+impl<'a, 'd> chunks::Hooks for ChunksHooks<'a, 'd> {
+}
+
+impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
+    type E = save::Error;
+
+    fn load(&mut self, cpos: V2) -> save::Result<()> {
+        if let Some(file) = self.storage().open_terrain_chunk_file(cpos) {
+            let mut e: SaveReadFragment = self.borrow().slice();
+            let mut sr = ObjectReader::new(file);
+            try!(sr.load_terrain_chunk(&mut e));
+        } else {
+            let mut e: WorldFragment = self.borrow().slice();
+            let id = e.data().block_data.get_id("grass/center/v0");
+            let mut blocks = [0; 4096];
+            for i in range(0, 256) {
+                blocks[i] = id;
+            }
+            try!(world::Fragment::create_terrain_chunk(&mut e, cpos, Box::new(blocks)));
+        }
+        Ok(())
+    }
+
+    fn unload(&mut self, cpos: V2) -> save::Result<()> {
+        {
+            let (h, e): (SaveWriteHooks, _) = self.borrow().split_off();
+            let t = e.world().terrain_chunk(cpos);
+            let file = e.storage().create_terrain_chunk_file(cpos);
+            let mut sw = ObjectWriter::new(file, h);
+            try!(sw.save_terrain_chunk(&t));
+        }
+        {
+            let mut e: WorldFragment = self.borrow().slice();
+            try!(world::Fragment::destroy_terrain_chunk(&mut e, cpos));
+        }
+        Ok(())
+    }
+}
+
+
+impl<'a, 'd> world::save::ReadHooks for SaveReadHooks<'a, 'd> {
+}
+
+impl<'a, 'd> world::save::WriteHooks for SaveWriteHooks<'a, 'd> {
 }

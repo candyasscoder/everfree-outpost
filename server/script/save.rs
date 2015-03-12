@@ -10,7 +10,7 @@ use types::*;
 use util::Convert;
 use util::Stable;
 use util::StrError;
-use world::{World, WorldMut, Client, TerrainChunk, Entity, Structure, Inventory};
+use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
 use world::object::*;
 use world::save::{self, Writer, Reader};
 
@@ -361,6 +361,9 @@ pub struct ReadHooks<'a> {
     script: &'a mut ScriptEngine,
 }
 
+impl<'a> save::ReadHooks for ReadHooks<'a> {}
+
+/*
 impl<'a> ReadHooks<'a> {
     pub fn new(script: &'a mut ScriptEngine) -> ReadHooks<'a> {
         ReadHooks {
@@ -599,3 +602,4 @@ fn read_table<R: Reader, W: WorldMut>(lua: &mut LuaState,
     }
     Ok(())
 }
+*/

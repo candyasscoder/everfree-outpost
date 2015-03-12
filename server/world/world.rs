@@ -9,7 +9,7 @@ use util::stable_id_map::{self, StableIdMap, Stable};
 use world::types::*;
 use world::ops::{self, OpResult};
 use world::object::{Object, ObjectRef, ObjectRefMut};
-use world::hooks::{Hooks, NoHooks, no_hooks};
+use world::hooks::{Hooks, NoHooks};
 
 
 impl<'d> super::World<'d> {
@@ -202,6 +202,7 @@ macro_rules! world_methods {
         }
     )*) => {
         impl<'d> World<'d> { $(
+                /*
             pub fn $create_obj<'a>(&'a mut self,
                                    $($create_arg: $create_arg_ty,)*)
                                    -> OpResult<ObjectRefMut<'a, 'd, $Obj>> {
@@ -229,6 +230,7 @@ macro_rules! world_methods {
                     where H: Hooks {
                 ops::$destroy_obj_op(self, h, id)
             }
+            */
 
 
             pub fn $get_obj<'a>(&'a self,
@@ -250,6 +252,7 @@ macro_rules! world_methods {
                     .expect(concat!("no ", stringify!($Obj), " with given id"))
             }
 
+            /*
             pub fn $get_obj_mut<'a>(&'a mut self, id: $Id)
                                     -> Option<ObjectRefMut<'a, 'd, $Obj>> {
                 self.$get_obj_mut_hooks(no_hooks(), id)
@@ -287,6 +290,7 @@ macro_rules! world_methods {
                     .expect(concat!("no ", stringify!($Obj), " with given id"))
             }
 
+            */
 
             $(
                 pub fn $transient_obj_id(&self, stable_id: Stable<$Id>) -> Option<$Id> {
@@ -392,112 +396,3 @@ object_iter_by_id!(TerrainChunksById, TerrainChunk, V2);
 object_iter_by_id!(EntitiesById, Entity, EntityId);
 object_iter_by_id!(StructuresById, Structure, StructureId);
 object_iter_by_id!(InventoriesById, Inventory, InventoryId);
-
-
-macro_rules! define_WorldMut {
-    ($(
-        object $Obj:ident {
-            id $Id:ident;
-            map $objs:ident;
-            lifecycle ($($create_arg:ident: $create_arg_ty:ty),*)
-                $create_obj:ident => $create_obj_op:ident
-                    [$create_id_name:ident -> $create_id_expr:expr],
-                $destroy_obj:ident => $destroy_obj_op:ident,
-                $create_obj_hooks:ident, $destroy_obj_hooks:ident;
-            lookups [$lookup_id_name:ident -> $lookup_id_expr:expr]
-                $get_obj:ident, $obj:ident,
-                $get_obj_mut:ident, $obj_mut:ident,
-                $get_obj_mut_hooks:ident, $obj_mut_hooks:ident;
-            $(stable_ids
-                $transient_obj_id:ident;)*
-        }
-    )*) => {
-        // TODO: would be nice to parameterize over Data lifetime <'d>, but a compiler bug prevents
-        // it from recognizing "<Self as WorldMut<'d>>::Hooks: 'a" constraints, which we need for
-        // most methods.
-        pub trait WorldMut {
-            type Hooks: Hooks;
-
-            fn world(&self) -> &World;
-            fn wh_mut(&mut self) -> (&mut World, &mut <Self as WorldMut>::Hooks);
-
-            // TODO: Once WorldMut<'d> works, impl Deref/DerefMut instead of providing
-            // world/world_mut
-            fn world_mut<'a>(&'a mut self) -> &'a mut World<'a>
-                    where <Self as WorldMut>::Hooks: 'a {
-                self.wh_mut().0
-            }
-
-            $(
-
-            fn $create_obj<'a>(&'a mut self,
-                               $($create_arg: $create_arg_ty,)*)
-                               -> OpResult<ObjectRefMut<'a, 'a, $Obj, <Self as WorldMut>::Hooks>> {
-                let (w,h) = self.wh_mut();
-                w.$create_obj_hooks(h, $($create_arg,)*)
-            }
-
-            fn $destroy_obj(&mut self, id: $Id) -> OpResult<()> {
-                let (w,h) = self.wh_mut();
-                w.$destroy_obj_hooks(h, id)
-            }
-
-            fn $get_obj<'a>(&'a self, id: $Id) -> Option<ObjectRef<'a, 'a, $Obj>> {
-                self.world().$get_obj(id)
-            }
-
-            fn $obj<'a>(&'a self, id: $Id) -> ObjectRef<'a, 'a, $Obj> {
-                self.world().$obj(id)
-
-            }
-
-            fn $get_obj_mut<'a>(&'a mut self, id: $Id)
-                                -> Option<ObjectRefMut<'a, 'a, $Obj, <Self as WorldMut>::Hooks>> {
-                let (w,h) = self.wh_mut();
-                w.$get_obj_mut_hooks(h, id)
-            }
-
-            fn $obj_mut<'a>(&'a mut self, id: $Id)
-                            -> ObjectRefMut<'a, 'a, $Obj, <Self as WorldMut>::Hooks> {
-                let (w,h) = self.wh_mut();
-                w.$obj_mut_hooks(h, id)
-            }
-
-            )*
-        }
-    };
-}
-
-process_objects!(define_WorldMut!);
-
-impl<'d> WorldMut for World<'d> {
-    type Hooks = NoHooks;
-
-    fn world(&self) -> &World {
-        self
-    }
-
-    fn wh_mut(&mut self) -> (&mut World, &mut NoHooks) {
-        // See comment in other wh_mut.
-        // TODO: remove once WorldMut takes 'd
-        let w = unsafe { mem::transmute(&mut *self) };
-        (w, no_hooks())
-    }
-}
-
-impl<'a, 'd, H: Hooks> WorldMut for (&'a mut World<'d>, &'a mut H) {
-    type Hooks = H;
-
-    fn world(&self) -> &World {
-        self.0
-    }
-
-    fn wh_mut<'b>(&'b mut self) -> (&'b mut World<'b>, &'b mut H) {
-        // Adjust lifetimes (World<'d> -> World<'b>).  This requires a transmute because &mut's
-        // subtyping is invariant with respect to its target.  This is safe as long as there are
-        // never any writes to w.data.
-        // TODO: once WorldMut can take 'd as a parameter, it should be possible to remove this.
-        let w = unsafe { mem::transmute(&mut *self.0) };
-        (w, &mut *self.1)
-    }
-}

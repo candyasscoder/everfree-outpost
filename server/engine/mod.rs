@@ -17,22 +17,23 @@ use script::ScriptEngine;
 use storage::Storage;
 use terrain_gen::TerrainGen;
 use vision::Vision;
-use world::{World, WorldMut};
-use world::hooks::no_hooks;
+use world::World;
 use world::object::*;
 
+use self::glue::PhysicsFragment;
 use self::split::EngineRef;
 
 
-#[macro_use] mod split;
+#[macro_use] pub mod split;
 #[macro_use] mod hooks;
-mod glue;
+pub mod glue;
 mod logic;
 
 
 pub struct Engine<'d> {
     pub data: &'d Data,
     pub storage: &'d Storage,
+    pub now: Time,
 
     pub world: World<'d>,
     pub script: ScriptEngine,
@@ -56,6 +57,7 @@ impl<'d> Engine<'d> {
         Engine {
             data: data,
             storage: storage,
+            now: TIME_MIN,
 
             world: World::new(data),
             script: ScriptEngine::new(&storage.script_dir()),
@@ -85,6 +87,7 @@ impl<'d> Engine<'d> {
               now: Time,
               evt: Event) {
         use messages::Event::*;
+        self.now = now;
         match evt {
             Control(e) => self.handle_control(now, e),
             Wire(wire_id, e) => self.handle_wire(now, wire_id, e),
@@ -160,8 +163,11 @@ impl<'d> Engine<'d> {
             Input(input) => {
                 let target_velocity = input.to_velocity();
                 if let Some(eid) = self.world.get_client(cid).and_then(|c| c.pawn_id()) {
-                    warn_on_err!(physics_::Fragment::set_velocity(
-                            &mut EngineRef::new(self), now, eid, target_velocity));
+                    {
+                        let mut e: PhysicsFragment = EngineRef::new(self).slice();
+                        warn_on_err!(physics_::Fragment::set_velocity(
+                                &mut e, now, eid, target_velocity));
+                    }
                     let e = self.world.entity(eid);
                     if e.motion().end_pos != e.motion().start_pos {
                         self.messages.schedule_physics_update(eid, e.motion().end_time());
@@ -214,7 +220,10 @@ impl<'d> Engine<'d> {
                     };
 
                 if really_update {
-                    warn_on_err!(physics_::Fragment::update(&mut EngineRef::new(self), now, eid));
+                    {
+                        let mut e: PhysicsFragment = EngineRef::new(self).slice();
+                        warn_on_err!(physics_::Fragment::update(&mut e, now, eid));
+                    }
 
                     let e = self.world.entity(eid);
                     if e.motion().end_pos != e.motion().start_pos {

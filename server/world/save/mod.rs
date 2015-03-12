@@ -5,6 +5,7 @@ pub use self::writer::Writer;
 pub use self::reader::Reader;
 pub use self::object_writer::{ObjectWriter, WriteHooks, NoWriteHooks};
 pub use self::object_reader::{ObjectReader, ReadHooks, NoReadHooks};
+pub use self::object_reader::Fragment as ReadFragment;
 
 mod error;
 // TODO: these shouldn't need to be public, but otherwise rustc complains that "source trait is
