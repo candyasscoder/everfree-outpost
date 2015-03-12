@@ -25,7 +25,6 @@ use self::split::EngineRef;
 
 
 #[macro_use] pub mod split;
-#[macro_use] mod hooks;
 pub mod glue;
 mod logic;
 
