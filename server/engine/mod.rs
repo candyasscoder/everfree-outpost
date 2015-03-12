@@ -88,15 +88,14 @@ impl<'d> Engine<'d> {
         use messages::Event::*;
         self.now = now;
         match evt {
-            Control(e) => self.handle_control(now, e),
-            Wire(wire_id, e) => self.handle_wire(now, wire_id, e),
-            Client(cid, e) => self.handle_client(now, cid, e),
-            Other(e) => self.handle_other(now, e),
+            Control(e) => self.handle_control(e),
+            Wire(wire_id, e) => self.handle_wire(wire_id, e),
+            Client(cid, e) => self.handle_client(cid, e),
+            Other(e) => self.handle_other(e),
         }
     }
 
     fn handle_control(&mut self,
-                      now: Time,
                       evt: ControlEvent) {
         use messages::ControlEvent::*;
         use messages::ControlResponse::*;
@@ -117,7 +116,6 @@ impl<'d> Engine<'d> {
     }
 
     fn handle_wire(&mut self,
-                   now: Time,
                    wire_id: WireId,
                    evt: WireEvent) {
         use messages::WireEvent::*;
@@ -126,7 +124,7 @@ impl<'d> Engine<'d> {
             Login(name, secret) => {
                 match self.auth.login(&*name, &secret) {
                     Ok(true) => {
-                        logic::login(self, now, wire_id, &*name);
+                        logic::login(self, wire_id, &*name);
                     },
                     Ok(false) => {
                         info!("{:?}: login as {} failed: bad name/secret",
@@ -153,25 +151,13 @@ impl<'d> Engine<'d> {
     }
 
     fn handle_client(&mut self,
-                     now: Time,
                      cid: ClientId,
                      evt: ClientEvent) {
         use messages::ClientEvent::*;
         use messages::ClientResponse::*;
         match evt {
             Input(input) => {
-                let target_velocity = input.to_velocity();
-                if let Some(eid) = self.world.get_client(cid).and_then(|c| c.pawn_id()) {
-                    {
-                        let mut e: PhysicsFragment = EngineRef::new(self).slice();
-                        warn_on_err!(physics_::Fragment::set_velocity(
-                                &mut e, now, eid, target_velocity));
-                    }
-                    let e = self.world.entity(eid);
-                    if e.motion().end_pos != e.motion().start_pos {
-                        self.messages.schedule_physics_update(eid, e.motion().end_time());
-                    }
-                }
+                logic::input(self, cid, input);
             },
 
             Action(action) => {
@@ -195,8 +181,7 @@ impl<'d> Engine<'d> {
             },
 
             CheckView => {
-                logic::update_view(self, now, cid);
-                self.messages.schedule_check_view(cid, now + 1000);
+                logic::update_view(self, cid);
             },
 
             BadRequest => {
@@ -206,29 +191,11 @@ impl<'d> Engine<'d> {
     }
 
     fn handle_other(&mut self,
-                    now: Time,
                     evt: OtherEvent) {
         use messages::OtherEvent::*;
         match evt {
             PhysicsUpdate(eid) => {
-                let really_update =
-                    if let Some(e) = self.world.get_entity(eid) {
-                        e.motion().end_time() <= now
-                    } else {
-                        false
-                    };
-
-                if really_update {
-                    {
-                        let mut e: PhysicsFragment = EngineRef::new(self).slice();
-                        warn_on_err!(physics_::Fragment::update(&mut e, now, eid));
-                    }
-
-                    let e = self.world.entity(eid);
-                    if e.motion().end_pos != e.motion().start_pos {
-                        self.messages.schedule_physics_update(eid, e.motion().end_time());
-                    }
-                }
+                logic::physics_update(self, eid);
             },
         }
     }

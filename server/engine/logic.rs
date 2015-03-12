@@ -8,7 +8,9 @@ use chunks;
 use engine::Engine;
 use engine::glue::*;
 use engine::split::EngineRef;
+use input::InputBits;
 use messages::ClientResponse;
+use physics_;
 use util::SmallSet;
 use script;
 use world::{self, World};
@@ -17,106 +19,127 @@ use world::save::{self, ObjectReader, ObjectWriter, ReadHooks, WriteHooks};
 use vision::{self, vision_region};
 
 
-pub fn register(e: &mut Engine, name: &str, appearance: u32) -> save::Result<()> {
+pub fn register(eng: &mut Engine, name: &str, appearance: u32) -> save::Result<()> {
     let pawn_id;
     let cid;
 
     {
-        let mut e: WorldFragment = EngineRef::new(e).slice();
+        let mut eng: WorldFragment = EngineRef::new(eng).slice();
 
-        pawn_id = try!(world::Fragment::create_entity(&mut e, scalar(0), 2, appearance)).id();
+        pawn_id = try!(world::Fragment::create_entity(&mut eng, scalar(0), 2, appearance)).id();
 
         cid = {
-            let mut c = try!(world::Fragment::create_client(&mut e, name));
+            let mut c = try!(world::Fragment::create_client(&mut eng, name));
             try!(c.set_pawn(Some(pawn_id)));
             c.id()
         };
     }
 
     {
-        let (h, e): (SaveWriteHooks, _) = EngineRef::new(e).split_off();
-        let c = e.world().client(cid);
-        let file = e.storage().create_client_file(c.name());
+        let (h, eng): (SaveWriteHooks, _) = EngineRef::new(eng).split_off();
+        let c = eng.world().client(cid);
+        let file = eng.storage().create_client_file(c.name());
         let mut sw = ObjectWriter::new(file, h);
         try!(sw.save_client(&c));
     }
     {
-        let mut e: WorldFragment = EngineRef::new(e).slice();
-        try!(world::Fragment::destroy_client(&mut e, cid));
+        let mut eng: WorldFragment = EngineRef::new(eng).slice();
+        try!(world::Fragment::destroy_client(&mut eng, cid));
     }
 
     Ok(())
 }
 
-pub fn login(e: &mut Engine, now: Time, wire_id: WireId, name: &str) -> save::Result<()> {
+pub fn login(eng: &mut Engine, wire_id: WireId, name: &str) -> save::Result<()> {
+    let now = eng.now;
+
     // Load the client into the world.
     let cid =
-        if let Some(file) = e.storage.open_client_file(name) {
-            let mut e: SaveReadFragment = EngineRef::new(e).slice();
+        if let Some(file) = eng.storage.open_client_file(name) {
+            let mut eng: SaveReadFragment = EngineRef::new(eng).slice();
             let mut sr = ObjectReader::new(file);
-            try!(sr.load_client(&mut e))
+            try!(sr.load_client(&mut eng))
         } else {
             fail!("client file not found");
         };
 
     // Load the chunks the client can currently see.
-    let center = match e.world.client(cid).pawn() {
-        Some(e) => e.pos(now),
+    let center = match eng.world.client(cid).pawn() {
+        Some(eng) => eng.pos(now),
         None => scalar(0),
     };
     let region = vision::vision_region(center);
 
     for cpos in region.points() {
-        let mut e: ChunksFragment = EngineRef::new(e).slice();
-        chunks::Fragment::load(&mut e, cpos);
+        let mut eng: ChunksFragment = EngineRef::new(eng).slice();
+        chunks::Fragment::load(&mut eng, cpos);
     }
 
     // Set up the client to receive messages.
     info!("{:?}: logged in as {} ({:?})",
           wire_id, name, cid);
-    e.messages.add_client(cid, wire_id);
-    e.messages.schedule_check_view(cid, now + 1000);
+    eng.messages.add_client(cid, wire_id);
+    eng.messages.schedule_check_view(cid, now + 1000);
 
     // Send the client's startup messages.
-    if let Some(pawn_id) = e.world.client(cid).pawn_id() {
-        e.messages.send_client(cid, ClientResponse::Init(pawn_id));
+    if let Some(pawn_id) = eng.world.client(cid).pawn_id() {
+        eng.messages.send_client(cid, ClientResponse::Init(pawn_id));
     } else {
         warn!("{:?}: client has no pawn", cid);
     }
 
     {
-        let (mut h, mut e): (VisionHooks, _) = EngineRef::new(e).split_off();
-        e.vision_mut().add_client(cid, region, &mut h);
+        let (mut h, mut eng): (VisionHooks, _) = EngineRef::new(eng).split_off();
+        eng.vision_mut().add_client(cid, region, &mut h);
     }
 
     Ok(())
 }
 
-pub fn logout(e: &mut Engine, cid: ClientId) -> save::Result<()> {
+pub fn logout(eng: &mut Engine, cid: ClientId) -> save::Result<()> {
     {
-        let (h, e): (SaveWriteHooks, _) = EngineRef::new(e).split_off();
-        let c = e.world().client(cid);
-        let file = e.storage().create_client_file(c.name());
+        let (h, eng): (SaveWriteHooks, _) = EngineRef::new(eng).split_off();
+        let c = eng.world().client(cid);
+        let file = eng.storage().create_client_file(c.name());
         let mut sw = ObjectWriter::new(file, h);
         try!(sw.save_client(&c));
     }
     {
-        let mut e: WorldFragment = EngineRef::new(e).slice();
-        try!(world::Fragment::destroy_client(&mut e, cid));
+        let mut eng: WorldFragment = EngineRef::new(eng).slice();
+        try!(world::Fragment::destroy_client(&mut eng, cid));
     }
     Ok(())
 }
 
 
-pub fn update_view(e: &mut Engine, now: Time, cid: ClientId) {
-    let old_region = match e.vision.client_view_area(cid) {
+pub fn input(eng: &mut Engine, cid: ClientId, input: InputBits) {
+    let now = eng.now;
+
+    let target_velocity = input.to_velocity();
+    if let Some(eid) = eng.world.get_client(cid).and_then(|c| c.pawn_id()) {
+        {
+            let mut eng: PhysicsFragment = EngineRef::new(eng).slice();
+            warn_on_err!(physics_::Fragment::set_velocity(
+                    &mut eng, now, eid, target_velocity));
+        }
+        let e = eng.world.entity(eid);
+        if e.motion().end_pos != e.motion().start_pos {
+            eng.messages.schedule_physics_update(eid, e.motion().end_time());
+        }
+    }
+}
+
+pub fn update_view(eng: &mut Engine, cid: ClientId) {
+    let now = eng.now;
+
+    let old_region = match eng.vision.client_view_area(cid) {
         Some(x) => x,
         None => return,
     };
 
     let new_region = {
         // TODO: warn on None? - may indicate inconsistency between World and Vision
-        let client = unwrap_or!(e.world.get_client(cid));
+        let client = unwrap_or!(eng.world.get_client(cid));
 
         // TODO: make sure return is the right thing to do on None
         let pawn = unwrap_or!(client.pawn());
@@ -125,18 +148,44 @@ pub fn update_view(e: &mut Engine, now: Time, cid: ClientId) {
     };
 
     for cpos in old_region.points().filter(|&p| !new_region.contains(p)) {
-        let mut e: ChunksFragment = EngineRef::new(e).slice();
-        chunks::Fragment::unload(&mut e, cpos);
+        let mut eng: ChunksFragment = EngineRef::new(eng).slice();
+        chunks::Fragment::unload(&mut eng, cpos);
     }
 
     for cpos in new_region.points().filter(|&p| !old_region.contains(p)) {
-        let mut e: ChunksFragment = EngineRef::new(e).slice();
-        chunks::Fragment::load(&mut e, cpos);
+        let mut eng: ChunksFragment = EngineRef::new(eng).slice();
+        chunks::Fragment::load(&mut eng, cpos);
     }
 
     {
-        let (mut h, mut e): (VisionHooks, _) = EngineRef::new(e).split_off();
-        e.vision_mut().set_client_view(cid, new_region, &mut h);
+        let (mut h, mut eng): (VisionHooks, _) = EngineRef::new(eng).split_off();
+        eng.vision_mut().set_client_view(cid, new_region, &mut h);
+    }
+
+    eng.messages.schedule_check_view(cid, now + 1000);
+}
+
+
+pub fn physics_update(eng: &mut Engine, eid: EntityId) {
+    let now = eng.now;
+
+    let really_update =
+        if let Some(e) = eng.world.get_entity(eid) {
+            e.motion().end_time() <= now
+        } else {
+            false
+        };
+
+    if really_update {
+        {
+            let mut eng: PhysicsFragment = EngineRef::new(eng).slice();
+            warn_on_err!(physics_::Fragment::update(&mut eng, now, eid));
+        }
+
+        let e = eng.world.entity(eid);
+        if e.motion().end_pos != e.motion().start_pos {
+            eng.messages.schedule_physics_update(eid, e.motion().end_time());
+        }
     }
 }
 
