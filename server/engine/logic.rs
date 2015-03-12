@@ -296,7 +296,3 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
         Ok(())
     }
 }
-
-
-impl<'a, 'd> world::save::ReadHooks for SaveReadHooks<'a, 'd> {
-}

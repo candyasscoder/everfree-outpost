@@ -89,7 +89,9 @@ impl<'a, 'd> physics_::Fragment<'d> for PhysicsFragment<'a, 'd> {
 
 engine_part_typedef!(pub SaveReadFragment(world, vision, messages,
                                           script));
-engine_part_typedef!(pub SaveReadHooks(script));
+// NB: This typedef is the same as script::save::ReadHooks
+engine_part_typedef!(pub SaveReadHooks(script,
+                                       world, vision, messages));
 
 // NB: This typedef is the same as script::save::WriteHooks
 engine_part_typedef!(pub SaveWriteHooks(script));
