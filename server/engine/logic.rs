@@ -135,7 +135,7 @@ pub fn update_view(e: &mut Engine, now: Time, cid: ClientId) {
 
     {
         let (mut h, mut e): (VisionHooks, _) = EngineRef::new(e).split_off();
-        e.vision_mut().add_client(cid, new_region, &mut h);
+        e.vision_mut().set_client_view(cid, new_region, &mut h);
     }
 }
 

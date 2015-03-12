@@ -68,6 +68,7 @@ impl Vision {
                          view: Region<V2>,
                          h: &mut H)
             where H: Hooks {
+        debug!("{:?} created", cid);
         self.clients.insert(cid.unwrap() as usize, VisionClient::new());
         self.set_client_view(cid, view, h);
     }
@@ -76,6 +77,7 @@ impl Vision {
                             cid: ClientId,
                             h: &mut H)
             where H: Hooks {
+        debug!("{:?} destroyed", cid);
         self.set_client_view(cid, Region::empty(), h);
         self.clients.remove(&(cid.unwrap() as usize));
     }
@@ -93,12 +95,14 @@ impl Vision {
         for p in old_view.points().filter(|&p| !new_view.contains(p)) {
             for &eid in self.entities_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
                 client.visible_entities.release(eid, |()| {
+                    debug!("{:?} moved: --{:?}", cid, eid);
                     h.on_entity_disappear(cid, eid);
                     entities[eid.unwrap() as usize].viewers.remove(&cid);
                 });
             }
 
             if self.loaded_chunks.contains(&p) {
+                debug!("{:?} moved: --{:?}", cid, p);
                 h.on_chunk_disappear(cid, p);
             }
 
@@ -108,6 +112,7 @@ impl Vision {
         for p in new_view.points().filter(|&p| !old_view.contains(p)) {
             for &eid in self.entities_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
                 client.visible_entities.retain(eid, || {
+                    debug!("{:?} moved: ++{:?}", cid, eid);
                     h.on_entity_appear(cid, eid);
                     h.on_entity_update(cid, eid);
                     entities[eid.unwrap() as usize].viewers.insert(cid);
@@ -115,6 +120,7 @@ impl Vision {
             }
 
             if self.loaded_chunks.contains(&p) {
+                debug!("{:?} moved: ++chunk {:?}", cid, p);
                 h.on_chunk_appear(cid, p);
                 h.on_chunk_update(cid, p);
             }
@@ -157,6 +163,7 @@ impl Vision {
         for &p in old_area.iter().filter(|&p| !new_area.contains(p)) {
             for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
                 self.clients[cid.unwrap() as usize].visible_entities.release(eid, |()| {
+                    debug!("{:?} moved: --{:?}", eid, cid);
                     h.on_entity_disappear(cid, eid);
                     entity.viewers.remove(&cid);
                 });
@@ -167,6 +174,7 @@ impl Vision {
         for &p in new_area.iter().filter(|&p| !old_area.contains(p)) {
             for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
                 self.clients[cid.unwrap() as usize].visible_entities.retain(eid, || {
+                    debug!("{:?} moved: ++{:?}", eid, cid);
                     h.on_entity_appear(cid, eid);
                     entity.viewers.insert(cid);
                 });
@@ -175,6 +183,7 @@ impl Vision {
         }
 
         for &cid in entity.viewers.iter() {
+            debug!("{:?} moved: **{:?}", eid, cid);
             h.on_entity_update(cid, eid);
         }
 
@@ -188,6 +197,7 @@ impl Vision {
             where H: Hooks {
         self.loaded_chunks.insert(pos);
         for &cid in self.clients_by_chunk.get(&pos).map(|x| x.iter()).unwrap_iter() {
+            debug!("chunk {:?} created: ++{:?}", pos, cid);
             h.on_chunk_appear(cid, pos);
             h.on_chunk_update(cid, pos);
         }
@@ -198,6 +208,7 @@ impl Vision {
                            h: &mut H)
             where H: Hooks {
         for &cid in self.clients_by_chunk.get(&pos).map(|x| x.iter()).unwrap_iter() {
+            debug!("chunk {:?} destroyed: --{:?}", pos, cid);
             h.on_chunk_disappear(cid, pos);
         }
         self.loaded_chunks.remove(&pos);
@@ -208,6 +219,7 @@ impl Vision {
                            h: &mut H)
             where H: Hooks {
         for &cid in self.clients_by_chunk.get(&pos).map(|x| x.iter()).unwrap_iter() {
+            debug!("chunk {:?} updated: **{:?}", pos, cid);
             h.on_chunk_update(cid, pos);
         }
     }
