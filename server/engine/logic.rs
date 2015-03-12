@@ -10,9 +10,10 @@ use engine::glue::*;
 use engine::split::EngineRef;
 use messages::ClientResponse;
 use util::SmallSet;
+use script;
 use world::{self, World};
 use world::object::*;
-use world::save::{self, ObjectReader, ObjectWriter};
+use world::save::{self, ObjectReader, ObjectWriter, ReadHooks, WriteHooks};
 use vision::{self, vision_region};
 
 
@@ -298,7 +299,4 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
 
 
 impl<'a, 'd> world::save::ReadHooks for SaveReadHooks<'a, 'd> {
-}
-
-impl<'a, 'd> world::save::WriteHooks for SaveWriteHooks<'a, 'd> {
 }

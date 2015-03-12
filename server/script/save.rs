@@ -121,23 +121,15 @@ enum Tag {
     V3,
 }
 
-pub struct WriteHooks<'a> {
-    script: &'a mut ScriptEngine,
-}
 
-impl<'a> WriteHooks<'a> {
-    pub fn new(script: &'a mut ScriptEngine) -> WriteHooks<'a> {
-        WriteHooks {
-            script: script,
-        }
-    }
-}
+// NB: This typedef is the same as engine::glue::SaveWriteHooks
+engine_part_typedef!(pub WriteHooks(script));
 
-impl<'a> save::WriteHooks for WriteHooks<'a> {
+impl<'a, 'd> save::WriteHooks for WriteHooks<'a, 'd> {
     fn post_write_world<W: Writer>(&mut self,
                                    writer: &mut W,
                                    _w: &World) -> save::Result<()> {
-        try!(write_extra(self.script.owned_lua.get(), writer, |lua| {
+        try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
             lua.get_field(REGISTRY_INDEX, "outpost_callback_get_world_extra");
             try!(lua.pcall(0, 1, 0));
             Ok(())
@@ -148,7 +140,7 @@ impl<'a> save::WriteHooks for WriteHooks<'a> {
     fn post_write_client<W: Writer>(&mut self,
                                     writer: &mut W,
                                     c: &ObjectRef<Client>) -> save::Result<()> {
-        try!(write_extra(self.script.owned_lua.get(), writer, |lua| {
+        try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
             call_get_extra(lua, "outpost_callback_get_client_extra", c.id().unwrap())
         }));
         Ok(())
@@ -164,7 +156,7 @@ impl<'a> save::WriteHooks for WriteHooks<'a> {
     fn post_write_entity<W: Writer>(&mut self,
                                     writer: &mut W,
                                     e: &ObjectRef<Entity>) -> save::Result<()> {
-        try!(write_extra(self.script.owned_lua.get(), writer, |lua| {
+        try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
             call_get_extra(lua, "outpost_callback_get_entity_extra", e.id().unwrap())
         }));
         Ok(())
@@ -173,7 +165,7 @@ impl<'a> save::WriteHooks for WriteHooks<'a> {
     fn post_write_structure<W: Writer>(&mut self,
                                        writer: &mut W,
                                        s: &ObjectRef<Structure>) -> save::Result<()> {
-        try!(write_extra(self.script.owned_lua.get(), writer, |lua| {
+        try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
             call_get_extra(lua, "outpost_callback_get_structure_extra", s.id().unwrap())
         }));
         Ok(())
@@ -182,7 +174,7 @@ impl<'a> save::WriteHooks for WriteHooks<'a> {
     fn post_write_inventory<W: Writer>(&mut self,
                                        writer: &mut W,
                                        i: &ObjectRef<Inventory>) -> save::Result<()> {
-        try!(write_extra(self.script.owned_lua.get(), writer, |lua| {
+        try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
             call_get_extra(lua, "outpost_callback_get_inventory_extra", i.id().unwrap())
         }));
         Ok(())

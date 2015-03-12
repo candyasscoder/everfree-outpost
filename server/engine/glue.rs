@@ -91,6 +91,7 @@ engine_part_typedef!(pub SaveReadFragment(world, vision, messages,
                                           script));
 engine_part_typedef!(pub SaveReadHooks(script));
 
+// NB: This typedef is the same as script::save::WriteHooks
 engine_part_typedef!(pub SaveWriteHooks(script));
 
 impl<'a, 'd> world::save::ReadFragment<'d> for SaveReadFragment<'a, 'd> {

@@ -64,6 +64,8 @@ use types::{ClientId, EntityId, InventoryId};
 
 
 #[macro_use] mod util;
+#[macro_use] mod engine;
+
 mod msg;
 mod wire;
 mod tasks;
@@ -79,7 +81,6 @@ mod storage;
 mod logging;
 
 mod auth;
-mod engine;
 mod messages;
 // TODO: rename to 'physics'; import lib as 'physics_lib'
 mod physics_;
