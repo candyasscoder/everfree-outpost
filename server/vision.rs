@@ -24,14 +24,19 @@ pub fn vision_region(pos: V3) -> Region<V2> {
 pub struct Vision {
     clients: VecMap<VisionClient>,
     entities: VecMap<VisionEntity>,
+
     clients_by_chunk: HashMap<V2, HashSet<ClientId>>,
     entities_by_chunk: HashMap<V2, HashSet<EntityId>>,
+
     loaded_chunks: HashSet<V2>,
+
+    inventory_viewers: HashMap<InventoryId, HashSet<ClientId>>,
 }
 
 struct VisionClient {
     view: Region<V2>,
     visible_entities: RefcountedMap<EntityId, ()>,
+    visible_inventories: RefcountedMap<InventoryId, ()>,
 }
 
 struct VisionEntity {
@@ -48,6 +53,15 @@ pub trait Hooks {
     fn on_entity_appear(&mut self, cid: ClientId, eid: EntityId) {}
     fn on_entity_disappear(&mut self, cid: ClientId, eid: EntityId) {}
     fn on_entity_update(&mut self, cid: ClientId, eid: EntityId) {}
+
+    fn on_inventory_appear(&mut self, cid: ClientId, iid: InventoryId) {}
+    fn on_inventory_disappear(&mut self, cid: ClientId, iid: InventoryId) {}
+    fn on_inventory_update(&mut self,
+                           cid: ClientId,
+                           iid: InventoryId,
+                           item_id: ItemId,
+                           old_count: u8,
+                           new_count: u8) {}
 }
 
 impl Vision {
@@ -58,6 +72,7 @@ impl Vision {
             clients_by_chunk: HashMap::new(),
             entities_by_chunk: HashMap::new(),
             loaded_chunks: HashSet::new(),
+            inventory_viewers: HashMap::new(),
         }
     }
 }
@@ -223,6 +238,48 @@ impl Vision {
             h.on_chunk_update(cid, pos);
         }
     }
+
+
+    pub fn subscribe_inventory<H>(&mut self,
+                                  cid: ClientId,
+                                  iid: InventoryId,
+                                  h: &mut H)
+            where H: Hooks {
+        let client = unwrap_or!(self.clients.get_mut(&(cid.unwrap() as usize)));
+        let inventory_viewers = &mut self.inventory_viewers;
+
+        client.visible_inventories.retain(iid, || {
+            multimap_insert(inventory_viewers, iid, cid);
+            h.on_inventory_appear(cid, iid);
+        });
+    }
+
+    pub fn unsubscribe_inventory<H>(&mut self,
+                                    cid: ClientId,
+                                    iid: InventoryId,
+                                    h: &mut H)
+            where H: Hooks {
+        let client = unwrap_or!(self.clients.get_mut(&(cid.unwrap() as usize)));
+        let inventory_viewers = &mut self.inventory_viewers;
+
+        client.visible_inventories.release(iid, |()| {
+            multimap_remove(inventory_viewers, iid, cid);
+            h.on_inventory_disappear(cid, iid);
+        });
+    }
+
+    pub fn update_inventory<H>(&mut self,
+                               iid: InventoryId,
+                               item_id: ItemId,
+                               old_count: u8,
+                               new_count: u8,
+                               h: &mut H)
+            where H: Hooks {
+        let cids = unwrap_or!(self.inventory_viewers.get(&iid));
+        for &cid in cids.iter() {
+            h.on_inventory_update(cid, iid, item_id, old_count, new_count);
+        }
+    }
 }
 
 impl VisionClient {
@@ -230,6 +287,7 @@ impl VisionClient {
         VisionClient {
             view: Region::empty(),
             visible_entities: RefcountedMap::new(),
+            visible_inventories: RefcountedMap::new(),
         }
     }
 }

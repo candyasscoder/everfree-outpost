@@ -1,10 +1,12 @@
 use std::borrow::ToOwned;
 use std::cell::{RefCell, RefMut};
+use std::error;
 use std::marker::MarkerTrait;
 use std::mem;
 use libc::c_int;
 
 use types::*;
+use util::{StringError, StringResult};
 
 use data::Data;
 use engine;
@@ -16,11 +18,11 @@ use world::object::*;
 use lua::{OwnedLuaState, LuaState};
 use lua::{GLOBALS_INDEX, REGISTRY_INDEX};
 
+pub use self::save::{WriteHooks, ReadHooks};
 use self::traits::pack_count;
 use self::traits::Userdata;
 use self::traits::ToLua;
 use self::traits::{MetatableKey, metatable_key};
-pub use self::save::{WriteHooks, ReadHooks};
 
 
 #[macro_use] mod traits;
@@ -97,7 +99,7 @@ impl ScriptEngine {
 
         let mut lua = self.owned_lua.get();
 
-        let old_ptr: *mut C = unsafe { get_ctx(&mut lua) };
+        let old_ptr: *mut C = unsafe { get_ctx_raw(&mut lua) };
         unsafe { set_ctx(&mut lua, ptr) };
 
         let x = f(&mut lua);
@@ -105,6 +107,15 @@ impl ScriptEngine {
         unsafe { set_ctx(&mut lua, old_ptr) };
 
         x
+    }
+
+    pub fn cb_open_inventory(eng: &mut engine::Engine, cid: ClientId) -> StringResult<()> {
+        let ptr = eng as *mut engine::Engine;
+        eng.script.with_context(ptr, |lua| {
+            run_callback(lua,
+                         "outpost_callback_open_inventory",
+                         (userdata::Client { id: cid }))
+        })
     }
 
     /*
@@ -170,34 +181,36 @@ impl ScriptEngine {
     */
 
     pub fn callback_client_destroyed(&mut self, cid: ClientId) {
-        run_callback(&mut self.owned_lua.get(),
-                     "outpost_callback_set_client_extra",
-                     (cid.unwrap(), Nil));
+        warn_on_err!(run_callback(&mut self.owned_lua.get(),
+                                  "outpost_callback_set_client_extra",
+                                  (cid.unwrap(), Nil)));
     }
 
     pub fn callback_entity_destroyed(&mut self, eid: EntityId) {
-        run_callback(&mut self.owned_lua.get(),
-                     "outpost_callback_set_entity_extra",
-                     (eid.unwrap(), Nil));
+        warn_on_err!(run_callback(&mut self.owned_lua.get(),
+                                  "outpost_callback_set_entity_extra",
+                                  (eid.unwrap(), Nil)));
     }
 
     pub fn callback_structure_destroyed(&mut self, sid: StructureId) {
-        run_callback(&mut self.owned_lua.get(),
-                     "outpost_callback_set_structure_extra",
-                     (sid.unwrap(), Nil));
+        warn_on_err!(run_callback(&mut self.owned_lua.get(),
+                                  "outpost_callback_set_structure_extra",
+                                  (sid.unwrap(), Nil)));
     }
 
     pub fn callback_inventory_destroyed(&mut self, iid: InventoryId) {
-        run_callback(&mut self.owned_lua.get(),
-                     "outpost_callback_set_inventory_extra",
-                     (iid.unwrap(), Nil));
+        warn_on_err!(run_callback(&mut self.owned_lua.get(),
+                                  "outpost_callback_set_inventory_extra",
+                                  (iid.unwrap(), Nil)));
     }
 }
 
-fn run_callback<A: ToLua>(lua: &mut LuaState, key: &str, args: A) {
+
+fn run_callback<A: ToLua>(lua: &mut LuaState, key: &str, args: A) -> StringResult<()> {
     lua.get_field(REGISTRY_INDEX, key);
     let arg_count = pack_count(lua, args);
-    lua.pcall(arg_count, 0, 0).unwrap();
+    lua.pcall(arg_count, 0, 0)
+       .map_err(|(e, s)| StringError { msg: format!("{:?}: {}", e, s) })
 }
 
 fn build_ffi_lib(lua: &mut LuaState) {
@@ -294,10 +307,16 @@ trait BaseContext: MarkerTrait {
     fn registry_key() -> &'static str;
 }
 
-unsafe fn get_ctx<C: BaseContext>(lua: &mut LuaState) -> *mut C {
+unsafe fn get_ctx_raw<C: BaseContext>(lua: &mut LuaState) -> *mut C {
     lua.get_field(REGISTRY_INDEX, C::registry_key());
     let ptr = lua.to_userdata_raw(-1);
     lua.pop(1);
+
+    ptr
+}
+
+unsafe fn get_ctx<C: BaseContext>(lua: &mut LuaState) -> *mut C {
+    let ptr = get_ctx_raw::<C>(lua);
 
     if ptr.is_null() {
         lua.push_string(&*format!("required context {:?} is not available",
@@ -325,6 +344,19 @@ unsafe trait PartialContext {
 
 impl<'d> BaseContext for engine::Engine<'d> {
     fn registry_key() -> &'static str { "outpost_engine" }
+}
+
+unsafe impl<'a, 'd: 'a> FullContext<'a> for &'a mut engine::Engine<'d> {
+    unsafe fn check(lua: &mut LuaState) {
+        // Run get_ctx to check that the context is available.
+        get_ctx::<engine::Engine>(lua);
+    }
+
+    unsafe fn from_lua(lua: &mut LuaState) -> &'a mut engine::Engine<'d> {
+        let ptr = get_ctx_raw::<engine::Engine>(lua);
+        assert!(!ptr.is_null());
+        mem::transmute(ptr)
+    }
 }
 
 unsafe impl<'a, 'd: 'a> PartialContext for WorldFragment<'a, 'd> {

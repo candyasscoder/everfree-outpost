@@ -47,8 +47,15 @@ function action_handlers.use_item(c, arg)
     handler(c, inv)
 end
 
-return {
+local M = {
     handler = action_handlers,
     use = structure_use_handlers,
     use_item = item_use_handlers,
+    open_inventory = nil,
 }
+
+function outpost_ffi.callbacks.open_inventory(client)
+    M.open_inventory(client)
+end
+
+return M

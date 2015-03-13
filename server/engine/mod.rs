@@ -26,7 +26,7 @@ use self::split::EngineRef;
 
 #[macro_use] pub mod split;
 pub mod glue;
-mod logic;
+pub mod logic;
 
 
 pub struct Engine<'d> {
@@ -161,11 +161,11 @@ impl<'d> Engine<'d> {
             },
 
             Action(action) => {
-                unimplemented!()
+                logic::action(self, cid, action);
             },
 
             UnsubscribeInventory(iid) => {
-                unimplemented!()
+                logic::unsubscribe_inventory(self, cid, iid);
             },
 
             MoveItem(from_iid, to_iid, item_id, count) => {

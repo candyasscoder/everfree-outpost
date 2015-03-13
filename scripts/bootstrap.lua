@@ -54,7 +54,7 @@ local ward = require('ward')
 require('mallet')
 
 
-function action.handler.inventory(c, arg)
+function action.open_inventory(c)
     c:open_inventory(c:pawn():inventory('main'))
 end
 

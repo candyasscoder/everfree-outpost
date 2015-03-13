@@ -7,6 +7,7 @@ use types::*;
 use util::StrResult;
 use util::Stable;
 
+use engine::{Engine, logic};
 use engine::glue::WorldFragment;
 use lua::LuaState;
 use world;
@@ -79,7 +80,7 @@ macro_rules! lua_fn_raw {
      $body:expr) => {
         fn $name(mut lua: LuaState) -> c_int {
             let result: $ret_ty = {
-                unsafe { $crate::script::FullContext::check(&mut lua) };
+                unsafe { <$ctx_ty as $crate::script::FullContext>::check(&mut lua) };
                 let (args, count): (_, ::libc::c_int) = unsafe {
                     $crate::script::traits::unpack_args_count(&mut lua, stringify!($name))
                 };
@@ -297,15 +298,10 @@ impl Userdata for Client {
                 Ok(())
             }
 
-            fn open_inventory(!partial w: &world::World,
+            fn open_inventory(!full eng: &mut Engine,
                               c: Client,
                               i: Inventory) -> StrResult<()> {
-                // Check inputs are valid.
-                unwrap!(w.get_client(c.id));
-                unwrap!(w.get_inventory(i.id));
-
-                //ctx.world.record(Update::ClientDebugInventory(c.id, i.id));
-                Ok(())
+                logic::open_inventory(eng, c.id, i.id)
             }
 
             fn open_container(!partial w: &world::World,

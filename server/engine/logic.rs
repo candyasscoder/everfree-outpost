@@ -3,15 +3,16 @@ use std::borrow::ToOwned;
 use physics::{CHUNK_SIZE, TILE_SIZE};
 
 use types::*;
+use util::SmallSet;
+use util::StrResult;
 
 use chunks;
 use engine::Engine;
 use engine::glue::*;
 use engine::split::EngineRef;
-use input::InputBits;
-use messages::ClientResponse;
+use input::{Action, InputBits};
+use messages::{ClientResponse, Dialog};
 use physics_;
-use util::SmallSet;
 use script;
 use world::{self, World};
 use world::object::*;
@@ -129,6 +130,26 @@ pub fn input(eng: &mut Engine, cid: ClientId, input: InputBits) {
     }
 }
 
+pub fn action(eng: &mut Engine, cid: ClientId, action: Action) {
+    match action {
+        Action::Use => {
+            unimplemented!()
+        },
+        Action::Inventory => {
+            warn_on_err!(script::ScriptEngine::cb_open_inventory(eng, cid));
+        },
+        Action::UseItem(item_id) => {
+            unimplemented!()
+        },
+    }
+}
+
+pub fn unsubscribe_inventory(eng: &mut Engine, cid: ClientId, iid: InventoryId) {
+    // No need for cherks - unsubscribe_inventory does nothing if the arguments are invalid.
+    let (mut h, mut eng): (VisionHooks, _) = EngineRef::new(eng).split_off();
+    eng.vision_mut().unsubscribe_inventory(cid, iid, &mut h);
+}
+
 pub fn update_view(eng: &mut Engine, cid: ClientId) {
     let now = eng.now;
 
@@ -190,6 +211,21 @@ pub fn physics_update(eng: &mut Engine, eid: EntityId) {
 }
 
 
+pub fn open_inventory(eng: &mut Engine, cid: ClientId, iid: InventoryId) -> StrResult<()> {
+    // Check that IDs are valid.
+    unwrap!(eng.world.get_client(cid));
+    unwrap!(eng.world.get_inventory(iid));
+
+    eng.messages.send_client(cid, ClientResponse::OpenDialog(Dialog::Inventory(iid)));
+    {
+        let (mut h, mut eng): (VisionHooks, _) = EngineRef::new(eng).split_off();
+        eng.vision_mut().subscribe_inventory(cid, iid, &mut h);
+    }
+
+    Ok(())
+}
+
+
 impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
     fn on_client_create(&mut self, cid: ClientId) {
     }
@@ -246,6 +282,19 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
         let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
         e.vision_mut().set_entity_area(eid, area, &mut h);
     }
+
+
+    // No lifecycle callbacks for inventories, because Vision doesn't care what inventories exist,
+    // only what inventories are actually subscribed to.
+
+    fn on_inventory_update(&mut self,
+                           iid: InventoryId,
+                           item_id: ItemId,
+                           old_count: u8,
+                           new_count: u8) {
+        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
+        e.vision_mut().update_inventory(iid, item_id, old_count, new_count, &mut h);
+    }
 }
 
 fn entity_area(w: &World, eid: EntityId) -> SmallSet<V2> {
@@ -268,6 +317,7 @@ impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
         let data = encode_rle16(tc.blocks().iter().map(|&x| x));
         self.messages().send_client(cid, ClientResponse::TerrainChunk(pos, data));
     }
+
 
     fn on_entity_appear(&mut self, cid: ClientId, eid: EntityId) {
         let entity = self.world().entity(eid);
@@ -304,6 +354,23 @@ impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
         self.messages().send_client(cid, ClientResponse::EntityUpdate(eid, motion, anim));
     }
 
+
+    fn on_inventory_appear(&mut self, cid: ClientId, iid: InventoryId) {
+        let i = self.world().inventory(iid);
+
+        let updates = i.contents().iter().map(|(&item, &count)| (item, 0, count)).collect();
+        self.messages().send_client(cid, ClientResponse::InventoryUpdate(iid, updates));
+    }
+
+    fn on_inventory_update(&mut self,
+                           cid: ClientId,
+                           iid: InventoryId,
+                           item_id: ItemId,
+                           old_count: u8,
+                           new_count: u8) {
+        let update = vec![(item_id, old_count, new_count)];
+        self.messages().send_client(cid, ClientResponse::InventoryUpdate(iid, update));
+    }
 }
 
 
