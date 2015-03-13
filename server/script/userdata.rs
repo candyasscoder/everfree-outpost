@@ -3,10 +3,12 @@ use libc::c_int;
 
 use physics::{TILE_SIZE, CHUNK_SIZE};
 
-use lua::LuaState;
 use types::*;
 use util::StrResult;
 use util::Stable;
+
+use engine::glue::WorldFragment;
+use lua::LuaState;
 use world;
 use world::Fragment;
 use world::object::*;
@@ -41,6 +43,91 @@ macro_rules! insert_function {
     }}
 }
 
+/// Helper macro for parsing a block out of a function body.  '-> $t:ty $b:block' is prohibited (ty
+/// may not be followed by block), so instead, match '-> $t:ty { $($b:tt)* }' and then invoke
+/// 'mk_block!({ $($b)* } {})' to produce the actual block.
+macro_rules! mk_block {
+  ({ $s:stmt; $($t:tt)* } { $($ss:stmt;)* }) => { mk_block!({ $($t)* } {$($ss;)* $s;}) };
+  ({ $e:expr } { $($ss:stmt;)* }) => {{ $($ss;)* $e }};
+  ({} { $($ss:stmt;)* }) => {{ $($ss;)* }};
+}
+
+macro_rules! lua_fn_raw {
+    // TODO: support functions that take only the context and no other args
+    ($name:ident,
+     (!partial $ctx:ident: $ctx_ty:ty, $($arg:ident: $arg_ty:ty),*),
+     $ret_ty:ty,
+     $body:expr) => {
+        fn $name(mut lua: LuaState) -> c_int {
+            let (result, count): ($ret_ty, ::libc::c_int) = {
+                let ctx = unsafe { $crate::script::PartialContext::from_lua(&mut lua) };
+                let (args, count): (_, ::libc::c_int) = unsafe {
+                    $crate::script::traits::unpack_args_count(&mut lua, stringify!($name))
+                };
+                // Use a closure to prevent $body from abusing the context reference, which will
+                // likely be inferred as 'static.
+                let f = |mut $ctx: $ctx_ty, ($($arg,)*): ($($arg_ty,)*)| $body;
+                (f(ctx, args), count)
+            };
+            lua.pop(count);
+            $crate::script::traits::pack_count(&mut lua, result)
+        }
+    };
+
+    ($name:ident,
+     (!full $ctx:ident: $ctx_ty:ty, $($arg:ident: $arg_ty:ty),*),
+     $ret_ty:ty,
+     $body:expr) => {
+        fn $name(mut lua: LuaState) -> c_int {
+            let result: $ret_ty = {
+                unsafe { $crate::script::FullContext::check(&mut lua) };
+                let (args, count): (_, ::libc::c_int) = unsafe {
+                    $crate::script::traits::unpack_args_count(&mut lua, stringify!($name))
+                };
+                // Clear the stack in case of reentrant calls to the script engine.
+                lua.pop(count);
+                let ctx = unsafe { $crate::script::FullContext::from_lua(&mut lua) };
+                let f = |mut $ctx: $ctx_ty, ($($arg,)*): ($($arg_ty,)*)| $body;
+                f(ctx, args)
+            };
+            $crate::script::traits::pack_count(&mut lua, result)
+        }
+    };
+
+    ($name:ident,
+     ($($arg:ident: $arg_ty:ty),*),
+     $ret_ty:ty,
+     $body:expr) => {
+        fn $name(mut lua: LuaState) -> c_int {
+            let (result, count): ($ret_ty, ::libc::c_int) = {
+                let (($($arg,)*), count): (($($arg_ty,)*), ::libc::c_int) = unsafe {
+                    $crate::script::traits::unpack_args_count(&mut lua, stringify!($name))
+                };
+                ($body, count)
+            };
+            lua.pop(count);
+            $crate::script::traits::pack_count(&mut lua, result)
+        }
+    };
+}
+
+macro_rules! lua_table_fns2 {
+    ( $lua:expr, $idx: expr,
+        $(
+            fn $name:ident( $($a:tt)* ) -> $ret_ty:ty { $($b:tt)* }
+                //$(! $mode:ident)*
+                //$($arg_name:ident : $arg_ty:ty),*
+        )*
+    ) => {{
+        $(
+            lua_fn_raw!($name, ( $($a)* ), $ret_ty, mk_block!({ $($b)* } {}));
+            insert_function!($lua, $idx, stringify!($name), $name);
+        )*
+    }};
+}
+
+
+
 macro_rules! lua_table_fns {
     ($lua:expr, $idx:expr,
         $( fn $name:ident($($arg_name:ident : $arg_ty:ty),*) -> $ret_ty:ty { $body:expr } )*) => {{
@@ -68,7 +155,7 @@ impl_metatable_key!(V3);
 
 impl Userdata for V3 {
     fn populate_table(lua: &mut LuaState) {
-        lua_table_fns! {
+        lua_table_fns2! {
             lua, -1,
 
             fn x(ud: V3) -> i32 { ud.x }
@@ -93,7 +180,7 @@ impl Userdata for V3 {
     }
 
     fn populate_metatable(lua: &mut LuaState) {
-        lua_table_fns! {
+        lua_table_fns2! {
             lua, -1,
 
             fn __add(a: V3, b: V3) -> V3 { a + b }
@@ -114,64 +201,76 @@ impl_metatable_key!(World);
 
 impl Userdata for World {
     fn populate_table(lua: &mut LuaState) {
-        lua_table_fns! {
+        lua_table_fns2! {
             lua, -1,
 
             fn get() -> World {
                 World
             }
-        }
 
-        lua_table_ctx_fns! {
-            lua, -1, ctx,
+            fn create_entity(!partial wf: WorldFragment,
+                             pos: V3,
+                             anim: AnimId,
+                             appearance: u32) -> StrResult<Entity> {
+                wf.create_entity(pos, anim, appearance)
+                  .map(|e| Entity { id: e.id() })
+            }
 
-            fn find_structure_at_point(_w: &World, pos: V3) -> Option<Structure> {{
+            fn find_structure_at_point(!partial w: &world::World,
+                                       _w: World,
+                                       pos: V3) -> Option<Structure> {
                 let chunk = pos.reduce().div_floor(scalar(CHUNK_SIZE));
-                for s in ctx.world().chunk_structures(chunk) {
+                for s in w.chunk_structures(chunk) {
                     if s.bounds().contains(pos) {
                         return Some(Structure { id: s.id() });
                     }
-                }
+                };
                 None
-            }}
-
-            fn create_entity(_w: &World, pos: V3, anim: AnimId, appearance: u32) -> StrResult<Entity> {
-                ctx.world_frag().create_entity(pos, anim, appearance)
-                   .map(|e| Entity { id: e.id() })
             }
 
-            fn create_structure(_w: &World, pos: V3, template_name: &str) -> StrResult<Structure> {{
+            fn create_structure(!partial wf: WorldFragment,
+                                _w: World,
+                                pos: V3,
+                                template_name: &str) -> StrResult<Structure> {{
                 let template_id =
-                    unwrap!(ctx.data().object_templates.find_id(template_name),
+                    unwrap!(wf.data().object_templates.find_id(template_name),
                             "named structure template does not exist");
 
-                ctx.world_frag().create_structure(pos, template_id)
-                   .map(|s| Structure { id: s.id() })
+                wf.create_structure(pos, template_id)
+                  .map(|s| Structure { id: s.id() })
             }}
 
-            fn create_inventory(_w: &World) -> StrResult<Inventory> {
-                ctx.world_frag().create_inventory()
-                   .map(|i| Inventory { id: i.id() })
+            fn create_inventory(!partial wf: WorldFragment, _w: World) -> StrResult<Inventory> {
+                wf.create_inventory()
+                  .map(|i| Inventory { id: i.id() })
             }
 
-            fn item_id_to_name(_w: &World, id: ItemId) -> _ {
-                ctx.data().item_data.get_name(id).map(|s| s.to_owned())
+            fn item_id_to_name(!partial w: &world::World, _w: World, id: ItemId) -> _ {
+                w.data().item_data.get_name(id).map(|s| s.to_owned())
             }
 
-            fn get_client(_w: &World, id: ClientId) -> Option<Client> {
-                ctx.world().get_client(id).map(|_| Client { id: id })
+            fn get_client(!partial w: &world::World,
+                          _w: World,
+                          id: ClientId) -> Option<Client> {
+                w.get_client(id).map(|_| Client { id: id })
             }
 
-            fn get_entity(_w: &World, id: EntityId) -> Option<Entity> {
-                ctx.world().get_entity(id).map(|_| Entity { id: id })
+            fn get_entity(!partial w: &world::World,
+                          _w: World,
+                          id: EntityId) -> Option<Entity> {
+                w.get_entity(id).map(|_| Entity { id: id })
             }
 
-            fn get_structure(_w: &World, id: StructureId) -> Option<Structure> {
-                ctx.world().get_structure(id).map(|_| Structure { id: id })
+            fn get_structure(!partial w: &world::World,
+                             _w: World,
+                             id: StructureId) -> Option<Structure> {
+                w.get_structure(id).map(|_| Structure { id: id })
             }
 
-            fn get_inventory(_w: &World, id: InventoryId) -> Option<Inventory> {
-                ctx.world().get_inventory(id).map(|_| Inventory { id: id })
+            fn get_inventory(!partial w: &world::World,
+                             _w: World,
+                             id: InventoryId) -> Option<Inventory> {
+                w.get_inventory(id).map(|_| Inventory { id: id })
             }
         }
     }

@@ -1,5 +1,6 @@
 use std::borrow::ToOwned;
 use std::cell::{RefCell, RefMut};
+use std::marker::MarkerTrait;
 use std::mem;
 use libc::c_int;
 
@@ -7,6 +8,7 @@ use types::*;
 
 use data::Data;
 use engine;
+use engine::glue::WorldFragment;
 use input::ActionId;
 use world;
 use world::object::*;
@@ -360,5 +362,58 @@ impl ToLua for ActionId {
 }
 
 
+unsafe trait FullContext<'a> {
+    fn registry_key() -> &'static str;
 
+    unsafe fn check(lua: &'a mut LuaState);
 
+    unsafe fn from_lua(lua: &'a mut LuaState) -> Self;
+}
+
+unsafe trait PartialContext {
+    fn registry_key() -> &'static str;
+
+    unsafe fn from_lua(lua: &mut LuaState) -> Self;
+}
+
+unsafe impl<'a, 'd: 'a> PartialContext for WorldFragment<'a, 'd> {
+    fn registry_key() -> &'static str { "outpost_engine" }
+
+    unsafe fn from_lua(lua: &mut LuaState) -> WorldFragment<'a, 'd> {
+        lua.get_field(REGISTRY_INDEX, <Self as PartialContext>::registry_key());
+        let ptr: *mut () = lua.to_userdata_raw(-1);
+        lua.pop(1);
+
+        if ptr.is_null() {
+            lua.push_string(&*format!("required context {:?} is not available",
+                                      <Self as PartialContext>::registry_key()));
+            lua.error();
+        }
+
+        mem::transmute(ptr)
+    }
+}
+
+unsafe impl<'a, 'd: 'a> PartialContext for &'a mut world::World<'d> {
+    fn registry_key() -> &'static str {
+        WorldFragment::registry_key()
+    }
+
+    unsafe fn from_lua(lua: &mut LuaState) -> &'a mut world::World<'d> {
+        let mut frag = WorldFragment::from_lua(lua);
+        let ptr: &mut world::World = frag.world_mut();
+        mem::transmute(ptr)
+    }
+}
+
+unsafe impl<'a, 'd: 'a> PartialContext for &'a world::World<'d> {
+    fn registry_key() -> &'static str {
+        WorldFragment::registry_key()
+    }
+
+    unsafe fn from_lua(lua: &mut LuaState) -> &'a world::World<'d> {
+        let frag = WorldFragment::from_lua(lua);
+        let ptr: &world::World = frag.world();
+        mem::transmute(ptr)
+    }
+}
