@@ -31,59 +31,14 @@ mod save;
 const FFI_CALLBACKS_KEY: &'static str = "outpost_ffi_callbacks";
 const FFI_LIB_NAME: &'static str = "outpost_ffi";
 
-const CTX_KEY: &'static str = "outpost_ctx";
-
 const BOOTSTRAP_FILE: &'static str = "bootstrap.lua";
 
-macro_rules! callbacks {
-    ($($caps_name:ident = $name:expr;)*) => {
-        $( const $caps_name: &'static str = concat!("outpost_callback_", $name); )*
-
-        const ALL_CALLBACKS: &'static [(&'static str, &'static str)] = &[
-            $( ($name, concat!("outpost_callback_", $name)) ),*
-        ];
-    };
-}
-
-callbacks! {
-    CB_KEY_TEST = "test";
-}
 
 #[derive(Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Nil;
 
 pub struct ScriptEngine {
     owned_lua: OwnedLuaState,
-}
-
-struct ScriptContext<'a, 'd: 'a> {
-    engine: &'a mut engine::Engine<'d>,
-    now: Time,
-}
-
-impl<'a, 'd> ScriptContext<'a, 'd> {
-    pub fn new(engine: &'a mut engine::Engine<'d>, now: Time) -> ScriptContext<'a, 'd> {
-        ScriptContext {
-            engine: engine,
-            now: now,
-        }
-    }
-
-    pub fn data(&self) -> &'d Data {
-        self.world().data()
-    }
-
-    pub fn world(&self) -> &world::World<'d> {
-        &self.engine.world
-    }
-
-    pub fn world_mut(&mut self) -> &mut world::World<'d> {
-        &mut self.engine.world
-    }
-
-    pub fn world_frag<'b>(&'b mut self) -> engine::glue::WorldFragment<'b, 'd> {
-        engine::split::EngineRef::new(&mut self.engine).slice()
-    }
 }
 
 impl ScriptEngine {
@@ -134,6 +89,24 @@ impl ScriptEngine {
         }
     }
 
+    fn with_context<F, R, C>(&mut self,
+                             ptr: *mut C,
+                             f: F) -> R
+            where F: FnOnce(&mut LuaState) -> R,
+                  C: BaseContext {
+
+        let mut lua = self.owned_lua.get();
+
+        let old_ptr: *mut C = unsafe { get_ctx(&mut lua) };
+        unsafe { set_ctx(&mut lua, ptr) };
+
+        let x = f(&mut lua);
+
+        unsafe { set_ctx(&mut lua, old_ptr) };
+
+        x
+    }
+
     /*
     pub fn eval(&mut self,
                 world: &mut world::World,
@@ -154,24 +127,9 @@ impl ScriptEngine {
 
         })
     }
+    */
 
-    fn with_context<F, T>(&mut self,
-                          ctx: &RefCell<ScriptContext>,
-                          blk: F) -> T
-            where F: FnOnce(&mut LuaState) -> T {
-
-        let mut lua = self.owned_lua.get();
-        lua.push_light_userdata(ctx as *const _ as *mut RefCell<ScriptContext>);
-        lua.set_field(REGISTRY_INDEX, CTX_KEY);
-
-        let x = blk(&mut lua);
-
-        lua.push_nil();
-        lua.set_field(REGISTRY_INDEX, CTX_KEY);
-
-        x
-    }
-
+    /*
     pub fn callback_action(&mut self,
                            world: &mut world::World,
                            now: Time,
@@ -236,27 +194,6 @@ impl ScriptEngine {
     }
 }
 
-pub unsafe fn get_ctx_ref<'a>(lua: &mut LuaState) -> &'a RefCell<ScriptContext<'a, 'a>> {
-    lua.get_field(REGISTRY_INDEX, CTX_KEY);
-    let raw_ptr: *mut RefCell<ScriptContext> = lua.to_userdata_raw(-1);
-    lua.pop(1);
-
-    if raw_ptr.is_null() {
-        panic!("tried to access script context, but no context is active");
-    }
-
-    mem::transmute(raw_ptr)
-}
-
-pub unsafe fn get_ctx<'a>(lua: &mut LuaState) -> RefMut<'a, ScriptContext<'a, 'a>> {
-    get_ctx_ref(lua).borrow_mut()
-}
-
-pub fn with_ctx<T, F: FnOnce(&mut ScriptContext) -> T>(lua: &mut LuaState, f: F) -> T {
-    let mut ctx = unsafe { get_ctx(lua) };
-    f(&mut *ctx)
-}
-
 fn run_callback<A: ToLua>(lua: &mut LuaState, key: &str, args: A) {
     lua.get_field(REGISTRY_INDEX, key);
     let arg_count = pack_count(lua, args);
@@ -305,11 +242,6 @@ fn build_callbacks_table(lua: &mut LuaState) {
     lua.push_rust_function(callbacks_table_index);
     lua.set_field(-2, "__index");
     lua.set_metatable(-2);
-
-    for &(base, _) in ALL_CALLBACKS.iter() {
-        lua.push_rust_function(lua_no_op);
-        lua.set_field(-2, base);
-    }
 }
 
 fn callbacks_table_newindex(mut lua: LuaState) -> c_int {
@@ -340,10 +272,6 @@ fn callbacks_table_index(mut lua: LuaState) -> c_int {
     1
 }
 
-fn lua_no_op(_: LuaState) -> c_int {
-    0
-}
-
 
 impl ToLua for ActionId {
     fn to_lua(self, lua: &mut LuaState) {
@@ -362,43 +290,51 @@ impl ToLua for ActionId {
 }
 
 
-unsafe trait FullContext<'a> {
+trait BaseContext: MarkerTrait {
     fn registry_key() -> &'static str;
+}
 
+unsafe fn get_ctx<C: BaseContext>(lua: &mut LuaState) -> *mut C {
+    lua.get_field(REGISTRY_INDEX, C::registry_key());
+    let ptr = lua.to_userdata_raw(-1);
+    lua.pop(1);
+
+    if ptr.is_null() {
+        lua.push_string(&*format!("required context {:?} is not available",
+                                  C::registry_key()));
+        lua.error();
+    }
+
+    ptr
+}
+
+unsafe fn set_ctx<C: BaseContext>(lua: &mut LuaState, ptr: *mut C) {
+    lua.push_light_userdata(ptr);
+    lua.set_field(REGISTRY_INDEX, C::registry_key());
+}
+
+unsafe trait FullContext<'a> {
     unsafe fn check(lua: &'a mut LuaState);
-
     unsafe fn from_lua(lua: &'a mut LuaState) -> Self;
 }
 
 unsafe trait PartialContext {
-    fn registry_key() -> &'static str;
-
     unsafe fn from_lua(lua: &mut LuaState) -> Self;
 }
 
-unsafe impl<'a, 'd: 'a> PartialContext for WorldFragment<'a, 'd> {
+
+impl<'d> BaseContext for engine::Engine<'d> {
     fn registry_key() -> &'static str { "outpost_engine" }
+}
 
+unsafe impl<'a, 'd: 'a> PartialContext for WorldFragment<'a, 'd> {
     unsafe fn from_lua(lua: &mut LuaState) -> WorldFragment<'a, 'd> {
-        lua.get_field(REGISTRY_INDEX, <Self as PartialContext>::registry_key());
-        let ptr: *mut () = lua.to_userdata_raw(-1);
-        lua.pop(1);
-
-        if ptr.is_null() {
-            lua.push_string(&*format!("required context {:?} is not available",
-                                      <Self as PartialContext>::registry_key()));
-            lua.error();
-        }
-
+        let ptr = get_ctx::<engine::Engine>(lua);
         mem::transmute(ptr)
     }
 }
 
 unsafe impl<'a, 'd: 'a> PartialContext for &'a mut world::World<'d> {
-    fn registry_key() -> &'static str {
-        WorldFragment::registry_key()
-    }
-
     unsafe fn from_lua(lua: &mut LuaState) -> &'a mut world::World<'d> {
         let mut frag = WorldFragment::from_lua(lua);
         let ptr: &mut world::World = frag.world_mut();
@@ -407,10 +343,6 @@ unsafe impl<'a, 'd: 'a> PartialContext for &'a mut world::World<'d> {
 }
 
 unsafe impl<'a, 'd: 'a> PartialContext for &'a world::World<'d> {
-    fn registry_key() -> &'static str {
-        WorldFragment::registry_key()
-    }
-
     unsafe fn from_lua(lua: &mut LuaState) -> &'a world::World<'d> {
         let frag = WorldFragment::from_lua(lua);
         let ptr: &world::World = frag.world();

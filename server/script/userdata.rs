@@ -13,7 +13,6 @@ use world;
 use world::Fragment;
 use world::object::*;
 
-use super::{ScriptContext, get_ctx};
 use super::build_type_table;
 use super::traits::Userdata;
 use super::traits::{check_args, FromLua, ToLua};
@@ -124,29 +123,6 @@ macro_rules! lua_table_fns2 {
             insert_function!($lua, $idx, stringify!($name), $name);
         )*
     }};
-}
-
-
-
-macro_rules! lua_table_fns {
-    ($lua:expr, $idx:expr,
-        $( fn $name:ident($($arg_name:ident : $arg_ty:ty),*) -> $ret_ty:ty { $body:expr } )*) => {{
-        $(
-            lua_fn!(fn $name($($arg_name: $arg_ty),*) -> $ret_ty { $body });
-            insert_function!($lua, $idx, stringify!($name), $name);
-        )*
-    }}
-}
-
-macro_rules! lua_table_ctx_fns {
-    ($lua:expr, $idx:expr, $ctx_name:ident,
-        $( fn $name:ident($($arg_name:ident : $arg_ty:ty),*)
-                -> $ret_ty:ty { $body:expr } )*) => {{
-        $(
-            lua_ctx_fn!(fn $name($ctx_name, $($arg_name: $arg_ty),*) -> $ret_ty { $body });
-            insert_function!($lua, $idx, stringify!($name), $name);
-        )*
-    }}
 }
 
 
@@ -287,80 +263,84 @@ impl_metatable_key!(Client);
 
 impl Userdata for Client {
     fn populate_table(lua: &mut LuaState) {
-        lua_table_fns! {
+        lua_table_fns2! {
             lua, -1,
 
-            fn world(_c: &Client) -> World { World }
-            fn id(c: &Client) -> u16 { c.id.unwrap() }
-        }
+            fn world(_c: Client) -> World { World }
+            fn id(c: Client) -> u16 { c.id.unwrap() }
 
-        lua_table_ctx_fns! {
-            lua, -1, ctx,
-
-            fn stable_id(c: &Client) -> Option<StableClient> {
-                ctx.world_frag().get_client_mut(c.id)
-                   .map(|mut c| StableClient { id: c.stable_id() })
+            fn stable_id(!partial wf: WorldFragment, c: Client) -> Option<StableClient> {
+                wf.get_client_mut(c.id)
+                  .map(|mut c| StableClient { id: c.stable_id() })
             }
 
-            fn name(c: &Client) -> Option<String> {
-                ctx.world().get_client(c.id)
-                   .map(|c| c.name().to_owned())
+            fn name(!partial w: &world::World, c: Client) -> Option<String> {
+                w.get_client(c.id)
+                 .map(|c| c.name().to_owned())
             }
 
-            fn pawn(c: &Client) -> Option<Entity> {
-                ctx.world().get_client(c.id)
-                   .and_then(|c| c.pawn_id())
-                   .map(|eid| Entity { id: eid })
+            fn pawn(!partial w: &world::World, c: Client) -> Option<Entity> {
+                w.get_client(c.id)
+                 .and_then(|c| c.pawn_id())
+                 .map(|eid| Entity { id: eid })
             }
 
-            fn set_pawn(c: &Client, e: &Entity) -> StrResult<()> {{
-                let mut wf = ctx.world_frag();
+            fn set_pawn(!partial wf: WorldFragment, c: Client, e: Entity) -> StrResult<()> {
                 let mut c = unwrap!(wf.get_client_mut(c.id));
                 try!(c.set_pawn(Some(e.id)));
                 Ok(())
-            }}
+            }
 
-            fn clear_pawn(c: &Client) -> StrResult<()> {{
-                let mut wf = ctx.world_frag();
+            fn clear_pawn(!partial wf: WorldFragment, c: Client) -> StrResult<()> {
                 let mut c = unwrap!(wf.get_client_mut(c.id));
                 try!(c.set_pawn(None));
                 Ok(())
-            }}
+            }
 
-            fn open_inventory(c: &Client, i: &Inventory) -> StrResult<()> {{
-                // CHeck inputs are valid.
-                unwrap!(ctx.world().get_client(c.id));
-                unwrap!(ctx.world().get_inventory(i.id));
+            fn open_inventory(!partial w: &world::World,
+                              c: Client,
+                              i: Inventory) -> StrResult<()> {
+                // Check inputs are valid.
+                unwrap!(w.get_client(c.id));
+                unwrap!(w.get_inventory(i.id));
 
                 //ctx.world.record(Update::ClientDebugInventory(c.id, i.id));
                 Ok(())
-            }}
+            }
 
-            fn open_container(c: &Client, i1: &Inventory, i2: &Inventory) -> StrResult<()> {{
-                // CHeck inputs are valid.
-                unwrap!(ctx.world().get_client(c.id));
-                unwrap!(ctx.world().get_inventory(i1.id));
-                unwrap!(ctx.world().get_inventory(i2.id));
+            fn open_container(!partial w: &world::World,
+                              c: Client,
+                              i1: Inventory,
+                              i2: Inventory) -> StrResult<()> {
+                // Check inputs are valid.
+                unwrap!(w.get_client(c.id));
+                unwrap!(w.get_inventory(i1.id));
+                unwrap!(w.get_inventory(i2.id));
 
                 //ctx.world.record(Update::ClientOpenContainer(c.id, i1.id, i2.id));
                 Ok(())
-            }}
+            }
 
-            fn open_crafting(c: &Client, s: &Structure, i: &Inventory) -> StrResult<()> {{
-                // CHeck inputs are valid.
-                unwrap!(ctx.world().get_client(c.id));
-                unwrap!(ctx.world().get_structure(s.id));
-                unwrap!(ctx.world().get_inventory(i.id));
+            fn open_crafting(!partial w: &world::World,
+                             c: Client,
+                             s: Structure,
+                             i: Inventory) -> StrResult<()> {
+                // Check inputs are valid.
+                unwrap!(w.get_client(c.id));
+                unwrap!(w.get_structure(s.id));
+                unwrap!(w.get_inventory(i.id));
 
                 //ctx.world.record(Update::ClientOpenCrafting(c.id, s.id, i.id));
                 Ok(())
-            }}
+            }
 
-            fn send_message(c: &Client, msg: &str) -> StrResult<()> {{
-                unwrap!(ctx.world().get_client(c.id));
+            fn send_message(!partial w: &world::World,
+                            c: Client,
+                            msg: &str) -> StrResult<()> {
+                unwrap!(w.get_client(c.id));
                 //ctx.world.record(Update::ClientMessage(c.id, msg.to_owned()));
                 Ok(())
-            }}
+            }
         }
     }
 }
@@ -379,56 +359,57 @@ impl Userdata for Entity {
     fn populate_table(lua: &mut LuaState) {
         use world::EntityAttachment;
 
-        lua_table_fns! {
+        lua_table_fns2! {
             lua, -1,
 
-            fn world(_e: &Entity) -> World { World }
-            fn id(e: &Entity) -> u32 { e.id.unwrap() }
-        }
+            fn world(_e: Entity) -> World { World }
+            fn id(e: Entity) -> u32 { e.id.unwrap() }
 
-        lua_table_ctx_fns! {
-            lua, -1, ctx,
-
-            fn stable_id(e: &Entity) -> Option<StableEntity> {
-                ctx.world_frag().get_entity_mut(e.id)
-                   .map(|mut e| StableEntity { id: e.stable_id() })
+            fn stable_id(!partial wf: WorldFragment,
+                         e: Entity) -> Option<StableEntity> {
+                wf.get_entity_mut(e.id)
+                  .map(|mut e| StableEntity { id: e.stable_id() })
             }
 
-            fn destroy(e: &Entity) -> StrResult<()> {
-                ctx.world_frag().destroy_entity(e.id)
+            fn destroy(!partial wf: WorldFragment,
+                       e: Entity) -> StrResult<()> {
+                wf.destroy_entity(e.id)
             }
 
-            fn pos(e: &Entity) -> Option<V3> {
-                ctx.world().get_entity(e.id).map(|e| e.pos(ctx.now))
+            fn pos(!partial wf: WorldFragment, e: Entity) -> Option<V3> {
+                let now = wf.now();
+                wf.world().get_entity(e.id).map(|e| e.pos(now))
             }
 
-            fn facing(e: &Entity) -> Option<V3> {
-                ctx.world().get_entity(e.id).map(|e| e.facing())
+            fn facing(!partial w: &world::World, e: Entity) -> Option<V3> {
+                w.get_entity(e.id).map(|e| e.facing())
             }
 
-            fn teleport(e: &Entity, pos: V3) -> StrResult<()> {{
-                let now = ctx.now;
-                let mut wf = ctx.world_frag();
+            fn teleport(!partial wf: WorldFragment,
+                        e: Entity,
+                        pos: V3) -> StrResult<()> {
+                let now = wf.now();
                 let mut e = unwrap!(wf.get_entity_mut(e.id));
                 e.set_motion(world::Motion::stationary(pos, now));
                 Ok(())
-            }}
+            }
 
             // TODO: come up with a lua representation of attachment so we can unify these methods
             // and also return the previous attachment (like the underlying op does)
-            fn attach_to_world(e: &Entity) -> StrResult<()> {{
-                let mut wf = ctx.world_frag();
+            fn attach_to_world(!partial wf: WorldFragment,
+                               e: Entity) -> StrResult<()> {
                 let mut e = unwrap!(wf.get_entity_mut(e.id));
                 try!(e.set_attachment(EntityAttachment::World));
                 Ok(())
-            }}
+            }
 
-            fn attach_to_client(e: &Entity, c: &Client) -> StrResult<()> {{
-                let mut wf = ctx.world_frag();
+            fn attach_to_client(!partial wf: WorldFragment,
+                                e: Entity,
+                                c: Client) -> StrResult<()> {
                 let mut e = unwrap!(wf.get_entity_mut(e.id));
                 try!(e.set_attachment(EntityAttachment::Client(c.id)));
                 Ok(())
-            }}
+            }
         }
     }
 }
@@ -439,21 +420,6 @@ pub struct Structure {
     pub id: StructureId,
 }
 
-impl Structure {
-    fn world(&self) -> World {
-        World
-    }
-
-    fn id(&self) -> i32 {
-        self.id.unwrap() as i32
-    }
-
-    fn pos(&self, ctx: &ScriptContext) -> Option<V3> {
-        ctx.world().get_structure(self.id)
-           .map(|s| s.pos())
-    }
-}
-
 impl_type_name!(Structure);
 impl_metatable_key!(Structure);
 
@@ -461,89 +427,72 @@ impl Userdata for Structure {
     fn populate_table(lua: &mut LuaState) {
         use world::StructureAttachment;
 
-        lua_table_fns! {
+        lua_table_fns2! {
             lua, -1,
 
-            fn world(_s: &Structure) -> World { World }
-            fn id(s: &Structure) -> u32 { s.id.unwrap() }
-        }
+            fn world(_s: Structure) -> World { World }
+            fn id(s: Structure) -> u32 { s.id.unwrap() }
 
-        lua_table_ctx_fns! {
-            lua, -1, ctx,
-
-            fn stable_id(s: &Structure) -> Option<StableStructure> {
-                ctx.world_frag().get_structure_mut(s.id)
-                   .map(|mut s| StableStructure { id: s.stable_id() })
+            fn stable_id(!partial wf: WorldFragment, s: Structure) -> Option<StableStructure> {
+                wf.get_structure_mut(s.id)
+                  .map(|mut s| StableStructure { id: s.stable_id() })
             }
 
-            fn destroy(s: &Structure) -> StrResult<()> {
-                ctx.world_frag().destroy_structure(s.id)
+            fn destroy(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
+                wf.destroy_structure(s.id)
             }
 
-            fn pos(s: &Structure) -> Option<V3> {
-                ctx.world().get_structure(s.id)
-                   .map(|s| s.pos())
+            fn pos(!partial w: &world::World, s: Structure) -> Option<V3> {
+                w.get_structure(s.id)
+                 .map(|s| s.pos())
             }
 
-            fn size(s: &Structure) -> Option<V3> {
-                ctx.world().get_structure(s.id)
-                   .map(|s| s.size())
+            fn size(!partial w: &world::World, s: Structure) -> Option<V3> {
+                w.get_structure(s.id)
+                 .map(|s| s.size())
             }
 
-            fn template_id(s: &Structure) -> Option<u32> {
-                ctx.world().get_structure(s.id)
-                   .map(|s| s.template_id())
+            fn template_id(!partial w: &world::World, s: Structure) -> Option<u32> {
+                w.get_structure(s.id)
+                 .map(|s| s.template_id())
             }
 
-            fn move_to(s: &Structure, new_pos: &V3) -> StrResult<()> {{
-                let mut wf = ctx.world_frag();
+            fn template(!partial w: &world::World, s: Structure) -> Option<String> {
+                w.get_structure(s.id)
+                 .map(|s| s.template_id())
+                 .and_then(|id| w.data().object_templates.get_template(id))
+                 .map(|t| t.name.clone())
+            }
+
+            fn move_to(!partial wf: WorldFragment, s: Structure, new_pos: V3) -> StrResult<()> {
                 let mut s = unwrap!(wf.get_structure_mut(s.id));
-                s.set_pos(*new_pos)
-            }}
+                s.set_pos(new_pos)
+            }
 
-            fn replace(s: &Structure, new_template_name: &str) -> StrResult<()> {{
+            fn replace(!partial wf: WorldFragment,
+                       s: Structure,
+                       new_template_name: &str) -> StrResult<()> {
                 let new_template_id =
-                    unwrap!(ctx.data().object_templates.find_id(new_template_name),
+                    unwrap!(wf.data().object_templates.find_id(new_template_name),
                             "named structure template does not exist");
 
-                let mut wf = ctx.world_frag();
                 let mut s = unwrap!(wf.get_structure_mut(s.id));
                 s.set_template_id(new_template_id)
-            }}
+            }
 
-            fn attach_to_world(s: &Structure) -> StrResult<()> {{
-                let mut wf = ctx.world_frag();
+            fn attach_to_world(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
                 let mut s = unwrap!(wf.get_structure_mut(s.id));
                 try!(s.set_attachment(StructureAttachment::World));
                 Ok(())
-            }}
+            }
 
-            fn attach_to_chunk(s: &Structure) -> StrResult<()> {{
-                let mut wf = ctx.world_frag();
+            fn attach_to_chunk(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
                 let mut s = unwrap!(wf.get_structure_mut(s.id));
                 try!(s.set_attachment(StructureAttachment::Chunk));
                 Ok(())
-            }}
+            }
         }
-
-        insert_function!(lua, -1, "template", structure_template);
     }
-}
-
-fn structure_template(mut lua: LuaState) -> c_int {
-    let result = {
-        unsafe { check_args::<&Structure>(&mut lua, "template") };
-        let ctx = unsafe { get_ctx(&mut lua) };
-        let s: &Structure = unsafe { FromLua::from_lua(&lua, 1) };
-
-        ctx.world().get_structure(s.id)
-           .map(|s| s.template_id())
-           .and_then(|id| ctx.data().object_templates.get_template(id))
-           .map(|t| &*t.name)
-    };
-    lua.pop(1);
-    result.to_lua(&mut lua);
-    1
 }
 
 
@@ -559,63 +508,64 @@ impl Userdata for Inventory {
     fn populate_table(lua: &mut LuaState) {
         use world::InventoryAttachment;
 
-        lua_table_fns! {
+        lua_table_fns2! {
             lua, -1,
 
-            fn world(_i: &Inventory) -> World { World }
-            fn id(i: &Inventory) -> u32 { i.id.unwrap() }
-        }
+            fn world(_i: Inventory) -> World { World }
+            fn id(i: Inventory) -> u32 { i.id.unwrap() }
 
-        lua_table_ctx_fns! {
-            lua, -1, ctx,
-
-            fn stable_id(i: &Inventory) -> Option<StableInventory> {
-                ctx.world_frag().get_inventory_mut(i.id)
-                   .map(|mut i| StableInventory { id: i.stable_id() })
+            fn stable_id(!partial wf: WorldFragment, i: Inventory) -> Option<StableInventory> {
+                wf.get_inventory_mut(i.id)
+                  .map(|mut i| StableInventory { id: i.stable_id() })
             }
 
-            fn destroy(i: &Inventory) -> StrResult<()> {
-                ctx.world_frag().destroy_inventory(i.id)
+            fn destroy(!partial wf: WorldFragment, i: Inventory) -> StrResult<()> {
+                wf.destroy_inventory(i.id)
             }
 
-            fn count(i: &Inventory, name: &str) -> StrResult<u8> {{
-                let i = unwrap!(ctx.world().get_inventory(i.id));
+            fn count(!partial w: &world::World, i: Inventory, name: &str) -> StrResult<u8> {
+                let i = unwrap!(w.get_inventory(i.id));
                 i.count_by_name(name)
-            }}
+            }
 
-            fn update(i: &Inventory, name: &str, adjust: i16) -> StrResult<u8> {{
-                let mut wf = ctx.world_frag();
+            fn update(!partial wf: WorldFragment,
+                      i: Inventory,
+                      name: &str,
+                      adjust: i16) -> StrResult<u8> {
                 let mut i = unwrap!(wf.get_inventory_mut(i.id));
                 i.update_by_name(name, adjust)
-            }}
+            }
 
-            fn attach_to_world(i: &Inventory) -> StrResult<()> {{
-                let mut wf = ctx.world_frag();
+            fn attach_to_world(!partial wf: WorldFragment,
+                               i: Inventory) -> StrResult<()> {
                 let mut i = unwrap!(wf.get_inventory_mut(i.id));
                 try!(i.set_attachment(InventoryAttachment::World));
                 Ok(())
-            }}
+            }
 
-            fn attach_to_client(i: &Inventory, c: &Client) -> StrResult<()> {{
-                let mut wf = ctx.world_frag();
+            fn attach_to_client(!partial wf: WorldFragment,
+                                i: Inventory,
+                                c: Client) -> StrResult<()> {
                 let mut i = unwrap!(wf.get_inventory_mut(i.id));
                 try!(i.set_attachment(InventoryAttachment::Client(c.id)));
                 Ok(())
-            }}
+            }
 
-            fn attach_to_entity(i: &Inventory, e: &Entity) -> StrResult<()> {{
-                let mut wf = ctx.world_frag();
+            fn attach_to_entity(!partial wf: WorldFragment,
+                                i: Inventory,
+                                e: Entity) -> StrResult<()> {
                 let mut i = unwrap!(wf.get_inventory_mut(i.id));
                 try!(i.set_attachment(InventoryAttachment::Entity(e.id)));
                 Ok(())
-            }}
+            }
 
-            fn attach_to_structure(i: &Inventory, s: &Structure) -> StrResult<()> {{
-                let mut wf = ctx.world_frag();
+            fn attach_to_structure(!partial wf: WorldFragment,
+                                   i: Inventory,
+                                   s: Structure) -> StrResult<()> {
                 let mut i = unwrap!(wf.get_inventory_mut(i.id));
                 try!(i.set_attachment(InventoryAttachment::Structure(s.id)));
                 Ok(())
-            }}
+            }
         }
     }
 }
@@ -633,29 +583,25 @@ macro_rules! define_stable_wrapper {
 
         impl Userdata for $name {
             fn populate_table(lua: &mut LuaState) {
-                lua_table_fns! {
+                lua_table_fns2! {
                     lua, -1,
 
-                    fn id(stable: &$name) -> String {
+                    fn id(stable: $name) -> String {
                         format!("{:x}", stable.id.val)
                     }
-                }
 
-                lua_table_ctx_fns! {
-                    lua, -1, ctx,
-
-                    fn get(stable: &$name) -> Option<$obj_ty> {
-                        ctx.world().$transient_id(stable.id)
-                           .map(|id| $obj_ty { id: id })
+                    fn get(!partial w: &world::World, stable: $name) -> Option<$obj_ty> {
+                        w.$transient_id(stable.id)
+                         .map(|id| $obj_ty { id: id })
                     }
                 }
             }
 
             fn populate_metatable(lua: &mut LuaState) {
-                lua_table_fns! {
+                lua_table_fns2! {
                     lua, -1,
 
-                    fn __eq(a: &$name, b: &$name) -> bool {
+                    fn __eq(a: $name, b: $name) -> bool {
                         a.id == b.id
                     }
                 }

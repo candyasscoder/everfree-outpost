@@ -7,7 +7,6 @@ use lua::ValueType;
 use types::*;
 use util::StrResult;
 
-use super::{ScriptContext, get_ctx};
 use super::Nil;
 
 
@@ -249,20 +248,6 @@ pub unsafe fn unpack_args_count<'a, T: FromLua<'a>>(lua: &'a mut LuaState,
     (x, <T as FromLua>::count())
 }
 
-pub unsafe fn with_args_count_ctx<'a, T, R, F>(lua: &'a mut LuaState,
-                                               func: &'static str,
-                                               f: F) -> (R, c_int)
-        where T: FromLua<'a>,
-              F: FnOnce(&mut ScriptContext, T) -> R {
-
-    check_args::<T>(lua, func);
-
-    let mut ctx = get_ctx(lua);
-    let count = <T as FromLua>::count();
-    let args = <T as FromLua>::from_lua(lua, 1);
-    (f(&mut *ctx, args), count)
-}
-
 
 /// Return types that can be pushed onto the Lua stack.
 pub trait ToLua {
@@ -379,37 +364,4 @@ impl ToLua for Nil {
 pub fn pack_count<T: ToLua>(lua: &mut LuaState, x: T) -> c_int {
     x.to_lua(lua);
     <T as ToLua>::count()
-}
-
-
-macro_rules! lua_fn {
-    (fn $name:ident($($arg_name:ident : $arg_ty:ty),*) -> $ret_ty:ty { $body:expr }) => {
-        fn $name(mut lua: LuaState) -> c_int {
-            let (result, count): ($ret_ty, ::libc::c_int) = {
-                let (($($arg_name,)*), count): (($($arg_ty,)*), ::libc::c_int) = unsafe {
-                    $crate::script::traits::unpack_args_count(&mut lua, stringify!($name))
-                };
-                ($body, count)
-            };
-            lua.pop(count);
-            $crate::script::traits::pack_count(&mut lua, result)
-        }
-    };
-}
-
-macro_rules! lua_ctx_fn {
-    (fn $name:ident($ctx_name:ident, $($arg_name:ident : $arg_ty:ty),*)
-            -> $ret_ty:ty { $body:expr }) => {
-        fn $name(mut lua: LuaState) -> c_int {
-            let (result, count): ($ret_ty, ::libc::c_int) = unsafe {
-                $crate::script::traits::with_args_count_ctx(&mut lua, stringify!($name),
-                    |$ctx_name, args| {
-                        let ($($arg_name,)*): ($($arg_ty,)*) = args;
-                        $body
-                    })
-            };
-            lua.pop(count);
-            $crate::script::traits::pack_count(&mut lua, result)
-        }
-    };
 }
