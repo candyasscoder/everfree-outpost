@@ -292,48 +292,48 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
     }
 
     // Can't use `else if let` here because it would produce overlapping borrows.
-    if let Some(_) = get_userdata_opt::<userdata::World>(lua, index) {
+    if let Some(_) = get_userdata_opt::<userdata::world::World>(lua, index) {
         try!(w.write(Tag::World as u8));
         return Ok(());
     }
 
-    if let Some(c) = get_userdata_opt::<userdata::Client>(lua, index) {
+    if let Some(c) = get_userdata_opt::<userdata::world::Client>(lua, index) {
         try!(w.write(Tag::Client as u8));
         try!(w.write_id(c.id));
         return Ok(());
     }
-    if let Some(e) = get_userdata_opt::<userdata::Entity>(lua, index) {
+    if let Some(e) = get_userdata_opt::<userdata::world::Entity>(lua, index) {
         try!(w.write(Tag::Entity as u8));
         try!(w.write_id(e.id));
         return Ok(());
     }
-    if let Some(s) = get_userdata_opt::<userdata::Structure>(lua, index) {
+    if let Some(s) = get_userdata_opt::<userdata::world::Structure>(lua, index) {
         try!(w.write(Tag::Structure as u8));
         try!(w.write_id(s.id));
         return Ok(());
     }
-    if let Some(i) = get_userdata_opt::<userdata::Inventory>(lua, index) {
+    if let Some(i) = get_userdata_opt::<userdata::world::Inventory>(lua, index) {
         try!(w.write(Tag::Inventory as u8));
         try!(w.write_id(i.id));
         return Ok(());
     }
 
-    if let Some(c) = get_userdata_opt::<userdata::StableClient>(lua, index) {
+    if let Some(c) = get_userdata_opt::<userdata::world::StableClient>(lua, index) {
         try!(w.write(Tag::StableClient as u8));
         try!(w.write(c.id.val));
         return Ok(());
     }
-    if let Some(e) = get_userdata_opt::<userdata::StableEntity>(lua, index) {
+    if let Some(e) = get_userdata_opt::<userdata::world::StableEntity>(lua, index) {
         try!(w.write(Tag::StableEntity as u8));
         try!(w.write(e.id.val));
         return Ok(());
     }
-    if let Some(s) = get_userdata_opt::<userdata::StableStructure>(lua, index) {
+    if let Some(s) = get_userdata_opt::<userdata::world::StableStructure>(lua, index) {
         try!(w.write(Tag::StableStructure as u8));
         try!(w.write(s.id.val));
         return Ok(());
     }
-    if let Some(i) = get_userdata_opt::<userdata::StableInventory>(lua, index) {
+    if let Some(i) = get_userdata_opt::<userdata::world::StableInventory>(lua, index) {
         try!(w.write(Tag::StableInventory as u8));
         try!(w.write(i.id.val));
         return Ok(());
@@ -518,49 +518,49 @@ impl<'a, 'd> ReadHooks<'a, 'd> {
             },
 
             Tag::World => {
-                let w = userdata::World;
+                let w = userdata::world::World;
                 w.to_lua(&mut self.lua());
             },
 
             Tag::Client => {
                 let cid = try!(r.read_id(&mut self.wf()));
-                let c = userdata::Client { id: cid };
+                let c = userdata::world::Client { id: cid };
                 c.to_lua(&mut self.lua());
             },
             Tag::Entity => {
                 let eid = try!(r.read_id(&mut self.wf()));
-                let e = userdata::Entity { id: eid };
+                let e = userdata::world::Entity { id: eid };
                 e.to_lua(&mut self.lua());
             },
             Tag::Structure => {
                 let sid = try!(r.read_id(&mut self.wf()));
-                let s = userdata::Structure { id: sid };
+                let s = userdata::world::Structure { id: sid };
                 s.to_lua(&mut self.lua());
             },
             Tag::Inventory => {
                 let iid = try!(r.read_id(&mut self.wf()));
-                let i = userdata::Inventory { id: iid };
+                let i = userdata::world::Inventory { id: iid };
                 i.to_lua(&mut self.lua());
             },
 
             Tag::StableClient => {
                 let cid = try!(r.read());
-                let c = userdata::StableClient { id: Stable::new(cid) };
+                let c = userdata::world::StableClient { id: Stable::new(cid) };
                 c.to_lua(&mut self.lua());
             },
             Tag::StableEntity => {
                 let eid = try!(r.read());
-                let e = userdata::StableEntity { id: Stable::new(eid) };
+                let e = userdata::world::StableEntity { id: Stable::new(eid) };
                 e.to_lua(&mut self.lua());
             },
             Tag::StableStructure => {
                 let sid = try!(r.read());
-                let s = userdata::StableStructure { id: Stable::new(sid) };
+                let s = userdata::world::StableStructure { id: Stable::new(sid) };
                 s.to_lua(&mut self.lua());
             },
             Tag::StableInventory => {
                 let iid = try!(r.read());
-                let i = userdata::StableInventory { id: Stable::new(iid) };
+                let i = userdata::world::StableInventory { id: Stable::new(iid) };
                 i.to_lua(&mut self.lua());
             },
 

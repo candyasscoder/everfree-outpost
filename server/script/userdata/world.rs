@@ -1,7 +1,7 @@
 use std::borrow::ToOwned;
 use libc::c_int;
 
-use physics::{TILE_SIZE, CHUNK_SIZE};
+use physics::CHUNK_SIZE;
 
 use types::*;
 use util::StrResult;
@@ -10,164 +10,10 @@ use util::Stable;
 use engine::{Engine, logic};
 use engine::glue::WorldFragment;
 use lua::LuaState;
+use script::traits::Userdata;
 use world;
 use world::Fragment;
 use world::object::*;
-
-use super::build_type_table;
-use super::traits::Userdata;
-use super::traits::{check_args, FromLua, ToLua};
-use super::traits::{TypeName, type_name};
-
-macro_rules! mk_build_types_table {
-    ($($ty:ty),*) => {
-        pub fn build_types_table(lua: &mut LuaState) {
-            lua.push_table();
-            $({
-                build_type_table::<$ty>(lua);
-                lua.set_field(-2, <$ty as TypeName>::type_name());
-            })*
-        }
-    }
-}
-
-mk_build_types_table!(V3, World,
-                      Client, Entity, Structure, Inventory,
-                      StableClient, StableEntity, StableStructure, StableInventory);
-
-
-macro_rules! insert_function {
-    ($lua:expr, $idx:expr, $name:expr, $func:expr) => {{
-        $lua.push_rust_function($func);
-        $lua.set_field($idx - 1, $name);
-    }}
-}
-
-/// Helper macro for parsing a block out of a function body.  '-> $t:ty $b:block' is prohibited (ty
-/// may not be followed by block), so instead, match '-> $t:ty { $($b:tt)* }' and then invoke
-/// 'mk_block!({ $($b)* } {})' to produce the actual block.
-macro_rules! mk_block {
-  ({ $s:stmt; $($t:tt)* } { $($ss:stmt;)* }) => { mk_block!({ $($t)* } {$($ss;)* $s;}) };
-  ({ $e:expr } { $($ss:stmt;)* }) => {{ $($ss;)* $e }};
-  ({} { $($ss:stmt;)* }) => {{ $($ss;)* }};
-}
-
-macro_rules! lua_fn_raw {
-    // TODO: support functions that take only the context and no other args
-    ($name:ident,
-     (!partial $ctx:ident: $ctx_ty:ty, $($arg:ident: $arg_ty:ty),*),
-     $ret_ty:ty,
-     $body:expr) => {
-        fn $name(mut lua: LuaState) -> c_int {
-            let (result, count): ($ret_ty, ::libc::c_int) = {
-                let ctx = unsafe { $crate::script::PartialContext::from_lua(&mut lua) };
-                let (args, count): (_, ::libc::c_int) = unsafe {
-                    $crate::script::traits::unpack_args_count(&mut lua, stringify!($name))
-                };
-                // Use a closure to prevent $body from abusing the context reference, which will
-                // likely be inferred as 'static.
-                let f = |mut $ctx: $ctx_ty, ($($arg,)*): ($($arg_ty,)*)| $body;
-                (f(ctx, args), count)
-            };
-            lua.pop(count);
-            $crate::script::traits::pack_count(&mut lua, result)
-        }
-    };
-
-    ($name:ident,
-     (!full $ctx:ident: $ctx_ty:ty, $($arg:ident: $arg_ty:ty),*),
-     $ret_ty:ty,
-     $body:expr) => {
-        fn $name(mut lua: LuaState) -> c_int {
-            let result: $ret_ty = {
-                unsafe { <$ctx_ty as $crate::script::FullContext>::check(&mut lua) };
-                let (args, count): (_, ::libc::c_int) = unsafe {
-                    $crate::script::traits::unpack_args_count(&mut lua, stringify!($name))
-                };
-                // Clear the stack in case of reentrant calls to the script engine.
-                lua.pop(count);
-                let ctx = unsafe { $crate::script::FullContext::from_lua(&mut lua) };
-                let f = |mut $ctx: $ctx_ty, ($($arg,)*): ($($arg_ty,)*)| $body;
-                f(ctx, args)
-            };
-            $crate::script::traits::pack_count(&mut lua, result)
-        }
-    };
-
-    ($name:ident,
-     ($($arg:ident: $arg_ty:ty),*),
-     $ret_ty:ty,
-     $body:expr) => {
-        fn $name(mut lua: LuaState) -> c_int {
-            let (result, count): ($ret_ty, ::libc::c_int) = {
-                let (($($arg,)*), count): (($($arg_ty,)*), ::libc::c_int) = unsafe {
-                    $crate::script::traits::unpack_args_count(&mut lua, stringify!($name))
-                };
-                ($body, count)
-            };
-            lua.pop(count);
-            $crate::script::traits::pack_count(&mut lua, result)
-        }
-    };
-}
-
-macro_rules! lua_table_fns2 {
-    ( $lua:expr, $idx: expr,
-        $(
-            fn $name:ident( $($a:tt)* ) -> $ret_ty:ty { $($b:tt)* }
-                //$(! $mode:ident)*
-                //$($arg_name:ident : $arg_ty:ty),*
-        )*
-    ) => {{
-        $(
-            lua_fn_raw!($name, ( $($a)* ), $ret_ty, mk_block!({ $($b)* } {}));
-            insert_function!($lua, $idx, stringify!($name), $name);
-        )*
-    }};
-}
-
-
-impl_type_name!(V3);
-impl_metatable_key!(V3);
-
-impl Userdata for V3 {
-    fn populate_table(lua: &mut LuaState) {
-        lua_table_fns2! {
-            lua, -1,
-
-            fn x(ud: V3) -> i32 { ud.x }
-            fn y(ud: V3) -> i32 { ud.y }
-            fn z(ud: V3) -> i32 { ud.z }
-
-            fn new(x: i32, y: i32, z: i32) -> V3 { V3::new(x, y, z) }
-
-            fn abs(ud: V3) -> V3 { ud.abs() }
-            fn extract(ud: V3) -> (i32, i32, i32) { (ud.x, ud.y, ud.z) }
-
-            fn max(v: V3) -> i32 { v.max() }
-
-            fn pixel_to_tile(ud: V3) -> V3 {
-                ud.div_floor(scalar(TILE_SIZE))
-            }
-
-            fn tile_to_chunk(ud: V3) -> V3 {
-                ud.div_floor(scalar(CHUNK_SIZE))
-            }
-        }
-    }
-
-    fn populate_metatable(lua: &mut LuaState) {
-        lua_table_fns2! {
-            lua, -1,
-
-            fn __add(a: V3, b: V3) -> V3 { a + b }
-            fn __sub(a: V3, b: V3) -> V3 { a - b }
-            fn __mul(a: V3, b: V3) -> V3 { a * b }
-            fn __div(a: V3, b: V3) -> V3 { a / b }
-            fn __mod(a: V3, b: V3) -> V3 { a % b }
-        }
-    }
-}
 
 
 #[derive(Copy)]

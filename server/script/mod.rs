@@ -114,7 +114,7 @@ impl ScriptEngine {
         eng.script.with_context(ptr, |lua| {
             run_callback(lua,
                          "outpost_callback_open_inventory",
-                         (userdata::Client { id: cid }))
+                         (userdata::world::Client { id: cid }))
         })
     }
 
