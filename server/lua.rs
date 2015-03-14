@@ -513,7 +513,8 @@ impl<'a> LuaState<'a> {
                 ValueType::Nil =>
                     format!("nil"),
                 ValueType::Boolean |
-                ValueType::Number |
+                ValueType::Number =>
+                    format!("{}", self.to_integer(i)),
                 ValueType::String =>
                     format!("{:?}", self.to_string(i)),
                 ValueType::LightUserdata |

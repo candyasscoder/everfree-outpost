@@ -4,6 +4,7 @@ use std::error;
 use std::marker::MarkerTrait;
 use std::mem;
 use libc::c_int;
+use rand::XorShiftRng;
 
 use types::*;
 use util::{StringError, StringResult};
@@ -12,6 +13,7 @@ use data::Data;
 use engine;
 use engine::glue::WorldFragment;
 use input::ActionId;
+use terrain_gen;
 use world;
 use world::object::*;
 
@@ -102,6 +104,9 @@ impl ScriptEngine {
         let old_ptr: *mut C = unsafe { get_ctx_raw(&mut lua) };
         unsafe { set_ctx(&mut lua, ptr) };
 
+        // Clear the stack, then run the function.
+        let count = lua.top_index();
+        lua.pop(count);
         let x = f(&mut lua);
 
         unsafe { set_ctx(&mut lua, old_ptr) };
@@ -202,6 +207,33 @@ impl ScriptEngine {
         warn_on_err!(run_callback(&mut self.owned_lua.get(),
                                   "outpost_callback_set_inventory_extra",
                                   (iid.unwrap(), Nil)));
+    }
+
+    pub fn cb_generate_chunk(&mut self,
+                             ctx: &mut terrain_gen::Context,
+                             cpos: V2,
+                             rng: XorShiftRng) -> StringResult<Box<BlockChunk>> {
+        use script::userdata::terrain_gen::GenChunk;
+        self.with_context(ctx as *mut _, |lua| {
+            lua.get_field(REGISTRY_INDEX, "outpost_callback_generate_chunk");
+            cpos.to_lua(lua);
+            userdata::terrain_gen::Rng::new(rng).to_lua(lua);
+            try!(lua.pcall(2, 1, 0)
+                    .map_err(|(e, s)| StringError { msg: format!("{:?}: {}", e, s) }));
+
+            // Check that the return value has the correct metatable.
+            lua.get_metatable(-1);
+            lua.get_field(REGISTRY_INDEX, metatable_key::<GenChunk>());
+            if !lua.raw_equal(-1, -2) {
+                fail!("generate_chunk callback did not return a GenChunk");
+            } else {
+                lua.pop(2);
+            }
+
+            let gc = unwrap!(unsafe { lua.to_userdata::<GenChunk>(-1) });
+            let b = unwrap!(gc.take());
+            Ok(b)
+        })
     }
 }
 
@@ -381,3 +413,16 @@ unsafe impl<'a, 'd: 'a> PartialContext for &'a world::World<'d> {
         mem::transmute(ptr)
     }
 }
+
+
+impl<'d> BaseContext for terrain_gen::Context<'d> {
+    fn registry_key() -> &'static str { "outpost_terrain_gen" }
+}
+
+unsafe impl<'a, 'd: 'a> PartialContext for &'a terrain_gen::Context<'d> {
+    unsafe fn from_lua(lua: &mut LuaState) -> &'a terrain_gen::Context<'d> {
+        let ptr = get_ctx::<terrain_gen::Context>(lua);
+        mem::transmute(ptr)
+    }
+}
+

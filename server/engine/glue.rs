@@ -10,6 +10,7 @@ use messages::Messages;
 use physics_::{self, Physics};
 use script::{ScriptEngine, ReadHooks, WriteHooks};
 use storage::Storage;
+use terrain_gen::{self, TerrainGen};
 use vision::Vision;
 use world::{self, World};
 use world::save::{self, ObjectReader, ObjectWriter};
@@ -40,10 +41,21 @@ impl<'a, 'd> world::Fragment<'d> for WorldFragment<'a, 'd> {
 engine_part_typedef!(pub VisionHooks(world, messages));
 
 
+engine_part_typedef!(pub TerrainGenFragment(terrain_gen, script));
+
+impl<'a, 'd> terrain_gen::Fragment<'d> for TerrainGenFragment<'a, 'd> {
+    fn open<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut TerrainGen<'d>, &mut ScriptEngine) -> R {
+        let Open { terrain_gen, script, .. } = self.open();
+        f(terrain_gen, script)
+    }
+}
+
+
 engine_part_typedef!(pub ChunksFragment(world, chunks,
-                                        world, script, vision, messages));
+                                        world, script, vision, messages, terrain_gen));
 engine_part_typedef!(pub ChunksHooks());
-engine_part_typedef!(pub ChunkProvider(world, script, vision, messages));
+engine_part_typedef!(pub ChunkProvider(world, script, vision, messages, terrain_gen));
 
 impl<'a, 'd> chunks::Fragment<'d> for ChunksFragment<'a, 'd> {
     fn with_world<F, R>(&mut self, f: F) -> R

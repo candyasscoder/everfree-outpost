@@ -35,7 +35,10 @@ package.loaded.bootstrap = {
 
 -- Put some type tables in global scope
 V3 = outpost_ffi.types.V3.table
+V2 = outpost_ffi.types.V2.table
 World = outpost_ffi.types.World.table
+Rng = outpost_ffi.types.Rng.table
+GenChunk = outpost_ffi.types.GenChunk.table
 
 
 require('outpost.userdata')
@@ -129,3 +132,32 @@ end
 
 
 print('\n\nup and running')
+
+
+
+local r = Rng.with_seed(12345)
+for i = 1, 10 do
+    --print(r:gen(0, 10))
+    --print(r:choose(ipairs({"a", "b", "c", "d"})))
+    print(r:choose_weighted(ipairs({5, 1})))
+end
+r = nil
+
+
+function outpost_ffi.callbacks.generate_chunk(cpos, r)
+    local c = GenChunk.new()
+
+    local grass = {
+        ['grass/center/v0'] = 50,
+        ['grass/center/v1'] = 10,
+        ['grass/center/v2'] = 10,
+        ['grass/center/v3'] = 10,
+    }
+
+    for y = 0, 15 do
+        for x = 0, 15 do
+            c:set_block(V3.new(x, y, 0), r:choose_weighted(pairs(grass)))
+        end
+    end
+    return c
+end

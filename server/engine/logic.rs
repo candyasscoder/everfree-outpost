@@ -1,4 +1,5 @@
 use std::borrow::ToOwned;
+use std::error::Error;
 
 use physics::{CHUNK_SIZE, TILE_SIZE};
 
@@ -14,6 +15,7 @@ use input::{Action, InputBits};
 use messages::{ClientResponse, Dialog};
 use physics_;
 use script;
+use terrain_gen;
 use world::{self, World};
 use world::object::*;
 use world::save::{self, ObjectReader, ObjectWriter, ReadHooks, WriteHooks};
@@ -397,13 +399,20 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
             let mut sr = ObjectReader::new(file);
             try!(sr.load_terrain_chunk(&mut e));
         } else {
-            let mut e: WorldFragment = self.borrow().slice();
-            let id = e.data().block_data.get_id("grass/center/v0");
-            let mut blocks = [0; 4096];
-            for i in range(0, 256) {
-                blocks[i] = id;
+            let blocks = {
+                let mut e: TerrainGenFragment = self.borrow().slice();
+                match terrain_gen::Fragment::generate(&mut e, cpos) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        warn!("terrain generation failed for {:?}: {}", cpos, e.description());
+                        Box::new(EMPTY_CHUNK)
+                    },
+                }
+            };
+            {
+                let mut e: WorldFragment = self.borrow().slice();
+                try!(world::Fragment::create_terrain_chunk(&mut e, cpos, blocks));
             }
-            try!(world::Fragment::create_terrain_chunk(&mut e, cpos, Box::new(blocks)));
         }
         Ok(())
     }

@@ -95,6 +95,7 @@ macro_rules! lua_table_fns2 {
     }};
 }
 
+pub mod terrain_gen;
 pub mod types;
 pub mod world;
 
@@ -112,6 +113,7 @@ macro_rules! mk_build_types_table {
 
 mk_build_types_table!(
     ::types::V3,
+    ::types::V2,
 
     self::world::World,
     self::world::Client,
@@ -122,4 +124,7 @@ mk_build_types_table!(
     self::world::StableEntity,
     self::world::StableStructure,
     self::world::StableInventory,
+
+    self::terrain_gen::Rng,
+    self::terrain_gen::GenChunk,
 );
