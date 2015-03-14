@@ -7,6 +7,7 @@ use physics::{TILE_SIZE, CHUNK_SIZE};
 use types::*;
 
 use lua::LuaState;
+use script::Nil;
 use script::traits::Userdata;
 use script::userdata::{Wrapper, OptWrapper};
 use terrain_gen;
@@ -290,6 +291,83 @@ impl Userdata for GenChunk {
 
             fn __gc(x: &GenChunk) -> () {
                 // Run destructor on `x`.  After this, the memory will be freed by Lua.
+                unsafe { ptr::read(x as *const _) };
+            }
+        }
+    }
+}
+
+
+pub struct Points {
+    p: Vec<V2>,
+}
+
+impl_type_name!(Points);
+impl_metatable_key!(Points);
+
+impl Userdata for Points {
+    fn populate_metatable(lua: &mut LuaState) {
+        lua_table_fns2! {
+            lua, -1,
+
+            fn __len(points: &Points, __: Nil) -> u32 {
+                points.p.len() as u32
+            }
+
+            fn __index(points: &Points, idx: u32) -> Option<V2> {
+                points.p.get(idx as usize - 1).map(|&x| x)
+            }
+
+            fn __gc(x: &Points) -> () {
+                // Run destructor on `x`.  After this, the memory will be freed by Lua.
+                unsafe { ptr::read(x as *const _) };
+            }
+        }
+    }
+}
+
+
+
+pub struct IsoDiskSampler {
+    s: terrain_gen::IsoDiskSampler<Box<terrain_gen::Field>>,
+}
+
+impl_type_name!(IsoDiskSampler);
+impl_metatable_key!(IsoDiskSampler);
+
+impl Userdata for IsoDiskSampler {
+    fn populate_table(lua: &mut LuaState) {
+        lua_table_fns2! {
+            lua, -1,
+
+            fn new_constant(seed: i32,
+                            spacing: u16,
+                            chunk_size: u16) -> IsoDiskSampler {
+                let spacing_field =
+                    Box::new(terrain_gen::ConstantField(spacing as i32))
+                    as Box<terrain_gen::Field>;
+                let sampler = terrain_gen::IsoDiskSampler::new(seed as u64,
+                                                               spacing,
+                                                               spacing,
+                                                               chunk_size,
+                                                               spacing_field);
+                IsoDiskSampler { s: sampler }
+            }
+
+            fn get_points(sampler: &IsoDiskSampler,
+                          min: V2,
+                          max: V2) -> Points {{
+                use terrain_gen::PointSource;
+                Points { p: sampler.s.generate_points(Region2::new(min, max)) }
+            }}
+        }
+    }
+
+    fn populate_metatable(lua: &mut LuaState) {
+        lua_table_fns2! {
+            lua, -1,
+
+            fn __gc(x: &IsoDiskSampler) -> () {
                 unsafe { ptr::read(x as *const _) };
             }
         }

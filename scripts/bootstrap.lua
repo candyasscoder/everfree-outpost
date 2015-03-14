@@ -39,6 +39,7 @@ V2 = outpost_ffi.types.V2.table
 World = outpost_ffi.types.World.table
 Rng = outpost_ffi.types.Rng.table
 GenChunk = outpost_ffi.types.GenChunk.table
+IsoDiskSampler = outpost_ffi.types.IsoDiskSampler.table
 
 
 require('outpost.userdata')
@@ -131,6 +132,8 @@ function command.handler.home(client, args)
 end
 
 
+local sampler = IsoDiskSampler.new_constant(12347, 4, 32)
+
 function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
     local grass = {
         ['grass/center/v0'] = 50,
@@ -141,8 +144,18 @@ function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
 
     for y = 0, 15 do
         for x = 0, 15 do
-            c:set_block(V3.new(x, y, 0), r:choose_weighted(pairs(grass)))
+            --c:set_block(V3.new(x, y, 0), r:choose_weighted(pairs(grass)))
+            c:set_block(V3.new(x, y, 0), 'grass/center/v0')
         end
+    end
+
+    local min = cpos * V2.new(16, 16)
+    local max = min + V2.new(16, 16)
+    local p = sampler:get_points(min, max)
+    print(cpos, min, max)
+
+    for i = 1, #p do
+        c:set_block((p[i] - min):extend(0), 'grass/center/v3')
     end
 end
 

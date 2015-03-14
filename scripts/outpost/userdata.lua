@@ -7,6 +7,10 @@ function outpost_ffi.types.V3.metatable.__tostring(v)
     return tostring(v:x()) .. ',' .. tostring(v:y()) .. ',' .. tostring(v:z())
 end
 
+function outpost_ffi.types.V2.metatable.__tostring(v)
+    return tostring(v:x()) .. ',' .. tostring(v:y())
+end
+
 function outpost_ffi.types.World.metatable.__tostring(x)
     return 'World'
 end

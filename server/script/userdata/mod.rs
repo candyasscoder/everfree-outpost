@@ -129,6 +129,8 @@ mk_build_types_table!(
 
     self::terrain_gen::Rng,
     self::terrain_gen::GenChunk,
+    self::terrain_gen::Points,
+    self::terrain_gen::IsoDiskSampler,
 );
 
 

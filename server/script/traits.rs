@@ -136,6 +136,18 @@ int_from_lua_impl!(i8);
 int_from_lua_impl!(i16);
 int_from_lua_impl!(i32);
 
+impl<'a> FromLua<'a> for Nil {
+    unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
+        if lua.type_of(index) != ValueType::Nil {
+            type_error!(lua, index, func, "nil");
+        }
+    }
+
+    unsafe fn from_lua(_lua: &LuaState, _index: c_int) -> Nil {
+        Nil
+    }
+}
+
 impl<'a> FromLua<'a> for &'a str {
     unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
         if lua.type_of(index) != ValueType::String {

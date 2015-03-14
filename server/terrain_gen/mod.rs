@@ -7,6 +7,10 @@ use util::StringResult;
 use data::Data;
 use script::ScriptEngine;
 
+pub use self::disk_sampler::IsoDiskSampler;
+
+mod disk_sampler;
+
 
 pub struct TerrainGen<'d> {
     data: &'d Data,
@@ -62,5 +66,29 @@ impl GenChunk {
         GenChunk {
             blocks: Box::new(EMPTY_CHUNK),
         }
+    }
+}
+
+
+pub trait PointSource {
+    fn generate_points(&self, bounds: Region2) -> Vec<V2>;
+}
+
+pub trait Field {
+    fn get_value(&self, pos: V2) -> i32;
+}
+
+impl Field for Box<Field> {
+    fn get_value(&self, pos: V2) -> i32 {
+        (**self).get_value(pos)
+    }
+}
+
+
+pub struct ConstantField(pub i32);
+
+impl Field for ConstantField {
+    fn get_value(&self, _: V2) -> i32 {
+        self.0
     }
 }
