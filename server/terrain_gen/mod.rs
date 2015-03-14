@@ -20,31 +20,47 @@ impl<'d> TerrainGen<'d> {
             world_seed: 0x12345,
         }
     }
+
+    pub fn data(&self) -> &'d Data {
+        self.data
+    }
+
+    pub fn chunk_rng(&self, cpos: V2, seed: u32) -> XorShiftRng {
+        SeedableRng::from_seed([self.world_seed ^ 0xfaa3e2a2,
+                                cpos.x as u32,
+                                cpos.y as u32,
+                                seed])
+    }
+
+    pub fn rng(&self, seed: u32) -> XorShiftRng {
+        SeedableRng::from_seed([self.world_seed ^ 0x3ba6d154,
+                                0x34c9c7b1,
+                                0xf8499a88,
+                                seed])
+    }
 }
 
 pub trait Fragment<'d> {
     fn open<F, R>(&mut self, f: F) -> R
         where F: FnOnce(&mut TerrainGen<'d>, &mut ScriptEngine) -> R;
 
-    fn generate(&mut self, cpos: V2) -> StringResult<Box<BlockChunk>> {
+    fn generate(&mut self, cpos: V2) -> StringResult<GenChunk> {
         self.open(|tg, script| {
-            let rng = SeedableRng::from_seed([cpos.x as u32,
-                                              cpos.y as u32,
-                                              tg.world_seed,
-                                              12345]);
-            let mut ctx = Context { data: tg.data };
-            script.cb_generate_chunk(&mut ctx, cpos, rng)
+            let rng = tg.chunk_rng(cpos, 0);
+            script.cb_generate_chunk(tg, cpos, rng)
         })
     }
 }
 
 
-pub struct Context<'d> {
-    data: &'d Data,
+pub struct GenChunk {
+    pub blocks: Box<BlockChunk>,
 }
 
-impl<'d> Context<'d> {
-    pub fn data(&self) -> &'d Data {
-        self.data
+impl GenChunk {
+    pub fn new() -> GenChunk {
+        GenChunk {
+            blocks: Box::new(EMPTY_CHUNK),
+        }
     }
 }

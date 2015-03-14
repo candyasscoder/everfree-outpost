@@ -402,7 +402,7 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
             let blocks = {
                 let mut e: TerrainGenFragment = self.borrow().slice();
                 match terrain_gen::Fragment::generate(&mut e, cpos) {
-                    Ok(b) => b,
+                    Ok(b) => b.blocks,
                     Err(e) => {
                         warn!("terrain generation failed for {:?}: {}", cpos, e.description());
                         Box::new(EMPTY_CHUNK)

@@ -1,8 +1,10 @@
-use lua::LuaState;
-use script::traits::Userdata;
+use std::cell::RefCell;
 
+use util::StrResult;
+
+use lua::LuaState;
 use script::build_type_table;
-use script::traits::TypeName;
+use script::traits::{TypeName, Userdata};
 
 
 macro_rules! insert_function {
@@ -128,3 +130,46 @@ mk_build_types_table!(
     self::terrain_gen::Rng,
     self::terrain_gen::GenChunk,
 );
+
+
+pub struct Wrapper<T> {
+    pub x: RefCell<T>,
+}
+
+impl<T> Wrapper<T> {
+    pub fn new(x: T) -> Wrapper<T> {
+        Wrapper {
+            x: RefCell::new(x),
+        }
+    }
+
+    pub fn open<F, R>(&self, f: F) -> R
+            where F: FnOnce(&mut T) -> R {
+        let mut b = self.x.borrow_mut();
+        f(&mut *b)
+    }
+}
+
+
+pub struct OptWrapper<T> {
+    pub x: RefCell<Option<T>>,
+}
+
+impl<T> OptWrapper<T> {
+    pub fn new(x: T) -> OptWrapper<T> {
+        OptWrapper {
+            x: RefCell::new(Some(x)),
+        }
+    }
+
+    pub fn take(&self) -> Option<T> {
+        self.x.borrow_mut().take()
+    }
+
+    pub fn open<F, R>(&self, f: F) -> StrResult<R>
+            where F: FnOnce(&mut T) -> R {
+        let mut b = self.x.borrow_mut();
+        let x = unwrap!(b.as_mut());
+        Ok(f(x))
+    }
+}

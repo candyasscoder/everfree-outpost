@@ -8,20 +8,11 @@ use types::*;
 
 use lua::LuaState;
 use script::traits::Userdata;
+use script::userdata::{Wrapper, OptWrapper};
 use terrain_gen;
 
 
-pub struct Rng {
-    rng: RefCell<XorShiftRng>,
-}
-
-impl Rng {
-    pub fn new(rng: XorShiftRng) -> Rng {
-        Rng {
-            rng: RefCell::new(rng),
-        }
-    }
-}
+pub type Rng = Wrapper<XorShiftRng>;
 
 impl_type_name!(Rng);
 impl_metatable_key!(Rng);
@@ -32,28 +23,22 @@ impl Userdata for Rng {
             lua, -1,
 
             fn new() -> Rng {
-                Rng {
-                    rng: RefCell::new(rand::random()),
-                }
+                Rng::new(rand::random())
             }
 
-            fn with_seed(seed: i32) -> Rng {
-                let rng = SeedableRng::from_seed([seed as u32,
-                                                  0xde4abf57,
-                                                  0xe83c9492,
-                                                  0xb3b71499]);
-                Rng {
-                    rng: RefCell::new(rng),
-                }
+            fn with_seed(!partial ctx: &terrain_gen::TerrainGen, seed: i32) -> Rng {
+                Rng::new(ctx.rng(seed as u32))
             }
 
             // TODO: fix mk_block macro so we don't need double braces here.
             fn gen(rng: &Rng,
                    min: i32,
-                   max: i32) -> i32 {{
-                use rand::Rng;
-                rng.rng.borrow_mut().gen_range(min, max)
-            }}
+                   max: i32) -> i32 {
+                rng.open(|r| {
+                    use rand::Rng;
+                    r.gen_range(min, max)
+                })
+            }
         }
 
         insert_function!(lua, -1, "choose", rng_choose);
@@ -97,10 +82,10 @@ fn rng_choose(mut lua: LuaState) -> ::libc::c_int {
         let rng = unsafe {
             <&Rng as FromLua>::check(&mut lua, 1, "choose");
             let rng = FromLua::from_lua(&mut lua, 1);
+            // Discard lifetime.
             mem::transmute::<&Rng, &Rng>(rng)
         };
-        // Discard lifetime.
-        let mut rng = rng.rng.borrow_mut();
+        let mut rng = rng.x.borrow_mut();
         // From now on, we need to be careful not to accidentally pop the Rng userdata.
 
         // This loop emulates the behavior of the Lua `for` statement.
@@ -214,7 +199,7 @@ fn rng_choose_weighted(mut lua: LuaState) -> ::libc::c_int {
             mem::transmute::<&Rng, &Rng>(rng)
         };
         // Discard lifetime.
-        let mut rng = rng.rng.borrow_mut();
+        let mut rng = rng.x.borrow_mut();
         // From now on, we need to be careful not to accidentally pop the Rng userdata.
 
         let mut total_weight = 0;
@@ -270,21 +255,7 @@ fn rng_choose_weighted(mut lua: LuaState) -> ::libc::c_int {
 }
 
 
-pub struct GenChunk {
-    blocks: RefCell<Option<Box<BlockChunk>>>,
-}
-
-impl GenChunk {
-    pub fn new() -> GenChunk {
-        GenChunk {
-            blocks: RefCell::new(Some(Box::new(EMPTY_CHUNK))),
-        }
-    }
-
-    pub fn take(&self) -> Option<Box<BlockChunk>> {
-        self.blocks.borrow_mut().take()
-    }
-}
+pub type GenChunk = OptWrapper<terrain_gen::GenChunk>;
 
 impl_type_name!(GenChunk);
 impl_metatable_key!(GenChunk);
@@ -294,9 +265,7 @@ impl Userdata for GenChunk {
         lua_table_fns2! {
             lua, -1,
 
-            fn new() -> GenChunk { GenChunk::new() }
-
-            fn set_block(!partial ctx: &terrain_gen::Context,
+            fn set_block(!partial ctx: &terrain_gen::TerrainGen,
                          gc: &GenChunk,
                          pos: V3,
                          block: &str) -> bool {
@@ -309,9 +278,7 @@ impl Userdata for GenChunk {
                 };
 
                 let idx = bounds.index(pos);
-                let mut b = gc.blocks.borrow_mut();
-                let b = unwrap_or!(b.as_mut(), return false);
-                b[idx] = block_id;
+                gc.open(|gc| gc.blocks[idx] = block_id);
                 true
             }
         }

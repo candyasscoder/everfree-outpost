@@ -131,22 +131,7 @@ function command.handler.home(client, args)
 end
 
 
-print('\n\nup and running')
-
-
-
-local r = Rng.with_seed(12345)
-for i = 1, 10 do
-    --print(r:gen(0, 10))
-    --print(r:choose(ipairs({"a", "b", "c", "d"})))
-    print(r:choose_weighted(ipairs({5, 1})))
-end
-r = nil
-
-
-function outpost_ffi.callbacks.generate_chunk(cpos, r)
-    local c = GenChunk.new()
-
+function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
     local grass = {
         ['grass/center/v0'] = 50,
         ['grass/center/v1'] = 10,
@@ -159,5 +144,7 @@ function outpost_ffi.callbacks.generate_chunk(cpos, r)
             c:set_block(V3.new(x, y, 0), r:choose_weighted(pairs(grass)))
         end
     end
-    return c
 end
+
+
+print('\n\nup and running')
