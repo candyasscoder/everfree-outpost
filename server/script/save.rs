@@ -452,18 +452,138 @@ impl<'a, 'd> save::ReadHooks for ReadHooks<'a, 'd> {
 }
 
 impl<'a, 'd> ReadHooks<'a, 'd> {
+    fn lua(&mut self) -> LuaState {
+        self.script_mut().owned_lua.get()
+    }
+
+    fn with_lua<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut LuaState) -> R {
+        let mut lua = self.script_mut().owned_lua.get();
+        f(&mut lua)
+    }
+
+    fn wf<'b>(&'b mut self) -> WorldFragment<'b, 'd> {
+        self.borrow().slice()
+    }
+
     fn read_extra<R: Reader, F>(&mut self,
                                 r: &mut R,
                                 push_setter: F) -> Result<()>
             where F: FnOnce(&mut LuaState) {
-        let (mut wf, mut e): (WorldFragment, _) = self.borrow().split_off();
-        let mut lua = e.script_mut().owned_lua.get();
+        let base = self.with_lua(|lua| {
+            let base = lua.top_index();
+            push_setter(lua);
+            base
+        });
+        try!(self.read_value(r));
+        self.with_lua(|lua| {
+            let args = lua.top_index() - base - 1;
+            lua.pcall(args, 0, 0)
+               .map_err(error::FromError::from_error)
+        })
+    }
 
-        let base = lua.top_index();
-        push_setter(&mut lua);
-        try!(read_value(&mut lua, r, &mut wf));
-        let args = lua.top_index() - base - 1;
-        try!(lua.pcall(args, 0, 0));
+    fn read_value<R: Reader>(&mut self,
+                             r: &mut R) -> Result<()> {
+        let (tag, a, b): (u8, u8, u16) = try!(r.read());
+        let tag = unwrap!(FromPrimitive::from_u8(tag));
+        match tag {
+            Tag::Nil => {
+                self.lua().push_nil();
+            },
+            Tag::Bool => {
+                self.lua().push_boolean(a != 0);
+            },
+            Tag::SmallInt => {
+                self.lua().push_integer(b as isize);
+            },
+            Tag::LargeInt => {
+                let i: i32 = try!(r.read());
+                self.lua().push_integer(i as isize);
+            },
+            Tag::Float => {
+                let f: f64 = try!(r.read());
+                self.lua().push_number(f);
+            },
+            Tag::SmallString => {
+                let s = try!(r.read_str_bytes(b as usize));
+                self.lua().push_string(&*s);
+            },
+            Tag::LargeString => {
+                let s = try!(r.read_str());
+                self.lua().push_string(&*s);
+            },
+            Tag::Table => {
+                //try!(read_table(lua, r, wf));
+            },
+
+            Tag::World => {
+                let w = userdata::World;
+                w.to_lua(&mut self.lua());
+            },
+
+            Tag::Client => {
+                let cid = try!(r.read_id(&mut self.wf()));
+                let c = userdata::Client { id: cid };
+                c.to_lua(&mut self.lua());
+            },
+            Tag::Entity => {
+                let eid = try!(r.read_id(&mut self.wf()));
+                let e = userdata::Entity { id: eid };
+                e.to_lua(&mut self.lua());
+            },
+            Tag::Structure => {
+                let sid = try!(r.read_id(&mut self.wf()));
+                let s = userdata::Structure { id: sid };
+                s.to_lua(&mut self.lua());
+            },
+            Tag::Inventory => {
+                let iid = try!(r.read_id(&mut self.wf()));
+                let i = userdata::Inventory { id: iid };
+                i.to_lua(&mut self.lua());
+            },
+
+            Tag::StableClient => {
+                let cid = try!(r.read());
+                let c = userdata::StableClient { id: Stable::new(cid) };
+                c.to_lua(&mut self.lua());
+            },
+            Tag::StableEntity => {
+                let eid = try!(r.read());
+                let e = userdata::StableEntity { id: Stable::new(eid) };
+                e.to_lua(&mut self.lua());
+            },
+            Tag::StableStructure => {
+                let sid = try!(r.read());
+                let s = userdata::StableStructure { id: Stable::new(sid) };
+                s.to_lua(&mut self.lua());
+            },
+            Tag::StableInventory => {
+                let iid = try!(r.read());
+                let i = userdata::StableInventory { id: Stable::new(iid) };
+                i.to_lua(&mut self.lua());
+            },
+
+            Tag::V3 => {
+                let (x, y, z) = try!(r.read());
+                V3::new(x, y, z).to_lua(&mut self.lua());
+            },
+        }
+        Ok(())
+    }
+
+    fn read_table<R: Reader>(&mut self,
+                             r: &mut R) -> Result<()> {
+        self.lua().push_table();
+        loop {
+            try!(self.read_value(r));   // Key
+            if self.lua().type_of(-1) == ValueType::Nil {
+                self.lua().pop(1);
+                break;
+            }
+            try!(self.read_value(r));   // Value
+            self.lua().set_table(-3);
+        }
         Ok(())
     }
 }
@@ -483,108 +603,3 @@ fn push_setter_and_id<T: ToLua>(lua: &mut LuaState, func: &str, id: T) {
     id.to_lua(lua);
 }
 
-fn read_value<'d, R: Reader, WF: world::Fragment<'d>>(lua: &mut LuaState,
-                                                      r: &mut R,
-                                                      wf: &mut WF) -> Result<()> {
-    let (tag, a, b): (u8, u8, u16) = try!(r.read());
-    let tag = unwrap!(FromPrimitive::from_u8(tag));
-    match tag {
-        Tag::Nil => {
-            lua.push_nil();
-        },
-        Tag::Bool => {
-            lua.push_boolean(a != 0);
-        },
-        Tag::SmallInt => {
-            lua.push_integer(b as isize);
-        },
-        Tag::LargeInt => {
-            let i: i32 = try!(r.read());
-            lua.push_integer(i as isize);
-        },
-        Tag::Float => {
-            let f: f64 = try!(r.read());
-            lua.push_number(f);
-        },
-        Tag::SmallString => {
-            let s = try!(r.read_str_bytes(b as usize));
-            lua.push_string(&*s);
-        },
-        Tag::LargeString => {
-            let s = try!(r.read_str());
-            lua.push_string(&*s);
-        },
-        Tag::Table => {
-            try!(read_table(lua, r, wf));
-        },
-
-        Tag::World => {
-            let w = userdata::World;
-            w.to_lua(lua);
-        },
-
-        Tag::Client => {
-            let cid = try!(r.read_id(wf));
-            let c = userdata::Client { id: cid };
-            c.to_lua(lua);
-        },
-        Tag::Entity => {
-            let eid = try!(r.read_id(wf));
-            let e = userdata::Entity { id: eid };
-            e.to_lua(lua);
-        },
-        Tag::Structure => {
-            let sid = try!(r.read_id(wf));
-            let s = userdata::Structure { id: sid };
-            s.to_lua(lua);
-        },
-        Tag::Inventory => {
-            let iid = try!(r.read_id(wf));
-            let i = userdata::Inventory { id: iid };
-            i.to_lua(lua);
-        },
-
-        Tag::StableClient => {
-            let cid = try!(r.read());
-            let c = userdata::StableClient { id: Stable::new(cid) };
-            c.to_lua(lua);
-        },
-        Tag::StableEntity => {
-            let eid = try!(r.read());
-            let e = userdata::StableEntity { id: Stable::new(eid) };
-            e.to_lua(lua);
-        },
-        Tag::StableStructure => {
-            let sid = try!(r.read());
-            let s = userdata::StableStructure { id: Stable::new(sid) };
-            s.to_lua(lua);
-        },
-        Tag::StableInventory => {
-            let iid = try!(r.read());
-            let i = userdata::StableInventory { id: Stable::new(iid) };
-            i.to_lua(lua);
-        },
-
-        Tag::V3 => {
-            let (x, y, z) = try!(r.read());
-            V3::new(x, y, z).to_lua(lua);
-        },
-    }
-    Ok(())
-}
-
-fn read_table<'d, R: Reader, WF: world::Fragment<'d>>(lua: &mut LuaState,
-                                                      r: &mut R,
-                                                      wf: &mut WF) -> Result<()> {
-    lua.push_table();
-    loop {
-        try!(read_value(lua, r, wf));    // Key
-        if lua.type_of(-1) == ValueType::Nil {
-            lua.pop(1);
-            break;
-        }
-        try!(read_value(lua, r, wf));    // Value
-        lua.set_table(-3);
-    }
-    Ok(())
-}

@@ -16,8 +16,8 @@ use world::save::{self, ObjectReader, ObjectWriter};
 
 
 engine_part_typedef!(pub WorldFragment(world,
-                                       world, vision, messages));
-engine_part_typedef!(pub WorldHooks(world, vision, messages));
+                                       world, script, vision, messages));
+engine_part_typedef!(pub WorldHooks(world, script, vision, messages));
 
 impl<'a, 'd> world::Fragment<'d> for WorldFragment<'a, 'd> {
     fn world(&self) -> &World<'d> {
@@ -69,7 +69,7 @@ impl<'a, 'd> chunks::Fragment<'d> for ChunksFragment<'a, 'd> {
 
 
 engine_part_typedef!(pub PhysicsFragment(physics, chunks, world,
-                                         world, vision, messages));
+                                         world, script, vision, messages));
 
 impl<'a, 'd> physics_::Fragment<'d> for PhysicsFragment<'a, 'd> {
     fn with_chunks<F, R>(&mut self, f: F) -> R
