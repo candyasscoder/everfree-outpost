@@ -231,6 +231,7 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
     }
 
     fn on_client_destroy(&mut self, cid: ClientId) {
+        self.script_mut().cb_client_destroyed(cid);
         let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
         e.vision_mut().remove_client(cid, &mut h);
     }
@@ -273,6 +274,7 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
     }
 
     fn on_entity_destroy(&mut self, eid: EntityId) {
+        self.script_mut().cb_entity_destroyed(eid);
         let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
         e.vision_mut().remove_entity(eid, &mut h);
     }
@@ -284,8 +286,17 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
     }
 
 
+    fn on_structure_destroy(&mut self, sid: StructureId) {
+        self.script_mut().cb_structure_destroyed(sid);
+    }
+
+
     // No lifecycle callbacks for inventories, because Vision doesn't care what inventories exist,
     // only what inventories are actually subscribed to.
+
+    fn on_inventory_destroy(&mut self, iid: InventoryId) {
+        self.script_mut().cb_inventory_destroyed(iid);
+    }
 
     fn on_inventory_update(&mut self,
                            iid: InventoryId,

@@ -180,25 +180,25 @@ impl ScriptEngine {
     }
     */
 
-    pub fn callback_client_destroyed(&mut self, cid: ClientId) {
+    pub fn cb_client_destroyed(&mut self, cid: ClientId) {
         warn_on_err!(run_callback(&mut self.owned_lua.get(),
                                   "outpost_callback_set_client_extra",
                                   (cid.unwrap(), Nil)));
     }
 
-    pub fn callback_entity_destroyed(&mut self, eid: EntityId) {
+    pub fn cb_entity_destroyed(&mut self, eid: EntityId) {
         warn_on_err!(run_callback(&mut self.owned_lua.get(),
                                   "outpost_callback_set_entity_extra",
                                   (eid.unwrap(), Nil)));
     }
 
-    pub fn callback_structure_destroyed(&mut self, sid: StructureId) {
+    pub fn cb_structure_destroyed(&mut self, sid: StructureId) {
         warn_on_err!(run_callback(&mut self.owned_lua.get(),
                                   "outpost_callback_set_structure_extra",
                                   (sid.unwrap(), Nil)));
     }
 
-    pub fn callback_inventory_destroyed(&mut self, iid: InventoryId) {
+    pub fn cb_inventory_destroyed(&mut self, iid: InventoryId) {
         warn_on_err!(run_callback(&mut self.owned_lua.get(),
                                   "outpost_callback_set_inventory_extra",
                                   (iid.unwrap(), Nil)));
