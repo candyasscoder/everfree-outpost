@@ -70,14 +70,28 @@ macro_rules! impl_metatable_key {
 
 /// Types that can be passed to Lua as userdata values.
 #[allow(unused_variables)]
-pub trait Userdata: TypeName+MetatableKey+Copy {
+pub trait Userdata: TypeName+MetatableKey {
     fn populate_table(lua: &mut LuaState) { }
     fn populate_metatable(lua: &mut LuaState) { }
 }
 
 pub fn create_userdata<U: Userdata>(lua: &mut LuaState, u: U) {
-    lua.push_userdata(u);
-    lua.get_field(REGISTRY_INDEX, metatable_key::<U>());
+    // We need to be careful in here, since hitting a lua error after pushing the userdata but
+    // before setting the metatable could leak memory.
+
+    // Check we won't fail due to limited stack space.
+    assert!(lua.check_stack(2));
+
+    // Check we won't fail to find the metatable.
+    let key = metatable_key::<U>();
+    lua.get_field(REGISTRY_INDEX, key);
+    if lua.type_of(-1) == ValueType::Nil {
+        panic!("tried to create userdata, but found no metatable at {:?}", key);
+    }
+    lua.pop(1);
+
+    unsafe { lua.push_noncopy_userdata(u) };
+    lua.get_field(REGISTRY_INDEX, key);
     lua.set_metatable(-2);
 }
 
