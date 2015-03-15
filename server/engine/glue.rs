@@ -19,6 +19,8 @@ use world::save::{self, ObjectReader, ObjectWriter};
 // This macro defines all the EnginePart typedefs used in the engine.  We use a macro so we can
 // define parts in terms of other parts.
 macro_rules! part2 {
+    // Normal WorldFragment.  Changes through this fragment will be propagated to scripts and to
+    // clients.
     (WorldFragment, $($x:tt)*) => {
         part2!(world, WorldHooks, $($x)*);
     };
@@ -26,11 +28,27 @@ macro_rules! part2 {
         part2!(script, vision, VisionHooks, $($x)*);
     };
     (VisionHooks, $($x:tt)*) => {
-        part2!(world, messages, $($x)*);
+        part2!(world, chunks, messages, $($x)*);
     };
+
+    // Hidden WorldFragment.  Changes through this fragment will be propagated to scripts but NOT
+    // to clients.
+    (HiddenWorldFragment, $($x:tt)*) => {
+        part2!(world, HiddenWorldHooks, $($x)*);
+    };
+    (HiddenWorldHooks, $($x:tt)*) => {
+        part2!(script, $($x)*);
+    };
+
+    // Terrain generation produces a description of the chunk, but doesn't add it to the World
+    // directly.
     (TerrainGenFragment, $($x:tt)*) => {
         part2!(terrain_gen, script, $($x)*);
     };
+
+    // Chunk lifecycle events only occur on chunks that are not visible to clients, so it can use
+    // HiddenWorldFragment.  This prevents a dependency cycle (WorldFragment relies on Chunks to
+    // provide up-to-date block info).
     (ChunksFragment, $($x:tt)*) => {
         part2!(chunks, world, ChunksHooks, ChunkProvider, $($x)*);
     };
@@ -38,16 +56,20 @@ macro_rules! part2 {
         part2!($($x)*);
     };
     (ChunkProvider, $($x:tt)*) => {
-        part2!(WorldFragment, SaveReadFragment, TerrainGenFragment, $($x)*);
+        part2!(HiddenWorldFragment, SaveReadFragment, TerrainGenFragment, $($x)*);
     };
+
     (PhysicsFragment, $($x:tt)*) => {
         part2!(physics, chunks, world, WorldFragment, $($x)*);
     };
+
+    // Save read/write handling operates on HiddenWorldFragment for simplicity.  Higher-level code
+    // can explicitly propagate create/destroy events to clients, 
     (SaveReadFragment, $($x:tt)*) => {
-        part2!(WorldFragment, SaveReadHooks, $($x)*);
+        part2!(HiddenWorldFragment, SaveReadHooks, $($x)*);
     };
     (SaveReadHooks, $($x:tt)*) => {
-        part2!(script, WorldFragment, $($x)*);
+        part2!(script, HiddenWorldFragment, $($x)*);
     };
     (SaveWriteHooks, $($x:tt)*) => {
         part2!(script, $($x)*);
@@ -76,7 +98,7 @@ macro_rules! parts {
 }
 
 
-parts!(WorldFragment, WorldHooks);
+parts!(WorldFragment, WorldHooks, VisionHooks);
 
 impl<'a, 'd> world::Fragment<'d> for WorldFragment<'a, 'd> {
     fn world(&self) -> &World<'d> {
@@ -96,7 +118,24 @@ impl<'a, 'd> world::Fragment<'d> for WorldFragment<'a, 'd> {
 }
 
 
-parts!(VisionHooks);
+parts!(HiddenWorldFragment, HiddenWorldHooks);
+
+impl<'a, 'd> world::Fragment<'d> for HiddenWorldFragment<'a, 'd> {
+    fn world(&self) -> &World<'d> {
+        self.world()
+    }
+
+    fn world_mut(&mut self) -> &mut World<'d> {
+        self.world_mut()
+    }
+
+    type H = HiddenWorldHooks<'a, 'd>;
+    fn with_hooks<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut HiddenWorldHooks<'a, 'd>) -> R {
+        let mut e = unsafe { self.borrow().fiddle().slice() };
+        f(&mut e)
+    }
+}
 
 
 parts!(TerrainGenFragment);
@@ -156,9 +195,9 @@ impl<'a, 'd> physics_::Fragment<'d> for PhysicsFragment<'a, 'd> {
 parts!(SaveReadFragment, SaveReadHooks, SaveWriteHooks);
 
 impl<'a, 'd> world::save::ReadFragment<'d> for SaveReadFragment<'a, 'd> {
-    type WF = WorldFragment<'a, 'd>;
+    type WF = HiddenWorldFragment<'a, 'd>;
     fn with_world<F, R>(&mut self, f: F) -> R
-            where F: FnOnce(&mut WorldFragment<'a, 'd>) -> R {
+            where F: FnOnce(&mut HiddenWorldFragment<'a, 'd>) -> R {
         let mut e = unsafe { self.borrow().fiddle().slice() };
         f(&mut e)
     }

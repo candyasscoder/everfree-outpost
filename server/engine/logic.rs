@@ -4,7 +4,7 @@ use std::error::Error;
 use physics::{CHUNK_SIZE, TILE_SIZE};
 
 use types::*;
-use util::SmallSet;
+use util::{SmallSet, SmallVec};
 use util::StrResult;
 
 use chunks;
@@ -27,7 +27,7 @@ pub fn register(eng: &mut Engine, name: &str, appearance: u32) -> save::Result<(
     let cid;
 
     {
-        let mut eng: WorldFragment = EngineRef::new(eng).slice();
+        let mut eng: HiddenWorldFragment = EngineRef::new(eng).slice();
 
         pawn_id = try!(world::Fragment::create_entity(&mut eng, scalar(0), 2, appearance)).id();
 
@@ -46,7 +46,7 @@ pub fn register(eng: &mut Engine, name: &str, appearance: u32) -> save::Result<(
         try!(sw.save_client(&c));
     }
     {
-        let mut eng: WorldFragment = EngineRef::new(eng).slice();
+        let mut eng: HiddenWorldFragment = EngineRef::new(eng).slice();
         try!(world::Fragment::destroy_client(&mut eng, cid));
     }
 
@@ -66,6 +66,19 @@ pub fn login(eng: &mut Engine, wire_id: WireId, name: &str) -> save::Result<()> 
             fail!("client file not found");
         };
 
+    // Tell Vision about the client's entity (or entities).
+    {
+        let mut eids = SmallVec::new();
+        for e in eng.world.client(cid).child_entities() {
+            eids.push(e.id());
+        }
+        let (mut h, mut eng): (VisionHooks, _) = EngineRef::new(eng).split_off();
+        for &eid in eids.as_slice().iter() {
+            let area = entity_area(h.world(), eid);
+            eng.vision_mut().add_entity(eid, area, &mut h);
+        }
+    }
+
     // Load the chunks the client can currently see.
     let center = match eng.world.client(cid).pawn() {
         Some(eng) => eng.pos(now),
@@ -74,8 +87,7 @@ pub fn login(eng: &mut Engine, wire_id: WireId, name: &str) -> save::Result<()> 
     let region = vision::vision_region(center);
 
     for cpos in region.points() {
-        let mut eng: ChunksFragment = EngineRef::new(eng).slice();
-        chunks::Fragment::load(&mut eng, cpos);
+        load_chunk(eng, cpos);
     }
 
     // Set up the client to receive messages.
@@ -100,6 +112,18 @@ pub fn login(eng: &mut Engine, wire_id: WireId, name: &str) -> save::Result<()> 
 }
 
 pub fn logout(eng: &mut Engine, cid: ClientId) -> save::Result<()> {
+    eng.messages.remove_client(cid);
+
+    {
+        let (mut h, mut eng): (VisionHooks, _) = EngineRef::new(eng).split_off();
+        eng.vision_mut().remove_client(cid, &mut h);
+    }
+    if let Some(old_region) = eng.vision.client_view_area(cid) {
+        for cpos in old_region.points() {
+            unload_chunk(eng, cpos);
+        }
+    }
+
     {
         let (h, eng): (SaveWriteHooks, _) = EngineRef::new(eng).split_off();
         let c = eng.world().client(cid);
@@ -112,6 +136,29 @@ pub fn logout(eng: &mut Engine, cid: ClientId) -> save::Result<()> {
         try!(world::Fragment::destroy_client(&mut eng, cid));
     }
     Ok(())
+}
+
+
+fn load_chunk(eng: &mut Engine, cpos: V2) {
+    let first = {
+        let mut eng: ChunksFragment = EngineRef::new(eng).slice();
+        chunks::Fragment::load(&mut eng, cpos)
+    };
+    if first {
+        let (mut h, mut eng): (VisionHooks, _) = EngineRef::new(eng).split_off();
+        eng.vision_mut().add_chunk(cpos, &mut h);
+    }
+}
+
+fn unload_chunk(eng: &mut Engine, cpos: V2) {
+    let last = {
+        let mut eng: ChunksFragment = EngineRef::new(eng).slice();
+        chunks::Fragment::unload(&mut eng, cpos)
+    };
+    if last  {
+        let (mut h, mut eng): (VisionHooks, _) = EngineRef::new(eng).split_off();
+        eng.vision_mut().remove_chunk(cpos, &mut h);
+    }
 }
 
 
@@ -171,13 +218,11 @@ pub fn update_view(eng: &mut Engine, cid: ClientId) {
     };
 
     for cpos in old_region.points().filter(|&p| !new_region.contains(p)) {
-        let mut eng: ChunksFragment = EngineRef::new(eng).slice();
-        chunks::Fragment::unload(&mut eng, cpos);
+        unload_chunk(eng, cpos);
     }
 
     for cpos in new_region.points().filter(|&p| !old_region.contains(p)) {
-        let mut eng: ChunksFragment = EngineRef::new(eng).slice();
-        chunks::Fragment::load(&mut eng, cpos);
+        load_chunk(eng, cpos);
     }
 
     {
@@ -312,6 +357,30 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
     }
 }
 
+
+impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
+    fn on_client_destroy(&mut self, cid: ClientId) {
+        self.script_mut().cb_client_destroyed(cid);
+    }
+
+    fn on_terrain_chunk_destroy(&mut self, pos: V2) {
+        // ScriptEngine doesn't have a callback for this one
+    }
+
+    fn on_entity_destroy(&mut self, eid: EntityId) {
+        self.script_mut().cb_entity_destroyed(eid);
+    }
+
+    fn on_structure_destroy(&mut self, sid: StructureId) {
+        self.script_mut().cb_structure_destroyed(sid);
+    }
+
+    fn on_inventory_destroy(&mut self, iid: InventoryId) {
+        self.script_mut().cb_inventory_destroyed(iid);
+    }
+}
+
+
 fn entity_area(w: &World, eid: EntityId) -> SmallSet<V2> {
     let e = w.entity(eid);
     let mut area = SmallSet::new();
@@ -328,8 +397,9 @@ fn entity_area(w: &World, eid: EntityId) -> SmallSet<V2> {
 impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
     fn on_chunk_update(&mut self, cid: ClientId, pos: V2) {
         use util::encode_rle16;
-        let tc = self.world().terrain_chunk(pos);
-        let data = encode_rle16(tc.blocks().iter().map(|&x| x));
+        let tc = unwrap_or!(self.chunks().get_terrain(pos),
+            { warn!("no cached terrain available for {:?}", pos); return });
+        let data = encode_rle16(tc.iter().map(|&x| x));
         self.messages().send_client(cid, ClientResponse::TerrainChunk(pos, data));
     }
 
@@ -412,7 +482,7 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
                 }
             };
             {
-                let mut e: WorldFragment = self.borrow().slice();
+                let mut e: HiddenWorldFragment = self.borrow().slice();
                 let cid = {
                     let c = try!(world::Fragment::create_terrain_chunk(&mut e,
                                                                        cpos,
@@ -445,7 +515,7 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
         }
         */
         {
-            let mut e: WorldFragment = self.borrow().slice();
+            let mut e: HiddenWorldFragment = self.borrow().slice();
             try!(world::Fragment::destroy_terrain_chunk(&mut e, cpos));
         }
         Ok(())

@@ -1,5 +1,5 @@
 use physics::{self, Shape, ShapeSource};
-use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK};
+use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE};
 
 use types::*;
 use util::StrResult;
@@ -27,15 +27,19 @@ impl<'d> Physics<'d> {
 struct ChunksSource<'a, 'd: 'a> {
     data: &'d Data,
     chunks: &'a Chunks<'d>,
+    base_tile: V3,
 }
 
 impl<'a, 'd> ShapeSource for ChunksSource<'a, 'd> {
     fn get_shape(&self, pos: V3) -> Shape {
+        let pos = pos + self.base_tile;
+
         let offset = pos & scalar(CHUNK_MASK);
         let cpos = (pos >> CHUNK_BITS).reduce();
 
         if let Some(chunk) = self.chunks.get_terrain(cpos) {
             let idx = Region::new(scalar(0), scalar(CHUNK_SIZE)).index(offset);
+            debug!("{:?} -> {:?} + {:?} -> {}", pos, cpos, offset, chunk[idx]);
             self.data.block_data.shape(chunk[idx])
         } else {
             return Shape::Empty;
@@ -75,12 +79,19 @@ pub trait Fragment<'d> {
             let velocity = e.target_velocity();
             let size = scalar(32);
 
+            let chunk_px = CHUNK_SIZE * TILE_SIZE;
+            let base_chunk = start_pos.div_floor(scalar(chunk_px)) - scalar::<V2>(3).extend(0);
+            let base_tile = base_chunk * scalar(CHUNK_SIZE);
+            let base_px = base_tile * scalar(TILE_SIZE);
+
             let source = ChunksSource {
                 data: world.data(),
                 chunks: chunks,
+                base_tile: base_tile,
             };
             let (mut end_pos, mut dur) =
-                physics::collide(&source, start_pos, size, velocity);
+                physics::collide(&source, start_pos - base_px, size, velocity);
+            end_pos = end_pos + base_px;
 
             if dur > DURATION_MAX as i32 {
                 let offset = end_pos - start_pos;

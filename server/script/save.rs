@@ -7,7 +7,7 @@ use libc::c_int;
 
 use types::*;
 
-use engine::glue::WorldFragment;
+use engine::glue::HiddenWorldFragment;
 use lua::{self, LuaState, ValueType, REGISTRY_INDEX};
 use util::Convert;
 use util::Stable;
@@ -353,8 +353,7 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
 
 // NB: This typedef is the same as engine::glue::SaveReadHooks
 // TODO: maybe this should be a Fragment-style trait?
-engine_part_typedef!(pub ReadHooks(script,
-                                   world, vision, messages));
+engine_part_typedef!(pub ReadHooks(script, world));
 
 impl<'a, 'd> save::ReadHooks for ReadHooks<'a, 'd> {
     fn post_read_world<R: Reader>(&mut self,
@@ -462,7 +461,7 @@ impl<'a, 'd> ReadHooks<'a, 'd> {
         f(&mut lua)
     }
 
-    fn wf<'b>(&'b mut self) -> WorldFragment<'b, 'd> {
+    fn wf<'b>(&'b mut self) -> HiddenWorldFragment<'b, 'd> {
         self.borrow().slice()
     }
 

@@ -56,24 +56,29 @@ pub trait Fragment<'d> {
     fn with_provider<F, R>(&mut self, f: F) -> R
             where F: FnOnce(&mut Chunks<'d>, &mut Self::P) -> R;
 
-    fn load(&mut self, cpos: V2) {
-        self.with_provider(|sys, provider| {
-            sys.lifecycle.retain(cpos, |cpos| warn_on_err!(provider.load(cpos)));
+    /// Returns `true` iff the chunk was actually loaded as a result of this call (as opposed to
+    /// simply having its refcount incremented).
+    fn load(&mut self, cpos: V2) -> bool {
+        let first = self.with_provider(|sys, provider| {
+            sys.lifecycle.retain(cpos, |cpos| warn_on_err!(provider.load(cpos)))
         });
         self.with_world(|sys, world| {
             warn_on_err!(sys.cache.update(world, cpos));
         });
         self.with_hooks(|hooks| hooks.post_load(cpos));
+        first
     }
 
-    fn unload(&mut self, cpos: V2) {
+    /// Returns `true` iff the chunk was actually unloaded as a result of this call.
+    fn unload(&mut self, cpos: V2) -> bool {
         self.with_hooks(|hooks| hooks.pre_unload(cpos));
         self.with_world(|sys, _world| {
             sys.cache.forget(cpos);
         });
-        self.with_provider(|sys, provider| {
-            sys.lifecycle.release(cpos, |cpos| warn_on_err!(provider.unload(cpos)));
+        let last = self.with_provider(|sys, provider| {
+            sys.lifecycle.release(cpos, |cpos| warn_on_err!(provider.unload(cpos)))
         });
+        last
     }
 
     fn update(&mut self, cpos: V2) -> StrResult<()> {
@@ -171,7 +176,7 @@ impl Lifecycle {
 
     pub fn retain<F>(&mut self,
                      pos: V2,
-                     mut load: F)
+                     mut load: F) -> bool
             where F: FnMut(V2) {
         let first = match self.user_ref_count.entry(pos) {
             Vacant(e) => {
@@ -189,11 +194,13 @@ impl Lifecycle {
                 self.retain_inner(subpos, &mut load);
             }
         }
+
+        first
     }
 
     pub fn release<F>(&mut self,
                       pos: V2,
-                      mut unload: F)
+                      mut unload: F) -> bool
             where F: FnMut(V2) {
         let last = if let Occupied(mut e) = self.user_ref_count.entry(pos) {
             *e.get_mut() -= 1;
@@ -212,6 +219,8 @@ impl Lifecycle {
                 self.release_inner(subpos, &mut unload);
             }
         }
+
+        last
     }
 
     pub fn retain_inner<F>(&mut self,
