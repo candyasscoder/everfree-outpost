@@ -256,7 +256,6 @@ impl<GS: Field> PointSource for IsoDiskSampler<GS> {
                                   .filter(|&pos| bounds.contains(pos)));
             }
         }
-        info!("generated {} points for {:?}", points.len(), bounds);
         points
     }
 }

@@ -59,12 +59,28 @@ pub trait Fragment<'d> {
 
 pub struct GenChunk {
     pub blocks: Box<BlockChunk>,
+    pub structures: Vec<GenStructure>,
 }
 
 impl GenChunk {
     pub fn new() -> GenChunk {
         GenChunk {
             blocks: Box::new(EMPTY_CHUNK),
+            structures: Vec::new(),
+        }
+    }
+}
+
+pub struct GenStructure {
+    pub pos: V3,
+    pub template: TemplateId,
+}
+
+impl GenStructure {
+    pub fn new(pos: V3, template: TemplateId) -> GenStructure {
+        GenStructure {
+            pos: pos,
+            template: template,
         }
     }
 }

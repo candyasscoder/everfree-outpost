@@ -136,7 +136,7 @@ local sampler = IsoDiskSampler.new_constant(12347, 4, 32)
 
 function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
     local grass = {
-        ['grass/center/v0'] = 50,
+        ['grass/center/v0'] = 70,
         ['grass/center/v1'] = 10,
         ['grass/center/v2'] = 10,
         ['grass/center/v3'] = 10,
@@ -144,18 +144,23 @@ function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
 
     for y = 0, 15 do
         for x = 0, 15 do
-            --c:set_block(V3.new(x, y, 0), r:choose_weighted(pairs(grass)))
-            c:set_block(V3.new(x, y, 0), 'grass/center/v0')
+            c:set_block(V3.new(x, y, 0), r:choose_weighted(pairs(grass)))
         end
     end
+
+    local structures = {
+        ['tree'] = 7000,
+        ['rock'] = 3000,
+        ['stump'] = 100,
+        --['chest'] = 1,
+    }
 
     local min = cpos * V2.new(16, 16)
     local max = min + V2.new(16, 16)
     local p = sampler:get_points(min, max)
-    print(cpos, min, max)
 
     for i = 1, #p do
-        c:set_block((p[i] - min):extend(0), 'grass/center/v3')
+        c:add_structure((p[i] - min):extend(0), r:choose_weighted(pairs(structures)))
     end
 end
 

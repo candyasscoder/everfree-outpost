@@ -282,6 +282,24 @@ impl Userdata for GenChunk {
                 gc.open(|gc| gc.blocks[idx] = block_id);
                 true
             }
+
+            fn add_structure(!partial ctx: &terrain_gen::TerrainGen,
+                             gc: &GenChunk,
+                             pos: V3,
+                             template_name: &str) -> bool {
+                let template_id = unwrap_or!(ctx.data().object_templates.find_id(template_name),
+                                             return false);
+
+                let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
+                if !bounds.contains(pos) {
+                    return false;
+                };
+
+                // TODO: could use some sanity checks here.
+                let s = terrain_gen::GenStructure::new(pos, template_id);
+                gc.open(|gc| gc.structures.push(s));
+                true
+            }
         }
     }
 

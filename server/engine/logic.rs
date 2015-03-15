@@ -254,6 +254,7 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
 
 
     fn on_terrain_chunk_create(&mut self, pos: V2) {
+        info!("created {:?}", pos);
         let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
         e.vision_mut().add_chunk(pos, &mut h);
     }
@@ -264,6 +265,7 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
     }
 
     fn on_chunk_invalidate(&mut self, pos: V2) {
+        info!("invalidated {:?}", pos);
         let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
         e.vision_mut().update_chunk(pos, &mut h);
     }
@@ -399,25 +401,41 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
             let mut sr = ObjectReader::new(file);
             try!(sr.load_terrain_chunk(&mut e));
         } else {
-            let blocks = {
+            let gen_chunk = {
                 let mut e: TerrainGenFragment = self.borrow().slice();
                 match terrain_gen::Fragment::generate(&mut e, cpos) {
-                    Ok(b) => b.blocks,
+                    Ok(gc) => gc,
                     Err(e) => {
                         warn!("terrain generation failed for {:?}: {}", cpos, e.description());
-                        Box::new(EMPTY_CHUNK)
+                        terrain_gen::GenChunk::new()
                     },
                 }
             };
             {
                 let mut e: WorldFragment = self.borrow().slice();
-                try!(world::Fragment::create_terrain_chunk(&mut e, cpos, blocks));
+                let cid = {
+                    let c = try!(world::Fragment::create_terrain_chunk(&mut e,
+                                                                       cpos,
+                                                                       gen_chunk.blocks));
+                    c.id()
+                };
+                let base = cpos.extend(0) * scalar(CHUNK_SIZE);
+                for gs in gen_chunk.structures.into_iter() {
+                    let result = (|| {
+                        let mut s = try!(world::Fragment::create_structure(&mut e,
+                                                                           gs.pos + base,
+                                                                           gs.template));
+                        s.set_attachment(world::StructureAttachment::Chunk)
+                    })();
+                    warn_on_err!(result);
+                }
             }
         }
         Ok(())
     }
 
     fn unload(&mut self, cpos: V2) -> save::Result<()> {
+        /*
         {
             let (h, e): (SaveWriteHooks, _) = self.borrow().split_off();
             let t = e.world().terrain_chunk(cpos);
@@ -425,6 +443,7 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
             let mut sw = ObjectWriter::new(file, h);
             try!(sw.save_terrain_chunk(&t));
         }
+        */
         {
             let mut e: WorldFragment = self.borrow().slice();
             try!(world::Fragment::destroy_terrain_chunk(&mut e, cpos));
