@@ -7,8 +7,9 @@ use types::*;
 use util::StrResult;
 use util::Stable;
 
-use engine::{Engine, logic};
+use engine::Engine;
 use engine::glue::WorldFragment;
+use logic;
 use lua::LuaState;
 use script::traits::Userdata;
 use world;

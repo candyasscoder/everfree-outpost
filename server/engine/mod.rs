@@ -8,6 +8,7 @@ use util::Cursor;
 use auth::{Auth, Secret};
 use chunks::Chunks;
 use data::Data;
+use logic;
 use messages::{Messages};
 use messages::{Event, ControlEvent, WireEvent, ClientEvent, OtherEvent};
 use messages::{ControlResponse, WireResponse, ClientResponse};
@@ -26,7 +27,6 @@ use self::split::EngineRef;
 
 #[macro_use] pub mod split;
 pub mod glue;
-pub mod logic;
 
 
 pub struct Engine<'d> {

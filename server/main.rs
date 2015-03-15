@@ -87,6 +87,7 @@ mod physics_;
 mod chunks;
 mod terrain_gen;
 mod vision;
+mod logic;
 
 
 fn read_json(mut file: File) -> json::Json {
