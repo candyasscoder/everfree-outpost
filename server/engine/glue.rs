@@ -16,9 +16,67 @@ use world::{self, World};
 use world::save::{self, ObjectReader, ObjectWriter};
 
 
-engine_part_typedef!(pub WorldFragment(world,
-                                       world, script, vision, messages));
-engine_part_typedef!(pub WorldHooks(world, script, vision, messages));
+// This macro defines all the EnginePart typedefs used in the engine.  We use a macro so we can
+// define parts in terms of other parts.
+macro_rules! part2 {
+    (WorldFragment, $($x:tt)*) => {
+        part2!(world, WorldHooks, $($x)*);
+    };
+    (WorldHooks, $($x:tt)*) => {
+        part2!(script, vision, VisionHooks, $($x)*);
+    };
+    (VisionHooks, $($x:tt)*) => {
+        part2!(world, messages, $($x)*);
+    };
+    (TerrainGenFragment, $($x:tt)*) => {
+        part2!(terrain_gen, script, $($x)*);
+    };
+    (ChunksFragment, $($x:tt)*) => {
+        part2!(chunks, world, ChunksHooks, ChunkProvider, $($x)*);
+    };
+    (ChunksHooks, $($x:tt)*) => {
+        part2!($($x)*);
+    };
+    (ChunkProvider, $($x:tt)*) => {
+        part2!(WorldFragment, SaveReadFragment, TerrainGenFragment, $($x)*);
+    };
+    (PhysicsFragment, $($x:tt)*) => {
+        part2!(physics, chunks, world, WorldFragment, $($x)*);
+    };
+    (SaveReadFragment, $($x:tt)*) => {
+        part2!(WorldFragment, SaveReadHooks, $($x)*);
+    };
+    (SaveReadHooks, $($x:tt)*) => {
+        part2!(script, WorldFragment, $($x)*);
+    };
+    (SaveWriteHooks, $($x:tt)*) => {
+        part2!(script, $($x)*);
+    };
+
+
+    (_done / $name:ident / $($y:ident,)*) => {
+        engine_part_typedef!(pub $name($($y),*));
+    };
+    ($other:ident, $($x:ident),* / $name:ident / $($y:ident,)*) => {
+        part2!($($x),* / $name / $($y,)* $other,);
+    };
+}
+
+macro_rules! part {
+    ($name:ident) => {
+        part2!($name, _done / $name /);
+    };
+}
+
+macro_rules! parts {
+    ($($name:ident),* ,) => { parts!($($name),*) };
+    ($($name:ident),*) => {
+        $( part!($name); )*
+    }
+}
+
+
+parts!(WorldFragment, WorldHooks);
 
 impl<'a, 'd> world::Fragment<'d> for WorldFragment<'a, 'd> {
     fn world(&self) -> &World<'d> {
@@ -38,10 +96,10 @@ impl<'a, 'd> world::Fragment<'d> for WorldFragment<'a, 'd> {
 }
 
 
-engine_part_typedef!(pub VisionHooks(world, messages));
+parts!(VisionHooks);
 
 
-engine_part_typedef!(pub TerrainGenFragment(terrain_gen, script));
+parts!(TerrainGenFragment);
 
 impl<'a, 'd> terrain_gen::Fragment<'d> for TerrainGenFragment<'a, 'd> {
     fn open<F, R>(&mut self, f: F) -> R
@@ -52,10 +110,7 @@ impl<'a, 'd> terrain_gen::Fragment<'d> for TerrainGenFragment<'a, 'd> {
 }
 
 
-engine_part_typedef!(pub ChunksFragment(world, chunks,
-                                        world, script, vision, messages, terrain_gen));
-engine_part_typedef!(pub ChunksHooks());
-engine_part_typedef!(pub ChunkProvider(world, script, vision, messages, terrain_gen));
+parts!(ChunksFragment, ChunksHooks, ChunkProvider);
 
 impl<'a, 'd> chunks::Fragment<'d> for ChunksFragment<'a, 'd> {
     fn with_world<F, R>(&mut self, f: F) -> R
@@ -80,8 +135,7 @@ impl<'a, 'd> chunks::Fragment<'d> for ChunksFragment<'a, 'd> {
 }
 
 
-engine_part_typedef!(pub PhysicsFragment(physics, chunks, world,
-                                         world, script, vision, messages));
+parts!(PhysicsFragment);
 
 impl<'a, 'd> physics_::Fragment<'d> for PhysicsFragment<'a, 'd> {
     fn with_chunks<F, R>(&mut self, f: F) -> R
@@ -99,14 +153,7 @@ impl<'a, 'd> physics_::Fragment<'d> for PhysicsFragment<'a, 'd> {
 }
 
 
-engine_part_typedef!(pub SaveReadFragment(world, vision, messages,
-                                          script));
-// NB: This typedef is the same as script::save::ReadHooks
-engine_part_typedef!(pub SaveReadHooks(script,
-                                       world, vision, messages));
-
-// NB: This typedef is the same as script::save::WriteHooks
-engine_part_typedef!(pub SaveWriteHooks(script));
+parts!(SaveReadFragment, SaveReadHooks, SaveWriteHooks);
 
 impl<'a, 'd> world::save::ReadFragment<'d> for SaveReadFragment<'a, 'd> {
     type WF = WorldFragment<'a, 'd>;
