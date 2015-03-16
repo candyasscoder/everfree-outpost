@@ -5,7 +5,7 @@ use types::*;
 use chunks::{self, Chunks};
 use data::Data;
 use engine::Engine;
-use engine::split::{EngineRef, Open};
+use engine::split::{EngineRef, Open, Part};
 use messages::Messages;
 use physics_::{self, Physics};
 use script::{ScriptEngine, ReadHooks, WriteHooks};
@@ -155,7 +155,7 @@ parts!(TerrainGenFragment);
 impl<'a, 'd> terrain_gen::Fragment<'d> for TerrainGenFragment<'a, 'd> {
     fn open<F, R>(&mut self, f: F) -> R
             where F: FnOnce(&mut TerrainGen<'d>, &mut ScriptEngine) -> R {
-        let Open { terrain_gen, script, .. } = self.open();
+        let Open { terrain_gen, script, .. } = (**self).open();
         f(terrain_gen, script)
     }
 }

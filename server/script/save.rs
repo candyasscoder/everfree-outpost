@@ -8,6 +8,7 @@ use libc::c_int;
 use types::*;
 
 use engine::glue::HiddenWorldFragment;
+use engine::split::Part;
 use lua::{self, LuaState, ValueType, REGISTRY_INDEX};
 use util::Convert;
 use util::Stable;
@@ -125,7 +126,8 @@ enum Tag {
 
 
 // NB: This typedef is the same as engine::glue::SaveWriteHooks
-engine_part_typedef!(pub WriteHooks(script));
+//engine_part_typedef!(pub WriteHooks(script));
+pub type WriteHooks<'a, 'd> = ::engine::glue::SaveWriteHooks<'a, 'd>;
 
 impl<'a, 'd> save::WriteHooks for WriteHooks<'a, 'd> {
     fn post_write_world<W: Writer>(&mut self,
@@ -353,7 +355,8 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
 
 // NB: This typedef is the same as engine::glue::SaveReadHooks
 // TODO: maybe this should be a Fragment-style trait?
-engine_part_typedef!(pub ReadHooks(script, world));
+//engine_part_typedef!(pub ReadHooks(script, world));
+pub type ReadHooks<'a, 'd> = ::engine::glue::SaveReadHooks<'a, 'd>;
 
 impl<'a, 'd> save::ReadHooks for ReadHooks<'a, 'd> {
     fn post_read_world<R: Reader>(&mut self,

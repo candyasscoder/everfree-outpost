@@ -10,7 +10,7 @@ use util::StrResult;
 use chunks;
 use engine::Engine;
 use engine::glue::*;
-use engine::split::EngineRef;
+use engine::split::{EngineRef, Part};
 use input::{Action, InputBits};
 use logic;
 use messages::{ClientResponse, Dialog};
