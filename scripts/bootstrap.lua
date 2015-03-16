@@ -162,6 +162,10 @@ function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
     for i = 1, #p do
         c:add_structure((p[i] - min):extend(0), r:choose_weighted(pairs(structures)))
     end
+
+    if cpos:x() == 0 and cpos:y() == 0 then
+        c:add_structure(V3.new(0, 0, 0), 'anvil')
+    end
 end
 
 

@@ -114,12 +114,32 @@ impl ScriptEngine {
         x
     }
 
+    pub fn cb_interact(eng: &mut engine::Engine, cid: ClientId) -> StringResult<()> {
+        let ptr = eng as *mut engine::Engine;
+        eng.script.with_context(ptr, |lua| {
+            run_callback(lua,
+                         "outpost_callback_interact",
+                         (userdata::world::Client { id: cid }))
+        })
+    }
+
     pub fn cb_open_inventory(eng: &mut engine::Engine, cid: ClientId) -> StringResult<()> {
         let ptr = eng as *mut engine::Engine;
         eng.script.with_context(ptr, |lua| {
             run_callback(lua,
                          "outpost_callback_open_inventory",
                          (userdata::world::Client { id: cid }))
+        })
+    }
+
+    pub fn cb_use_item(eng: &mut engine::Engine,
+                       cid: ClientId,
+                       item_id: ItemId) -> StringResult<()> {
+        let ptr = eng as *mut engine::Engine;
+        eng.script.with_context(ptr, |lua| {
+            run_callback(lua,
+                         "outpost_callback_use_item",
+                         (userdata::world::Client { id: cid }, item_id))
         })
     }
 

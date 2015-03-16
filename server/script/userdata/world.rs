@@ -151,30 +151,18 @@ impl Userdata for Client {
                 logic::input::open_inventory(eng.as_ref(), c.id, i.id)
             }
 
-            fn open_container(!partial w: &world::World,
+            fn open_container(!full eng: &mut Engine,
                               c: Client,
                               i1: Inventory,
                               i2: Inventory) -> StrResult<()> {
-                // Check inputs are valid.
-                unwrap!(w.get_client(c.id));
-                unwrap!(w.get_inventory(i1.id));
-                unwrap!(w.get_inventory(i2.id));
-
-                //ctx.world.record(Update::ClientOpenContainer(c.id, i1.id, i2.id));
-                Ok(())
+                logic::input::open_container(eng.as_ref(), c.id, i1.id, i2.id)
             }
 
-            fn open_crafting(!partial w: &world::World,
+            fn open_crafting(!full eng: &mut Engine,
                              c: Client,
                              s: Structure,
                              i: Inventory) -> StrResult<()> {
-                // Check inputs are valid.
-                unwrap!(w.get_client(c.id));
-                unwrap!(w.get_structure(s.id));
-                unwrap!(w.get_inventory(i.id));
-
-                //ctx.world.record(Update::ClientOpenCrafting(c.id, s.id, i.id));
-                Ok(())
+                logic::input::open_crafting(eng.as_ref(), c.id, s.id, i.id)
             }
 
             fn send_message(!partial w: &world::World,

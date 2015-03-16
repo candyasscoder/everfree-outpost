@@ -40,13 +40,13 @@ pub fn input(mut eng: EngineRef, cid: ClientId, input: InputBits) {
 pub fn action(mut eng: EngineRef, cid: ClientId, action: Action) {
     match action {
         Action::Use => {
-            unimplemented!()
+            warn_on_err!(script::ScriptEngine::cb_interact(eng.unwrap(), cid));
         },
         Action::Inventory => {
             warn_on_err!(script::ScriptEngine::cb_open_inventory(eng.unwrap(), cid));
         },
         Action::UseItem(item_id) => {
-            unimplemented!()
+            warn_on_err!(script::ScriptEngine::cb_use_item(eng.unwrap(), cid, item_id));
         },
     }
 }
@@ -86,6 +86,42 @@ pub fn open_inventory(mut eng: EngineRef, cid: ClientId, iid: InventoryId) -> St
     unwrap!(eng.world().get_inventory(iid));
 
     eng.messages_mut().send_client(cid, ClientResponse::OpenDialog(Dialog::Inventory(iid)));
+    vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid);
+
+    Ok(())
+}
+
+pub fn open_container(mut eng: EngineRef,
+                      cid: ClientId,
+                      iid1: InventoryId,
+                      iid2: InventoryId) -> StrResult<()> {
+    // Check that IDs are valid.
+    unwrap!(eng.world().get_client(cid));
+    unwrap!(eng.world().get_inventory(iid1));
+    unwrap!(eng.world().get_inventory(iid1));
+
+    eng.messages_mut().send_client(cid, ClientResponse::OpenDialog(Dialog::Container(iid1, iid2)));
+    vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid1);
+    vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid2);
+
+    Ok(())
+}
+
+pub fn open_crafting(mut eng: EngineRef,
+                     cid: ClientId,
+                     sid: StructureId,
+                     iid: InventoryId) -> StrResult<()> {
+    // Check that IDs are valid.
+    unwrap!(eng.world().get_client(cid));
+    unwrap!(eng.world().get_inventory(iid));
+
+    let template_id = {
+        let s = unwrap!(eng.world().get_structure(sid));
+        s.template_id()
+    };
+
+    let dialog = Dialog::Crafting(template_id, sid, iid);
+    eng.messages_mut().send_client(cid, ClientResponse::OpenDialog(dialog));
     vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid);
 
     Ok(())

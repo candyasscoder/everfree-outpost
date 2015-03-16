@@ -16,14 +16,8 @@ local function get_or_noop(t, k)
     end
 end
 
-local action_handlers = {}
-function outpost_ffi.callbacks.action(client, action, arg)
-    local handler = get_or_noop(action_handlers, action)
-    handler(client, arg)
-end
-
 local structure_use_handlers = {}
-function action_handlers.use(client, arg)
+function outpost_ffi.callbacks.interact(client, arg)
     local s = util.hit_structure(client:pawn())
     if s ~= nil then
         local handler = get_or_noop(structure_use_handlers, s:template())
@@ -32,7 +26,7 @@ function action_handlers.use(client, arg)
 end
 
 local item_use_handlers = {}
-function action_handlers.use_item(c, arg)
+function outpost_ffi.callbacks.use_item(c, arg)
     local item_type = c:world():item_id_to_name(arg)
     if item_type == nil then
         return
@@ -48,7 +42,6 @@ function action_handlers.use_item(c, arg)
 end
 
 local M = {
-    handler = action_handlers,
     use = structure_use_handlers,
     use_item = item_use_handlers,
     open_inventory = nil,

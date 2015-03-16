@@ -118,11 +118,11 @@ parts!(WorldFragment, WorldHooks, VisionFragment, VisionHooks);
 
 impl<'a, 'd> world::Fragment<'d> for WorldFragment<'a, 'd> {
     fn world(&self) -> &World<'d> {
-        self.world()
+        (**self).world()
     }
 
     fn world_mut(&mut self) -> &mut World<'d> {
-        self.world_mut()
+        (**self).world_mut()
     }
 
     type H = WorldHooks<'a, 'd>;
@@ -153,11 +153,11 @@ parts!(HiddenWorldFragment, HiddenWorldHooks);
 
 impl<'a, 'd> world::Fragment<'d> for HiddenWorldFragment<'a, 'd> {
     fn world(&self) -> &World<'d> {
-        self.world()
+        (**self).world()
     }
 
     fn world_mut(&mut self) -> &mut World<'d> {
-        self.world_mut()
+        (**self).world_mut()
     }
 
     type H = HiddenWorldHooks<'a, 'd>;
