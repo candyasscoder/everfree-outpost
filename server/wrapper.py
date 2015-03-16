@@ -3,6 +3,7 @@ import math
 import os
 import socket
 import struct
+import sys
 import time
 
 import tornado.autoreload
@@ -159,10 +160,19 @@ class FileHandler(tornado.web.StaticFileHandler):
             return super(FileHandler, cls).get_absolute_path(root, 'client.html')
         return super(FileHandler, cls).get_absolute_path(root, path)
 
+
+BIN_DIR = os.path.dirname(sys.argv[0])
+ROOT_DIR = os.path.normpath(os.path.join(BIN_DIR, '..'))
+
+def path(x):
+    return os.path.join(ROOT_DIR, x)
+
+DEBUG = os.environ.get('OUTPOST_DEBUG') == 1
+
 application = tornado.web.Application([
     (r'/ws', WSHandler),
-    (r'/(.*)', FileHandler, { 'path': './dist/www' }),
-], debug=True)
+    (r'/(.*)', FileHandler, { 'path': path('www') }),
+], debug=DEBUG)
 
 
 class BackendStream(object):
@@ -323,25 +333,25 @@ class ReplServer(object):
         cb(text)
 
 if __name__ == "__main__":
-    import sys
-
-    bin_dir = os.path.dirname(sys.argv[0])
-    root_dir = os.path.dirname(bin_dir)
-
-    LOG_DIR = os.path.join(root_dir, 'logs')
+    LOG_DIR = path('logs')
     os.makedirs(LOG_DIR, exist_ok=True)
 
-    exe = os.path.join(root_dir, 'bin/backend')
-    blocks_json = os.path.join(root_dir, 'data/blocks.json')
-    objects_json = os.path.join(root_dir, 'data/objects.json')
-    script_dir = os.path.join(root_dir, 'scripts')
+    exe = os.path.join(BIN_DIR, 'backend')
 
-    tornado.autoreload.watch(exe)
-    tornado.autoreload.watch(blocks_json)
-    tornado.autoreload.watch(objects_json)
-    tornado.autoreload.watch(os.path.join(script_dir, 'bootstrap.lua'))
+    if DEBUG:
+        tornado.autoreload.watch(exe)
 
-    backend = BackendStream([exe, root_dir])
+        blocks_json = os.path.join(ROOT_DIR, 'data/blocks.json')
+        objects_json = os.path.join(ROOT_DIR, 'data/objects.json')
+        script_dir = os.path.join(ROOT_DIR, 'scripts')
+
+        tornado.autoreload.watch(blocks_json)
+        tornado.autoreload.watch(objects_json)
+        tornado.autoreload.watch(os.path.join(script_dir, 'bootstrap.lua'))
+
+    PORT = int(os.environ.get('OUTPOST_PORT', 8888))
+
+    backend = BackendStream([exe, ROOT_DIR])
     repl = ReplServer(backend)
-    application.listen(8888)
+    application.listen(PORT)
     tornado.ioloop.IOLoop.instance().start()
