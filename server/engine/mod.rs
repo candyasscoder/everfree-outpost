@@ -124,7 +124,7 @@ impl<'d> Engine<'d> {
             Login(name, secret) => {
                 match self.auth.login(&*name, &secret) {
                     Ok(true) => {
-                        logic::login(self, wire_id, &*name);
+                        logic::client::login(self, wire_id, &*name);
                     },
                     Ok(false) => {
                         info!("{:?}: login as {} failed: bad name/secret",
@@ -157,15 +157,15 @@ impl<'d> Engine<'d> {
         use messages::ClientResponse::*;
         match evt {
             Input(input) => {
-                logic::input(self, cid, input);
+                logic::input::input(self, cid, input);
             },
 
             Action(action) => {
-                logic::action(self, cid, action);
+                logic::input::action(self, cid, action);
             },
 
             UnsubscribeInventory(iid) => {
-                logic::unsubscribe_inventory(self, cid, iid);
+                logic::input::unsubscribe_inventory(self, cid, iid);
             },
 
             MoveItem(from_iid, to_iid, item_id, count) => {
@@ -181,7 +181,7 @@ impl<'d> Engine<'d> {
             },
 
             CheckView => {
-                logic::update_view(self, cid);
+                logic::client::update_view(self, cid);
             },
 
             BadRequest => {
@@ -195,14 +195,14 @@ impl<'d> Engine<'d> {
         use messages::OtherEvent::*;
         match evt {
             PhysicsUpdate(eid) => {
-                logic::physics_update(self, eid);
+                logic::input::physics_update(self, eid);
             },
         }
     }
 
 
     fn cleanup_client(&mut self, cid: ClientId) {
-        warn_on_err!(logic::logout(self, cid));
+        warn_on_err!(logic::client::logout(self, cid));
     }
 
     fn cleanup_wire(&mut self, wire_id: WireId) {
@@ -239,7 +239,7 @@ impl<'d> Engine<'d> {
         match self.auth.register(&*name, &secret) {
             Ok(true) => {
                 info!("{:?}: registered as {}", wire_id, name);
-                match logic::register(self, &*name, appearance) {
+                match logic::client::register(self, &*name, appearance) {
                     Ok(()) => (0, String::new()),
                     Err(e) => {
                         warn!("{:?}: error registering as {}: {}",
