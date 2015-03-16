@@ -300,3 +300,44 @@ impl VisionEntity {
         }
     }
 }
+
+
+macro_rules! gen_Fragment {
+    ($( fn $name:ident($($arg:ident: $arg_ty:ty),*); )*) => {
+        pub trait Fragment<'d> {
+            type H: Hooks;
+            fn with_hooks<F, R>(&mut self, f: F) -> R
+                where F: FnOnce(&mut Vision, &mut Self::H) -> R;
+
+            $(
+                fn $name(&mut self, $($arg: $arg_ty),*) {
+                    self.with_hooks(|sys, hooks| {
+                        sys.$name($($arg,)* hooks)
+                    })
+                }
+            )*
+        }
+    };
+}
+
+gen_Fragment! {
+    fn add_client(cid: ClientId, view: Region<V2>);
+    fn remove_client(cid: ClientId);
+    fn set_client_view(cid: ClientId, view: Region<V2>);
+
+    fn add_entity(eid: EntityId, area: SmallSet<V2>);
+    fn remove_entity(eid: EntityId);
+    fn set_entity_area(eid: EntityId, area: SmallSet<V2>);
+
+    fn add_chunk(pos: V2);
+    fn remove_chunk(pos: V2);
+    fn update_chunk(pos: V2);
+
+    fn subscribe_inventory(cid: ClientId, iid: InventoryId);
+    fn unsubscribe_inventory(cid: ClientId, iid: InventoryId);
+    fn update_inventory(iid: InventoryId,
+                        item_id: ItemId,
+                        old_count: u8,
+                        new_count: u8);
+}
+

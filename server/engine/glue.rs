@@ -11,7 +11,7 @@ use physics_::{self, Physics};
 use script::{ScriptEngine, ReadHooks, WriteHooks};
 use storage::Storage;
 use terrain_gen::{self, TerrainGen};
-use vision::Vision;
+use vision::{self, Vision};
 use world::{self, World};
 use world::save::{self, ObjectReader, ObjectWriter};
 
@@ -26,6 +26,9 @@ macro_rules! part2 {
     };
     (WorldHooks, $($x:tt)*) => {
         part2!(script, vision, VisionHooks, $($x)*);
+    };
+    (VisionFragment, $($x:tt)*) => {
+        part2!(vision, VisionHooks, $($x)*);
     };
     (VisionHooks, $($x:tt)*) => {
         part2!(world, chunks, messages, $($x)*);
@@ -98,7 +101,7 @@ macro_rules! parts {
 }
 
 
-parts!(WorldFragment, WorldHooks, VisionHooks);
+parts!(WorldFragment, WorldHooks, VisionFragment, VisionHooks);
 
 impl<'a, 'd> world::Fragment<'d> for WorldFragment<'a, 'd> {
     fn world(&self) -> &World<'d> {
@@ -114,6 +117,15 @@ impl<'a, 'd> world::Fragment<'d> for WorldFragment<'a, 'd> {
             where F: FnOnce(&mut WorldHooks<'a, 'd>) -> R {
         let mut e = unsafe { self.borrow().fiddle().slice() };
         f(&mut e)
+    }
+}
+
+impl<'a, 'd> vision::Fragment<'d> for VisionFragment<'a, 'd> {
+    type H = VisionHooks<'a, 'd>;
+    fn with_hooks<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut Vision, &mut VisionHooks<'a, 'd>) -> R {
+        let (mut h, mut e) = unsafe { self.borrow().fiddle().split_off() };
+        f(e.vision_mut(), &mut h)
     }
 }
 
