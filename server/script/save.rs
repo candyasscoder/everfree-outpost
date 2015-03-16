@@ -465,7 +465,7 @@ impl<'a, 'd> ReadHooks<'a, 'd> {
     }
 
     fn wf<'b>(&'b mut self) -> HiddenWorldFragment<'b, 'd> {
-        self.borrow().slice()
+        self.as_hidden_world_fragment()
     }
 
     fn read_extra<R: Reader, F>(&mut self,

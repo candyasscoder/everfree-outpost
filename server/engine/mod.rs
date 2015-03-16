@@ -124,7 +124,7 @@ impl<'d> Engine<'d> {
             Login(name, secret) => {
                 match self.auth.login(&*name, &secret) {
                     Ok(true) => {
-                        logic::client::login(self, wire_id, &*name);
+                        logic::client::login(self.as_ref(), wire_id, &*name);
                     },
                     Ok(false) => {
                         info!("{:?}: login as {} failed: bad name/secret",
@@ -157,15 +157,15 @@ impl<'d> Engine<'d> {
         use messages::ClientResponse::*;
         match evt {
             Input(input) => {
-                logic::input::input(self, cid, input);
+                logic::input::input(self.as_ref(), cid, input);
             },
 
             Action(action) => {
-                logic::input::action(self, cid, action);
+                logic::input::action(self.as_ref(), cid, action);
             },
 
             UnsubscribeInventory(iid) => {
-                logic::input::unsubscribe_inventory(self, cid, iid);
+                logic::input::unsubscribe_inventory(self.as_ref(), cid, iid);
             },
 
             MoveItem(from_iid, to_iid, item_id, count) => {
@@ -181,7 +181,7 @@ impl<'d> Engine<'d> {
             },
 
             CheckView => {
-                logic::client::update_view(self, cid);
+                logic::client::update_view(self.as_ref(), cid);
             },
 
             BadRequest => {
@@ -195,14 +195,14 @@ impl<'d> Engine<'d> {
         use messages::OtherEvent::*;
         match evt {
             PhysicsUpdate(eid) => {
-                logic::input::physics_update(self, eid);
+                logic::input::physics_update(self.as_ref(), eid);
             },
         }
     }
 
 
     fn cleanup_client(&mut self, cid: ClientId) {
-        warn_on_err!(logic::client::logout(self, cid));
+        warn_on_err!(logic::client::logout(self.as_ref(), cid));
     }
 
     fn cleanup_wire(&mut self, wire_id: WireId) {
@@ -227,6 +227,11 @@ impl<'d> Engine<'d> {
     }
 
 
+    pub fn as_ref<'b>(&'b mut self) -> EngineRef<'b, 'd> {
+        EngineRef::new(self)
+    }
+
+
     fn do_register(&mut self,
                    wire_id: WireId,
                    name: String,
@@ -239,7 +244,7 @@ impl<'d> Engine<'d> {
         match self.auth.register(&*name, &secret) {
             Ok(true) => {
                 info!("{:?}: registered as {}", wire_id, name);
-                match logic::client::register(self, &*name, appearance) {
+                match logic::client::register(self.as_ref(), &*name, appearance) {
                     Ok(()) => (0, String::new()),
                     Err(e) => {
                         warn!("{:?}: error registering as {}: {}",

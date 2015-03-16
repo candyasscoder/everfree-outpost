@@ -37,12 +37,12 @@ macro_rules! EnginePart_decl {
                 unsafe { EnginePart::from_raw(self.ptr) }
             }
 
-            pub fn _slice<$($tv2),*>(self) -> EnginePart<'a, 'd, $($tv2),*>
+            pub fn slice<$($tv2),*>(self) -> EnginePart<'a, 'd, $($tv2),*>
                     where EnginePart<'a, 'd, $($tv2),*>: Subpart<Self> {
                 unsafe { EnginePart::from_raw(self.ptr) }
             }
 
-            pub fn _split<$($tv2, $tv3,)*>(self) ->
+            pub fn split<$($tv2, $tv3,)*>(self) ->
                         (EnginePart<'a, 'd, $($tv2),*>,
                          EnginePart<'a, 'd, $($tv3),*>)
                     where (EnginePart<'a, 'd, $($tv2),*>,
@@ -51,14 +51,14 @@ macro_rules! EnginePart_decl {
                           EnginePart::from_raw(self.ptr)) }
             }
 
-            pub fn _split_off<$($tv2,)*>(self) ->
+            pub fn split_off<$($tv2,)*>(self) ->
                         (EnginePart<'a, 'd, $($tv2),*>,
                          EnginePart<'a, 'd, $(<$tv as SplitOffRHS<'a, $tv2>>::RHS),*>)
                     where $($tv: SplitOffRHS<'a, $tv2>,)*
                           (EnginePart<'a, 'd, $($tv2),*>,
                            EnginePart<'a, 'd, $(<$tv as SplitOffRHS<'a, $tv2>>::RHS),*>):
                               Subpart2<Self> {
-                self._split()
+                self.split()
             }
 
             pub fn open<'b>(&'b mut self) -> Open<'b, 'd, $($tv),*> {
@@ -117,36 +117,10 @@ macro_rules! EnginePart_decl {
         $( subitem_impls!($fty); )*
 
 
-        pub trait Part<'a, 'd>: Sized {
-            $( type $tv: 'a; )*
-            fn from_part(part: EnginePart<'a, 'd, $(Self::$tv),*>) -> Self;
-            fn to_part(self) -> EnginePart<'a, 'd, $(Self::$tv),*>;
-
-            fn slice<P>(self) -> P
-                    where P: Part<'a, 'd>,
-                          EnginePart<'a, 'd, $(<P as Part<'a, 'd>>::$tv),*>:
-                              Subpart<EnginePart<'a, 'd, $(<Self as Part<'a, 'd>>::$tv),*>> {
-                P::from_part(self.to_part()._slice())
-            }
-
-            fn split_off<P>(self) -> (P, EnginePart<'a, 'd,
-                // <Self::Wr as SplitOffRHS<P::Wr>>::RHS, and similarly for each other subsystem
-                $(<<Self as Part<'a, 'd>>::$tv as SplitOffRHS<'a, <P as Part<'a, 'd>>::$tv>>::RHS),*
-                >)
-                          // P must be a Part
-                    where P: Part<'a, 'd>,
-                          // Self::Wr: SplitOffRHS<P::Wr>, etc.
-                          $(
-                            <Self as Part<'a, 'd>>::$tv: SplitOffRHS<'a, <P as Part<'a, 'd>>::$tv>,
-                          )*
-                          // This one basically says that self.to_part() can be split into the two
-                          // pieces.
-                          (EnginePart<'a, 'd, $(<P as Part<'a, 'd>>::$tv),*>, EnginePart<'a, 'd,
-                           $(<<Self as Part<'a, 'd>>::$tv as SplitOffRHS<'a, <P as Part<'a, 'd>>::$tv>>::RHS),*
-                           >): Subpart2<EnginePart<'a, 'd, $(<Self as Part<'a, 'd>>::$tv),*>> {
-                let (a, b) = self.to_part()._split();
-                (P::from_part(a), b)
-            }
+        pub trait Part: Sized {
+            type P: Sized;
+            fn from_part(part: Self::P) -> Self;
+            fn to_part(self) -> Self::P;
         }
     };
 }
@@ -280,15 +254,9 @@ macro_rules! engine_part_typedef_priv {
 
 macro_rules! engine_part_typedef_impls {
     ($name:ident, $wr:ty, $sc:ty, $ms:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $tg:ty) => {
-        impl<'a, 'd: 'a> $crate::engine::split::Part<'a, 'd> for $name<'a, 'd> {
-            type Wr = $wr;
-            type Sc = $sc;
-            type Ms = $ms;
-            type Ph = $ph;
-            type Vi = $vi;
-            type Au = $au;
-            type Ch = $ch;
-            type Tg = $tg;
+        impl<'a, 'd: 'a> $crate::engine::split::Part for $name<'a, 'd> {
+            type P = $crate::engine::split::EnginePart<
+                'a, 'd, $wr, $sc, $ms, $ph, $vi, $au, $ch, $tg>;
 
             fn from_part(part: $crate::engine::split::EnginePart<
                              'a, 'd, $wr, $sc, $ms, $ph, $vi, $au, $ch, $tg>) -> $name<'a, 'd> {
@@ -349,5 +317,9 @@ engine_part_typedef!(pub EngineRef(world, script, messages, physics, vision, aut
 impl<'a, 'd> EngineRef<'a, 'd> {
     pub fn new(e: &'a mut Engine<'d>) -> Self {
         EngineRef(unsafe { EnginePart::from_raw(e as *mut _) })
+    }
+
+    pub fn unwrap(self) -> &'a mut Engine<'d> {
+        unsafe { mem::transmute(self.0) }
     }
 }

@@ -22,25 +22,17 @@ use world::save::{self, ObjectReader, ObjectWriter, ReadHooks, WriteHooks};
 use vision::{self, vision_region};
 
 
-pub fn load_chunk(eng: &mut Engine, cpos: V2) {
-    let first = {
-        let mut eng: ChunksFragment = EngineRef::new(eng).slice();
-        chunks::Fragment::load(&mut eng, cpos)
-    };
+pub fn load_chunk(mut eng: EngineRef, cpos: V2) {
+    let first = chunks::Fragment::load(&mut eng.as_chunks_fragment(), cpos);
     if first {
-        let (mut h, mut eng): (VisionHooks, _) = EngineRef::new(eng).split_off();
-        eng.vision_mut().add_chunk(cpos, &mut h);
+        vision::Fragment::add_chunk(&mut eng.as_vision_fragment(), cpos);
     }
 }
 
-pub fn unload_chunk(eng: &mut Engine, cpos: V2) {
-    let last = {
-        let mut eng: ChunksFragment = EngineRef::new(eng).slice();
-        chunks::Fragment::unload(&mut eng, cpos)
-    };
-    if last  {
-        let (mut h, mut eng): (VisionHooks, _) = EngineRef::new(eng).split_off();
-        eng.vision_mut().remove_chunk(cpos, &mut h);
+pub fn unload_chunk(mut eng: EngineRef, cpos: V2) {
+    let last = chunks::Fragment::unload(&mut eng.as_chunks_fragment(), cpos);
+    if last {
+        vision::Fragment::remove_chunk(&mut eng.as_vision_fragment(), cpos);
     }
 }
 
@@ -53,13 +45,11 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
 
     fn load(&mut self, cpos: V2) -> save::Result<()> {
         if let Some(file) = self.storage().open_terrain_chunk_file(cpos) {
-            let mut e: SaveReadFragment = self.borrow().slice();
             let mut sr = ObjectReader::new(file);
-            try!(sr.load_terrain_chunk(&mut e));
+            try!(sr.load_terrain_chunk(&mut self.as_save_read_fragment()));
         } else {
             let gen_chunk = {
-                let mut e: TerrainGenFragment = self.borrow().slice();
-                match terrain_gen::Fragment::generate(&mut e, cpos) {
+                match terrain_gen::Fragment::generate(&mut self.as_terrain_gen_fragment(), cpos) {
                     Ok(gc) => gc,
                     Err(e) => {
                         warn!("terrain generation failed for {:?}: {}", cpos, e.description());
@@ -68,9 +58,9 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
                 }
             };
             {
-                let mut e: HiddenWorldFragment = self.borrow().slice();
+                let mut hwf = self.as_hidden_world_fragment();
                 let cid = {
-                    let c = try!(world::Fragment::create_terrain_chunk(&mut e,
+                    let c = try!(world::Fragment::create_terrain_chunk(&mut hwf,
                                                                        cpos,
                                                                        gen_chunk.blocks));
                     c.id()
@@ -78,7 +68,7 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
                 let base = cpos.extend(0) * scalar(CHUNK_SIZE);
                 for gs in gen_chunk.structures.into_iter() {
                     let result = (|| {
-                        let mut s = try!(world::Fragment::create_structure(&mut e,
+                        let mut s = try!(world::Fragment::create_structure(&mut hwf,
                                                                            gs.pos + base,
                                                                            gs.template));
                         s.set_attachment(world::StructureAttachment::Chunk)
@@ -91,19 +81,15 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
     }
 
     fn unload(&mut self, cpos: V2) -> save::Result<()> {
-        /*
         {
-            let (h, e): (SaveWriteHooks, _) = self.borrow().split_off();
-            let t = e.world().terrain_chunk(cpos);
-            let file = e.storage().create_terrain_chunk_file(cpos);
+            let (h, eng) = self.borrow().0.split_off();
+            let h = SaveWriteHooks(h);
+            let t = eng.world().terrain_chunk(cpos);
+            let file = eng.storage().create_terrain_chunk_file(cpos);
             let mut sw = ObjectWriter::new(file, h);
             try!(sw.save_terrain_chunk(&t));
         }
-        */
-        {
-            let mut e: HiddenWorldFragment = self.borrow().slice();
-            try!(world::Fragment::destroy_terrain_chunk(&mut e, cpos));
-        }
+        try!(world::Fragment::destroy_terrain_chunk(&mut self.as_hidden_world_fragment(), cpos));
         Ok(())
     }
 }

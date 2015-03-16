@@ -28,8 +28,8 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
 
     fn on_client_destroy(&mut self, cid: ClientId) {
         self.script_mut().cb_client_destroyed(cid);
-        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
-        e.vision_mut().remove_client(cid, &mut h);
+        // TODO: should this be here or in logic::clients?
+        vision::Fragment::remove_client(&mut self.as_vision_fragment(), cid);
     }
 
     fn on_client_change_pawn(&mut self,
@@ -42,45 +42,37 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
             None => scalar(0),
         };
 
-        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
-        e.vision_mut().set_client_view(cid, vision_region(center), &mut h);
+        let region = vision_region(center);
+        vision::Fragment::set_client_view(&mut self.as_vision_fragment(), cid, region);
     }
 
 
-    fn on_terrain_chunk_create(&mut self, pos: V2) {
-        info!("created {:?}", pos);
-        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
-        e.vision_mut().add_chunk(pos, &mut h);
+    fn on_terrain_chunk_create(&mut self, cpos: V2) {
+        vision::Fragment::add_chunk(&mut self.as_vision_fragment(), cpos);
     }
 
-    fn on_terrain_chunk_destroy(&mut self, pos: V2) {
-        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
-        e.vision_mut().remove_chunk(pos, &mut h);
+    fn on_terrain_chunk_destroy(&mut self, cpos: V2) {
+        vision::Fragment::remove_chunk(&mut self.as_vision_fragment(), cpos);
     }
 
-    fn on_chunk_invalidate(&mut self, pos: V2) {
-        info!("invalidated {:?}", pos);
-        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
-        e.vision_mut().update_chunk(pos, &mut h);
+    fn on_chunk_invalidate(&mut self, cpos: V2) {
+        vision::Fragment::update_chunk(&mut self.as_vision_fragment(), cpos);
     }
 
 
     fn on_entity_create(&mut self, eid: EntityId) {
         let area = entity_area(self.world(), eid);
-        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
-        e.vision_mut().add_entity(eid, area, &mut h);
+        vision::Fragment::add_entity(&mut self.as_vision_fragment(), eid, area);
     }
 
     fn on_entity_destroy(&mut self, eid: EntityId) {
         self.script_mut().cb_entity_destroyed(eid);
-        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
-        e.vision_mut().remove_entity(eid, &mut h);
+        vision::Fragment::remove_entity(&mut self.as_vision_fragment(), eid);
     }
 
     fn on_entity_motion_change(&mut self, eid: EntityId) {
         let area = entity_area(self.world(), eid);
-        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
-        e.vision_mut().set_entity_area(eid, area, &mut h);
+        vision::Fragment::set_entity_area(&mut self.as_vision_fragment(), eid, area);
     }
 
 
@@ -101,8 +93,8 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
                            item_id: ItemId,
                            old_count: u8,
                            new_count: u8) {
-        let (mut h, mut e): (VisionHooks, _) = self.borrow().split_off();
-        e.vision_mut().update_inventory(iid, item_id, old_count, new_count, &mut h);
+        vision::Fragment::update_inventory(&mut self.as_vision_fragment(),
+                                           iid, item_id, old_count, new_count);
     }
 }
 

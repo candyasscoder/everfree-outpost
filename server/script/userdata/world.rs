@@ -148,7 +148,7 @@ impl Userdata for Client {
             fn open_inventory(!full eng: &mut Engine,
                               c: Client,
                               i: Inventory) -> StrResult<()> {
-                logic::input::open_inventory(eng, c.id, i.id)
+                logic::input::open_inventory(eng.as_ref(), c.id, i.id)
             }
 
             fn open_container(!partial w: &world::World,
