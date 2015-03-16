@@ -148,21 +148,21 @@ impl Userdata for Client {
             fn open_inventory(!full eng: &mut Engine,
                               c: Client,
                               i: Inventory) -> StrResult<()> {
-                logic::input::open_inventory(eng.as_ref(), c.id, i.id)
+                logic::items::open_inventory(eng.as_ref(), c.id, i.id)
             }
 
             fn open_container(!full eng: &mut Engine,
                               c: Client,
                               i1: Inventory,
                               i2: Inventory) -> StrResult<()> {
-                logic::input::open_container(eng.as_ref(), c.id, i1.id, i2.id)
+                logic::items::open_container(eng.as_ref(), c.id, i1.id, i2.id)
             }
 
             fn open_crafting(!full eng: &mut Engine,
                              c: Client,
                              s: Structure,
                              i: Inventory) -> StrResult<()> {
-                logic::input::open_crafting(eng.as_ref(), c.id, s.id, i.id)
+                logic::items::open_crafting(eng.as_ref(), c.id, s.id, i.id)
             }
 
             fn send_message(!partial w: &world::World,
