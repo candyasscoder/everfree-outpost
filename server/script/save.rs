@@ -516,7 +516,7 @@ impl<'a, 'd> ReadHooks<'a, 'd> {
                 self.lua().push_string(&*s);
             },
             Tag::Table => {
-                //try!(read_table(lua, r, wf));
+                try!(self.read_table(r));
             },
 
             Tag::World => {

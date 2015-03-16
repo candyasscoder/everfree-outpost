@@ -401,7 +401,7 @@ impl Messages {
                     Dialog::Inventory(iid) => 
                         self.send_raw(wire_id, Response::OpenDialog(0, vec![iid.unwrap()])),
                     Dialog::Container(iid1, iid2) => 
-                        self.send_raw(wire_id, Response::OpenDialog(0, vec![iid1.unwrap(),
+                        self.send_raw(wire_id, Response::OpenDialog(1, vec![iid1.unwrap(),
                                                                             iid2.unwrap()])),
                     Dialog::Crafting(template_id, sid, iid) =>
                         self.send_raw(wire_id, Response::OpenCrafting(template_id, sid, iid)),

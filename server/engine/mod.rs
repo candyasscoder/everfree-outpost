@@ -124,7 +124,7 @@ impl<'d> Engine<'d> {
             Login(name, secret) => {
                 match self.auth.login(&*name, &secret) {
                     Ok(true) => {
-                        logic::client::login(self.as_ref(), wire_id, &*name);
+                        warn_on_err!(logic::client::login(self.as_ref(), wire_id, &*name));
                     },
                     Ok(false) => {
                         info!("{:?}: login as {} failed: bad name/secret",
@@ -169,11 +169,13 @@ impl<'d> Engine<'d> {
             },
 
             MoveItem(from_iid, to_iid, item_id, count) => {
-                unimplemented!()
+                warn_on_err!(logic::items::move_items(self.as_ref(),
+                                                      from_iid, to_iid, item_id, count));
             },
 
             CraftRecipe(station_sid, iid, recipe_id, count) => {
-                unimplemented!()
+                warn_on_err!(logic::items::craft_recipe(self.as_ref(),
+                                                        station_sid, iid, recipe_id, count));
             },
 
             Chat(msg) => {

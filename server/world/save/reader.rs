@@ -101,6 +101,7 @@ impl<R: old_io::Reader> Reader for ReaderWrapper<R> {
 
     fn read_bytes(&mut self, len: usize) -> Result<Vec<u8>> {
         let pad = padding(len);
+        info!("read {}, padded {}", len, pad);
         let mut vec = try!(self.reader.read_exact(len + pad));
         vec.truncate(len);
         Ok(vec)
