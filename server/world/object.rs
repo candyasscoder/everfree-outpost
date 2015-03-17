@@ -7,13 +7,13 @@ use physics::Shape;
 
 use data::ObjectTemplate;
 use types::*;
-use world::{World, Update};
+use world::World;
 use world::{Client, TerrainChunk, Entity, Structure, Inventory};
 use world::{EntitiesById, StructuresById, InventoriesById};
 use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::Motion;
 use world::fragment::Fragment;
-use world::hooks::{Hooks, NoHooks};
+use world::hooks::Hooks;
 use world::ops::{self, OpResult};
 use util::Stable;
 
@@ -300,7 +300,6 @@ pub trait EntityRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Entity, F> {
         let eid = self.id();
         // TODO: update entity-by-chunk cache
         self.obj_mut().motion = motion;
-        self.world_mut().record(Update::EntityMotionChange(eid));
         self.fragment_mut().with_hooks(|h| h.on_entity_motion_change(eid));
     }
 

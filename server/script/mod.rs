@@ -167,46 +167,6 @@ impl ScriptEngine {
         })
     }
 
-    /*
-    pub fn callback_action(&mut self,
-                           world: &mut world::World,
-                           now: Time,
-                           id: ClientId,
-                           action: ActionId,
-                           arg: u32) -> Result<(), String> {
-        let ctx = RefCell::new(ScriptContext {
-            world: world,
-            now: now,
-        });
-        self.with_context(&ctx, |lua| {
-            lua.get_field(REGISTRY_INDEX, "outpost_callback_action");
-            let c = userdata::Client { id: id };
-            c.to_lua(lua);
-            action.to_lua(lua);
-            arg.to_lua(lua);
-            lua.pcall(3, 0, 0).map_err(|(e,s)| format!("{:?}: {}", e, s))
-        })
-    }
-
-    pub fn callback_command(&mut self,
-                            world: &mut world::World,
-                            now: Time,
-                            id: ClientId,
-                            msg: &str) -> Result<(), String> {
-        let ctx = RefCell::new(ScriptContext {
-            world: world,
-            now: now,
-        });
-        self.with_context(&ctx, |lua| {
-            lua.get_field(REGISTRY_INDEX, "outpost_callback_command");
-            let c = userdata::Client { id: id };
-            c.to_lua(lua);
-            msg.to_lua(lua);
-            lua.pcall(2, 0, 0).map_err(|(e,s)| format!("{:?}: {}", e, s))
-        })
-    }
-    */
-
     pub fn cb_client_destroyed(&mut self, cid: ClientId) {
         warn_on_err!(run_callback(&mut self.owned_lua.get(),
                                   "outpost_callback_set_client_extra",
@@ -340,23 +300,6 @@ fn callbacks_table_index(mut lua: LuaState) -> c_int {
 }
 
 
-impl ToLua for ActionId {
-    fn to_lua(self, lua: &mut LuaState) {
-        use input::*;
-        let name = match self {
-            ACTION_USE => "use",
-            ACTION_INVENTORY => "inventory",
-            ACTION_USE_ITEM => "use_item",
-            ActionId(id) => {
-                lua.push_string(&*format!("unknown_{}", id));
-                return;
-            },
-        };
-        lua.push_string(name);
-    }
-}
-
-
 trait BaseContext: MarkerTrait {
     fn registry_key() -> &'static str;
 }
@@ -447,4 +390,3 @@ unsafe impl<'a, 'd: 'a> PartialContext for &'a terrain_gen::TerrainGen<'d> {
         mem::transmute(ptr)
     }
 }
-

@@ -188,28 +188,3 @@ impl Motion {
         self.start_time + self.duration as Time
     }
 }
-
-
-#[derive(Debug)]
-pub enum Update {
-    ClientCreated(ClientId),
-    ClientDestroyed(ClientId),
-    TerrainChunkCreated(V2),
-    TerrainChunkDestroyed(V2),
-    EntityCreated(EntityId),
-    EntityDestroyed(EntityId),
-    StructureCreated(StructureId),
-    StructureDestroyed(StructureId),
-    InventoryCreated(InventoryId),
-    InventoryDestroyed(InventoryId),
-
-    ClientPawnChange(ClientId),
-    ChunkInvalidate(V2),
-    EntityMotionChange(EntityId),
-    InventoryUpdate(InventoryId, ItemId, u8, u8),
-
-    ClientDebugInventory(ClientId, InventoryId),
-    ClientOpenContainer(ClientId, InventoryId, InventoryId),
-    ClientOpenCrafting(ClientId, StructureId, InventoryId),
-    ClientMessage(ClientId, String),
-}

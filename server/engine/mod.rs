@@ -37,11 +37,8 @@ pub struct Engine<'d> {
     pub world: World<'d>,
     pub script: ScriptEngine,
 
-    // any update
     pub messages: Messages,
-    // terrain or structure change
     pub physics: Physics<'d>,
-    // any update
     pub vision: Vision,
     pub auth: Auth,
     pub chunks: Chunks<'d>,
@@ -74,10 +71,6 @@ impl<'d> Engine<'d> {
         loop {
             let (evt, now) = self.messages.next_event();
             self.handle(now, evt);
-            /*
-            self.vision.finish(&self.world,
-                               &self.events);
-                               */
         }
     }
 

@@ -8,7 +8,6 @@ use types::*;
 use util::stable_id_map::{self, StableIdMap, Stable};
 
 use self::object::{Object, ObjectRef, ObjectRefMut};
-use self::hooks::NoHooks;
 pub use self::fragment::Fragment;
 pub use self::ops::OpResult;
 pub use self::hooks::Hooks;
@@ -17,7 +16,6 @@ pub use self::types::{
     StructureAttachment,
     InventoryAttachment,
     Motion,
-    Update,
 };
 pub use self::world::{EntitiesById, StructuresById, InventoriesById};
 
@@ -51,7 +49,6 @@ pub mod fragment;
 
 pub struct World<'d> {
     data: &'d Data,
-    journal: Vec<Update>,
 
     clients: StableIdMap<ClientId, Client>,
     terrain_chunks: HashMap<V2, TerrainChunk>,

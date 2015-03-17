@@ -125,8 +125,6 @@ enum Tag {
 }
 
 
-// NB: This typedef is the same as engine::glue::SaveWriteHooks
-//engine_part_typedef!(pub WriteHooks(script));
 pub type WriteHooks<'a, 'd> = ::engine::glue::SaveWriteHooks<'a, 'd>;
 
 impl<'a, 'd> save::WriteHooks for WriteHooks<'a, 'd> {
@@ -353,9 +351,6 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
 }
 
 
-// NB: This typedef is the same as engine::glue::SaveReadHooks
-// TODO: maybe this should be a Fragment-style trait?
-//engine_part_typedef!(pub ReadHooks(script, world));
 pub type ReadHooks<'a, 'd> = ::engine::glue::SaveReadHooks<'a, 'd>;
 
 impl<'a, 'd> save::ReadHooks for ReadHooks<'a, 'd> {
@@ -604,4 +599,3 @@ fn push_setter_and_id<T: ToLua>(lua: &mut LuaState, func: &str, id: T) {
     lua.get_field(REGISTRY_INDEX, func);
     id.to_lua(lua);
 }
-

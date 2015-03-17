@@ -13,7 +13,7 @@ use util::{multimap_insert, multimap_remove};
 
 use world::fragment::Fragment;
 
-use super::{World, Update};
+use super::World;
 use super::{Client, TerrainChunk, Entity, Structure, Inventory};
 use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
 // Using a glob here causes name resolution errors.

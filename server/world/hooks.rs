@@ -30,6 +30,3 @@ pub trait Hooks {
 
     fn on_chunk_invalidate(&mut self, pos: V2) {}
 }
-
-pub struct NoHooks;
-impl Hooks for NoHooks {}

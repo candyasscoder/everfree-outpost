@@ -9,14 +9,13 @@ use util::stable_id_map::{self, StableIdMap, Stable};
 use world::types::*;
 use world::ops::{self, OpResult};
 use world::object::{Object, ObjectRef, ObjectRefMut};
-use world::hooks::{Hooks, NoHooks};
+use world::hooks::Hooks;
 
 
 impl<'d> super::World<'d> {
     pub fn new(data: &'d Data) -> World<'d> {
         World {
             data: data,
-            journal: Vec::new(),
 
             clients: StableIdMap::new(),
             terrain_chunks: HashMap::new(),
@@ -30,33 +29,6 @@ impl<'d> super::World<'d> {
 
     pub fn data(&self) -> &'d Data {
         self.data
-    }
-
-    pub fn hook<'a, H: Hooks>(&'a mut self, h: &'a mut H) -> (&'a mut World<'d>, &'a mut H) {
-        (self, h)
-    }
-
-    pub fn record(&mut self, update: Update) {
-        self.journal.push(update);
-    }
-
-    pub fn take_journal(&mut self) -> Vec<Update> {
-        replace(&mut self.journal, Vec::new())
-    }
-
-    pub fn process_journal<D, F>(mut self_: D, mut f: F)
-            where D: Deref<Target=World<'d>>+DerefMut,
-                  F: FnMut(&mut D, Update) {
-        let mut journal = replace(&mut self_.journal, Vec::new());
-        for update in journal.drain() {
-            f(&mut self_, update);
-        }
-        // Try to put back the original journal, to avoid an allocation.  But if the callback added
-        // journal entries, skip it - we've already allocated, and we don't want to lose the new
-        // entries.
-        if self_.journal.len() == 0 {
-            self_.journal = journal;
-        }
     }
 
 
@@ -202,37 +174,6 @@ macro_rules! world_methods {
         }
     )*) => {
         impl<'d> World<'d> { $(
-                /*
-            pub fn $create_obj<'a>(&'a mut self,
-                                   $($create_arg: $create_arg_ty,)*)
-                                   -> OpResult<ObjectRefMut<'a, 'd, $Obj>> {
-                self.$create_obj_hooks(no_hooks(), $($create_arg,)*)
-            }
-
-            pub fn $create_obj_hooks<'a, H>(&'a mut self,
-                                            h: &'a mut H,
-                                            $($create_arg: $create_arg_ty,)*)
-                                            -> OpResult<ObjectRefMut<'a, 'd, $Obj, H>>
-                    where H: Hooks {
-                let $create_id_name = try!(ops::$create_obj_op(self, h, $($create_arg,)*));
-                Ok(ObjectRefMut {
-                    world: self,
-                    hooks: h,
-                    id: $create_id_expr,
-                })
-            }
-
-            pub fn $destroy_obj(&mut self, id: $Id) -> OpResult<()> {
-                self.$destroy_obj_hooks(no_hooks(), id)
-            }
-
-            pub fn $destroy_obj_hooks<H>(&mut self, h: &mut H, id: $Id) -> OpResult<()>
-                    where H: Hooks {
-                ops::$destroy_obj_op(self, h, id)
-            }
-            */
-
-
             pub fn $get_obj<'a>(&'a self,
                                 $lookup_id_name: $Id) -> Option<ObjectRef<'a, 'd, $Obj>> {
                 let obj = match self.$objs.get($lookup_id_expr) {
@@ -251,46 +192,6 @@ macro_rules! world_methods {
                 self.$get_obj(id)
                     .expect(concat!("no ", stringify!($Obj), " with given id"))
             }
-
-            /*
-            pub fn $get_obj_mut<'a>(&'a mut self, id: $Id)
-                                    -> Option<ObjectRefMut<'a, 'd, $Obj>> {
-                self.$get_obj_mut_hooks(no_hooks(), id)
-            }
-
-            pub fn $obj_mut<'a>(&'a mut self, id: $Id)
-                                -> ObjectRefMut<'a, 'd, $Obj> {
-                self.$obj_mut_hooks(no_hooks(), id)
-            }
-
-            pub fn $get_obj_mut_hooks<'a, H>(&'a mut self,
-                                             h: &'a mut H,
-                                             $lookup_id_name: $Id)
-                                             -> Option<ObjectRefMut<'a, 'd, $Obj, H>>
-                    where H: Hooks {
-                // Check that the ID is valid.
-                match self.$objs.get($lookup_id_expr) {
-                    None => return None,
-                    Some(_) => {},
-                }
-
-                Some(ObjectRefMut {
-                    world: self,
-                    hooks: h,
-                    id: $lookup_id_name,
-                })
-            }
-
-            pub fn $obj_mut_hooks<'a, H>(&'a mut self,
-                                         h: &'a mut H,
-                                         id: $Id)
-                                         -> ObjectRefMut<'a, 'd, $Obj, H>
-                    where H: Hooks {
-                self.$get_obj_mut_hooks(h, id)
-                    .expect(concat!("no ", stringify!($Obj), " with given id"))
-            }
-
-            */
 
             $(
                 pub fn $transient_obj_id(&self, stable_id: Stable<$Id>) -> Option<$Id> {

@@ -432,8 +432,3 @@ fn unwrap_warn<T, E: error::Error>(r: result::Result<T, E>) {
                         error::Error::description(&e)),
     }
 }
-
-
-pub struct NoReadHooks;
-
-impl ReadHooks for NoReadHooks { }
