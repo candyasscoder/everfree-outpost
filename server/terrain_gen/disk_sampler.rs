@@ -5,7 +5,6 @@ use rand::{Rng, XorShiftRng, SeedableRng};
 
 use types::*;
 
-use data::BlockData;
 use terrain_gen::{Field, PointSource};
 
 use self::Section::*;

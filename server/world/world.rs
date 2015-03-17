@@ -1,15 +1,11 @@
-use std::collections::{HashMap, hash_map, HashSet, hash_set};
-use std::mem::{self, replace};
-use std::ops::{Deref, DerefMut};
+use std::collections::{HashMap, hash_map, hash_set};
 
 use types::*;
 
 use data::Data;
 use util::stable_id_map::{self, StableIdMap, Stable};
 use world::types::*;
-use world::ops::{self, OpResult};
-use world::object::{Object, ObjectRef, ObjectRefMut};
-use world::hooks::Hooks;
+use world::object::{Object, ObjectRef};
 
 
 impl<'d> super::World<'d> {

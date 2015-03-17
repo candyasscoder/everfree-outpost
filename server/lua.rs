@@ -311,11 +311,7 @@ impl<'a> LuaState<'a> {
     }
 
     pub fn push_userdata<T: Copy>(&mut self, value: T) {
-        let raw_size = mem::size_of::<T>();
-        let size = raw_size as size_t;
-        assert!(size as usize == raw_size);
-        let ptr = unsafe { ffi::lua_newuserdata(self.L, size) } as *mut T;
-        unsafe { *ptr = value; }
+        unsafe { self.push_noncopy_userdata(value) };
     }
 
     /// Unsafe because the caller is responsible for attaching a metatable that will run the
@@ -324,8 +320,8 @@ impl<'a> LuaState<'a> {
         let raw_size = mem::size_of::<T>();
         let size = raw_size as size_t;
         assert!(size as usize == raw_size);
-        let ptr = unsafe { ffi::lua_newuserdata(self.L, size) } as *mut T;
-        unsafe { ptr::write(ptr, value); }
+        let ptr = ffi::lua_newuserdata(self.L, size) as *mut T;
+        ptr::write(ptr, value);
     }
 
     // Reading values from the stack

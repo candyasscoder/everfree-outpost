@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::error;
 use std::old_io;
-use std::marker::PhantomData;
 use std::mem;
 use std::raw;
 use std::result;
@@ -10,7 +9,6 @@ use data::Data;
 use types::*;
 use util::Convert;
 use world;
-use world::Hooks;
 use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::object::*;
 use world::ops;

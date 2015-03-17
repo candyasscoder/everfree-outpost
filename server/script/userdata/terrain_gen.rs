@@ -1,10 +1,10 @@
-use std::cell::RefCell;
 use std::ptr;
-use rand::{self, XorShiftRng, SeedableRng};
+use rand::{self, XorShiftRng};
 
-use physics::{TILE_SIZE, CHUNK_SIZE};
+use physics::CHUNK_SIZE;
 
 use types::*;
+use util::StrResult;
 
 use lua::LuaState;
 use script::Nil;
@@ -171,10 +171,9 @@ fn rng_choose(mut lua: LuaState) -> ::libc::c_int {
 /// Perform reservoir sampling to choose a weighted value from a Lua iterator.  The iterator should
 /// produce (value, weight) pairs.  The chosen value will be returned.
 fn rng_choose_weighted(mut lua: LuaState) -> ::libc::c_int {
-    use std::iter::count;
     use std::mem;
     use libc::c_int;
-    use lua::{self, ValueType};
+    use lua::ValueType;
     use script::traits::FromLua;
 
     if lua.top_index() != 4 {
@@ -269,36 +268,34 @@ impl Userdata for GenChunk {
             fn set_block(!partial ctx: &terrain_gen::TerrainGen,
                          gc: &GenChunk,
                          pos: V3,
-                         block: &str) -> bool {
-                let block_id = unwrap_or!(ctx.data().block_data.find_id(block),
-                                          return false);
+                         block: &str) -> StrResult<()> {
+                let block_id = unwrap!(ctx.data().block_data.find_id(block));
 
                 let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
                 if !bounds.contains(pos) {
-                    return false;
+                    fail!("position out of bounds");
                 };
 
                 let idx = bounds.index(pos);
-                gc.open(|gc| gc.blocks[idx] = block_id);
-                true
+                try!(gc.open(|gc| gc.blocks[idx] = block_id));
+                Ok(())
             }
 
             fn add_structure(!partial ctx: &terrain_gen::TerrainGen,
                              gc: &GenChunk,
                              pos: V3,
-                             template_name: &str) -> bool {
-                let template_id = unwrap_or!(ctx.data().object_templates.find_id(template_name),
-                                             return false);
+                             template_name: &str) -> StrResult<()> {
+                let template_id = unwrap!(ctx.data().object_templates.find_id(template_name));
 
                 let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
                 if !bounds.contains(pos) {
-                    return false;
+                    fail!("position out of bounds");
                 };
 
                 // TODO: could use some sanity checks here.
                 let s = terrain_gen::GenStructure::new(pos, template_id);
-                gc.open(|gc| gc.structures.push(s));
-                true
+                try!(gc.open(|gc| gc.structures.push(s)));
+                Ok(())
             }
         }
     }

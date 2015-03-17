@@ -4,7 +4,7 @@ use util::StrResult;
 
 use lua::LuaState;
 use script::build_type_table;
-use script::traits::{TypeName, Userdata};
+use script::traits::TypeName;
 
 
 macro_rules! insert_function {
@@ -29,6 +29,7 @@ macro_rules! lua_fn_raw {
      (!partial $ctx:ident: $ctx_ty:ty, $($arg:ident: $arg_ty:ty),*),
      $ret_ty:ty,
      $body:expr) => {
+        #[allow(unused_mut)]
         fn $name(mut lua: $crate::lua::LuaState) -> ::libc::c_int {
             let (result, count): ($ret_ty, ::libc::c_int) = {
                 let ctx = unsafe { $crate::script::PartialContext::from_lua(&mut lua) };
@@ -49,6 +50,7 @@ macro_rules! lua_fn_raw {
      (!full $ctx:ident: $ctx_ty:ty, $($arg:ident: $arg_ty:ty),*),
      $ret_ty:ty,
      $body:expr) => {
+        #[allow(unused_mut)]
         fn $name(mut lua: $crate::lua::LuaState) -> ::libc::c_int {
             let result: $ret_ty = {
                 unsafe { <$ctx_ty as $crate::script::FullContext>::check(&mut lua) };
@@ -69,6 +71,7 @@ macro_rules! lua_fn_raw {
      ($($arg:ident: $arg_ty:ty),*),
      $ret_ty:ty,
      $body:expr) => {
+        #[allow(unused_mut)]
         fn $name(mut lua: $crate::lua::LuaState) -> ::libc::c_int {
             let (result, count): ($ret_ty, ::libc::c_int) = {
                 let (($($arg,)*), count): (($($arg_ty,)*), ::libc::c_int) = unsafe {

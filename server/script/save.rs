@@ -8,16 +8,14 @@ use libc::c_int;
 use types::*;
 
 use engine::glue::HiddenWorldFragment;
-use engine::split::Part;
 use lua::{self, LuaState, ValueType, REGISTRY_INDEX};
 use util::Convert;
 use util::Stable;
 use util::StrError;
-use world::{self, World, Client, TerrainChunk, Entity, Structure, Inventory};
+use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
 use world::object::*;
 use world::save::{self, Writer, Reader};
 
-use super::ScriptEngine;
 use super::traits::{ToLua, Userdata, metatable_key};
 use super::userdata;
 

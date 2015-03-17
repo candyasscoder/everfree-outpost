@@ -1,27 +1,14 @@
-use std::borrow::ToOwned;
 use std::cmp;
-use std::error::Error;
 use std::u8;
 
-use physics::{CHUNK_SIZE, TILE_SIZE};
-
 use types::*;
-use util::{SmallSet, SmallVec};
 use util::StrResult;
 
-use chunks;
-use engine::Engine;
-use engine::glue::*;
-use engine::split::{EngineRef, Part, Open};
-use input::{Action, InputBits};
+use engine::split::EngineRef;
 use messages::{ClientResponse, Dialog};
-use physics_;
-use script;
-use terrain_gen;
-use world::{self, World};
+use world;
 use world::object::*;
-use world::save::{self, ObjectReader, ObjectWriter, ReadHooks, WriteHooks};
-use vision::{self, vision_region};
+use vision;
 
 
 pub fn open_inventory(mut eng: EngineRef, cid: ClientId, iid: InventoryId) -> StrResult<()> {

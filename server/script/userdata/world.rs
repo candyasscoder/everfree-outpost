@@ -1,5 +1,4 @@
 use std::borrow::ToOwned;
-use libc::c_int;
 
 use physics::CHUNK_SIZE;
 

@@ -1,19 +1,10 @@
-use std::mem;
-
-use types::*;
-
 use chunks::{self, Chunks};
-use data::Data;
-use engine::Engine;
 use engine::split::{EngineRef, Open, Part};
-use messages::Messages;
 use physics_::{self, Physics};
-use script::{ScriptEngine, ReadHooks, WriteHooks};
-use storage::Storage;
+use script::ScriptEngine;
 use terrain_gen::{self, TerrainGen};
 use vision::{self, Vision};
 use world::{self, World};
-use world::save::{self, ObjectReader, ObjectWriter};
 
 
 // This macro defines all the EnginePart typedefs used in the engine.  We use a macro so we can
@@ -128,7 +119,7 @@ impl<'a, 'd> world::Fragment<'d> for WorldFragment<'a, 'd> {
     type H = WorldHooks<'a, 'd>;
     fn with_hooks<F, R>(&mut self, f: F) -> R
             where F: FnOnce(&mut WorldHooks<'a, 'd>) -> R {
-        let mut e = unsafe { self.borrow().fiddle().to_part().slice() };
+        let e = unsafe { self.borrow().fiddle().to_part().slice() };
         f(&mut Part::from_part(e))
     }
 }
@@ -137,7 +128,7 @@ impl<'a, 'd> vision::Fragment<'d> for VisionFragment<'a, 'd> {
     type H = VisionHooks<'a, 'd>;
     fn with_hooks<F, R>(&mut self, f: F) -> R
             where F: FnOnce(&mut Vision, &mut VisionHooks<'a, 'd>) -> R {
-        let (mut h, mut e) = unsafe { self.borrow().fiddle().to_part().split_off() };
+        let (h, mut e) = unsafe { self.borrow().fiddle().to_part().split_off() };
         f(e.vision_mut(), &mut Part::from_part(h))
     }
 }
@@ -163,7 +154,7 @@ impl<'a, 'd> world::Fragment<'d> for HiddenWorldFragment<'a, 'd> {
     type H = HiddenWorldHooks<'a, 'd>;
     fn with_hooks<F, R>(&mut self, f: F) -> R
             where F: FnOnce(&mut HiddenWorldHooks<'a, 'd>) -> R {
-        let mut e = unsafe { self.borrow().fiddle().to_part().slice() };
+        let e = unsafe { self.borrow().fiddle().to_part().slice() };
         f(&mut Part::from_part(e))
     }
 }
@@ -200,14 +191,14 @@ impl<'a, 'd> chunks::Fragment<'d> for ChunksFragment<'a, 'd> {
     type H = ChunksHooks<'a, 'd>;
     fn with_hooks<F, R>(&mut self, f: F) -> R
             where F: FnOnce(&mut ChunksHooks<'a, 'd>) -> R {
-        let mut e = unsafe { self.borrow().fiddle().to_part().slice() };
+        let e = unsafe { self.borrow().fiddle().to_part().slice() };
         f(&mut Part::from_part(e))
     }
 
     type P = ChunkProvider<'a, 'd>;
     fn with_provider<F, R>(&mut self, f: F) -> R
             where F: FnOnce(&mut Chunks<'d>, &mut ChunkProvider<'a, 'd>) -> R {
-        let (mut provider, mut e) = unsafe { self.borrow().fiddle().to_part().split_off() };
+        let (provider, mut e) = unsafe { self.borrow().fiddle().to_part().split_off() };
         f(e.chunks_mut(), &mut Part::from_part(provider))
     }
 }
@@ -232,7 +223,7 @@ impl<'a, 'd> physics_::Fragment<'d> for PhysicsFragment<'a, 'd> {
     type WF = WorldFragment<'a, 'd>;
     fn with_world<F, R>(&mut self, f: F) -> R
             where F: FnOnce(&mut WorldFragment<'a, 'd>) -> R {
-        let mut e = unsafe { self.borrow().fiddle().to_part().slice() };
+        let e = unsafe { self.borrow().fiddle().to_part().slice() };
         f(&mut Part::from_part(e))
     }
 }
@@ -248,14 +239,14 @@ impl<'a, 'd> world::save::ReadFragment<'d> for SaveReadFragment<'a, 'd> {
     type WF = HiddenWorldFragment<'a, 'd>;
     fn with_world<F, R>(&mut self, f: F) -> R
             where F: FnOnce(&mut HiddenWorldFragment<'a, 'd>) -> R {
-        let mut e = unsafe { self.borrow().fiddle().to_part().slice() };
+        let e = unsafe { self.borrow().fiddle().to_part().slice() };
         f(&mut Part::from_part(e))
     }
 
     type H = SaveReadHooks<'a, 'd>;
     fn with_hooks<F, R>(&mut self, f: F) -> R
             where F: FnOnce(&mut SaveReadHooks<'a, 'd>) -> R {
-        let mut e = unsafe { self.borrow().fiddle().to_part().slice() };
+        let e = unsafe { self.borrow().fiddle().to_part().slice() };
         f(&mut Part::from_part(e))
     }
 }

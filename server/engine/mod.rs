@@ -3,7 +3,6 @@ use std::error::Error;
 use std::sync::mpsc::{Sender, Receiver};
 
 use types::*;
-use util::Cursor;
 
 use auth::{Auth, Secret};
 use chunks::Chunks;
@@ -13,15 +12,13 @@ use messages::{Messages};
 use messages::{Event, ControlEvent, WireEvent, ClientEvent, OtherEvent};
 use messages::{ControlResponse, WireResponse, ClientResponse};
 use msg::{Request, Response};
-use physics_::{self, Physics};
+use physics_::Physics;
 use script::ScriptEngine;
 use storage::Storage;
 use terrain_gen::TerrainGen;
 use vision::Vision;
 use world::World;
-use world::object::*;
 
-use self::glue::PhysicsFragment;
 use self::split::EngineRef;
 
 
@@ -93,7 +90,7 @@ impl<'d> Engine<'d> {
         use messages::ControlEvent::*;
         use messages::ControlResponse::*;
         match evt {
-            OpenWire(wire_id) => {},
+            OpenWire(_wire_id) => {},
 
             CloseWire(wire_id, opt_cid) => {
                 if let Some(cid) = opt_cid {
@@ -154,7 +151,6 @@ impl<'d> Engine<'d> {
                      cid: ClientId,
                      evt: ClientEvent) {
         use messages::ClientEvent::*;
-        use messages::ClientResponse::*;
         match evt {
             Input(input) => {
                 logic::input::input(self.as_ref(), cid, input);

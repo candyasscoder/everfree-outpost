@@ -1,13 +1,10 @@
-use std::collections::{HashMap, hash_map, HashSet, hash_set};
-use std::mem::{self, replace};
-use std::ops::{Deref, DerefMut};
+use std::collections::{HashMap, HashSet};
 
 use data::Data;
 use input::InputBits;
 use types::*;
-use util::stable_id_map::{self, StableIdMap, Stable};
+use util::stable_id_map::StableIdMap;
 
-use self::object::{Object, ObjectRef, ObjectRefMut};
 pub use self::fragment::Fragment;
 pub use self::ops::OpResult;
 pub use self::hooks::Hooks;

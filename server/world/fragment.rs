@@ -3,7 +3,7 @@ use types::*;
 use world::World;
 use world::{Client, TerrainChunk, Entity, Structure, Inventory};
 use world::hooks::Hooks;
-use world::object::{ObjectRef, ObjectRefMut};
+use world::object::ObjectRefMut;
 use world::ops::{self, OpResult};
 
 macro_rules! define_Fragment {
@@ -37,6 +37,7 @@ pub trait Fragment<'d>: Sized {
 
     fn $create_obj<'a>(&'a mut self, $($create_arg: $create_arg_ty,)*)
                    -> OpResult<ObjectRefMut<'a, 'd, $Obj, Self>> {
+        #![allow(unused_variables)]  // id_expr may not reference id_name
         let $create_id_name = try!(ops::$create_obj_op(self, $($create_arg,)*));
         Ok(ObjectRefMut::new(self, $create_id_expr))
     }

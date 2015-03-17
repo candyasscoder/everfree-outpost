@@ -7,6 +7,7 @@
 
 #![feature(old_path)]
 #![feature(old_io)]
+#![feature(io)]
 #![feature(libc)]
 #![feature(path)]
 #![feature(core)]
@@ -68,7 +69,6 @@ fn main() {
     use std::env;
     use std::sync::mpsc::channel;
     use std::thread;
-    use rustc_serialize::json;
 
     logging::init();
 

@@ -1,30 +1,16 @@
-use std::borrow::ToOwned;
-use std::error::Error;
-
 use physics::{CHUNK_SIZE, TILE_SIZE};
 
 use types::*;
-use util::{SmallSet, SmallVec};
-use util::StrResult;
+use util::SmallSet;
 
-use chunks;
-use engine::Engine;
 use engine::glue::*;
-use engine::split::{EngineRef, Part};
-use input::{Action, InputBits};
-use messages::{ClientResponse, Dialog};
-use physics_;
-use script;
-use terrain_gen;
 use world::{self, World};
 use world::object::*;
-use world::save::{self, ObjectReader, ObjectWriter, ReadHooks, WriteHooks};
 use vision::{self, vision_region};
 
 
 impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
-    fn on_client_create(&mut self, cid: ClientId) {
-    }
+    // No client_create callback because clients are added to vision in the logic::client code.
 
     fn on_client_destroy(&mut self, cid: ClientId) {
         self.script_mut().cb_client_destroyed(cid);
@@ -34,8 +20,8 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
 
     fn on_client_change_pawn(&mut self,
                              cid: ClientId,
-                             old_pawn: Option<EntityId>,
-                             new_pawn: Option<EntityId>) {
+                             _old_pawn: Option<EntityId>,
+                             _new_pawn: Option<EntityId>) {
         let now = self.now();
         let center = match self.world().client(cid).pawn() {
             Some(e) => e.pos(now),
@@ -103,9 +89,7 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
         self.script_mut().cb_client_destroyed(cid);
     }
 
-    fn on_terrain_chunk_destroy(&mut self, pos: V2) {
-        // ScriptEngine doesn't have a callback for this one
-    }
+    // No terrain_chunk_destroy because ScriptEngine doesn't have such a callback
 
     fn on_entity_destroy(&mut self, eid: EntityId) {
         self.script_mut().cb_entity_destroyed(eid);

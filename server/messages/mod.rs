@@ -232,7 +232,7 @@ impl Messages {
         }
     }
 
-    fn handle_control_req(&mut self, now: Time, req: Request) -> Option<Event> {
+    fn handle_control_req(&mut self, _now: Time, req: Request) -> Option<Event> {
         match req {
             Request::AddClient(wire_id) =>
                 // Let the caller decide when to actually add the client.

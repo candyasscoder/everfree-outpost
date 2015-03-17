@@ -1,7 +1,6 @@
 use types::*;
 
-use super::World;
-
+#[allow(unused_variables)]
 pub trait Hooks {
     fn on_client_create(&mut self, cid: ClientId) {}
     fn on_client_destroy(&mut self, cid: ClientId) {}

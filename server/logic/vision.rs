@@ -1,25 +1,12 @@
 use std::borrow::ToOwned;
-use std::error::Error;
-
-use physics::{CHUNK_SIZE, TILE_SIZE};
 
 use types::*;
-use util::{SmallSet, SmallVec};
-use util::StrResult;
 
-use chunks;
-use engine::Engine;
 use engine::glue::*;
-use engine::split::{EngineRef, Part};
-use input::{Action, InputBits};
-use messages::{ClientResponse, Dialog};
-use physics_;
-use script;
-use terrain_gen;
-use world::{self, World};
+use messages::ClientResponse;
+use world;
 use world::object::*;
-use world::save::{self, ObjectReader, ObjectWriter, ReadHooks, WriteHooks};
-use vision::{self, vision_region};
+use vision;
 
 
 impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {

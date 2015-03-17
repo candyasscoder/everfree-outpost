@@ -1,25 +1,12 @@
-use std::borrow::ToOwned;
-use std::error::Error;
-
-use physics::{CHUNK_SIZE, TILE_SIZE};
-
 use types::*;
-use util::{SmallSet, SmallVec};
-use util::StrResult;
 
-use chunks;
-use engine::Engine;
-use engine::glue::*;
-use engine::split::{EngineRef, Part, Open};
+use engine::split::{EngineRef, Open};
 use input::{Action, InputBits};
-use messages::{ClientResponse, Dialog};
+use messages::ClientResponse;
 use physics_;
 use script;
-use terrain_gen;
-use world::{self, World};
 use world::object::*;
-use world::save::{self, ObjectReader, ObjectWriter, ReadHooks, WriteHooks};
-use vision::{self, vision_region};
+use vision;
 
 
 pub fn input(mut eng: EngineRef, cid: ClientId, input: InputBits) {
@@ -37,7 +24,7 @@ pub fn input(mut eng: EngineRef, cid: ClientId, input: InputBits) {
     }
 }
 
-pub fn action(mut eng: EngineRef, cid: ClientId, action: Action) {
+pub fn action(eng: EngineRef, cid: ClientId, action: Action) {
     match action {
         Action::Use => {
             warn_on_err!(script::ScriptEngine::cb_interact(eng.unwrap(), cid));

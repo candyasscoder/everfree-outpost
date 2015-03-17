@@ -6,7 +6,6 @@ use physics::CHUNK_BITS;
 use types::*;
 use util::StrResult;
 
-use script::ScriptEngine;
 use storage::Storage;
 use world::World;
 use world::object::*;
@@ -33,9 +32,10 @@ impl<'d> Chunks<'d> {
     }
 }
 
+#[allow(unused_variables)]
 pub trait Hooks {
-    fn post_load(&mut self, chunk_pos: V2) {}
-    fn pre_unload(&mut self, chunk_pos: V2) {}
+    fn post_load(&mut self, cpos: V2) {}
+    fn pre_unload(&mut self, cpos: V2) {}
 }
 
 pub trait Provider {

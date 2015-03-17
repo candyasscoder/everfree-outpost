@@ -1,6 +1,4 @@
 use std::borrow::ToOwned;
-use std::cell::{RefCell, RefMut};
-use std::error;
 use std::marker::MarkerTrait;
 use std::mem;
 use libc::c_int;
@@ -9,10 +7,8 @@ use rand::XorShiftRng;
 use types::*;
 use util::{StringError, StringResult};
 
-use data::Data;
 use engine;
 use engine::glue::WorldFragment;
-use input::ActionId;
 use terrain_gen;
 use world;
 use world::object::*;

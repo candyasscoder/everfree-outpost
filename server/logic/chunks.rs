@@ -1,25 +1,17 @@
-use std::borrow::ToOwned;
 use std::error::Error;
 
-use physics::{CHUNK_SIZE, TILE_SIZE};
+use physics::CHUNK_SIZE;
 
 use types::*;
-use util::{SmallSet, SmallVec};
-use util::StrResult;
 
 use chunks;
-use engine::Engine;
 use engine::glue::*;
-use engine::split::{EngineRef, Part};
-use input::{Action, InputBits};
-use messages::{ClientResponse, Dialog};
-use physics_;
-use script;
+use engine::split::EngineRef;
 use terrain_gen;
-use world::{self, World};
+use world;
 use world::object::*;
-use world::save::{self, ObjectReader, ObjectWriter, ReadHooks, WriteHooks};
-use vision::{self, vision_region};
+use world::save::{self, ObjectReader, ObjectWriter};
+use vision;
 
 
 pub fn load_chunk(mut eng: EngineRef, cpos: V2) {
@@ -59,12 +51,9 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
             };
             {
                 let mut hwf = self.as_hidden_world_fragment();
-                let cid = {
-                    let c = try!(world::Fragment::create_terrain_chunk(&mut hwf,
-                                                                       cpos,
-                                                                       gen_chunk.blocks));
-                    c.id()
-                };
+                try!(world::Fragment::create_terrain_chunk(&mut hwf,
+                                                           cpos,
+                                                           gen_chunk.blocks));
                 let base = cpos.extend(0) * scalar(CHUNK_SIZE);
                 for gs in gen_chunk.structures.into_iter() {
                     let result = (|| {
