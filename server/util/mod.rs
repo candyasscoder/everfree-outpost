@@ -94,3 +94,26 @@ impl<I: Iterator> OptionIterExt<I> for Option<I> {
         OptionIter(self)
     }
 }
+
+
+pub fn encode_rle16<I: Iterator<Item=u16>>(iter: I) -> Vec<u16> {
+    let mut result = Vec::new();
+
+    let mut iter = iter.peekable();
+    while !iter.peek().is_none() {
+        let cur = iter.next().unwrap();
+
+        // TODO: check that count doesn't overflow 12 bits.
+        let mut count = 1u16;
+        while count < 0x0fff && iter.peek().map(|&x| x) == Some(cur) {
+            iter.next();
+            count += 1;
+        }
+        if count > 1 {
+            result.push(0xf000 | count);
+        }
+        result.push(cur);
+    }
+
+    result
+}

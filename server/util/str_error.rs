@@ -80,8 +80,7 @@ macro_rules! unwrap {
     ($e:expr, $msg:expr) => { unwrap_or!($e, fail!($msg)) };
     ($e:expr) => {
         unwrap!($e,
-                concat!(file!(), ":", stringify!(line!()),
-                ": `", stringify!($e), "` produced `None`"))
+                concat!(file!(), ": `", stringify!($e), "` produced `None`"))
     };
 }
 

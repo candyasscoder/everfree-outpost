@@ -3,9 +3,9 @@ use std::iter::repeat;
 use collect::lru_cache::LruCache;
 use rand::{Rng, XorShiftRng, SeedableRng};
 
-use data::BlockData;
-use physics::v3::{Vn, V3, V2, Region, Region2, scalar};
-use types::BlockChunk;
+use types::*;
+
+use terrain_gen::{Field, PointSource};
 
 use self::Section::*;
 
@@ -55,12 +55,11 @@ fn disk_sample2<R, GS>(rng: &mut R,
                        bounds: Region2,
                        min_spacing: i32,
                        max_spacing: i32,
-                       get_spacing: &GS,
+                       get_spacing: GS,
                        initial: &[V2]) -> Vec<V2>
         where R: Rng,
               GS: Fn(V2) -> i32 {
     let mut rng = rng;
-    let get_spacing = |pos| { (*get_spacing)(pos) };
 
     // Choose cell size such that a circle of radius `min_spacing` centered anywhere in the cell
     // must always cover the entire cell.
@@ -147,12 +146,8 @@ fn disk_sample2<R, GS>(rng: &mut R,
 }
 
 
-trait PointSource {
-    fn generate_points(&self, bounds: Region2) -> Vec<V2>;
-}
 
-
-struct IsoDiskSampler<GS: Fn(V2) -> i32> {
+pub struct IsoDiskSampler<GS: Field> {
     base_seed: u64,
     min_spacing: i32,
     max_spacing: i32,
@@ -161,8 +156,8 @@ struct IsoDiskSampler<GS: Fn(V2) -> i32> {
     cache: RefCell<LruCache<(i32, i32, Section), Vec<V2>>>,
 }
 
-impl<GS: Fn(V2) -> i32> IsoDiskSampler<GS> {
-    fn new(seed: u64,
+impl<GS: Field> IsoDiskSampler<GS> {
+    pub fn new(seed: u64,
            min_spacing: u16,
            max_spacing: u16,
            chunk_size: u16,
@@ -236,13 +231,13 @@ impl<GS: Fn(V2) -> i32> IsoDiskSampler<GS> {
                                 bounds,
                                 self.min_spacing,
                                 self.max_spacing,
-                                &self.get_spacing,
+                                |p| self.get_spacing.get_value(p),
                                 &*initial);
         cache.insert((x, y, section), data);
     }
 }
 
-impl<GS: Fn(V2) -> i32> PointSource for IsoDiskSampler<GS> {
+impl<GS: Field> PointSource for IsoDiskSampler<GS> {
     fn generate_points(&self, bounds: Region2) -> Vec<V2> {
         let mut cache = self.cache.borrow_mut();
 
@@ -308,47 +303,4 @@ fn section_bounds(x: i32, y: i32, section: Section, chunk_size: i32) -> Region2 
     let min = chunk_min * scalar(chunk_size);
     let size = V2::new(width, height) * scalar(chunk_size);
     Region::new(min, min + size)
-}
-
-
-pub struct TerrainGenerator {
-    seed: u64,
-    sampler: Box<PointSource+'static>,
-}
-
-impl TerrainGenerator {
-    pub fn new(seed: u64) -> TerrainGenerator {
-        TerrainGenerator {
-            seed: seed,
-            sampler: Box::new(IsoDiskSampler::new(seed, 4, 4, 32, |_| 4)) as Box<PointSource>,
-        }
-    }
-
-    pub fn generate_chunk(&self,
-                          block_data: &BlockData,
-                          cx: i32, cy: i32) -> (BlockChunk, Vec<V3>) {
-        use physics::{CHUNK_BITS, CHUNK_SIZE};
-        const Z_STEP: usize = 1 << (2 * CHUNK_BITS);
-
-        let seed = [self.seed as u32 + 12345,
-                    (self.seed >> 32) as u32,
-                    cx as u32,
-                    cy as u32];
-        let mut rng: XorShiftRng = SeedableRng::from_seed(seed);
-        let mut chunk = [0; 1 << (3 * CHUNK_BITS)];
-        let ids = [block_data.get_id("grass/center/v0"),
-                   block_data.get_id("grass/center/v1"),
-                   block_data.get_id("grass/center/v2"),
-                   block_data.get_id("grass/center/v3")];
-        for i in 0 .. 1 << (2 * CHUNK_BITS) {
-            chunk[i] = *rng.choose(ids.as_slice()).unwrap();
-        }
-
-        let bounds = Region::new(V2::new(cx, cy), V2::new(cx + 1, cy + 1)) * scalar(CHUNK_SIZE);
-
-        let points = self.sampler.generate_points(bounds.expand(V2::new(2, 2)));
-        let points = points.into_iter().map(|pos| (pos - V2::new(2, 1)).extend(0)).collect();
-
-        (chunk, points)
-    }
 }

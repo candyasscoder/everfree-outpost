@@ -1,12 +1,11 @@
-use physics::v3::V2;
-
 use types::*;
 
 pub use self::error::{Error, Result};
 pub use self::writer::Writer;
 pub use self::reader::Reader;
-pub use self::object_writer::{ObjectWriter, WriteHooks, NoWriteHooks};
-pub use self::object_reader::{ObjectReader, ReadHooks, NoReadHooks};
+pub use self::object_writer::{ObjectWriter, WriteHooks};
+pub use self::object_reader::{ObjectReader, ReadHooks};
+pub use self::object_reader::Fragment as ReadFragment;
 
 mod error;
 // TODO: these shouldn't need to be public, but otherwise rustc complains that "source trait is

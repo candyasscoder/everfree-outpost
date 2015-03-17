@@ -17,7 +17,9 @@ impl Log for Logger {
             LogLevel::Trace => "TRC",
         };
 
-        let _ = writeln!(&mut io::stderr(), "[{:4}] {}", level, record.args());
+        let result = writeln!(&mut io::stderr(), "[{:4}] {}", level, record.args());
+        // Being unable to print to the log could be really bad.
+        result.unwrap();
     }
 }
 

@@ -4,7 +4,6 @@ use std::mem::replace;
 
 use physics::CHUNK_SIZE;
 use physics::Shape;
-use physics::v3::{Vn, V3, V2, scalar, Region};
 
 use input::InputBits;
 use types::*;
@@ -12,7 +11,9 @@ use util::StrError;
 use util::stable_id_map::NO_STABLE_ID;
 use util::{multimap_insert, multimap_remove};
 
-use super::{World, Update};
+use world::fragment::Fragment;
+
+use super::World;
 use super::{Client, TerrainChunk, Entity, Structure, Inventory};
 use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
 // Using a glob here causes name resolution errors.
@@ -24,92 +25,100 @@ use super::object::{
     EntityRef, EntityRefMut,
     StructureRef, StructureRefMut,
 };
+use super::hooks::Hooks;
 
 pub type OpResult<T> = Result<T, StrError>;
 
 
-pub fn client_create(w: &mut World,
-                     name: &str,
-                     chunk_offset: (u8, u8)) -> OpResult<ClientId> {
+pub fn client_create<'d, F>(f: &mut F,
+                            name: &str) -> OpResult<ClientId>
+        where F: Fragment<'d> {
     let c = Client {
         name: name.to_owned(),
         pawn: None,
         current_input: InputBits::empty(),
-        chunk_offset: chunk_offset,
 
         stable_id: NO_STABLE_ID,
         child_entities: HashSet::new(),
         child_inventories: HashSet::new(),
     };
 
-    let cid = unwrap!(w.clients.insert(c));
-    w.record(Update::ClientCreated(cid));
+    let cid = unwrap!(f.world_mut().clients.insert(c));
+    f.with_hooks(|h| h.on_client_create(cid));
     Ok(cid)
 }
 
-pub fn client_create_unchecked(w: &mut World) -> ClientId {
-    let cid = w.clients.insert(Client {
+pub fn client_create_unchecked<'d, F>(f: &mut F) -> ClientId
+        where F: Fragment<'d> {
+    let cid = f.world_mut().clients.insert(Client {
         name: String::new(),
         pawn: None,
         current_input: InputBits::empty(),
-        chunk_offset: (0, 0),
 
         stable_id: NO_STABLE_ID,
         child_entities: HashSet::new(),
         child_inventories: HashSet::new(),
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
-    w.record(Update::ClientCreated(cid));
+    f.with_hooks(|h| h.on_client_create(cid));
     cid
 }
 
-pub fn client_destroy(w: &mut World,
-                      cid: ClientId) -> OpResult<()> {
-    let c = unwrap!(w.clients.remove(cid));
+pub fn client_destroy<'d, F>(f: &mut F,
+                             cid: ClientId) -> OpResult<()>
+        where F: Fragment<'d> {
+    let c = unwrap!(f.world_mut().clients.remove(cid));
     // Further lookup failures indicate an invariant violation.
 
     for &eid in c.child_entities.iter() {
         // TODO: do we really want .unwrap() here?
-        entity_destroy(w, eid).unwrap();
+        entity_destroy(f, eid).unwrap();
     }
 
     for &iid in c.child_inventories.iter() {
-        inventory_destroy(w, iid).unwrap();
+        inventory_destroy(f, iid).unwrap();
     }
 
-    w.record(Update::ClientDestroyed(cid));
+    f.with_hooks(|h| h.on_client_destroy(cid));
     Ok(())
 }
 
-pub fn client_set_pawn(w: &mut World,
-                       cid: ClientId,
-                       eid: EntityId) -> OpResult<Option<EntityId>> {
-    try!(entity_attach(w, eid, EntityAttachment::Client(cid)));
+pub fn client_set_pawn<'d, F>(f: &mut F,
+                              cid: ClientId,
+                              eid: EntityId) -> OpResult<Option<EntityId>>
+        where F: Fragment<'d> {
+    try!(entity_attach(f, eid, EntityAttachment::Client(cid)));
     let old_eid;
 
     {
-        let c = unwrap!(w.clients.get_mut(cid));
+        let c = unwrap!(f.world_mut().clients.get_mut(cid));
         // We know 'eid' is valid because the 'entity_attach' above succeeded.
         old_eid = replace(&mut c.pawn, Some(eid));
     }
 
-    w.record(Update::ClientPawnChange(cid));
-
+    f.with_hooks(|h| h.on_client_change_pawn(cid, old_eid, Some(eid)));
     Ok(old_eid)
 }
 
-pub fn client_clear_pawn(w: &mut World,
-                         cid: ClientId) -> OpResult<Option<EntityId>> {
-    let c = unwrap!(w.clients.get_mut(cid));
-    // NB: Keep this behavior in sync with entity_destroy.
-    let old_eid = replace(&mut c.pawn, None);
+pub fn client_clear_pawn<'d, F>(f: &mut F,
+                                cid: ClientId) -> OpResult<Option<EntityId>>
+        where F: Fragment<'d> {
+    let old_eid;
+    {
+        let c = unwrap!(f.world_mut().clients.get_mut(cid));
+        // NB: Keep this behavior in sync with entity_destroy.
+        old_eid = replace(&mut c.pawn, None);
+    }
+
+    f.with_hooks(|h| h.on_client_change_pawn(cid, old_eid, None));
     Ok(old_eid)
 }
 
 
-pub fn terrain_chunk_create(w: &mut World,
-                            pos: V2,
-                            blocks: Box<BlockChunk>) -> OpResult<()> {
-    if w.terrain_chunks.contains_key(&pos) {
+pub fn terrain_chunk_create<'d, F>(f: &mut F,
+                                   pos: V2,
+                                   blocks: Box<BlockChunk>) -> OpResult<()>
+        where F: Fragment<'d> {
+    if f.world().terrain_chunks.contains_key(&pos) {
         fail!("chunk already exists with same position");
     }
 
@@ -119,28 +128,30 @@ pub fn terrain_chunk_create(w: &mut World,
         child_structures: HashSet::new(),
     };
 
-    w.terrain_chunks.insert(pos, tc);
-    w.record(Update::TerrainChunkCreated(pos));
+    f.world_mut().terrain_chunks.insert(pos, tc);
+    f.with_hooks(|h| h.on_terrain_chunk_create(pos));
     Ok(())
 }
 
-pub fn terrain_chunk_destroy(w: &mut World,
-                             pos: V2) -> OpResult<()> {
-    let t = unwrap!(w.terrain_chunks.remove(&pos));
+pub fn terrain_chunk_destroy<'d, F>(f: &mut F,
+                                    pos: V2) -> OpResult<()>
+        where F: Fragment<'d> {
+    let t = unwrap!(f.world_mut().terrain_chunks.remove(&pos));
 
     for &sid in t.child_structures.iter() {
-        structure_destroy(w, sid).unwrap();
+        structure_destroy(f, sid).unwrap();
     }
 
-    w.record(Update::TerrainChunkDestroyed(pos));
+    f.with_hooks(|h| h.on_terrain_chunk_destroy(pos));
     Ok(())
 }
 
 
-pub fn entity_create(w: &mut World,
-                     pos: V3,
-                     anim: AnimId,
-                     appearance: u32) -> OpResult<EntityId> {
+pub fn entity_create<'d, F>(f: &mut F,
+                            pos: V3,
+                            anim: AnimId,
+                            appearance: u32) -> OpResult<EntityId>
+        where F: Fragment<'d> {
     let e = Entity {
         motion: super::Motion::fixed(pos),
         anim: anim,
@@ -153,13 +164,14 @@ pub fn entity_create(w: &mut World,
         child_inventories: HashSet::new(),
     };
 
-    let eid = unwrap!(w.entities.insert(e));
-    w.record(Update::EntityCreated(eid));
+    let eid = unwrap!(f.world_mut().entities.insert(e));
+    f.with_hooks(|h| h.on_entity_create(eid));
     Ok(eid)
 }
 
-pub fn entity_create_unchecked(w: &mut World) -> EntityId {
-    let eid = w.entities.insert(Entity {
+pub fn entity_create_unchecked<'d, F>(f: &mut F) -> EntityId
+        where F: Fragment<'d> {
+    let eid = f.world_mut().entities.insert(Entity {
         motion: super::Motion::fixed(scalar(0)),
         anim: 0,
         facing: scalar(0),
@@ -170,14 +182,15 @@ pub fn entity_create_unchecked(w: &mut World) -> EntityId {
         attachment: EntityAttachment::World,
         child_inventories: HashSet::new(),
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
-    w.record(Update::EntityCreated(eid));
+    f.with_hooks(|h| h.on_entity_create(eid));
     eid
 }
 
-pub fn entity_destroy(w: &mut World,
-                      eid: EntityId) -> OpResult<()> {
+pub fn entity_destroy<'d, F>(f: &mut F,
+                             eid: EntityId) -> OpResult<()>
+        where F: Fragment<'d> {
     use super::EntityAttachment::*;
-    let e = unwrap!(w.entities.remove(eid));
+    let e = unwrap!(f.world_mut().entities.remove(eid));
     // Further lookup failures indicate an invariant violation.
 
     match e.attachment {
@@ -187,7 +200,7 @@ pub fn entity_destroy(w: &mut World,
             // The parent Client may not exist due to `x_destroy` operating top-down.
             // (`client_destroy` destroys the Client first, then calls `entity_destroy` on each
             // child entity.  In this situation, `cid` will not be found in `w.clients`.)
-            if let Some(c) = w.clients.get_mut(cid) {
+            if let Some(c) = f.world_mut().clients.get_mut(cid) {
                 if c.pawn == Some(eid) {
                     // NB: keep this behavior in sync with client_clear_pawn
                     c.pawn = None;
@@ -198,18 +211,20 @@ pub fn entity_destroy(w: &mut World,
     }
 
     for &iid in e.child_inventories.iter() {
-        inventory_destroy(w, iid).unwrap();
+        inventory_destroy(f, iid).unwrap();
     }
 
-    w.record(Update::EntityDestroyed(eid));
+    f.with_hooks(|h| h.on_entity_destroy(eid));
     Ok(())
 }
 
-pub fn entity_attach(w: &mut World,
-                     eid: EntityId,
-                     new_attach: EntityAttachment) -> OpResult<EntityAttachment> {
+pub fn entity_attach<'d, F>(f: &mut F,
+                            eid: EntityId,
+                            new_attach: EntityAttachment) -> OpResult<EntityAttachment>
+        where F: Fragment<'d> {
     use super::EntityAttachment::*;
 
+    let w = f.world_mut();
     let e = unwrap!(w.entities.get_mut(eid));
 
     if new_attach == e.attachment {
@@ -250,13 +265,14 @@ pub fn entity_attach(w: &mut World,
 }
 
 
-pub fn structure_create(w: &mut World,
-                        pos: V3,
-                        tid: TemplateId) -> OpResult<StructureId> {
-    let t = unwrap!(w.data.object_templates.get_template(tid));
+pub fn structure_create<'d, F>(f: &mut F,
+                               pos: V3,
+                               tid: TemplateId) -> OpResult<StructureId>
+        where F: Fragment<'d> {
+    let t = unwrap!(f.world().data.object_templates.get_template(tid));
     let bounds = Region::new(pos, pos + t.size);
 
-    if !structure_check_placement(w, bounds) {
+    if !structure_check_placement(f.world(), bounds) {
         fail!("structure placement blocked by terrain or other structure");
     }
 
@@ -269,15 +285,16 @@ pub fn structure_create(w: &mut World,
         child_inventories: HashSet::new(),
     };
 
-    let sid = unwrap!(w.structures.insert(s));
-    structure_add_to_lookup(&mut w.structures_by_chunk, sid, bounds);
-    invalidate_region(w, bounds);
-    w.record(Update::StructureCreated(sid));
+    let sid = unwrap!(f.world_mut().structures.insert(s));
+    structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, bounds);
+    invalidate_region(f, bounds);
+    f.with_hooks(|h| h.on_structure_create(sid));
     Ok(sid)
 }
 
-pub fn structure_create_unchecked(w: &mut World) -> StructureId {
-    let sid = w.structures.insert(Structure {
+pub fn structure_create_unchecked<'d, F>(f: &mut F) -> StructureId
+        where F: Fragment<'d> {
+    let sid = f.world_mut().structures.insert(Structure {
         pos: scalar(0),
         template: 0,
 
@@ -285,69 +302,76 @@ pub fn structure_create_unchecked(w: &mut World) -> StructureId {
         attachment: StructureAttachment::World,
         child_inventories: HashSet::new(),
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
-    w.record(Update::StructureCreated(sid));
+    f.with_hooks(|h| h.on_structure_create(sid));
     sid
 }
 
-pub fn structure_post_init(w: &mut World, sid: StructureId) -> OpResult<()> {
+pub fn structure_post_init<'d, F>(f: &mut F,
+                                  sid: StructureId) -> OpResult<()>
+        where F: Fragment<'d> {
     let bounds = {
-        let s = unwrap!(w.structures.get(sid));
-        let t = unwrap!(w.data.object_templates.get_template(s.template));
+        let s = unwrap!(f.world().structures.get(sid));
+        let t = unwrap!(f.world().data.object_templates.get_template(s.template));
 
         Region::new(s.pos, s.pos + t.size)
     };
 
-    structure_add_to_lookup(&mut w.structures_by_chunk, sid, bounds);
-    invalidate_region(w, bounds);
+    structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, bounds);
+    invalidate_region(f, bounds);
     Ok(())
 }
 
-pub fn structure_pre_fini(w: &mut World, sid: StructureId) -> OpResult<()> {
+pub fn structure_pre_fini<'d, F>(f: &mut F,
+                                 sid: StructureId) -> OpResult<()>
+        where F: Fragment<'d> {
     let bounds = {
-        let s = unwrap!(w.structures.get(sid));
-        let t = unwrap!(w.data.object_templates.get_template(s.template));
+        let s = unwrap!(f.world().structures.get(sid));
+        let t = unwrap!(f.world().data.object_templates.get_template(s.template));
 
         Region::new(s.pos, s.pos + t.size)
     };
 
-    structure_remove_from_lookup(&mut w.structures_by_chunk, sid, bounds);
-    invalidate_region(w, bounds);
+    structure_remove_from_lookup(&mut f.world_mut().structures_by_chunk, sid, bounds);
+    invalidate_region(f, bounds);
     Ok(())
 }
 
-pub fn structure_destroy(w: &mut World,
-                         sid: StructureId) -> OpResult<()> {
+pub fn structure_destroy<'d, F>(f: &mut F,
+                                sid: StructureId) -> OpResult<()>
+        where F: Fragment<'d> {
     use super::StructureAttachment::*;
-    let s = unwrap!(w.structures.remove(sid));
+    let s = unwrap!(f.world_mut().structures.remove(sid));
 
-    let t = w.data.object_templates.template(s.template);
+    let t = f.world().data.object_templates.template(s.template);
     let bounds = Region::new(s.pos, s.pos + t.size);
-    structure_remove_from_lookup(&mut w.structures_by_chunk, sid, bounds);
-    invalidate_region(w, bounds);
+    structure_remove_from_lookup(&mut f.world_mut().structures_by_chunk, sid, bounds);
+    invalidate_region(f, bounds);
 
     match s.attachment {
         World => {},
         Chunk => {
             let chunk_pos = s.pos.reduce().div_floor(scalar(CHUNK_SIZE));
             // Chunk may not be loaded, since destruction proceeds top-down.
-            w.terrain_chunks.get_mut(&chunk_pos)
+            f.world_mut().terrain_chunks.get_mut(&chunk_pos)
              .map(|t| t.child_structures.remove(&sid));
         },
     }
 
     for &iid in s.child_inventories.iter() {
-        inventory_destroy(w, iid).unwrap();
+        inventory_destroy(f, iid).unwrap();
     }
 
-    w.record(Update::StructureDestroyed(sid));
+    f.with_hooks(|h| h.on_structure_destroy(sid));
     Ok(())
 }
 
-pub fn structure_attach(w: &mut World,
-                        sid: StructureId,
-                        new_attach: StructureAttachment) -> OpResult<StructureAttachment> {
+pub fn structure_attach<'d, F>(f: &mut F,
+                               sid: StructureId,
+                               new_attach: StructureAttachment) -> OpResult<StructureAttachment>
+        where F: Fragment<'d> {
     use super::StructureAttachment::*;
 
+    let w = f.world_mut();
     let s = unwrap!(w.structures.get_mut(sid));
     let old_attach = s.attachment;
 
@@ -380,10 +404,12 @@ pub fn structure_attach(w: &mut World,
     Ok(old_attach)
 }
 
-pub fn structure_move(w: &mut World,
-                      sid: StructureId,
-                      new_pos: V3) -> OpResult<()> {
+pub fn structure_move<'d, F>(f: &mut F,
+                             sid: StructureId,
+                             new_pos: V3) -> OpResult<()>
+        where F: Fragment<'d> {
     let (old_bounds, new_bounds) = {
+        let w = f.world_mut();
         let s = unwrap!(w.structures.get_mut(sid));
         let t = unwrap!(w.data.object_templates.get_template(s.template));
 
@@ -391,10 +417,11 @@ pub fn structure_move(w: &mut World,
          Region::new(new_pos, new_pos + t.size))
     };
 
-    structure_remove_from_lookup(&mut w.structures_by_chunk, sid, old_bounds);
+    structure_remove_from_lookup(&mut f.world_mut().structures_by_chunk, sid, old_bounds);
 
-    if structure_check_placement(w, new_bounds) {
+    if structure_check_placement(f.world(), new_bounds) {
         {
+            let w = f.world_mut();
             let s = &mut w.structures[sid];
             if s.attachment == StructureAttachment::Chunk {
                 let old_chunk_pos = s.pos.reduce().div_floor(scalar(CHUNK_SIZE));
@@ -407,20 +434,22 @@ pub fn structure_move(w: &mut World,
             }
             s.pos = new_pos;
         }
-        structure_add_to_lookup(&mut w.structures_by_chunk, sid, new_bounds);
-        invalidate_region(w, old_bounds);
-        invalidate_region(w, new_bounds);
+        structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, new_bounds);
+        invalidate_region(f, old_bounds);
+        invalidate_region(f, new_bounds);
         Ok(())
     } else {
-        structure_add_to_lookup(&mut w.structures_by_chunk, sid, old_bounds);
+        structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, old_bounds);
         fail!("structure placement blocked by terrain or other structure");
     }
 }
 
-pub fn structure_replace(w: &mut World,
-                         sid: StructureId,
-                         new_tid: TemplateId) -> OpResult<()> {
+pub fn structure_replace<'d, F>(f: &mut F,
+                                sid: StructureId,
+                                new_tid: TemplateId) -> OpResult<()>
+        where F: Fragment<'d> {
     let (old_bounds, new_bounds) = {
+        let w = f.world_mut();
         let s = unwrap!(w.structures.get_mut(sid));
         let old_t = unwrap!(w.data.object_templates.get_template(s.template));
         let new_t = unwrap!(w.data.object_templates.get_template(new_tid));
@@ -429,16 +458,16 @@ pub fn structure_replace(w: &mut World,
          Region::new(s.pos, s.pos + new_t.size))
     };
 
-    structure_remove_from_lookup(&mut w.structures_by_chunk, sid, old_bounds);
+    structure_remove_from_lookup(&mut f.world_mut().structures_by_chunk, sid, old_bounds);
 
-    if structure_check_placement(w, new_bounds) {
-        w.structures[sid].template = new_tid;
-        structure_add_to_lookup(&mut w.structures_by_chunk, sid, new_bounds);
-        invalidate_region(w, old_bounds);
-        invalidate_region(w, new_bounds);
+    if structure_check_placement(f.world(), new_bounds) {
+        f.world_mut().structures[sid].template = new_tid;
+        structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, new_bounds);
+        invalidate_region(f, old_bounds);
+        invalidate_region(f, new_bounds);
         Ok(())
     } else {
-        structure_add_to_lookup(&mut w.structures_by_chunk, sid, old_bounds);
+        structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, old_bounds);
         fail!("structure placement blocked by terrain or other structure");
     }
 }
@@ -490,63 +519,69 @@ fn structure_remove_from_lookup(lookup: &mut HashMap<V2, HashSet<StructureId>>,
     }
 }
 
-fn invalidate_region(w: &mut World,
-                     bounds: Region) {
+fn invalidate_region<'d, F>(f: &mut F,
+                            bounds: Region)
+        where F: Fragment<'d> {
     let chunk_bounds = bounds.reduce().div_round_signed(CHUNK_SIZE);
     for chunk_pos in chunk_bounds.points() {
-        w.record(Update::ChunkInvalidate(chunk_pos));
+        f.with_hooks(|h| h.on_chunk_invalidate(chunk_pos));
     }
 }
 
 
-pub fn inventory_create(w: &mut World) -> OpResult<InventoryId> {
-    Ok(inventory_create_unchecked(w))
+pub fn inventory_create<'d, F>(f: &mut F) -> OpResult<InventoryId>
+        where F: Fragment<'d> {
+    Ok(inventory_create_unchecked(f))
 }
 
-pub fn inventory_create_unchecked(w: &mut World) -> InventoryId {
-    let iid = w.inventories.insert(Inventory {
+pub fn inventory_create_unchecked<'d, F>(f: &mut F) -> InventoryId
+        where F: Fragment<'d> {
+    let iid = f.world_mut().inventories.insert(Inventory {
         contents: HashMap::new(),
 
         stable_id: NO_STABLE_ID,
         attachment: InventoryAttachment::World,
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
-    w.record(Update::InventoryCreated(iid));
+    f.with_hooks(|h| h.on_inventory_create(iid));
     iid
 }
 
-pub fn inventory_destroy(w: &mut World,
-                         iid: InventoryId) -> OpResult<()> {
+pub fn inventory_destroy<'d, F>(f: &mut F,
+                                iid: InventoryId) -> OpResult<()>
+        where F: Fragment<'d> {
     use super::InventoryAttachment::*;
-    let i = unwrap!(w.inventories.remove(iid));
+    let i = unwrap!(f.world_mut().inventories.remove(iid));
 
     match i.attachment {
         World => {},
         Client(cid) => {
-            if let Some(c) = w.clients.get_mut(cid) {
+            if let Some(c) = f.world_mut().clients.get_mut(cid) {
                 c.child_inventories.remove(&iid);
             }
         },
         Entity(eid) => {
-            if let Some(e) = w.entities.get_mut(eid) {
+            if let Some(e) = f.world_mut().entities.get_mut(eid) {
                 e.child_inventories.remove(&iid);
             }
         },
         Structure(sid) => {
-            if let Some(s) = w.structures.get_mut(sid) {
+            if let Some(s) = f.world_mut().structures.get_mut(sid) {
                 s.child_inventories.remove(&iid);
             }
         },
     }
 
-    w.record(Update::InventoryDestroyed(iid));
+    f.with_hooks(|h| h.on_inventory_destroy(iid));
     Ok(())
 }
 
-pub fn inventory_attach(w: &mut World,
-                        iid: InventoryId,
-                        new_attach: InventoryAttachment) -> OpResult<InventoryAttachment> {
+pub fn inventory_attach<'d, F>(f: &mut F,
+                               iid: InventoryId,
+                               new_attach: InventoryAttachment) -> OpResult<InventoryAttachment>
+        where F: Fragment<'d> {
     use super::InventoryAttachment::*;
 
+    let w = f.world_mut();
     let i = unwrap!(w.inventories.get_mut(iid));
 
     if new_attach == i.attachment {
@@ -591,14 +626,15 @@ pub fn inventory_attach(w: &mut World,
 }
 
 /// Fails only if `iid` is not valid.
-pub fn inventory_update(w: &mut World,
-                        iid: InventoryId,
-                        item_id: ItemId,
-                        adjust: i16) -> OpResult<u8> {
+pub fn inventory_update<'d, F>(f: &mut F,
+                               iid: InventoryId,
+                               item_id: ItemId,
+                               adjust: i16) -> OpResult<u8>
+        where F: Fragment<'d> {
     use std::collections::hash_map::Entry::*;
 
     let (old_value, new_value) = {
-        let i = unwrap!(w.inventories.get_mut(iid));
+        let i = unwrap!(f.world_mut().inventories.get_mut(iid));
 
         match i.contents.entry(item_id) {
             Vacant(e) => {
@@ -619,7 +655,7 @@ pub fn inventory_update(w: &mut World,
         }
     };
 
-    w.record(Update::InventoryUpdate(iid, item_id, old_value, new_value));
+    f.with_hooks(|h| h.on_inventory_update(iid, item_id, old_value, new_value));
 
     Ok(new_value)
 }

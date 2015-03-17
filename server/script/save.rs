@@ -5,10 +5,10 @@ use std::old_io;
 use std::result;
 use libc::c_int;
 
-use physics::v3::{V3, V2};
-
-use lua::{self, LuaState, ValueType, REGISTRY_INDEX};
 use types::*;
+
+use engine::glue::HiddenWorldFragment;
+use lua::{self, LuaState, ValueType, REGISTRY_INDEX};
 use util::Convert;
 use util::Stable;
 use util::StrError;
@@ -16,7 +16,6 @@ use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
 use world::object::*;
 use world::save::{self, Writer, Reader};
 
-use super::ScriptEngine;
 use super::traits::{ToLua, Userdata, metatable_key};
 use super::userdata;
 
@@ -123,23 +122,14 @@ enum Tag {
     V3,
 }
 
-pub struct WriteHooks<'a> {
-    script: &'a mut ScriptEngine,
-}
 
-impl<'a> WriteHooks<'a> {
-    pub fn new(script: &'a mut ScriptEngine) -> WriteHooks<'a> {
-        WriteHooks {
-            script: script,
-        }
-    }
-}
+pub type WriteHooks<'a, 'd> = ::engine::glue::SaveWriteHooks<'a, 'd>;
 
-impl<'a> save::WriteHooks for WriteHooks<'a> {
+impl<'a, 'd> save::WriteHooks for WriteHooks<'a, 'd> {
     fn post_write_world<W: Writer>(&mut self,
                                    writer: &mut W,
                                    _w: &World) -> save::Result<()> {
-        try!(write_extra(self.script.owned_lua.get(), writer, |lua| {
+        try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
             lua.get_field(REGISTRY_INDEX, "outpost_callback_get_world_extra");
             try!(lua.pcall(0, 1, 0));
             Ok(())
@@ -150,7 +140,7 @@ impl<'a> save::WriteHooks for WriteHooks<'a> {
     fn post_write_client<W: Writer>(&mut self,
                                     writer: &mut W,
                                     c: &ObjectRef<Client>) -> save::Result<()> {
-        try!(write_extra(self.script.owned_lua.get(), writer, |lua| {
+        try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
             call_get_extra(lua, "outpost_callback_get_client_extra", c.id().unwrap())
         }));
         Ok(())
@@ -166,7 +156,7 @@ impl<'a> save::WriteHooks for WriteHooks<'a> {
     fn post_write_entity<W: Writer>(&mut self,
                                     writer: &mut W,
                                     e: &ObjectRef<Entity>) -> save::Result<()> {
-        try!(write_extra(self.script.owned_lua.get(), writer, |lua| {
+        try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
             call_get_extra(lua, "outpost_callback_get_entity_extra", e.id().unwrap())
         }));
         Ok(())
@@ -175,7 +165,7 @@ impl<'a> save::WriteHooks for WriteHooks<'a> {
     fn post_write_structure<W: Writer>(&mut self,
                                        writer: &mut W,
                                        s: &ObjectRef<Structure>) -> save::Result<()> {
-        try!(write_extra(self.script.owned_lua.get(), writer, |lua| {
+        try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
             call_get_extra(lua, "outpost_callback_get_structure_extra", s.id().unwrap())
         }));
         Ok(())
@@ -184,7 +174,7 @@ impl<'a> save::WriteHooks for WriteHooks<'a> {
     fn post_write_inventory<W: Writer>(&mut self,
                                        writer: &mut W,
                                        i: &ObjectRef<Inventory>) -> save::Result<()> {
-        try!(write_extra(self.script.owned_lua.get(), writer, |lua| {
+        try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
             call_get_extra(lua, "outpost_callback_get_inventory_extra", i.id().unwrap())
         }));
         Ok(())
@@ -300,48 +290,48 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
     }
 
     // Can't use `else if let` here because it would produce overlapping borrows.
-    if let Some(_) = get_userdata_opt::<userdata::World>(lua, index) {
+    if let Some(_) = get_userdata_opt::<userdata::world::World>(lua, index) {
         try!(w.write(Tag::World as u8));
         return Ok(());
     }
 
-    if let Some(c) = get_userdata_opt::<userdata::Client>(lua, index) {
+    if let Some(c) = get_userdata_opt::<userdata::world::Client>(lua, index) {
         try!(w.write(Tag::Client as u8));
         try!(w.write_id(c.id));
         return Ok(());
     }
-    if let Some(e) = get_userdata_opt::<userdata::Entity>(lua, index) {
+    if let Some(e) = get_userdata_opt::<userdata::world::Entity>(lua, index) {
         try!(w.write(Tag::Entity as u8));
         try!(w.write_id(e.id));
         return Ok(());
     }
-    if let Some(s) = get_userdata_opt::<userdata::Structure>(lua, index) {
+    if let Some(s) = get_userdata_opt::<userdata::world::Structure>(lua, index) {
         try!(w.write(Tag::Structure as u8));
         try!(w.write_id(s.id));
         return Ok(());
     }
-    if let Some(i) = get_userdata_opt::<userdata::Inventory>(lua, index) {
+    if let Some(i) = get_userdata_opt::<userdata::world::Inventory>(lua, index) {
         try!(w.write(Tag::Inventory as u8));
         try!(w.write_id(i.id));
         return Ok(());
     }
 
-    if let Some(c) = get_userdata_opt::<userdata::StableClient>(lua, index) {
+    if let Some(c) = get_userdata_opt::<userdata::world::StableClient>(lua, index) {
         try!(w.write(Tag::StableClient as u8));
         try!(w.write(c.id.val));
         return Ok(());
     }
-    if let Some(e) = get_userdata_opt::<userdata::StableEntity>(lua, index) {
+    if let Some(e) = get_userdata_opt::<userdata::world::StableEntity>(lua, index) {
         try!(w.write(Tag::StableEntity as u8));
         try!(w.write(e.id.val));
         return Ok(());
     }
-    if let Some(s) = get_userdata_opt::<userdata::StableStructure>(lua, index) {
+    if let Some(s) = get_userdata_opt::<userdata::world::StableStructure>(lua, index) {
         try!(w.write(Tag::StableStructure as u8));
         try!(w.write(s.id.val));
         return Ok(());
     }
-    if let Some(i) = get_userdata_opt::<userdata::StableInventory>(lua, index) {
+    if let Some(i) = get_userdata_opt::<userdata::world::StableInventory>(lua, index) {
         try!(w.write(Tag::StableInventory as u8));
         try!(w.write(i.id.val));
         return Ok(());
@@ -359,23 +349,12 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
 }
 
 
-pub struct ReadHooks<'a> {
-    script: &'a mut ScriptEngine,
-}
+pub type ReadHooks<'a, 'd> = ::engine::glue::SaveReadHooks<'a, 'd>;
 
-impl<'a> ReadHooks<'a> {
-    pub fn new(script: &'a mut ScriptEngine) -> ReadHooks<'a> {
-        ReadHooks {
-            script: script,
-        }
-    }
-}
-
-impl<'a> save::ReadHooks for ReadHooks<'a> {
+impl<'a, 'd> save::ReadHooks for ReadHooks<'a, 'd> {
     fn post_read_world<R: Reader>(&mut self,
-                                  reader: &mut R,
-                                  w: &mut World) -> save::Result<()> {
-        try!(read_extra(self.script.owned_lua.get(), reader, w, |lua| {
+                                  reader: &mut R) -> save::Result<()> {
+        try!(self.read_extra(reader, |lua| {
             lua.get_field(REGISTRY_INDEX, "outpost_callback_set_world_extra");
         }));
         Ok(())
@@ -383,9 +362,8 @@ impl<'a> save::ReadHooks for ReadHooks<'a> {
 
     fn post_read_client<R: Reader>(&mut self,
                                    reader: &mut R,
-                                   w: &mut World,
                                    cid: ClientId) -> save::Result<()> {
-        try!(read_extra(self.script.owned_lua.get(), reader, w, |lua| {
+        try!(self.read_extra(reader, |lua| {
             push_setter_and_id(lua, "outpost_callback_set_client_extra", cid.unwrap())
         }));
         Ok(())
@@ -393,7 +371,6 @@ impl<'a> save::ReadHooks for ReadHooks<'a> {
 
     fn post_read_terrain_chunk<R: Reader>(&mut self,
                                           _reader: &mut R,
-                                          _w: &mut World,
                                           _pos: V2) -> save::Result<()> {
         // TODO: support terrain_chunk script data
         Ok(())
@@ -401,9 +378,8 @@ impl<'a> save::ReadHooks for ReadHooks<'a> {
 
     fn post_read_entity<R: Reader>(&mut self,
                                    reader: &mut R,
-                                   w: &mut World,
                                    eid: EntityId) -> save::Result<()> {
-        try!(read_extra(self.script.owned_lua.get(), reader, w, |lua| {
+        try!(self.read_extra(reader, |lua| {
             push_setter_and_id(lua, "outpost_callback_set_entity_extra", eid.unwrap())
         }));
         Ok(())
@@ -411,9 +387,8 @@ impl<'a> save::ReadHooks for ReadHooks<'a> {
 
     fn post_read_structure<R: Reader>(&mut self,
                                       reader: &mut R,
-                                      w: &mut World,
                                       sid: StructureId) -> save::Result<()> {
-        try!(read_extra(self.script.owned_lua.get(), reader, w, |lua| {
+        try!(self.read_extra(reader, |lua| {
             push_setter_and_id(lua, "outpost_callback_set_structure_extra", sid.unwrap())
         }));
         Ok(())
@@ -421,66 +396,191 @@ impl<'a> save::ReadHooks for ReadHooks<'a> {
 
     fn post_read_inventory<R: Reader>(&mut self,
                                       reader: &mut R,
-                                      w: &mut World,
                                       iid: InventoryId) -> save::Result<()> {
-        try!(read_extra(self.script.owned_lua.get(), reader, w, |lua| {
+        try!(self.read_extra(reader, |lua| {
             push_setter_and_id(lua, "outpost_callback_set_inventory_extra", iid.unwrap())
         }));
         Ok(())
     }
 
-    fn cleanup_world(&mut self, _w: &mut World) -> save::Result<()> {
-        try!(clear_extra(self.script.owned_lua.get(), |lua| {
+    // Cleanup functions are simpler because they interact only with the ScriptEngine.  The
+    // post_read functions have to be able to read SaveIds, which may require mutating the World.
+    fn cleanup_world(&mut self) -> save::Result<()> {
+        try!(clear_extra(self.script_mut().owned_lua.get(), |lua| {
             lua.get_field(REGISTRY_INDEX, "outpost_callback_set_world_extra");
         }));
         Ok(())
     }
 
-    fn cleanup_client(&mut self, _w: &mut World, cid: ClientId) -> save::Result<()> {
-        try!(clear_extra(self.script.owned_lua.get(), |lua| {
+    fn cleanup_client(&mut self, cid: ClientId) -> save::Result<()> {
+        try!(clear_extra(self.script_mut().owned_lua.get(), |lua| {
             push_setter_and_id(lua, "outpost_callback_set_client_extra", cid.unwrap())
         }));
         Ok(())
     }
 
-    fn cleanup_terrain_chunk(&mut self, _w: &mut World, _pos: V2) -> save::Result<()> {
+    fn cleanup_terrain_chunk(&mut self, _pos: V2) -> save::Result<()> {
         // TODO: support terrain_chunk script data
         Ok(())
     }
 
-    fn cleanup_entity(&mut self, _w: &mut World, eid: EntityId) -> save::Result<()> {
-        try!(clear_extra(self.script.owned_lua.get(), |lua| {
+    fn cleanup_entity(&mut self, eid: EntityId) -> save::Result<()> {
+        try!(clear_extra(self.script_mut().owned_lua.get(), |lua| {
             push_setter_and_id(lua, "outpost_callback_set_entity_extra", eid.unwrap())
         }));
         Ok(())
     }
 
-    fn cleanup_structure(&mut self, _w: &mut World, sid: StructureId) -> save::Result<()> {
-        try!(clear_extra(self.script.owned_lua.get(), |lua| {
+    fn cleanup_structure(&mut self, sid: StructureId) -> save::Result<()> {
+        try!(clear_extra(self.script_mut().owned_lua.get(), |lua| {
             push_setter_and_id(lua, "outpost_callback_set_structure_extra", sid.unwrap())
         }));
         Ok(())
     }
 
-    fn cleanup_inventory(&mut self, _w: &mut World, iid: InventoryId) -> save::Result<()> {
-        try!(clear_extra(self.script.owned_lua.get(), |lua| {
+    fn cleanup_inventory(&mut self, iid: InventoryId) -> save::Result<()> {
+        try!(clear_extra(self.script_mut().owned_lua.get(), |lua| {
             push_setter_and_id(lua, "outpost_callback_set_inventory_extra", iid.unwrap())
         }));
         Ok(())
     }
 }
 
-fn read_extra<R: Reader, F>(mut lua: LuaState,
-                            r: &mut R,
-                            world: &mut World,
-                            push_setter: F) -> Result<()>
-        where F: FnOnce(&mut LuaState) {
-    let base = lua.top_index();
-    push_setter(&mut lua);
-    try!(read_value(&mut lua, r, world));
-    let args = lua.top_index() - base - 1;
-    try!(lua.pcall(args, 0, 0));
-    Ok(())
+impl<'a, 'd> ReadHooks<'a, 'd> {
+    fn lua(&mut self) -> LuaState {
+        self.script_mut().owned_lua.get()
+    }
+
+    fn with_lua<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut LuaState) -> R {
+        let mut lua = self.script_mut().owned_lua.get();
+        f(&mut lua)
+    }
+
+    fn wf<'b>(&'b mut self) -> HiddenWorldFragment<'b, 'd> {
+        self.as_hidden_world_fragment()
+    }
+
+    fn read_extra<R: Reader, F>(&mut self,
+                                r: &mut R,
+                                push_setter: F) -> Result<()>
+            where F: FnOnce(&mut LuaState) {
+        let base = self.with_lua(|lua| {
+            let base = lua.top_index();
+            push_setter(lua);
+            base
+        });
+        try!(self.read_value(r));
+        self.with_lua(|lua| {
+            let args = lua.top_index() - base - 1;
+            lua.pcall(args, 0, 0)
+               .map_err(error::FromError::from_error)
+        })
+    }
+
+    fn read_value<R: Reader>(&mut self,
+                             r: &mut R) -> Result<()> {
+        let (tag, a, b): (u8, u8, u16) = try!(r.read());
+        let tag = unwrap!(FromPrimitive::from_u8(tag));
+        match tag {
+            Tag::Nil => {
+                self.lua().push_nil();
+            },
+            Tag::Bool => {
+                self.lua().push_boolean(a != 0);
+            },
+            Tag::SmallInt => {
+                self.lua().push_integer(b as isize);
+            },
+            Tag::LargeInt => {
+                let i: i32 = try!(r.read());
+                self.lua().push_integer(i as isize);
+            },
+            Tag::Float => {
+                let f: f64 = try!(r.read());
+                self.lua().push_number(f);
+            },
+            Tag::SmallString => {
+                let s = try!(r.read_str_bytes(b as usize));
+                self.lua().push_string(&*s);
+            },
+            Tag::LargeString => {
+                let s = try!(r.read_str());
+                self.lua().push_string(&*s);
+            },
+            Tag::Table => {
+                try!(self.read_table(r));
+            },
+
+            Tag::World => {
+                let w = userdata::world::World;
+                w.to_lua(&mut self.lua());
+            },
+
+            Tag::Client => {
+                let cid = try!(r.read_id(&mut self.wf()));
+                let c = userdata::world::Client { id: cid };
+                c.to_lua(&mut self.lua());
+            },
+            Tag::Entity => {
+                let eid = try!(r.read_id(&mut self.wf()));
+                let e = userdata::world::Entity { id: eid };
+                e.to_lua(&mut self.lua());
+            },
+            Tag::Structure => {
+                let sid = try!(r.read_id(&mut self.wf()));
+                let s = userdata::world::Structure { id: sid };
+                s.to_lua(&mut self.lua());
+            },
+            Tag::Inventory => {
+                let iid = try!(r.read_id(&mut self.wf()));
+                let i = userdata::world::Inventory { id: iid };
+                i.to_lua(&mut self.lua());
+            },
+
+            Tag::StableClient => {
+                let cid = try!(r.read());
+                let c = userdata::world::StableClient { id: Stable::new(cid) };
+                c.to_lua(&mut self.lua());
+            },
+            Tag::StableEntity => {
+                let eid = try!(r.read());
+                let e = userdata::world::StableEntity { id: Stable::new(eid) };
+                e.to_lua(&mut self.lua());
+            },
+            Tag::StableStructure => {
+                let sid = try!(r.read());
+                let s = userdata::world::StableStructure { id: Stable::new(sid) };
+                s.to_lua(&mut self.lua());
+            },
+            Tag::StableInventory => {
+                let iid = try!(r.read());
+                let i = userdata::world::StableInventory { id: Stable::new(iid) };
+                i.to_lua(&mut self.lua());
+            },
+
+            Tag::V3 => {
+                let (x, y, z) = try!(r.read());
+                V3::new(x, y, z).to_lua(&mut self.lua());
+            },
+        }
+        Ok(())
+    }
+
+    fn read_table<R: Reader>(&mut self,
+                             r: &mut R) -> Result<()> {
+        self.lua().push_table();
+        loop {
+            try!(self.read_value(r));   // Key
+            if self.lua().type_of(-1) == ValueType::Nil {
+                self.lua().pop(1);
+                break;
+            }
+            try!(self.read_value(r));   // Value
+            self.lua().set_table(-3);
+        }
+        Ok(())
+    }
 }
 
 fn clear_extra<F>(mut lua: LuaState, push_setter: F) -> Result<()>
@@ -496,106 +596,4 @@ fn clear_extra<F>(mut lua: LuaState, push_setter: F) -> Result<()>
 fn push_setter_and_id<T: ToLua>(lua: &mut LuaState, func: &str, id: T) {
     lua.get_field(REGISTRY_INDEX, func);
     id.to_lua(lua);
-}
-
-fn read_value<R: Reader>(lua: &mut LuaState, r: &mut R, world: &mut World) -> Result<()> {
-    let (tag, a, b): (u8, u8, u16) = try!(r.read());
-    let tag = unwrap!(FromPrimitive::from_u8(tag));
-    match tag {
-        Tag::Nil => {
-            lua.push_nil();
-        },
-        Tag::Bool => {
-            lua.push_boolean(a != 0);
-        },
-        Tag::SmallInt => {
-            lua.push_integer(b as isize);
-        },
-        Tag::LargeInt => {
-            let i: i32 = try!(r.read());
-            lua.push_integer(i as isize);
-        },
-        Tag::Float => {
-            let f: f64 = try!(r.read());
-            lua.push_number(f);
-        },
-        Tag::SmallString => {
-            let s = try!(r.read_str_bytes(b as usize));
-            lua.push_string(&*s);
-        },
-        Tag::LargeString => {
-            let s = try!(r.read_str());
-            lua.push_string(&*s);
-        },
-        Tag::Table => {
-            try!(read_table(lua, r, world));
-        },
-
-        Tag::World => {
-            let w = userdata::World;
-            w.to_lua(lua);
-        },
-
-        Tag::Client => {
-            let cid = try!(r.read_id(world));
-            let c = userdata::Client { id: cid };
-            c.to_lua(lua);
-        },
-        Tag::Entity => {
-            let eid = try!(r.read_id(world));
-            let e = userdata::Entity { id: eid };
-            e.to_lua(lua);
-        },
-        Tag::Structure => {
-            let sid = try!(r.read_id(world));
-            let s = userdata::Structure { id: sid };
-            s.to_lua(lua);
-        },
-        Tag::Inventory => {
-            let iid = try!(r.read_id(world));
-            let i = userdata::Inventory { id: iid };
-            i.to_lua(lua);
-        },
-
-        Tag::StableClient => {
-            let cid = try!(r.read());
-            let c = userdata::StableClient { id: Stable::new(cid) };
-            c.to_lua(lua);
-        },
-        Tag::StableEntity => {
-            let eid = try!(r.read());
-            let e = userdata::StableEntity { id: Stable::new(eid) };
-            e.to_lua(lua);
-        },
-        Tag::StableStructure => {
-            let sid = try!(r.read());
-            let s = userdata::StableStructure { id: Stable::new(sid) };
-            s.to_lua(lua);
-        },
-        Tag::StableInventory => {
-            let iid = try!(r.read());
-            let i = userdata::StableInventory { id: Stable::new(iid) };
-            i.to_lua(lua);
-        },
-
-        Tag::V3 => {
-            let (x, y, z) = try!(r.read());
-            V3::new(x, y, z).to_lua(lua);
-        },
-    }
-    Ok(())
-}
-
-fn read_table<R: Reader>(lua: &mut LuaState, r: &mut R, world: &mut World) -> Result<()> {
-    lua.push_table();
-    loop {
-        try!(read_value(lua, r, world));    // Key
-        if lua.type_of(-1) == ValueType::Nil {
-            lua.pop(1);
-            break;
-        }
-        try!(read_value(lua, r, world));    // Value
-        lua.set_table(-3);
-    }
-    Ok(())
 }

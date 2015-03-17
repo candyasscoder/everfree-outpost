@@ -1,5 +1,8 @@
 use std::u16;
+use std::i64;
 use physics::CHUNK_BITS;
+
+pub use physics::v3::{V2, V3, Vn, scalar, Region, Region2};
 
 pub type LocalTime = u16;
 pub type LocalCoord = u16;
@@ -11,7 +14,7 @@ pub type Coord = i32;
 macro_rules! mk_id_newtypes {
     ( $($name:ident($inner:ty);)* ) => {
         $(
-            #[derive(Copy, PartialEq, Eq, Hash, Debug)]
+            #[derive(Copy, PartialEq, Eq, Hash, Debug, Clone)]
             pub struct $name(pub $inner);
 
             impl $name {
@@ -44,6 +47,7 @@ pub type TileId = u16;
 pub type TemplateId = u32;
 
 pub const DURATION_MAX: Duration = u16::MAX;
+pub const TIME_MIN: Time = i64::MIN;
 
 pub const CHUNK_TOTAL: usize = 1 << (3 * CHUNK_BITS);
 pub type BlockChunk = [BlockId; CHUNK_TOTAL];

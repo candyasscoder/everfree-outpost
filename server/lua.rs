@@ -61,6 +61,7 @@ mod ffi {
         pub fn lua_insert(L: *mut lua_State, index: c_int);
         pub fn lua_replace(L: *mut lua_State, index: c_int);
         pub fn lua_pushvalue(L: *mut lua_State, index: c_int);
+        pub fn lua_checkstack(L: *mut lua_State, extra: c_int) -> c_int;
 
         pub fn lua_gettable(L: *mut lua_State, t: c_int);
         pub fn lua_settable(L: *mut lua_State, t: c_int);
@@ -262,6 +263,10 @@ impl<'a> LuaState<'a> {
         }
     }
 
+    pub fn check_stack(&mut self, extra: c_int) -> bool {
+        unsafe { ffi::lua_checkstack(self.L, extra) != 0 }
+    }
+
     // Pushing values onto the stack
 
     pub fn push_boolean(&mut self, b: bool) {
@@ -306,11 +311,17 @@ impl<'a> LuaState<'a> {
     }
 
     pub fn push_userdata<T: Copy>(&mut self, value: T) {
+        unsafe { self.push_noncopy_userdata(value) };
+    }
+
+    /// Unsafe because the caller is responsible for attaching a metatable that will run the
+    /// destructor on __gc.
+    pub unsafe fn push_noncopy_userdata<T>(&mut self, value: T) {
         let raw_size = mem::size_of::<T>();
         let size = raw_size as size_t;
         assert!(size as usize == raw_size);
-        let ptr = unsafe { ffi::lua_newuserdata(self.L, size) } as *mut T;
-        unsafe { *ptr = value; }
+        let ptr = ffi::lua_newuserdata(self.L, size) as *mut T;
+        ptr::write(ptr, value);
     }
 
     // Reading values from the stack
@@ -498,7 +509,8 @@ impl<'a> LuaState<'a> {
                 ValueType::Nil =>
                     format!("nil"),
                 ValueType::Boolean |
-                ValueType::Number |
+                ValueType::Number =>
+                    format!("{}", self.to_integer(i)),
                 ValueType::String =>
                     format!("{:?}", self.to_string(i)),
                 ValueType::LightUserdata |

@@ -233,7 +233,7 @@ fn check_side<S: ShapeSource>(chunk: &S, pos: V3, size: V3, dir_axis: DirAxis) -
 // `inline(never)` here magically makes `collide` faster.
 #[inline(never)]
 fn check_region<S: ShapeSource>(chunk: &S, new: Region) -> bool {
-    assert!(new.min.x >= 0 && new.min.y >= 0 && new.min.z >= 0);
+    //assert!(new.min.x >= 0 && new.min.y >= 0 && new.min.z >= 0);
 
     // Check that the bottom of the region touches the bottom of the tiles.
     if new.min.z % TILE_SIZE != 0 {

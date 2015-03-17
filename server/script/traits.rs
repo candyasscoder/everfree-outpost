@@ -7,7 +7,6 @@ use lua::ValueType;
 use types::*;
 use util::StrResult;
 
-use super::{ScriptContext, get_ctx};
 use super::Nil;
 
 
@@ -71,14 +70,28 @@ macro_rules! impl_metatable_key {
 
 /// Types that can be passed to Lua as userdata values.
 #[allow(unused_variables)]
-pub trait Userdata: TypeName+MetatableKey+Copy {
+pub trait Userdata: TypeName+MetatableKey {
     fn populate_table(lua: &mut LuaState) { }
     fn populate_metatable(lua: &mut LuaState) { }
 }
 
 pub fn create_userdata<U: Userdata>(lua: &mut LuaState, u: U) {
-    lua.push_userdata(u);
-    lua.get_field(REGISTRY_INDEX, metatable_key::<U>());
+    // We need to be careful in here, since hitting a lua error after pushing the userdata but
+    // before setting the metatable could leak memory.
+
+    // Check we won't fail due to limited stack space.
+    assert!(lua.check_stack(2));
+
+    // Check we won't fail to find the metatable.
+    let key = metatable_key::<U>();
+    lua.get_field(REGISTRY_INDEX, key);
+    if lua.type_of(-1) == ValueType::Nil {
+        panic!("tried to create userdata, but found no metatable at {:?}", key);
+    }
+    lua.pop(1);
+
+    unsafe { lua.push_noncopy_userdata(u) };
+    lua.get_field(REGISTRY_INDEX, key);
     lua.set_metatable(-2);
 }
 
@@ -123,6 +136,18 @@ int_from_lua_impl!(i8);
 int_from_lua_impl!(i16);
 int_from_lua_impl!(i32);
 
+impl<'a> FromLua<'a> for Nil {
+    unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
+        if lua.type_of(index) != ValueType::Nil {
+            type_error!(lua, index, func, "nil");
+        }
+    }
+
+    unsafe fn from_lua(_lua: &LuaState, _index: c_int) -> Nil {
+        Nil
+    }
+}
+
 impl<'a> FromLua<'a> for &'a str {
     unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
         if lua.type_of(index) != ValueType::String {
@@ -132,6 +157,16 @@ impl<'a> FromLua<'a> for &'a str {
 
     unsafe fn from_lua(lua: &'a LuaState, index: c_int) -> &'a str {
         lua.to_string(index).unwrap()
+    }
+}
+
+impl<'a> FromLua<'a> for String {
+    unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
+        <&str as FromLua>::check(lua, index, func)
+    }
+
+    unsafe fn from_lua(lua: &'a LuaState, index: c_int) -> String {
+        String::from_str(<&str as FromLua>::from_lua(lua, index))
     }
 }
 
@@ -247,20 +282,6 @@ pub unsafe fn unpack_args_count<'a, T: FromLua<'a>>(lua: &'a mut LuaState,
                                                     func: &'static str) -> (T, c_int) {
     let x = unpack_args(lua, func);
     (x, <T as FromLua>::count())
-}
-
-pub unsafe fn with_args_count_ctx<'a, T, R, F>(lua: &'a mut LuaState,
-                                               func: &'static str,
-                                               f: F) -> (R, c_int)
-        where T: FromLua<'a>,
-              F: FnOnce(&mut ScriptContext, T) -> R {
-
-    check_args::<T>(lua, func);
-
-    let mut ctx = get_ctx(lua);
-    let count = <T as FromLua>::count();
-    let args = <T as FromLua>::from_lua(lua, 1);
-    (f(&mut *ctx, args), count)
 }
 
 
@@ -379,37 +400,4 @@ impl ToLua for Nil {
 pub fn pack_count<T: ToLua>(lua: &mut LuaState, x: T) -> c_int {
     x.to_lua(lua);
     <T as ToLua>::count()
-}
-
-
-macro_rules! lua_fn {
-    (fn $name:ident($($arg_name:ident : $arg_ty:ty),*) -> $ret_ty:ty { $body:expr }) => {
-        fn $name(mut lua: LuaState) -> c_int {
-            let (result, count): ($ret_ty, ::libc::c_int) = {
-                let (($($arg_name,)*), count): (($($arg_ty,)*), ::libc::c_int) = unsafe {
-                    $crate::script::traits::unpack_args_count(&mut lua, stringify!($name))
-                };
-                ($body, count)
-            };
-            lua.pop(count);
-            $crate::script::traits::pack_count(&mut lua, result)
-        }
-    };
-}
-
-macro_rules! lua_ctx_fn {
-    (fn $name:ident($ctx_name:ident, $($arg_name:ident : $arg_ty:ty),*)
-            -> $ret_ty:ty { $body:expr }) => {
-        fn $name(mut lua: LuaState) -> c_int {
-            let (result, count): ($ret_ty, ::libc::c_int) = unsafe {
-                $crate::script::traits::with_args_count_ctx(&mut lua, stringify!($name),
-                    |$ctx_name, args| {
-                        let ($($arg_name,)*): ($($arg_ty,)*) = args;
-                        $body
-                    })
-            };
-            lua.pop(count);
-            $crate::script::traits::pack_count(&mut lua, result)
-        }
-    };
 }

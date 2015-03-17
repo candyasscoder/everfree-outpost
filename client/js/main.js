@@ -717,6 +717,9 @@ function handleEntityUpdate(id, motion, anim) {
     var now = Date.now();
     m.start_time = timing.decodeRecv(motion.start_time, now);
     m.end_time = timing.decodeRecv(motion.end_time, now);
+    if (m.start_time > now + 2000) {
+        m.start_time -= 0x10000;
+    }
     if (m.end_time < m.start_time) {
         m.end_time += 0x10000;
     }
@@ -860,8 +863,11 @@ function frame(ac, now) {
     var pos = new Vec(4096, 4096, 0);
     var pony = null;
     if (player_entity >= 0 && entities[player_entity] != null) {
-        pos = entities[player_entity].position(now);
         pony = entities[player_entity];
+        // Make sure the camera remains within the middle of the local space.
+        localSprite(now, pony, null);
+        pos = pony.position(now);
+
         debug.updateMotions(pony);
     }
     debug.updatePos(pos);

@@ -35,7 +35,11 @@ package.loaded.bootstrap = {
 
 -- Put some type tables in global scope
 V3 = outpost_ffi.types.V3.table
+V2 = outpost_ffi.types.V2.table
 World = outpost_ffi.types.World.table
+Rng = outpost_ffi.types.Rng.table
+GenChunk = outpost_ffi.types.GenChunk.table
+IsoDiskSampler = outpost_ffi.types.IsoDiskSampler.table
 
 
 require('outpost.userdata')
@@ -54,7 +58,7 @@ local ward = require('ward')
 require('mallet')
 
 
-function action.handler.inventory(c, arg)
+function action.open_inventory(c)
     c:open_inventory(c:pawn():inventory('main'))
 end
 
@@ -125,6 +129,43 @@ end
 function command.handler.home(client, args)
     local home = client:extra().home_pos or spawn_point
     client:pawn():teleport(home)
+end
+
+
+local sampler = IsoDiskSampler.new_constant(12347, 4, 32)
+
+function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
+    local grass = {
+        ['grass/center/v0'] = 70,
+        ['grass/center/v1'] = 10,
+        ['grass/center/v2'] = 10,
+        ['grass/center/v3'] = 10,
+    }
+
+    for y = 0, 15 do
+        for x = 0, 15 do
+            c:set_block(V3.new(x, y, 0), r:choose_weighted(pairs(grass)))
+        end
+    end
+
+    local structures = {
+        ['tree'] = 7000,
+        ['rock'] = 3000,
+        ['stump'] = 100,
+        --['chest'] = 1,
+    }
+
+    local min = cpos * V2.new(16, 16)
+    local max = min + V2.new(16, 16)
+    local p = sampler:get_points(min, max)
+
+    for i = 1, #p do
+        c:add_structure((p[i] - min):extend(0), r:choose_weighted(pairs(structures)))
+    end
+
+    if cpos:x() == 0 and cpos:y() == 0 then
+        c:add_structure(V3.new(0, 0, 0), 'anvil')
+    end
 end
 
 
