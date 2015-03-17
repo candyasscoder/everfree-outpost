@@ -179,7 +179,7 @@ impl<'d> Engine<'d> {
             },
 
             Chat(msg) => {
-                unimplemented!()
+                logic::input::chat(self.as_ref(), cid, msg);
             },
 
             CheckView => {

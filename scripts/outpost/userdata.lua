@@ -66,3 +66,9 @@ end
 function outpost_ffi.types.Inventory.metatable.__eq(x, y)
     return x:id() == y:id()
 end
+
+
+-- Misc methods
+function outpost_ffi.types.Client.table.send_message(c, msg)
+    c:send_message_raw('***\t' .. msg)
+end

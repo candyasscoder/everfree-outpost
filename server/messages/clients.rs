@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map};
 use rand::{self, Rng};
 
 use physics::{CHUNK_SIZE, CHUNK_BITS, TILE_SIZE, TILE_BITS};
@@ -50,6 +50,10 @@ impl Clients {
 
     pub fn get_mut(&mut self, cid: ClientId) -> Option<&mut ClientInfo> {
         self.clients.get_mut(&cid)
+    }
+
+    pub fn iter(&self) -> hash_map::Iter<ClientId, ClientInfo> {
+        self.clients.iter()
     }
 }
 

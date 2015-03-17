@@ -70,19 +70,19 @@ pub enum OtherEvent {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ControlResponse {
     WireClosed(WireId),
     ReplResult(u16, String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum WireResponse {
     RegisterResult(u32, String),
     KickReason(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ClientResponse {
     Init(EntityId),
 
@@ -102,7 +102,7 @@ pub enum ClientResponse {
     KickReason(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Dialog {
     Inventory(InventoryId),
     Container(InventoryId, InventoryId),
@@ -413,6 +413,12 @@ impl Messages {
 
             ClientResponse::KickReason(msg) =>
                 self.send_raw(wire_id, Response::KickReason(msg)),
+        }
+    }
+
+    pub fn broadcast_clients(&self, resp: ClientResponse) {
+        for (&cid, _) in self.clients.iter() {
+            self.send_client(cid, resp.clone());
         }
     }
 

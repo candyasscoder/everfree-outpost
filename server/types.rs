@@ -14,7 +14,7 @@ pub type Coord = i32;
 macro_rules! mk_id_newtypes {
     ( $($name:ident($inner:ty);)* ) => {
         $(
-            #[derive(Copy, PartialEq, Eq, Hash, Debug)]
+            #[derive(Copy, PartialEq, Eq, Hash, Debug, Clone)]
             pub struct $name(pub $inner);
 
             impl $name {

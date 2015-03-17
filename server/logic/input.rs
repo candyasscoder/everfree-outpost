@@ -78,3 +78,15 @@ pub fn physics_update(mut eng: EngineRef, eid: EntityId) {
         }
     }
 }
+
+
+pub fn chat(mut eng: EngineRef, cid: ClientId, msg: String) {
+    if msg.starts_with("/") {
+        warn_on_err!(script::ScriptEngine::cb_chat_command(eng.unwrap(), cid, &*msg));
+    } else {
+        let msg_out = format!("<{}>\t{}",
+                              eng.world().client(cid).name(),
+                              msg);
+        eng.messages_mut().broadcast_clients(ClientResponse::ChatUpdate(msg_out));
+    }
+}

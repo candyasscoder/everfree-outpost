@@ -11,6 +11,7 @@ use engine::Engine;
 use engine::glue::WorldFragment;
 use logic;
 use lua::LuaState;
+use messages::ClientResponse;
 use script::traits::Userdata;
 use world;
 use world::Fragment;
@@ -165,11 +166,12 @@ impl Userdata for Client {
                 logic::items::open_crafting(eng.as_ref(), c.id, s.id, i.id)
             }
 
-            fn send_message(!partial w: &world::World,
-                            c: Client,
-                            msg: &str) -> StrResult<()> {
-                unwrap!(w.get_client(c.id));
-                //ctx.world.record(Update::ClientMessage(c.id, msg.to_owned()));
+            fn send_message_raw(!full eng: &mut Engine,
+                                c: Client,
+                                msg: String) -> StrResult<()> {
+                unwrap!(eng.world.get_client(c.id));
+                let resp = ClientResponse::ChatUpdate(msg);
+                eng.messages.send_client(c.id, resp);
                 Ok(())
             }
         }

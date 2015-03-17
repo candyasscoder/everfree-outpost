@@ -114,6 +114,17 @@ impl ScriptEngine {
         x
     }
 
+    pub fn cb_chat_command(eng: &mut engine::Engine,
+                           cid: ClientId,
+                           msg: &str) -> StringResult<()> {
+        let ptr = eng as *mut engine::Engine;
+        eng.script.with_context(ptr, |lua| {
+            run_callback(lua,
+                         "outpost_callback_command",
+                         (userdata::world::Client { id: cid }, msg))
+        })
+    }
+
     pub fn cb_interact(eng: &mut engine::Engine, cid: ClientId) -> StringResult<()> {
         let ptr = eng as *mut engine::Engine;
         eng.script.with_context(ptr, |lua| {

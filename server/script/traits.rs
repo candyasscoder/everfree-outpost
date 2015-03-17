@@ -160,6 +160,16 @@ impl<'a> FromLua<'a> for &'a str {
     }
 }
 
+impl<'a> FromLua<'a> for String {
+    unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
+        <&str as FromLua>::check(lua, index, func)
+    }
+
+    unsafe fn from_lua(lua: &'a LuaState, index: c_int) -> String {
+        String::from_str(<&str as FromLua>::from_lua(lua, index))
+    }
+}
+
 impl<'a, U: Userdata> FromLua<'a> for &'a U {
     unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
         lua.get_metatable(index);
