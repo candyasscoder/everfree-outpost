@@ -1,4 +1,4 @@
-use rand::{XorShiftRng, SeedableRng};
+use rand::{Rng, XorShiftRng, SeedableRng};
 
 use types::*;
 use util::StringResult;
@@ -7,7 +7,9 @@ use data::Data;
 use script::ScriptEngine;
 
 pub use self::disk_sampler::IsoDiskSampler;
+pub use self::diamond_square::DiamondSquare;
 
+pub mod diamond_square;
 mod disk_sampler;
 
 
@@ -91,11 +93,22 @@ pub trait PointSource {
 
 pub trait Field {
     fn get_value(&self, pos: V2) -> i32;
+
+    fn get_region(&self, bounds: Region2, buf: &mut [i32]) {
+        for p in bounds.points() {
+            let idx = bounds.index(p);
+            buf[idx] = self.get_value(p);
+        }
+    }
 }
 
 impl Field for Box<Field> {
     fn get_value(&self, pos: V2) -> i32 {
         (**self).get_value(pos)
+    }
+
+    fn get_region(&self, bounds: Region2, buf: &mut [i32]) {
+        (**self).get_region(bounds, buf)
     }
 }
 
@@ -105,5 +118,28 @@ pub struct ConstantField(pub i32);
 impl Field for ConstantField {
     fn get_value(&self, _: V2) -> i32 {
         self.0
+    }
+
+    fn get_region(&self, _: Region2, buf: &mut [i32]) {
+        for x in buf.iter_mut() {
+            *x = self.0
+        }
+    }
+}
+
+
+pub struct RandomField {
+    seed: u64,
+    min: i32,
+    max: i32,
+}
+
+impl Field for RandomField {
+    fn get_value(&self, pos: V2) -> i32 {
+        let mut r: XorShiftRng = SeedableRng::from_seed([pos.x as u32,
+                                                         pos.y as u32,
+                                                         (self.seed >> 32) as u32,
+                                                         self.seed as u32]);
+        r.gen_range(self.min, self.max)
     }
 }
