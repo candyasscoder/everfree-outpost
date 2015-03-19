@@ -18,6 +18,7 @@
 
 #[macro_use] extern crate bitflags;
 extern crate core;
+extern crate env_logger;
 extern crate libc;
 #[macro_use] extern crate log;
 extern crate rand;
@@ -48,7 +49,6 @@ mod lua;
 mod script;
 mod world;
 mod storage;
-mod logging;
 
 mod auth;
 mod messages;
@@ -70,7 +70,7 @@ fn main() {
     use std::sync::mpsc::channel;
     use std::thread;
 
-    logging::init();
+    env_logger::init();
 
     let args = env::args().collect::<Vec<_>>();
     let storage = storage::Storage::new(Path::new(&args[1]));
