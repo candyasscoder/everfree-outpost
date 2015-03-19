@@ -141,42 +141,26 @@ end
 
 local sampler = IsoDiskSampler.new_constant(12347, 4, 32)
 
-local offsets = ValuesMut.new()
-for _, v in ipairs({8, 4, 2, 1, 0, 0, 0}) do
-    offsets:push(v)
-    offsets:push(v)
-end
-local ds = DiamondSquare.new(1234, 5678, RandomField.new(1, 2, -16, 16):upcast(), offsets)
-
 function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
     local grass = {
-        ['grass/center/v0'] = 70,
-        ['grass/center/v1'] = 10,
-        ['grass/center/v2'] = 10,
-        ['grass/center/v3'] = 10,
+        ['grass/center/v0'] = 1,
+        ['grass/center/v1'] = 1,
+        ['grass/center/v2'] = 1,
+        ['grass/center/v3'] = 1,
     }
 
     local min = cpos * V2.new(16, 16)
     local max = min + V2.new(16, 16)
 
-    local values = ds:get_region(min, max)
-
     for y = 0, 15 do
         for x = 0, 15 do
-            print(y * 16 + x + 1, values[y * 16 + x + 1])
-            if values[y * 16 + x + 1] > 0 then
-                c:set_block(V3.new(x, y, 0), 'road')
-            else
-                c:set_block(V3.new(x, y, 0), r:choose_weighted(pairs(grass)))
-            end
+            c:set_block(V3.new(x, y, 0), r:choose_weighted(pairs(grass)))
         end
     end
 
     local structures = {
-        ['tree'] = 7000,
-        ['rock'] = 3000,
-        ['stump'] = 100,
-        --['chest'] = 1,
+        ['tree'] = 2,
+        ['rock'] = 1,
     }
     local p = sampler:get_points(min, max)
 

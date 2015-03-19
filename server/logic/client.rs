@@ -18,7 +18,8 @@ pub fn register(mut eng: EngineRef, name: &str, appearance: u32) -> save::Result
     {
         let mut eng = eng.as_hidden_world_fragment();
 
-        pawn_id = try!(world::Fragment::create_entity(&mut eng, scalar(0), 2, appearance)).id();
+        let pos = V3::new(32, 32, 0);
+        pawn_id = try!(world::Fragment::create_entity(&mut eng, pos, 2, appearance)).id();
 
         cid = {
             let mut c = try!(world::Fragment::create_client(&mut eng, name));
