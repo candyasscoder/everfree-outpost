@@ -3,6 +3,7 @@ use physics::{CHUNK_SIZE, TILE_SIZE};
 use types::*;
 use util::SmallSet;
 
+use chunks;
 use engine::glue::*;
 use world::{self, World};
 use world::object::*;
@@ -42,6 +43,7 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
     }
 
     fn on_chunk_invalidate(&mut self, cpos: V2) {
+        chunks::UpdateFragment::update(&mut self.as_chunks_update_fragment(), cpos);
         vision::Fragment::update_chunk(&mut self.as_vision_fragment(), cpos);
     }
 

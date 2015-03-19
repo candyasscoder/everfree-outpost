@@ -10,13 +10,13 @@ use world::{self, World};
 // This macro defines all the EnginePart typedefs used in the engine.  We use a macro so we can
 // define parts in terms of other parts.
 macro_rules! part2 {
-    // Normal WorldFragment.  Changes through this fragment will be propagated to scripts and to
-    // clients.
+    // Normal WorldFragment.  Changes through this fragment will be propagated to scripts, clients,
+    // and the chunk cache.
     (WorldFragment, $($x:tt)*) => {
         part2!(world, WorldHooks, $($x)*);
     };
     (WorldHooks, $($x:tt)*) => {
-        part2!(script, vision, VisionHooks, $($x)*);
+        part2!(script, vision, chunks, VisionHooks, $($x)*);
     };
     (VisionFragment, $($x:tt)*) => {
         part2!(vision, VisionHooks, $($x)*);
@@ -26,7 +26,7 @@ macro_rules! part2 {
     };
 
     // Hidden WorldFragment.  Changes through this fragment will be propagated to scripts but NOT
-    // to clients.
+    // to clients or the chunk cache.
     (HiddenWorldFragment, $($x:tt)*) => {
         part2!(world, HiddenWorldHooks, $($x)*);
     };
@@ -51,6 +51,10 @@ macro_rules! part2 {
     };
     (ChunkProvider, $($x:tt)*) => {
         part2!(HiddenWorldFragment, SaveReadFragment, TerrainGenFragment, $($x)*);
+    };
+
+    (ChunksUpdateFragment, $($x:tt)*) => {
+        part2!(chunks, world, $($x)*);
     };
 
     (PhysicsFragment, $($x:tt)*) => {
@@ -137,6 +141,7 @@ impl_slice! {
     EngineRef::as_world_fragment -> WorldFragment;
     EngineRef::as_vision_fragment -> VisionFragment;
     WorldHooks::as_vision_fragment -> VisionFragment;
+    WorldHooks::as_chunks_update_fragment -> ChunksUpdateFragment;
 }
 
 
@@ -208,6 +213,17 @@ impl_slice! {
     ChunkProvider::as_hidden_world_fragment -> HiddenWorldFragment;
     ChunkProvider::as_terrain_gen_fragment -> TerrainGenFragment;
     ChunkProvider::as_save_read_fragment -> SaveReadFragment;
+}
+
+
+parts!(ChunksUpdateFragment);
+
+impl<'a, 'd> chunks::UpdateFragment<'d> for ChunksUpdateFragment<'a, 'd> {
+    fn with_world<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut Chunks<'d>, &World<'d>) -> R {
+        let Open { chunks, world, .. } = self.open();
+        f(chunks, world)
+    }
 }
 
 

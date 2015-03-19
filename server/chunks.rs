@@ -80,6 +80,11 @@ pub trait Fragment<'d> {
         });
         last
     }
+}
+
+pub trait UpdateFragment<'d> {
+    fn with_world<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut Chunks<'d>, &World<'d>) -> R;
 
     fn update(&mut self, cpos: V2) -> StrResult<()> {
         self.with_world(|sys, world| {
