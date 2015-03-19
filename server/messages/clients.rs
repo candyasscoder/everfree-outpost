@@ -70,7 +70,6 @@ impl ClientInfo {
         let mut rng = rand::thread_rng();
         let offset_x = rng.gen_range(0, 8);
         let offset_y = rng.gen_range(0, 8);
-        info!("offset: {} {}", offset_x, offset_y);
         ClientInfo {
             wire_id: wire_id,
             chunk_offset: (offset_x, offset_y),

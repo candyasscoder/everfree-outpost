@@ -109,7 +109,6 @@ impl TerrainCache {
         let mut entry = CacheEntry::new(*chunk.blocks());
 
         let chunk_bounds = chunk.bounds();
-        info!("update {:?} - {} structures", chunk_pos, w.chunk_structures(chunk_pos).count());
         for s in w.chunk_structures(chunk_pos) {
             let struct_bounds = s.bounds();
             let t = s.template();

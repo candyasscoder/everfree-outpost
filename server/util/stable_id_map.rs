@@ -84,7 +84,6 @@ impl<K: Copy+ObjectId, V: IntrusiveStableId> StableIdMap<K, V> {
         let transient_id = ObjectId::from_usize(raw_transient_id);
 
         if stable_id != NO_STABLE_ID {
-            info!("add stable id {:x} to map", stable_id);
             self.stable_ids.insert(stable_id, transient_id);
         }
 
