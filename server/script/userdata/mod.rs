@@ -74,10 +74,11 @@ macro_rules! lua_fn_raw {
         #[allow(unused_mut)]
         fn $name(mut lua: $crate::lua::LuaState) -> ::libc::c_int {
             let (result, count): ($ret_ty, ::libc::c_int) = {
-                let (($($arg,)*), count): (($($arg_ty,)*), ::libc::c_int) = unsafe {
+                let (args, count): (_, ::libc::c_int) = unsafe {
                     $crate::script::traits::unpack_args_count(&mut lua, stringify!($name))
                 };
-                ($body, count)
+                let f = |($($arg,)*): ($($arg_ty,)*)| $body;
+                (f(args), count)
             };
             lua.pop(count);
             $crate::script::traits::pack_count(&mut lua, result)
@@ -132,7 +133,16 @@ mk_build_types_table!(
 
     self::terrain_gen::Rng,
     self::terrain_gen::GenChunk,
+
+    self::terrain_gen::Values,
+    self::terrain_gen::ValuesMut,
     self::terrain_gen::Points,
+
+    self::terrain_gen::Field,
+    self::terrain_gen::ConstantField,
+    self::terrain_gen::RandomField,
+    self::terrain_gen::DiamondSquare,
+
     self::terrain_gen::IsoDiskSampler,
 );
 

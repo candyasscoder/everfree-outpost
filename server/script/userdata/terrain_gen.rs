@@ -313,6 +313,63 @@ impl Userdata for GenChunk {
 }
 
 
+pub struct Values {
+    v: Vec<i32>,
+}
+
+impl_type_name!(Values);
+impl_metatable_key!(Values);
+
+impl Userdata for Values {
+    fn populate_metatable(lua: &mut LuaState) {
+        lua_table_fns2! {
+            lua, -1,
+
+            fn __len(values: &Values, __: Nil) -> u32 {
+                values.v.len() as u32
+            }
+
+            fn __index(values: &Values, idx: u32) -> Option<i32> {
+                values.v.get(idx as usize - 1).map(|&x| x)
+            }
+
+            fn __gc(x: &Values) -> () {
+                // Run destructor on `x`.  After this, the memory will be freed by Lua.
+                unsafe { ptr::read(x as *const _) };
+            }
+        }
+    }
+}
+
+pub type ValuesMut = OptWrapper<Vec<i32>>;
+
+impl_type_name!(ValuesMut);
+impl_metatable_key!(ValuesMut);
+
+impl Userdata for ValuesMut {
+    fn populate_table(lua: &mut LuaState) {
+        lua_table_fns2! {
+            lua, -1,
+
+            fn push(vs: &ValuesMut, v: i32) -> StrResult<()> {
+                vs.open(|vs| vs.push(v))
+            }
+        }
+    }
+
+    fn populate_metatable(lua: &mut LuaState) {
+        lua_table_fns2! {
+            lua, -1,
+
+            fn __gc(x: &ValuesMut) -> () {
+                // Run destructor on `x`.  After this, the memory will be freed by Lua.
+                unsafe { ptr::read(x as *const _) };
+            }
+        }
+    }
+}
+
+
 pub struct Points {
     p: Vec<V2>,
 }
@@ -340,6 +397,130 @@ impl Userdata for Points {
         }
     }
 }
+
+
+// Field wrappers
+
+fn field_get_value<F: terrain_gen::Field>(field: &F, pos: V2) -> i32 {
+    use terrain_gen::Field;
+    field.get_value(pos)
+}
+
+fn field_get_region<F: terrain_gen::Field>(field: &F, min: V2, max: V2) -> Values {
+    use std::iter;
+    use terrain_gen::Field;
+
+    let bounds = Region2::new(min, max);
+    let mut buf = iter::repeat(0).take(bounds.volume() as usize).collect::<Vec<_>>();
+
+    field.get_region(bounds, &mut *buf);
+
+    Values {
+        v: buf,
+    }
+}
+
+
+pub type Field = OptWrapper<Box<terrain_gen::Field>>;
+
+impl_type_name!(Field);
+impl_metatable_key!(Field);
+
+impl Userdata for Field {
+    fn populate_table(lua: &mut LuaState) {
+        lua_table_fns2! {
+            lua, -1,
+
+            fn get_value(field: &Field, pos: V2) -> StrResult<i32> {
+                field.open(|f| field_get_value(f, pos))
+            }
+
+            fn get_region(field: &Field, min: V2, max: V2) -> StrResult<Values> {
+                field.open(|f| field_get_region(f, min, max))
+            }
+        }
+    }
+
+    fn populate_metatable(lua: &mut LuaState) {
+        lua_table_fns2! {
+            lua, -1,
+
+            fn __gc(x: &Field) -> () {
+                unsafe { ptr::read(x as *const _) };
+            }
+        }
+    }
+}
+
+macro_rules! define_field {
+    ($Field:ident = $tg_Field:ty: ($($arg:ident: $Arg:ty),*) $($body:tt)*) => {
+        pub type $Field = OptWrapper<$tg_Field>;
+
+        impl_type_name!($Field);
+        impl_metatable_key!($Field);
+
+        impl Userdata for $Field {
+            fn populate_table(lua: &mut LuaState) {
+                lua_table_fns2! {
+                    lua, -1,
+
+                    fn new($($arg: $Arg),*) -> StrResult<$Field> {
+                        let result = {
+                            use terrain_gen::$Field;
+                            mk_block!($($body)* {})
+                        };
+                        Ok($Field::new(result))
+                    }
+
+                    fn get_value(field: &$Field, pos: V2) -> StrResult<i32> {
+                        field.open(|f| field_get_value(f, pos))
+                    }
+
+                    fn get_region(field: &$Field, min: V2, max: V2) -> StrResult<Values> {
+                        field.open(|f| field_get_region(f, min, max))
+                    }
+
+                    fn upcast(field: &$Field) -> StrResult<Field> {
+                        let f = unwrap!(field.take());
+                        Ok(Field::new(Box::new(f) as Box<terrain_gen::Field>))
+                    }
+                }
+            }
+
+            fn populate_metatable(lua: &mut LuaState) {
+                lua_table_fns2! {
+                    lua, -1,
+
+                    fn __gc(x: &$Field) -> () {
+                        unsafe { ptr::read(x as *const _) };
+                    }
+                }
+            }
+        }
+    };
+
+    ($Field:ident: ($($arg:ident: $Arg:ty),*) $($body:tt)*) => {
+        define_field!($Field = terrain_gen::$Field: ($($arg: $Arg),*) $($body)*);
+    };
+}
+
+define_field!(ConstantField: (val: i32) { ConstantField(val) });
+define_field!(RandomField: (seed0: u32, seed1: u32, min: i32, max: i32) {
+    if min > max {
+        fail!("expected min <= max");
+    };
+    let seed = ((seed0 as u64) << 32) | (seed1 as u64);
+    // max+1 to be consistent with lua conventions (inclusive rather than exclusive).
+    RandomField::new(seed, min, max + 1)
+});
+
+define_field!(DiamondSquare = terrain_gen::DiamondSquare<Box<terrain_gen::Field>>:
+              (seed0: u32, seed1: u32, init: &Field, offsets: &ValuesMut) {
+    let init = unwrap!(init.take());
+    let offsets = unwrap!(offsets.take());
+    let seed = ((seed0 as u64) << 32) | (seed1 as u64);
+    DiamondSquare::new(seed, init, offsets)
+});
 
 
 

@@ -134,6 +134,16 @@ pub struct RandomField {
     max: i32,
 }
 
+impl RandomField {
+    pub fn new(seed: u64, min: i32, max: i32) -> RandomField {
+        RandomField {
+            seed: seed,
+            min: min,
+            max: max,
+        }
+    }
+}
+
 impl Field for RandomField {
     fn get_value(&self, pos: V2) -> i32 {
         let mut r: XorShiftRng = SeedableRng::from_seed([pos.x as u32,
