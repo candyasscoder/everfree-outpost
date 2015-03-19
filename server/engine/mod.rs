@@ -42,6 +42,14 @@ pub struct Engine<'d> {
     pub terrain_gen: TerrainGen<'d>,
 }
 
+#[must_use]
+#[derive(Copy, PartialEq, Eq, Debug)]
+enum HandlerResult {
+    Continue,
+    Shutdown,
+    //Restart,
+}
+
 impl<'d> Engine<'d> {
     pub fn new(data: &'d Data,
            storage: &'d Storage,
@@ -64,17 +72,23 @@ impl<'d> Engine<'d> {
         }
     }
 
-    pub fn run(&mut self) -> ! {
+    pub fn run(&mut self) {
+        use self::HandlerResult::*;
+        logic::lifecycle::start_up(self.as_ref());
         loop {
             let (evt, now) = self.messages.next_event();
-            self.handle(now, evt);
+            match self.handle(now, evt) {
+                Continue => {},
+                Shutdown => break,
+            }
         }
+        logic::lifecycle::shut_down(self.as_ref());
     }
 
 
     fn handle(&mut self,
               now: Time,
-              evt: Event) {
+              evt: Event) -> HandlerResult {
         use messages::Event::*;
         self.now = now;
         match evt {
@@ -86,7 +100,7 @@ impl<'d> Engine<'d> {
     }
 
     fn handle_control(&mut self,
-                      evt: ControlEvent) {
+                      evt: ControlEvent) -> HandlerResult {
         use messages::ControlEvent::*;
         use messages::ControlResponse::*;
         match evt {
@@ -109,12 +123,17 @@ impl<'d> Engine<'d> {
                     },
                 }
             },
+
+            Shutdown => {
+                return HandlerResult::Shutdown;
+            },
         }
+        HandlerResult::Continue
     }
 
     fn handle_wire(&mut self,
                    wire_id: WireId,
-                   evt: WireEvent) {
+                   evt: WireEvent) -> HandlerResult {
         use messages::WireEvent::*;
         use messages::WireResponse::*;
         match evt {
@@ -145,11 +164,12 @@ impl<'d> Engine<'d> {
                 self.kick_wire(wire_id, "bad request");
             },
         }
+        HandlerResult::Continue
     }
 
     fn handle_client(&mut self,
                      cid: ClientId,
-                     evt: ClientEvent) {
+                     evt: ClientEvent) -> HandlerResult {
         use messages::ClientEvent::*;
         match evt {
             Input(input) => {
@@ -186,16 +206,18 @@ impl<'d> Engine<'d> {
                 self.kick_client(cid, "bad request");
             },
         }
+        HandlerResult::Continue
     }
 
     fn handle_other(&mut self,
-                    evt: OtherEvent) {
+                    evt: OtherEvent) -> HandlerResult {
         use messages::OtherEvent::*;
         match evt {
             PhysicsUpdate(eid) => {
                 logic::input::physics_update(self.as_ref(), eid);
             },
         }
+        HandlerResult::Continue
     }
 
 

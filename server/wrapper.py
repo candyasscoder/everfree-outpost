@@ -27,6 +27,8 @@ OP_REMOVE_CLIENT =  0xff01
 OP_CLIENT_REMOVED = 0xff02
 OP_REPL_COMMAND =   0xff03
 OP_REPL_RESULT =    0xff04
+OP_SHUTDOWN =       0xff05
+OP_RESTART =        0xff06
 
 
 def now():
@@ -228,6 +230,10 @@ class BackendStream(object):
         header = struct.pack('HHHH', 0, len(body) + 4, OP_REPL_COMMAND, cookie)
         self.impl.stdin.write(header + body)
 
+    def send_shutdown(self):
+        msg = struct.pack('HHH', 0, 2, OP_SHUTDOWN)
+        self.impl.stdin.write(msg)
+
     @tornado.gen.coroutine
     def do_read(self):
         while True:
@@ -261,6 +267,7 @@ class BackendStream(object):
 
     def on_close(self, code):
         print('closed!')
+        sys.exit(0)
 
 
 class ReplServer(object):
@@ -332,6 +339,39 @@ class ReplServer(object):
         _, cb = self.pending.pop(cookie)
         cb(text)
 
+
+class ControlServer(object):
+    def __init__(self, backend, io_loop=None):
+        self.io_loop = io_loop or tornado.ioloop.IOLoop.current()
+        if hasattr(tornado.netutil, 'bind_unix_socket'):
+            self.server_sockets = [tornado.netutil.bind_unix_socket('./control')]
+        else:
+            self.server_sockets = tornado.netutil.bind_sockets(9998, address='localhost')
+
+        for sock in self.server_sockets:
+            tornado.netutil.add_accept_handler(sock, self.on_connect)
+
+        self.backend = backend
+
+    def on_connect(self, sock, addr):
+        conn = tornado.iostream.IOStream(sock)
+        self.io_loop.add_future(self.do_read(conn), lambda f: None)
+
+    @tornado.gen.coroutine
+    def do_read(self, conn):
+        def read_line():
+            return tornado.gen.Task(conn.read_until, b'\n')
+
+        while not conn.closed():
+            line = yield read_line()
+            text = line.strip()
+            print('got control command: %r' % text)
+            if text == b'shutdown':
+                self.backend.send_shutdown()
+            #else if text == 'restart':
+                #self.backend.send_restart()
+
+
 if __name__ == "__main__":
     LOG_DIR = path('logs')
     os.makedirs(LOG_DIR, exist_ok=True)
@@ -353,5 +393,6 @@ if __name__ == "__main__":
 
     backend = BackendStream([exe, ROOT_DIR])
     repl = ReplServer(backend)
+    control = ControlServer(backend)
     application.listen(PORT)
     tornado.ioloop.IOLoop.instance().start()

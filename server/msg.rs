@@ -78,6 +78,8 @@ pub mod op {
         ClientRemoved = 0xff02,
         ReplCommand = 0xff03,
         ReplResult = 0xff04,
+        Shutdown = 0xff05,
+        Restart = 0xff06,
     }
 }
 
@@ -102,6 +104,7 @@ pub enum Request {
     AddClient(WireId),
     RemoveClient(WireId),
     ReplCommand(u16, String),
+    Shutdown,
 
     // Server-internal messages
     BadMessage(Opcode),
@@ -161,6 +164,9 @@ impl Request {
             op::ReplCommand => {
                 let (a, b) = try!(wr.read());
                 ReplCommand(a, b)
+            },
+            op::Shutdown => {
+                Shutdown
             },
             _ => BadMessage(opcode),
         };

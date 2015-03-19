@@ -46,6 +46,7 @@ pub enum ControlEvent {
     OpenWire(WireId),
     CloseWire(WireId, Option<ClientId>),
     ReplCommand(u16, String),
+    Shutdown,
 }
 
 pub enum WireEvent {
@@ -248,6 +249,8 @@ impl Messages {
             },
             Request::ReplCommand(cookie, cmd) =>
                 Some(Event::Control(ControlEvent::ReplCommand(cookie, cmd))),
+            Request::Shutdown =>
+                Some(Event::Control(ControlEvent::Shutdown)),
 
             _ => {
                 warn!("bad control request: {:?}", req);
