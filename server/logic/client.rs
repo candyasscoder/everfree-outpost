@@ -97,8 +97,9 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
 pub fn logout(mut eng: EngineRef, cid: ClientId) -> save::Result<()> {
     eng.messages_mut().remove_client(cid);
 
+    let old_region = eng.vision().client_view_area(cid);
     vision::Fragment::remove_client(&mut eng.as_vision_fragment(), cid);
-    if let Some(old_region) = eng.vision().client_view_area(cid) {
+    if let Some(old_region) = old_region {
         for cpos in old_region.points() {
             logic::chunks::unload_chunk(eng.borrow(), cpos);
         }
