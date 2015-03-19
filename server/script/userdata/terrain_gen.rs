@@ -330,6 +330,10 @@ impl Userdata for Values {
             }
 
             fn __index(values: &Values, idx: u32) -> Option<i32> {
+                if idx == 0 {
+                    // Avoid panic from underflow.
+                    return None;
+                };
                 values.v.get(idx as usize - 1).map(|&x| x)
             }
 
@@ -350,6 +354,10 @@ impl Userdata for ValuesMut {
     fn populate_table(lua: &mut LuaState) {
         lua_table_fns2! {
             lua, -1,
+
+            fn new() -> ValuesMut {
+                ValuesMut::new(Vec::new())
+            }
 
             fn push(vs: &ValuesMut, v: i32) -> StrResult<()> {
                 vs.open(|vs| vs.push(v))

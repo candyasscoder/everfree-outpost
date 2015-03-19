@@ -37,8 +37,15 @@ package.loaded.bootstrap = {
 V3 = outpost_ffi.types.V3.table
 V2 = outpost_ffi.types.V2.table
 World = outpost_ffi.types.World.table
+
 Rng = outpost_ffi.types.Rng.table
 GenChunk = outpost_ffi.types.GenChunk.table
+ValuesMut = outpost_ffi.types.ValuesMut.table
+
+ConstantField = outpost_ffi.types.ConstantField.table
+RandomField = outpost_ffi.types.RandomField.table
+DiamondSquare = outpost_ffi.types.DiamondSquare.table
+
 IsoDiskSampler = outpost_ffi.types.IsoDiskSampler.table
 
 
@@ -134,6 +141,13 @@ end
 
 local sampler = IsoDiskSampler.new_constant(12347, 4, 32)
 
+local offsets = ValuesMut.new()
+for _, v in ipairs({8, 4, 2, 1, 0, 0, 0}) do
+    offsets:push(v)
+    offsets:push(v)
+end
+local ds = DiamondSquare.new(1234, 5678, RandomField.new(1, 2, -16, 16):upcast(), offsets)
+
 function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
     local grass = {
         ['grass/center/v0'] = 70,
@@ -142,9 +156,19 @@ function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
         ['grass/center/v3'] = 10,
     }
 
+    local min = cpos * V2.new(16, 16)
+    local max = min + V2.new(16, 16)
+
+    local values = ds:get_region(min, max)
+
     for y = 0, 15 do
         for x = 0, 15 do
-            c:set_block(V3.new(x, y, 0), r:choose_weighted(pairs(grass)))
+            print(y * 16 + x + 1, values[y * 16 + x + 1])
+            if values[y * 16 + x + 1] > 0 then
+                c:set_block(V3.new(x, y, 0), 'road')
+            else
+                c:set_block(V3.new(x, y, 0), r:choose_weighted(pairs(grass)))
+            end
         end
     end
 
@@ -154,9 +178,6 @@ function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
         ['stump'] = 100,
         --['chest'] = 1,
     }
-
-    local min = cpos * V2.new(16, 16)
-    local max = min + V2.new(16, 16)
     local p = sampler:get_points(min, max)
 
     for i = 1, #p do
