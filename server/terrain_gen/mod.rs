@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher, SipHasher};
+use std::num::Int;
 use rand::{Rng, XorShiftRng, SeedableRng};
 
 use types::*;
@@ -146,10 +148,38 @@ impl RandomField {
 
 impl Field for RandomField {
     fn get_value(&self, pos: V2) -> i32 {
-        let mut r: XorShiftRng = SeedableRng::from_seed([pos.x as u32,
-                                                         pos.y as u32,
-                                                         (self.seed >> 32) as u32,
-                                                         self.seed as u32]);
-        r.gen_range(self.min, self.max)
+        PointRng::new(self.seed, pos, 0).gen_range(self.min, self.max)
+    }
+}
+
+
+struct PointRng {
+    seed: u64,
+    pos: V2,
+    extra: u32,
+    counter: u32,
+}
+
+impl PointRng {
+    pub fn new(seed: u64, pos: V2, extra: u32) -> PointRng {
+        PointRng {
+            seed: seed,
+            pos: pos,
+            extra: extra,
+            counter: 0,
+        }
+    }
+}
+
+impl Rng for PointRng {
+    fn next_u32(&mut self) -> u32 {
+        self.next_u64() as u32
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        let mut hasher = SipHasher::new_with_keys(self.seed, 0x9aa64385cac2f793);
+        (self.pos, self.extra, self.counter).hash(&mut hasher);
+        self.counter += 1;
+        hasher.finish()
     }
 }

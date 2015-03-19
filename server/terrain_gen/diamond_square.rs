@@ -3,6 +3,7 @@ use rand::{Rng, XorShiftRng, SeedableRng};
 use types::*;
 
 use terrain_gen::Field;
+use super::PointRng;
 
 
 type Level = u8;
@@ -22,6 +23,7 @@ fn diamond_square<Check, Handle>(check: &Check,
     assert!(offsets.len() % 2 == 0);
 
     let level = (offsets.len() / 2 - 1) as Level;
+    let step = scalar(1 << level as usize);
 
     let mut arr = [
         init[0],    0,          init[1],
@@ -37,23 +39,21 @@ fn diamond_square<Check, Handle>(check: &Check,
     for &(i, j) in [(0, 2), (0, 6), (2, 8), (6, 8)].iter() {
         let (i, j): (usize, usize) = (i, j);
         let k = (i + j) / 2;
-        arr[k] = (arr[i] + arr[j]) / 2 + r.gen_range(-offsets[0], offsets[0] + 1);
+
+        let result_pos = base + step * V2::new(k as i32 % 3, k as i32 / 3);
+        let off = PointRng::new(seed, result_pos, 0).gen_range(-offsets[0], offsets[0] + 1);
+
+        arr[k] = (arr[i] + arr[j]) / 2 + off;
+        (*handle)(result_pos, arr[k]);
     }
 
-    arr[4] = (arr[1] + arr[3] + arr[5] + arr[7]) / 4 + r.gen_range(-offsets[1], offsets[1] + 1);
-
-    let step = scalar(1 << level as usize);
     {
-        let mut emit = |dx, dy| {
-            let idx = (dx + 3 * dy) as usize;
-            (*handle)(base + step * V2::new(dx, dy), arr[idx]);
-        };
-        emit(1, 0);
-        emit(0, 1);
-        emit(1, 2);
-        emit(2, 1);
-        emit(1, 1);
+        let result_pos = base + step * V2::new(1, 1);
+        let off = PointRng::new(seed, result_pos, 0).gen_range(-offsets[1], offsets[1] + 1);
+        arr[4] = (arr[1] + arr[3] + arr[5] + arr[7]) / 4 + off;
+        (*handle)(result_pos, arr[4]);
     }
+
     if level >= 1 {
         let new_offsets = &offsets[2..];
         for d in Region2::new(scalar(0), scalar(2)).points() {
@@ -97,7 +97,7 @@ impl<F: Field> Field for DiamondSquare<F> {
     fn get_region(&self, bounds: Region2, buf: &mut [i32]) {
         let level = (self.offsets.len() / 2) as Level;
         let step = scalar(1 << level);
-        let region_div = bounds.div_round(1 << level);
+        let region_div = bounds.div_round_signed(1 << level);
         for base_div in region_div.points() {
             let base = base_div * step;
 
