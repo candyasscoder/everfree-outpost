@@ -44,6 +44,10 @@ pub fn register(mut eng: EngineRef, name: &str, appearance: u32) -> save::Result
 pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()> {
     let now = eng.now();
 
+    if let Some(old_cid) = eng.messages().name_to_client(name) {
+        eng.borrow().unwrap().kick_client(old_cid, "logged in from another location");
+    }
+
     // Load the client into the world.
     let cid =
         if let Some(file) = eng.storage().open_client_file(name) {
@@ -79,7 +83,7 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
     // Set up the client to receive messages.
     info!("{:?}: logged in as {} ({:?})",
           wire_id, name, cid);
-    eng.messages_mut().add_client(cid, wire_id);
+    eng.messages_mut().add_client(cid, wire_id, name);
     eng.messages_mut().schedule_check_view(cid, now + 1000);
 
     // Send the client's startup messages.

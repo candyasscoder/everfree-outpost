@@ -125,8 +125,8 @@ impl Messages {
 
     // Client lifecycle
 
-    pub fn add_client(&mut self, cid: ClientId, wire_id: WireId) {
-        self.clients.add(cid, wire_id);
+    pub fn add_client(&mut self, cid: ClientId, wire_id: WireId, name: &str) {
+        self.clients.add(cid, wire_id, name);
     }
 
     pub fn remove_client(&mut self, cid: ClientId) {
@@ -139,6 +139,10 @@ impl Messages {
 
     pub fn client_to_wire(&self, cid: ClientId) -> Option<WireId> {
         self.clients.get(cid).map(|c| c.wire_id())
+    }
+
+    pub fn name_to_client(&self, name: &str) -> Option<ClientId> {
+        self.clients.name_to_client(name)
     }
 
     pub fn clients_len(&self) -> usize {

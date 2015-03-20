@@ -12,10 +12,12 @@ use world;
 pub struct Clients {
     clients: HashMap<ClientId, ClientInfo>,
     wire_map: HashMap<WireId, ClientId>,
+    name_map: HashMap<String, ClientId>,
 }
 
 pub struct ClientInfo {
     wire_id: WireId,
+    name: String,
     chunk_offset: (u8, u8),
     last_check: Time,
 }
@@ -25,23 +27,31 @@ impl Clients {
         Clients {
             clients: HashMap::new(),
             wire_map: HashMap::new(),
+            name_map: HashMap::new(),
         }
     }
 
-    pub fn add(&mut self, cid: ClientId, wire_id: WireId) {
-        let old_client = self.clients.insert(cid, ClientInfo::new(wire_id));
+    pub fn add(&mut self, cid: ClientId, wire_id: WireId, name: &str) {
+        let old_client = self.clients.insert(cid, ClientInfo::new(wire_id, name));
         let old_wire = self.wire_map.insert(wire_id, cid);
+        let old_name = self.name_map.insert(String::from_str(name), cid);
         debug_assert!(old_client.is_none());
         debug_assert!(old_wire.is_none());
+        debug_assert!(old_name.is_none());
     }
 
     pub fn remove(&mut self, cid: ClientId) {
         let info = self.clients.remove(&cid).expect("client does not exist");
         self.wire_map.remove(&info.wire_id).expect("client was not in wire_map");
+        self.name_map.remove(&info.name).expect("client was not in name_map");
     }
 
     pub fn wire_to_client(&self, wire_id: WireId) -> Option<ClientId> {
         self.wire_map.get(&wire_id).map(|&x| x)
+    }
+
+    pub fn name_to_client(&self, name: &str) -> Option<ClientId> {
+        self.name_map.get(name).map(|&x| x)
     }
 
     pub fn get(&self, cid: ClientId) -> Option<&ClientInfo> {
@@ -66,12 +76,13 @@ const LOCAL_SIZE: i32 = 1 << LOCAL_BITS;
 const LOCAL_MASK: i32 = LOCAL_SIZE - 1;
 
 impl ClientInfo {
-    pub fn new(wire_id: WireId) -> ClientInfo {
+    pub fn new(wire_id: WireId, name: &str) -> ClientInfo {
         let mut rng = rand::thread_rng();
         let offset_x = rng.gen_range(0, 8);
         let offset_y = rng.gen_range(0, 8);
         ClientInfo {
             wire_id: wire_id,
+            name: String::from_str(name),
             chunk_offset: (offset_x, offset_y),
             last_check: TIME_MIN,
         }
