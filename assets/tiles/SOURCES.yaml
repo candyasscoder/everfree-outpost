@@ -306,6 +306,16 @@ lpc-furniture.png: &furniture
     derived-from: "lpc-base-tiles/cabinets.png"
 lpc-furniture.xcf: *furniture
 
+lpc-watergrass-cross.png: &watergrass-cross
+    title: LPC Water/Grass Diagonal Crossing
+    author: Lanea Zimmerman (AKA Sharm), Everfree Outpost
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution:
+        Lanea Zimmerman's water/grass border, edited to make "diagonal
+        crossing" variants.
+    derived-from: "lpc-base-tiles/watergrass.png"
+lpc-watergrass-cross.xcf: *watergrass-cross
+
 "daneeklu_farming_tilesets/*.png":
     title: "[LPC] Farming tilesets, magic animations and UI elements"
     author: Daniel Eddeland (daneeklu)
