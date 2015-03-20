@@ -634,8 +634,7 @@ function setupKeyHandler() {
             bits |= INPUT_RUN;
         }
 
-        var now = Date.now();
-        conn.sendInput(timing.encodeSend(now), bits);
+        conn.sendInput(timing.encodeSend(timing.nextArrival()), bits);
     }
 
     function sendActionForKey(action) {
@@ -651,8 +650,7 @@ function setupKeyHandler() {
             default: return false;
         }
 
-        var now = Date.now();
-        conn.sendAction(timing.encodeSend(now), code, arg);
+        conn.sendAction(timing.encodeSend(timing.nextArrival()), code, arg);
         return true;
     }
 }
@@ -714,9 +712,9 @@ function handleEntityUpdate(id, motion, anim) {
     var m = new Motion(motion.start_pos.add(offset));
     m.end_pos = motion.end_pos.add(offset);
 
-    var now = Date.now();
-    m.start_time = timing.decodeRecv(motion.start_time, now);
-    m.end_time = timing.decodeRecv(motion.end_time, now);
+    var now = timing.visibleNow();
+    m.start_time = timing.decodeRecv(motion.start_time);
+    m.end_time = timing.decodeRecv(motion.end_time);
     if (m.start_time > now + 2000) {
         m.start_time -= 0x10000;
     }
@@ -852,7 +850,9 @@ var FACINGS = [
     new Vec( 1, -1,  0),
 ];
 
-function frame(ac, now) {
+function frame(ac, client_now) {
+    var now = timing.visibleNow();
+
     debug.frameStart();
     var gl = ac.ctx;
 
@@ -868,7 +868,7 @@ function frame(ac, now) {
         localSprite(now, pony, null);
         pos = pony.position(now);
 
-        debug.updateMotions(pony);
+        debug.updateMotions(pony, timing);
     }
     debug.updatePos(pos);
 

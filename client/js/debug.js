@@ -100,13 +100,13 @@ DebugMonitor.prototype.updatePos = function(pos) {
 };
 
 DebugMonitor.prototype.updateTiming = function(timing) {
-    var send = timing.offset_send;
-    var recv = timing.offset_recv;
-    var ping = (send + recv) & 0xffff;
-    this.timing.innerHTML = ping + ' (' + send + ' + ' + recv + ')';
+    var now = timing.visibleNow();
+    var ping = timing.ping;
+    var base = timing.client_base;
+    this.timing.innerHTML = now + ' (Ping: ' + ping + 'ms)';
 };
 
-DebugMonitor.prototype.updateMotions = function(e) {
+DebugMonitor.prototype.updateMotions = function(e, timing) {
     var motions = [];
     motions.push(e._cur_motion);
     for (var i = e._motions._cur.length - 1; i >= 0; --i) {
@@ -115,7 +115,7 @@ DebugMonitor.prototype.updateMotions = function(e) {
     for (var i = 0; i < e._motions._new.length; ++i) {
         motions.push(e._motions._new[i]);
     }
-    this.motions.innerHTML = (Date.now() % 100000) + '<br>' + motions
+    this.motions.innerHTML = motions
         .map(function(m) { return (m.start_time % 100000) + ' .. ' + (m.end_time % 100000); })
         .join('<br>');
 };
