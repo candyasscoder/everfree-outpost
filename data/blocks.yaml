@@ -13,7 +13,7 @@ grass:
 
 water_grass:
     _.prefix: water_grass
-    _.shape: floor
+    _.shape: empty
 
     center.bottom: center/v0
 
