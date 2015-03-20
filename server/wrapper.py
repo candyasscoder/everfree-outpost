@@ -1,4 +1,5 @@
 import binascii
+import datetime
 import math
 import os
 import socket
@@ -155,6 +156,26 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             self.log.write('%d: input unblocked\n' % now())
 
 
+DELAY = int(os.environ.get('OUTPOST_DELAY', 0))
+DELAY_TIMEDELTA = datetime.timedelta(milliseconds=DELAY)
+
+class DelayedWSHandler(WSHandler):
+    def __init__(self, *args, **kwargs):
+        super(DelayedWSHandler, self).__init__(*args, **kwargs)
+        self.io_loop = tornado.ioloop.IOLoop.instance()
+    def on_message(self, *args, **kwargs):
+        self.io_loop.add_timeout(DELAY_TIMEDELTA,
+                lambda: super(DelayedWSHandler, self).on_message(*args, **kwargs))
+
+    def write_message(self, *args, **kwargs):
+        self.io_loop.add_timeout(DELAY_TIMEDELTA,
+                lambda: super(DelayedWSHandler, self).write_message(*args, **kwargs))
+
+    def close(self, *args, **kwargs):
+        self.io_loop.add_timeout(DELAY_TIMEDELTA,
+                lambda: super(DelayedWSHandler, self).close(*args, **kwargs))
+
+
 class FileHandler(tornado.web.StaticFileHandler):
     @classmethod
     def get_absolute_path(cls, root, path):
@@ -169,10 +190,10 @@ ROOT_DIR = os.path.normpath(os.path.join(BIN_DIR, '..'))
 def path(x):
     return os.path.join(ROOT_DIR, x)
 
-DEBUG = os.environ.get('OUTPOST_DEBUG') == 1
+DEBUG = int(os.environ.get('OUTPOST_DEBUG')) == 1
 
 application = tornado.web.Application([
-    (r'/ws', WSHandler),
+    (r'/ws', WSHandler if DELAY == 0 else DelayedWSHandler),
     (r'/(.*)', FileHandler, { 'path': path('www') }),
 ], debug=DEBUG)
 
