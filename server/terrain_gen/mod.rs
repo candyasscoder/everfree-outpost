@@ -10,9 +10,11 @@ use script::ScriptEngine;
 
 pub use self::disk_sampler::IsoDiskSampler;
 pub use self::diamond_square::DiamondSquare;
+pub use self::fields::{ConstantField, RandomField, FilterField, BorderField};
 
-pub mod diamond_square;
+mod diamond_square;
 mod disk_sampler;
+mod fields;
 
 
 pub struct TerrainGen<'d> {
@@ -111,44 +113,6 @@ impl Field for Box<Field> {
 
     fn get_region(&self, bounds: Region2, buf: &mut [i32]) {
         (**self).get_region(bounds, buf)
-    }
-}
-
-
-pub struct ConstantField(pub i32);
-
-impl Field for ConstantField {
-    fn get_value(&self, _: V2) -> i32 {
-        self.0
-    }
-
-    fn get_region(&self, _: Region2, buf: &mut [i32]) {
-        for x in buf.iter_mut() {
-            *x = self.0
-        }
-    }
-}
-
-
-pub struct RandomField {
-    seed: u64,
-    min: i32,
-    max: i32,
-}
-
-impl RandomField {
-    pub fn new(seed: u64, min: i32, max: i32) -> RandomField {
-        RandomField {
-            seed: seed,
-            min: min,
-            max: max,
-        }
-    }
-}
-
-impl Field for RandomField {
-    fn get_value(&self, pos: V2) -> i32 {
-        PointRng::new(self.seed, pos, 0).gen_range(self.min, self.max)
     }
 }
 

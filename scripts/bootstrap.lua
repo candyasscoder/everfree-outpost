@@ -44,6 +44,8 @@ ValuesMut = outpost_ffi.types.ValuesMut.table
 
 ConstantField = outpost_ffi.types.ConstantField.table
 RandomField = outpost_ffi.types.RandomField.table
+FilterField = outpost_ffi.types.FilterField.table
+BorderField = outpost_ffi.types.BorderField.table
 DiamondSquare = outpost_ffi.types.DiamondSquare.table
 
 IsoDiskSampler = outpost_ffi.types.IsoDiskSampler.table
@@ -141,6 +143,38 @@ end
 
 local sampler = IsoDiskSampler.new_constant(12347, 4, 32)
 
+local function make_ds()
+    local offsets = ValuesMut.new()
+    for _, v in ipairs({8, 4, 2, 1, 0}) do
+        offsets:push(v)
+        offsets:push(v)
+    end
+    return DiamondSquare.new(1234, 5678, RandomField.new(1, 2, -16, 16):upcast(), offsets)
+end
+
+local ds = make_ds()
+local water = BorderField.new((FilterField.new(make_ds():upcast(), -999, -13):upcast()))
+
+-- Generated 2015-03-20 07:17:33 by util/gen_border_shape_table.py
+local TILE_ID_MAP = {
+    'outside',
+    'center',
+    'edge/n',
+    'edge/s',
+    'edge/e',
+    'edge/w',
+    'corner/inner/nw',
+    'corner/inner/ne',
+    'corner/inner/sw',
+    'corner/inner/se',
+    'corner/outer/nw',
+    'corner/outer/ne',
+    'corner/outer/sw',
+    'corner/outer/se',
+    'cross/nw',
+    'cross/ne',
+}
+
 function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
     local grass = {
         ['grass/center/v0'] = 1,
@@ -152,9 +186,16 @@ function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
     local min = cpos * V2.new(16, 16)
     local max = min + V2.new(16, 16)
 
+    local water_border = water:get_region(min, max)
+
     for y = 0, 15 do
         for x = 0, 15 do
-            c:set_block(V3.new(x, y, 0), r:choose_weighted(pairs(grass)))
+            local border = water_border[y * 16 + x + 1]
+            if border ~= 0 then
+                c:set_block(V3.new(x, y, 0), 'water_grass/' .. TILE_ID_MAP[border + 1])
+            else
+                c:set_block(V3.new(x, y, 0), r:choose_weighted(pairs(grass)))
+            end
         end
     end
 
@@ -165,7 +206,17 @@ function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
     local p = sampler:get_points(min, max)
 
     for i = 1, #p do
-        c:add_structure((p[i] - min):extend(0), r:choose_weighted(pairs(structures)))
+        local wb = water:get_region(p[i], p[i] + V2.new(4, 2))
+        local ok = true
+        for j = 1, #wb do
+            if wb[j] ~= 0 then
+                ok = false
+                break
+            end
+        end
+        if ok then
+            c:add_structure((p[i] - min):extend(0), r:choose_weighted(pairs(structures)))
+        end
     end
 
     if cpos:x() == 0 and cpos:y() == 0 then

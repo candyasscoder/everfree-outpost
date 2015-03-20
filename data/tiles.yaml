@@ -59,6 +59,10 @@ lpc-base-tiles/water.png:
 lpc-base-tiles/watergrass.png:
     water_grass: *terrain-template
 
+lpc-watergrass-cross.png:
+    water_grass/cross/nw: [0, 0]
+    water_grass/cross/ne: [0, 1]
+
 lpc-trees-scaled.png:
     tree/base/center/x0: [5, 7]
     tree/base/center/x1: [6, 7]

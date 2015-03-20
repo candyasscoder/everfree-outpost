@@ -512,6 +512,12 @@ macro_rules! define_field {
     };
 }
 
+macro_rules! define_wrapper_field {
+    ($Field:ident: $($x:tt)*) => {
+        define_field!($Field = terrain_gen::$Field<Box<terrain_gen::Field>>: $($x)*);
+    };
+}
+
 define_field!(ConstantField: (val: i32) { ConstantField(val) });
 define_field!(RandomField: (seed0: u32, seed1: u32, min: i32, max: i32) {
     if min > max {
@@ -522,8 +528,17 @@ define_field!(RandomField: (seed0: u32, seed1: u32, min: i32, max: i32) {
     RandomField::new(seed, min, max + 1)
 });
 
-define_field!(DiamondSquare = terrain_gen::DiamondSquare<Box<terrain_gen::Field>>:
-              (seed0: u32, seed1: u32, init: &Field, offsets: &ValuesMut) {
+define_wrapper_field!(FilterField: (base: &Field, min: i32, max: i32) {
+    let base = unwrap!(base.take());
+    // max+1 to be consistent with lua conventions (inclusive rather than exclusive).
+    FilterField::new(base, min, max + 1)
+});
+define_wrapper_field!(BorderField: (base: &Field) {
+    let base = unwrap!(base.take());
+    BorderField::new(base)
+});
+
+define_wrapper_field!(DiamondSquare: (seed0: u32, seed1: u32, init: &Field, offsets: &ValuesMut) {
     let init = unwrap!(init.take());
     let offsets = unwrap!(offsets.take());
     let seed = ((seed0 as u64) << 32) | (seed1 as u64);

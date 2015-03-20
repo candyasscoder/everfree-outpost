@@ -141,6 +141,8 @@ mk_build_types_table!(
     self::terrain_gen::Field,
     self::terrain_gen::ConstantField,
     self::terrain_gen::RandomField,
+    self::terrain_gen::FilterField,
+    self::terrain_gen::BorderField,
     self::terrain_gen::DiamondSquare,
 
     self::terrain_gen::IsoDiskSampler,

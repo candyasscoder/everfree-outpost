@@ -11,6 +11,32 @@ grass:
     center/v2.bottom: center/v2
     center/v3.bottom: center/v3
 
+water_grass:
+    _.prefix: water_grass
+    _.shape: floor
+
+    center.bottom: center/v0
+
+    edge/_.prefix: edge
+    edge: &cardinal-dirs
+        n.bottom: n
+        s.bottom: s
+        w.bottom: w
+        e.bottom: e
+
+    corner/outer/_.prefix: corner/outer
+    corner/outer: &diagonal-dirs
+        nw.bottom: nw
+        ne.bottom: ne
+        sw.bottom: sw
+        se.bottom: se
+
+    corner/inner/_.prefix: corner/inner
+    corner/inner: *diagonal-dirs
+
+    cross/nw.bottom: cross/nw
+    cross/ne.bottom: cross/ne
+
 tree:
     _.prefix: tree
     _.shape: solid
