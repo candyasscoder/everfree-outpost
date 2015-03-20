@@ -72,12 +72,14 @@ pub trait Fragment<'d> {
     /// Returns `true` iff the chunk was actually unloaded as a result of this call.
     fn unload(&mut self, cpos: V2) -> bool {
         self.with_hooks(|hooks| hooks.pre_unload(cpos));
-        self.with_world(|sys, _world| {
-            sys.cache.forget(cpos);
-        });
         let last = self.with_provider(|sys, provider| {
             sys.lifecycle.release(cpos, |cpos| warn_on_err!(provider.unload(cpos)))
         });
+        if last {
+            self.with_world(|sys, _world| {
+                sys.cache.forget(cpos);
+            });
+        }
         last
     }
 }
@@ -185,9 +187,11 @@ impl Lifecycle {
         let first = match self.user_ref_count.entry(pos) {
             Vacant(e) => {
                 e.insert(1);
+                debug!("retain: 1 users of {:?}", pos);
                 true
             },
             Occupied(e) => {
+                debug!("retain: {} users of {:?}", 1 + *e.get(), pos);
                 *e.into_mut() += 1;
                 false
             },
@@ -208,6 +212,7 @@ impl Lifecycle {
             where F: FnMut(V2) {
         let last = if let Occupied(mut e) = self.user_ref_count.entry(pos) {
             *e.get_mut() -= 1;
+            debug!("release: {} users of {:?}", *e.get(), pos);
             if *e.get() == 0 {
                 e.remove();
                 true
