@@ -85,6 +85,14 @@ function PonyEditor(name, draw) {
     this.draw = function() { };
 
     this.name.value = name;
+
+    function init(choice, saved) {
+        if (saved != null) {
+            choice.setValue(saved);
+        } else {
+            choice.setIndex((Math.random() * 3)|0);
+        }
+    }
     // TODO: remove this eventually
     if (name.substr(0, 4) == 'Anon' && name.length == 11) {
         this.tribe.setValue(name[4]);
@@ -93,13 +101,6 @@ function PonyEditor(name, draw) {
         this.blue.setValue(name[7]);
     } else {
         var old_settings = Config.last_appearance.get() || {};
-        function init(choice, saved) {
-            if (saved != null) {
-                choice.setValue(saved);
-            } else {
-                choice.setIndex((Math.random() * 3)|0);
-            }
-        }
         init(this.tribe, old_settings['tribe']);
         init(this.red, old_settings['red']);
         init(this.green, old_settings['green']);
