@@ -100,11 +100,8 @@ Prediction.prototype.receivedMotion = function(m, entity) {
     var predicted = this.predicted.dequeue();
     if (predicted != null && motions_equal(m, predicted)) {
         // Received motion exactly matches the prediction.
-        console.log('motions match at time', m.start_time);
         return;
     }
-    console.log('motions MISMATCH at time', m.start_time, '!=',
-            predicted != null ? predicted.start_time : null);
 
     // Motions are unequal.  Flush the entity's and the predictor's motion
     // queues, and replay from the inputs.

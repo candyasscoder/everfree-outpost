@@ -94,6 +94,7 @@ Entity.prototype.translateMotion = function(offset) {
 Entity.prototype.resetMotion = function(m) {
     this._cur_motion = m;
     this._motions = new Deque();
+    this._updateAnimation();
 };
 
 Entity.prototype.motionEndTime = function(now) {
