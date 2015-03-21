@@ -370,7 +370,7 @@ fn render_chunk<FT, FS>(chunk: &XvChunk,
         draw_terrain(cx, cy, last, cur);
     }
 
-    // Pass #3 [TODO]
+    // Pass #3
     //
     // Examine each sprite.  Draw all partial columns below the sprite, then draw the sprite
     // itself.
@@ -379,22 +379,24 @@ fn render_chunk<FT, FS>(chunk: &XvChunk,
             continue;
         }
 
-        if sprite.status == SpriteStatus::Between {
-            let (tx0, tx1, ty0, ty1) = sprite.clipped_tile_bounds(cx, cy);
-            for ty in range(ty0, ty1) {
-                let limit = sprite.u_limit(cy * CHUNK_SIZE + ty);
-                for tx in range(tx0, tx1) {
-                    let idx = (ty * CHUNK_SIZE + tx) as usize;
-                    let base = chunk.bases[idx];
-                    let start_off = depth[idx];
-                    let end_off = chunk.offsets[idx][limit as usize - 1];
-                    if start_off < end_off {
-                        draw_terrain(cx, cy,
-                                     base + start_off as u16,
-                                     base + end_off as u16);
-                    }
-                    depth[idx] = end_off;
+        let (tx0, tx1, ty0, ty1) = sprite.clipped_tile_bounds(cx, cy);
+        for ty in range(ty0, ty1) {
+            let limit = sprite.u_limit(cy * CHUNK_SIZE + ty);
+            for tx in range(tx0, tx1) {
+                let idx = (ty * CHUNK_SIZE + tx) as usize;
+                if depth[idx] == -1 {
+                    continue;
                 }
+
+                let base = chunk.bases[idx];
+                let start_off = depth[idx];
+                let end_off = chunk.offsets[idx][limit as usize - 1];
+                if start_off < end_off {
+                    draw_terrain(cx, cy,
+                                 base + start_off as u16,
+                                 base + end_off as u16);
+                }
+                depth[idx] = end_off;
             }
         }
 
@@ -408,7 +410,7 @@ fn render_chunk<FT, FS>(chunk: &XvChunk,
                     y1 - y0);
     }
 
-    // Pass #4 [TODO]
+    // Pass #4
     //
     // Examine each column.  If the column has been partially drawn, draw the topmost part of it.
     for ty in range(0, CHUNK_SIZE) {
