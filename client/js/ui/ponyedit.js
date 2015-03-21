@@ -87,10 +87,18 @@ function PonyEditor(name, draw) {
         this.green.setValue(name[6]);
         this.blue.setValue(name[7]);
     } else {
-        this.tribe.setIndex((Math.random() * 3)|0);
-        this.red.setIndex((Math.random() * 3)|0);
-        this.green.setIndex((Math.random() * 3)|0);
-        this.blue.setIndex((Math.random() * 3)|0);
+        var old_settings = Config.last_appearance.get() || {};
+        function init(choice, saved) {
+            if (saved != null) {
+                choice.setValue(saved);
+            } else {
+                choice.setIndex((Math.random() * 3)|0);
+            }
+        }
+        init(this.tribe, old_settings['tribe']);
+        init(this.red, old_settings['red']);
+        init(this.green, old_settings['green']);
+        init(this.blue, old_settings['blue']);
     }
 
     // Now actually draw.

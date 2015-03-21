@@ -371,6 +371,12 @@ function maybeRegister(info, next) {
         last_name = name;
 
         var appearance = calcAppearance(tribe, r, g, b);
+        Config.last_appearance.set({
+            'tribe': tribe,
+            'red': r,
+            'green': g,
+            'blue': b,
+        });
         conn.onRegisterResult = handle_result;
         conn.sendRegister(name,
                           secret,
