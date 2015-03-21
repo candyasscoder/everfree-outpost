@@ -1,0 +1,107 @@
+<!doctype html>
+<html style="font-size: 16px">
+    <head>
+        <title>Everfree Outpost &ndash; Configuration</title>
+        <style type='text/css'>
+            body {
+                width: 800px;
+            }
+
+            .config-select {
+                display: block;
+                width: 100%;
+            }
+
+            .config-input {
+                display: block;
+                width: 100%;
+            }
+
+            .config-select > option.active:after {
+                content: " *";
+                color: blue;
+            }
+
+            .shortcut {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                border: solid 1px black;
+                padding: 1em 0;
+                margin: 1em 0;
+            }
+
+            .shortcut-text {
+                flex-grow: 1;
+                padding: 0 1em;
+                border-left: solid 1px black;
+            }
+
+            .shortcut-button {
+                padding: 0 1em;
+                flex-grow: 0;
+                flex-shrink: 0;
+                text-align: center;
+            }
+
+            button {
+                margin: 0.25em;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Everfree Outpost &ndash; Configuration</h1>
+
+        <div class="shortcut">
+            <div class="shortcut-button">
+                <button id="reset-login">Reset Login</button><br>
+                <button id="confirm-reset-login" disabled>Confirm Reset</button>
+            </div>
+            <div class="shortcut-text">
+                Reset login name and secret, allowing you to re-register next
+                time you open the game.
+                This will <b>permanently lock you out of your current account</b>,
+                but may be useful if you are unable to log in at all.
+            </div>
+        </div>
+
+        <div class="shortcut">
+            <div class="shortcut-button">
+                <label>
+                    <input type="checkbox" id="enable-motion-prediction">
+                    Motion prediction
+                </label>
+            </div>
+            <div class="shortcut-text">
+                Enable or disable motion prediction.
+                It may be useful to disable this if your character's display is
+                glitching badly.
+            </div>
+        </div>
+
+        <div class="shortcut">
+            <div class="shortcut-button">
+                <button id="open-editor">Open Editor</button>
+            </div>
+            <div class="shortcut-text">
+                Open the full config editor to edit settings not listed here.
+            </div>
+        </div>
+
+        <script type='text/javascript' src='asmlibs.js'></script>
+        <script type='text/javascript' src='configedit.js'></script>
+
+        <div style="display: none">
+            <div id="config-editor">
+                <h1>Config Editor</h1>
+                <select class="config-select" size="10"></select>
+                <textarea class="config-input" rows="10"></textarea>
+                <div>
+                    <button class="config-save">Save</button>
+                    <button class="config-reset">Reset</button>
+                    <button class="config-close">Close</button>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

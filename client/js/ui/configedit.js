@@ -13,7 +13,17 @@ function ConfigEditor() {
 
     var option_map = {}
     var fields = Object.getOwnPropertyNames(Config);
-    fields.sort();
+    fields.sort(function(a, b) {
+        var ak = Config[a].key;
+        var bk = Config[b].key;
+        if (ak < bk) {
+            return -1;
+        } else if (ak > bk) {
+            return 1;
+        } else {
+            return 0;
+        }
+    });
     for (var i = 0; i < fields.length; ++i) {
         var field = fields[i];
         var conf = Config[field];
