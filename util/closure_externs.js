@@ -1,4 +1,5 @@
 Math.imul;
+Math.sign;
 
 var localStorage;
 var console;
