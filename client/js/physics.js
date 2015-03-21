@@ -1,3 +1,4 @@
+var Deque = require('util/misc').Deque;
 var Vec = require('util/vec').Vec;
 var Asm = require('asmlibs').Asm;
 var TileDef = require('data/chunk').TileDef;
@@ -6,6 +7,8 @@ var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
 
 var INT_MAX = 0x7fffffff;
 var INT_MIN = -INT_MAX - 1;
+
+var DURATION_MAX = 0xffff;
 
 
 /** @constructor */
@@ -26,86 +29,122 @@ Physics.prototype.loadChunk = function(ci, cj, tiles) {
     }
 };
 
-Physics.prototype.resetForecast = function(now, f, v) {
-    this._step(now, f);
-    f.target_v = v;
-    this._forecast(f);
-};
+Physics.prototype.computeForecast = function(now, entity, target_velocity) {
+    var start_pos = entity.position(now);
+    // TODO: hardcoded constant based on entity size
+    var size = new Vec(32, 32, 32);
 
-Physics.prototype.updateForecast = function(now, f) {
-    var i;
-    var LIMIT = 5;
-    for (i = 0; i < LIMIT && !f.live(now); ++i) {
-        var old_end_time = f.end_time;
+    var result = this._asm.collide(start_pos, size, target_velocity);
+    var end_pos = new Vec(result.x, result.y, result.z);
+    var dur = result.t;
 
-        var time = Math.min(now, f.end_time);
-        this._step(time, f);
-        this._forecast(f);
-
-        if (f.end_time == old_end_time) {
-            // No progress has been made.
-            return;
-        }
+    // NB: keep this in sync with server/physics_.rs  Fragment::update
+    if (dur > DURATION_MAX) {
+        var offset = end_pos.sub(start_pos);
+        end_pos = start_pos.add(offset.mulScalar(DURATION_MAX).divScalar(dur));
+        dur = DURATION_MAX;
+    } else if (dur == 0) {
+        dur = DURATION_MAX;
     }
-};
 
-// Step the forecast forward to the given time, and set actual velocity to zero.
-Physics.prototype._step = function(time, f) {
-    var pos = f.position(time);
-    f.start = pos;
-    f.end = pos;
-    f.actual_v = new Vec(0, 0, 0);
-    f.start_time = time;
-    f.end_time = INT_MAX * 1000;
-};
+    var motion = new Motion(start_pos);
+    motion.end_pos = end_pos;
+    motion.start_time = now;
+    motion.end_time = now + dur;
 
-// Project the time of the next collision starting from start_time, and set
-// velocities, end_time, and end position appropriately.
-Physics.prototype._forecast = function(f) {
-    var result = this._asm.collide(f.start, f.size, f.target_v);
-    if (result.t == 0) {
-        return;
-    }
-    f.end = new Vec(result.x, result.y, result.z);
-    f.actual_v = f.end.sub(f.start).mulScalar(1000).divScalar(result.t);
-    f.end_time = f.start_time + result.t;
+    // TODO: player speed handling shouldn't be here
+    var speed = target_velocity.abs().max() / 50;
+    var facing = target_velocity.sign();
+    var idx = (3 * (facing.x + 1) + (facing.y + 1));
+    var anim_dir = [5, 4, 3, 6, entity.animId(now) % 8, 2, 7, 0, 1][idx];
+    motion.anim_id = anim_dir + speed * 8;
+
+    return motion;
 };
 
 
 /** @constructor */
-function Forecast(pos, size) {
-    this.start = pos;
-    this.end = pos;
-    this.size = size;
-    this.target_v = new Vec(0, 0, 0);
-    this.actual_v = new Vec(0, 0, 0);
-    // Timestamps are unix time in milliseconds.  This works because javascript
-    // numbers have 53 bits of precision.
-    this.start_time = INT_MIN * 1000;
-    this.end_time = INT_MAX * 1000;
+function Prediction(physics) {
+    this.physics = physics;
+    this.predicted = new Deque();
+    this.inputs = new Deque();
+    this.last_target_velocity = new Vec(0, 0, 0);
 }
-exports.Forecast = Forecast;
+exports.Prediction = Prediction;
 
-Forecast.prototype.position = function(now) {
-    if (now < this.start_time) {
-        return this.start.clone();
-    } else if (now >= this.end_time) {
-        return this.end.clone();
-    } else {
-        var delta = now - this.start_time;
-        var offset = this.actual_v.mulScalar(delta).divScalar(1000);
-        return this.start.add(offset);
+Prediction.prototype.predict = function(now, entity, target_velocity) {
+    this.inputs.enqueue(new PredictionInput(now, target_velocity));
+    this._predictNoInput(now, entity, target_velocity);
+};
+
+Prediction.prototype._predictNoInput = function(now, entity, target_velocity) {
+    var m = this.physics.computeForecast(now, entity, target_velocity);
+    this.predicted.enqueue(m);
+    entity.queueMotion(m);
+    this.last_target_velocity = target_velocity;
+};
+
+Prediction.prototype.refreshMotion = function(now, entity) {
+    this.predict(now, entity, this.last_target_velocity);
+};
+
+Prediction.prototype.receivedMotion = function(m, entity) {
+    // Flush all inputs earlier than `m.start_time`, under the assumption that
+    // they have already taken effect.  (This may not be true if there was a
+    // large unexpected delay sending the input to the server.)
+    while (this.inputs.peek() != null && this.inputs.peek().time <= m.start_time) {
+        this.inputs.dequeue();
     }
+
+    var predicted = this.predicted.dequeue();
+    if (predicted != null && motions_equal(m, predicted)) {
+        // Received motion exactly matches the prediction.
+        console.log('motions match at time', m.start_time);
+        return;
+    }
+    console.log('motions MISMATCH at time', m.start_time, '!=',
+            predicted != null ? predicted.start_time : null);
+
+    // Motions are unequal.  Flush the entity's and the predictor's motion
+    // queues, and replay from the inputs.
+    entity.resetMotion(m);
+    this.predicted = new Deque();
+
+    var this_ = this;
+    this.inputs.forEach(function(input) {
+        this_._predictNoInput(input.time, entity, input.velocity);
+    });
 };
 
-Forecast.prototype.velocity = function() {
-    return this.actual_v;
-};
+function motions_equal(m1, m2) {
+    // TODO: include end once client physics is un-broken
+    return m1.start_time == m2.start_time &&
+           vecs_equal(m1.start_pos, m2.start_pos);
+}
 
-Forecast.prototype.target_velocity = function() {
-    return this.target_v;
-};
+function vecs_equal(v1, v2) {
+    var LOCAL_MASK = LOCAL_SIZE - 1;
+    return (v1.x & LOCAL_MASK) == (v2.x & LOCAL_MASK) &&
+           (v1.y & LOCAL_MASK) == (v2.y & LOCAL_MASK) &&
+           (v1.z & LOCAL_MASK) == (v2.z & LOCAL_MASK);
+}
 
-Forecast.prototype.live = function(now) {
-    return now >= this.start_time && now < this.end_time;
+
+/** @constructor */
+function PredictionInput(time, velocity) {
+    this.time = time;
+    this.velocity = velocity;
+}
+
+
+/** @constructor */
+function DummyPrediction() {
+}
+exports.DummyPrediction = DummyPrediction;
+
+DummyPrediction.prototype.predict = function() {};
+DummyPrediction.prototype.refreshMotion = function() {};
+
+DummyPrediction.prototype.receivedMotion = function(m, entity) {
+    entity.queueMotion(m);
 };

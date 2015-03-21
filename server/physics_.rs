@@ -93,9 +93,11 @@ pub trait Fragment<'d> {
                 physics::collide(&source, start_pos - base_px, size, velocity);
             end_pos = end_pos + base_px;
 
+            // NB: keep this in sync with client/js/physics.js  computeForecast
             if dur > DURATION_MAX as i32 {
                 let offset = end_pos - start_pos;
                 end_pos = start_pos + offset * scalar(DURATION_MAX as i32) / scalar(dur);
+                dur = DURATION_MAX as i32;
             } else if dur == 0 {
                 dur = DURATION_MAX as i32;
             }

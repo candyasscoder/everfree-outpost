@@ -45,9 +45,14 @@ Deque.prototype.length = function() {
     return this._cur.length + this._new.length;
 };
 
-Deque.prototype.forEach = function(f, thisArg) {
-    this._cur.forEach(f, thisArg);
-    this._new.forEach(f, thisArg);
+Deque.prototype.forEach = function(f) {
+    for (var i = this._cur.length - 1; i >= 0; --i) {
+        f(this._cur[i]);
+    }
+
+    for (var i = 0; i < this._new.length; ++i) {
+        f(this._new[i]);
+    }
 };
 
 

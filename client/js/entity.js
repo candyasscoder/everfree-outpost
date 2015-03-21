@@ -91,6 +91,16 @@ Entity.prototype.translateMotion = function(offset) {
     this._motions.forEach(function(m) { m.translate(offset); });
 };
 
+Entity.prototype.resetMotion = function(m) {
+    this._cur_motion = m;
+    this._motions = new Deque();
+};
+
+Entity.prototype.motionEndTime = function(now) {
+    this._dequeueUntil(now);
+    return this._cur_motion.end_time;
+};
+
 Entity.prototype.animId = function(now) {
     this._dequeueUntil(now);
     return this._cur_motion.anim_id;

@@ -50,6 +50,10 @@ Vec.prototype.modScalar = function(c) {
     return new Vec((this.x % c)|0, (this.y % c)|0, (this.z % c)|0);
 };
 
+Vec.prototype.abs = function() {
+    return new Vec(Math.abs(this.x), Math.abs(this.y), Math.abs(this.z));
+};
+
 Vec.prototype.sign = function() {
     return new Vec(Math.sign(this.x), Math.sign(this.y), Math.sign(this.z));
 };
@@ -64,6 +68,14 @@ Vec.prototype.isNegative = function() {
 
 Vec.prototype.isZero = function() {
     return new Vec(this.x == 0 ? 1 : 0, this.y == 0 ? 1 : 0, this.z == 0 ? 1 : 0);
+};
+
+Vec.prototype.max = function() {
+    return Math.max(Math.max(this.x, this.y), this.z);
+};
+
+Vec.prototype.min = function() {
+    return Math.min(Math.min(this.x, this.y), this.z);
 };
 
 Vec.prototype.choose = function(a, b) {

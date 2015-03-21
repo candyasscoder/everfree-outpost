@@ -3,6 +3,9 @@ var DEFAULT_CONFIG = {
     'ignore_browser_warning': false,
     'chat_scrollback': 100,
 
+    'motion_prediction': true,
+    'input_delay': 10,
+
     'login_name': null,
     'login_secret': null,
     'world_version': null,
@@ -48,7 +51,6 @@ var DEFAULT_CONFIG = {
     'ignores': {},
 
     'debug_show_panel': false,
-    'debug_timing_delay': [0, 25],
     'debug_force_mobile_warning': false,
     'debug_force_browser_warning': false,
 };
@@ -58,6 +60,9 @@ exports.Config = {
     show_controls: new ConfigItem('show_controls'),
     ignore_browser_warning: new ConfigItem('ignore_browser_warning'),
     chat_scrollback: new ConfigItem('chat_scrollback'),
+
+    motion_prediction: new ConfigItem('motion_prediction'),
+    input_delay: new ConfigItem('input_delay'),
 
     login_name: new ConfigItem('login_name'),
     login_secret: new ConfigItem('login_secret'),
@@ -72,7 +77,6 @@ exports.Config = {
     ignores: new ConfigItem('ignores'),
 
     debug_show_panel: new ConfigItem('debug_show_panel'),
-    debug_timing_delay: new ConfigItem('debug_timing_delay'),
     debug_force_mobile_warning: new ConfigItem('debug_force_mobile_warning'),
     debug_force_browser_warning: new ConfigItem('debug_force_browser_warning'),
 };

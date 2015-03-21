@@ -46,7 +46,8 @@ var TILE_SIZE = require('data/chunk').TILE_SIZE;
 var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
 
 var Physics = require('physics').Physics;
-var Forecast = require('physics').Forecast;
+var Prediction = require('physics').Prediction;
+var DummyPrediction = require('physics').DummyPrediction;
 
 var Connection = require('net').Connection;
 var Timing = require('time').Timing;
@@ -183,6 +184,7 @@ var player_entity;
 var chunks;
 var chunkLoaded;
 var physics;
+var prediction;
 
 var renderer = null;
 var cursor;
@@ -225,6 +227,7 @@ function init() {
     chunks = buildArray(LOCAL_SIZE * LOCAL_SIZE, function() { return new Chunk(); });
     chunkLoaded = buildArray(LOCAL_SIZE * LOCAL_SIZE, function() { return false; });
     physics = new Physics();
+    prediction = Config.motion_prediction.get() ? new Prediction(physics) : new DummyPrediction();
 
     renderer = new Renderer(canvas.ctx);
     cursor = null;
@@ -615,26 +618,40 @@ function setupKeyHandler() {
 
     function updateWalkDir() {
         var bits = 0;
+        var target_velocity = new Vec(0, 0, 0);
 
         if (dirs_held['move_left']) {
             bits |= INPUT_LEFT;
+            target_velocity.x -= 1;
         }
         if (dirs_held['move_right']) {
             bits |= INPUT_RIGHT;
+            target_velocity.x += 1;
         }
 
         if (dirs_held['move_up']) {
             bits |= INPUT_UP;
+            target_velocity.y -= 1;
         }
         if (dirs_held['move_down']) {
             bits |= INPUT_DOWN;
+            target_velocity.y += 1;
         }
 
         if (dirs_held['run']) {
             bits |= INPUT_RUN;
+            target_velocity = target_velocity.mulScalar(150);
+        } else {
+            target_velocity = target_velocity.mulScalar(50);
         }
 
-        conn.sendInput(timing.encodeSend(timing.nextArrival()), bits);
+        var arrival = timing.nextArrival() + Config.input_delay.get();
+        conn.sendInput(timing.encodeSend(arrival), bits);
+
+        if (player_entity != null && entities[player_entity] != null) {
+            var pony = entities[player_entity];
+            prediction.predict(arrival, pony, target_velocity);
+        }
     }
 
     function sendActionForKey(action) {
@@ -722,7 +739,11 @@ function handleEntityUpdate(id, motion, anim) {
 
     m.anim_id = anim;
 
-    entities[id].queueMotion(m);
+    if (id != player_entity) {
+        entities[id].queueMotion(m);
+    } else {
+        prediction.receivedMotion(m, entities[id]);
+    }
 
     load_counter.update(0, 1);
 }
@@ -855,20 +876,46 @@ var FACINGS = [
 function frame(ac, client_now) {
     var now = timing.visibleNow();
 
+    // Here's the math on client-side motion prediction.
+    //
+    //                <<<<<<<
+    //   Server ----- A --- C --------
+    //                 \   / \
+    //                  \ /   \
+    //   Client -------- B --- D -----
+    //
+    // `A` is the latest visible time.  For the player entity only, we have a
+    // predicted motion (starting at time C) based on the inputs we last sent
+    // to the server (at time B).  We want to display that predicted motion
+    // now, as if it started at time A instead of C.  To be consistent, we
+    // always do this translation, drawing the player entity as we expect it to
+    // appear `timing.ping` msec in the future instead of how it actually is.
+    var predict_now;
+    if (Config.motion_prediction.get()) {
+        predict_now = now + timing.ping;
+    } else {
+        predict_now = now;
+    }
+
     debug.frameStart();
     var gl = ac.ctx;
 
     gl.viewport(0, 0, ac.canvas.width, ac.canvas.height);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-
     var pos = new Vec(4096, 4096, 0);
     var pony = null;
     if (player_entity >= 0 && entities[player_entity] != null) {
         pony = entities[player_entity];
+
+        var motion_end = pony.motionEndTime(predict_now);
+        if (motion_end <= predict_now) {
+            prediction.refreshMotion(predict_now, pony);
+        }
+
         // Make sure the camera remains within the middle of the local space.
-        localSprite(now, pony, null);
-        pos = pony.position(now);
+        localSprite(predict_now, pony, null);
+        pos = pony.position(predict_now);
 
         debug.updateMotions(pony, timing);
     }
@@ -885,7 +932,11 @@ function frame(ac, client_now) {
     var sprites = new Array(entity_ids.length);
     for (var i = 0; i < entity_ids.length; ++i) {
         var entity = entities[entity_ids[i]];
-        sprites[i] = localSprite(now, entity, pos);
+        if (entity_ids[i] != player_entity) {
+            sprites[i] = localSprite(now, entity, pos);
+        } else {
+            sprites[i] = localSprite(predict_now, entity, pos);
+        }
     }
 
     renderer.render(gl,
