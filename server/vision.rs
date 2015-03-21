@@ -107,23 +107,6 @@ impl Vision {
         let old_view = mem::replace(&mut client.view, new_view);
         let entities = &mut self.entities;
 
-        for p in old_view.points().filter(|&p| !new_view.contains(p)) {
-            for &eid in self.entities_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
-                client.visible_entities.release(eid, |()| {
-                    debug!("{:?} moved: --{:?}", cid, eid);
-                    h.on_entity_disappear(cid, eid);
-                    entities[eid.unwrap() as usize].viewers.remove(&cid);
-                });
-            }
-
-            if self.loaded_chunks.contains(&p) {
-                debug!("{:?} moved: --{:?}", cid, p);
-                h.on_chunk_disappear(cid, p);
-            }
-
-            multimap_remove(&mut self.clients_by_chunk, p, cid);
-        }
-
         for p in new_view.points().filter(|&p| !old_view.contains(p)) {
             for &eid in self.entities_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
                 client.visible_entities.retain(eid, || {
@@ -140,6 +123,23 @@ impl Vision {
                 h.on_chunk_update(cid, p);
             }
             multimap_insert(&mut self.clients_by_chunk, p, cid);
+        }
+
+        for p in old_view.points().filter(|&p| !new_view.contains(p)) {
+            for &eid in self.entities_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
+                client.visible_entities.release(eid, |()| {
+                    debug!("{:?} moved: --{:?}", cid, eid);
+                    h.on_entity_disappear(cid, eid);
+                    entities[eid.unwrap() as usize].viewers.remove(&cid);
+                });
+            }
+
+            if self.loaded_chunks.contains(&p) {
+                debug!("{:?} moved: --{:?}", cid, p);
+                h.on_chunk_disappear(cid, p);
+            }
+
+            multimap_remove(&mut self.clients_by_chunk, p, cid);
         }
     }
 
@@ -175,17 +175,6 @@ impl Vision {
 
         let old_area = mem::replace(&mut entity.area, SmallSet::new());
 
-        for &p in old_area.iter().filter(|&p| !new_area.contains(p)) {
-            for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
-                self.clients[cid.unwrap() as usize].visible_entities.release(eid, |()| {
-                    debug!("{:?} moved: --{:?}", eid, cid);
-                    h.on_entity_disappear(cid, eid);
-                    entity.viewers.remove(&cid);
-                });
-            }
-            multimap_remove(&mut self.entities_by_chunk, p, eid);
-        }
-
         for &p in new_area.iter().filter(|&p| !old_area.contains(p)) {
             for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
                 self.clients[cid.unwrap() as usize].visible_entities.retain(eid, || {
@@ -195,6 +184,17 @@ impl Vision {
                 });
             }
             multimap_insert(&mut self.entities_by_chunk, p, eid);
+        }
+
+        for &p in old_area.iter().filter(|&p| !new_area.contains(p)) {
+            for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
+                self.clients[cid.unwrap() as usize].visible_entities.release(eid, |()| {
+                    debug!("{:?} moved: --{:?}", eid, cid);
+                    h.on_entity_disappear(cid, eid);
+                    entity.viewers.remove(&cid);
+                });
+            }
+            multimap_remove(&mut self.entities_by_chunk, p, eid);
         }
 
         for &cid in entity.viewers.iter() {
