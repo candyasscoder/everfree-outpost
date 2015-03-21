@@ -707,10 +707,8 @@ function handleEntityUpdate(id, motion, anim) {
         return;
     }
 
-    // TODO: hacky adjustment
-    var offset = new Vec(16, 32, 0);
-    var m = new Motion(motion.start_pos.add(offset));
-    m.end_pos = motion.end_pos.add(offset);
+    var m = new Motion(motion.start_pos);
+    m.end_pos = motion.end_pos;
 
     var now = timing.visibleNow();
     m.start_time = timing.decodeRecv(motion.start_time);
@@ -836,6 +834,10 @@ function localSprite(now, entity, camera_mid) {
     if (adjusted) {
         sprite = entity.getSprite(now);
     }
+
+    // TODO: hacky adjustment
+    sprite.ref_x += 16;
+    sprite.ref_y += 32;
     return sprite;
 }
 
@@ -894,7 +896,7 @@ function frame(ac, client_now) {
     if (show_cursor && pony != null) {
         var facing = FACINGS[pony.animId() % FACINGS.length];
         // TODO: hacky offset (see comment in handleEntityUpdate)
-        var cursor_pos = pos.sub(new Vec(0, 16, 0)).divScalar(TILE_SIZE).add(facing);
+        var cursor_pos = pos.add(new Vec(16, 16, 0)).divScalar(TILE_SIZE).add(facing);
         cursor.draw(camera_pos, camera_size, cursor_pos);
     }
 
