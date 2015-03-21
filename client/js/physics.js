@@ -1,6 +1,7 @@
 var Deque = require('util/misc').Deque;
 var Vec = require('util/vec').Vec;
 var Asm = require('asmlibs').Asm;
+var Motion = require('entity').Motion;
 var TileDef = require('data/chunk').TileDef;
 var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
 var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
