@@ -5,6 +5,7 @@ var DEFAULT_CONFIG = {
 
     'motion_prediction': true,
     'input_delay': 10,
+    'debounce_time': 0,
 
     'login_name': null,
     'login_secret': null,
@@ -63,6 +64,7 @@ exports.Config = {
 
     motion_prediction: new ConfigItem('motion_prediction'),
     input_delay: new ConfigItem('input_delay'),
+    debounce_time: new ConfigItem('debounce_time'),
 
     login_name: new ConfigItem('login_name'),
     login_secret: new ConfigItem('login_secret'),
