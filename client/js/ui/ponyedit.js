@@ -24,7 +24,12 @@ function PonyEditor(name, draw) {
     for (var i = 0; i < rows.length; ++i) {
         var row = rows[i];
         table.appendChild(row.dom);
-        row.onchange = function() { this_._refresh() };
+        (function(i) {
+            row.onchange = function() {
+                this_._refresh();
+                this_.keys.setFocus(1 + i);
+            };
+        })(i);
     }
 
     var button = this.dom.getElementsByClassName('pony-done')[0];
@@ -166,6 +171,8 @@ PonyEditor.prototype.setError = function(code, msg) {
 
 /** @constructor */
 function ChoiceRow(label, options) {
+    var this_ = this;
+
     this.dom = util.element('div', ['pony-row']);
     util.element('div', ['pony-label', 'text=' + label], this.dom);
 
@@ -174,12 +181,16 @@ function ChoiceRow(label, options) {
         var cell = new ChoiceRowOption(options[i]);
         this.cells.push(cell);
         this.dom.appendChild(cell.dom);
+        (function(i) {
+            cell.dom.onclick = function() {
+                this_.setIndex(i);
+            };
+        })(i);
     }
 
     this.keys = new widget.FocusTracker(this.cells, ['move_left', 'move_right']);
 
     this.onchange = null;
-    var this_ = this;
     this.keys.onchange = function(idx) {
         if (this_.onchange != null) {
             this_.onchange(idx);
