@@ -316,6 +316,16 @@ lpc-watergrass-cross.png: &watergrass-cross
     derived-from: "lpc-base-tiles/watergrass.png"
 lpc-watergrass-cross.xcf: *watergrass-cross
 
+lpc-cave-walls.png: &cave-walls
+    title: LPC Cave Walls
+    author: Lanea Zimmerman (AKA Sharm), Everfree Outpost
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution:
+        Lanea Zimmerman's mountainside tiles, edited to form a solid 64px-tall
+        cave wall.
+    derived-from: "lpc-base-tiles/mountain.png"
+lpc-cave-walls.xcf: *cave-walls
+
 "daneeklu_farming_tilesets/*.png":
     title: "[LPC] Farming tilesets, magic animations and UI elements"
     author: Daniel Eddeland (daneeklu)

@@ -192,7 +192,8 @@ function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
         for x = 0, 15 do
             local border = water_border[y * 16 + x + 1]
             if border ~= 0 then
-                c:set_block(V3.new(x, y, 0), 'water_grass/' .. TILE_ID_MAP[border + 1])
+                c:set_block(V3.new(x, y, 0), 'cave/' .. TILE_ID_MAP[border + 1] .. '/z0')
+                c:set_block(V3.new(x, y, 1), 'cave/' .. TILE_ID_MAP[border + 1] .. '/z1')
             else
                 c:set_block(V3.new(x, y, 0), r:choose_weighted(pairs(grass)))
             end

@@ -193,3 +193,23 @@ lpc-furniture.png:
 lpc-base-tiles/victoria.png:
     bed: [2, 0, 2, 3]
     table: [4, 0, 2, 3]
+
+lpc-cave-walls.png:
+    cave_wall:
+        top:
+            nw: [0, 0]
+            ne: [1, 0]
+            sw: [0, 1]
+            se: [1, 1]
+            horiz: [2, 1]
+            vert: [2, 0]
+            cross: [5, 1]
+
+        front:
+            nw: [3, 0, 1, 2]
+            ne: [4, 0, 1, 2]
+            sw: [0, 2, 1, 2]
+            se: [1, 2, 1, 2]
+            horiz: [2, 2, 1, 2]
+
+        entrance: [3, 2, 3, 2]
