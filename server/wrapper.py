@@ -190,7 +190,7 @@ ROOT_DIR = os.path.normpath(os.path.join(BIN_DIR, '..'))
 def path(x):
     return os.path.join(ROOT_DIR, x)
 
-DEBUG = int(os.environ.get('OUTPOST_DEBUG')) == 1
+DEBUG = int(os.environ.get('OUTPOST_DEBUG', 0)) == 1
 
 application = tornado.web.Application([
     (r'/ws', WSHandler if DELAY == 0 else DelayedWSHandler),
