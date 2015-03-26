@@ -17,7 +17,7 @@ use asmrt::run_callback;
 use physics::v3::{V3, scalar};
 use physics::{Shape, ShapeSource};
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK};
-use graphics::{BlockData, ChunkData, XvData, GeometryBuffer, Sprite};
+use graphics::{BlockData, ChunkData, XvData, GeometryBuffer, VertexData, Sprite};
 
 mod std {
     pub use core::fmt;
@@ -132,6 +132,7 @@ pub struct Sizes {
     block_data: usize,
     chunk_data: usize,
     geometry_buffer: usize,
+    vertex_data: usize,
 }
 
 #[export_name = "get_sizes"]
@@ -143,6 +144,7 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
     sizes.block_data = size_of::<BlockData>();
     sizes.chunk_data = size_of::<ChunkData>();
     sizes.geometry_buffer = size_of::<GeometryBuffer>();
+    sizes.vertex_data = size_of::<VertexData>();
 
     *num_sizes = size_of::<Sizes>() / size_of::<usize>();
 }

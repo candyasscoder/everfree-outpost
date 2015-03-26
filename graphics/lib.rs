@@ -131,8 +131,12 @@ pub fn update_xv(xv: &mut XvData, blocks: &BlockData, chunk: &ChunkData, i: u8, 
 pub struct VertexData {
     x: u8,
     y: u8,
+    z: u8,
+    _pad0: u8,
     s: u8,
     t: u8,
+    _pad1: u8,
+    _pad2: u8,
 }
 // Each chunk has CHUNK_SIZE^3 blocks, each block has 4 faces, each face has 6 vertices.
 const FACE_VERTS: usize = 6;
@@ -144,22 +148,26 @@ pub fn generate_geometry(xv: &mut XvData,
                          i: u8, j: u8) -> usize {
     let pos = Cell::new(0);
 
-    let mut push = |x, y, s, t| {
-        geom[pos.get()] = VertexData { x: x, y: y, s: s, t: t };
+    let mut push = |x, y, z, s, t| {
+        geom[pos.get()] = VertexData {
+            x: x, y: y, z: z,
+            s: s, t: t,
+            _pad0: 0, _pad1: 0, _pad2: 0,
+        };
         pos.set(pos.get() + 1);
     };
-    let mut push_face = |x: u16, y: u16, tile: u16| {
-        let (x, y) = (x as u8, y as u8);
+    let mut push_face = |x: u16, y: u16, z: u16, tile: u16| {
+        let (x, y, z) = (x as u8, y as u8, z as u8);
         let s = (tile % ATLAS_SIZE) as u8;
         let t = (tile / ATLAS_SIZE) as u8;
 
-        push(x,     y,     s,     t    );
-        push(x,     y + 1, s,     t + 1);
-        push(x + 1, y + 1, s + 1, t + 1);
+        push(x,     y,     z, s,     t    );
+        push(x,     y + 1, z, s,     t + 1);
+        push(x + 1, y + 1, z, s + 1, t + 1);
 
-        push(x,     y,     s,     t    );
-        push(x + 1, y + 1, s + 1, t + 1);
-        push(x + 1, y,     s + 1, t    );
+        push(x,     y,     z, s,     t    );
+        push(x + 1, y + 1, z, s + 1, t + 1);
+        push(x + 1, y,     z, s + 1, t    );
 
     };
 
@@ -173,7 +181,7 @@ pub fn generate_geometry(xv: &mut XvData,
             for u in range(0, 4 * CHUNK_SIZE) {
                 let tile = chunk.tiles[idx][u as usize];
                 if tile != 0 {
-                    push_face(x, v, tile);
+                    push_face(x, v, u, tile);
                 }
                 let offset = (pos.get() / FACE_VERTS) - base as usize;
                 chunk.offsets[idx][u as usize] = offset as u8;

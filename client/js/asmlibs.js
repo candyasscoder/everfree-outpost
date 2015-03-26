@@ -91,7 +91,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 5;
+    var EXPECT_SIZES = 6;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -107,6 +107,7 @@ var SIZEOF = (function() {
         BlockData: view[3],
         ChunkData: view[4],
         GeometryBuffer: view[5],
+        VertexData: view[6],
     });
 })();
 
@@ -258,7 +259,7 @@ Asm.prototype.updateXvData = function(i, j) {
 Asm.prototype.generateGeometry = function(i, j) {
     var count = this._stackAlloc(Int32Array, 1);
     this._raw['generate_geometry'](XV_START, GEOM_START, i, j, count.byteOffset);
-    var result = this.geomView().subarray(0, 4 * count[0]);
+    var result = this.geomView().subarray(0, SIZEOF.VertexData * count[0]);
     this._stackFree(count);
     return result;
 };

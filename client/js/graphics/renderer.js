@@ -57,11 +57,13 @@ Renderer.prototype.initGl = function(assets) {
         'cameraPos': uniform('vec2', null),
         'cameraSize': uniform('vec2', null),
         'chunkPos': uniform('vec2', null),
+        'maskCenter': uniform('vec2', null),
+        'maskRadius2': uniform('float', null),
     };
 
     var terrain_attributes = {
-        'position': attribute(null, 2, gl.UNSIGNED_BYTE, false, 4, 0),
-        'texCoord': attribute(null, 2, gl.UNSIGNED_BYTE, false, 4, 2),
+        'position': attribute(null, 3, gl.UNSIGNED_BYTE, false, 8, 0),
+        'texCoord': attribute(null, 2, gl.UNSIGNED_BYTE, false, 8, 4),
     };
 
     this.terrain_obj = new GlObject(gl, terrain_program,
@@ -134,11 +136,13 @@ Renderer.prototype._refreshGeometry = function(i, j) {
     this._chunk_points[idx] = (geom.length / 4)|0;
 };
 
-Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites) {
+Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, mask_info) {
     var gl = this.gl;
 
     this.terrain_obj.setUniformValue('cameraPos', [sx, sy]);
     this.terrain_obj.setUniformValue('cameraSize', [sw, sh]);
+    this.terrain_obj.setUniformValue('maskCenter', mask_info.center);
+    this.terrain_obj.setUniformValue('maskRadius2', [mask_info.radius * mask_info.radius]);
 
     for (var k in this.sprite_classes) {
         var cls = this.sprite_classes[k];

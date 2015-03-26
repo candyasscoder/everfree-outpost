@@ -945,10 +945,18 @@ function frame(ac, client_now) {
         }
     }
 
+    var mask;
+    if (pony != null) {
+        mask = { center: [pos.x + 16, pos.y + 16], radius: 64 };
+    } else {
+        mask = { center: [0, 0], radius: 0 };
+    }
+
     renderer.render(gl,
             camera_pos.x, camera_pos.y,
             camera_size.x, camera_size.y,
-            sprites);
+            sprites,
+            mask);
 
     if (show_cursor && pony != null) {
         var facing = FACINGS[pony.animId() % FACINGS.length];
