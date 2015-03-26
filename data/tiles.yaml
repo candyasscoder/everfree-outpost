@@ -219,6 +219,3 @@ lpc-cave-top.png:
 
 lpc-cave-top-cross.png:
     cave_top/cross: [0, 0]
-
-lpc-cave-top-cut.png:
-    cave_top_cut: *terrain-template

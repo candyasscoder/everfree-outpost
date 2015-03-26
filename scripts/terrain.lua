@@ -34,37 +34,13 @@ local TILE_ID_MAP = {
 }
 
 local function place_cave(c, cpos, x, y)
-    print('placing cave')
+    print('placing cave', cpos, x, y)
     c:set_block(V3.new(x - 1, y, 0), 'cave_entrance/x0/z0')
     c:set_block(V3.new(x - 1, y, 1), 'cave_entrance/x0/z1')
-    --c:set_block(V3.new(x - 1, y, 2), 'cave_top_cut/corner/outer/sw')
     c:set_block(V3.new(x,     y, 0), 'cave_entrance/x1/z0')
     c:set_block(V3.new(x,     y, 1), 'cave_entrance/x1/z1')
-    c:set_block(V3.new(x,     y, 2), 'cave_top_cut/edge/s')
     c:set_block(V3.new(x + 1, y, 0), 'cave_entrance/x2/z0')
     c:set_block(V3.new(x + 1, y, 1), 'cave_entrance/x2/z1')
-    --c:set_block(V3.new(x + 1, y, 2), 'cave_top_cut/corner/outer/se')
-
-    local base = cpos * V2.new(16, 16)
-
-    for i = 1, 3 do
-        local left = base + V2.new(x - 1, y - i)
-        local right = base + V2.new(x + 1, y - i)
-
-        if caves:get_value(left) == 1 then
-            c:set_block((left - base):extend(0), 'cave/edge/w/z0')
-        end
-
-        if caves:get_value(right) == 1 then
-            c:set_block((right - base):extend(0), 'cave/edge/e/z0')
-        end
-
-        c:set_block(V3.new(x, y - i, 2), 'empty')
-    end
-
-    c:set_block(V3.new(x, y - 4, 0), 'cave/edge/n/z0')
-    c:set_block(V3.new(x, y - 4, 1), 'cave/edge/n/z1')
-    c:set_block(V3.new(x, y - 3, 2), 'cave_top_cut/edge/n')
 end
 
 function outpost_ffi.callbacks.generate_chunk(c, cpos, r)

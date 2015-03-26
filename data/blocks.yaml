@@ -467,16 +467,3 @@ cave_top:
     corner/inner: *diagonal-dirs
 
     cross.bottom: cross
-
-cave_top_cut:
-    _.prefix: cave_top_cut
-    _.shape: empty
-
-    center.bottom: center/v0
-
-    edge/_.prefix: edge
-    edge: *cardinal-dirs
-
-    corner/outer/_.prefix: corner/outer
-    corner/outer: *diagonal-dirs
-
