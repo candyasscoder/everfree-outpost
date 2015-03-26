@@ -326,6 +326,11 @@ lpc-cave-walls.png: &cave-walls
     derived-from: "lpc-base-tiles/mountain.png"
 lpc-cave-walls.xcf: *cave-walls
 
+lpc-cave-top.png: *cave-walls
+lpc-cave-top-cross.png: *cave-walls
+lpc-cave-top-cut.png: *cave-walls
+lpc-cave-top-cut.xcf: *cave-walls
+
 "daneeklu_farming_tilesets/*.png":
     title: "[LPC] Farming tilesets, magic animations and UI elements"
     author: Daniel Eddeland (daneeklu)

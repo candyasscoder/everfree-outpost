@@ -213,3 +213,12 @@ lpc-cave-walls.png:
             horiz: [2, 2, 1, 2]
 
         entrance: [3, 2, 3, 2]
+
+lpc-cave-top.png:
+    cave_top: *terrain-template
+
+lpc-cave-top-cross.png:
+    cave_top/cross: [0, 0]
+
+lpc-cave-top-cut.png:
+    cave_top_cut: *terrain-template

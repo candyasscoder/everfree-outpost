@@ -345,21 +345,24 @@ cave_entrance:
     x0:
         shape: solid
         z1.top: /cave_wall/top/horiz
-        z1.front: "01"
-        z0.front: "00"
+        z1.front: "00"
+        z0.front: "01"
+        z0.bottom: /grass/center/v0 + /dirt_dark/edge/s
 
     x1:
         z1.top: /cave_wall/top/horiz
-        z1.front: "11"
-        z0.front: "10"
+        z1.front: "10"
+        z0.front: "11"
+        z0.bottom: /grass/center/v0 + /dirt_dark/edge/s
         z1.shape: empty
         z0.shape: floor
 
     x2:
         shape: solid
         z1.top: /cave_wall/top/horiz
-        z1.front: "21"
-        z0.front: "20"
+        z1.front: "20"
+        z0.front: "21"
+        z0.bottom: /grass/center/v0 + /dirt_dark/edge/s
 
 # Cave/grass border
 cave:
@@ -446,3 +449,34 @@ cave:
     cross/ne:
         z1.top: top/cross
         z0.bottom: /grass/center/v0 + /dirt_dark/corner/inner/ne + /dirt_dark/corner/inner/sw
+
+
+cave_top:
+    _.prefix: cave_top
+    _.shape: floor
+
+    center.bottom: center/v0
+
+    edge/_.prefix: edge
+    edge: *cardinal-dirs
+
+    corner/outer/_.prefix: corner/outer
+    corner/outer: *diagonal-dirs
+
+    corner/inner/_.prefix: corner/inner
+    corner/inner: *diagonal-dirs
+
+    cross.bottom: cross
+
+cave_top_cut:
+    _.prefix: cave_top_cut
+    _.shape: empty
+
+    center.bottom: center/v0
+
+    edge/_.prefix: edge
+    edge: *cardinal-dirs
+
+    corner/outer/_.prefix: corner/outer
+    corner/outer: *diagonal-dirs
+
