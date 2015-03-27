@@ -123,23 +123,34 @@ function command.handler.where(client, args)
     local y = pos:y()
     client:send_message('Location: ' .. tostring(x) .. ', ' .. tostring(y))
 end
+command.help.where = '/where: Show coordinates of your current position'
 
 local spawn_point = V3.new(32, 32, 0)
 
 function command.handler.spawn(client, args)
     client:pawn():teleport(spawn_point)
 end
+command.help.spawn = '/spawn: Teleport to the spawn point'
 
 function command.handler.sethome(client, args)
     local home = client:pawn():pos()
     client:extra().home_pos = home
     client:send_message('Set home to ' .. tostring(home))
 end
+command.help.sethome = {
+    '/sethome: Set custom teleport destination',
+    '/home: Teleport to custom destination'
+}
 
 function command.handler.home(client, args)
     local home = client:extra().home_pos or spawn_point
     client:pawn():teleport(home)
 end
+command.help.home = command.help.sethome
+
+
+command.help.ignore = '/ignore <name>: Hide chat messages from named player'
+command.help.unignore = '/unignore <name>: Stop hiding chat messages from <name>'
 
 
 print('\n\nup and running')
