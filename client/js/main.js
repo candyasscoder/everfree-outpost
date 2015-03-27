@@ -284,6 +284,7 @@ function loadAssets(next) {
     loader.addImage('pony_f_wing_back', 'assets/sprites/backwingmare.png');
     loader.addImage('pony_f_mane_1', 'assets/sprites/maremane1.png');
     loader.addImage('pony_f_tail_1', 'assets/sprites/maretail1.png');
+    loader.addImage('equip_f_hat', 'assets/sprites/equip_f_hat.png');
 
     loader.addImage('tiles', 'assets/tiles.png');
 
@@ -496,6 +497,8 @@ function buildPonySprite(appearance, name) {
                (steps[g] <<  8) |
                (steps[b]);
 
+    var hat = (appearance >> 8) & 1;
+
     var extra = new NamedExtra([
             { image: assets['pony_f_wing_back'],    color: body,        skip: !wings },
             { image: assets['pony_f_base'],         color: body,        skip: false },
@@ -503,6 +506,7 @@ function buildPonySprite(appearance, name) {
             { image: assets['pony_f_wing_front'],   color: body,        skip: !wings },
             { image: assets['pony_f_tail_1'],       color: mane,        skip: false },
             { image: assets['pony_f_mane_1'],       color: mane,        skip: false },
+            { image: assets['equip_f_hat'],         color: 0xffffff,    skip: !hat },
             { image: assets['pony_f_horn'],         color: body,        skip: !horn },
             ], name);
 

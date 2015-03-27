@@ -5,6 +5,7 @@ sprites/frontwingmare.png
 sprites/backwingmare.png
 sprites/maremane1.png
 sprites/maretail1.png
+sprites/equip_f_hat.png
 
 shaders/terrain.vert
 shaders/terrain.frag
