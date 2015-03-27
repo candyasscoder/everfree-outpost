@@ -41,9 +41,26 @@ function outpost_ffi.callbacks.use_item(c, arg)
     handler(c, inv)
 end
 
+local ability_use_handlers = {}
+function outpost_ffi.callbacks.use_ability(c, arg)
+    local item_type = c:world():item_id_to_name(arg)
+    if item_type == nil then
+        return
+    end
+
+    local inv = c:pawn():inventory('ability')
+    if inv:count(item_type) == 0 then
+        return
+    end
+
+    local handler = get_or_noop(ability_use_handlers, item_type)
+    handler(c, inv)
+end
+
 local M = {
     use = structure_use_handlers,
     use_item = item_use_handlers,
+    use_ability = ability_use_handlers,
     open_inventory = nil,
 }
 

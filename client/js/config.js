@@ -18,18 +18,22 @@ var DEFAULT_CONFIG = {
         38: 'move_up',      // ArrowUp
         40: 'move_down',    // ArrowDown
         16: 'run',          // Shift
+
         65: 'interact',     // A
         68: 'use_item',     // D
+        83: 'use_ability',  // S
         69: 'inventory',    // E
+
         112: 'show_controls', // F1
         113: 'show_menu',   // F2
         114: 'debug_show_panel', // F3
         115: 'debug_test',  // F4
+        67: 'toggle_cursor', // C
+
         27: 'cancel',       // Esc
         32: 'cancel',       // Space
         13: 'chat',         // Enter
         191: 'chat_command', // '/'
-        67: 'toggle_cursor', // C
     },
 
     'chat_keybindings': {

@@ -626,11 +626,14 @@ function setupKeyHandler() {
                 case 'interact':
                     conn.sendInteract(time);
                     break;
-                case 'inventory':
-                    conn.sendOpenInventory();
-                    break;
                 case 'use_item':
                     conn.sendUseItem(time, current_item);
+                    break;
+                case 'use_ability':
+                    conn.sendUseAbility(time, 0 /* TODO */);
+                    break;
+                case 'inventory':
+                    conn.sendOpenInventory();
                     break;
 
                 default:
