@@ -45,26 +45,32 @@ pub mod op {
     use super::Opcode;
 
     opcodes! {
-        GetTerrain = 0x0001,
-        UpdateMotion = 0x0002,
+        // Requests
         Ping = 0x0003,
         Input = 0x0004,
         Login = 0x0005,
-        Action = 0x0006,
         UnsubscribeInventory = 0x0007,
         MoveItem = 0x0008,
         CraftRecipe = 0x0009,
         Chat = 0x000a,
         Register = 0x000b,
+        Interact = 0x000c,
+        UseItem = 0x000d,
+        UseAbility = 0x000e,
+        OpenInventory = 0x000f,
 
+        // Deprecated requests
+        GetTerrain = 0x0001,
+        UpdateMotion = 0x0002,
+        Action = 0x0006,
+
+        // Responses
         TerrainChunk = 0x8001,
-        PlayerMotion = 0x8002,
         Pong = 0x8003,
         EntityUpdate = 0x8004,
         Init = 0x8005,
         KickReason = 0x8006,
         UnloadChunk = 0x8007,
-        // TODO: EntityAdd, EntityRemove
         OpenDialog = 0x8008,
         InventoryUpdate = 0x8009,
         OpenCrafting = 0x800a,
@@ -73,6 +79,10 @@ pub mod op {
         EntityGone = 0x800d,
         RegisterResult = 0x800e,
 
+        // Deprecated responses
+        PlayerMotion = 0x8002,
+
+        // Control messages
         AddClient = 0xff00,
         RemoveClient = 0xff01,
         ClientRemoved = 0xff02,
@@ -99,6 +109,10 @@ pub enum Request {
     CraftRecipe(StructureId, InventoryId, RecipeId, u16),
     Chat(String),
     Register(String, [u32; 4], u32),
+    Interact(LocalTime),
+    UseItem(LocalTime, ItemId),
+    UseAbility(LocalTime, ItemId),
+    OpenInventory,
 
     // Control messages
     AddClient(WireId),
@@ -153,6 +167,22 @@ impl Request {
                 let (b, c, a) = try!(wr.read());
                 Register(a, b, c)
             },
+            op::Interact => {
+                let a = try!(wr.read());
+                Interact(a)
+            },
+            op::UseItem => {
+                let (a, b) = try!(wr.read());
+                UseItem(a, b)
+            },
+            op::UseAbility => {
+                let (a, b) = try!(wr.read());
+                UseAbility(a, b)
+            },
+            op::OpenInventory => {
+                OpenInventory
+            },
+
             op::AddClient => {
                 let a = try!(wr.read());
                 AddClient(a)

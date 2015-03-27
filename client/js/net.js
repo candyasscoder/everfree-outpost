@@ -12,6 +12,10 @@ var OP_MOVE_ITEM =              0x0008;
 var OP_CRAFT_RECIPE =           0x0009;
 var OP_CHAT =                   0x000a;
 var OP_REGISTER =               0x000b;
+var OP_INTERACT =               0x000c;
+var OP_USE_ITEM =               0x000d;
+var OP_USE_ABILITY =            0x000e;
+var OP_OPEN_INVENTORY =         0x000f;
 
 var OP_TERRAIN_CHUNK =          0x8001;
 var OP_PLAYER_MOTION =          0x8002;
@@ -289,12 +293,14 @@ MessageBuilder.prototype.done = function() {
 
 
 Connection.prototype.sendGetTerrain = function() {
+    console.error('deprecated message: GetTerrain');
     var msg = new MessageBuilder(2);
     msg.put16(OP_GET_TERRAIN);
     this.socket.send(msg.done());
 };
 
 Connection.prototype.sendUpdateMotion = function(data) {
+    console.error('deprecated message: UpdateMotion');
     var buf = new Uint16Array(1 + data.length);
     buf[0] = OP_UPDATE_MOTION;
     buf.subarray(1).set(data);
@@ -332,6 +338,7 @@ Connection.prototype.sendLogin = function(name, secret) {
 };
 
 Connection.prototype.sendAction = function(time, action, arg) {
+    console.error('deprecated message: Action');
     var msg = new MessageBuilder(10);
     msg.put16(OP_ACTION);
     msg.put16(time);
@@ -390,5 +397,34 @@ Connection.prototype.sendRegister = function(name, secret, appearance) {
         msg.put8(utf8.charCodeAt(i));
     }
 
+    this.socket.send(msg.done());
+};
+
+Connection.prototype.sendInteract = function(time) {
+    var msg = new MessageBuilder(4);
+    msg.put16(OP_INTERACT);
+    msg.put16(time);
+    this.socket.send(msg.done());
+};
+
+Connection.prototype.sendUseItem = function(time, item_id) {
+    var msg = new MessageBuilder(6);
+    msg.put16(OP_USE_ITEM);
+    msg.put16(time);
+    msg.put16(item_id);
+    this.socket.send(msg.done());
+};
+
+Connection.prototype.sendUseAbility = function(time, item_id) {
+    var msg = new MessageBuilder(6);
+    msg.put16(OP_USE_ABILITY);
+    msg.put16(time);
+    msg.put16(item_id);
+    this.socket.send(msg.done());
+};
+
+Connection.prototype.sendOpenInventory = function() {
+    var msg = new MessageBuilder(2);
+    msg.put16(OP_OPEN_INVENTORY);
     this.socket.send(msg.done());
 };

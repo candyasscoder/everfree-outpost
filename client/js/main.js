@@ -595,7 +595,9 @@ function setupKeyHandler() {
             dirs_held[binding] = down;
             updateWalkDir();
         } else if (down) {
+            var time = timing.encodeSend(timing.nextArrival());
             switch (binding) {
+                // UI actions
                 case 'show_controls':
                     var show = Config.show_controls.toggle();
                     $('key-list').classList.toggle('hidden', !show);
@@ -619,8 +621,20 @@ function setupKeyHandler() {
                 case 'toggle_cursor':
                     show_cursor = !show_cursor;
                     break;
+
+                // Commands to the server
+                case 'interact':
+                    conn.sendInteract(time);
+                    break;
+                case 'inventory':
+                    conn.sendOpenInventory();
+                    break;
+                case 'use_item':
+                    conn.sendUseItem(time, current_item);
+                    break;
+
                 default:
-                    return sendActionForKey(binding);
+                    return false;
             }
         }
         return true;
@@ -662,23 +676,6 @@ function setupKeyHandler() {
             var pony = entities[player_entity];
             prediction.predict(arrival, pony, target_velocity);
         }
-    }
-
-    function sendActionForKey(action) {
-        var code = 0;
-        var arg = 0;
-        switch (action) {
-            case 'interact': code = ACTION_USE; break;
-            case 'inventory': code = ACTION_INVENTORY; break;
-            case 'use_item':
-                code = ACTION_USE_ITEM;
-                arg = current_item;
-                break;
-            default: return false;
-        }
-
-        conn.sendAction(timing.encodeSend(timing.nextArrival()), code, arg);
-        return true;
     }
 }
 

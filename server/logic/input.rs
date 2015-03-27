@@ -24,18 +24,20 @@ pub fn input(mut eng: EngineRef, cid: ClientId, input: InputBits) {
     }
 }
 
-pub fn action(eng: EngineRef, cid: ClientId, action: Action) {
-    match action {
-        Action::Use => {
-            warn_on_err!(script::ScriptEngine::cb_interact(eng.unwrap(), cid));
-        },
-        Action::Inventory => {
-            warn_on_err!(script::ScriptEngine::cb_open_inventory(eng.unwrap(), cid));
-        },
-        Action::UseItem(item_id) => {
-            warn_on_err!(script::ScriptEngine::cb_use_item(eng.unwrap(), cid, item_id));
-        },
-    }
+pub fn interact(eng: EngineRef, cid: ClientId) {
+    warn_on_err!(script::ScriptEngine::cb_interact(eng.unwrap(), cid));
+}
+
+pub fn use_item(eng: EngineRef, cid: ClientId, item_id: ItemId) {
+    warn_on_err!(script::ScriptEngine::cb_use_item(eng.unwrap(), cid, item_id));
+}
+
+pub fn use_ability(eng: EngineRef, cid: ClientId, item_id: ItemId) {
+    warn_on_err!(script::ScriptEngine::cb_use_ability(eng.unwrap(), cid, item_id));
+}
+
+pub fn open_inventory(eng: EngineRef, cid: ClientId) {
+    warn_on_err!(script::ScriptEngine::cb_open_inventory(eng.unwrap(), cid));
 }
 
 pub fn unsubscribe_inventory(mut eng: EngineRef, cid: ClientId, iid: InventoryId) {

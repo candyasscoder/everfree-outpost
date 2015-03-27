@@ -176,10 +176,6 @@ impl<'d> Engine<'d> {
                 logic::input::input(self.as_ref(), cid, input);
             },
 
-            Action(action) => {
-                logic::input::action(self.as_ref(), cid, action);
-            },
-
             UnsubscribeInventory(iid) => {
                 logic::input::unsubscribe_inventory(self.as_ref(), cid, iid);
             },
@@ -196,6 +192,22 @@ impl<'d> Engine<'d> {
 
             Chat(msg) => {
                 logic::input::chat(self.as_ref(), cid, msg);
+            },
+
+            Interact => {
+                logic::input::interact(self.as_ref(), cid);
+            },
+
+            UseItem(item_id) => {
+                logic::input::use_item(self.as_ref(), cid, item_id);
+            },
+
+            UseAbility(item_id) => {
+                logic::input::use_ability(self.as_ref(), cid, item_id);
+            },
+
+            OpenInventory => {
+                logic::input::open_inventory(self.as_ref(), cid);
             },
 
             CheckView => {

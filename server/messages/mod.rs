@@ -35,8 +35,10 @@ pub enum Event {
 
 #[derive(Copy)]
 pub enum WakeReason {
-    HandleInput(ClientId, InputBits),
-    HandleAction(ClientId, Action),
+    DeferredInput(ClientId, InputBits),
+    DeferredInteract(ClientId),
+    DeferredUseItem(ClientId, ItemId),
+    DeferredUseAbility(ClientId, ItemId),
     PhysicsUpdate(EntityId),
     CheckView(ClientId),
 }
@@ -57,11 +59,14 @@ pub enum WireEvent {
 
 pub enum ClientEvent {
     Input(InputBits),
-    Action(Action),
     UnsubscribeInventory(InventoryId),
     MoveItem(InventoryId, InventoryId, ItemId, u16),
     CraftRecipe(StructureId, InventoryId, RecipeId, u16),
     Chat(String),
+    Interact,
+    UseItem(ItemId),
+    UseAbility(ItemId),
+    OpenInventory,
     CheckView,
     BadRequest,
 }
@@ -209,10 +214,14 @@ impl Messages {
 
     fn handle_wake(&mut self, now: Time, reason: WakeReason) -> Option<Event> {
         match reason {
-            WakeReason::HandleInput(cid, input) =>
+            WakeReason::DeferredInput(cid, input) =>
                 Some(Event::Client(cid, ClientEvent::Input(input))),
-            WakeReason::HandleAction(cid, action) =>
-                Some(Event::Client(cid, ClientEvent::Action(action))),
+            WakeReason::DeferredInteract(cid) =>
+                Some(Event::Client(cid, ClientEvent::Interact)),
+            WakeReason::DeferredUseItem(cid, item_id) =>
+                Some(Event::Client(cid, ClientEvent::UseItem(item_id))),
+            WakeReason::DeferredUseAbility(cid, item_id) =>
+                Some(Event::Client(cid, ClientEvent::UseAbility(item_id))),
             WakeReason::PhysicsUpdate(eid) =>
                 Some(Event::Other(OtherEvent::PhysicsUpdate(eid))),
             WakeReason::CheckView(cid) => {
@@ -308,14 +317,7 @@ impl Messages {
             Request::Input(time, input) => {
                 let time = cmp::max(time.to_global(now), now);
                 let input = unwrap!(InputBits::from_bits(input));
-                self.wake.push(time, WakeReason::HandleInput(cid, input));
-                Ok(None)
-            },
-
-            Request::Action(time, action, arg) => {
-                let time = cmp::max(time.to_global(now), now);
-                let action = unwrap!(Action::decode(action, arg));
-                self.wake.push(time, WakeReason::HandleAction(cid, action));
+                self.wake.push(time, WakeReason::DeferredInput(cid, input));
                 Ok(None)
             },
 
@@ -330,6 +332,27 @@ impl Messages {
 
             Request::Chat(msg) =>
                 Ok(Some(ClientEvent::Chat(msg))),
+
+            Request::Interact(time) => {
+                let time = cmp::max(time.to_global(now), now);
+                self.wake.push(time, WakeReason::DeferredInteract(cid));
+                Ok(None)
+            },
+
+            Request::UseItem(time, item_id) => {
+                let time = cmp::max(time.to_global(now), now);
+                self.wake.push(time, WakeReason::DeferredUseItem(cid, item_id));
+                Ok(None)
+            },
+
+            Request::UseAbility(time, item_id) => {
+                let time = cmp::max(time.to_global(now), now);
+                self.wake.push(time, WakeReason::DeferredUseAbility(cid, item_id));
+                Ok(None)
+            },
+
+            Request::OpenInventory =>
+                Ok(Some(ClientEvent::OpenInventory)),
 
             _ => fail!("bad request: {:?}", req),
         }

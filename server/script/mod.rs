@@ -150,6 +150,17 @@ impl ScriptEngine {
         })
     }
 
+    pub fn cb_use_ability(eng: &mut engine::Engine,
+                          cid: ClientId,
+                          item_id: ItemId) -> StringResult<()> {
+        let ptr = eng as *mut engine::Engine;
+        eng.script.with_context(ptr, |lua| {
+            run_callback(lua,
+                         "outpost_callback_use_ability",
+                         (userdata::world::Client { id: cid }, item_id))
+        })
+    }
+
     pub fn cb_eval(eng: &mut engine::Engine,
                    code: &str) -> Result<String, String> {
         let ptr = eng as *mut engine::Engine;
