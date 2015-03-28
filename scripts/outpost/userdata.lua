@@ -72,3 +72,10 @@ end
 function outpost_ffi.types.Client.table.send_message(c, msg)
     c:send_message_raw('***\t' .. msg)
 end
+
+function outpost_ffi.types.GenChunk.table.add_structure_with_extras(gc, pos, template, extras)
+    local index = gc:add_structure(pos, template)
+    for k, v in pairs(extras) do
+        gc:set_structure_extra(index, k, v)
+    end
+end

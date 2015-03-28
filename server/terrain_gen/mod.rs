@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher, SipHasher};
 use std::num::Int;
 use rand::{Rng, XorShiftRng, SeedableRng};
@@ -79,6 +80,7 @@ impl GenChunk {
 pub struct GenStructure {
     pub pos: V3,
     pub template: TemplateId,
+    pub extra: HashMap<String, String>,
 }
 
 impl GenStructure {
@@ -86,6 +88,7 @@ impl GenStructure {
         GenStructure {
             pos: pos,
             template: template,
+            extra: HashMap::new(),
         }
     }
 }

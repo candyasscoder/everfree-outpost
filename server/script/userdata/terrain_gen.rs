@@ -284,7 +284,7 @@ impl Userdata for GenChunk {
             fn add_structure(!partial ctx: &terrain_gen::TerrainGen,
                              gc: &GenChunk,
                              pos: V3,
-                             template_name: &str) -> StrResult<()> {
+                             template_name: &str) -> StrResult<i32> {
                 let template_id = unwrap!(ctx.data().object_templates.find_id(template_name));
 
                 let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
@@ -294,8 +294,34 @@ impl Userdata for GenChunk {
 
                 // TODO: could use some sanity checks here.
                 let s = terrain_gen::GenStructure::new(pos, template_id);
-                try!(gc.open(|gc| gc.structures.push(s)));
+                let idx = try!(gc.open(|gc| {
+                    gc.structures.push(s);
+                    gc.structures.len() - 1
+                }));
+                Ok(idx as i32)
+            }
+
+            fn set_structure_extra(gc: &GenChunk,
+                                   index: i32,
+                                   key: &str,
+                                   value: &str) -> StrResult<()> {
+                try!(try!(gc.open(|gc| -> StrResult<_> {
+                    let s = unwrap!(gc.structures.get_mut(index as usize));
+                    s.extra.insert(String::from_str(key), String::from_str(value));
+                    Ok(())
+                })));
                 Ok(())
+            }
+
+            fn get_structure_extra(gc: &GenChunk,
+                                   index: i32,
+                                   key: &str) -> StrResult<String> {
+                let value = try!(try!(gc.open(|gc| -> StrResult<_> {
+                    let s = unwrap!(gc.structures.get(index as usize));
+                    let value = unwrap!(s.extra.get(key));
+                    Ok(String::from_str(value))
+                })));
+                Ok(value)
             }
         }
     }

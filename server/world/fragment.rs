@@ -62,6 +62,20 @@ pub trait Fragment<'d>: Sized {
     }
 
     )*
+
+    fn create_structure_unchecked<'a>(&'a mut self,
+                                      pos: V3,
+                                      tid: TemplateId)
+                                      -> OpResult<ObjectRefMut<'a, 'd, Structure, Self>> {
+        let sid = ops::structure_create_unchecked(self);
+        {
+            let s = &mut self.world_mut().structures[sid];
+            s.pos = pos;
+            s.template = tid;
+        }
+        try!(ops::structure_post_init(self, sid));
+        Ok(ObjectRefMut::new(self, sid))
+    }
 }
 
     }

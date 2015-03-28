@@ -224,6 +224,18 @@ impl ScriptEngine {
             Ok(gc)
         })
     }
+
+    pub fn cb_apply_structure_extra(eng: &mut engine::Engine,
+                                    sid: StructureId,
+                                    key: &str,
+                                    value: &str) -> StringResult<()> {
+        let ptr = eng as *mut engine::Engine;
+        eng.script.with_context(ptr, |lua| {
+            run_callback(lua,
+                         "outpost_callback_apply_structure_extra",
+                         (userdata::world::Structure { id: sid }, key, value))
+        })
+    }
 }
 
 

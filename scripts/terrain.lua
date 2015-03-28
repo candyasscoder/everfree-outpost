@@ -41,6 +41,8 @@ local function place_cave(c, cpos, x, y)
     c:set_block(V3.new(x,     y, 1), 'cave_entrance/x1/z1')
     c:set_block(V3.new(x + 1, y, 0), 'cave_entrance/x2/z0')
     c:set_block(V3.new(x + 1, y, 1), 'cave_entrance/x2/z1')
+
+    c:add_structure_with_extras(V3.new(x, y - 3, 0), 'chest', { loot = 'hat' })
 end
 
 function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
@@ -109,4 +111,8 @@ function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
     if cpos:x() == 0 and cpos:y() == 0 then
         c:add_structure(V3.new(0, 0, 0), 'anvil')
     end
+end
+
+function outpost_ffi.callbacks.apply_structure_extra(s, k, v)
+    print('apply', s, k, v)
 end

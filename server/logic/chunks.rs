@@ -3,10 +3,12 @@ use std::error::Error;
 use physics::CHUNK_SIZE;
 
 use types::*;
+use util::StringResult;
 
 use chunks;
 use engine::glue::*;
 use engine::split::EngineRef;
+use script;
 use terrain_gen;
 use world;
 use world::object::*;
@@ -56,11 +58,22 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
                                                            gen_chunk.blocks));
                 let base = cpos.extend(0) * scalar(CHUNK_SIZE);
                 for gs in gen_chunk.structures.into_iter() {
-                    let result = (|| {
-                        let mut s = try!(world::Fragment::create_structure(&mut hwf,
-                                                                           gs.pos + base,
-                                                                           gs.template));
-                        s.set_attachment(world::StructureAttachment::Chunk)
+                    let result = (|| -> StringResult<_> {
+                        let sid = {
+                            let mut s = try!(world::Fragment::create_structure_unchecked(
+                                    &mut hwf, gs.pos + base, gs.template));
+                            s.set_attachment(world::StructureAttachment::Chunk);
+                            s.id()
+                        };
+                        for (k, v) in gs.extra.iter() {
+                            try!(script::ScriptEngine::cb_apply_structure_extra(
+                                // FIXME: SUPER UNSAFE!!!  This allows scripts to violate memory
+                                // safety, by mutating engine parts that are not available in the
+                                // ChunpProvider fragment!
+                                unsafe { ::std::mem::transmute_copy(&hwf) },
+                                sid, k, v));
+                        }
+                        Ok(())
                     })();
                     warn_on_err!(result);
                 }
