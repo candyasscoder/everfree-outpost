@@ -982,7 +982,7 @@ function frame(ac, client_now) {
 
     var mask;
     if (needs_mask(predict_now, pony)) {
-        mask = { center: [pos.x + 16, pos.y + 16 - pos.z], radius: 64 };
+        mask = { center: [pos.x + 16, pos.y + 16 - pos.z - 16], radius: 64 };
     } else {
         mask = { center: [0, 0], radius: 0 };
     }
