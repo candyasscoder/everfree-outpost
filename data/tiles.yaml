@@ -182,6 +182,9 @@ crystal-ward.png:
     item/ward: [1, 1]
     ward: [0, 0, 1, 2]
 
+crystal-formation.png:
+    crystal_formation: [0, 0]
+
 nilsson_lpc_entry/Harbor/harbor.png:
     road: [2, 2]
 

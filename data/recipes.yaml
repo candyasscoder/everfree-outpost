@@ -78,6 +78,12 @@ ward:
     inputs: { wood: 10, crystal: 1 }
     outputs: { ward: 1 }
 
+teleporter:
+    station: anvil
+    ui_name: Teleporter
+    inputs: { crystal: 50 }
+    outputs: { teleporter: 1 }
+
 
 fence:
     station: anvil

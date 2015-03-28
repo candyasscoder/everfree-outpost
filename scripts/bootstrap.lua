@@ -60,12 +60,15 @@ local command = require('outpost.command')
 require('inventory')
 local tools = require('tools')
 require('structure_items')
+local ward = require('ward')
+
 require('chest')
 require('anvil')
 require('ward_item')
-local ward = require('ward')
 require('mallet')
 require('hat')
+require('teleporter')
+
 require('terrain')
 
 

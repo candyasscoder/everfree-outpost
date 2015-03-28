@@ -285,6 +285,12 @@ ward:
     bottom: /grass/center/v0
 
 
+teleporter:
+    shape: solid
+    front:  crystal_formation
+    bottom: grass/center/v0
+
+
 fence:
     prefix: fence
     shape: solid

@@ -357,6 +357,12 @@ lpc-cave-top-cross.png: *cave-walls
     derived-from: daneeklu_farming_tilesets/fence.png, gervais_roguelike/dg_misc32.gif
 "crystal-ward.xcf": *crystal-ward
 
+"crystal-formation.png":
+    title: Blue Crystal Formation
+    author: David E. Gervais
+    license: CC-BY-SA 3.0
+    derived-from: gervais_roguelike/dg_misc32.gif
+
 nilsson_lpc_entry/Harbor/*.png:
     title: LPC C.Nilsson
     author: Casper Nilsson

@@ -68,6 +68,10 @@ ward:
     tile: ward
     ui_name: Ward
 
+teleporter:
+    tile: /crystal_formation
+    ui_name: Teleporter
+
 
 fence:
     ui_name: Fence

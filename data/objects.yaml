@@ -92,6 +92,9 @@ house_door_interior: *house-door-template
 ward:
     z0: [ward]
 
+teleporter:
+    z0: [teleporter]
+
 
 fence:
     prefix: fence
