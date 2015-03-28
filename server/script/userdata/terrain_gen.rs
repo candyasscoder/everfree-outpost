@@ -31,13 +31,13 @@ impl Userdata for Rng {
                 Rng::new(ctx.rng(seed as u32))
             }
 
-            // TODO: fix mk_block macro so we don't need double braces here.
             fn gen(rng: &Rng,
                    min: i32,
                    max: i32) -> i32 {
                 rng.open(|r| {
                     use rand::Rng;
-                    r.gen_range(min, max)
+                    // Inclusive bounds to match Lua convention
+                    r.gen_range(min, max + 1)
                 })
             }
         }

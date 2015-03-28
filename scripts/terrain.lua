@@ -33,7 +33,7 @@ local TILE_ID_MAP = {
     'cross/ne',
 }
 
-local function place_cave(c, cpos, x, y)
+local function place_cave(c, cpos, x, y, loot)
     print('placing cave', cpos, x, y)
     c:set_block(V3.new(x - 1, y, 0), 'cave_entrance/x0/z0')
     c:set_block(V3.new(x - 1, y, 1), 'cave_entrance/x0/z1')
@@ -42,7 +42,27 @@ local function place_cave(c, cpos, x, y)
     c:set_block(V3.new(x + 1, y, 0), 'cave_entrance/x2/z0')
     c:set_block(V3.new(x + 1, y, 1), 'cave_entrance/x2/z1')
 
-    c:add_structure_with_extras(V3.new(x, y - 3, 0), 'chest', { loot = 'hat' })
+    c:add_structure_with_extras(V3.new(x, y - 3, 0), 'chest', { loot = loot })
+end
+
+local function choose_loot(r)
+    local item = r:choose_weighted(pairs({
+        wood = 5,
+        stone = 5,
+        crystal = 15
+    }))
+    local amount
+    if item == 'crystal' then
+        amount = r:gen(15, 20)
+    else
+        amount = r:gen(80, 120)
+    end
+
+    if r:gen(1, 50) == 1 then
+        return 'H ' .. amount .. ' ' .. item
+    else
+        return amount .. ' ' .. item
+    end
 end
 
 function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
@@ -76,7 +96,7 @@ function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
 
                 if not placed_entrance and x >= 2 and y >= 4 and
                         cb == 3 and old_cb_1 == 3 and old_cb_2 == 3 then
-                    place_cave(c, cpos, x - 1, y)
+                    place_cave(c, cpos, x - 1, y, choose_loot(r))
                     placed_entrance = true
                 end
                 old_cb_2 = old_cb_1
@@ -115,6 +135,15 @@ end
 
 function outpost_ffi.callbacks.apply_structure_extra(s, k, v)
     if k == 'loot' then
-        s:inventory('contents'):update(v, 1)
+        print('spawning loot: ', v)
+        if v:sub(1, 2) == 'H ' then
+            s:inventory('contents'):update('hat', 1)
+            v = v:sub(3)
+        end
+
+        local space = v:find(' ')
+        local count = v:sub(1, space - 1)
+        local item = v:sub(space + 1)
+        s:inventory('contents'):update(item, 0 + count)
     end
 end
