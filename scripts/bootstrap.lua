@@ -65,6 +65,7 @@ require('anvil')
 require('ward_item')
 local ward = require('ward')
 require('mallet')
+require('hat')
 require('terrain')
 
 

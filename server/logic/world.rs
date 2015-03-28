@@ -63,6 +63,10 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
         vision::Fragment::set_entity_area(&mut self.as_vision_fragment(), eid, area);
     }
 
+    fn on_entity_appearance_change(&mut self, eid: EntityId) {
+        vision::Fragment::update_entity_appearance(&mut self.as_vision_fragment(), eid);
+    }
+
 
     fn on_structure_destroy(&mut self, sid: StructureId) {
         self.script_mut().cb_structure_destroyed(sid);

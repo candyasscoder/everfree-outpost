@@ -303,6 +303,12 @@ pub trait EntityRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Entity, F> {
         self.fragment_mut().with_hooks(|h| h.on_entity_motion_change(eid));
     }
 
+    fn set_appearance(&mut self, appearance: u32) {
+        let eid = self.id();
+        self.obj_mut().appearance = appearance;
+        self.fragment_mut().with_hooks(|h| h.on_entity_appearance_change(eid));
+    }
+
     fn set_attachment(&mut self, attach: EntityAttachment) -> OpResult<EntityAttachment> {
         let eid = self.id();
         ops::entity_attach(self.fragment_mut(), eid, attach)

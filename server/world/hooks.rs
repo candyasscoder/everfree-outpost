@@ -15,6 +15,7 @@ pub trait Hooks {
     fn on_entity_create(&mut self, eid: EntityId) {}
     fn on_entity_destroy(&mut self, eid: EntityId) {}
     fn on_entity_motion_change(&mut self, eid: EntityId) {}
+    fn on_entity_appearance_change(&mut self, eid: EntityId) {}
 
     fn on_structure_create(&mut self, sid: StructureId) {}
     fn on_structure_destroy(&mut self, sid: StructureId) {}

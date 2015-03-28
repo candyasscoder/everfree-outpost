@@ -46,12 +46,16 @@ impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
         self.messages().send_client(cid, ClientResponse::EntityGone(eid, time));
     }
 
-    fn on_entity_update(&mut self, cid: ClientId, eid: EntityId) {
+    fn on_entity_motion_update(&mut self, cid: ClientId, eid: EntityId) {
         let entity = self.world().entity(eid);
 
         let motion = entity.motion().clone();
         let anim = entity.anim();
         self.messages().send_client(cid, ClientResponse::EntityUpdate(eid, motion, anim));
+    }
+
+    fn on_entity_appearance_update(&mut self, cid: ClientId, eid: EntityId) {
+        self.on_entity_appear(cid, eid);
     }
 
 

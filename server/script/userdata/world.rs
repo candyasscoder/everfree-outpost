@@ -217,6 +217,17 @@ impl Userdata for Entity {
                 w.get_entity(e.id).map(|e| e.facing())
             }
 
+            fn update_appearance(!partial wf: WorldFragment,
+                                 e: Entity,
+                                 mask: u32,
+                                 bits: u32) -> StrResult<()> {
+                let mut e = unwrap!(wf.get_entity_mut(e.id));
+                let appearance = e.appearance() & !mask | bits;
+                e.set_appearance(appearance);
+                Ok(())
+            }
+
+
             fn teleport(!partial wf: WorldFragment,
                         e: Entity,
                         pos: V3) -> StrResult<()> {

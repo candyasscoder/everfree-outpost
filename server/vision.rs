@@ -52,7 +52,8 @@ pub trait Hooks {
 
     fn on_entity_appear(&mut self, cid: ClientId, eid: EntityId) {}
     fn on_entity_disappear(&mut self, cid: ClientId, eid: EntityId) {}
-    fn on_entity_update(&mut self, cid: ClientId, eid: EntityId) {}
+    fn on_entity_motion_update(&mut self, cid: ClientId, eid: EntityId) {}
+    fn on_entity_appearance_update(&mut self, cid: ClientId, eid: EntityId) {}
 
     fn on_inventory_appear(&mut self, cid: ClientId, iid: InventoryId) {}
     fn on_inventory_disappear(&mut self, cid: ClientId, iid: InventoryId) {}
@@ -112,7 +113,7 @@ impl Vision {
                 client.visible_entities.retain(eid, || {
                     debug!("{:?} moved: ++{:?}", cid, eid);
                     h.on_entity_appear(cid, eid);
-                    h.on_entity_update(cid, eid);
+                    h.on_entity_motion_update(cid, eid);
                     entities[eid.unwrap() as usize].viewers.insert(cid);
                 });
             }
@@ -199,10 +200,22 @@ impl Vision {
 
         for &cid in entity.viewers.iter() {
             debug!("{:?} moved: **{:?}", eid, cid);
-            h.on_entity_update(cid, eid);
+            h.on_entity_motion_update(cid, eid);
         }
 
         entity.area = new_area;
+    }
+
+    pub fn update_entity_appearance<H>(&mut self,
+                                       eid: EntityId,
+                                       h: &mut H)
+            where H: Hooks {
+        let raw_eid = eid.unwrap() as usize;
+        let entity = &self.entities[raw_eid];
+
+        for &cid in entity.viewers.iter() {
+            h.on_entity_appearance_update(cid, eid);
+        }
     }
 
 
@@ -328,6 +341,7 @@ gen_Fragment! {
     fn add_entity(eid: EntityId, area: SmallSet<V2>);
     fn remove_entity(eid: EntityId);
     fn set_entity_area(eid: EntityId, area: SmallSet<V2>);
+    fn update_entity_appearance(eid: EntityId);
 
     fn add_chunk(pos: V2);
     fn remove_chunk(pos: V2);

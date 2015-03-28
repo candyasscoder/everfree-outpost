@@ -98,10 +98,6 @@ impl super::Entity {
         self.appearance
     }
 
-    pub fn set_appearance(&mut self, appearance: u32) {
-        self.appearance = appearance;
-    }
-
     pub fn pos(&self, now: Time) -> V3 {
         self.motion.pos(now)
     }

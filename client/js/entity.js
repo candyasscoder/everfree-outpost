@@ -82,6 +82,10 @@ Entity.prototype.getSprite = function(now) {
     return sprite;
 };
 
+Entity.prototype.setSpriteBase = function(new_base) {
+    this._sprite_base = new_base;
+};
+
 Entity.prototype.queueMotion = function(motion) {
     this._motions.enqueue(motion);
 };

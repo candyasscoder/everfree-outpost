@@ -823,7 +823,13 @@ function handleEntityAppear(id, appearance, name) {
         name = '';
     }
     var sprite_base = buildPonySprite(appearance, name);
-    entities[id] = new Entity(sprite_base, pony_anims, new Vec(0, 0, 0));
+    if (entities[id] != null) {
+        console.log('update entity with appearance', appearance.toString(16));
+        entities[id].setSpriteBase(sprite_base);
+    } else {
+        console.log('new entity with appearance', appearance.toString(16));
+        entities[id] = new Entity(sprite_base, pony_anims, new Vec(0, 0, 0));
+    }
 }
 
 function handleEntityGone(id, time) {
