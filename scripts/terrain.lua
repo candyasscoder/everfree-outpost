@@ -114,5 +114,7 @@ function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
 end
 
 function outpost_ffi.callbacks.apply_structure_extra(s, k, v)
-    print('apply', s, k, v)
+    if k == 'loot' then
+        s:inventory('contents'):update(v, 1)
+    end
 end

@@ -260,7 +260,7 @@ terrain_atlas.png: &lpc-tile-sheet-1
 
 lpc-trees-unscaled.png: &rescaled-trees
     title: LPC Trees (edited)
-    author: Lanea Zimmerman (AKA Sharm), Casper Nilsson, Everfree Outpost
+    author: Lanea Zimmerman (AKA Sharm), Casper Nilsson, Stuart Pernsteiner
     license: CC-BY-SA 3.0 / GPL 3.0
     attribution:
         Lanea Zimmerman's tree trunks and Casper Nilsson's tree stump, copied
@@ -278,7 +278,7 @@ lpc-trees-scaled.png: *rescaled-trees
 
 lpc-house.png: &house-walls
     title: LPC House Walls
-    author: Lanea Zimmerman (AKA Sharm), Everfree Outpost
+    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
     license: CC-BY-SA 3.0 / GPL 3.0
     attribution:
         Lanea Zimmerman's house interior and exterior tiles, edited together to
@@ -288,7 +288,7 @@ lpc-house.xcf: *house-walls
 
 lpc-wood-floor.png: &wood-floor
     title: LPC Wood Floor
-    author: Lanea Zimmerman (AKA Sharm), Everfree Outpost
+    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
     license: CC-BY-SA 3.0 / GPL 3.0
     attribution:
         Lanea Zimmerman's wood floor tile, rearranged to match the standard
@@ -298,7 +298,7 @@ lpc-wood-floor.xcf: *wood-floor
 
 lpc-furniture.png: &furniture
     title: LPC Furniture
-    author: Lanea Zimmerman (AKA Sharm), Everfree Outpost
+    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
     license: CC-BY-SA 3.0 / GPL 3.0
     attribution:
         Lanea Zimmerman's LPC house furniture, rearranged to line up with the
@@ -308,7 +308,7 @@ lpc-furniture.xcf: *furniture
 
 lpc-watergrass-cross.png: &watergrass-cross
     title: LPC Water/Grass Diagonal Crossing
-    author: Lanea Zimmerman (AKA Sharm), Everfree Outpost
+    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
     license: CC-BY-SA 3.0 / GPL 3.0
     attribution:
         Lanea Zimmerman's water/grass border, edited to make "diagonal
@@ -318,7 +318,7 @@ lpc-watergrass-cross.xcf: *watergrass-cross
 
 lpc-cave-walls.png: &cave-walls
     title: LPC Cave Walls
-    author: Lanea Zimmerman (AKA Sharm), Everfree Outpost
+    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
     license: CC-BY-SA 3.0 / GPL 3.0
     attribution:
         Lanea Zimmerman's mountainside tiles, edited to form a solid 64px-tall
@@ -349,7 +349,7 @@ lpc-cave-top-cross.png: *cave-walls
 
 "crystal-ward.png": &crystal-ward
     title: Crystal Ward
-    author: David E. Gervais, Daniel Eddeland, Everfree Outpost
+    author: David E. Gervais, Daniel Eddeland, Stuart Pernsteiner
     license: CC-BY-SA 3.0
     attribution: >
         Fence post from Daniel Eddeland's LPC farming tileset, combined with an
@@ -374,3 +374,9 @@ nilsson_lpc_entry/Harbor/*.png:
 
         Please attribute creator as Casper Nilsson.
         Please include a link to opengameart.org as well (preferably to the submission for this art package) if you use the art.
+
+
+equip_hat_icon.png:
+    title: Witch's Hat (Icon)
+    author: Fernando Ariel dos Santos Alves
+    license: CC-BY 4.0

@@ -219,3 +219,6 @@ lpc-cave-top.png:
 
 lpc-cave-top-cross.png:
     cave_top/cross: [0, 0]
+
+equip_hat_icon.png:
+    item/equip_hat: [0, 0]

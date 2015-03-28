@@ -92,3 +92,8 @@ bed:
 table:
     ui_name: Table
     tile: table
+
+
+hat:
+    ui_name: Hat
+    tile: equip_hat
