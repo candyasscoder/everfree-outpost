@@ -310,7 +310,7 @@ def parse_extra(r):
         return (r.i32(), r.i32(), r.i32())
     assert False, 'unrecognized tag: %d' % tag
 
-NATURAL_STRUCTURES = ('tree', 'stump', 'rock')
+NATURAL_STRUCTURES = ('tree', 'stump', 'rock', 'chest')
 
 def find_player_structures(save_dir):
     chunk_dir = os.path.join(save_dir, 'terrain_chunks')
