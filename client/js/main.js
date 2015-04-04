@@ -1,7 +1,7 @@
 var $ = document.getElementById.bind(document);
 
 
-var AssetLoader = require('loader').AssetLoader;
+var loader = require('loader');
 var BackgroundJobRunner = require('util/jobs').BackgroundJobRunner;
 var Vec = require('util/vec').Vec;
 var DebugMonitor = require('debug').DebugMonitor;
@@ -173,7 +173,6 @@ var main_menu;
 var debug_menu;
 
 var runner;
-var loader;
 var assets;
 
 
@@ -217,8 +216,7 @@ function init() {
     initMenus();
 
     runner = new BackgroundJobRunner();
-    loader = new AssetLoader();
-    assets = loader.assets;
+    assets = null;
 
     entities = {};
     entity_appearance = {};
@@ -272,59 +270,37 @@ document.addEventListener('DOMContentLoaded', init);
 // Major initialization steps.
 
 function loadAssets(next) {
-    loader.onprogress = function(loaded, total) {
-        banner.update('Loading... (' + loaded + '/' + total + ')', loaded / total);
-    };
-    loader.onload = next;
+    loader.loadJson('server.json', function(server_info) {
+        loader.loadPack('outpost.pack', function(loaded, total) {
+            banner.update('Loading... (' + (loaded >> 10)+ 'k / ' + (total >> 10) + 'k)', loaded / total);
+        }, function(assets_) {
+            assets = assets_;
+            assets['server_info'] = server_info;
 
-    loader.addImage('pony_f_base', 'assets/sprites/maresprite.png');
-    loader.addImage('pony_f_eyes_blue', 'assets/sprites/type1blue.png');
-    loader.addImage('pony_f_horn', 'assets/sprites/marehorn.png');
-    loader.addImage('pony_f_wing_front', 'assets/sprites/frontwingmare.png');
-    loader.addImage('pony_f_wing_back', 'assets/sprites/backwingmare.png');
-    loader.addImage('pony_f_mane_1', 'assets/sprites/maremane1.png');
-    loader.addImage('pony_f_tail_1', 'assets/sprites/maretail1.png');
-    loader.addImage('equip_f_hat', 'assets/sprites/equip_f_hat.png');
+            var tiles = assets['tile_defs']['blocks'];
+            for (var i = 0; i < tiles.length; ++i) {
+                TileDef.register(i, tiles[i]);
+            }
+            renderer.loadBlockData(TileDef.by_id);
 
-    loader.addImage('tiles', 'assets/tiles.png');
+            var items = assets['item_defs']['items'];
+            for (var i = 0; i < items.length; ++i) {
+                ItemDef.register(i, items[i]);
+            }
 
-    loader.addJson(null, 'tiles.json', function(json) {
-        var tiles = json['blocks'];
-        for (var i = 0; i < tiles.length; ++i) {
-            TileDef.register(i, tiles[i]);
-        }
-        renderer.loadBlockData(TileDef.by_id);
+            var recipes = assets['recipe_defs']['recipes'];
+            for (var i = 0; i < recipes.length; ++i) {
+                RecipeDef.register(i, recipes[i]);
+            }
+
+            var css = '.item-icon {' +
+                'background-image: url("' + assets['items'] + '");' +
+            '}';
+            util.element('style', ['type=text/css', 'text=' + css], document.head);
+
+            next();
+        });
     });
-
-    loader.addJson(null, 'items.json', function(json) {
-        var items = json['items'];
-        for (var i = 0; i < items.length; ++i) {
-            ItemDef.register(i, items[i]);
-        }
-    });
-
-    loader.addJson(null, 'recipes.json', function(json) {
-        var recipes = json['recipes'];
-        for (var i = 0; i < recipes.length; ++i) {
-            RecipeDef.register(i, recipes[i]);
-        }
-    });
-
-    loader.addImage('font', 'assets/font.png');
-    loader.addJson('font_metrics', 'metrics.json');
-
-    loader.addJson('server_info', 'server.json');
-
-    loader.addText('terrain.frag', 'assets/shaders/terrain.frag');
-    loader.addText('terrain.vert', 'assets/shaders/terrain.vert');
-
-    loader.addText('sprite.frag', 'assets/shaders/sprite.frag');
-    loader.addText('sprite.vert', 'assets/shaders/sprite.vert');
-
-    loader.addText('sprite_layered.frag', 'assets/shaders/sprite_layered.frag');
-
-    loader.addText('cursor.frag', 'assets/shaders/cursor.frag');
-    loader.addText('cursor.vert', 'assets/shaders/cursor.vert');
 }
 
 function openConn(info, next) {

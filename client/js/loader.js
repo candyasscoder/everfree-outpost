@@ -1,95 +1,176 @@
-/** @constructor */
-function AssetLoader() {
-    this.assets = {}
-    this.pending = 0;
-    this.loaded = 0;
-}
-exports.AssetLoader = AssetLoader;
+var util = require('util/misc');
 
-AssetLoader.prototype.addImage = function(name, url, callback) {
-    var img = new Image();
+function loadJson(url, next) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+
+    xhr.responseType = 'json';
 
     var this_ = this;
-    img.onload = function() {
-        if (callback != null) {
-            callback(img);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == XMLHttpRequest.DONE) {
+            next(xhr.response);
         }
-        this_._handleAssetLoad();
     };
 
-    img.src = url;
-    if (name != null) {
-        this.assets[name] = img;
-    }
-    this._addPendingAsset();
-};
+    xhr.send();
+}
+exports.loadJson = loadJson;
 
-AssetLoader.prototype.addJson = function(name, url, callback) {
-    this._addXhr(name, url, 'json', callback);
-};
+function loadPack(url, progress, next) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
 
-AssetLoader.prototype._addXhr = function(name, url, type, callback) {
-    var elt = null;
-    if (name != null) {
-        elt = document.getElementById('asset-' + name);
-    }
+    xhr.responseType = 'blob';
 
-    if (elt == null) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', url, true);
-
-        xhr.responseType = type;
-
-        var this_ = this;
-        xhr.onreadystatechange = function() {
-            if (this.readyState == XMLHttpRequest.DONE) {
-                if (name != null) {
-                    this_.assets[name] = this.response;
-                }
-                if (callback != null) {
-                    callback(this.response);
-                }
-                this_._handleAssetLoad();
-            }
-        };
-
-        xhr.send();
-        this._addPendingAsset();
-    } else {
-        var value = elt.textContent;
-        if (type == 'json') {
-            value = JSON.parse(value);
+    var this_ = this;
+    xhr.addEventListener("progress", function(evt) {
+        if (!evt.lengthComputable) {
+            return;
         }
+        progress(evt.loaded, evt.total);
+    }, false);
+    xhr.addEventListener("load", function() {
+        handlePackLoad(xhr.response, next);
+    }, false);
+    xhr.addEventListener("error", function() {
+        throw ("Error loading data: " + xhr.statusText);
+    }, false);
 
-        if (name != null) {
-            this.assets[name] = value;
-        }
-        if (callback != null) {
-            callback(value);
-        }
+    xhr.send();
+}
+exports.loadPack = loadPack;
+
+function handlePackLoad(blob, next) {
+    new PackReader(blob, next);
+}
+
+/** @constructor */
+function PackReader(blob, next) {
+    this.blob = blob;
+    this.fr = new FileReader();
+    this.current = 0;
+    this.index_bytes = null;
+    this.index = null;
+    this.assets = {};
+    this.next = next;
+
+    var this_ = this;
+
+    this._startReadIndexLength(this.blob.slice(0, 4));
+}
+
+PackReader.prototype._startReadIndexLength = function() {
+    var this_ = this;
+    this.fr.onloadend = function() { this_._finishReadIndexLength(); };
+    this.fr.readAsArrayBuffer(this.blob.slice(0, 4));
+};
+
+PackReader.prototype._finishReadIndexLength = function() {
+    checkError(this.fr.error, 'pack index length');
+    var data = new DataView(this.fr.result);
+    this.index_bytes = data.getUint32(0, true);
+    this._startReadIndex();
+};
+
+PackReader.prototype._startReadIndex = function() {
+    var this_ = this;
+    this.fr.onloadend = function() { this_._finishReadIndex(); };
+    this.fr.readAsText(this.blob.slice(4, 4 + this.index_bytes));
+};
+
+PackReader.prototype._finishReadIndex = function() {
+    checkError(this.fr.error, 'pack index');
+    this.index = JSON.parse(this.fr.result);
+    this._startReadItem();
+};
+
+PackReader.prototype._startReadItem = function() {
+    if (this.current >= this.index.length) {
+        // Done reading items.
+        this.next(this.assets);
+        return;
+    }
+
+    var entry = this.index[this.current];
+    switch (entry['type']) {
+        case 'json':
+            this._startReadJson(entry);
+            break;
+        case 'text':
+            this._startReadText(entry);
+            break;
+        case 'image':
+            this._startReadImage(entry);
+            break;
+        case 'url':
+            this._startReadUrl(entry);
+            break;
+        default:
+            throw ('Pack entry ' + entry['name'] + ' has invalid type "' + entry['type'] + '"');
     }
 };
 
-AssetLoader.prototype.addText = function(name, url, callback) {
-    this._addXhr(name, url, 'text', callback);
+PackReader.prototype._finishReadItem = function() {
+    ++this.current;
+    this._startReadItem();
 };
 
-AssetLoader.prototype._addPendingAsset = function() {
-    this.pending += 1;
-    this._handleProgress();
+
+PackReader.prototype._startReadJson = function(entry) {
+    var this_ = this;
+    this.fr.onloadend = function() { this_._finishReadJson(entry['name']); };
+    var base = 4 + this.index_bytes + entry['offset'];
+    this.fr.readAsText(this.blob.slice(base, base + entry['length']));
 };
 
-AssetLoader.prototype._handleAssetLoad = function() {
-    this.pending -= 1;
-    this.loaded += 1;
-    this._handleProgress();
-    if (this.pending == 0 && typeof this.onload == 'function') {
-        this.onload();
+PackReader.prototype._finishReadJson = function(name) {
+    checkError(this.fr.error, name);
+    this.assets[name] = JSON.parse(this.fr.result);
+    this._finishReadItem();
+};
+
+PackReader.prototype._startReadText = function(entry) {
+    var this_ = this;
+    this.fr.onloadend = function() { this_._finishReadText(entry['name']); };
+    var base = 4 + this.index_bytes + entry['offset'];
+    this.fr.readAsText(this.blob.slice(base, base + entry['length']));
+};
+
+PackReader.prototype._finishReadText = function(name) {
+    checkError(this.fr.error, name);
+    this.assets[name] = this.fr.result;
+    this._finishReadItem();
+};
+
+PackReader.prototype._startReadImage = function(entry) {
+    var base = 4 + this.index_bytes + entry['offset'];
+    var url = URL.createObjectURL(this.blob.slice(base, base + entry['length']));
+
+    var this_ = this;
+    var img = util.element('img', ['src=' + url]);
+    img.onload = function() { this_._finishReadImage(entry['name'], img); };
+    img.onerror = function() {
+        throw ('Error reading ' + name + ': image loading failed');
+    };
+};
+
+PackReader.prototype._finishReadImage = function(name, img) {
+    this.assets[name] = img;
+    img.onloadend = null;
+    this._finishReadItem();
+};
+
+PackReader.prototype._startReadUrl = function(entry) {
+    var base = 4 + this.index_bytes + entry['offset'];
+    var url = URL.createObjectURL(this.blob.slice(base, base + entry['length']));
+    this.assets[entry['name']] = url;
+    this._finishReadItem();
+};
+
+
+function checkError(err, what) {
+    if (err) {
+        throw ('Error reading ' + what + ': ' + err);
     }
-};
-
-AssetLoader.prototype._handleProgress = function() {
-    if (typeof this.onprogress == 'function') {
-        this.onprogress(this.loaded, this.pending + this.loaded);
-    }
-};
+}

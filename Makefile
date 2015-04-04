@@ -279,6 +279,18 @@ $(BUILD)/server.json: $(SRC)/util/gen_server_json.py
 	$(PYTHON3) $< >$@
 
 
+# Rules for client asset pack
+
+PACK_GEN_FILES = tiles.png font.png items.png \
+				 tiles.json items.json recipes.json metrics.json
+
+$(BUILD)/outpost.pack: \
+		$(SRC)/util/make_pack.py \
+		$(patsubst %,$(DIST_WWW)/assets/%,$(shell cat $(SRC)/assets/used.txt)) \
+		$(foreach file,$(PACK_GEN_FILES),$(BUILD)/$(file))
+	$(PYTHON3) $< $(SRC) $(BUILD) $@
+
+
 # Rules for copying files into dist/
 
 define DIST_FILE_
@@ -294,13 +306,6 @@ DATA_FILE = $(call DIST_FILE_,DATA,$(strip $(1)),$(strip $(2)))
 $(eval $(call BIN_FILE,		wrapper.py,			$(SRC)/server/wrapper.py))
 $(eval $(call BIN_FILE,		run_server.sh,		$(SRC)/util/run_server.sh))
 
-$(eval $(call WWW_FILE, 	tiles.json,			$(BUILD)/tiles.json))
-$(eval $(call WWW_FILE, 	items.json,			$(BUILD)/items.json))
-$(eval $(call WWW_FILE, 	recipes.json,		$(BUILD)/recipes.json))
-$(eval $(call WWW_FILE, 	assets/tiles.png,	$(BUILD)/tiles.png))
-$(eval $(call WWW_FILE, 	assets/items.png,	$(BUILD)/items.png))
-$(eval $(call WWW_FILE, 	assets/font.png,	$(BUILD)/font.png))
-$(eval $(call WWW_FILE, 	metrics.json,		$(BUILD)/metrics.json))
 $(eval $(call DATA_FILE, 	blocks.json,		$(BUILD)/blocks-server.json))
 $(eval $(call DATA_FILE, 	items.json,			$(BUILD)/items-server.json))
 $(eval $(call DATA_FILE, 	objects.json,		$(BUILD)/objects.json))
@@ -308,6 +313,7 @@ $(eval $(call DATA_FILE, 	recipes.json,		$(BUILD)/recipes.json))
 $(eval $(call WWW_FILE, 	credits.html,		$(BUILD)/credits.html))
 $(eval $(call WWW_FILE, 	instructions.html,	$(SRC)/client/instructions.html))
 $(eval $(call WWW_FILE, 	server.json,		$(SRC)/build/server.json))
+$(eval $(call WWW_FILE, 	outpost.pack,		$(BUILD)/outpost.pack))
 
 ifeq ($(RELEASE),)
 $(eval $(call WWW_FILE, client.html, 		$(BUILD)/client.debug.html))
@@ -327,7 +333,7 @@ $(eval $(call WWW_FILE, configedit.js, 		$(BUILD_MIN)/configedit.js))
 $(eval $(call WWW_FILE, asmlibs.js, 		$(BUILD_MIN)/asmlibs.js))
 endif
 
-$(DIST)/all: $(patsubst %,$(DIST_WWW)/assets/%,$(shell cat $(SRC)/assets/used.txt)) \
+$(DIST)/all: \
 	$(patsubst scripts/%,$(DIST)/scripts/%,$(shell find scripts -name \*.lua))
 
 $(DIST_WWW)/assets/%: $(SRC)/assets/%
