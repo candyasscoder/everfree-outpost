@@ -140,6 +140,7 @@ def collect_entries(ss, filenames):
             if 'derived-from' in info:
                 df = info['derived-from']
                 df = [os.path.join(info['_base_path'], x.strip()) for x in df.split(',')]
+                df = [os.path.normpath(p) for p in df]
                 info['derived-from'] = df
                 for x in df:
                     go(x)

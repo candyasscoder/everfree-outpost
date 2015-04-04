@@ -26,7 +26,7 @@ DIST_WWW = $(DIST)/www
 
 $(shell mkdir -p $(BUILD_ASMJS) $(BUILD_NATIVE_DEBUG) $(BUILD_NATIVE_RELEASE) \
 	$(BUILD_ASMLIBS) $(BUILD_MIN) \
-	$(DIST) $(DIST_BIN) $(DIST_DATA) $(DIST_WWW) $(DIST_WWW)/assets $(DIST)/scripts)
+	$(DIST) $(DIST_BIN) $(DIST_DATA) $(DIST_WWW) $(DIST)/scripts)
 
 
 JS_SRCS = $(shell find $(SRC)/client/js -name \*.js)
@@ -270,10 +270,12 @@ $(BUILD)/%.debug.html: $(SRC)/client/%.html \
 
 $(BUILD)/credits.html: $(SRC)/util/gen_credits.py \
 		$(SRC)/assets/used.txt \
-		$(BUILD)/tile-assets-used.txt
-	cat $(SRC)/assets/used.txt $(BUILD)/tile-assets-used.txt | \
+		$(BUILD)/tile-assets-used.txt \
+		$(BUILD)/data/used_assets.txt
+	cat $(SRC)/assets/used.txt $(BUILD)/tile-assets-used.txt $(BUILD)/data/used_assets.txt | \
 		grep -vE '(\.frag|\.vert)$$' |\
-		$(PYTHON3) $(SRC)/util/gen_credits.py >$@
+		$(PYTHON3) $(SRC)/util/gen_credits.py >$@.tmp
+	mv -v $@.tmp $@
 
 $(BUILD)/server.json: $(SRC)/util/gen_server_json.py
 	$(PYTHON3) $< >$@
@@ -282,13 +284,25 @@ $(BUILD)/server.json: $(SRC)/util/gen_server_json.py
 # Rules for client asset pack
 
 PACK_GEN_FILES = tiles.png font.png items.png \
-				 tiles.json items.json recipes.json metrics.json
+				 tiles.json items.json recipes.json metrics.json \
+				 data/structures_client.json
 
 $(BUILD)/outpost.pack: \
 		$(SRC)/util/make_pack.py \
-		$(patsubst %,$(DIST_WWW)/assets/%,$(shell cat $(SRC)/assets/used.txt)) \
+		$(BUILD)/data/stamp \
+		$(patsubst %,$(SRC)/assets/%,$(shell cat $(SRC)/assets/used.txt)) \
 		$(foreach file,$(PACK_GEN_FILES),$(BUILD)/$(file))
 	$(PYTHON3) $< $(SRC) $(BUILD) $@
+
+$(BUILD)/data/stamp \
+$(BUILD)/data/structures_client.json \
+$(BUILD)/data/structures_server.json: \
+		$(shell find $(SRC)/data -name \*.py) \
+		$(shell find $(SRC)/assets -name \*.png)
+	mkdir -pv $(BUILD)/data
+	rm -f $(BUILD)/data/structures*.png
+	$(PYTHON3) $(SRC)/data/main.py $(SRC)/assets $(BUILD)/data
+	touch $@
 
 
 # Rules for copying files into dist/
@@ -310,6 +324,7 @@ $(eval $(call DATA_FILE, 	blocks.json,		$(BUILD)/blocks-server.json))
 $(eval $(call DATA_FILE, 	items.json,			$(BUILD)/items-server.json))
 $(eval $(call DATA_FILE, 	objects.json,		$(BUILD)/objects.json))
 $(eval $(call DATA_FILE, 	recipes.json,		$(BUILD)/recipes.json))
+$(eval $(call DATA_FILE, 	structures.json,	$(BUILD)/data/structures_server.json))
 $(eval $(call WWW_FILE, 	credits.html,		$(BUILD)/credits.html))
 $(eval $(call WWW_FILE, 	instructions.html,	$(SRC)/client/instructions.html))
 $(eval $(call WWW_FILE, 	server.json,		$(SRC)/build/server.json))
@@ -335,10 +350,6 @@ endif
 
 $(DIST)/all: \
 	$(patsubst scripts/%,$(DIST)/scripts/%,$(shell find scripts -name \*.lua))
-
-$(DIST_WWW)/assets/%: $(SRC)/assets/%
-	mkdir -p $$(dirname $@)
-	cp -v $< $@
 
 $(DIST)/scripts/%: $(SRC)/scripts/%
 	mkdir -p $$(dirname $@)

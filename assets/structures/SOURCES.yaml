@@ -1,0 +1,90 @@
+
+crystal-ward.png:
+    title: Crystal Ward
+    author: David E. Gervais, Daniel Eddeland, Stuart Pernsteiner
+    license: CC-BY-SA 3.0
+    attribution: >
+        Fence post from Daniel Eddeland's LPC farming tileset, combined with an
+        edited crystal from David E. Gervais's roguelike tilesets.
+    derived-from:
+        ../tiles/daneeklu_farming_tilesets/fence.png,
+        ../tiles/gervais_roguelike/dg_misc32.gif
+
+wood-floor.png:
+    title: LPC Wood Floor
+    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution:
+        Lanea Zimmerman's wood floor tile, rearranged to match the standard
+        terrain layout.
+    derived-from: ../tiles/lpc-base-tiles/inside.png
+
+road.png:
+    title: LPC Road
+    author: Casper Nilsson, Stuart Pernsteiner
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution:
+        Casper Nilsson's harbor tiles, edited and rearranged to match the
+        standard terrain layout.
+    derived-from: ../tiles/nilsson_lpc_entry/Harbor/harbor.png
+
+furniture.png:
+    title: LPC Furniture
+    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution:
+        Lanea Zimmerman's LPC house furniture, rearranged to line up with the
+        modified house walls.
+    derived-from:
+        ../tiles/lpc-base-tiles/cabinets.png,
+        ../tiles/lpc-base-tiles/victoria.png
+
+house.png:
+    title: LPC House Walls
+    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution:
+        Lanea Zimmerman's house interior and exterior tiles, edited together to
+        form a solid 64px-tall wall.
+    derived-from: 
+        ../tiles/lpc-base-tiles/inside.png,
+        ../tiles/lpc-base-tiles/house.png
+
+crystal-formation.png:
+    title: Blue Crystal Formation
+    author: David E. Gervais
+    license: CC-BY-SA 3.0
+    derived-from: ../tiles/gervais_roguelike/dg_misc32.gif
+
+anvil.png:
+    title: LPC Anvil
+    author: Daniel Eddeland (daneeklu)
+    license: CC-BY-SA 3.0 / GPL 3.0
+    derived-from: ../tiles/daneeklu_farming_tilesets/farming_fishing.png
+
+fence.png:
+    title: LPC Fence
+    author: Daniel Eddeland (daneeklu)
+    license: CC-BY-SA 3.0 / GPL 3.0
+    derived-from: ../tiles/daneeklu_farming_tilesets/fence.png
+
+chest.png:
+    title: LPC Chest
+    author: Lanea Zimmerman (AKA Sharm)
+    license: CC-BY-SA 3.0 / GPL 3.0
+    derived-from: ../tiles/lpc-base-tiles/chests.png
+
+tree.png:
+    title: LPC Trees
+    author: Lanea Zimmerman (AKA Sharm), Casper Nilsson, Stuart Pernsteiner
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution:
+        Lanea Zimmerman's tree trunks and Casper Nilsson's tree stump, copied
+        from the LPC Tile Atlas and edited slightly (including 4x rescaling
+        using xBRZ).
+
+        According to the readme from the .zip file at
+        http://opengameart.org/content/lpc-cnilsson,
+        C.Nilsson's art is CC-BY-SA 3.0 / GPL 3+ dual licensed (not GPL3+ only,
+        as the LPC Tile Atlas license section suggests).
+    derived-from: ../tiles/terrain_atlas.png

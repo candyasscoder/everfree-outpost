@@ -1,3 +1,4 @@
+from itertools import count
 import json
 import os
 import struct
@@ -45,6 +46,13 @@ def main(src_dir, build_dir, out_file):
     add('text', 'sprite_layered.frag',  src('assets/shaders/sprite_layered.frag'))
     add('text', 'cursor.frag',          src('assets/shaders/cursor.frag'))
     add('text', 'cursor.vert',          src('assets/shaders/cursor.vert'))
+
+    for i in count(0):
+        path = build('data/structures%d.png' % i)
+        if os.path.isfile(path):
+            add('image', 'structures%d' % i, path)
+        else:
+            break
 
 
     offset = 0
