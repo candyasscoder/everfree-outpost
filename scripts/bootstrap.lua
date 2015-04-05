@@ -87,7 +87,10 @@ function tools.handler.axe.tree(c, s, inv)
         return
     end
 
-    s:replace('stump')
+    local pos = s:pos()
+    local w = s:world()
+    s:destroy()
+    s:world():create_structure(pos, 'stump')
     inv:update('wood', 15)
 end
 
