@@ -31,6 +31,8 @@ var OP_CHAT_UPDATE =            0x800b;
 var OP_ENTITY_APPEAR =          0x800c;
 var OP_ENTITY_GONE =            0x800d;
 var OP_REGISTER_RESULT =        0x800e;
+var OP_STRUCTURE_APPEAR =       0x800f;
+var OP_STRUCTURE_GONE =         0x8010;
 
 /** @constructor */
 function Connection(url) {
@@ -59,6 +61,8 @@ function Connection(url) {
     this.onEntityAppear = null;
     this.onEntityGone = null;
     this.onRegisterResult = null;
+    this.onStructureAppear = null;
+    this.onStructureGone = null;
 }
 exports.Connection = Connection;
 
@@ -255,6 +259,24 @@ Connection.prototype._handleMessage = function(evt) {
                 var code = get32();
                 var msg = getString();
                 this.onRegisterResult(code, msg);
+            }
+            break;
+
+        case OP_STRUCTURE_APPEAR:
+            if (this.onStructureAppear != null) {
+                var structure_id = get32();
+                var template_id = get32();
+                var x = get16();
+                var y = get16();
+                var z = get16();
+                this.onStructureAppear(structure_id, template_id, x, y, z);
+            }
+            break;
+
+        case OP_STRUCTURE_GONE:
+            if (this.onStructureGone != null) {
+                var structure_id = get32();
+                this.onStructureGone(structure_id);
             }
             break;
 

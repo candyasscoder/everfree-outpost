@@ -78,6 +78,8 @@ pub mod op {
         EntityAppear = 0x800c,
         EntityGone = 0x800d,
         RegisterResult = 0x800e,
+        StructureAppear = 0x800f,
+        StructureGone = 0x8010,
 
         // Deprecated responses
         PlayerMotion = 0x8002,
@@ -226,6 +228,8 @@ pub enum Response {
     EntityAppear(EntityId, u32, String),
     EntityGone(EntityId, LocalTime),
     RegisterResult(u32, String),
+    StructureAppear(StructureId, TemplateId, u16, u16, u16),
+    StructureGone(StructureId),
 
     ClientRemoved(WireId),
     ReplResult(u16, String),
@@ -262,6 +266,11 @@ impl Response {
                 ww.write_msg(id, (op::EntityGone, entity_id, time)),
             RegisterResult(code, ref msg) =>
                 ww.write_msg(id, (op::RegisterResult, code, msg)),
+            StructureAppear(sid, template_id, x, y, z) =>
+                ww.write_msg(id, (op::StructureAppear, sid, template_id, x, y, z)),
+            StructureGone(sid) =>
+                ww.write_msg(id, (op::StructureGone, sid)),
+
             ClientRemoved(wire_id) =>
                 ww.write_msg(id, (op::ClientRemoved, wire_id)),
             ReplResult(cookie, ref msg) =>
