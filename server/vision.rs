@@ -24,9 +24,11 @@ pub fn vision_region(pos: V3) -> Region<V2> {
 pub struct Vision {
     clients: VecMap<VisionClient>,
     entities: VecMap<VisionEntity>,
+    structures: VecMap<VisionStructure>,
 
     clients_by_chunk: HashMap<V2, HashSet<ClientId>>,
     entities_by_chunk: HashMap<V2, HashSet<EntityId>>,
+    structures_by_chunk: HashMap<V2, HashSet<StructureId>>,
 
     loaded_chunks: HashSet<V2>,
 
@@ -37,9 +39,15 @@ struct VisionClient {
     view: Region<V2>,
     visible_entities: RefcountedMap<EntityId, ()>,
     visible_inventories: RefcountedMap<InventoryId, ()>,
+    visible_structures: RefcountedMap<StructureId, ()>,
 }
 
 struct VisionEntity {
+    area: SmallSet<V2>,
+    viewers: HashSet<ClientId>,
+}
+
+struct VisionStructure {
     area: SmallSet<V2>,
     viewers: HashSet<ClientId>,
 }
@@ -54,6 +62,9 @@ pub trait Hooks {
     fn on_entity_disappear(&mut self, cid: ClientId, eid: EntityId) {}
     fn on_entity_motion_update(&mut self, cid: ClientId, eid: EntityId) {}
     fn on_entity_appearance_update(&mut self, cid: ClientId, eid: EntityId) {}
+
+    fn on_structure_appear(&mut self, cid: ClientId, sid: StructureId) {}
+    fn on_structure_disappear(&mut self, cid: ClientId, sid: StructureId) {}
 
     fn on_inventory_appear(&mut self, cid: ClientId, iid: InventoryId) {}
     fn on_inventory_disappear(&mut self, cid: ClientId, iid: InventoryId) {}
@@ -70,8 +81,10 @@ impl Vision {
         Vision {
             clients: VecMap::new(),
             entities: VecMap::new(),
+            structures: VecMap::new(),
             clients_by_chunk: HashMap::new(),
             entities_by_chunk: HashMap::new(),
+            structures_by_chunk: HashMap::new(),
             loaded_chunks: HashSet::new(),
             inventory_viewers: HashMap::new(),
         }
@@ -107,6 +120,7 @@ impl Vision {
         let client = unwrap_or!(self.clients.get_mut(&raw_cid));
         let old_view = mem::replace(&mut client.view, new_view);
         let entities = &mut self.entities;
+        let structures = &mut self.structures;
 
         for p in new_view.points().filter(|&p| !old_view.contains(p)) {
             for &eid in self.entities_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
@@ -115,6 +129,14 @@ impl Vision {
                     h.on_entity_appear(cid, eid);
                     h.on_entity_motion_update(cid, eid);
                     entities[eid.unwrap() as usize].viewers.insert(cid);
+                });
+            }
+
+            for &sid in self.structures_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
+                client.visible_structures.retain(sid, || {
+                    debug!("{:?} moved: ++{:?}", cid, sid);
+                    h.on_structure_appear(cid, sid);
+                    structures[sid.unwrap() as usize].viewers.insert(cid);
                 });
             }
 
@@ -132,6 +154,14 @@ impl Vision {
                     debug!("{:?} moved: --{:?}", cid, eid);
                     h.on_entity_disappear(cid, eid);
                     entities[eid.unwrap() as usize].viewers.remove(&cid);
+                });
+            }
+
+            for &sid in self.structures_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
+                client.visible_structures.release(sid, |()| {
+                    debug!("{:?} moved: --{:?}", cid, sid);
+                    h.on_structure_disappear(cid, sid);
+                    structures[sid.unwrap() as usize].viewers.remove(&cid);
                 });
             }
 
@@ -219,6 +249,45 @@ impl Vision {
     }
 
 
+    pub fn add_structure<H>(&mut self,
+                            sid: StructureId,
+                            area: SmallSet<V2>,
+                            h: &mut H)
+            where H: Hooks {
+        self.structures.insert(sid.unwrap() as usize, VisionStructure::new());
+        let structure = &mut self.structures[sid.unwrap() as usize];
+
+        for &p in area.iter() {
+            for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
+                self.clients[cid.unwrap() as usize].visible_structures.retain(sid, || {
+                    debug!("{:?} moved: ++{:?}", sid, cid);
+                    h.on_structure_appear(cid, sid);
+                    structure.viewers.insert(cid);
+                });
+            }
+            multimap_insert(&mut self.structures_by_chunk, p, sid);
+        }
+
+        structure.area = area;
+    }
+
+    pub fn remove_structure<H>(&mut self,
+                               sid: StructureId,
+                               h: &mut H)
+            where H: Hooks {
+        let structure = self.structures.remove(&(sid.unwrap() as usize)).unwrap();
+        for &p in structure.area.iter() {
+            for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
+                self.clients[cid.unwrap() as usize].visible_structures.release(sid, |()| {
+                    debug!("{:?} moved: --{:?}", sid, cid);
+                    h.on_structure_disappear(cid, sid);
+                });
+            }
+            multimap_remove(&mut self.structures_by_chunk, p, sid);
+        }
+    }
+
+
     pub fn add_chunk<H>(&mut self,
                         pos: V2,
                         h: &mut H)
@@ -301,6 +370,7 @@ impl VisionClient {
             view: Region::empty(),
             visible_entities: RefcountedMap::new(),
             visible_inventories: RefcountedMap::new(),
+            visible_structures: RefcountedMap::new(),
         }
     }
 }
@@ -308,6 +378,15 @@ impl VisionClient {
 impl VisionEntity {
     fn new() -> VisionEntity {
         VisionEntity {
+            area: SmallSet::new(),
+            viewers: HashSet::new(),
+        }
+    }
+}
+
+impl VisionStructure {
+    fn new() -> VisionStructure {
+        VisionStructure {
             area: SmallSet::new(),
             viewers: HashSet::new(),
         }
@@ -342,6 +421,9 @@ gen_Fragment! {
     fn remove_entity(eid: EntityId);
     fn set_entity_area(eid: EntityId, area: SmallSet<V2>);
     fn update_entity_appearance(eid: EntityId);
+
+    fn add_structure(sid: StructureId, area: SmallSet<V2>);
+    fn remove_structure(sid: StructureId);
 
     fn add_chunk(pos: V2);
     fn remove_chunk(pos: V2);
