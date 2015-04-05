@@ -39,6 +39,7 @@ var ErrorList = require('ui/errorlist').ErrorList;
 var TileDef = require('data/chunk').TileDef;
 var ItemDef = require('data/items').ItemDef;
 var RecipeDef = require('data/recipes').RecipeDef;
+var TemplateDef = require('data/templates').TemplateDef;
 
 var Chunk = require('data/chunk').Chunk;
 var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
@@ -179,6 +180,7 @@ var assets;
 var entities;
 var entity_appearance;
 var player_entity;
+var structures;
 
 var chunks;
 var chunkLoaded;
@@ -221,6 +223,7 @@ function init() {
     entities = {};
     entity_appearance = {};
     player_entity = -1;
+    structures = {};
 
     chunks = buildArray(LOCAL_SIZE * LOCAL_SIZE, function() { return new Chunk(); });
     chunkLoaded = buildArray(LOCAL_SIZE * LOCAL_SIZE, function() { return false; });
@@ -291,6 +294,11 @@ function loadAssets(next) {
             var recipes = assets['recipe_defs']['recipes'];
             for (var i = 0; i < recipes.length; ++i) {
                 RecipeDef.register(i, recipes[i]);
+            }
+
+            var templates = assets['template_defs'];
+            for (var i = 0; i < templates.length; ++i) {
+                TemplateDef.register(i, templates[i], assets);
             }
 
             var css = '.item-icon {' +
@@ -815,12 +823,19 @@ function handleEntityGone(id, time) {
     delete entities[id];
 }
 
-function handleStructureAppear(id, template, x, y, z) {
-    // TODO
+function handleStructureAppear(id, template_id, x, y, z) {
+    var template = TemplateDef.by_id[template_id];
+
+    var sprite = template.base.instantiate();
+    sprite.ref_x = x;
+    sprite.ref_y = y;
+    sprite.ref_z = z;
+
+    structures[id] = sprite;
 }
 
 function handleStructureGone(id, time) {
-    // TODO
+    delete structures[id];
 }
 
 
@@ -862,6 +877,27 @@ function localSprite(now, entity, camera_mid) {
     sprite.ref_x += 16;
     sprite.ref_y += 32;
     return sprite;
+}
+
+function checkLocalSprite(sprite, camera_mid) {
+    var local_px = CHUNK_SIZE * TILE_SIZE * LOCAL_SIZE;
+    if (camera_mid == null) {
+        camera_mid = new Vec(local_px, local_px, 0);
+    }
+    var min = camera_mid.subScalar((local_px / 2)|0);
+    var max = camera_mid.addScalar((local_px / 2)|0);
+
+    if (sprite.ref_x < min.x) {
+        sprite.ref_x += local_px;
+    } else if (sprite.ref_x >= max.x) {
+        sprite.ref_x -= local_px;
+    }
+
+    if (sprite.ref_y < min.y) {
+        sprite.ref_y += local_px;
+    } else if (sprite.ref_y >= max.y) {
+        sprite.ref_y -= local_px;
+    }
 }
 
 function needs_mask(now, pony) {
@@ -962,7 +998,9 @@ function frame(ac, client_now) {
 
 
     var entity_ids = Object.getOwnPropertyNames(entities);
-    var sprites = new Array(entity_ids.length);
+    var structure_ids = Object.getOwnPropertyNames(structures);
+    var sprites = new Array(entity_ids.length + structure_ids.length);
+
     for (var i = 0; i < entity_ids.length; ++i) {
         var entity = entities[entity_ids[i]];
         if (entity_ids[i] != player_entity) {
@@ -971,6 +1009,13 @@ function frame(ac, client_now) {
             sprites[i] = localSprite(predict_now, entity, pos);
         }
     }
+
+    for (var i = 0; i < structure_ids.length; ++i) {
+        var sprite = structures[structure_ids[i]];
+        checkLocalSprite(sprite, pos);
+        sprites[entity_ids.length + i] = sprite;
+    }
+
 
     var mask;
     if (needs_mask(predict_now, pony)) {

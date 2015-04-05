@@ -2,9 +2,7 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry::*;
 use std::error::Error;
 
-use physics::CHUNK_BITS;
 use types::*;
-use util::StrResult;
 
 use storage::Storage;
 use world::World;
@@ -14,7 +12,6 @@ use world::object::*;
 pub struct Chunks<'d> {
     storage: &'d Storage,
 
-    cache: TerrainCache,
     lifecycle: Lifecycle,
 }
 
@@ -22,13 +19,8 @@ impl<'d> Chunks<'d> {
     pub fn new(storage: &'d Storage) -> Chunks<'d> {
         Chunks {
             storage: storage,
-            cache: TerrainCache::new(),
             lifecycle: Lifecycle::new(),
         }
-    }
-
-    pub fn get_terrain(&self, cpos: V2) -> Option<&BlockChunk> {
-        self.cache.get(cpos)
     }
 }
 
@@ -62,9 +54,6 @@ pub trait Fragment<'d> {
         let first = self.with_provider(|sys, provider| {
             sys.lifecycle.retain(cpos, |cpos| warn_on_err!(provider.load(cpos)))
         });
-        self.with_world(|sys, world| {
-            warn_on_err!(sys.cache.update(world, cpos));
-        });
         self.with_hooks(|hooks| hooks.post_load(cpos));
         first
     }
@@ -75,89 +64,7 @@ pub trait Fragment<'d> {
         let last = self.with_provider(|sys, provider| {
             sys.lifecycle.release(cpos, |cpos| warn_on_err!(provider.unload(cpos)))
         });
-        if last {
-            self.with_world(|sys, _world| {
-                sys.cache.forget(cpos);
-            });
-        }
         last
-    }
-}
-
-pub trait UpdateFragment<'d> {
-    fn with_world<F, R>(&mut self, f: F) -> R
-            where F: FnOnce(&mut Chunks<'d>, &World<'d>) -> R;
-
-    fn update(&mut self, cpos: V2) -> StrResult<()> {
-        self.with_world(|sys, world| {
-            sys.cache.update_if_present(world, cpos)
-        })
-    }
-}
-
-
-pub struct TerrainCache {
-    cache: HashMap<V2, CacheEntry>,
-}
-
-struct CacheEntry {
-    blocks: [BlockId; 1 << (3 * CHUNK_BITS)],
-}
-
-impl TerrainCache {
-    pub fn new() -> TerrainCache {
-        TerrainCache {
-            cache: HashMap::new(),
-        }
-    }
-
-    pub fn update(&mut self, w: &World, chunk_pos: V2) -> StrResult<()> {
-        let chunk = unwrap!(w.get_terrain_chunk(chunk_pos));
-        let mut entry = CacheEntry::new(*chunk.blocks());
-
-        let chunk_bounds = chunk.bounds();
-        for s in w.chunk_structures(chunk_pos) {
-            let struct_bounds = s.bounds();
-            let t = s.template();
-            for point in struct_bounds.intersect(chunk_bounds).points() {
-                let block = t.blocks[struct_bounds.index(point)];
-                entry.blocks[chunk_bounds.index(point)] = block;
-            }
-        }
-
-        match self.cache.entry(chunk_pos) {
-            Vacant(e) => { e.insert(entry); },
-            Occupied(e) => { *e.into_mut() = entry; },
-        }
-
-        Ok(())
-    }
-
-    pub fn contains(&self, chunk_pos: V2) -> bool {
-        self.cache.contains_key(&chunk_pos)
-    }
-
-    pub fn update_if_present(&mut self, w: &World, chunk_pos: V2) -> StrResult<()> {
-        if self.contains(chunk_pos) {
-            try!(self.update(w, chunk_pos));
-        }
-        Ok(())
-    }
-
-    pub fn forget(&mut self, chunk_pos: V2) {
-        self.cache.remove(&chunk_pos);
-    }
-
-    pub fn get(&self, chunk_pos: V2) -> Option<&BlockChunk> {
-        self.cache.get(&chunk_pos).map(|c| &c.blocks)
-    }
-}
-
-impl CacheEntry {
-    pub fn new(blocks: [BlockId; 1 << (3 * CHUNK_BITS)]) -> CacheEntry {
-        CacheEntry {
-            blocks: blocks,
-        }
     }
 }
 

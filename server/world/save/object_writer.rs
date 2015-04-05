@@ -77,7 +77,7 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
         if !self.seen_templates.contains(&template_id) {
             self.seen_templates.insert(template_id);
 
-            let template = data.object_templates.template(template_id);
+            let template = data.structure_templates.template(template_id);
             try!(self.w.write((unwrap!(template.size.x.to_u8()),
                                unwrap!(template.size.y.to_u8()),
                                unwrap!(template.size.z.to_u8()),

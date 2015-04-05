@@ -105,8 +105,8 @@ impl<R: old_io::Reader> ObjectReader<R> {
                            unwrap!(z.to_i32()));
         let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_usize())));
 
-        let new_id = unwrap!(data.object_templates.find_id(&*name));
-        let template = data.object_templates.template(new_id);
+        let new_id = unwrap!(data.structure_templates.find_id(&*name));
+        let template = data.structure_templates.template(new_id);
 
         if template.size != size {
             fail!("template size does not match");

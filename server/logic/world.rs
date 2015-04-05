@@ -5,6 +5,7 @@ use util::SmallSet;
 
 use chunks;
 use engine::glue::*;
+use engine::split::Open;
 use world::{self, World};
 use world::object::*;
 use vision::{self, vision_region};
@@ -36,15 +37,15 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
 
     fn on_terrain_chunk_create(&mut self, cpos: V2) {
         vision::Fragment::add_chunk(&mut self.as_vision_fragment(), cpos);
+
+        let Open { world, cache, .. } = (**self).open();
+        warn_on_err!(cache.add_chunk(world, cpos));
     }
 
     fn on_terrain_chunk_destroy(&mut self, cpos: V2) {
         vision::Fragment::remove_chunk(&mut self.as_vision_fragment(), cpos);
-    }
 
-    fn on_chunk_invalidate(&mut self, cpos: V2) {
-        chunks::UpdateFragment::update(&mut self.as_chunks_update_fragment(), cpos);
-        vision::Fragment::update_chunk(&mut self.as_vision_fragment(), cpos);
+        self.cache_mut().remove_chunk(cpos);
     }
 
 
@@ -69,27 +70,22 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
 
 
     fn on_structure_create(&mut self, sid: StructureId) {
-        let area = structure_area(self.world(), sid);
-        vision::Fragment::add_structure(&mut self.as_vision_fragment(), sid, area);
+        new_structure(self, sid);
     }
 
-    fn on_structure_destroy(&mut self, sid: StructureId) {
-        vision::Fragment::remove_structure(&mut self.as_vision_fragment(), sid);
+    fn on_structure_destroy(&mut self, sid: StructureId, old_bounds: Region) {
+        old_structure(self, sid, old_bounds);
         self.script_mut().cb_structure_destroyed(sid);
     }
 
-    fn on_structure_move(&mut self, sid: StructureId) {
-        vision::Fragment::remove_structure(&mut self.as_vision_fragment(), sid);
-
-        let area = structure_area(self.world(), sid);
-        vision::Fragment::add_structure(&mut self.as_vision_fragment(), sid, area);
+    fn on_structure_move(&mut self, sid: StructureId, old_bounds: Region) {
+        old_structure(self, sid, old_bounds);
+        new_structure(self, sid);
     }
 
-    fn on_structure_replace(&mut self, sid: StructureId) {
-        vision::Fragment::remove_structure(&mut self.as_vision_fragment(), sid);
-
-        let area = structure_area(self.world(), sid);
-        vision::Fragment::add_structure(&mut self.as_vision_fragment(), sid, area);
+    fn on_structure_replace(&mut self, sid: StructureId, old_bounds: Region) {
+        old_structure(self, sid, old_bounds);
+        new_structure(self, sid);
     }
 
 
@@ -110,6 +106,26 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
     }
 }
 
+fn new_structure(wh: &mut WorldHooks,
+                 sid: StructureId) {
+    let area = structure_area(wh.world(), sid);
+    vision::Fragment::add_structure(&mut wh.as_vision_fragment(), sid, area);
+
+    let Open { world, cache, .. } = (**wh).open();
+    let s = world.structure(sid);
+    cache.update_region(world, s.bounds());
+}
+
+fn old_structure(wh: &mut WorldHooks,
+                 sid: StructureId,
+                 old_bounds: Region) {
+    vision::Fragment::remove_structure(&mut wh.as_vision_fragment(), sid);
+
+    let Open { world, cache, .. } = (**wh).open();
+    cache.update_region(world, old_bounds);
+}
+
+
 // HiddenWorldHooks is like WorldHooks but does not send updates to clients.  Only the server's
 // internal data structures are updated.
 impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
@@ -117,7 +133,18 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
         self.script_mut().cb_client_destroyed(cid);
     }
 
-    // No terrain_chunk_destroy because ScriptEngine doesn't have such a callback
+    fn on_terrain_chunk_create(&mut self, cpos: V2) {
+        vision::Fragment::add_chunk(&mut self.as_hidden_vision_fragment(), cpos);
+
+        let Open { world, cache, .. } = (**self).open();
+        warn_on_err!(cache.add_chunk(world, cpos));
+    }
+
+    fn on_terrain_chunk_destroy(&mut self, cpos: V2) {
+        vision::Fragment::remove_chunk(&mut self.as_hidden_vision_fragment(), cpos);
+
+        self.cache_mut().remove_chunk(cpos);
+    }
 
     fn on_entity_destroy(&mut self, eid: EntityId) {
         self.script_mut().cb_entity_destroyed(eid);
@@ -125,27 +152,22 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
 
 
     fn on_structure_create(&mut self, sid: StructureId) {
-        let area = structure_area(self.world(), sid);
-        vision::Fragment::add_structure(&mut self.as_hidden_vision_fragment(), sid, area);
+        new_structure_hidden(self, sid);
     }
 
-    fn on_structure_destroy(&mut self, sid: StructureId) {
-        vision::Fragment::remove_structure(&mut self.as_hidden_vision_fragment(), sid);
+    fn on_structure_destroy(&mut self, sid: StructureId, old_bounds: Region) {
+        old_structure_hidden(self, sid, old_bounds);
         self.script_mut().cb_structure_destroyed(sid);
     }
 
-    fn on_structure_move(&mut self, sid: StructureId) {
-        vision::Fragment::remove_structure(&mut self.as_hidden_vision_fragment(), sid);
-
-        let area = structure_area(self.world(), sid);
-        vision::Fragment::add_structure(&mut self.as_hidden_vision_fragment(), sid, area);
+    fn on_structure_move(&mut self, sid: StructureId, old_bounds: Region) {
+        old_structure_hidden(self, sid, old_bounds);
+        new_structure_hidden(self, sid);
     }
 
-    fn on_structure_replace(&mut self, sid: StructureId) {
-        vision::Fragment::remove_structure(&mut self.as_hidden_vision_fragment(), sid);
-
-        let area = structure_area(self.world(), sid);
-        vision::Fragment::add_structure(&mut self.as_hidden_vision_fragment(), sid, area);
+    fn on_structure_replace(&mut self, sid: StructureId, old_bounds: Region) {
+        old_structure_hidden(self, sid, old_bounds);
+        new_structure_hidden(self, sid);
     }
 
 
@@ -153,6 +175,27 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
         self.script_mut().cb_inventory_destroyed(iid);
     }
 }
+
+fn new_structure_hidden(hwh: &mut HiddenWorldHooks,
+                        sid: StructureId) {
+    let area = structure_area(hwh.world(), sid);
+    vision::Fragment::add_structure(&mut hwh.as_hidden_vision_fragment(), sid, area);
+
+    let Open { world, cache, .. } = (**hwh).open();
+    let s = world.structure(sid);
+    cache.update_region(world, s.bounds());
+}
+
+fn old_structure_hidden(hwh: &mut HiddenWorldHooks,
+                        sid: StructureId,
+                        old_bounds: Region) {
+    vision::Fragment::remove_structure(&mut hwh.as_hidden_vision_fragment(), sid);
+
+
+    let Open { world, cache, .. } = (**hwh).open();
+    cache.update_region(world, old_bounds);
+}
+
 
 pub fn entity_area(w: &World, eid: EntityId) -> SmallSet<V2> {
     let e = w.entity(eid);

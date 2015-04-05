@@ -40,6 +40,14 @@ house_wall/tee:
     n.ui_name: House Tee
     n.outputs: { house_wall/tee: 1 }
 
+house_wall/cross:
+    _.station: anvil
+    _.inputs:
+        wood: 5
+
+    n.ui_name: House Cross
+    n.outputs: { house_wall/cross: 1 }
+
 house_floor:
     station: anvil
     ui_name: House Floor
@@ -90,6 +98,12 @@ fence:
     ui_name: Fence
     inputs: { wood: 5 }
     outputs: { fence: 1 }
+
+fence_tee:
+    station: anvil
+    ui_name: Fence Tee
+    inputs: { wood: 5 }
+    outputs: { fence_tee: 1 }
 
 fence_post:
     station: anvil

@@ -267,7 +267,7 @@ pub fn structure_create<'d, F>(f: &mut F,
                                pos: V3,
                                tid: TemplateId) -> OpResult<StructureId>
         where F: Fragment<'d> {
-    let t = unwrap!(f.world().data.object_templates.get_template(tid));
+    let t = unwrap!(f.world().data.structure_templates.get_template(tid));
     let bounds = Region::new(pos, pos + t.size);
 
     if !structure_check_placement(f.world(), bounds) {
@@ -308,7 +308,7 @@ pub fn structure_post_init<'d, F>(f: &mut F,
         where F: Fragment<'d> {
     let bounds = {
         let s = unwrap!(f.world().structures.get(sid));
-        let t = unwrap!(f.world().data.object_templates.get_template(s.template));
+        let t = unwrap!(f.world().data.structure_templates.get_template(s.template));
 
         Region::new(s.pos, s.pos + t.size)
     };
@@ -323,7 +323,7 @@ pub fn structure_pre_fini<'d, F>(f: &mut F,
         where F: Fragment<'d> {
     let bounds = {
         let s = unwrap!(f.world().structures.get(sid));
-        let t = unwrap!(f.world().data.object_templates.get_template(s.template));
+        let t = unwrap!(f.world().data.structure_templates.get_template(s.template));
 
         Region::new(s.pos, s.pos + t.size)
     };
@@ -339,7 +339,7 @@ pub fn structure_destroy<'d, F>(f: &mut F,
     use super::StructureAttachment::*;
     let s = unwrap!(f.world_mut().structures.remove(sid));
 
-    let t = f.world().data.object_templates.template(s.template);
+    let t = f.world().data.structure_templates.template(s.template);
     let bounds = Region::new(s.pos, s.pos + t.size);
     structure_remove_from_lookup(&mut f.world_mut().structures_by_chunk, sid, bounds);
     invalidate_region(f, bounds);
@@ -358,7 +358,7 @@ pub fn structure_destroy<'d, F>(f: &mut F,
         inventory_destroy(f, iid).unwrap();
     }
 
-    f.with_hooks(|h| h.on_structure_destroy(sid));
+    f.with_hooks(|h| h.on_structure_destroy(sid, bounds));
     Ok(())
 }
 
@@ -408,7 +408,7 @@ pub fn structure_move<'d, F>(f: &mut F,
     let (old_bounds, new_bounds) = {
         let w = f.world_mut();
         let s = unwrap!(w.structures.get_mut(sid));
-        let t = unwrap!(w.data.object_templates.get_template(s.template));
+        let t = unwrap!(w.data.structure_templates.get_template(s.template));
 
         (Region::new(s.pos, s.pos + t.size),
          Region::new(new_pos, new_pos + t.size))
@@ -434,7 +434,7 @@ pub fn structure_move<'d, F>(f: &mut F,
         structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, new_bounds);
         invalidate_region(f, old_bounds);
         invalidate_region(f, new_bounds);
-        f.with_hooks(|h| h.on_structure_move(sid));
+        f.with_hooks(|h| h.on_structure_move(sid, old_bounds));
         Ok(())
     } else {
         structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, old_bounds);
@@ -449,8 +449,8 @@ pub fn structure_replace<'d, F>(f: &mut F,
     let (old_bounds, new_bounds) = {
         let w = f.world_mut();
         let s = unwrap!(w.structures.get_mut(sid));
-        let old_t = unwrap!(w.data.object_templates.get_template(s.template));
-        let new_t = unwrap!(w.data.object_templates.get_template(new_tid));
+        let old_t = unwrap!(w.data.structure_templates.get_template(s.template));
+        let new_t = unwrap!(w.data.structure_templates.get_template(new_tid));
 
         (Region::new(s.pos, s.pos + old_t.size),
          Region::new(s.pos, s.pos + new_t.size))
@@ -463,7 +463,7 @@ pub fn structure_replace<'d, F>(f: &mut F,
         structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, new_bounds);
         invalidate_region(f, old_bounds);
         invalidate_region(f, new_bounds);
-        f.with_hooks(|h| h.on_structure_replace(sid));
+        f.with_hooks(|h| h.on_structure_replace(sid, old_bounds));
         Ok(())
     } else {
         structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, old_bounds);

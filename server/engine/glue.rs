@@ -1,3 +1,4 @@
+use cache::TerrainCache;
 use chunks::{self, Chunks};
 use engine::split::{EngineRef, Open, Part};
 use physics_::{self, Physics};
@@ -16,22 +17,22 @@ macro_rules! part2 {
         part2!(world, WorldHooks, $($x)*);
     };
     (WorldHooks, $($x:tt)*) => {
-        part2!(script, vision, chunks, VisionHooks, $($x)*);
+        part2!(script, vision, cache, VisionHooks, $($x)*);
     };
     (VisionFragment, $($x:tt)*) => {
         part2!(vision, VisionHooks, $($x)*);
     };
     (VisionHooks, $($x:tt)*) => {
-        part2!(world, chunks, messages, $($x)*);
+        part2!(world, messages, $($x)*);
     };
 
-    // Hidden WorldFragment.  Changes through this fragment will be propagated to scripts but NOT
-    // to clients or the chunk cache.
+    // Hidden WorldFragment.  Changes through this fragment will be propagated to server data
+    // structures but NOT to clients.
     (HiddenWorldFragment, $($x:tt)*) => {
         part2!(world, HiddenWorldHooks, $($x)*);
     };
     (HiddenWorldHooks, $($x:tt)*) => {
-        part2!(world, script, HiddenVisionFragment, $($x)*);
+        part2!(world, script, cache, HiddenVisionFragment, $($x)*);
     };
     (HiddenVisionFragment, $($x:tt)*) => {
         part2!(vision, $($x)*);
@@ -56,12 +57,8 @@ macro_rules! part2 {
         part2!(HiddenWorldFragment, SaveReadFragment, TerrainGenFragment, $($x)*);
     };
 
-    (ChunksUpdateFragment, $($x:tt)*) => {
-        part2!(chunks, world, $($x)*);
-    };
-
     (PhysicsFragment, $($x:tt)*) => {
-        part2!(physics, chunks, world, WorldFragment, $($x)*);
+        part2!(physics, world, cache, WorldFragment, $($x)*);
     };
 
     // Save read/write handling operates on HiddenWorldFragment for simplicity.  Higher-level code
@@ -144,7 +141,6 @@ impl_slice! {
     EngineRef::as_world_fragment -> WorldFragment;
     EngineRef::as_vision_fragment -> VisionFragment;
     WorldHooks::as_vision_fragment -> VisionFragment;
-    WorldHooks::as_chunks_update_fragment -> ChunksUpdateFragment;
 }
 
 
@@ -229,24 +225,13 @@ impl_slice! {
 }
 
 
-parts!(ChunksUpdateFragment);
-
-impl<'a, 'd> chunks::UpdateFragment<'d> for ChunksUpdateFragment<'a, 'd> {
-    fn with_world<F, R>(&mut self, f: F) -> R
-            where F: FnOnce(&mut Chunks<'d>, &World<'d>) -> R {
-        let Open { chunks, world, .. } = self.open();
-        f(chunks, world)
-    }
-}
-
-
 parts!(PhysicsFragment);
 
 impl<'a, 'd> physics_::Fragment<'d> for PhysicsFragment<'a, 'd> {
-    fn with_chunks<F, R>(&mut self, f: F) -> R
-            where F: FnOnce(&mut Physics<'d>, &Chunks<'d>, &World<'d>) -> R {
-        let Open { physics, chunks, world, .. } = self.open();
-        f(physics, chunks, world)
+    fn with_cache<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut Physics<'d>, &TerrainCache, &World<'d>) -> R {
+        let Open { physics, cache, world, .. } = self.open();
+        f(physics, cache, world)
     }
 
     type WF = WorldFragment<'a, 'd>;

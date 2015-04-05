@@ -58,6 +58,7 @@ mod chunks;
 mod terrain_gen;
 mod vision;
 mod logic;
+mod cache;
 
 
 fn read_json(mut file: File) -> json::Json {

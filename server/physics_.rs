@@ -4,7 +4,7 @@ use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE};
 use types::*;
 use util::StrResult;
 
-use chunks::Chunks;
+use cache::TerrainCache;
 use data::Data;
 use world::{self, World};
 use world::Motion;
@@ -24,23 +24,22 @@ impl<'d> Physics<'d> {
 }
 
 
-struct ChunksSource<'a, 'd: 'a> {
-    data: &'d Data,
-    chunks: &'a Chunks<'d>,
+struct ChunksSource<'a> {
+    cache: &'a TerrainCache,
     base_tile: V3,
 }
 
-impl<'a, 'd> ShapeSource for ChunksSource<'a, 'd> {
+impl<'a> ShapeSource for ChunksSource<'a> {
     fn get_shape(&self, pos: V3) -> Shape {
         let pos = pos + self.base_tile;
 
         let offset = pos & scalar(CHUNK_MASK);
         let cpos = (pos >> CHUNK_BITS).reduce();
 
-        if let Some(chunk) = self.chunks.get_terrain(cpos) {
+        if let Some(entry) = self.cache.get(cpos) {
             let idx = Region::new(scalar(0), scalar(CHUNK_SIZE)).index(offset);
-            debug!("{:?} -> {:?} + {:?} -> {}", pos, cpos, offset, chunk[idx]);
-            self.data.block_data.shape(chunk[idx])
+            debug!("{:?} -> {:?} + {:?} -> {:?}", pos, cpos, offset, entry.shape[idx]);
+            entry.shape[idx]
         } else {
             return Shape::Empty;
         }
@@ -49,8 +48,8 @@ impl<'a, 'd> ShapeSource for ChunksSource<'a, 'd> {
 
 
 pub trait Fragment<'d> {
-    fn with_chunks<F, R>(&mut self, f: F) -> R
-        where F: FnOnce(&mut Physics<'d>, &Chunks<'d>, &World<'d>) -> R;
+    fn with_cache<F, R>(&mut self, f: F) -> R
+        where F: FnOnce(&mut Physics<'d>, &TerrainCache, &World<'d>) -> R;
 
     type WF: world::Fragment<'d>;
     fn with_world<F, R>(&mut self, f: F) -> R
@@ -69,7 +68,7 @@ pub trait Fragment<'d> {
     fn update(&mut self, now: Time, eid: EntityId) -> StrResult<()> {
         use world::Fragment;
 
-        let motion = try!(self.with_chunks(|_sys, chunks, world| -> StrResult<_> {
+        let motion = try!(self.with_cache(|_sys, cache, world| -> StrResult<_> {
             let e = unwrap!(world.get_entity(eid));
 
             // Run the physics calculation
@@ -85,8 +84,7 @@ pub trait Fragment<'d> {
             let base_px = base_tile * scalar(TILE_SIZE);
 
             let source = ChunksSource {
-                data: world.data(),
-                chunks: chunks,
+                cache: cache,
                 base_tile: base_tile,
             };
             let (mut end_pos, mut dur) =

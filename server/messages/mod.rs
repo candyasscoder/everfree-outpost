@@ -5,6 +5,7 @@ use time;
 
 use types::*;
 use util::StringResult;
+use physics::TILE_SIZE;
 
 use auth::Secret;
 use input::InputBits;
@@ -433,7 +434,7 @@ impl Messages {
 
 
             ClientResponse::StructureAppear(sid, template_id, pos) => {
-                let local_pos = client.local_pos_tuple(pos);
+                let local_pos = client.local_pos_tuple(pos * scalar(TILE_SIZE));
                 self.send_raw(wire_id, Response::StructureAppear(sid, template_id, local_pos));
             },
 

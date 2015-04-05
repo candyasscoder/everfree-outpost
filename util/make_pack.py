@@ -37,6 +37,7 @@ def main(src_dir, build_dir, out_file):
     add('json', 'tile_defs',        build('tiles.json'))
     add('json', 'item_defs',        build('items.json'))
     add('json', 'recipe_defs',      build('recipes.json'))
+    add('json', 'template_defs',    build('data/structures_client.json'))
     add('json', 'font_metrics',     build('metrics.json'))
 
     add('text', 'terrain.frag',         src('assets/shaders/terrain.frag'))
