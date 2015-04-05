@@ -44,12 +44,17 @@ impl Userdata for World {
                                        _w: World,
                                        pos: V3) -> Option<Structure> {
                 let chunk = pos.reduce().div_floor(scalar(CHUNK_SIZE));
+                let mut best_id = None;
+                let mut best_layer = 0;
                 for s in w.chunk_structures(chunk) {
                     if s.bounds().contains(pos) {
-                        return Some(Structure { id: s.id() });
+                        if s.template().layer >= best_layer {
+                            best_layer = s.template().layer;
+                            best_id = Some(s.id());
+                        }
                     }
                 };
-                None
+                best_id.map(|sid| Structure { id: sid })
             }
 
             fn create_structure(!partial wf: WorldFragment,
