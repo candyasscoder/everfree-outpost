@@ -126,6 +126,7 @@ def get_structures(asset_path):
 
     solid_structure(s, 'tree', img('tree.png'), (4, 2, 3), (0, 0))
     solid_structure(s, 'stump', img('tree.png'), (4, 2, 1), (0, 5))
+    solid_structure(s, 'rock', img('rock.png'), (2, 1, 1), (0, 0))
 
     solid_small(s, 'anvil', img('anvil.png'))
     solid_small(s, 'chest', img('chest.png'))

@@ -88,3 +88,18 @@ tree.png:
         C.Nilsson's art is CC-BY-SA 3.0 / GPL 3+ dual licensed (not GPL3+ only,
         as the LPC Tile Atlas license section suggests).
     derived-from: ../tiles/terrain_atlas.png
+
+rock.png:
+    title: LPC Rock
+    author:
+        Lanea Zimmerman (AKA Sharm),
+        Stephen Challener (AKA Redshrike),
+        Charles Sanchez (AKA CharlesGabriel),
+        Manuel Riecke (AKA MrBeast),
+        Daniel Armstrong (AKA HughSpectrum),
+        Casper Nilsson,
+        Daniel Eddeland,
+        Johann CHARLOT,
+        Skyler Robert Colladay 
+    license: CC-BY-SA 3.0 / GPL 3.0
+    derived-from: ../tiles/terrain_atlas.png
