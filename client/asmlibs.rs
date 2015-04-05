@@ -14,7 +14,7 @@ use core::prelude::*;
 use core::mem;
 use core::raw;
 use asmrt::run_callback;
-use physics::v3::{V3, scalar};
+use physics::v3::{V3, scalar, Region};
 use physics::{Shape, ShapeSource};
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK};
 use graphics::{BlockData, ChunkData, XvData, GeometryBuffer, VertexData, Sprite};
@@ -37,23 +37,61 @@ pub const REPEAT_MASK: i32 = REPEAT_SIZE - 1;
 #[allow(dead_code)] #[static_assert]
 static REPEAT_SIZE_BITS: bool = REPEAT_SIZE == 1 << REPEAT_BITS as usize;
 
+pub const NUM_LAYERS: usize = 2;
 
-struct AsmJsShapeSource;
 
-impl ShapeSource for AsmJsShapeSource {
+pub type ShapeChunk = [Shape; 1 << (3 * CHUNK_BITS)];
+
+pub struct ShapeLayers {
+    base: ShapeChunk,
+    layers: [ShapeChunk; NUM_LAYERS],
+    merged: ShapeChunk,
+}
+
+impl ShapeLayers {
+    fn refresh(&mut self, bounds: Region) {
+        let chunk_bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
+
+        for p in bounds.intersect(chunk_bounds).points() {
+            let idx = chunk_bounds.index(p);
+            self.merged[idx] = self.base[idx];
+
+            for layer in self.layers.iter() {
+                if shape_overrides(self.merged[idx], layer[idx]) {
+                    self.merged[idx] = layer[idx];
+                }
+            }
+        }
+    }
+}
+
+fn shape_overrides(old: Shape, new: Shape) -> bool {
+    match (old, new) {
+        (Shape::Empty, _) => true,
+
+        (Shape::Floor, Shape::Empty) => false,
+        (Shape::Floor, _) => true,
+
+        (Shape::Solid, _) => false,
+
+        _ => false,
+    }
+}
+
+struct AsmJsShapeSource<'a> {
+    layers: &'a [ShapeLayers; 1 << (2 * LOCAL_BITS)],
+}
+
+impl<'a> ShapeSource for AsmJsShapeSource<'a> {
     fn get_shape(&self, pos: V3) -> Shape {
-        // TODO: Don't hardcode this address!  I'm pretty sure 0x2000 is not even the right address
-        // any more.
-        const SHAPE_BUFFER: *const Shape = 0x2000 as *const Shape;
-
         let V3 { x: tile_x, y: tile_y, z: tile_z } = pos & scalar(CHUNK_MASK);
         let V3 { x: chunk_x, y: chunk_y, z: _ } = (pos >> CHUNK_BITS) & scalar(LOCAL_MASK);
 
         let chunk_idx = chunk_y * LOCAL_SIZE + chunk_x;
         let tile_idx = (tile_z * CHUNK_SIZE + tile_y) * CHUNK_SIZE + tile_x;
 
-        let idx = (chunk_idx << (3 * CHUNK_BITS)) + tile_idx;
-        unsafe { *SHAPE_BUFFER.offset(idx as isize) }
+        let shape = self.layers[chunk_idx as usize].merged[tile_idx as usize];
+        shape
     }
 }
 
@@ -72,11 +110,27 @@ pub struct CollideResult {
 }
 
 #[export_name = "collide"]
-pub extern fn collide_wrapper(input: &CollideArgs, output: &mut CollideResult) {
-    let (pos, time) = physics::collide(&AsmJsShapeSource,
+pub extern fn collide_wrapper(layers: &[ShapeLayers; 1 << (2 * LOCAL_BITS)],
+                              input: &CollideArgs,
+                              output: &mut CollideResult) {
+    let (pos, time) = physics::collide(&AsmJsShapeSource { layers: layers },
                                        input.pos, input.size, input.velocity);
     output.pos = pos;
     output.time = time;
+}
+
+#[export_name = "refresh_shape_cache"]
+pub extern fn refresh_shape_cache(layers: &mut [ShapeLayers; 1 << (2 * LOCAL_BITS)],
+                                  bounds: &Region) {
+    let chunk_bounds = bounds.reduce().div_round(CHUNK_SIZE);
+
+    for cpos in chunk_bounds.points() {
+        let masked_cpos = cpos & scalar(LOCAL_MASK);
+        let cidx = masked_cpos.y * LOCAL_SIZE + masked_cpos.x;
+
+        let base = cpos.extend(0) * scalar(CHUNK_SIZE);
+        layers[cidx as usize].refresh(*bounds - base);
+    }
 }
 
 
@@ -133,6 +187,9 @@ pub struct Sizes {
     chunk_data: usize,
     geometry_buffer: usize,
     vertex_data: usize,
+
+    shape_chunk: usize,
+    shape_layers: usize,
 }
 
 #[export_name = "get_sizes"]
@@ -145,6 +202,9 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
     sizes.chunk_data = size_of::<ChunkData>();
     sizes.geometry_buffer = size_of::<GeometryBuffer>();
     sizes.vertex_data = size_of::<VertexData>();
+
+    sizes.shape_chunk = size_of::<ShapeChunk>();
+    sizes.shape_layers = size_of::<ShapeLayers>();
 
     *num_sizes = size_of::<Sizes>() / size_of::<usize>();
 }

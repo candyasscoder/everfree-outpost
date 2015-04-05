@@ -1,6 +1,7 @@
 var Deque = require('util/misc').Deque;
 var Vec = require('util/vec').Vec;
 var Asm = require('asmlibs').Asm;
+var getPhysicsHeapSize = require('asmlibs').getPhysicsHeapSize;
 var Motion = require('entity').Motion;
 var TileDef = require('data/chunk').TileDef;
 var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
@@ -16,18 +17,24 @@ var DURATION_MAX = 0xffff;
 function Physics() {
     var chunk_total = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
     var local_total = LOCAL_SIZE * LOCAL_SIZE;
-    this._asm = new Asm(chunk_total * local_total);
+    this._asm = new Asm(getPhysicsHeapSize());
 }
 exports.Physics = Physics;
 
 Physics.prototype.loadChunk = function(ci, cj, tiles) {
-    var view = this._asm.chunkShapeView(ci * LOCAL_SIZE + cj);
+    var view = this._asm.shapeLayerView(ci * LOCAL_SIZE + cj, -1);
     console.assert(tiles.length == view.length,
             'expected ' + view.length + ' tiles, but got ' + tiles.length);
 
     for (var i = 0; i < tiles.length; ++i) {
         view[i] = TileDef.by_id[tiles[i]].shape;
     }
+
+    var base = new Vec(cj * CHUNK_SIZE,
+                       ci * CHUNK_SIZE,
+                       0);
+    var size = new Vec(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE);
+    this._asm.refreshShapeLayers(base, size);
 };
 
 Physics.prototype.computeForecast = function(now, entity, target_velocity) {

@@ -3,6 +3,7 @@ var static_data = window['asmlibs_data'];
 
 var Vec = require('util/vec').Vec;
 var decodeUtf8 = require('util/misc').decodeUtf8;
+var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
 
 
 // Memory layout
@@ -91,7 +92,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 6;
+    var EXPECT_SIZES = 8;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -108,6 +109,9 @@ var SIZEOF = (function() {
         ChunkData: view[4],
         GeometryBuffer: view[5],
         VertexData: view[6],
+
+        ShapeChunk: view[7],
+        ShapeLayers: view[8],
     });
 })();
 
@@ -177,6 +181,10 @@ Asm.prototype.memcpy = function(dest_offset, data) {
 };
 
 
+
+var PHYSICS_HEAP_START = HEAP_START;
+var PHYSICS_HEAP_END = PHYSICS_HEAP_START + SIZEOF.ShapeLayers * LOCAL_SIZE * LOCAL_SIZE;
+
 Asm.prototype.collide = function(pos, size, velocity) {
     var input = this._stackAlloc(Int32Array, 9);
     var output = this._stackAlloc(Int32Array, 4);
@@ -185,7 +193,7 @@ Asm.prototype.collide = function(pos, size, velocity) {
     this._storeVec(input, 3, size);
     this._storeVec(input, 6, velocity);
 
-    this._raw['collide'](input.byteOffset, output.byteOffset);
+    this._raw['collide'](PHYSICS_HEAP_START, input.byteOffset, output.byteOffset);
 
     var result = ({
         x: output[0],
@@ -200,9 +208,27 @@ Asm.prototype.collide = function(pos, size, velocity) {
     return result;
 };
 
-Asm.prototype.chunkShapeView = function(idx) {
-    var size = 16 * 16 * 16;
-    return new Uint8Array(this.buffer, HEAP_START + idx * size, size);
+Asm.prototype.refreshShapeLayers = function(pos, size) {
+    var input = this._stackAlloc(Int32Array, 6);
+
+    this._storeVec(input, 0, pos);
+    this._storeVec(input, 3, pos.add(size));
+
+    this._raw['refresh_shape_cache'](PHYSICS_HEAP_START, input.byteOffset);
+
+    this._stackFree(input);
+};
+
+Asm.prototype.shapeLayerView = function(chunk_idx, layer) {
+    var chunk_offset = chunk_idx * SIZEOF.ShapeLayers;
+    var layer_offset = (1 + layer) * SIZEOF.ShapeChunk;
+
+    return new Uint8Array(this.buffer,
+            PHYSICS_HEAP_START + chunk_offset + layer_offset, SIZEOF.ShapeChunk);
+};
+
+exports.getPhysicsHeapSize = function() {
+    return PHYSICS_HEAP_END - PHYSICS_HEAP_START;
 };
 
 
