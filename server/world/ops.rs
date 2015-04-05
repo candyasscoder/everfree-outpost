@@ -405,29 +405,27 @@ pub fn structure_replace<'d, F>(f: &mut F,
                                 sid: StructureId,
                                 new_tid: TemplateId) -> OpResult<()>
         where F: Fragment<'d> {
-    let (old_bounds, new_bounds) = {
+    let bounds = {
         let w = f.world_mut();
         let s = unwrap!(w.structures.get_mut(sid));
+
         let old_t = unwrap!(w.data.structure_templates.get_template(s.template));
         let new_t = unwrap!(w.data.structure_templates.get_template(new_tid));
 
-        (Region::new(s.pos, s.pos + old_t.size),
-         Region::new(s.pos, s.pos + new_t.size))
+        if old_t.size != new_t.size ||
+           old_t.shape != new_t.shape ||
+           old_t.layer != new_t.layer {
+            fail!("replacement structure template differs in shape");
+        }
+
+        s.template = new_tid;
+
+        Region::new(s.pos, s.pos + old_t.size)
     };
 
-    structure_remove_from_lookup(&mut f.world_mut().structures_by_chunk, sid, old_bounds);
-
-    if structure_check_placement(f.world(), new_bounds) {
-        f.world_mut().structures[sid].template = new_tid;
-        structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, new_bounds);
-        invalidate_region(f, old_bounds);
-        invalidate_region(f, new_bounds);
-        f.with_hooks(|h| h.on_structure_replace(sid, old_bounds));
-        Ok(())
-    } else {
-        structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, old_bounds);
-        fail!("structure placement blocked by terrain or other structure");
-    }
+    invalidate_region(f, bounds);
+    f.with_hooks(|h| h.on_structure_replace(sid, bounds));
+    Ok(())
 }
 
 fn structure_check_placement(w: &World,
