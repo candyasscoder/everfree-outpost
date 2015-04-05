@@ -34,6 +34,10 @@ house_wall:
     tee.ui_name: House Tee
     tee.tile: inner/nw/00 + tee/e
 
+    cross.ui_name: House Cross
+    # TODO: this is a hack
+    tee.tile: inner/nw/00 + tee/n + tee/s
+
 house_floor:
     ui_name: House Floor
     tile: /wood_floor/center/v0
@@ -76,6 +80,10 @@ teleporter:
 fence:
     ui_name: Fence
     tile: /fence/we
+
+fence_tee:
+    ui_name: Fence Tee
+    tile: /fence/nse
 
 fence_post:
     ui_name: Fence Post

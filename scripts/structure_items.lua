@@ -60,14 +60,18 @@ local function add_structure_item(item_name, template_name)
     end
 end
 
-add_structure_item('fence', 'fence/n')
-add_structure_item('fence_post', 'fence/gate_post_w')
-add_structure_item('house_wall/side', 'house_wall/side/n')
-add_structure_item('house_wall/corner', 'house_wall/corner/inner/nw')
-add_structure_item('house_wall/tee', 'house_wall/tee/interior/e')
-add_structure_item('house_floor')
-add_structure_item('house_door')
-add_structure_item('road')
+add_structure_item('fence', 'fence/edge/horiz')
+add_structure_item('fence_tee', 'fence/tee/e')
+add_structure_item('fence_post', 'fence/end/fancy/e')
+
+add_structure_item('house_wall/side', 'house_wall/edge/horiz/in')
+add_structure_item('house_wall/corner', 'house_wall/corner/nw/in')
+add_structure_item('house_wall/tee', 'house_wall/tee/e/in')
+add_structure_item('house_wall/cross', 'house_wall/cross/in_in')
+add_structure_item('house_door', 'house_wall/door/in')
+
+add_structure_item('house_floor', 'wood_floor/center/v0')
+add_structure_item('road', 'road/center/v0')
 add_structure_item('bed')
 add_structure_item('table')
 
@@ -80,16 +84,39 @@ local function mallet_cycle(base, xs)
     mallet.replacements[base .. xs[#xs]] = base .. xs[1]
 end
 
-mallet_cycle('fence/', {'n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'})
-mallet_cycle('house_wall/side/', {'n', 'e', 'e_interior', 's', 'w', 'w_interior'})
-mallet_cycle('house_wall/corner/',
-    {'inner/nw', 'inner/ne', 'inner/se', 'inner/sw',
-     'outer/nw', 'outer/ne', 'outer/se', 'outer/sw'})
-mallet_cycle('house_wall/tee/',
-    {'interior/e', 'interior/s', 'interior/w', 'interior/n',
-     'exterior/e', 'exterior/s', 'exterior/w', 'exterior/n'})
-mallet_cycle('house_door', {'', '_interior'})
-mallet_cycle('fence/gate_post_', {'w', 'e'})
+mallet_cycle('fence/', {
+    'edge/horiz', 'edge/vert',
+    'corner/nw', 'corner/ne', 'corner/se', 'corner/sw',
+})
+mallet_cycle('fence/', { 'tee/e', 'tee/s', 'tee/w', 'tee/n', 'cross' })
+mallet_cycle('fence/end/fancy/', { 'e', 'w' })
+
+mallet_cycle('house_wall/side/', { 'horiz/in', 'horiz/out', 'vert' })
+mallet_cycle('house_wall/corner/', {
+    'nw/in', 'ne/in', 'se/out', 'sw/out',
+    'nw/out', 'ne/out', 'se/in', 'sw/in',
+})
+mallet_cycle('house_wall/tee/', {
+    'n/in', 'n/out',
+    'e/in', 'e/out',
+    's/in_in', 's/in_out', 's/out_out', 's/out_in',
+    'w/in', 'w/out',
+})
+mallet_cycle('house_wall/cross/', {
+    'in_in', 'in_out', 'out_out', 'out_in',
+})
+
+mallet_cycle('house_wall/door/', { 'in', 'out' })
+
+
+local terrain_cycle = {
+    'center/v0',
+    'edge/n', 'corner/outer/ne', 'edge/e', 'corner/outer/se',
+    'edge/s', 'corner/outer/sw', 'edge/w', 'corner/outer/nw',
+    'corner/inner/nw', 'corner/inner/ne', 'corner/inner/se', 'corner/inner/sw',
+}
+mallet_cycle('wood_floor/', terrain_cycle)
+mallet_cycle('road/', terrain_cycle)
 
 
 return {
