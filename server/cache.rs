@@ -73,6 +73,7 @@ fn compute_shape(w: &World,
     for p in bounds.points() {
         let idx = chunk.bounds().index(p);
         entry.shape[idx] = data.block_data.shape(chunk.block(idx));
+        entry.layer_mask[idx] = 0;
     }
 
     for s in w.chunk_structures(cpos) {

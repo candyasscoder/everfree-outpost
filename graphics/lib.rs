@@ -453,8 +453,10 @@ impl Compare<Sprite> for SpriteUV {
         let (bu, bv) = b.ref_uv();
         if au != bu {
             au < bu
-        } else {
+        } else if av != bv {
             av < bv
+        } else {
+            a.id < b.id
         }
     }
 }

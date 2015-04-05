@@ -114,6 +114,7 @@ def build_client_json(structures):
                 'sheet': s.sheet_idx,
                 'offset': s.offset,
                 'display_size': s.image.size,
+                'layer': s.layer,
                 }
 
     return list(convert(s) for s in structures)

@@ -831,6 +831,10 @@ function handleStructureAppear(id, template_id, x, y, z) {
     sprite.ref_y = y;
     sprite.ref_z = z;
 
+    if (template.layer != 0) {
+        sprite.ref_y += template.size.y * TILE_SIZE;
+    }
+
     structures[id] = sprite;
 }
 

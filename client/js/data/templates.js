@@ -14,11 +14,17 @@ function TemplateDef_(id, info, assets) {
     extra.offset_x = offset[0];
     extra.offset_y = offset[1];
 
-    var anchor_y = display_size[1] - size[1] * TILE_SIZE;
+    var anchor_y;
+    if (info['layer'] == 0) {
+        anchor_y = display_size[1] - size[1] * TILE_SIZE;
+    } else {
+        anchor_y = display_size[1];
+    }
     this.base = new SpriteBase(display_size[0], display_size[1], 0, anchor_y, extra);
 
     this.size = new Vec(size[0], size[1], size[2]);
     this.shape = info['shape'];
+    this.layer = info['layer'];
 }
 
 // Closure compiler doesn't like having static items on functions.

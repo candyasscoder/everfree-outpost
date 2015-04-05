@@ -13,6 +13,8 @@ local function place_structure(world, inv, pos, item_name, template_name)
     if s ~= nil then
         s:attach_to_chunk()
         inv:update(item_name, -1)
+    else
+        print('error placing structure ' .. template_name .. ': ' .. tostring(err))
     end
     return s
 end
@@ -66,7 +68,7 @@ add_structure_item('fence_post', 'fence/end/fancy/e')
 
 add_structure_item('house_wall/side', 'house_wall/edge/horiz/in')
 add_structure_item('house_wall/corner', 'house_wall/corner/nw/in')
-add_structure_item('house_wall/tee', 'house_wall/tee/e/in')
+add_structure_item('house_wall/tee', 'house_wall/tee/n/in')
 add_structure_item('house_wall/cross', 'house_wall/cross/in_in')
 add_structure_item('house_door', 'house_wall/door/in')
 
@@ -91,7 +93,7 @@ mallet_cycle('fence/', {
 mallet_cycle('fence/', { 'tee/e', 'tee/s', 'tee/w', 'tee/n', 'cross' })
 mallet_cycle('fence/end/fancy/', { 'e', 'w' })
 
-mallet_cycle('house_wall/side/', { 'horiz/in', 'horiz/out', 'vert' })
+mallet_cycle('house_wall/edge/', { 'horiz/in', 'horiz/out', 'vert' })
 mallet_cycle('house_wall/corner/', {
     'nw/in', 'ne/in', 'se/out', 'sw/out',
     'nw/out', 'ne/out', 'se/in', 'sw/in',

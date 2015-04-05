@@ -80,7 +80,7 @@ def do_house_parts(s, basename, image):
     for i, row in enumerate(house_parts):
         for j, part_name in enumerate(row):
             name = basename + '/' + part_name
-            solid_structure(s, name, image, (1, 2, 1), base=(j, i * 3))
+            solid_structure(s, name, image, (1, 1, 2), base=(j, i * 3))
 
     door_shape_arr = [
             'solid', 'floor', 'solid',
@@ -140,7 +140,7 @@ def get_structures(asset_path):
     solid_structure(s, 'bookshelf/1', img('furniture.png'), (1, 2, 1), (6, 0))
     solid_structure(s, 'bookshelf/2', img('furniture.png'), (1, 2, 1), (7, 0))
 
-    do_house_parts(s, 'house_walls', img('house.png'))
+    do_house_parts(s, 'house_wall', img('house.png'))
     do_fence_parts(s, 'fence', img('fence.png'))
 
     return s
