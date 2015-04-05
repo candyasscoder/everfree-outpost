@@ -16,7 +16,7 @@ macro_rules! part2 {
         part2!(world, WorldHooks, $($x)*);
     };
     (WorldHooks, $($x:tt)*) => {
-        part2!(script, vision, chunks, VisionHooks, $($x)*);
+        part2!(script, vision, cache, VisionHooks, $($x)*);
     };
     (VisionFragment, $($x:tt)*) => {
         part2!(vision, VisionHooks, $($x)*);
@@ -31,7 +31,7 @@ macro_rules! part2 {
         part2!(world, HiddenWorldHooks, $($x)*);
     };
     (HiddenWorldHooks, $($x:tt)*) => {
-        part2!(world, script, HiddenVisionFragment, $($x)*);
+        part2!(world, script, cache, HiddenVisionFragment, $($x)*);
     };
     (HiddenVisionFragment, $($x:tt)*) => {
         part2!(vision, $($x)*);

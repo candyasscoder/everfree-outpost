@@ -358,7 +358,7 @@ pub fn structure_destroy<'d, F>(f: &mut F,
         inventory_destroy(f, iid).unwrap();
     }
 
-    f.with_hooks(|h| h.on_structure_destroy(sid));
+    f.with_hooks(|h| h.on_structure_destroy(sid, bounds));
     Ok(())
 }
 
@@ -434,7 +434,7 @@ pub fn structure_move<'d, F>(f: &mut F,
         structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, new_bounds);
         invalidate_region(f, old_bounds);
         invalidate_region(f, new_bounds);
-        f.with_hooks(|h| h.on_structure_move(sid));
+        f.with_hooks(|h| h.on_structure_move(sid, old_bounds));
         Ok(())
     } else {
         structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, old_bounds);
@@ -463,7 +463,7 @@ pub fn structure_replace<'d, F>(f: &mut F,
         structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, new_bounds);
         invalidate_region(f, old_bounds);
         invalidate_region(f, new_bounds);
-        f.with_hooks(|h| h.on_structure_replace(sid));
+        f.with_hooks(|h| h.on_structure_replace(sid, old_bounds));
         Ok(())
     } else {
         structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, old_bounds);
