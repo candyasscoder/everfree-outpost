@@ -57,7 +57,7 @@ impl Userdata for World {
                                 pos: V3,
                                 template_name: &str) -> StrResult<Structure> {{
                 let template_id =
-                    unwrap!(wf.data().object_templates.find_id(template_name),
+                    unwrap!(wf.data().structure_templates.find_id(template_name),
                             "named structure template does not exist");
 
                 wf.create_structure(pos, template_id)
@@ -303,7 +303,7 @@ impl Userdata for Structure {
             fn template(!partial w: &world::World, s: Structure) -> Option<String> {
                 w.get_structure(s.id)
                  .map(|s| s.template_id())
-                 .and_then(|id| w.data().object_templates.get_template(id))
+                 .and_then(|id| w.data().structure_templates.get_template(id))
                  .map(|t| t.name.clone())
             }
 
@@ -316,7 +316,7 @@ impl Userdata for Structure {
                        s: Structure,
                        new_template_name: &str) -> StrResult<()> {
                 let new_template_id =
-                    unwrap!(wf.data().object_templates.find_id(new_template_name),
+                    unwrap!(wf.data().structure_templates.find_id(new_template_name),
                             "named structure template does not exist");
 
                 let mut s = unwrap!(wf.get_structure_mut(s.id));

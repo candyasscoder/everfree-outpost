@@ -5,6 +5,7 @@ use std::sync::mpsc::{Sender, Receiver};
 use types::*;
 
 use auth::{Auth, Secret};
+use cache::TerrainCache;
 use chunks::Chunks;
 use data::Data;
 use logic;
@@ -39,6 +40,7 @@ pub struct Engine<'d> {
     pub vision: Vision,
     pub auth: Auth,
     pub chunks: Chunks<'d>,
+    pub cache: TerrainCache,
     pub terrain_gen: TerrainGen<'d>,
 }
 
@@ -68,6 +70,7 @@ impl<'d> Engine<'d> {
             vision: Vision::new(),
             auth: Auth::new(storage.auth_db_path()).unwrap(),
             chunks: Chunks::new(storage),
+            cache: TerrainCache::new(),
             terrain_gen: TerrainGen::new(data),
         }
     }

@@ -5,7 +5,7 @@ use std::ops::{Deref, DerefMut};
 use physics::CHUNK_SIZE;
 use physics::Shape;
 
-use data::ObjectTemplate;
+use data::StructureTemplate;
 use types::*;
 use world::World;
 use world::{Client, TerrainChunk, Entity, Structure, Inventory};
@@ -318,8 +318,8 @@ impl<'a, 'd, F: Fragment<'d>> EntityRefMut<'d, F> for ObjectRefMut<'a, 'd, Entit
 
 
 pub trait StructureRef<'d>: ObjectRefBase<'d, Structure> {
-    fn template(&self) -> &'d ObjectTemplate {
-        self.world().data.object_templates.template(self.obj().template_id())
+    fn template(&self) -> &'d StructureTemplate {
+        self.world().data.structure_templates.template(self.obj().template_id())
     }
 
     fn size(&self) -> V3 {

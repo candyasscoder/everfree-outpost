@@ -16,7 +16,7 @@ pub struct Data {
     pub block_data: BlockData,
     pub item_data: ItemData,
     pub recipes: RecipeData,
-    pub object_templates: ObjectTemplates,
+    object_templates: ObjectTemplates,  // TODO: remove
     pub structure_templates: StructureTemplates,
 }
 
@@ -442,6 +442,7 @@ impl StructureTemplates {
                 shape.push(shape_enum);
             }
 
+            info!("parsed template: {}", name);
             by_id.push(StructureTemplate {
                 name: name.to_owned(),
                 size: size,

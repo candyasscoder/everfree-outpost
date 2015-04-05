@@ -285,7 +285,7 @@ impl Userdata for GenChunk {
                              gc: &GenChunk,
                              pos: V3,
                              template_name: &str) -> StrResult<i32> {
-                let template_id = unwrap!(ctx.data().object_templates.find_id(template_name));
+                let template_id = unwrap!(ctx.data().structure_templates.find_id(template_name));
 
                 let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
                 if !bounds.contains(pos) {
