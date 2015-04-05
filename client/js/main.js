@@ -18,6 +18,7 @@ var Cursor = require('graphics/cursor').Cursor;
 
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
+var Structure = require('structure').Structure;
 
 var InventoryTracker = require('inventory').InventoryTracker;
 
@@ -825,22 +826,17 @@ function handleEntityGone(id, time) {
 
 function handleStructureAppear(id, template_id, x, y, z) {
     var template = TemplateDef.by_id[template_id];
+    var px_pos = new Vec(x, y, z);
+    var pos = px_pos.divScalar(TILE_SIZE);
 
-    var sprite = template.base.instantiate();
-    sprite.ref_x = x;
-    sprite.ref_y = y;
-    sprite.ref_z = z;
-
-    if (template.layer != 0) {
-        sprite.ref_y += template.size.y * TILE_SIZE;
-    }
-
-    structures[id] = sprite;
-
-    physics.addStructure(new Vec(x, y, z).divScalar(TILE_SIZE), template);
+    structures[id] = new Structure(pos, px_pos, template);;
+    physics.addStructure(structures[id]);
 }
 
 function handleStructureGone(id, time) {
+    if (structures[id] != null) {
+        physics.removeStructure(structures[id]);
+    }
     delete structures[id];
 }
 
@@ -892,6 +888,8 @@ function checkLocalSprite(sprite, camera_mid) {
     }
     var min = camera_mid.subScalar((local_px / 2)|0);
     var max = camera_mid.addScalar((local_px / 2)|0);
+
+    // TODO: it's ugly to adjust the Structure object's sprite from here.
 
     if (sprite.ref_x < min.x) {
         sprite.ref_x += local_px;
@@ -1017,7 +1015,7 @@ function frame(ac, client_now) {
     }
 
     for (var i = 0; i < structure_ids.length; ++i) {
-        var sprite = structures[structure_ids[i]];
+        var sprite = structures[structure_ids[i]].sprite;
         checkLocalSprite(sprite, pos);
         sprites[entity_ids.length + i] = sprite;
     }

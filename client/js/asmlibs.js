@@ -219,6 +219,28 @@ Asm.prototype.setRegionShape = function(pos, size, layer, shape) {
     this._raw['set_region_shape'](PHYSICS_HEAP_START,
             input_bounds.byteOffset, layer,
             input_shape.byteOffset, input_shape.length);
+    this._raw['refresh_shape_cache'](PHYSICS_HEAP_START, input_bounds.byteOffset);
+
+    this._stackFree(input_shape);
+    this._stackFree(input_bounds);
+};
+
+Asm.prototype.clearRegionShape = function(pos, size, layer) {
+    var volume = size.x * size.y * size.z;
+
+    var input_bounds = this._stackAlloc(Int32Array, 6);
+    var input_shape = this._stackAlloc(Uint8Array, volume);
+
+    this._storeVec(input_bounds, 0, pos);
+    this._storeVec(input_bounds, 3, pos.add(size));
+    for (var i = 0; i < volume; ++i) {
+        input_shape[i] = 0;
+    }
+
+    this._raw['set_region_shape'](PHYSICS_HEAP_START,
+            input_bounds.byteOffset, layer,
+            input_shape.byteOffset, input_shape.length);
+    this._raw['refresh_shape_cache'](PHYSICS_HEAP_START, input_bounds.byteOffset);
 
     this._stackFree(input_shape);
     this._stackFree(input_bounds);
