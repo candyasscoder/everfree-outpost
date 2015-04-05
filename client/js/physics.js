@@ -37,6 +37,14 @@ Physics.prototype.loadChunk = function(ci, cj, tiles) {
     this._asm.refreshShapeLayers(base, size);
 };
 
+Physics.prototype.addStructure = function(pos, template) {
+    this._asm.setRegionShape(pos, template.size, template.layer, template.shape);
+};
+
+Physics.prototype.removeStructure = function(pos, template) {
+    // TODO
+};
+
 Physics.prototype.computeForecast = function(now, entity, target_velocity) {
     var start_pos = entity.position(now);
     // TODO: hardcoded constant based on entity size

@@ -836,6 +836,8 @@ function handleStructureAppear(id, template_id, x, y, z) {
     }
 
     structures[id] = sprite;
+
+    physics.addStructure(new Vec(x, y, z).divScalar(TILE_SIZE), template);
 }
 
 function handleStructureGone(id, time) {

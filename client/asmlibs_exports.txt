@@ -4,4 +4,5 @@ render
 update_xv_data
 generate_geometry
 collide
+set_region_shape
 refresh_shape_cache

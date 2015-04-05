@@ -208,6 +208,22 @@ Asm.prototype.collide = function(pos, size, velocity) {
     return result;
 };
 
+Asm.prototype.setRegionShape = function(pos, size, layer, shape) {
+    var input_bounds = this._stackAlloc(Int32Array, 6);
+    var input_shape = this._stackAlloc(Uint8Array, shape.length);
+
+    this._storeVec(input_bounds, 0, pos);
+    this._storeVec(input_bounds, 3, pos.add(size));
+    input_shape.set(shape);
+
+    this._raw['set_region_shape'](PHYSICS_HEAP_START,
+            input_bounds.byteOffset, layer,
+            input_shape.byteOffset, input_shape.length);
+
+    this._stackFree(input_shape);
+    this._stackFree(input_bounds);
+};
+
 Asm.prototype.refreshShapeLayers = function(pos, size) {
     var input = this._stackAlloc(Int32Array, 6);
 

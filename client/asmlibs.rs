@@ -119,6 +119,34 @@ pub extern fn collide_wrapper(layers: &[ShapeLayers; 1 << (2 * LOCAL_BITS)],
     output.time = time;
 }
 
+#[export_name = "set_region_shape"]
+pub extern fn set_region_shape(layers: &mut [ShapeLayers; 1 << (2 * LOCAL_BITS)],
+                               bounds: &Region,
+                               layer: usize,
+                               shape_data: *const Shape,
+                               shape_len: usize) {
+    let shape: &[Shape] = unsafe {
+        mem::transmute(raw::Slice {
+            data: shape_data,
+            len: shape_len,
+        })
+    };
+
+    let chunk_bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
+    for p in bounds.points() {
+        // div_floor requires an extra LLVM intrinsic.
+        let cpos = p.reduce() >> CHUNK_BITS;
+        let masked_cpos = cpos & scalar(LOCAL_MASK);
+        let cidx = masked_cpos.y * LOCAL_SIZE + masked_cpos.x;
+
+        let offset = p & scalar(CHUNK_MASK);
+        let out_idx = chunk_bounds.index(offset);
+        let in_idx = bounds.index(p);
+
+        layers[cidx as usize].layers[layer][out_idx] = shape[in_idx];
+    }
+}
+
 #[export_name = "refresh_shape_cache"]
 pub extern fn refresh_shape_cache(layers: &mut [ShapeLayers; 1 << (2 * LOCAL_BITS)],
                                   bounds: &Region) {

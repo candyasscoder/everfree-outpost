@@ -146,6 +146,7 @@ var asmlibs_code_raw = function(global, env, buffer) {
         update_xv_data: _update_xv_data,
         generate_geometry: _generate_geometry,
         collide: _collide,
+        set_region_shape: _set_region_shape,
         refresh_shape_cache: _refresh_shape_cache,
         test: _test,
     });
