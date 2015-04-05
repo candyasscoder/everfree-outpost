@@ -1,3 +1,4 @@
+use cache::TerrainCache;
 use chunks::{self, Chunks};
 use engine::split::{EngineRef, Open, Part};
 use physics_::{self, Physics};
@@ -57,7 +58,7 @@ macro_rules! part2 {
     };
 
     (PhysicsFragment, $($x:tt)*) => {
-        part2!(physics, world, WorldFragment, $($x)*);
+        part2!(physics, world, cache, WorldFragment, $($x)*);
     };
 
     // Save read/write handling operates on HiddenWorldFragment for simplicity.  Higher-level code
@@ -227,10 +228,10 @@ impl_slice! {
 parts!(PhysicsFragment);
 
 impl<'a, 'd> physics_::Fragment<'d> for PhysicsFragment<'a, 'd> {
-    fn with_sys<F, R>(&mut self, f: F) -> R
-            where F: FnOnce(&mut Physics<'d>, &World<'d>) -> R {
-        let Open { physics, world, .. } = self.open();
-        f(physics, world)
+    fn with_cache<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut Physics<'d>, &TerrainCache, &World<'d>) -> R {
+        let Open { physics, cache, world, .. } = self.open();
+        f(physics, cache, world)
     }
 
     type WF = WorldFragment<'a, 'd>;

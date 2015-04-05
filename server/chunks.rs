@@ -2,9 +2,7 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry::*;
 use std::error::Error;
 
-use physics::CHUNK_BITS;
 use types::*;
-use util::StrResult;
 
 use storage::Storage;
 use world::World;

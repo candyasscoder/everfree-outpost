@@ -133,7 +133,18 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
         self.script_mut().cb_client_destroyed(cid);
     }
 
-    // No terrain_chunk_destroy because ScriptEngine doesn't have such a callback
+    fn on_terrain_chunk_create(&mut self, cpos: V2) {
+        vision::Fragment::add_chunk(&mut self.as_hidden_vision_fragment(), cpos);
+
+        let Open { world, cache, .. } = (**self).open();
+        warn_on_err!(cache.add_chunk(world, cpos));
+    }
+
+    fn on_terrain_chunk_destroy(&mut self, cpos: V2) {
+        vision::Fragment::remove_chunk(&mut self.as_hidden_vision_fragment(), cpos);
+
+        self.cache_mut().remove_chunk(cpos);
+    }
 
     fn on_entity_destroy(&mut self, eid: EntityId) {
         self.script_mut().cb_entity_destroyed(eid);

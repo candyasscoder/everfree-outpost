@@ -13,7 +13,7 @@ pub struct TerrainCache {
 }
 
 struct CacheEntry {
-    shape: [Shape; 1 << (3 * CHUNK_BITS)],
+    pub shape: [Shape; 1 << (3 * CHUNK_BITS)],
 }
 
 impl TerrainCache {
@@ -24,6 +24,7 @@ impl TerrainCache {
     }
 
     pub fn add_chunk(&mut self, w: &World, cpos: V2) -> StrResult<()> {
+        info!("add chunk {:?}", cpos);
         let mut entry = CacheEntry::new();
 
         let base = cpos.extend(0) * scalar(CHUNK_SIZE);
@@ -35,11 +36,13 @@ impl TerrainCache {
     }
 
     pub fn remove_chunk(&mut self, cpos: V2) {
+        info!("remove chunk {:?}", cpos);
         self.cache.remove(&cpos);
     }
 
     pub fn update_region(&mut self, w: &World, bounds: Region) {
         for cpos in bounds.reduce().div_round_signed(CHUNK_SIZE).points() {
+            info!("update chunk {:?}", cpos);
             if let Some(entry) = self.cache.get_mut(&cpos) {
                 compute_shape(w, cpos, bounds, entry);
             }
