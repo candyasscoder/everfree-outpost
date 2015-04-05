@@ -10,3 +10,8 @@ HTMLSelectElement.prototype.selectedOptions;
 CanvasRenderingContext2D.prototype.imageSmoothingEnabled;
 CanvasRenderingContext2D.prototype.mozImageSmoothingEnabled;
 CanvasRenderingContext2D.prototype.webkitImageSmoothingEnabled;
+
+/** 
+ * @type {!DOMURL}
+ */
+Window.prototype.URL;

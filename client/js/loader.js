@@ -147,13 +147,13 @@ PackReader.prototype._finishReadText = function(name) {
 
 PackReader.prototype._startReadImage = function(entry) {
     var base = 4 + this.index_bytes + entry['offset'];
-    var url = URL.createObjectURL(this.blob.slice(base, base + entry['length']));
+    var url = window.URL.createObjectURL(this.blob.slice(base, base + entry['length']));
 
     var this_ = this;
     var img = util.element('img', ['src=' + url]);
     img.onload = function() { this_._finishReadImage(entry['name'], img); };
     img.onerror = function() {
-        throw ('Error reading ' + name + ': image loading failed');
+        throw ('Error reading ' + entry['name'] + ': image loading failed');
     };
 };
 
@@ -165,7 +165,7 @@ PackReader.prototype._finishReadImage = function(name, img) {
 
 PackReader.prototype._startReadUrl = function(entry) {
     var base = 4 + this.index_bytes + entry['offset'];
-    var url = URL.createObjectURL(this.blob.slice(base, base + entry['length']));
+    var url = window.URL.createObjectURL(this.blob.slice(base, base + entry['length']));
     this.assets[entry['name']] = url;
     this._finishReadItem();
 };

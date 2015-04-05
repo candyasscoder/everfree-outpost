@@ -1,5 +1,7 @@
+var TILE_SIZE = require('data/chunk').TILE_SIZE;
 var SimpleExtra = require('graphics/draw/simple').SimpleExtra;
 var Vec = require('util/vec').Vec;
+var SpriteBase = require('graphics/renderer').SpriteBase;
 
 
 /** @constructor */
