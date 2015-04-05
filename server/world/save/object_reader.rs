@@ -363,6 +363,8 @@ impl<R: old_io::Reader> ObjectReader<R> {
 
         if result.is_err() {
             self.cleanup(frag);
+        } else {
+            self.finish(frag);
         }
 
         result
@@ -388,6 +390,29 @@ impl<R: old_io::Reader> ObjectReader<R> {
         match self.r.created_objs().difference(&self.inited_objs).next() {
             None => Ok(()),
             Some(_) => fail!("object was referenced but not defined"),
+        }
+    }
+
+    /// Run `_create` hooks for all objects that were loaded.
+    fn finish<'d, F: Fragment<'d>>(&mut self, f: &mut F) {
+        use world::Fragment;
+        use world::Hooks;
+        for &aid in self.r.created_objs().iter() {
+            match aid {
+                AnyId::Client(cid) =>
+                    f.with_world(|wf| wf.with_hooks(|h| h.on_client_create(cid))),
+                AnyId::TerrainChunk(cpos) =>
+                    f.with_world(|wf| wf.with_hooks(|h| {
+                        h.on_terrain_chunk_create(cpos);
+                        h.on_chunk_invalidate(cpos);
+                    })),
+                AnyId::Entity(eid) =>
+                    f.with_world(|wf| wf.with_hooks(|h| h.on_entity_create(eid))),
+                AnyId::Structure(sid) =>
+                    f.with_world(|wf| wf.with_hooks(|h| h.on_structure_create(sid))),
+                AnyId::Inventory(iid) =>
+                    f.with_world(|wf| wf.with_hooks(|h| h.on_inventory_create(iid))),
+            }
         }
     }
 

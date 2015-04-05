@@ -139,15 +139,18 @@ pub fn update_view(mut eng: EngineRef, cid: ClientId) {
         vision::vision_region(pawn.pos(now))
     };
 
-    for cpos in old_region.points().filter(|&p| !new_region.contains(p)) {
-        logic::chunks::unload_chunk(eng.borrow(), cpos);
-    }
+    // un/load_chunk use HiddenWorldFragment, so do the calls in this specific order to make sure
+    // the chunks being un/loaded are actually not in the client's vision.
 
     for cpos in new_region.points().filter(|&p| !old_region.contains(p)) {
         logic::chunks::load_chunk(eng.borrow(), cpos);
     }
 
     vision::Fragment::set_client_view(&mut eng.as_vision_fragment(), cid, new_region);
+
+    for cpos in old_region.points().filter(|&p| !new_region.contains(p)) {
+        logic::chunks::unload_chunk(eng.borrow(), cpos);
+    }
 
     eng.messages_mut().schedule_check_view(cid, now + 1000);
 }

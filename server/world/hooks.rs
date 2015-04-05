@@ -19,6 +19,8 @@ pub trait Hooks {
 
     fn on_structure_create(&mut self, sid: StructureId) {}
     fn on_structure_destroy(&mut self, sid: StructureId) {}
+    fn on_structure_move(&mut self, sid: StructureId) {}
+    fn on_structure_replace(&mut self, sid: StructureId) {}
 
     fn on_inventory_create(&mut self, iid: InventoryId) {}
     fn on_inventory_destroy(&mut self, iid: InventoryId) {}

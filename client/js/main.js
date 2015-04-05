@@ -325,6 +325,8 @@ function openConn(info, next) {
     conn.onChatUpdate = handleChatUpdate;
     conn.onEntityAppear = handleEntityAppear;
     conn.onEntityGone = handleEntityGone;
+    conn.onStructureAppear = handleStructureAppear;
+    conn.onStructureGone = handleStructureGone;
 }
 
 function maybeRegister(info, next) {
@@ -811,6 +813,14 @@ function handleEntityAppear(id, appearance, name) {
 function handleEntityGone(id, time) {
     // TODO: actually delay until the specified time
     delete entities[id];
+}
+
+function handleStructureAppear(id, template, x, y, z) {
+    // TODO
+}
+
+function handleStructureGone(id, time) {
+    // TODO
 }
 
 

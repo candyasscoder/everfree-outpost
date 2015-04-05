@@ -228,7 +228,7 @@ pub enum Response {
     EntityAppear(EntityId, u32, String),
     EntityGone(EntityId, LocalTime),
     RegisterResult(u32, String),
-    StructureAppear(StructureId, TemplateId, u16, u16, u16),
+    StructureAppear(StructureId, TemplateId, (u16, u16, u16)),
     StructureGone(StructureId),
 
     ClientRemoved(WireId),
@@ -266,8 +266,8 @@ impl Response {
                 ww.write_msg(id, (op::EntityGone, entity_id, time)),
             RegisterResult(code, ref msg) =>
                 ww.write_msg(id, (op::RegisterResult, code, msg)),
-            StructureAppear(sid, template_id, x, y, z) =>
-                ww.write_msg(id, (op::StructureAppear, sid, template_id, x, y, z)),
+            StructureAppear(sid, template_id, pos) =>
+                ww.write_msg(id, (op::StructureAppear, sid, template_id, pos)),
             StructureGone(sid) =>
                 ww.write_msg(id, (op::StructureGone, sid)),
 

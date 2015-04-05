@@ -99,6 +99,9 @@ pub enum ClientResponse {
     EntityUpdate(EntityId, Motion, AnimId),
     EntityGone(EntityId, Time),
 
+    StructureAppear(StructureId, TemplateId, V3),
+    StructureGone(StructureId),
+
     //InventoryAppear(InventoryId, Vec<(ItemId, u8)>),
     InventoryUpdate(InventoryId, Vec<(ItemId, u8, u8)>),
     //InventoryGone(InventoryId),
@@ -414,6 +417,7 @@ impl Messages {
                 self.send_raw(wire_id, Response::UnloadChunk(index));
             },
 
+
             ClientResponse::EntityAppear(eid, appear, name) =>
                 self.send_raw(wire_id, Response::EntityAppear(eid, appear, name)),
 
@@ -427,8 +431,20 @@ impl Messages {
                 self.send_raw(wire_id, Response::EntityGone(eid, time));
             },
 
+
+            ClientResponse::StructureAppear(sid, template_id, pos) => {
+                let local_pos = client.local_pos_tuple(pos);
+                self.send_raw(wire_id, Response::StructureAppear(sid, template_id, local_pos));
+            },
+
+            ClientResponse::StructureGone(sid) => {
+                self.send_raw(wire_id, Response::StructureGone(sid));
+            },
+
+
             ClientResponse::InventoryUpdate(iid, update) =>
                 self.send_raw(wire_id, Response::InventoryUpdate(iid, update)),
+
 
             ClientResponse::OpenDialog(dialog) => {
                 match dialog {

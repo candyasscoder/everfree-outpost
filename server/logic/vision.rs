@@ -59,6 +59,17 @@ impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
     }
 
 
+    fn on_structure_appear(&mut self, cid: ClientId, sid: StructureId) {
+        let s = self.world().structure(sid);
+        self.messages().send_client(cid, ClientResponse::StructureAppear(
+                sid, s.template_id(), s.pos()));
+    }
+
+    fn on_structure_disappear(&mut self, cid: ClientId, sid: StructureId) {
+        self.messages().send_client(cid, ClientResponse::StructureGone(sid));
+    }
+
+
     fn on_inventory_appear(&mut self, cid: ClientId, iid: InventoryId) {
         let i = self.world().inventory(iid);
 

@@ -74,6 +74,7 @@ pub trait Fragment<'d>: Sized {
             s.template = tid;
         }
         try!(ops::structure_post_init(self, sid));
+        self.with_hooks(|h| h.on_structure_create(sid));
         Ok(ObjectRefMut::new(self, sid))
     }
 }

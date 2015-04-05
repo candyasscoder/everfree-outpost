@@ -76,6 +76,9 @@ pub trait Hooks {
                            new_count: u8) {}
 }
 
+pub struct NoHooks;
+impl Hooks for NoHooks { }
+
 impl Vision {
     pub fn new() -> Vision {
         Vision {

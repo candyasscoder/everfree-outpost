@@ -31,7 +31,10 @@ macro_rules! part2 {
         part2!(world, HiddenWorldHooks, $($x)*);
     };
     (HiddenWorldHooks, $($x:tt)*) => {
-        part2!(script, $($x)*);
+        part2!(world, script, HiddenVisionFragment, $($x)*);
+    };
+    (HiddenVisionFragment, $($x:tt)*) => {
+        part2!(vision, $($x)*);
     };
 
     // Terrain generation produces a description of the chunk, but doesn't add it to the World
@@ -145,7 +148,7 @@ impl_slice! {
 }
 
 
-parts!(HiddenWorldFragment, HiddenWorldHooks);
+parts!(HiddenWorldFragment, HiddenWorldHooks, HiddenVisionFragment);
 
 impl<'a, 'd> world::Fragment<'d> for HiddenWorldFragment<'a, 'd> {
     fn world(&self) -> &World<'d> {
@@ -164,8 +167,18 @@ impl<'a, 'd> world::Fragment<'d> for HiddenWorldFragment<'a, 'd> {
     }
 }
 
+impl<'a, 'd> vision::Fragment<'d> for HiddenVisionFragment<'a, 'd> {
+    type H = vision::NoHooks;
+    fn with_hooks<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut Vision, &mut vision::NoHooks) -> R {
+        f(self.vision_mut(), &mut vision::NoHooks)
+    }
+}
+
 impl_slice! {
     EngineRef::as_hidden_world_fragment -> HiddenWorldFragment;
+    EngineRef::as_hidden_vision_fragment -> HiddenVisionFragment;
+    HiddenWorldHooks::as_hidden_vision_fragment -> HiddenVisionFragment;
 }
 
 

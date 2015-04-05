@@ -59,7 +59,6 @@ pub fn client_create_unchecked<'d, F>(f: &mut F) -> ClientId
         child_entities: HashSet::new(),
         child_inventories: HashSet::new(),
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
-    f.with_hooks(|h| h.on_client_create(cid));
     cid
 }
 
@@ -182,7 +181,6 @@ pub fn entity_create_unchecked<'d, F>(f: &mut F) -> EntityId
         attachment: EntityAttachment::World,
         child_inventories: HashSet::new(),
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
-    f.with_hooks(|h| h.on_entity_create(eid));
     eid
 }
 
@@ -302,7 +300,6 @@ pub fn structure_create_unchecked<'d, F>(f: &mut F) -> StructureId
         attachment: StructureAttachment::World,
         child_inventories: HashSet::new(),
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
-    f.with_hooks(|h| h.on_structure_create(sid));
     sid
 }
 
@@ -437,6 +434,7 @@ pub fn structure_move<'d, F>(f: &mut F,
         structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, new_bounds);
         invalidate_region(f, old_bounds);
         invalidate_region(f, new_bounds);
+        f.with_hooks(|h| h.on_structure_move(sid));
         Ok(())
     } else {
         structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, old_bounds);
@@ -465,6 +463,7 @@ pub fn structure_replace<'d, F>(f: &mut F,
         structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, new_bounds);
         invalidate_region(f, old_bounds);
         invalidate_region(f, new_bounds);
+        f.with_hooks(|h| h.on_structure_replace(sid));
         Ok(())
     } else {
         structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, old_bounds);
@@ -531,7 +530,9 @@ fn invalidate_region<'d, F>(f: &mut F,
 
 pub fn inventory_create<'d, F>(f: &mut F) -> OpResult<InventoryId>
         where F: Fragment<'d> {
-    Ok(inventory_create_unchecked(f))
+    let iid = inventory_create_unchecked(f);
+    f.with_hooks(|h| h.on_inventory_create(iid));
+    Ok(iid)
 }
 
 pub fn inventory_create_unchecked<'d, F>(f: &mut F) -> InventoryId
@@ -542,7 +543,6 @@ pub fn inventory_create_unchecked<'d, F>(f: &mut F) -> InventoryId
         stable_id: NO_STABLE_ID,
         attachment: InventoryAttachment::World,
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
-    f.with_hooks(|h| h.on_inventory_create(iid));
     iid
 }
 

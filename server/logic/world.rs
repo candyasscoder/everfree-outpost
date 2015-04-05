@@ -68,8 +68,28 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
     }
 
 
+    fn on_structure_create(&mut self, sid: StructureId) {
+        let area = structure_area(self.world(), sid);
+        vision::Fragment::add_structure(&mut self.as_vision_fragment(), sid, area);
+    }
+
     fn on_structure_destroy(&mut self, sid: StructureId) {
+        vision::Fragment::remove_structure(&mut self.as_vision_fragment(), sid);
         self.script_mut().cb_structure_destroyed(sid);
+    }
+
+    fn on_structure_move(&mut self, sid: StructureId) {
+        vision::Fragment::remove_structure(&mut self.as_vision_fragment(), sid);
+
+        let area = structure_area(self.world(), sid);
+        vision::Fragment::add_structure(&mut self.as_vision_fragment(), sid, area);
+    }
+
+    fn on_structure_replace(&mut self, sid: StructureId) {
+        vision::Fragment::remove_structure(&mut self.as_vision_fragment(), sid);
+
+        let area = structure_area(self.world(), sid);
+        vision::Fragment::add_structure(&mut self.as_vision_fragment(), sid, area);
     }
 
 
@@ -90,6 +110,8 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
     }
 }
 
+// HiddenWorldHooks is like WorldHooks but does not send updates to clients.  Only the server's
+// internal data structures are updated.
 impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
     fn on_client_destroy(&mut self, cid: ClientId) {
         self.script_mut().cb_client_destroyed(cid);
@@ -101,9 +123,31 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
         self.script_mut().cb_entity_destroyed(eid);
     }
 
+
+    fn on_structure_create(&mut self, sid: StructureId) {
+        let area = structure_area(self.world(), sid);
+        vision::Fragment::add_structure(&mut self.as_hidden_vision_fragment(), sid, area);
+    }
+
     fn on_structure_destroy(&mut self, sid: StructureId) {
+        vision::Fragment::remove_structure(&mut self.as_hidden_vision_fragment(), sid);
         self.script_mut().cb_structure_destroyed(sid);
     }
+
+    fn on_structure_move(&mut self, sid: StructureId) {
+        vision::Fragment::remove_structure(&mut self.as_hidden_vision_fragment(), sid);
+
+        let area = structure_area(self.world(), sid);
+        vision::Fragment::add_structure(&mut self.as_hidden_vision_fragment(), sid, area);
+    }
+
+    fn on_structure_replace(&mut self, sid: StructureId) {
+        vision::Fragment::remove_structure(&mut self.as_hidden_vision_fragment(), sid);
+
+        let area = structure_area(self.world(), sid);
+        vision::Fragment::add_structure(&mut self.as_hidden_vision_fragment(), sid, area);
+    }
+
 
     fn on_inventory_destroy(&mut self, iid: InventoryId) {
         self.script_mut().cb_inventory_destroyed(iid);
@@ -119,5 +163,16 @@ pub fn entity_area(w: &World, eid: EntityId) -> SmallSet<V2> {
 
     area.insert(a);
     area.insert(b);
+    area
+}
+
+pub fn structure_area(w: &World, sid: StructureId) -> SmallSet<V2> {
+    let s = w.structure(sid);
+
+    let mut area = SmallSet::new();
+    for p in s.bounds().reduce().div_round_signed(CHUNK_SIZE).points() {
+        area.insert(p);
+    }
+
     area
 }
