@@ -70,6 +70,7 @@ PackReader.prototype._finishReadIndexLength = function() {
     checkError(this.fr.error, 'pack index length');
     var data = new DataView(this.fr.result);
     this.index_bytes = data.getUint32(0, true);
+    console.log('index is 0x' + this.index_bytes.toString(16) + ' bytes');
     this._startReadIndex();
 };
 
@@ -93,6 +94,7 @@ PackReader.prototype._startReadItem = function() {
     }
 
     var entry = this.index[this.current];
+    console.log('  reading ' + entry['name']);
     switch (entry['type']) {
         case 'json':
             this._startReadJson(entry);

@@ -112,7 +112,7 @@ def build_client_json(structures):
                 'size': s.size,
                 'shape': [SHAPE_ID[x] for x in s.shape],
                 'sheet': s.sheet_idx,
-                'offset': (s.offset[0] * TILE_SIZE, s.offset[1] * TILE_SIZE),
+                'offset': s.offset,
                 'display_size': s.image.size,
                 }
 
