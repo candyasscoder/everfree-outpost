@@ -307,11 +307,6 @@ impl Userdata for Structure {
                  .map(|t| t.name.clone())
             }
 
-            fn move_to(!partial wf: WorldFragment, s: Structure, new_pos: V3) -> StrResult<()> {
-                let mut s = unwrap!(wf.get_structure_mut(s.id));
-                s.set_pos(new_pos)
-            }
-
             fn replace(!partial wf: WorldFragment,
                        s: Structure,
                        new_template_name: &str) -> StrResult<()> {

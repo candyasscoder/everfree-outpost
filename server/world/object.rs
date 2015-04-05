@@ -346,11 +346,6 @@ pub trait StructureRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Structure, 
         self.world_mut().structures.pin(sid)
     }
 
-    fn set_pos(&mut self, pos: V3) -> OpResult<()> {
-        let sid = self.id();
-        ops::structure_move(self.fragment_mut(), sid, pos)
-    }
-
     fn set_template_id(&mut self, template: TemplateId) -> OpResult<()> {
         let sid = self.id();
         ops::structure_replace(self.fragment_mut(), sid, template)

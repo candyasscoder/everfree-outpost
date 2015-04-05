@@ -401,47 +401,6 @@ pub fn structure_attach<'d, F>(f: &mut F,
     Ok(old_attach)
 }
 
-pub fn structure_move<'d, F>(f: &mut F,
-                             sid: StructureId,
-                             new_pos: V3) -> OpResult<()>
-        where F: Fragment<'d> {
-    let (old_bounds, new_bounds) = {
-        let w = f.world_mut();
-        let s = unwrap!(w.structures.get_mut(sid));
-        let t = unwrap!(w.data.structure_templates.get_template(s.template));
-
-        (Region::new(s.pos, s.pos + t.size),
-         Region::new(new_pos, new_pos + t.size))
-    };
-
-    structure_remove_from_lookup(&mut f.world_mut().structures_by_chunk, sid, old_bounds);
-
-    if structure_check_placement(f.world(), new_bounds) {
-        {
-            let w = f.world_mut();
-            let s = &mut w.structures[sid];
-            if s.attachment == StructureAttachment::Chunk {
-                let old_chunk_pos = s.pos.reduce().div_floor(scalar(CHUNK_SIZE));
-                let new_chunk_pos = new_pos.reduce().div_floor(scalar(CHUNK_SIZE));
-                // The old chunk is loaded because `s` is loaded and has Chunk attachment.  The new
-                // chunk is loaded because structure_check_placement requires all chunks
-                // overlapping `new_bounds` to be loaded.
-                w.terrain_chunks[old_chunk_pos].child_structures.remove(&sid);
-                w.terrain_chunks[new_chunk_pos].child_structures.insert(sid);
-            }
-            s.pos = new_pos;
-        }
-        structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, new_bounds);
-        invalidate_region(f, old_bounds);
-        invalidate_region(f, new_bounds);
-        f.with_hooks(|h| h.on_structure_move(sid, old_bounds));
-        Ok(())
-    } else {
-        structure_add_to_lookup(&mut f.world_mut().structures_by_chunk, sid, old_bounds);
-        fail!("structure placement blocked by terrain or other structure");
-    }
-}
-
 pub fn structure_replace<'d, F>(f: &mut F,
                                 sid: StructureId,
                                 new_tid: TemplateId) -> OpResult<()>
