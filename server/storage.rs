@@ -10,7 +10,8 @@ const DATA_DIR: &'static str = "data";
 const BLOCK_DATA_FILE: &'static str = "blocks.json";
 const ITEM_DATA_FILE: &'static str = "items.json";
 const RECIPE_DATA_FILE: &'static str = "recipes.json";
-const TEMPLATE_DATA_FILE: &'static str = "objects.json";
+const OLD_TEMPLATE_DATA_FILE: &'static str = "objects.json";
+const TEMPLATE_DATA_FILE: &'static str = "structures.json";
 
 const SCRIPT_DIR: &'static str = "scripts";
 
@@ -50,6 +51,10 @@ impl Storage {
 
     pub fn open_recipe_data(&self) -> File {
         File::open(&self.data_path(RECIPE_DATA_FILE)).unwrap()
+    }
+
+    pub fn open_old_template_data(&self) -> File {
+        File::open(&self.data_path(OLD_TEMPLATE_DATA_FILE)).unwrap()
     }
 
     pub fn open_template_data(&self) -> File {

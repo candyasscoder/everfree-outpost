@@ -57,6 +57,18 @@ pub enum Shape {
 }
 
 impl Shape {
+    pub fn from_primitive(i: usize) -> Option<Shape> {
+        use self::Shape::*;
+        let s = match i {
+            0 => Empty,
+            1 => Floor,
+            2 => Solid,
+            // TODO: add ramp variants once they are actually supported
+            _ => return None,
+        };
+        Some(s)
+    }
+
     pub fn is_ramp(&self) -> bool {
         use self::Shape::*;
         match *self {

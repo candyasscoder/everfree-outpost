@@ -17,23 +17,27 @@ pub struct Data {
     pub item_data: ItemData,
     pub recipes: RecipeData,
     pub object_templates: ObjectTemplates,
+    pub structure_templates: StructureTemplates,
 }
 
 impl Data {
     pub fn from_json(block_json: Json,
                      item_json: Json,
                      recipe_json: Json,
-                     template_json: Json) -> Result<Data, ParseError> {
+                     template_json: Json,
+                     structure_template_json: Json) -> Result<Data, ParseError> {
         let block_data = try!(BlockData::from_json(block_json));
         let item_data = try!(ItemData::from_json(item_json));
         let recipes = try!(RecipeData::from_json(recipe_json));
         let object_templates = try!(ObjectTemplates::from_json(template_json,
                                                                &block_data));
+        let structure_templates = try!(StructureTemplates::from_json(structure_template_json));
         Ok(Data {
             block_data: block_data,
             item_data: item_data,
             recipes: recipes,
             object_templates: object_templates,
+            structure_templates: structure_templates,
         })
     }
 }
@@ -376,6 +380,100 @@ impl ObjectTemplates {
     }
 
     pub fn get_by_id(&self, name: &str) -> &ObjectTemplate {
+        self.template(self.get_id(name))
+    }
+}
+
+
+pub struct StructureTemplate {
+    pub name: String,
+    pub size: V3,
+    pub shape: Vec<Shape>,
+    pub layer: u8,
+}
+
+pub struct StructureTemplates {
+    templates: Vec<StructureTemplate>,
+    name_to_id: HashMap<String, TemplateId>,
+}
+
+impl StructureTemplates {
+    pub fn from_json(json: Json) -> Result<StructureTemplates, ParseError> {
+        let templates = expect!(json.as_array(),
+                                "found non-array at top level");
+
+        let mut by_id = Vec::with_capacity(templates.len());
+        let mut name_to_id = HashMap::new();
+
+        for (i, template) in templates.iter().enumerate() {
+            let name = get_convert!(template, "name", as_string,
+                                    "for template {}", i);
+            let size_arr = get_convert!(template, "size", as_array,
+                                        "for template {} ({})", i, name);
+            let shape_arr = get_convert!(template, "shape", as_array,
+                                         "for template {} ({})", i, name);
+            let layer = get_convert!(template, "layer", as_i64,
+                                     "for template {} ({})", i, name);
+
+            if size_arr.len() != 3 {
+                return fail!("wrong number of elements in templates[{}].size ({})",
+                             i, name);
+            }
+
+            let size_x = expect!(size_arr[0].as_i64(),
+                                 "non-integer in templates[{}].size ({})", i, name);
+            let size_y = expect!(size_arr[1].as_i64(),
+                                 "non-integer in templates[{}].size ({})", i, name);
+            let size_z = expect!(size_arr[2].as_i64(),
+                                 "non-integer in templates[{}].size ({})", i, name);
+
+            let size = V3::new(size_x as i32,
+                               size_y as i32,
+                               size_z as i32);
+
+            let mut shape = Vec::with_capacity(shape_arr.len());
+            for (j, shape_json) in shape_arr.iter().enumerate() {
+                let shape_disr = expect!(shape_json.as_i64(),
+                                         "non-integer at templates[{}].shape[{}] ({})",
+                                         i, j, name);
+                let shape_enum = expect!(Shape::from_primitive(shape_disr as usize),
+                                         "invalid shape {} at templates[{}].shape[{}] ({})",
+                                         shape_disr, i, j, name);
+                shape.push(shape_enum);
+            }
+
+            by_id.push(StructureTemplate {
+                name: name.to_owned(),
+                size: size,
+                shape: shape,
+                layer: layer as u8,
+            });
+            name_to_id.insert(name.to_owned(), i as TemplateId);
+        }
+
+        Ok(StructureTemplates {
+            templates: by_id,
+            name_to_id: name_to_id,
+        })
+    }
+
+    pub fn template(&self, id: TemplateId) -> &StructureTemplate {
+        self.get_template(id).unwrap()
+    }
+
+    pub fn get_template(&self, id: TemplateId) -> Option<&StructureTemplate> {
+        self.templates.get(id as usize)
+    }
+
+    pub fn get_id(&self, name: &str) -> TemplateId {
+        self.find_id(name).unwrap_or_else(|| panic!("unknown structure template id: {}", name))
+    }
+
+    pub fn find_id(&self, name: &str) -> Option<TemplateId> {
+        self.name_to_id.get(name).map(|&x| x)
+    }
+
+    pub fn get_by_id(&self, name: &str) -> &StructureTemplate {
         self.template(self.get_id(name))
     }
 }

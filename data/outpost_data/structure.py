@@ -126,6 +126,7 @@ def build_server_json(structures):
                 'name': s.name,
                 'size': s.size,
                 'shape': [SHAPE_ID[x] for x in s.shape],
+                'layer': s.layer,
                 }
 
     return list(convert(s) for s in structures)
