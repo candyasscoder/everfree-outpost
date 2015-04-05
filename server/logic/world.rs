@@ -2,8 +2,11 @@ use physics::{CHUNK_SIZE, TILE_SIZE};
 
 use types::*;
 use util::SmallSet;
+use physics::Shape;
 
+use cache::TerrainCache;
 use chunks;
+use data::StructureTemplate;
 use engine::glue::*;
 use engine::split::Open;
 use world::{self, World};
@@ -78,14 +81,15 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
         self.script_mut().cb_structure_destroyed(sid);
     }
 
-    fn on_structure_move(&mut self, sid: StructureId, old_bounds: Region) {
+    fn on_structure_replace(&mut self, sid: StructureId, old_bounds: Region) {
         old_structure(self, sid, old_bounds);
         new_structure(self, sid);
     }
 
-    fn on_structure_replace(&mut self, sid: StructureId, old_bounds: Region) {
-        old_structure(self, sid, old_bounds);
-        new_structure(self, sid);
+    fn check_structure_placement(&self,
+                                 template: &StructureTemplate,
+                                 pos: V3) -> bool {
+        check_structure_placement(self.world(), self.cache(), template, pos)
     }
 
 
@@ -160,14 +164,15 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
         self.script_mut().cb_structure_destroyed(sid);
     }
 
-    fn on_structure_move(&mut self, sid: StructureId, old_bounds: Region) {
+    fn on_structure_replace(&mut self, sid: StructureId, old_bounds: Region) {
         old_structure_hidden(self, sid, old_bounds);
         new_structure_hidden(self, sid);
     }
 
-    fn on_structure_replace(&mut self, sid: StructureId, old_bounds: Region) {
-        old_structure_hidden(self, sid, old_bounds);
-        new_structure_hidden(self, sid);
+    fn check_structure_placement(&self,
+                                 template: &StructureTemplate,
+                                 pos: V3) -> bool {
+        check_structure_placement(self.world(), self.cache(), template, pos)
     }
 
 
@@ -218,4 +223,36 @@ pub fn structure_area(w: &World, sid: StructureId) -> SmallSet<V2> {
     }
 
     area
+}
+
+fn check_structure_placement(world: &World,
+                             cache: &TerrainCache,
+                             template: &StructureTemplate,
+                             pos: V3) -> bool {
+    let data = world.data();
+    let bounds = Region::new(scalar(0), template.size) + pos;
+
+    for p in bounds.points() {
+        let cpos = p.reduce().div_floor(scalar(CHUNK_SIZE));
+
+        let tc = unwrap_or!(world.get_terrain_chunk(cpos), return false);
+        let shape = data.block_data.shape(tc.block(tc.bounds().index(p)));
+        match shape {
+            Shape::Empty => {},
+            Shape::Floor if p.z == pos.z => {},
+            _ => {
+                info!("placement failed due to terrain");
+                return false;
+            },
+        }
+
+        let entry = unwrap_or!(cache.get(cpos), return false);
+        let mask = entry.layer_mask[tc.bounds().index(p)];
+        if mask & (1 << template.layer as usize) != 0 {
+            info!("placement failed due to layering");
+            return false;
+        }
+    }
+
+    true
 }

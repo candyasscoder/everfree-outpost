@@ -1,5 +1,8 @@
 use types::*;
 
+use data::StructureTemplate;
+
+
 #[allow(unused_variables)]
 pub trait Hooks {
     fn on_client_create(&mut self, cid: ClientId) {}
@@ -19,8 +22,11 @@ pub trait Hooks {
 
     fn on_structure_create(&mut self, sid: StructureId) {}
     fn on_structure_destroy(&mut self, sid: StructureId, old_bounds: Region) {}
-    fn on_structure_move(&mut self, sid: StructureId, old_bounds: Region) {}
     fn on_structure_replace(&mut self, sid: StructureId, old_bounds: Region) {}
+
+    fn check_structure_placement(&self,
+                                 template: &StructureTemplate,
+                                 pos: V3) -> bool;
 
     fn on_inventory_create(&mut self, iid: InventoryId) {}
     fn on_inventory_destroy(&mut self, iid: InventoryId) {}

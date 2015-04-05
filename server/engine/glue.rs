@@ -141,6 +141,7 @@ impl_slice! {
     EngineRef::as_world_fragment -> WorldFragment;
     EngineRef::as_vision_fragment -> VisionFragment;
     WorldHooks::as_vision_fragment -> VisionFragment;
+    WorldHooks::as_hidden_world_fragment -> HiddenWorldFragment;
 }
 
 

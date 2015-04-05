@@ -14,6 +14,7 @@ pub struct TerrainCache {
 
 struct CacheEntry {
     pub shape: [Shape; 1 << (3 * CHUNK_BITS)],
+    pub layer_mask: [u8; 1 << (3 * CHUNK_BITS)],
 }
 
 impl TerrainCache {
@@ -58,6 +59,7 @@ impl CacheEntry {
     pub fn new() -> CacheEntry {
         CacheEntry {
             shape: [Shape::Empty; 1 << (3 * CHUNK_BITS)],
+            layer_mask: [0; 1 << (3 * CHUNK_BITS)],
         }
     }
 }
@@ -88,6 +90,7 @@ fn compute_shape(w: &World,
             if shape_overrides(entry.shape[c_idx], template.shape[s_idx]) {
                 entry.shape[c_idx] = template.shape[s_idx];
             }
+            entry.layer_mask[c_idx] |= 1 << (template.layer as usize);
         }
     }
 

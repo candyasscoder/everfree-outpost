@@ -270,7 +270,7 @@ pub fn structure_create<'d, F>(f: &mut F,
     let t = unwrap!(f.world().data.structure_templates.get_template(tid));
     let bounds = Region::new(pos, pos + t.size);
 
-    if !structure_check_placement(f.world(), bounds) {
+    if !f.with_hooks(|h| h.check_structure_placement(t, pos)) {
         fail!("structure placement blocked by terrain or other structure");
     }
 
@@ -426,35 +426,6 @@ pub fn structure_replace<'d, F>(f: &mut F,
     invalidate_region(f, bounds);
     f.with_hooks(|h| h.on_structure_replace(sid, bounds));
     Ok(())
-}
-
-fn structure_check_placement(w: &World,
-                             bounds: Region) -> bool {
-    let chunk_bounds = bounds.reduce().div_round_signed(CHUNK_SIZE);
-    for chunk_pos in chunk_bounds.points() {
-        if let Some(sids) = w.structures_by_chunk.get(&chunk_pos) {
-            for &sid in sids.iter() {
-                let other_bounds = w.structure(sid).bounds();
-                if other_bounds.overlaps(bounds) {
-                    return false;
-                }
-            }
-        }
-
-        if let Some(chunk) = w.get_terrain_chunk(chunk_pos) {
-            for point in bounds.intersect(chunk.bounds()).points() {
-                match chunk.shape_at(point) {
-                    Shape::Empty => {},
-                    Shape::Floor if point.z == bounds.min.z => {},
-                    _ => return false,
-                }
-            }
-        } else {
-            // Don't allow placing a structure into an unloaded chunk.
-            return false;
-        }
-    }
-    true
 }
 
 fn structure_add_to_lookup(lookup: &mut HashMap<V2, HashSet<StructureId>>,
