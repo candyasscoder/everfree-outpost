@@ -14,7 +14,6 @@ use world::object::*;
 pub struct Chunks<'d> {
     storage: &'d Storage,
 
-    cache: TerrainCache,
     lifecycle: Lifecycle,
 }
 
@@ -22,13 +21,8 @@ impl<'d> Chunks<'d> {
     pub fn new(storage: &'d Storage) -> Chunks<'d> {
         Chunks {
             storage: storage,
-            cache: TerrainCache::new(),
             lifecycle: Lifecycle::new(),
         }
-    }
-
-    pub fn get_terrain(&self, cpos: V2) -> Option<&BlockChunk> {
-        self.cache.get(cpos)
     }
 }
 
@@ -62,9 +56,6 @@ pub trait Fragment<'d> {
         let first = self.with_provider(|sys, provider| {
             sys.lifecycle.retain(cpos, |cpos| warn_on_err!(provider.load(cpos)))
         });
-        self.with_world(|sys, world| {
-            warn_on_err!(sys.cache.update(world, cpos));
-        });
         self.with_hooks(|hooks| hooks.post_load(cpos));
         first
     }
@@ -75,27 +66,12 @@ pub trait Fragment<'d> {
         let last = self.with_provider(|sys, provider| {
             sys.lifecycle.release(cpos, |cpos| warn_on_err!(provider.unload(cpos)))
         });
-        if last {
-            self.with_world(|sys, _world| {
-                sys.cache.forget(cpos);
-            });
-        }
         last
     }
 }
 
-pub trait UpdateFragment<'d> {
-    fn with_world<F, R>(&mut self, f: F) -> R
-            where F: FnOnce(&mut Chunks<'d>, &World<'d>) -> R;
 
-    fn update(&mut self, cpos: V2) -> StrResult<()> {
-        self.with_world(|sys, world| {
-            sys.cache.update_if_present(world, cpos)
-        })
-    }
-}
-
-
+/*
 pub struct TerrainCache {
     cache: HashMap<V2, CacheEntry>,
 }
@@ -160,6 +136,7 @@ impl CacheEntry {
         }
     }
 }
+*/
 
 
 struct Lifecycle {

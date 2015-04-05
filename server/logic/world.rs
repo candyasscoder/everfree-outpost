@@ -42,11 +42,6 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
         vision::Fragment::remove_chunk(&mut self.as_vision_fragment(), cpos);
     }
 
-    fn on_chunk_invalidate(&mut self, cpos: V2) {
-        chunks::UpdateFragment::update(&mut self.as_chunks_update_fragment(), cpos);
-        vision::Fragment::update_chunk(&mut self.as_vision_fragment(), cpos);
-    }
-
 
     fn on_entity_create(&mut self, eid: EntityId) {
         let area = entity_area(self.world(), eid);

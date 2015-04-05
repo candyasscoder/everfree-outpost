@@ -26,7 +26,7 @@ impl<'d> Physics<'d> {
 
 struct ChunksSource<'a, 'd: 'a> {
     data: &'d Data,
-    chunks: &'a Chunks<'d>,
+    world: &'a World<'d>,
     base_tile: V3,
 }
 
@@ -37,10 +37,10 @@ impl<'a, 'd> ShapeSource for ChunksSource<'a, 'd> {
         let offset = pos & scalar(CHUNK_MASK);
         let cpos = (pos >> CHUNK_BITS).reduce();
 
-        if let Some(chunk) = self.chunks.get_terrain(cpos) {
+        if let Some(chunk) = self.world.get_terrain_chunk(cpos) {
             let idx = Region::new(scalar(0), scalar(CHUNK_SIZE)).index(offset);
-            debug!("{:?} -> {:?} + {:?} -> {}", pos, cpos, offset, chunk[idx]);
-            self.data.block_data.shape(chunk[idx])
+            debug!("{:?} -> {:?} + {:?} -> {}", pos, cpos, offset, chunk.blocks()[idx]);
+            self.data.block_data.shape(chunk.blocks()[idx])
         } else {
             return Shape::Empty;
         }
@@ -49,8 +49,8 @@ impl<'a, 'd> ShapeSource for ChunksSource<'a, 'd> {
 
 
 pub trait Fragment<'d> {
-    fn with_chunks<F, R>(&mut self, f: F) -> R
-        where F: FnOnce(&mut Physics<'d>, &Chunks<'d>, &World<'d>) -> R;
+    fn with_sys<F, R>(&mut self, f: F) -> R
+        where F: FnOnce(&mut Physics<'d>, &World<'d>) -> R;
 
     type WF: world::Fragment<'d>;
     fn with_world<F, R>(&mut self, f: F) -> R
@@ -69,7 +69,7 @@ pub trait Fragment<'d> {
     fn update(&mut self, now: Time, eid: EntityId) -> StrResult<()> {
         use world::Fragment;
 
-        let motion = try!(self.with_chunks(|_sys, chunks, world| -> StrResult<_> {
+        let motion = try!(self.with_sys(|_sys, world| -> StrResult<_> {
             let e = unwrap!(world.get_entity(eid));
 
             // Run the physics calculation
@@ -86,7 +86,7 @@ pub trait Fragment<'d> {
 
             let source = ChunksSource {
                 data: world.data(),
-                chunks: chunks,
+                world: world,
                 base_tile: base_tile,
             };
             let (mut end_pos, mut dur) =
