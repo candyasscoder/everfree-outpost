@@ -209,6 +209,9 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, mask_info) {
         this_._renderTerrain(fb, cx, cy);
     });
 
+    // `populate` may call `_renderTerrain`, which changes the OpenGL viewport.
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
     for (var cy = cy0; cy < cy1; ++cy) {
         for (var cx = cx0; cx < cx1; ++cx) {
             var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
@@ -310,6 +313,7 @@ RenderCache.prototype.invalidate = function(idx) {
     }
     this.map[idx] = -1;
 };
+
 
 
 /** @constructor */
