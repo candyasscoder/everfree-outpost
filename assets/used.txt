@@ -15,4 +15,9 @@ shaders/sprite_layered.frag
 shaders/cursor.vert
 shaders/cursor.frag
 
+shaders/terrain_block.vert
+shaders/terrain_block.frag
+shaders/blit.vert
+shaders/blit.frag
+
 misc/NeoSans.png

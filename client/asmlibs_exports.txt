@@ -6,3 +6,5 @@ generate_geometry
 collide
 set_region_shape
 refresh_shape_cache
+load_chunk2
+generate_geometry2

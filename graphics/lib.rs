@@ -16,6 +16,7 @@ use core::cell::Cell;
 use core::cmp;
 
 use physics::{TILE_BITS, CHUNK_BITS};
+use physics::v3::{V3, scalar, Region};
 
 
 #[cfg(asmjs)]
@@ -40,6 +41,18 @@ pub struct BlockDisplay {
     back: u16,
     top: u16,
     bottom: u16,
+}
+
+impl BlockDisplay {
+    pub fn tile(&self, side: usize) -> u16 {
+        match side {
+            0 => self.front,
+            1 => self.back,
+            2 => self.top,
+            3 => self.bottom,
+            _ => panic!("invalid side number"),
+        }
+    }
 }
 
 pub type BlockData = [BlockDisplay; (ATLAS_SIZE * ATLAS_SIZE) as usize];
@@ -486,4 +499,122 @@ fn quicksort<T, C>(xs: &mut [T], comp: C)
         xs.swap(store_index, pivot);
         store_index
     }
+}
+
+
+
+
+pub type BlockChunk2 = [u16; 1 << (3 * CHUNK_BITS)];
+pub type LocalChunks2 = [BlockChunk2; 1 << (2 * LOCAL_BITS)];
+
+const GEOM_BLOCK_COUNT: u16 = CHUNK_SIZE * (CHUNK_SIZE + 1) * CHUNK_SIZE;
+pub type GeometryBuffer2 = [VertexData; (4 * FACE_VERTS) * GEOM_BLOCK_COUNT as usize];
+
+pub fn load_chunk2(local: &mut LocalChunks2,
+                   chunk: &BlockChunk2,
+                   cx: u16,
+                   cy: u16) {
+    let cx = cx & (LOCAL_SIZE - 1);
+    let cy = cy & (LOCAL_SIZE - 1);
+    let idx = cy * LOCAL_SIZE + cx;
+
+    local[idx as usize] = *chunk;
+}
+
+pub fn generate_geometry2(local: &LocalChunks2,
+                          block_data: &BlockData,
+                          geom: &mut GeometryBuffer2,
+                          cx: u16,
+                          cy: u16) -> usize {
+
+    let cx = cx & (LOCAL_SIZE - 1);
+    let cy0 = cy & (LOCAL_SIZE - 1);
+    let cy1 = (cy + 1) & (LOCAL_SIZE - 1);
+
+    let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE as i32));
+
+    let mut out_idx = 0;
+
+    const SIDE_OFFSETS: [((u8, u8), (u8, u8)); 4] = [
+        // Front
+        ((1, 1), (0, 1)),
+        // Back
+        ((0, 1), (0, 1)),
+        // Top
+        ((0, 1), (1, 0)),
+        // Bottom
+        ((0, 0), (1, 0)),
+    ];
+
+    const CORNERS: [(u8, u8); 4] = [
+        (0, 0),
+        (1, 0),
+        (1, 1),
+        (0, 1),
+    ];
+
+    const INDEXES: [usize; 6] = [0, 1, 2,  0, 2, 3];
+
+    fn place(buf: &mut GeometryBuffer2,
+             base_idx: &mut usize,
+             tile_id: u16,
+             bx: i32,
+             by: i32,
+             bz: i32,
+             side: usize) {
+        let ((base_y, base_z), (step_y, step_z)) = SIDE_OFFSETS[side];
+
+        let tile_s = (tile_id % ATLAS_SIZE) as u8;
+        let tile_t = (tile_id / ATLAS_SIZE) as u8;
+
+        for &idx in INDEXES.iter() {
+            let (corner_u, corner_v) = CORNERS[idx];
+            let vert = VertexData {
+                x: bx as u8 + corner_u,
+                y: by as u8 + base_y + (step_y & corner_v),
+                z: bz as u8 + base_z - (step_z & corner_v),
+                _pad0: 0,
+                s: tile_s + corner_u,
+                t: tile_t + corner_v,
+                _pad1: 0,
+                _pad2: 0,
+            };
+            buf[*base_idx] = vert;
+            *base_idx += 1;
+        }
+    }
+
+    let chunk0 = &local[(cy0 * LOCAL_SIZE + cx) as usize];
+    for z in range(0, CHUNK_SIZE as i32) {
+        for y in range(z, CHUNK_SIZE as i32) {
+            for x in range(0, CHUNK_SIZE as i32) {
+                let block_id = chunk0[bounds.index(V3::new(x, y, z))] as usize;
+                for side in range(0, 4) {
+                    let tile_id = block_data[block_id].tile(side);
+                    if tile_id == 0 {
+                        continue;
+                    }
+                    place(geom, &mut out_idx, tile_id, x, y, z, side);
+                }
+            }
+        }
+    }
+
+    let chunk1 = &local[(cy1 * LOCAL_SIZE + cx) as usize];
+    for z in range(0, CHUNK_SIZE as i32) {
+        for y in range(0, z + 1) {  // NB: 0..z+1 instead of z..SIZE
+            for x in range(0, CHUNK_SIZE as i32) {
+                let block_id = chunk1[bounds.index(V3::new(x, y, z))] as usize;
+                for side in range(0, 4) {
+                    let tile_id = block_data[block_id].tile(side);
+                    if tile_id == 0 {
+                        continue;
+                    }
+                    place(geom, &mut out_idx, tile_id, x, y + 16, z, side);  // NB: +16
+                }
+            }
+        }
+    }
+
+    out_idx
 }

@@ -92,7 +92,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 8;
+    var EXPECT_SIZES = 11;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -112,6 +112,10 @@ var SIZEOF = (function() {
 
         ShapeChunk: view[7],
         ShapeLayers: view[8],
+
+        BlockChunk2: view[9],
+        LocalChunks2: view[10],
+        GeometryBuffer2: view[11],
     });
 })();
 
@@ -181,6 +185,7 @@ Asm.prototype.memcpy = function(dest_offset, data) {
 };
 
 
+// Physics
 
 var PHYSICS_HEAP_START = HEAP_START;
 var PHYSICS_HEAP_END = PHYSICS_HEAP_START + SIZEOF.ShapeLayers * LOCAL_SIZE * LOCAL_SIZE;
@@ -270,6 +275,8 @@ exports.getPhysicsHeapSize = function() {
 };
 
 
+// Graphics
+
 var RENDER_HEAP_START = HEAP_START;
 
 var BLOCKS_START = HEAP_START;
@@ -349,6 +356,115 @@ Asm.prototype.geomView = function() {
     return new Uint8Array(this.buffer, GEOM_START, SIZEOF.GeometryBuffer);
 };
 
+
+// Graphics2
+
+var GRAPHICS2_HEAP_START = HEAP_START;
+
+var BLOCK_DATA2_START = HEAP_START;
+var BLOCK_DATA2_END = BLOCK_DATA2_START + SIZEOF.BlockData;
+
+var LOCAL_CHUNKS2_START = BLOCK_DATA2_END;
+var LOCAL_CHUNKS2_END = LOCAL_CHUNKS2_START + SIZEOF.LocalChunks2;
+
+var CHUNK2_START = LOCAL_CHUNKS2_END;
+var CHUNK2_END = CHUNK2_START + SIZEOF.BlockChunk2;
+
+var GEOM2_START = CHUNK2_END;
+var GEOM2_END = GEOM2_START + SIZEOF.GeometryBuffer2;
+
+var GRAPHICS2_HEAP_END = GEOM2_END;
+
+Asm.prototype.blockDataView2 = function() {
+    return new Uint16Array(this.buffer, BLOCK_DATA2_START, SIZEOF.BlockData >> 1);
+};
+
+Asm.prototype.chunkView2 = function() {
+    return new Uint16Array(this.buffer, CHUNK2_START, SIZEOF.BlockChunk2 >> 1);
+};
+
+Asm.prototype.loadChunk2 = function(cx, cy) {
+    this._raw['load_chunk2'](LOCAL_CHUNKS2_START, CHUNK2_START, cx, cy);
+};
+
+Asm.prototype.generateGeometry2 = function(cx, cy) {
+    var len = this._raw['generate_geometry2'](
+            LOCAL_CHUNKS2_START, BLOCK_DATA2_START, GEOM2_START, cx, cy);
+    return new Uint8Array(this.buffer, GEOM2_START, SIZEOF.VertexData * len);
+};
+
+exports.getGraphics2HeapSize = function() {
+    return GRAPHICS2_HEAP_END - GRAPHICS2_HEAP_START;
+};
+
+Asm.prototype._localChunksView2 = function() {
+    return new Uint16Array(this.buffer, LOCAL_CHUNKS2_START, SIZEOF.LocalChunks2 >> 1);
+};
+
+Asm.prototype._geometryView2 = function() {
+    return new Uint16Array(this.buffer, GEOM2_START, SIZEOF.GeometryBuffer2 >> 1);
+};
+
+/*
+Asm.prototype.render = function(x, y, w, h, sprites, draw_terrain, draw_sprite) {
+    var draw_terrain_idx = this._callbackAlloc(draw_terrain);
+    var draw_sprite_idx = this._callbackAlloc(draw_sprite);
+
+    var view16 = this.spritesView();
+    var view8 = new Uint8Array(view16.buffer, view16.byteOffset, view16.byteLength);
+    for (var i = 0; i < sprites.length; ++i) {
+        var base8 = i * SIZEOF.Sprite;
+        var base16 = (base8 / 2)|0;
+        var sprite = sprites[i];
+        view16[base16 + 0] = i;
+        view16[base16 + 1] = sprite.ref_x;
+        view16[base16 + 2] = sprite.ref_y;
+        view16[base16 + 3] = sprite.ref_z;
+        view8[base8 + 8] = sprite.width;
+        view8[base8 + 9] = sprite.height;
+        view8[base8 + 10] = sprite.anchor_x;
+        view8[base8 + 11] = sprite.anchor_y;
+    }
+
+    this._raw['render'](XV_START, x, y, w, h, SPRITES_START, sprites.length,
+            draw_terrain_idx, draw_sprite_idx);
+
+    this._callbackFree(draw_sprite_idx);
+    this._callbackFree(draw_terrain_idx);
+};
+
+Asm.prototype.updateXvData = function(i, j) {
+    this._raw['update_xv_data'](XV_START, BLOCKS_START, CHUNK_START, i, j);
+};
+
+Asm.prototype.generateGeometry = function(i, j) {
+    var count = this._stackAlloc(Int32Array, 1);
+    this._raw['generate_geometry'](XV_START, GEOM_START, i, j, count.byteOffset);
+    var result = this.geomView().subarray(0, SIZEOF.VertexData * count[0]);
+    this._stackFree(count);
+    return result;
+};
+
+// This should be a static method, but that confuses Closure Compiler.
+exports.getGraphics2HeapSize = function() {
+    return RENDER_HEAP_END - RENDER_HEAP_START;
+};
+
+Asm.prototype.chunkDataView = function() {
+    return new Uint16Array(this.buffer, CHUNK_START, SIZEOF.ChunkData >> 1);
+};
+
+Asm.prototype.spritesView = function() {
+    return new Uint16Array(this.buffer, SPRITES_START, (SIZEOF.Sprite * 1024) >> 1);
+};
+
+Asm.prototype.geomView = function() {
+    return new Uint8Array(this.buffer, GEOM_START, SIZEOF.GeometryBuffer);
+};
+*/
+
+
+// Test
 
 Asm.prototype.test = function(pos, size, velocity) {
     var input = this._stackAlloc(Int32Array, 9);

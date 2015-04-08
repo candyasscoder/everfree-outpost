@@ -48,6 +48,11 @@ def main(src_dir, build_dir, out_file):
     add('text', 'cursor.frag',          src('assets/shaders/cursor.frag'))
     add('text', 'cursor.vert',          src('assets/shaders/cursor.vert'))
 
+    add('text', 'terrain_block.frag',   src('assets/shaders/terrain_block.frag'))
+    add('text', 'terrain_block.vert',   src('assets/shaders/terrain_block.vert'))
+    add('text', 'blit.frag',            src('assets/shaders/blit.frag'))
+    add('text', 'blit.vert',            src('assets/shaders/blit.vert'))
+
     for i in count(0):
         path = build('data/structures%d.png' % i)
         if os.path.isfile(path):

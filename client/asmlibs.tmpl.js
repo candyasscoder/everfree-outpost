@@ -148,6 +148,10 @@ var asmlibs_code_raw = function(global, env, buffer) {
         collide: _collide,
         set_region_shape: _set_region_shape,
         refresh_shape_cache: _refresh_shape_cache,
+
+        load_chunk2: _load_chunk2,
+        generate_geometry2: _generate_geometry2,
+
         test: _test,
     });
 };

@@ -709,7 +709,7 @@ function handleTerrainChunk(i, data) {
 
     runner.job('load-chunk-' + i, function() {
         physics.loadChunk((i / LOCAL_SIZE)|0, (i % LOCAL_SIZE)|0, chunk._tiles);
-        renderer.loadChunk(0, i, chunk);
+        renderer.loadChunk((i / LOCAL_SIZE)|0, (i % LOCAL_SIZE)|0, chunk);
     });
 
     chunkLoaded[i] = true;

@@ -18,6 +18,7 @@ use physics::v3::{V3, scalar, Region};
 use physics::{Shape, ShapeSource};
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK};
 use graphics::{BlockData, ChunkData, XvData, GeometryBuffer, VertexData, Sprite};
+use graphics::{BlockChunk2, LocalChunks2, GeometryBuffer2};
 
 mod std {
     pub use core::fmt;
@@ -206,6 +207,24 @@ pub extern fn generate_geometry(xv_data: &mut XvData,
 }
 
 
+#[export_name = "load_chunk2"]
+pub extern fn load_chunk2(local: &mut LocalChunks2,
+                          chunk: &BlockChunk2,
+                          cx: u16,
+                          cy: u16) {
+    graphics::load_chunk2(local, chunk, cx, cy);
+}
+
+#[export_name = "generate_geometry2"]
+pub extern fn generate_geometry2(local: &LocalChunks2,
+                                 block_data: &BlockData,
+                                 geom: &mut GeometryBuffer2,
+                                 cx: u16,
+                                 cy: u16) -> usize {
+    graphics::generate_geometry2(local, block_data, geom, cx, cy)
+}
+
+
 #[repr(C)]
 #[derive(Copy, Debug)]
 pub struct Sizes {
@@ -218,6 +237,10 @@ pub struct Sizes {
 
     shape_chunk: usize,
     shape_layers: usize,
+
+    block_chunk2: usize,
+    local_blocks2: usize,
+    geometry_buffer2: usize,
 }
 
 #[export_name = "get_sizes"]
@@ -233,6 +256,10 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
 
     sizes.shape_chunk = size_of::<ShapeChunk>();
     sizes.shape_layers = size_of::<ShapeLayers>();
+
+    sizes.block_chunk2 = size_of::<BlockChunk2>();
+    sizes.local_blocks2 = size_of::<LocalChunks2>();
+    sizes.geometry_buffer2 = size_of::<GeometryBuffer2>();
 
     *num_sizes = size_of::<Sizes>() / size_of::<usize>();
 }
