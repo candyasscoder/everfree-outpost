@@ -13,12 +13,11 @@ extern crate graphics;
 use core::prelude::*;
 use core::mem;
 use core::raw;
-use asmrt::run_callback;
 use physics::v3::{V3, scalar, Region};
 use physics::{Shape, ShapeSource};
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK};
-use graphics::{BlockData, ChunkData, XvData, GeometryBuffer, VertexData, Sprite};
-use graphics::{BlockChunk2, LocalChunks2, GeometryBuffer2};
+use graphics::{BlockData, BlockChunk, LocalChunks};
+use graphics::{TerrainVertex, TerrainGeometryBuffer};
 
 mod std {
     pub use core::fmt;
@@ -40,6 +39,8 @@ static REPEAT_SIZE_BITS: bool = REPEAT_SIZE == 1 << REPEAT_BITS as usize;
 
 pub const NUM_LAYERS: usize = 2;
 
+
+// Physics
 
 pub type ShapeChunk = [Shape; 1 << (3 * CHUNK_BITS)];
 
@@ -163,116 +164,60 @@ pub extern fn refresh_shape_cache(layers: &mut [ShapeLayers; 1 << (2 * LOCAL_BIT
 }
 
 
-#[export_name = "render"]
-pub extern fn render(xv_data: &XvData,
-                     x: u16, y: u16, w: u16, h: u16,
-                     sprites_ptr: *mut Sprite, sprites_len: i32,
-                     draw_terrain_idx: i32,
-                     draw_sprite_idx: i32) {
-    let draw_terrain = |cx: u16, cy: u16, begin: u16, end: u16| {
-        let args = [cx as i32, cy as i32, begin as i32, end as i32];
-        run_callback(draw_terrain_idx, args.as_slice());
-    };
+// Graphics
 
-    let draw_sprite = |id: u16, x: u16, y: u16, w: u16, h: u16| {
-        let args = [id as i32, x as i32, y as i32, w as i32, h as i32];
-        run_callback(draw_sprite_idx, args.as_slice());
-    };
-
-    let sprites = unsafe {
-        mem::transmute(raw::Slice {
-            data: sprites_ptr as *const Sprite,
-            len: sprites_len as usize,
-        })
-    };
-
-    graphics::render(xv_data, x, y, w, h, sprites, draw_terrain, draw_sprite);
-}
-
-#[export_name = "update_xv_data"]
-pub extern fn update_xv_data(xv_data: &mut XvData,
-                             block_data: &BlockData,
-                             chunk_data: &ChunkData,
-                             i: u8,
-                             j: u8) {
-    graphics::update_xv(xv_data, block_data, chunk_data, i, j);
+#[export_name = "load_chunk"]
+pub extern fn load_chunk(local: &mut LocalChunks,
+                         chunk: &BlockChunk,
+                         cx: u16,
+                         cy: u16) {
+    graphics::load_chunk(local, chunk, cx, cy);
 }
 
 #[export_name = "generate_geometry"]
-pub extern fn generate_geometry(xv_data: &mut XvData,
-                                geom: &mut GeometryBuffer,
-                                i: u8, j: u8,
-                                vertex_count: &mut i32) {
-    *vertex_count = graphics::generate_geometry(xv_data, geom, i, j) as i32;
+pub extern fn generate_geometry(local: &LocalChunks,
+                                block_data: &BlockData,
+                                geom: &mut TerrainGeometryBuffer,
+                                cx: u16,
+                                cy: u16) -> usize {
+    graphics::generate_geometry(local, block_data, geom, cx, cy)
 }
 
 
-#[export_name = "load_chunk2"]
-pub extern fn load_chunk2(local: &mut LocalChunks2,
-                          chunk: &BlockChunk2,
-                          cx: u16,
-                          cy: u16) {
-    graphics::load_chunk2(local, chunk, cx, cy);
-}
-
-#[export_name = "generate_geometry2"]
-pub extern fn generate_geometry2(local: &LocalChunks2,
-                                 block_data: &BlockData,
-                                 geom: &mut GeometryBuffer2,
-                                 cx: u16,
-                                 cy: u16) -> usize {
-    graphics::generate_geometry2(local, block_data, geom, cx, cy)
-}
-
+// SIZEOF
 
 #[repr(C)]
 #[derive(Copy, Debug)]
 pub struct Sizes {
-    xv_data: usize,
-    sprite: usize,
-    block_data: usize,
-    chunk_data: usize,
-    geometry_buffer: usize,
-    vertex_data: usize,
-
     shape_chunk: usize,
     shape_layers: usize,
 
-    block_chunk2: usize,
-    local_blocks2: usize,
-    geometry_buffer2: usize,
+    block_data: usize,
+    block_chunk: usize,
+    local_chunks: usize,
+
+    terrain_vertex: usize,
+    terrain_geometry_buffer: usize,
 }
 
 #[export_name = "get_sizes"]
 pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
     use core::mem::size_of;
 
-    sizes.xv_data = size_of::<XvData>();
-    sizes.sprite = size_of::<Sprite>();
-    sizes.block_data = size_of::<BlockData>();
-    sizes.chunk_data = size_of::<ChunkData>();
-    sizes.geometry_buffer = size_of::<GeometryBuffer>();
-    sizes.vertex_data = size_of::<VertexData>();
-
     sizes.shape_chunk = size_of::<ShapeChunk>();
     sizes.shape_layers = size_of::<ShapeLayers>();
 
-    sizes.block_chunk2 = size_of::<BlockChunk2>();
-    sizes.local_blocks2 = size_of::<LocalChunks2>();
-    sizes.geometry_buffer2 = size_of::<GeometryBuffer2>();
+    sizes.block_data = size_of::<BlockData>();
+    sizes.block_chunk = size_of::<BlockChunk>();
+    sizes.local_chunks = size_of::<LocalChunks>();
+
+    sizes.terrain_vertex = size_of::<TerrainVertex>();
+    sizes.terrain_geometry_buffer = size_of::<TerrainGeometryBuffer>();
 
     *num_sizes = size_of::<Sizes>() / size_of::<usize>();
 }
 
 
 #[export_name = "test"]
-pub extern fn test_wrapper(input: &CollideArgs, output: &mut CollideResult) {
-    use core::mem;
-    let _ = input;
-    let _ = output;
-    graphics::update_xv(
-        unsafe { mem::transmute(input.pos.x) },
-        unsafe { mem::transmute(input.pos.y) },
-        unsafe { mem::transmute(input.pos.z) },
-        input.size.x as u8, input.size.y as u8);
+pub extern fn test_wrapper() {
 }

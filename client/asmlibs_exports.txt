@@ -1,10 +1,7 @@
 get_sizes
 test
-render
-update_xv_data
-generate_geometry
 collide
 set_region_shape
 refresh_shape_cache
-load_chunk2
-generate_geometry2
+load_chunk
+generate_geometry

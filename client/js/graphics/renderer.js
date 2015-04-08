@@ -1,6 +1,6 @@
 var Asm = require('asmlibs').Asm;
 var getRendererHeapSize = require('asmlibs').getRendererHeapSize;
-var getGraphics2HeapSize = require('asmlibs').getGraphics2HeapSize;
+var getGraphicsHeapSize = require('asmlibs').getGraphicsHeapSize;
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
 var TileDef = require('data/chunk').TileDef;
 var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
@@ -25,7 +25,7 @@ var Vec = require('util/vec').Vec;
 /** @constructor */
 function Renderer(gl) {
     this.gl = gl;
-    this._asm2 = new Asm(getGraphics2HeapSize());
+    this._asm = new Asm(getGraphicsHeapSize());
 
     this.texture_cache = new WeakMap();
     this.terrain_cache = new RenderCache(gl);
@@ -133,27 +133,27 @@ Renderer.prototype.refreshTexture = function(image) {
 // Data loading
 
 Renderer.prototype.loadBlockData = function(blocks) {
-    var view2 = this._asm2.blockDataView2();
+    var view = this._asm.blockDataView();
     for (var i = 0; i < blocks.length; ++i) {
         var block = blocks[i];
         var base = i * 4;
-        view2[base + 0] = block.front;
-        view2[base + 1] = block.back;
-        view2[base + 2] = block.top;
-        view2[base + 3] = block.bottom;
+        view[base + 0] = block.front;
+        view[base + 1] = block.back;
+        view[base + 2] = block.top;
+        view[base + 3] = block.bottom;
     }
 };
 
 Renderer.prototype.loadChunk = function(i, j, chunk) {
-    this._asm2.chunkView2().set(chunk._tiles);
-    this._asm2.loadChunk2(j, i);
+    this._asm.chunkView().set(chunk._tiles);
+    this._asm.loadChunk(j, i);
 
     this.terrain_cache.invalidate(i * LOCAL_SIZE + j);
     this.terrain_cache.invalidate((i - 1) * LOCAL_SIZE + j);
 };
 
 Renderer.prototype._renderTerrain = function(fb, cx, cy) {
-    var geom = this._asm2.generateGeometry2(cx, cy);
+    var geom = this._asm.generateGeometry(cx, cy);
 
     var gl = this.gl;
     fb.bind();
