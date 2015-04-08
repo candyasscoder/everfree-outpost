@@ -92,7 +92,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 7;
+    var EXPECT_SIZES = 12;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -112,6 +112,12 @@ var SIZEOF = (function() {
 
         TerrainVertex: view[6],
         TerrainGeometryBuffer: view[7],
+
+        StructureTemplate: view[8],
+        StructureTemplateData: view[9],
+        StructureBuffer: view[10],
+        StructureVertex: view[11],
+        StructureGeometryBuffer: view[12],
     });
 })();
 
@@ -291,7 +297,21 @@ var CHUNK_END = CHUNK_START + SIZEOF.BlockChunk;
 var GEOM_START = CHUNK_END;
 var GEOM_END = GEOM_START + SIZEOF.TerrainGeometryBuffer;
 
-var GRAPHICS_HEAP_END = GEOM_END;
+var TEMPLATE_DATA_START = GEOM_END;
+var TEMPLATE_DATA_END = TEMPLATE_DATA_START + SIZEOF.StructureTemplateData;
+
+var STRUCTURES_START = TEMPLATE_DATA_END;
+var STRUCTURES_END = STRUCTURES_START + SIZEOF.StructureBuffer;
+
+var STRUCTURE_GEOM_START = STRUCTURES_END;
+var STRUCTURE_GEOM_END = STRUCTURE_GEOM_START + SIZEOF.StructureGeometryBuffer;
+
+var GRAPHICS_HEAP_END = STRUCTURE_GEOM_END;
+
+exports.getGraphicsHeapSize = function() {
+    return GRAPHICS_HEAP_END - GRAPHICS_HEAP_START;
+};
+
 
 Asm.prototype.blockDataView = function() {
     return new Uint16Array(this.buffer, BLOCK_DATA_START, SIZEOF.BlockData >> 1);
@@ -311,16 +331,55 @@ Asm.prototype.generateGeometry = function(cx, cy) {
     return new Uint8Array(this.buffer, GEOM_START, SIZEOF.TerrainVertex * len);
 };
 
-exports.getGraphicsHeapSize = function() {
-    return GRAPHICS_HEAP_END - GRAPHICS_HEAP_START;
-};
-
 Asm.prototype._localChunksView = function() {
     return new Uint16Array(this.buffer, LOCAL_CHUNKS_START, SIZEOF.LocalChunks >> 1);
 };
 
 Asm.prototype._geometryView = function() {
     return new Uint16Array(this.buffer, GEOM_START, SIZEOF.TerrainGeometryBuffer >> 1);
+};
+
+
+Asm.prototype.templateDataView8 = function() {
+    return new Uint8Array(this.buffer, TEMPLATE_DATA_START, SIZEOF.StructureTemplateData);
+};
+
+Asm.prototype.templateDataView16 = function() {
+    return new Uint16Array(this.buffer, TEMPLATE_DATA_START, SIZEOF.StructureTemplateData >> 1);
+};
+
+Asm.prototype.initStructureBuffer = function() {
+    this._raw['init_structure_buffer'](STRUCTURES_START, TEMPLATE_DATA_START);
+};
+
+Asm.prototype.addStructure = function(x, y, z, template_id) {
+    return this._raw['add_structure'](STRUCTURES_START, x, y, z, template_id);
+};
+
+Asm.prototype.removeStructure = function(idx) {
+    this._raw['remove_structure'](STRUCTURES_START, idx);
+};
+
+Asm.prototype.resetStructureGeometry = function() {
+    this._raw['reset_structure_geometry'](STRUCTURES_START);
+};
+
+Asm.prototype.generateStructureGeometry = function(cx, cy) {
+    var output = this._stackAlloc(Int32Array, 2);
+    this._raw['generate_structure_geometry'](
+            STRUCTURES_START, STRUCTURE_GEOM_START, cx, cy, output.byteOffset);
+
+    var output8 = new Uint8Array(output.buffer, output.byteOffset, output.byteLength);
+    var vertex_count = output[0];
+    var result = {
+        geometry: new Int16Array(this.buffer, STRUCTURE_GEOM_START,
+                          (SIZEOF.StructureVertex * vertex_count) >> 1),
+        sheet: output8[4],
+        more: output8[5],
+    };
+
+    this._stackFree(output);
+    return result;
 };
 
 

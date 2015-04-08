@@ -71,6 +71,8 @@ PackReader.prototype._finishReadIndexLength = function() {
     var data = new DataView(this.fr.result);
     this.index_bytes = data.getUint32(0, true);
     this._startReadIndex();
+
+    console.log('index length: 0x', this.index_bytes.toString(16));
 };
 
 PackReader.prototype._startReadIndex = function() {

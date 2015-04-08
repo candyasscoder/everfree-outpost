@@ -5,3 +5,8 @@ set_region_shape
 refresh_shape_cache
 load_chunk
 generate_geometry
+init_structure_buffer
+add_structure
+remove_structure
+reset_structure_geometry
+generate_structure_geometry

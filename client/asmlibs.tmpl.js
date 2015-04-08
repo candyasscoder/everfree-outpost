@@ -150,6 +150,12 @@ var asmlibs_code_raw = function(global, env, buffer) {
         load_chunk: _load_chunk,
         generate_geometry: _generate_geometry,
 
+        init_structure_buffer: _init_structure_buffer,
+        add_structure: _add_structure,
+        remove_structure: _remove_structure,
+        reset_structure_geometry: _reset_structure_geometry,
+        generate_structure_geometry: _generate_structure_geometry,
+
         test: _test,
     });
 };

@@ -15,9 +15,11 @@ use core::mem;
 use core::raw;
 use physics::v3::{V3, scalar, Region};
 use physics::{Shape, ShapeSource};
-use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK};
+use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE};
 use graphics::{BlockData, BlockChunk, LocalChunks};
 use graphics::{TerrainVertex, TerrainGeometryBuffer};
+use graphics::{StructureTemplate, StructureTemplateData, StructureBuffer,
+               StructureVertex, StructureGeometryBuffer};
 
 mod std {
     pub use core::fmt;
@@ -183,6 +185,54 @@ pub extern fn generate_geometry(local: &LocalChunks,
     graphics::generate_geometry(local, block_data, geom, cx, cy)
 }
 
+#[export_name = "init_structure_buffer"]
+pub extern fn init_structure_buffer(structures: &mut StructureBuffer<'static>,
+                                    templates: &'static StructureTemplateData) {
+    structures.init(templates);
+}
+
+#[export_name = "add_structure"]
+pub extern fn add_structure(structures: &mut StructureBuffer,
+                            px_x: i32,
+                            px_y: i32,
+                            px_z: i32,
+                            template_id: u32) -> usize {
+    let x = px_x / TILE_SIZE % (LOCAL_SIZE * CHUNK_SIZE);
+    let y = px_y / TILE_SIZE % (LOCAL_SIZE * CHUNK_SIZE);
+    let z = px_z / TILE_SIZE;
+    structures.add_structure((x as u8, y as u8, z as u8), template_id)
+}
+
+#[export_name = "remove_structure"]
+pub extern fn remove_structure(structures: &mut StructureBuffer,
+                               idx: usize) {
+    structures.remove_structure(idx);
+}
+
+#[export_name = "reset_structure_geometry"]
+pub extern fn reset_structure_geometry(structures: &mut StructureBuffer) {
+    structures.start_geometry_gen();
+}
+
+
+pub struct StructureGeometryResult {
+    vertex_count: usize,
+    sheet: u8,
+    more: u8,
+}
+
+#[export_name = "generate_structure_geometry"]
+pub extern fn generate_structure_geometry(structures: &mut StructureBuffer,
+                                          geom: &mut StructureGeometryBuffer,
+                                          cx: u8,
+                                          cy: u8,
+                                          output: &mut StructureGeometryResult) {
+    let (vertex_count, sheet, more) = structures.continue_geometry_gen(geom, cx, cy);
+    output.vertex_count = vertex_count;
+    output.sheet = sheet;
+    output.more = more as u8;
+}
+
 
 // SIZEOF
 
@@ -198,6 +248,12 @@ pub struct Sizes {
 
     terrain_vertex: usize,
     terrain_geometry_buffer: usize,
+
+    structure_template: usize,
+    structure_template_data: usize,
+    structure_buffer: usize,
+    structure_vertex: usize,
+    structure_geometry_buffer: usize,
 }
 
 #[export_name = "get_sizes"]
@@ -213,6 +269,12 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
 
     sizes.terrain_vertex = size_of::<TerrainVertex>();
     sizes.terrain_geometry_buffer = size_of::<TerrainGeometryBuffer>();
+
+    sizes.structure_template = size_of::<StructureTemplate>();
+    sizes.structure_template_data = size_of::<StructureTemplateData>();
+    sizes.structure_buffer = size_of::<StructureBuffer>();
+    sizes.structure_vertex = size_of::<StructureVertex>();
+    sizes.structure_geometry_buffer = size_of::<StructureGeometryBuffer>();
 
     *num_sizes = size_of::<Sizes>() / size_of::<usize>();
 }

@@ -275,7 +275,8 @@ document.addEventListener('DOMContentLoaded', init);
 
 function loadAssets(next) {
     loader.loadJson('server.json', function(server_info) {
-        loader.loadPack('outpost.pack', function(loaded, total) {
+        // TODO: remove this hack since it prevents all caching
+        loader.loadPack('outpost.pack?' + Date.now(), function(loaded, total) {
             banner.update('Loading... (' + (loaded >> 10)+ 'k / ' + (total >> 10) + 'k)', loaded / total);
         }, function(assets_) {
             assets = assets_;
@@ -301,6 +302,7 @@ function loadAssets(next) {
             for (var i = 0; i < templates.length; ++i) {
                 TemplateDef.register(i, templates[i], assets);
             }
+            renderer.loadTemplateData(TemplateDef.by_id);
 
             var css = '.item-icon {' +
                 'background-image: url("' + assets['items'] + '");' +
@@ -825,11 +827,13 @@ function handleEntityGone(id, time) {
 }
 
 function handleStructureAppear(id, template_id, x, y, z) {
+    var idx = renderer.addStructure(x, y, z, template_id);
+
     var template = TemplateDef.by_id[template_id];
     var px_pos = new Vec(x, y, z);
     var pos = px_pos.divScalar(TILE_SIZE);
 
-    structures[id] = new Structure(pos, px_pos, template);;
+    structures[id] = new Structure(pos, px_pos, template);
     physics.addStructure(structures[id]);
 }
 

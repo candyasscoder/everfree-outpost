@@ -26,6 +26,7 @@ var Vec = require('util/vec').Vec;
 function Renderer(gl) {
     this.gl = gl;
     this._asm = new Asm(getGraphicsHeapSize());
+    this._asm.initStructureBuffer();
 
     this.texture_cache = new WeakMap();
     this.terrain_cache = new RenderCache(gl);
@@ -45,8 +46,12 @@ Renderer.prototype.initGl = function(assets) {
     var atlas = assets['tiles'];
     var atlas_tex = this.cacheTexture(atlas);
 
+    var sheet = assets['structures0'];
+    var sheet_tex = this.cacheTexture(sheet);
+
     this.blit = build_blit(gl, assets);
     this.terrain_block = build_terrain_block(gl, assets, atlas_tex);
+    this.structure = build_structure(gl, assets, sheet_tex);
 };
 
 function build_terrain_block(gl, assets, atlas_tex) {
@@ -105,6 +110,27 @@ function build_blit(gl, assets) {
     return new GlObject(gl, program, uniforms, attributes, textures);
 }
 
+function build_structure(gl, assets, sheet_tex) {
+    var vert = assets['structure.vert'];
+    var frag = assets['structure.frag'];
+    var program = new Program(gl, vert, frag);
+
+    var uniforms = {
+        'sheetSize': uniform('vec2', [sheet_tex.width, sheet_tex.height]),
+    };
+
+    var attributes = {
+        'position': attribute(null, 3, gl.SHORT, false, 16, 0),
+        'texCoord': attribute(null, 2, gl.UNSIGNED_SHORT, false, 16, 8),
+    };
+
+    var textures = {
+        'sheetTex': sheet_tex,
+    };
+
+    return new GlObject(gl, program, uniforms, attributes, textures);
+}
+
 
 // Texture object management
 
@@ -152,6 +178,36 @@ Renderer.prototype.loadChunk = function(i, j, chunk) {
     this.terrain_cache.invalidate((i - 1) * LOCAL_SIZE + j);
 };
 
+Renderer.prototype.loadTemplateData = function(templates) {
+    var view8 = this._asm.templateDataView8();
+    var view16 = this._asm.templateDataView16();
+    for (var i = 0; i < templates.length; ++i) {
+        var template = templates[i];
+        var out8 = view8.subarray(i * 12, (i + 1) * 12);
+        var out16 = view16.subarray(i * 6, (i + 1) * 6);
+
+        out8[0] = template.size.x;
+        out8[1] = template.size.y;
+        out8[2] = template.size.z;
+        out8[3] = template.sheet;
+        out16[2] = template.display_size[0];
+        out16[3] = template.display_size[1];
+        out16[4] = template.display_offset[0];
+        out16[5] = template.display_offset[1];
+    }
+};
+
+Renderer.prototype.addStructure = function(x, y, z, template_id) {
+    return this._asm.addStructure(x, y, z, template_id);
+};
+
+Renderer.prototype.removeStructure = function(idx) {
+    this._asm.removeStructure(idx);
+};
+
+
+// Render
+
 Renderer.prototype._renderTerrain = function(fb, cx, cy) {
     var geom = this._asm.generateGeometry(cx, cy);
 
@@ -176,8 +232,36 @@ Renderer.prototype._renderTerrain = function(fb, cx, cy) {
     gl.disable(gl.DEPTH_TEST);
 };
 
+Renderer.prototype._renderStructures = function(fb, cx, cy) {
+    var gl = this.gl;
+    fb.bind();
+    gl.viewport(0, 0, fb.width, fb.height);
+    gl.clearDepth(0.0);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.GEQUAL);
 
-// Render
+    this._asm.resetStructureGeometry();
+    var more = true;
+    while (more) {
+        var result = this._asm.generateStructureGeometry(cx, cy);
+        var geom = result.geometry;
+        more = result.more;
+        // TODO: use result.sheet
+
+        var buffer = new Buffer(gl);
+        buffer.loadData(geom);
+
+        this.structure.draw(0, geom.length / 8, {}, {
+            'position': buffer,
+            'texCoord': buffer,
+        }, {});
+    }
+
+    fb.unbind();
+    gl.disable(gl.DEPTH_TEST);
+};
 
 Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, mask_info) {
     var gl = this.gl;
@@ -203,10 +287,11 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, mask_info) {
     }
 
     var this_ = this;
-    this.terrain_cache.populate(chunk_idxs, function(idx, fb) {
+    this.terrain_cache.populate(chunk_idxs, function(idx, fbs) {
         var cx = (idx % LOCAL_SIZE)|0;
         var cy = (idx / LOCAL_SIZE)|0;
-        this_._renderTerrain(fb, cx, cy);
+        this_._renderTerrain(fbs.terrain, cx, cy);
+        this_._renderStructures(fbs.structures, cx, cy);
     });
 
     // `populate` may call `_renderTerrain`, which changes the OpenGL viewport.
@@ -220,7 +305,14 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, mask_info) {
                 'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
                             cy * CHUNK_SIZE * TILE_SIZE],
             }, {}, {
-                'tex': this.terrain_cache.get(idx).texture,
+                'tex': this.terrain_cache.get(idx).terrain.texture,
+            });
+
+            this.blit.draw(0, 6, {
+                'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
+                            cy * CHUNK_SIZE * TILE_SIZE],
+            }, {}, {
+                'tex': this.terrain_cache.get(idx).structures.texture,
             });
         }
     }
@@ -246,7 +338,10 @@ function RenderCache(gl) {
 
 RenderCache.prototype._addSlot = function() {
     var chunk_px = CHUNK_SIZE * TILE_SIZE;
-    this.slots.push(new Framebuffer(this.gl, chunk_px, chunk_px));
+    this.slots.push({
+        terrain: new Framebuffer(this.gl, chunk_px, chunk_px),
+        structures: new Framebuffer(this.gl, chunk_px, chunk_px),
+    });
     this.users.push(-1);
 };
 
@@ -258,14 +353,11 @@ RenderCache.prototype.populate = function(idxs, callback) {
         new_users[i] = -1;
     }
 
-    var log = '';
-
     for (var i = 0; i < idxs.length; ++i) {
         var idx = idxs[i];
         var slot = this.map[idx];
         if (slot != -1 && this.users[slot] == idx) {
             new_users[slot] = idx;
-            log += 'reuse ' + idx + '=' + slot + ', ';
         }
     }
 
@@ -285,16 +377,12 @@ RenderCache.prototype.populate = function(idxs, callback) {
                 this._addSlot();
             }
 
-            log += 'populate ' + idx + '=' + free + ', ';
-
             // Populate the slot and assign it to `idx`.
             callback(idx, this.slots[free]);
             this.map[idx] = free;
             this.users[free] = idx;
         }
     }
-
-    console.log(log);
 };
 
 RenderCache.prototype.get = function(idx) {

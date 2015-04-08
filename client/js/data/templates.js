@@ -27,6 +27,9 @@ function TemplateDef_(id, info, assets) {
     this.size = new Vec(size[0], size[1], size[2]);
     this.shape = info['shape'];
     this.layer = info['layer'];
+    this.sheet = info['sheet'];
+    this.display_size = display_size;
+    this.display_offset = offset;
 }
 
 // Closure compiler doesn't like having static items on functions.
