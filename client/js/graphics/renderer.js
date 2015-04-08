@@ -28,6 +28,7 @@ function Renderer(gl) {
     this._asm2 = new Asm(getGraphics2HeapSize());
 
     this.texture_cache = new WeakMap();
+    this.terrain_cache = new RenderCache(gl);
 }
 exports.Renderer = Renderer;
 
@@ -46,12 +47,6 @@ Renderer.prototype.initGl = function(assets) {
 
     this.blit = build_blit(gl, assets);
     this.terrain_block = build_terrain_block(gl, assets, atlas_tex);
-
-    var chunk_px = CHUNK_SIZE * TILE_SIZE;
-    this.chunk_fbs = new Array(LOCAL_SIZE * LOCAL_SIZE);
-    for (var i = 0; i < LOCAL_SIZE * LOCAL_SIZE; ++i) {
-        this.chunk_fbs[i] = new Framebuffer(gl, chunk_px, chunk_px);
-    }
 };
 
 function build_terrain_block(gl, assets, atlas_tex) {
@@ -150,24 +145,17 @@ Renderer.prototype.loadBlockData = function(blocks) {
 };
 
 Renderer.prototype.loadChunk = function(i, j, chunk) {
-    var idx = i * LOCAL_SIZE + j;
-
     this._asm2.chunkView2().set(chunk._tiles);
     this._asm2.loadChunk2(j, i);
 
-    this._refreshTerrain(i, j);
-    this._refreshTerrain(i - 1, j);
+    this.terrain_cache.invalidate(i * LOCAL_SIZE + j);
+    this.terrain_cache.invalidate((i - 1) * LOCAL_SIZE + j);
 };
 
-Renderer.prototype._refreshTerrain = function(i, j) {
-    i = i & (LOCAL_SIZE - 1);
-    j = j & (LOCAL_SIZE - 1);
-    var idx = i * LOCAL_SIZE + j;
-
-    var geom = this._asm2.generateGeometry2(j, i);
+Renderer.prototype._renderTerrain = function(fb, cx, cy) {
+    var geom = this._asm2.generateGeometry2(cx, cy);
 
     var gl = this.gl;
-    var fb = this.chunk_fbs[idx];
     fb.bind();
     gl.viewport(0, 0, fb.width, fb.height);
     gl.clearDepth(0.0);
@@ -203,19 +191,125 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, mask_info) {
     var cy0 = ((sy|0) / chunk_px)|0;
     var cy1 = (((sy|0) + (sh|0) + chunk_px) / chunk_px)|0;
 
+    var chunk_idxs = new Array((cx1 - cx0) * (cy1 - cy0));
+
+    var i = 0;
     for (var cy = cy0; cy < cy1; ++cy) {
         for (var cx = cx0; cx < cx1; ++cx) {
             var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
+            chunk_idxs[i] = idx;
+            ++i;
+        }
+    }
+
+    var this_ = this;
+    this.terrain_cache.populate(chunk_idxs, function(idx, fb) {
+        var cx = (idx % LOCAL_SIZE)|0;
+        var cy = (idx / LOCAL_SIZE)|0;
+        this_._renderTerrain(fb, cx, cy);
+    });
+
+    for (var cy = cy0; cy < cy1; ++cy) {
+        for (var cx = cx0; cx < cx1; ++cx) {
+            var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
+
             this.blit.draw(0, 6, {
                 'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
                             cy * CHUNK_SIZE * TILE_SIZE],
             }, {}, {
-                'tex': this.chunk_fbs[idx].texture,
+                'tex': this.terrain_cache.get(idx).texture,
             });
         }
     }
 };
 
+
+
+/** @constructor */
+function RenderCache(gl) {
+    this.gl = gl;
+    this.slots = [];
+    this.users = [];
+
+    this.map = new Array(LOCAL_SIZE * LOCAL_SIZE);
+    for (var i = 0; i < this.map.length; ++i) {
+        this.map[i] = -1;
+    }
+
+    // `users` maps slots to indexes.  `map` maps indexes to slots.  `map` is
+    // not always kept up to date, so it's necessary to check that
+    // `users[slot] == idx` before relying on the result of a `map` lookup.
+}
+
+RenderCache.prototype._addSlot = function() {
+    var chunk_px = CHUNK_SIZE * TILE_SIZE;
+    this.slots.push(new Framebuffer(this.gl, chunk_px, chunk_px));
+    this.users.push(-1);
+};
+
+RenderCache.prototype.populate = function(idxs, callback) {
+    // First, collect any slot/idx pairs that can be reused.  Clear all
+    // remaining slots (set `user[slot]` to -1).
+    var new_users = new Array(this.users.length);
+    for (var i = 0; i < new_users.length; ++i) {
+        new_users[i] = -1;
+    }
+
+    var log = '';
+
+    for (var i = 0; i < idxs.length; ++i) {
+        var idx = idxs[i];
+        var slot = this.map[idx];
+        if (slot != -1 && this.users[slot] == idx) {
+            new_users[slot] = idx;
+            log += 'reuse ' + idx + '=' + slot + ', ';
+        }
+    }
+
+    this.users = new_users;
+
+    // Now make a second pass to find slots for all remaining `idxs`.
+    var free = 0;
+    for (var i = 0; i < idxs.length; ++i) {
+        var idx = idxs[i];
+        var slot = this.map[idx];
+        if (slot == -1 || this.users[slot] != idx) {
+            // Find or create a free slot
+            while (free < this.users.length && this.users[free] != -1) {
+                ++free;
+            }
+            if (free == this.users.length) {
+                this._addSlot();
+            }
+
+            log += 'populate ' + idx + '=' + free + ', ';
+
+            // Populate the slot and assign it to `idx`.
+            callback(idx, this.slots[free]);
+            this.map[idx] = free;
+            this.users[free] = idx;
+        }
+    }
+
+    console.log(log);
+};
+
+RenderCache.prototype.get = function(idx) {
+    var slot = this.map[idx];
+    if (slot == -1 || this.users[slot] != idx) {
+        return null;
+    } else {
+        return this.slots[slot];
+    }
+};
+
+RenderCache.prototype.invalidate = function(idx) {
+    var slot = this.map[idx];
+    if (slot != -1 && this.users[slot] == idx) {
+        this.users[slot] = -1;
+    }
+    this.map[idx] = -1;
+};
 
 
 /** @constructor */
