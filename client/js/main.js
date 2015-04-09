@@ -207,7 +207,7 @@ function init() {
     error_list.attach(window);
     document.body.appendChild(error_list.container);
 
-    canvas = new AnimCanvas(frame, 'webgl', 'WEBGL_depth_texture');
+    canvas = new AnimCanvas(frame, 'webgl', ['WEBGL_depth_texture', 'EXT_frag_depth']);
     debug = new DebugMonitor();
     banner = new Banner();
     keyboard = new Keyboard();

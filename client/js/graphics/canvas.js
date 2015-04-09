@@ -21,7 +21,7 @@ function AnimCanvas(frame_callback, ctx_type, webgl_extensions) {
         this.ext = {};
         if (webgl_extensions != null) {
             for (var i = 0; i < webgl_extensions.length; ++i) {
-                var ext_name = webgl_extensions
+                var ext_name = webgl_extensions[i];
                 var ext_obj = this.ctx.getExtension(ext_name);
                 if (ext_obj == null) {
                     throw 'webgl extension ' + ext_name + ' is not available';

@@ -99,6 +99,13 @@ function Texture(gl) {
     this.texture = gl.createTexture();
     this.width = 0;
     this.height = 0;
+
+    this.bind();
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.unbind();
 }
 
 exports.Texture = Texture;
@@ -120,10 +127,6 @@ Texture.prototype.loadImage = function(image) {
 
     var gl = this.gl;
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     this.unbind();
 
@@ -137,10 +140,19 @@ Texture.prototype.loadData = function(width, height, data) {
     var gl = this.gl;
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA,
             gl.UNSIGNED_BYTE, data);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    this.unbind();
+
+    this.width = width;
+    this.height = height;
+};
+
+Texture.prototype.initDepth = function(width, height) {
+    this.bind();
+
+    var gl = this.gl;
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, width, height, 0,
+            gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
 
     this.unbind();
 
@@ -323,16 +335,15 @@ function Framebuffer(gl, width, height) {
     this.texture = new Texture(gl);
     this.texture.loadData(width, height, null);
 
-    var depth_buf = gl.createRenderbuffer();
-    gl.bindRenderbuffer(gl.RENDERBUFFER, depth_buf);
-    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+    this.depth_texture = new Texture(gl);
+    this.depth_texture.initDepth(width, height);
 
     this.fb = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fb);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D,
             this.texture.getName(), 0);
-    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER,
-            depth_buf);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D,
+            this.depth_texture.getName(), 0);
 
     var fb_status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
     if (fb_status != gl.FRAMEBUFFER_COMPLETE) {

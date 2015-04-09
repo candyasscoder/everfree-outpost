@@ -46,12 +46,15 @@ Renderer.prototype.initGl = function(assets) {
     var atlas = assets['tiles'];
     var atlas_tex = this.cacheTexture(atlas);
 
-    var sheet = assets['structures0'];
-    var sheet_tex = this.cacheTexture(sheet);
+    var struct_sheet = assets['structures0'];
+    var struct_sheet_tex = this.cacheTexture(struct_sheet);
+
+    var struct_depth = assets['structdepth0'];
+    var struct_depth_tex = this.cacheTexture(struct_depth);
 
     this.blit = build_blit(gl, assets);
     this.terrain_block = build_terrain_block(gl, assets, atlas_tex);
-    this.structure = build_structure(gl, assets, sheet_tex);
+    this.structure = build_structure(gl, assets, struct_sheet_tex, struct_depth_tex);
 };
 
 function build_terrain_block(gl, assets, atlas_tex) {
@@ -104,13 +107,14 @@ function build_blit(gl, assets) {
     };
 
     var textures = {
-        'tex': null,
+        'imageTex': null,
+        'depthTex': null,
     };
 
     return new GlObject(gl, program, uniforms, attributes, textures);
 }
 
-function build_structure(gl, assets, sheet_tex) {
+function build_structure(gl, assets, sheet_tex, depth_tex) {
     var vert = assets['structure.vert'];
     var frag = assets['structure.frag'];
     var program = new Program(gl, vert, frag);
@@ -126,6 +130,7 @@ function build_structure(gl, assets, sheet_tex) {
 
     var textures = {
         'sheetTex': sheet_tex,
+        'depthTex': depth_tex,
     };
 
     return new GlObject(gl, program, uniforms, attributes, textures);
@@ -297,6 +302,9 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, mask_info) {
     // `populate` may call `_renderTerrain`, which changes the OpenGL viewport.
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.GEQUAL);
+
     for (var cy = cy0; cy < cy1; ++cy) {
         for (var cx = cx0; cx < cx1; ++cx) {
             var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
@@ -305,17 +313,21 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, mask_info) {
                 'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
                             cy * CHUNK_SIZE * TILE_SIZE],
             }, {}, {
-                'tex': this.terrain_cache.get(idx).terrain.texture,
+                'imageTex': this.terrain_cache.get(idx).terrain.texture,
+                'depthTex': this.terrain_cache.get(idx).terrain.depth_texture,
             });
 
             this.blit.draw(0, 6, {
                 'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
                             cy * CHUNK_SIZE * TILE_SIZE],
             }, {}, {
-                'tex': this.terrain_cache.get(idx).structures.texture,
+                'imageTex': this.terrain_cache.get(idx).structures.texture,
+                'depthTex': this.terrain_cache.get(idx).structures.depth_texture,
             });
         }
     }
+
+    gl.disable(gl.DEPTH_TEST);
 };
 
 
