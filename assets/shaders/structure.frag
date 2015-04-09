@@ -14,8 +14,8 @@ void main(void) {
     } else {
         gl_FragColor = color;
     }
-    // Interpolated depth steps by 1/512, while color values step by 1/255.
+    // gl_FragCoord.z steps by 1/512, while color values step by 1/255.  Note
+    // that gl_FragCoord varies in the range 0..1, not -1..+1
     gl_FragDepthEXT = gl_FragCoord.z -
         (255.0 / 512.0) * texture2D(depthTex, normalizedTexCoord).r;
-    //gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
 }
