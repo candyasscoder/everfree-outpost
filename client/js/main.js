@@ -11,6 +11,7 @@ var AnimCanvas = require('graphics/canvas').AnimCanvas;
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
 var Animation = require('graphics/sheet').Animation;
 var SimpleExtra = require('graphics/draw/simple').SimpleExtra;
+var LayeredExtra = require('graphics/draw/layered').LayeredExtra;
 var NamedExtra = require('graphics/draw/named').NamedExtra;
 var SpriteBase = require('graphics/renderer').SpriteBase;
 var Renderer = require('graphics/renderer').Renderer;
@@ -491,8 +492,7 @@ function buildPonySprite(appearance, name) {
 
     var hat = (appearance >> 8) & 1;
 
-    /*
-    var extra = new NamedExtra([
+    var extra = new LayeredExtra([
             { image: assets['pony_f_wing_back'],    color: body,        skip: !wings },
             { image: assets['pony_f_base'],         color: body,        skip: false },
             { image: assets['pony_f_eyes_blue'],    color: 0xffffff,    skip: false },
@@ -501,9 +501,7 @@ function buildPonySprite(appearance, name) {
             { image: assets['pony_f_mane_1'],       color: mane,        skip: false },
             { image: assets['equip_f_hat'],         color: 0xffffff,    skip: !hat },
             { image: assets['pony_f_horn'],         color: body,        skip: !horn },
-            ], name);
-            */
-    var extra = new SimpleExtra(assets['pony_f_base']);
+            ]/*, name*/);
 
     return new SpriteBase(96, 96, 48, 90, extra);
 }

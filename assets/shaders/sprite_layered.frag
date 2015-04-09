@@ -12,6 +12,9 @@ void main(void) {
         vec4 next = tex_color * color[idx];
         result = mix(result, next, next.a);
     }
+    if (result.a == 0.0) {
+        discard;
+    }
 
     gl_FragColor = result;
 }
