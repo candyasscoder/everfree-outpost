@@ -1,5 +1,5 @@
 /** @constructor */
-function AnimCanvas(frame_callback, ctx_type) {
+function AnimCanvas(frame_callback, ctx_type, webgl_extensions) {
     this.canvas = document.createElement('canvas');
 
     if (ctx_type == null) {
@@ -9,13 +9,25 @@ function AnimCanvas(frame_callback, ctx_type) {
     if (ctx_type == '2d') {
         this.ctx = this.canvas.getContext('2d');
     } else if (ctx_type == 'webgl') {
-        var aliases = ['webgl2', 'experimental-webgl2', 'webgl', 'experimental-webgl'];
+        var aliases = ['webgl', 'experimental-webgl'];
         this.ctx = null;
         for (var i = 0; i < aliases.length && this.ctx == null; ++i) {
             this.ctx = this.canvas.getContext(aliases[i]);
         }
         if (this.ctx == null) {
             throw 'webgl is not available';
+        }
+
+        this.ext = {};
+        if (webgl_extensions != null) {
+            for (var i = 0; i < webgl_extensions.length; ++i) {
+                var ext_name = webgl_extensions
+                var ext_obj = this.ctx.getExtension(ext_name);
+                if (ext_obj == null) {
+                    throw 'webgl extension ' + ext_name + ' is not available';
+                }
+                this.ext[ext_name] = ext_obj;
+            }
         }
     } else {
         throw 'unknown context type: ' + ctx_type;

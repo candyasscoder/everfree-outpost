@@ -202,7 +202,12 @@ var current_item;
 // Top-level initialization function
 
 function init() {
-    canvas = new AnimCanvas(frame, 'webgl');
+    // Set up error_list first to catch errors in other parts of init.
+    error_list = new ErrorList();
+    error_list.attach(window);
+    document.body.appendChild(error_list.container);
+
+    canvas = new AnimCanvas(frame, 'webgl', 'WEBGL_depth_texture');
     debug = new DebugMonitor();
     banner = new Banner();
     keyboard = new Keyboard();
@@ -210,7 +215,6 @@ function init() {
     chat = new ChatWindow();
     credits = new Iframe('credits.html');
     instructions = new Iframe('instructions.html');
-    error_list = new ErrorList();
 
     canvas.canvas.addEventListener('webglcontextlost', function(evt) {
         throw 'context lost!';
@@ -396,7 +400,6 @@ function maybeRegister(info, next) {
 
 function buildUI() {
     keyboard.attach(document);
-    error_list.attach(window);
     setupKeyHandler();
 
     document.body.appendChild(canvas.canvas);
@@ -405,7 +408,6 @@ function buildUI() {
     document.body.appendChild(chat.container);
     document.body.appendChild(banner.container);
     document.body.appendChild(dialog.container);
-    document.body.appendChild(error_list.container);
     document.body.appendChild(debug.container);
 
     if (Config.show_key_display.get()) {
