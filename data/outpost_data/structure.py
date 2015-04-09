@@ -18,9 +18,11 @@ def solid(x, y, z):
 
 
 class StructureDef(object):
-    def __init__(self, name, image, shape, layer):
+    def __init__(self, name, image, depthmap, shape, layer):
         self.name = name
         self.image = image
+        self.depthmap = depthmap
+        assert image.size == depthmap.size
         self.size = shape.size
         self.shape = shape.shape_array
         self.layer = layer
@@ -38,6 +40,7 @@ class SheetBuilder(object):
     def __init__(self, idx, w, h):
         self.idx = idx
         self.image = Image.new('RGBA', (w * TILE_SIZE, h * TILE_SIZE))
+        self.depthmap = Image.new('RGBA', (w * TILE_SIZE, h * TILE_SIZE))
         self.in_use = 0
         self.stride = h
         self.area = w * h
@@ -98,11 +101,12 @@ def build_sheets(structures):
             y += 32 - px_h % TILE_SIZE
 
         sheet.image.paste(s.image, (x, y))
+        sheet.depthmap.paste(s.depthmap, (x, y))
 
         s.sheet_idx = sheet.idx
         s.offset = (x, y)
 
-    return [s.image for s in sheets]
+    return [(s.image, s.depthmap) for s in sheets]
 
 def build_client_json(structures):
     structures = sorted(structures, key=lambda s: s.name)

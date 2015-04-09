@@ -59,6 +59,7 @@ def main(src_dir, build_dir, out_file):
         path = build('data/structures%d.png' % i)
         if os.path.isfile(path):
             add('image', 'structures%d' % i, path)
+            add('image', 'structdepth%d' % i, build('data/structdepth%d.png' % i))
         else:
             break
 

@@ -28,7 +28,7 @@ road.png:
         standard terrain layout.
     derived-from: ../tiles/nilsson_lpc_entry/Harbor/harbor.png
 
-furniture.png:
+furniture.png: &furniture
     title: LPC Furniture
     author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
     license: CC-BY-SA 3.0 / GPL 3.0
@@ -38,8 +38,10 @@ furniture.png:
     derived-from:
         ../tiles/lpc-base-tiles/cabinets.png,
         ../tiles/lpc-base-tiles/victoria.png
+furniture.xcf: *furniture
+furniture-planemap.png: *furniture
 
-house.png:
+house.png: &house
     title: LPC House Walls
     author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
     license: CC-BY-SA 3.0 / GPL 3.0
@@ -49,6 +51,8 @@ house.png:
     derived-from: 
         ../tiles/lpc-base-tiles/inside.png,
         ../tiles/lpc-base-tiles/house.png
+house.xcf: *house
+house-planemap.png: *house
 
 crystal-formation.png:
     title: Blue Crystal Formation
@@ -74,7 +78,7 @@ chest.png:
     license: CC-BY-SA 3.0 / GPL 3.0
     derived-from: ../tiles/lpc-base-tiles/chests.png
 
-tree.png:
+tree.png: &tree
     title: LPC Trees
     author: Lanea Zimmerman (AKA Sharm), Casper Nilsson, Stuart Pernsteiner
     license: CC-BY-SA 3.0 / GPL 3.0
@@ -88,6 +92,8 @@ tree.png:
         C.Nilsson's art is CC-BY-SA 3.0 / GPL 3+ dual licensed (not GPL3+ only,
         as the LPC Tile Atlas license section suggests).
     derived-from: ../tiles/terrain_atlas.png
+tree.xcf: *tree
+tree-planemap.png: *tree
 
 rock.png:
     title: LPC Rock

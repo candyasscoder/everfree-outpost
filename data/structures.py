@@ -1,6 +1,7 @@
 import os
 
 from outpost_data.consts import *
+from outpost_data import depthmap
 import outpost_data.images as I
 from outpost_data.structure import StructureDef, Shape, floor, solid
 
@@ -19,31 +20,39 @@ def terrain_floor(s, basename, image):
             x = j * TILE_SIZE
             y = i * TILE_SIZE
             tile = image.crop((x, y, x + TILE_SIZE, y + TILE_SIZE))
+            depth = depthmap.flat(TILE_SIZE, TILE_SIZE)
             name = basename + '/' + part_name
-            s.append(StructureDef(name, tile, floor(1, 1, 1), 0))
+            s.append(StructureDef(name, tile, depth, floor(1, 1, 1), 0))
 
-def solid_structure(s, name, image, size, base=(0, 0), display_size=None):
+def solid_structure(s, name, image, size, base=(0, 0), display_size=None, plane_image=None):
     base_x, base_y = base
     x = base_x * TILE_SIZE
     y = base_y * TILE_SIZE
 
+    size_x, size_y, size_z = size
     if display_size is not None:
         display_size_x, display_size_y = display_size
         w = display_size_x * TILE_SIZE
         h = display_size_y * TILE_SIZE
     else:
-        size_x, size_y, size_z = size
         w = size_x * TILE_SIZE
         h = (size_y + size_z) * TILE_SIZE
 
     struct_img = image.crop((x, y, x + w, y + h))
-    s.append(StructureDef(name, struct_img, solid(*size), 1))
+    if plane_image is None:
+        depth = depthmap.solid(size_x * TILE_SIZE, size_y * TILE_SIZE, size_z * TILE_SIZE)
+        # Cut a w*h sized section from the bottom.
+        depth_height = depth.size[1]
+        depth = depth.crop((0, depth_height - h, w, depth_height))
+    else:
+        depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
+    s.append(StructureDef(name, struct_img, depth, solid(*size), 1))
 
 
 def solid_small(s, name, image, base=(0, 0)):
     solid_structure(s, name, image, (1, 1, 1), base=base, display_size=(1, 1))
 
-def do_house_parts(s, basename, image):
+def do_house_parts(s, basename, image, plane_image):
     house_parts = [
             [
                 'corner/nw/in',
@@ -80,7 +89,7 @@ def do_house_parts(s, basename, image):
     for i, row in enumerate(house_parts):
         for j, part_name in enumerate(row):
             name = basename + '/' + part_name
-            solid_structure(s, name, image, (1, 1, 2), base=(j, i * 3))
+            solid_structure(s, name, image, (1, 1, 2), base=(j, i * 3), plane_image=plane_image)
 
     door_shape_arr = [
             'solid', 'floor', 'solid',
@@ -93,11 +102,15 @@ def do_house_parts(s, basename, image):
 
     x = 10 * TILE_SIZE
     y = 0
-    s.append(StructureDef(basename + '/door/in', image.crop((x, y, x + w, y + h)), door_shape, 1))
+    door_img = image.crop((x, y, x + w, y + h))
+    door_depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
+    s.append(StructureDef(basename + '/door/in', door_img, door_depth, door_shape, 1))
 
     x = 13 * TILE_SIZE
     y = 0
-    s.append(StructureDef(basename + '/door/out', image.crop((x, y, x + w, y + h)), door_shape, 1))
+    door_img = image.crop((x, y, x + w, y + h))
+    door_depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
+    s.append(StructureDef(basename + '/door/out', door_img, door_depth, door_shape, 1))
 
 def do_fence_parts(s, basename, image):
     fence_parts = [
@@ -124,8 +137,10 @@ def get_structures(asset_path):
     terrain_floor(s, 'wood_floor', img('wood-floor.png'))
     terrain_floor(s, 'road', img('road.png'))
 
-    solid_structure(s, 'tree', img('tree.png'), (4, 2, 3), (0, 0))
-    solid_structure(s, 'stump', img('tree.png'), (4, 2, 1), (0, 5))
+    solid_structure(s, 'tree', img('tree.png'), (4, 2, 3), (0, 0),
+            plane_image=img('tree-planemap.png'))
+    solid_structure(s, 'stump', img('tree.png'), (4, 2, 1), (0, 5),
+            plane_image=img('tree-planemap.png'))
     solid_structure(s, 'rock', img('rock.png'), (2, 1, 1), (0, 0))
 
     solid_small(s, 'anvil', img('anvil.png'))
@@ -133,14 +148,16 @@ def get_structures(asset_path):
     solid_small(s, 'teleporter', img('crystal-formation.png'))
     solid_structure(s, 'ward', img('crystal-ward.png'), (1, 1, 1))
 
-    solid_structure(s, 'bed', img('furniture.png'), (2, 2, 1), (0, 0))
-    solid_structure(s, 'table', img('furniture.png'), (2, 2, 1), (2, 0))
-    solid_structure(s, 'cabinets', img('furniture.png'), (1, 2, 1), (4, 0))
-    solid_structure(s, 'bookshelf/0', img('furniture.png'), (1, 2, 1), (5, 0))
-    solid_structure(s, 'bookshelf/1', img('furniture.png'), (1, 2, 1), (6, 0))
-    solid_structure(s, 'bookshelf/2', img('furniture.png'), (1, 2, 1), (7, 0))
+    image = img('furniture.png')
+    plane = img('furniture-planemap.png')
+    solid_structure(s, 'bed', image, (2, 2, 1), (0, 0), plane_image=plane)
+    solid_structure(s, 'table', image, (2, 2, 1), (2, 0), plane_image=plane)
+    solid_structure(s, 'cabinets', image, (1, 2, 1), (4, 0), plane_image=plane)
+    solid_structure(s, 'bookshelf/0', image, (1, 2, 1), (5, 0), plane_image=plane)
+    solid_structure(s, 'bookshelf/1', image, (1, 2, 1), (6, 0), plane_image=plane)
+    solid_structure(s, 'bookshelf/2', image, (1, 2, 1), (7, 0), plane_image=plane)
 
-    do_house_parts(s, 'house_wall', img('house.png'))
+    do_house_parts(s, 'house_wall', img('house.png'), img('house-planemap.png'))
     do_fence_parts(s, 'fence', img('fence.png'))
 
     return s

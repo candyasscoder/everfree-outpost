@@ -10,8 +10,9 @@ def main(asset_dir, output_dir):
     structures = get_structures(asset_dir)
     sheets = S.build_sheets(structures)
 
-    for i, sheet in enumerate(sheets):
-        sheet.save(os.path.join(output_dir, 'structures%d.png' % i))
+    for i, (image, depthmap) in enumerate(sheets):
+        image.save(os.path.join(output_dir, 'structures%d.png' % i))
+        depthmap.save(os.path.join(output_dir, 'structdepth%d.png' % i))
 
     with open(os.path.join(output_dir, 'structures_server.json'), 'w') as f:
         j = S.build_server_json(structures)
