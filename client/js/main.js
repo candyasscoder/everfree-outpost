@@ -492,7 +492,7 @@ function buildPonySprite(appearance, name) {
 
     var hat = (appearance >> 8) & 1;
 
-    var extra = new LayeredExtra([
+    var extra = new NamedExtra([
             { image: assets['pony_f_wing_back'],    color: body,        skip: !wings },
             { image: assets['pony_f_base'],         color: body,        skip: false },
             { image: assets['pony_f_eyes_blue'],    color: 0xffffff,    skip: false },
@@ -501,7 +501,7 @@ function buildPonySprite(appearance, name) {
             { image: assets['pony_f_mane_1'],       color: mane,        skip: false },
             { image: assets['equip_f_hat'],         color: 0xffffff,    skip: !hat },
             { image: assets['pony_f_horn'],         color: body,        skip: !horn },
-            ]/*, name*/);
+            ], name);
 
     return new SpriteBase(96, 96, 48, 90, extra);
 }
