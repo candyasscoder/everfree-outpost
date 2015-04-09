@@ -55,6 +55,12 @@ Renderer.prototype.initGl = function(assets) {
     this.blit = build_blit(gl, assets);
     this.terrain_block = build_terrain_block(gl, assets, atlas_tex);
     this.structure = build_structure(gl, assets, struct_sheet_tex, struct_depth_tex);
+
+    this.sprite_classes = {
+        'simple': new Simple3D(gl, assets),
+        'layered': new Layered3D(gl, assets),
+        'named': new Named3D(gl, assets),
+    };
 };
 
 function build_terrain_block(gl, assets, atlas_tex) {
@@ -274,6 +280,11 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, mask_info) {
     this.blit.setUniformValue('cameraPos', [sx, sy]);
     this.blit.setUniformValue('cameraSize', [sw, sh]);
 
+    for (var k in this.sprite_classes) {
+        var cls = this.sprite_classes[k];
+        cls.setCamera(sx, sy, sw, sh);
+    }
+
     var chunk_px = CHUNK_SIZE * TILE_SIZE;
     var cx0 = ((sx|0) / chunk_px)|0;
     var cx1 = (((sx|0) + (sw|0) + chunk_px) / chunk_px)|0;
@@ -325,6 +336,12 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, mask_info) {
                 'depthTex': this.terrain_cache.get(idx).structures.depth_texture,
             });
         }
+    }
+
+    for (var i = 0; i < sprites.length; ++i) {
+        var sprite = sprites[i];
+        var cls = this.sprite_classes[sprite.cls];
+        cls.draw(this, sprite);
     }
 
     gl.disable(gl.DEPTH_TEST);

@@ -10,6 +10,7 @@ var Config = require('config').Config;
 var AnimCanvas = require('graphics/canvas').AnimCanvas;
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
 var Animation = require('graphics/sheet').Animation;
+var SimpleExtra = require('graphics/draw/simple').SimpleExtra;
 var NamedExtra = require('graphics/draw/named').NamedExtra;
 var SpriteBase = require('graphics/renderer').SpriteBase;
 var Renderer = require('graphics/renderer').Renderer;
@@ -490,6 +491,7 @@ function buildPonySprite(appearance, name) {
 
     var hat = (appearance >> 8) & 1;
 
+    /*
     var extra = new NamedExtra([
             { image: assets['pony_f_wing_back'],    color: body,        skip: !wings },
             { image: assets['pony_f_base'],         color: body,        skip: false },
@@ -500,6 +502,8 @@ function buildPonySprite(appearance, name) {
             { image: assets['equip_f_hat'],         color: 0xffffff,    skip: !hat },
             { image: assets['pony_f_horn'],         color: body,        skip: !horn },
             ], name);
+            */
+    var extra = new SimpleExtra(assets['pony_f_base']);
 
     return new SpriteBase(96, 96, 48, 90, extra);
 }
@@ -1008,8 +1012,7 @@ function frame(ac, client_now) {
 
 
     var entity_ids = Object.getOwnPropertyNames(entities);
-    var structure_ids = Object.getOwnPropertyNames(structures);
-    var sprites = new Array(entity_ids.length + structure_ids.length);
+    var sprites = new Array(entity_ids.length);
 
     for (var i = 0; i < entity_ids.length; ++i) {
         var entity = entities[entity_ids[i]];
@@ -1018,12 +1021,6 @@ function frame(ac, client_now) {
         } else {
             sprites[i] = localSprite(predict_now, entity, pos);
         }
-    }
-
-    for (var i = 0; i < structure_ids.length; ++i) {
-        var sprite = structures[structure_ids[i]].sprite;
-        checkLocalSprite(sprite, pos);
-        sprites[entity_ids.length + i] = sprite;
     }
 
 
