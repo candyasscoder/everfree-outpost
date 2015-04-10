@@ -48,4 +48,4 @@ def solid(w, h1, h2):
     return depthmap
 
 def flat(w, h):
-    return solid(w, 0, h)
+    return solid(w, h, 0)

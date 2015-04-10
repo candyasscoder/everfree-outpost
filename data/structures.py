@@ -52,6 +52,37 @@ def solid_structure(s, name, image, size, base=(0, 0), display_size=None, plane_
 def solid_small(s, name, image, base=(0, 0)):
     solid_structure(s, name, image, (1, 1, 1), base=base, display_size=(1, 1))
 
+def do_tree(s, image, plane_image):
+    tree_shape_arr = [
+            'floor', 'solid', 'solid', 'floor',
+            'floor', 'solid', 'solid', 'floor',
+
+            'empty', 'solid', 'solid', 'empty',
+            'empty', 'solid', 'solid', 'empty',
+
+            'empty', 'solid', 'solid', 'empty',
+            'empty', 'solid', 'solid', 'empty',
+            ]
+    tree_shape = Shape(4, 2, 3, tree_shape_arr)
+    stump_shape = Shape(4, 2, 1, tree_shape_arr[:8])
+
+    tree_bounds = (0, 0, 4 * TILE_SIZE, 5 * TILE_SIZE)
+    stump_bounds = (0, 5 * TILE_SIZE, 4 * TILE_SIZE, 3 * TILE_SIZE)
+
+    s.append(StructureDef(
+        'tree',
+        image.crop(tree_bounds),
+        depthmap.from_planemap(plane_image.crop(tree_bounds)),
+        tree_shape,
+        1))
+
+    s.append(StructureDef(
+        'stump',
+        image.crop(stump_bounds),
+        depthmap.from_planemap(plane_image.crop(stump_bounds)),
+        stump_shape,
+        1))
+
 def do_house_parts(s, basename, image, plane_image):
     house_parts = [
             [
@@ -137,10 +168,7 @@ def get_structures(asset_path):
     terrain_floor(s, 'wood_floor', img('wood-floor.png'))
     terrain_floor(s, 'road', img('road.png'))
 
-    solid_structure(s, 'tree', img('tree.png'), (4, 2, 3), (0, 0),
-            plane_image=img('tree-planemap.png'))
-    solid_structure(s, 'stump', img('tree.png'), (4, 2, 1), (0, 5),
-            plane_image=img('tree-planemap.png'))
+    do_tree(s, img('tree.png'), img('tree-planemap.png'))
     solid_structure(s, 'rock', img('rock.png'), (2, 1, 1), (0, 0))
 
     solid_small(s, 'anvil', img('anvil.png'))
