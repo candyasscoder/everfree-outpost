@@ -360,7 +360,7 @@ impl<'a> StructureBuffer<'a> {
             let dx = sub_wrap(x, min_x);
             let dy = sub_wrap(y, min_y);
             if dx >= range_x || dy >= range_y {
-                //continue;
+                continue;
             }
 
 
@@ -391,7 +391,7 @@ impl<'a> StructureBuffer<'a> {
                  (sub_wrap(v_top, base_v) < CHUNK_SIZE_U8 ||
                   sub_wrap(v_middle, base_v) < CHUNK_SIZE_U8 ||
                   sub_wrap(v_bottom, base_v) < CHUNK_SIZE_U8)) {
-                //continue;
+                continue;
             }
 
 
