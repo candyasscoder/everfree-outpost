@@ -843,7 +843,7 @@ function handleStructureAppear(id, template_id, x, y, z) {
 function handleStructureGone(id, time) {
     if (structures[id] != null) {
         physics.removeStructure(structures[id]);
-        renderer.removeStructure(structures[id].render_index);
+        renderer.removeStructure(structures[id]);
     }
     delete structures[id];
 }

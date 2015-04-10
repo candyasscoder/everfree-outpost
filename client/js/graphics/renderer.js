@@ -210,11 +210,44 @@ Renderer.prototype.loadTemplateData = function(templates) {
 };
 
 Renderer.prototype.addStructure = function(x, y, z, template_id) {
-    return this._asm.addStructure(x, y, z, template_id);
+    var render_idx = this._asm.addStructure(x, y, z, template_id);
+    var template = TemplateDef.by_id[template_id];
+
+    var tx = (x / TILE_SIZE)|0;
+    var ty = (y / TILE_SIZE)|0;
+    var tz = (z / TILE_SIZE)|0;
+
+    this._invalidateStructureRegion(tx, ty, tz, template);
+    return render_idx;
 };
 
-Renderer.prototype.removeStructure = function(idx) {
-    this._asm.removeStructure(idx);
+Renderer.prototype.removeStructure = function(structure) {
+    this._asm.removeStructure(structure.render_index);
+
+    var pos = structure.pos;
+    this._invalidateStructureRegion(pos.x, pos.y, pos.z, structure.template);
+};
+
+Renderer.prototype._invalidateStructureRegion = function(x, y, z, template) {
+    var x0 = x;
+    var x1 = x + template.size.x;
+
+    // Avoid negative numbers
+    var v0 = y - z - template.size.z + LOCAL_SIZE * CHUNK_SIZE;
+    var v1 = y - z + template.size.y + LOCAL_SIZE * CHUNK_SIZE;
+
+    var cx0 = (x0 / CHUNK_SIZE)|0;
+    var cx1 = ((x1 + CHUNK_SIZE - 1) / CHUNK_SIZE)|0;
+    var cv0 = (v0 / CHUNK_SIZE)|0;
+    var cv1 = ((v1 + CHUNK_SIZE - 1) / CHUNK_SIZE)|0;
+
+    var mask = LOCAL_SIZE - 1;
+    for (var cy = cv0; cy < cv1; ++cy) {
+        for (var cx = cx0; cx < cx1; ++cx) {
+            var idx = (cy & mask) * LOCAL_SIZE + (cx & mask);
+            this.terrain_cache.invalidate(idx);
+        }
+    }
 };
 
 
