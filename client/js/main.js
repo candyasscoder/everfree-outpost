@@ -834,16 +834,16 @@ function handleStructureAppear(id, template_id, x, y, z) {
     var idx = renderer.addStructure(x, y, z, template_id);
 
     var template = TemplateDef.by_id[template_id];
-    var px_pos = new Vec(x, y, z);
-    var pos = px_pos.divScalar(TILE_SIZE);
+    var pos = new Vec(x, y, z).divScalar(TILE_SIZE);
 
-    structures[id] = new Structure(pos, px_pos, template);
+    structures[id] = new Structure(pos, template, idx);
     physics.addStructure(structures[id]);
 }
 
 function handleStructureGone(id, time) {
     if (structures[id] != null) {
         physics.removeStructure(structures[id]);
+        renderer.removeStructure(structures[id].render_index);
     }
     delete structures[id];
 }

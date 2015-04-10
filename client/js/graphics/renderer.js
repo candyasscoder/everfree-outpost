@@ -262,8 +262,6 @@ Renderer.prototype._renderStructures = function(fb, cx, cy) {
         more = result.more;
         // TODO: use result.sheet
 
-        console.log('render structures', cx, cy, geom.length / 8 / 6);
-
         var buffer = new Buffer(gl);
         buffer.loadData(geom);
 
