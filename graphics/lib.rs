@@ -360,7 +360,7 @@ impl<'a> StructureBuffer<'a> {
             let dx = sub_wrap(x, min_x);
             let dy = sub_wrap(y, min_y);
             if dx >= range_x || dy >= range_y {
-                continue;
+                //continue;
             }
 
 
@@ -391,7 +391,7 @@ impl<'a> StructureBuffer<'a> {
                  (sub_wrap(v_top, base_v) < CHUNK_SIZE_U8 ||
                   sub_wrap(v_middle, base_v) < CHUNK_SIZE_U8 ||
                   sub_wrap(v_bottom, base_v) < CHUNK_SIZE_U8)) {
-                continue;
+                //continue;
             }
 
 
@@ -446,6 +446,31 @@ impl<'a> StructureBuffer<'a> {
         let base_x = tile_to_px(cx * CHUNK_SIZE as u8);
         let base_y = tile_to_px(cy * CHUNK_SIZE as u8);
 
+        // Should be at least the maximum structure size, and no more than (local region size -
+        // chunk size - max structure size).
+        const MARGIN: i16 = (CHUNK_SIZE * TILE_SIZE) as i16;
+        let origin_x = base_x - MARGIN;
+        let origin_y = base_y - MARGIN;
+        const MASK: i16 = (LOCAL_SIZE * CHUNK_SIZE * TILE_SIZE - 1) as i16;
+
+        // Subtract (base_x, base_y) from (x, y), but wrap coordinates across the local region
+        // borders so that (parts of) structures in the top chunk can appear in the bottom one and
+        // vice versa.
+        //
+        //  +-----+    MARGIN   (remainder, may exceed MARGIN)
+        //  |     |        /-\ /-\
+        //  |     |        +-----+
+        //  |     |        |     |
+        //  |   +-+  wrap  | +-+ |
+        //  |   | |   =>   | | | |
+        //  +-----+        | +-+ |
+        //                 |     |
+        //                 +-----+
+        let sub_base_wrap = |x, y| {
+            (((x - origin_x) & MASK) - MARGIN,
+             ((y - origin_y) & MASK) - MARGIN)
+        };
+
         const CORNERS: [(u8, u8); 6] = [(0,0), (1,0), (1,1),  (0,0), (1, 1), (0,1)];
 
         // Walk through self.indexes, looking for structures whose template is on the correct
@@ -465,8 +490,7 @@ impl<'a> StructureBuffer<'a> {
             let (_sx, sy, _sz) = t.size;
 
             // Do the rendering at the front (+y) side of the structure.
-            let px_x = tile_to_px(x) - base_x;
-            let px_y = tile_to_px(y) + tile_to_px(sy) - base_y;
+            let (px_x, px_y) = sub_base_wrap(tile_to_px(x), tile_to_px(y) + tile_to_px(sy));
             let px_z = tile_to_px(z);
 
             let (base_s, base_t) = t.display_offset;

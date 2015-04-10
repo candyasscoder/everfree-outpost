@@ -186,7 +186,8 @@ Renderer.prototype.loadChunk = function(i, j, chunk) {
     this._asm.loadChunk(j, i);
 
     this.terrain_cache.invalidate(i * LOCAL_SIZE + j);
-    this.terrain_cache.invalidate((i - 1) * LOCAL_SIZE + j);
+    var above = (i - 1) & (LOCAL_SIZE - 1);
+    this.terrain_cache.invalidate(above * LOCAL_SIZE + j);
 };
 
 Renderer.prototype.loadTemplateData = function(templates) {
@@ -260,6 +261,8 @@ Renderer.prototype._renderStructures = function(fb, cx, cy) {
         var geom = result.geometry;
         more = result.more;
         // TODO: use result.sheet
+
+        console.log('render structures', cx, cy, geom.length / 8 / 6);
 
         var buffer = new Buffer(gl);
         buffer.loadData(geom);
