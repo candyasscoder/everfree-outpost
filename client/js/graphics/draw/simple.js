@@ -61,15 +61,15 @@ function Simple3D(gl, assets) {
         'cameraPos': uniform('vec2', null),
         'cameraSize': uniform('vec2', null),
         'sheetSize': uniform('vec2', null),
-        'srcPos': uniform('vec2', null),
-        'srcSize': uniform('vec2', null),
-        'destPos': uniform('vec2', null),
-        'destSize': uniform('vec2', null),
+        'pos': uniform('vec3', null),
+        'base': uniform('vec2', null),
+        'size': uniform('vec2', null),
+        'anchor': uniform('vec2', null),
     };
     this._obj = new GlObject(gl, program,
             uniforms,
-            {'position': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
-            {'sheetSampler': null});
+            {'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
+            {'imageTex': null});
 }
 exports.Simple3D = Simple3D;
 
@@ -78,31 +78,22 @@ Simple3D.prototype.setCamera = function(sx, sy, sw, sh) {
     this._obj.setUniformValue('cameraSize', [sw, sh]);
 };
 
-Simple3D.prototype.draw = function(r, sprite, base_x, base_y, clip_x, clip_y, clip_w, clip_h) {
+Simple3D.prototype.draw = function(r, sprite) {
     var extra = sprite.extra;
     var tex = r.cacheTexture(extra.image);
 
-    var off_x = clip_x;
-    var off_y = clip_y;
-    if (sprite.flip) {
-        off_x = sprite.width - off_x;
-    }
-
     var uniforms = {
-        'srcPos':       [extra.offset_x + off_x,
-                         extra.offset_y + off_y],
-        'srcSize':      [(sprite.flip ? -clip_w : clip_w),
-                         clip_h],
-        'destPos':      [base_x + clip_x,
-                         base_y + clip_y],
-        'destSize':     [clip_w,
-                         clip_h],
-
         'sheetSize': [tex.width, tex.height],
+        'pos': [sprite.ref_x, sprite.ref_y, sprite.ref_z],
+        'base': [extra.offset_x + (sprite.flip ? sprite.width : 0),
+                 extra.offset_y],
+        'size': [(sprite.flip ? -sprite.width : sprite.width),
+                 sprite.height],
+        'anchor': [sprite.anchor_x, sprite.anchor_y],
     };
 
     var textures = {
-        'sheetSampler': tex,
+        'imageTex': tex,
     };
 
     this._obj.draw(0, 6, uniforms, {}, textures);

@@ -99,9 +99,20 @@ function Texture(gl) {
     this.texture = gl.createTexture();
     this.width = 0;
     this.height = 0;
+
+    this.bind();
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.unbind();
 }
 
 exports.Texture = Texture;
+
+Texture.prototype.getName = function() {
+    return this.texture;
+};
 
 Texture.prototype.bind = function() {
     this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
@@ -116,15 +127,37 @@ Texture.prototype.loadImage = function(image) {
 
     var gl = this.gl;
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     this.unbind();
 
     this.width = image.width;
     this.height = image.height;
+};
+
+Texture.prototype.loadData = function(width, height, data) {
+    this.bind();
+
+    var gl = this.gl;
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA,
+            gl.UNSIGNED_BYTE, data);
+
+    this.unbind();
+
+    this.width = width;
+    this.height = height;
+};
+
+Texture.prototype.initDepth = function(width, height) {
+    this.bind();
+
+    var gl = this.gl;
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, width, height, 0,
+            gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
+
+    this.unbind();
+
+    this.width = width;
+    this.height = height;
 };
 
 
@@ -290,6 +323,49 @@ GlObject.prototype.drawMulti = function(vert_indexes, uniforms, attributes, text
             this.program.setUniform(key, base.type, base.value);
         }
     }
+};
+
+
+/** @constructor */
+function Framebuffer(gl, width, height) {
+    this.gl = gl;
+    this.width = width;
+    this.height = height;
+
+    this.texture = new Texture(gl);
+    this.texture.loadData(width, height, null);
+
+    this.depth_texture = new Texture(gl);
+    this.depth_texture.initDepth(width, height);
+
+    this.fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D,
+            this.texture.getName(), 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D,
+            this.depth_texture.getName(), 0);
+
+    var fb_status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (fb_status != gl.FRAMEBUFFER_COMPLETE) {
+        throw 'framebuffer is not complete: ' + fb_status;
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+    this.texture.unbind();
+}
+exports.Framebuffer = Framebuffer;
+
+Framebuffer.prototype.getName = function() {
+    return this.fb;
+};
+
+Framebuffer.prototype.bind = function() {
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.fb);
+};
+
+Framebuffer.prototype.unbind = function() {
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
 };
 
 

@@ -1,22 +1,40 @@
-attribute vec2 position;
+attribute vec2 posOffset;
+
+const mat4 projection =
+    mat4( 1.0,  0.0,  0.0,  0.0,
+          0.0,  1.0,  0.0,  0.0,
+          0.0, -1.0,  1.0,  0.0,
+          0.0,  0.0,  0.0,  1.0);
+
+const mat4 scaling =
+    mat4( 2.0,  0.0,  0.0,  0.0,
+          0.0, -2.0,  0.0,  0.0,
+          0.0,  0.0,  2.0,  0.0,
+         -1.0,  1.0, -1.0,  1.0);
 
 uniform vec2 cameraPos;
 uniform vec2 cameraSize;
 uniform vec2 sheetSize;
-uniform vec2 srcPos;
-uniform vec2 srcSize;
-uniform vec2 destPos;
-uniform vec2 destSize;
+
+uniform vec3 pos;
+uniform vec2 base;
+uniform vec2 size;
+uniform vec2 anchor;
 
 varying highp vec2 normalizedTexCoord;
+varying vec2 extra;
 
 void main(void) {
-    vec2 texCoord = srcPos + position * srcSize;
+    vec2 texCoord = base + posOffset * size;
     normalizedTexCoord = texCoord / sheetSize;
 
-    vec2 worldPos = destPos + position * destSize;
-    vec2 zeroOne = (worldPos - cameraPos) / cameraSize;
-    // OpenGL normally has the Y axis point upward, but we have it point
-    // downward instead.
-    gl_Position = vec4(zeroOne * vec2(2.0, -2.0) + vec2(-1.0, 1.0), 0.0, 1.0);
+    vec4 worldPos4 = projection * vec4(
+            pos.x - anchor.x + abs(size.x) * posOffset.x,
+            pos.y,
+            pos.z + anchor.y - abs(size.y) * posOffset.y,
+            1.0);
+
+    vec4 pos = (worldPos4 - vec4(cameraPos, 0.0, 0.0)) / vec4(cameraSize, 512.0, 1.0);
+
+    gl_Position = scaling * pos;
 }

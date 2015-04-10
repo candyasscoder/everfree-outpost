@@ -142,12 +142,20 @@ var asmlibs_code_raw = function(global, env, buffer) {
     return ({
         __adjust_stack: __adjust_stack,
         get_sizes: _get_sizes,
-        render: _render,
-        update_xv_data: _update_xv_data,
-        generate_geometry: _generate_geometry,
+
         collide: _collide,
         set_region_shape: _set_region_shape,
         refresh_shape_cache: _refresh_shape_cache,
+
+        load_chunk: _load_chunk,
+        generate_geometry: _generate_geometry,
+
+        init_structure_buffer: _init_structure_buffer,
+        add_structure: _add_structure,
+        remove_structure: _remove_structure,
+        reset_structure_geometry: _reset_structure_geometry,
+        generate_structure_geometry: _generate_structure_geometry,
+
         test: _test,
     });
 };

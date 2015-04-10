@@ -1,5 +1,6 @@
 var Asm = require('asmlibs').Asm;
 var getRendererHeapSize = require('asmlibs').getRendererHeapSize;
+var getGraphicsHeapSize = require('asmlibs').getGraphicsHeapSize;
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
 var TileDef = require('data/chunk').TileDef;
 var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
@@ -8,6 +9,7 @@ var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
 var Program = require('graphics/glutil').Program;
 var Texture = require('graphics/glutil').Texture;
 var Buffer = require('graphics/glutil').Buffer;
+var Framebuffer = require('graphics/glutil').Framebuffer;
 
 var GlObject = require('graphics/glutil').GlObject;
 var uniform = require('graphics/glutil').uniform;
@@ -23,16 +25,16 @@ var Vec = require('util/vec').Vec;
 /** @constructor */
 function Renderer(gl) {
     this.gl = gl;
-    this._asm = new Asm(getRendererHeapSize());
+    this._asm = new Asm(getGraphicsHeapSize());
+    this._asm.initStructureBuffer();
 
-    this._chunk_buffer = new Array(LOCAL_SIZE * LOCAL_SIZE);
-    this._chunk_points = new Array(LOCAL_SIZE * LOCAL_SIZE);
-    for (var i = 0; i < LOCAL_SIZE * LOCAL_SIZE; ++i) {
-        this._chunk_buffer[i] = new Buffer(gl);
-        this._chunk_points[i] = 0;
-    }
+    this.texture_cache = new WeakMap();
+    this.terrain_cache = new RenderCache(gl);
 }
 exports.Renderer = Renderer;
+
+
+// Renderer initialization
 
 Renderer.prototype.initGl = function(assets) {
     var gl = this.gl;
@@ -41,45 +43,107 @@ Renderer.prototype.initGl = function(assets) {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
-
-    var terrain_vert = assets['terrain.vert'];
-    var terrain_frag = assets['terrain.frag'];
-    var terrain_program = new Program(gl, terrain_vert, terrain_frag);
-
     var atlas = assets['tiles'];
-    var atlas_texture = new Texture(gl);
-    atlas_texture.loadImage(atlas);
+    var atlas_tex = this.cacheTexture(atlas);
 
-    var terrain_uniforms = {
-        'atlasSize': uniform('vec2',
-                [(atlas.width / TILE_SIZE)|0,
-                 (atlas.height / TILE_SIZE)|0]),
-        'cameraPos': uniform('vec2', null),
-        'cameraSize': uniform('vec2', null),
-        'chunkPos': uniform('vec2', null),
-        'maskCenter': uniform('vec2', null),
-        'maskRadius2': uniform('float', null),
-    };
+    var struct_sheet = assets['structures0'];
+    var struct_sheet_tex = this.cacheTexture(struct_sheet);
 
-    var terrain_attributes = {
-        'position': attribute(null, 3, gl.UNSIGNED_BYTE, false, 8, 0),
-        'texCoord': attribute(null, 2, gl.UNSIGNED_BYTE, false, 8, 4),
-    };
+    var struct_depth = assets['structdepth0'];
+    var struct_depth_tex = this.cacheTexture(struct_depth);
 
-    this.terrain_obj = new GlObject(gl, terrain_program,
-            terrain_uniforms,
-            terrain_attributes,
-            {'atlasSampler': atlas_texture});
-
+    this.blit = build_blit(gl, assets);
+    this.terrain_block = build_terrain_block(gl, assets, atlas_tex);
+    this.structure = build_structure(gl, assets, struct_sheet_tex, struct_depth_tex);
 
     this.sprite_classes = {
         'simple': new Simple3D(gl, assets),
         'layered': new Layered3D(gl, assets),
         'named': new Named3D(gl, assets),
     };
-
-    this.texture_cache = new WeakMap();
 };
+
+function build_terrain_block(gl, assets, atlas_tex) {
+    var vert = assets['terrain_block.vert'];
+    var frag = assets['terrain_block.frag'];
+    var program = new Program(gl, vert, frag);
+
+    var uniforms = {
+        'atlasSize': uniform('vec2', [(atlas_tex.width / TILE_SIZE)|0,
+                                      (atlas_tex.height / TILE_SIZE)|0]),
+    };
+
+    var attributes = {
+        'position': attribute(null, 3, gl.UNSIGNED_BYTE, false, 8, 0),
+        'texCoord': attribute(null, 2, gl.UNSIGNED_BYTE, false, 8, 4),
+    };
+
+    var textures = {
+        'atlasTex': atlas_tex,
+    };
+
+    return new GlObject(gl, program, uniforms, attributes, textures);
+}
+
+function build_blit(gl, assets) {
+    var vert = assets['blit.vert'];
+    var frag = assets['blit.frag'];
+    var program = new Program(gl, vert, frag);
+
+    var buffer = new Buffer(gl);
+    buffer.loadData(new Uint8Array([
+        0, 0,
+        0, 1,
+        1, 1,
+
+        0, 0,
+        1, 1,
+        1, 0,
+    ]));
+
+    var uniforms = {
+        'rectPos': uniform('vec2', null),
+        'rectSize': uniform('vec2', [CHUNK_SIZE * TILE_SIZE, CHUNK_SIZE * TILE_SIZE]),
+        'cameraPos': uniform('vec2', null),
+        'cameraSize': uniform('vec2', null),
+    };
+
+    var attributes = {
+        'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0),
+    };
+
+    var textures = {
+        'imageTex': null,
+        'depthTex': null,
+    };
+
+    return new GlObject(gl, program, uniforms, attributes, textures);
+}
+
+function build_structure(gl, assets, sheet_tex, depth_tex) {
+    var vert = assets['structure.vert'];
+    var frag = assets['structure.frag'];
+    var program = new Program(gl, vert, frag);
+
+    var uniforms = {
+        'sheetSize': uniform('vec2', [sheet_tex.width, sheet_tex.height]),
+    };
+
+    var attributes = {
+        'position': attribute(null, 3, gl.SHORT, false, 16, 0),
+        'texCoord': attribute(null, 2, gl.UNSIGNED_SHORT, false, 16, 8),
+    };
+
+    var textures = {
+        'sheetTex': sheet_tex,
+        'depthTex': depth_tex,
+    };
+
+    return new GlObject(gl, program, uniforms, attributes, textures);
+}
+
+
+// Texture object management
 
 Renderer.prototype.cacheTexture = function(image) {
     var tex = this.texture_cache.get(image);
@@ -102,6 +166,9 @@ Renderer.prototype.refreshTexture = function(image) {
     }
 };
 
+
+// Data loading
+
 Renderer.prototype.loadBlockData = function(blocks) {
     var view = this._asm.blockDataView();
     for (var i = 0; i < blocks.length; ++i) {
@@ -115,99 +182,256 @@ Renderer.prototype.loadBlockData = function(blocks) {
 };
 
 Renderer.prototype.loadChunk = function(i, j, chunk) {
-    var idx = i * LOCAL_SIZE + j;
+    this._asm.chunkView().set(chunk._tiles);
+    this._asm.loadChunk(j, i);
 
-    this._asm.chunkDataView().set(chunk._tiles);
-    i = (idx / LOCAL_SIZE)|0;
-    j = (idx % LOCAL_SIZE);
-    this._asm.updateXvData(i, j);
-
-    this._refreshGeometry(i, j);
-    this._refreshGeometry(i - 1, j);
+    this.terrain_cache.invalidate(i * LOCAL_SIZE + j);
+    var above = (i - 1) & (LOCAL_SIZE - 1);
+    this.terrain_cache.invalidate(above * LOCAL_SIZE + j);
 };
 
-Renderer.prototype._refreshGeometry = function(i, j) {
-    i = i & (LOCAL_SIZE - 1);
-    j = j & (LOCAL_SIZE - 1);
-    var idx = i * LOCAL_SIZE + j;
+Renderer.prototype.loadTemplateData = function(templates) {
+    var view8 = this._asm.templateDataView8();
+    var view16 = this._asm.templateDataView16();
+    for (var i = 0; i < templates.length; ++i) {
+        var template = templates[i];
+        var out8 = view8.subarray(i * 12, (i + 1) * 12);
+        var out16 = view16.subarray(i * 6, (i + 1) * 6);
 
-    var geom = this._asm.generateGeometry(i, j);
-    this._chunk_buffer[idx].loadData(geom);
-    this._chunk_points[idx] = (geom.length / 4)|0;
+        out8[0] = template.size.x;
+        out8[1] = template.size.y;
+        out8[2] = template.size.z;
+        out8[3] = template.sheet;
+        out16[2] = template.display_size[0];
+        out16[3] = template.display_size[1];
+        out16[4] = template.display_offset[0];
+        out16[5] = template.display_offset[1];
+    }
+};
+
+Renderer.prototype.addStructure = function(x, y, z, template_id) {
+    return this._asm.addStructure(x, y, z, template_id);
+};
+
+Renderer.prototype.removeStructure = function(idx) {
+    this._asm.removeStructure(idx);
+};
+
+
+// Render
+
+Renderer.prototype._renderTerrain = function(fb, cx, cy) {
+    var geom = this._asm.generateGeometry(cx, cy);
+
+    var gl = this.gl;
+    fb.bind();
+    gl.viewport(0, 0, fb.width, fb.height);
+    gl.clearDepth(0.0);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.GEQUAL);
+
+    var buffer = new Buffer(gl);
+    buffer.loadData(geom);
+
+    this.terrain_block.draw(0, geom.length / 8, {}, {
+        'position': buffer,
+        'texCoord': buffer,
+    }, {});
+
+    fb.unbind();
+    gl.disable(gl.DEPTH_TEST);
+};
+
+Renderer.prototype._renderStructures = function(fb, cx, cy) {
+    var gl = this.gl;
+    fb.bind();
+    gl.viewport(0, 0, fb.width, fb.height);
+    gl.clearDepth(0.0);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.GEQUAL);
+
+    this._asm.resetStructureGeometry();
+    var more = true;
+    while (more) {
+        var result = this._asm.generateStructureGeometry(cx, cy);
+        var geom = result.geometry;
+        more = result.more;
+        // TODO: use result.sheet
+
+        var buffer = new Buffer(gl);
+        buffer.loadData(geom);
+
+        this.structure.draw(0, geom.length / 8, {}, {
+            'position': buffer,
+            'texCoord': buffer,
+        }, {});
+    }
+
+    fb.unbind();
+    gl.disable(gl.DEPTH_TEST);
 };
 
 Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, mask_info) {
     var gl = this.gl;
 
-    this.terrain_obj.setUniformValue('cameraPos', [sx, sy]);
-    this.terrain_obj.setUniformValue('cameraSize', [sw, sh]);
-    this.terrain_obj.setUniformValue('maskCenter', mask_info.center);
-    this.terrain_obj.setUniformValue('maskRadius2', [mask_info.radius * mask_info.radius]);
+    this.blit.setUniformValue('cameraPos', [sx, sy]);
+    this.blit.setUniformValue('cameraSize', [sw, sh]);
 
     for (var k in this.sprite_classes) {
         var cls = this.sprite_classes[k];
         cls.setCamera(sx, sy, sw, sh);
     }
 
+    var chunk_px = CHUNK_SIZE * TILE_SIZE;
+    var cx0 = ((sx|0) / chunk_px)|0;
+    var cx1 = (((sx|0) + (sw|0) + chunk_px) / chunk_px)|0;
+    var cy0 = ((sy|0) / chunk_px)|0;
+    var cy1 = (((sy|0) + (sh|0) + chunk_px) / chunk_px)|0;
+
+    var chunk_idxs = new Array((cx1 - cx0) * (cy1 - cy0));
+
+    var i = 0;
+    for (var cy = cy0; cy < cy1; ++cy) {
+        for (var cx = cx0; cx < cx1; ++cx) {
+            var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
+            chunk_idxs[i] = idx;
+            ++i;
+        }
+    }
+
     var this_ = this;
+    this.terrain_cache.populate(chunk_idxs, function(idx, fbs) {
+        var cx = (idx % LOCAL_SIZE)|0;
+        var cy = (idx / LOCAL_SIZE)|0;
+        this_._renderTerrain(fbs.terrain, cx, cy);
+        this_._renderStructures(fbs.structures, cx, cy);
+    });
 
-    var cur_cx = -1;
-    var cur_cy = -1;
-    var cur_indices = [];
+    // `populate` may call `_renderTerrain`, which changes the OpenGL viewport.
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-    function buffer_terrain(cx, cy, begin, end) {
-        if (cx != cur_cx || cy != cur_cy) {
-            flush_terrain();
-            cur_cx = cx;
-            cur_cy = cy;
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.GEQUAL);
+
+    for (var cy = cy0; cy < cy1; ++cy) {
+        for (var cx = cx0; cx < cx1; ++cx) {
+            var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
+
+            this.blit.draw(0, 6, {
+                'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
+                            cy * CHUNK_SIZE * TILE_SIZE],
+            }, {}, {
+                'imageTex': this.terrain_cache.get(idx).terrain.texture,
+                'depthTex': this.terrain_cache.get(idx).terrain.depth_texture,
+            });
+
+            this.blit.draw(0, 6, {
+                'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
+                            cy * CHUNK_SIZE * TILE_SIZE],
+            }, {}, {
+                'imageTex': this.terrain_cache.get(idx).structures.texture,
+                'depthTex': this.terrain_cache.get(idx).structures.depth_texture,
+            });
         }
-        cur_indices.push([6 * begin, 6 * (end - begin)]);
     }
 
-    function flush_terrain() {
-        if (cur_indices.length == 0) {
-            return;
-        }
-
-        var i = cur_cy % LOCAL_SIZE;
-        var j = cur_cx % LOCAL_SIZE;
-        var idx = i * LOCAL_SIZE + j;
-        var buffer = this_._chunk_buffer[idx];
-
-        this_.terrain_obj.drawMulti(cur_indices,
-                {'chunkPos': [cur_cx, cur_cy]},
-                {'position': buffer,
-                 'texCoord': buffer},
-                {});
-
-        cur_indices.length = 0;
+    for (var i = 0; i < sprites.length; ++i) {
+        var sprite = sprites[i];
+        var cls = this.sprite_classes[sprite.cls];
+        cls.draw(this, sprite);
     }
 
-    function draw_sprite(id, x, y, w, h) {
-        flush_terrain();
-
-        var sprite = sprites[id];
-        // Coordinates where the sprite would normally be displayed.
-        var x0 = sprite.ref_x - sprite.anchor_x;
-        var y0 = sprite.ref_y - sprite.ref_z - sprite.anchor_y;
-        // The region x,y,w,h is x0,y0,sprite.width,sprite.height clipped to
-        // lie within some other region.
-        var clip_x = x - x0;
-        var clip_y = y - y0;
-
-        var cls = this_.sprite_classes[sprite.cls];
-        console.assert(cls != null,
-                'unknown sprite class', sprite.cls);
-
-        cls.draw(this_, sprite,
-                 x0, y0,
-                 clip_x, clip_y, w, h);
-    }
-
-    this._asm.render(sx, sy, sw, sh, sprites, buffer_terrain, draw_sprite);
-
-    flush_terrain();
+    gl.disable(gl.DEPTH_TEST);
 };
+
+
+
+/** @constructor */
+function RenderCache(gl) {
+    this.gl = gl;
+    this.slots = [];
+    this.users = [];
+
+    this.map = new Array(LOCAL_SIZE * LOCAL_SIZE);
+    for (var i = 0; i < this.map.length; ++i) {
+        this.map[i] = -1;
+    }
+
+    // `users` maps slots to indexes.  `map` maps indexes to slots.  `map` is
+    // not always kept up to date, so it's necessary to check that
+    // `users[slot] == idx` before relying on the result of a `map` lookup.
+}
+
+RenderCache.prototype._addSlot = function() {
+    var chunk_px = CHUNK_SIZE * TILE_SIZE;
+    this.slots.push({
+        terrain: new Framebuffer(this.gl, chunk_px, chunk_px),
+        structures: new Framebuffer(this.gl, chunk_px, chunk_px),
+    });
+    this.users.push(-1);
+};
+
+RenderCache.prototype.populate = function(idxs, callback) {
+    // First, collect any slot/idx pairs that can be reused.  Clear all
+    // remaining slots (set `user[slot]` to -1).
+    var new_users = new Array(this.users.length);
+    for (var i = 0; i < new_users.length; ++i) {
+        new_users[i] = -1;
+    }
+
+    for (var i = 0; i < idxs.length; ++i) {
+        var idx = idxs[i];
+        var slot = this.map[idx];
+        if (slot != -1 && this.users[slot] == idx) {
+            new_users[slot] = idx;
+        }
+    }
+
+    this.users = new_users;
+
+    // Now make a second pass to find slots for all remaining `idxs`.
+    var free = 0;
+    for (var i = 0; i < idxs.length; ++i) {
+        var idx = idxs[i];
+        var slot = this.map[idx];
+        if (slot == -1 || this.users[slot] != idx) {
+            // Find or create a free slot
+            while (free < this.users.length && this.users[free] != -1) {
+                ++free;
+            }
+            if (free == this.users.length) {
+                this._addSlot();
+            }
+
+            // Populate the slot and assign it to `idx`.
+            callback(idx, this.slots[free]);
+            this.map[idx] = free;
+            this.users[free] = idx;
+        }
+    }
+};
+
+RenderCache.prototype.get = function(idx) {
+    var slot = this.map[idx];
+    if (slot == -1 || this.users[slot] != idx) {
+        return null;
+    } else {
+        return this.slots[slot];
+    }
+};
+
+RenderCache.prototype.invalidate = function(idx) {
+    var slot = this.map[idx];
+    if (slot != -1 && this.users[slot] == idx) {
+        this.users[slot] = -1;
+    }
+    this.map[idx] = -1;
+};
+
 
 
 /** @constructor */

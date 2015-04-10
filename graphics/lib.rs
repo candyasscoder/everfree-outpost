@@ -12,10 +12,11 @@
 extern crate physics;
 
 use core::prelude::*;
-use core::cell::Cell;
-use core::cmp;
+use core::ptr;
+use core::num::wrapping::WrappingOps;
 
 use physics::{TILE_BITS, CHUNK_BITS};
+use physics::v3::{V3, scalar, Region};
 
 
 #[cfg(asmjs)]
@@ -34,6 +35,8 @@ const CHUNK_SIZE: u16 = 1 << CHUNK_BITS;
 const LOCAL_BITS: usize = 3;
 const LOCAL_SIZE: u16 = 1 << LOCAL_BITS;
 
+
+/// Tile numbers used to display a particular block.
 #[derive(Copy)]
 pub struct BlockDisplay {
     front: u16,
@@ -42,93 +45,44 @@ pub struct BlockDisplay {
     bottom: u16,
 }
 
+impl BlockDisplay {
+    pub fn tile(&self, side: usize) -> u16 {
+        match side {
+            0 => self.front,
+            1 => self.back,
+            2 => self.top,
+            3 => self.bottom,
+            _ => panic!("invalid side number"),
+        }
+    }
+}
+
+/// BlockDisplay for every block type known to the client.
 pub type BlockData = [BlockDisplay; (ATLAS_SIZE * ATLAS_SIZE) as usize];
 
-pub type ChunkData = [u16; 1 << (3 * CHUNK_BITS)];
-pub type LocalData = [ChunkData; 1 << (2 * LOCAL_BITS)];
 
+/// A chunk of terrain.  Each element is a block index.
+pub type BlockChunk = [u16; 1 << (3 * CHUNK_BITS)];
+/// BlockChunk for every chunk in the local region.
+pub type LocalChunks = [BlockChunk; 1 << (2 * LOCAL_BITS)];
 
-type XvOffsets = [u8; (CHUNK_SIZE * 4) as usize];
-type XvTiles = [u16; (CHUNK_SIZE * 4) as usize];
+/// Copy a BlockChunk into the LocalChunks.
+pub fn load_chunk(local: &mut LocalChunks,
+                  chunk: &BlockChunk,
+                  cx: u16,
+                  cy: u16) {
+    let cx = cx & (LOCAL_SIZE - 1);
+    let cy = cy & (LOCAL_SIZE - 1);
+    let idx = cy * LOCAL_SIZE + cx;
 
-struct XvChunk {
-    bases: [u16; 1 << (2 * CHUNK_BITS)],
-    offsets: [XvOffsets; 1 << (2 * CHUNK_BITS)],
-    tiles: [XvTiles; 1 << (2 * CHUNK_BITS)],
+    local[idx as usize] = *chunk;
 }
 
-pub struct XvData {
-    chunks: [XvChunk; 1 << (2 * LOCAL_BITS)],
-}
 
-pub fn update_xv(xv: &mut XvData, blocks: &BlockData, chunk: &ChunkData, i: u8, j: u8) {
-    let i = i as usize;
-    let j = j as usize;
-    let chunk_idx0 = (i << LOCAL_BITS) + j;
-    let i1 = (i + LOCAL_SIZE as usize - 1) % LOCAL_SIZE as usize;
-    let chunk_idx1 = (i1 << LOCAL_BITS) + j;
-
-    let mut copy = |x: u16, u: u16, v: u16,
-                    chunk_idx: usize,
-                    cx: u16, cu: u16, cv: u16,
-                    upper: bool| {
-        let tiles_idx = ((v << CHUNK_BITS) + x) as usize;
-        let stack = &mut xv.chunks[chunk_idx].tiles[tiles_idx];
-
-        let cy = (cu + cv) / 2;
-        let cz = (cu - cv) / 2;
-        let tile = chunk[((cz * CHUNK_SIZE + cy) * CHUNK_SIZE + cx) as usize];
-        let block = &blocks[tile as usize];
-
-        if upper {
-            stack[2 * u as usize + 0] = block.back;
-            stack[2 * u as usize + 1] = block.top;
-        } else {
-            stack[2 * u as usize + 0] = block.bottom;
-            stack[2 * u as usize + 1] = block.front;
-        }
-    };
-
-    for v in range(0, CHUNK_SIZE) {
-        let base_cu = CHUNK_SIZE - v - 1;
-        let base_cv = -base_cu;
-        for x in range(0, CHUNK_SIZE) {
-            for k in range(0, 2 * v + 1) {
-                let odd = k % 2 == 1;
-
-                let u = k + 2 * (CHUNK_SIZE - v) - 1;
-
-                let cx = x;
-                let cu = base_cu + k;
-                let cv = base_cv - (odd as u16);
-
-                copy(x, u, v, chunk_idx1, cx, cu, cv, !odd);
-            }
-        }
-    }
-
-    for v in range(0, CHUNK_SIZE) {
-        let base_cu = v;
-        let base_cv = v;
-        for x in range(0, CHUNK_SIZE) {
-            for k in range(0, 2 * (CHUNK_SIZE - v) - 1) {
-                let odd = k % 2 == 1;
-
-                let u = k;
-
-                let cx = x;
-                let cu = base_cu + k;
-                let cv = base_cv + (odd as u16);
-
-                copy(x, u, v, chunk_idx0, cx, cu, cv, odd);
-            }
-        }
-    }
-}
-
+/// Vertex attributes for terrain.
 #[allow(dead_code)]
 #[derive(Copy)]
-pub struct VertexData {
+pub struct TerrainVertex {
     x: u8,
     y: u8,
     z: u8,
@@ -138,352 +92,445 @@ pub struct VertexData {
     _pad1: u8,
     _pad2: u8,
 }
-// Each chunk has CHUNK_SIZE^3 blocks, each block has 4 faces, each face has 6 vertices.
+
+/// Maximum number of blocks that could be present in the output of generate_geometry.  The +1 is
+/// because generate_geometry actually looks at `CHUNK_SIZE + 1` y-positions.
+const GEOM_BLOCK_COUNT: u16 = CHUNK_SIZE * (CHUNK_SIZE + 1) * CHUNK_SIZE;
+/// Number of vertices in each face.
 const FACE_VERTS: usize = 6;
-pub type GeometryBuffer = [VertexData; (4 * FACE_VERTS) << (3 * CHUNK_BITS)];
+/// A list of TerrainVertex items to pass to OpenGL.  The upper bound is GEOM_BLOCK_COUNT blocks *
+/// 4 faces (sides) per block * FACE_VERTS vertices per face, but usually not all elements will be
+/// filled in.
+pub type TerrainGeometryBuffer = [TerrainVertex; GEOM_BLOCK_COUNT as usize * 4 * FACE_VERTS];
 
+/// Generate terrain geometry for a chunk.  The result contains all faces that might overlap the
+/// z=0 plane of the indicated chunk.  This means it contains the +y,-z half of the named chunk and
+/// the -y,+z half of the next chunk in the +y direction.
+///
+/// This can actually output blocks at `CHUNK_SIZE + 1` y-positions for a particular x,z.  Only
+/// CHUNK_SIZE blocks are actually visible, but those CHUNK_SIZE blocks include a half-block at the
+/// top and a half-block at the bottom.  This function doesn't bother splitting back/top from
+/// front/bottom, and just outputs the whole block on each end.
+///
+///         /-------/ CHUNK_SIZE visible (diagonal slice)
+///      *-+-+-+-+-+
+///      |/| | | |/|
+///      +-+-+-+-+-*
+///      |---------| CHUNK_SIZE + 1 output
+/// Corners marked * are output even though they aren't actually visible.
+pub fn generate_geometry(local: &LocalChunks,
+                         block_data: &BlockData,
+                         geom: &mut TerrainGeometryBuffer,
+                         cx: u16,
+                         cy: u16) -> usize {
 
-pub fn generate_geometry(xv: &mut XvData,
-                         geom: &mut GeometryBuffer,
-                         i: u8, j: u8) -> usize {
-    let pos = Cell::new(0);
+    let cx = cx & (LOCAL_SIZE - 1);
+    let cy0 = cy & (LOCAL_SIZE - 1);
+    let cy1 = (cy + 1) & (LOCAL_SIZE - 1);
 
-    let mut push = |x, y, z, s, t| {
-        geom[pos.get()] = VertexData {
-            x: x, y: y, z: z,
-            s: s, t: t,
-            _pad0: 0, _pad1: 0, _pad2: 0,
-        };
-        pos.set(pos.get() + 1);
-    };
-    let mut push_face = |x: u16, y: u16, z: u16, tile: u16| {
-        let (x, y, z) = (x as u8, y as u8, z as u8);
-        let s = (tile % ATLAS_SIZE) as u8;
-        let t = (tile / ATLAS_SIZE) as u8;
+    let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE as i32));
 
-        push(x,     y,     z, s,     t    );
-        push(x,     y + 1, z, s,     t + 1);
-        push(x + 1, y + 1, z, s + 1, t + 1);
+    let mut out_idx = 0;
 
-        push(x,     y,     z, s,     t    );
-        push(x + 1, y + 1, z, s + 1, t + 1);
-        push(x + 1, y,     z, s + 1, t    );
+    const SIDE_OFFSETS: [((u8, u8), (u8, u8)); 4] = [
+        // Front
+        ((1, 1), (0, 1)),
+        // Back
+        ((0, 1), (0, 1)),
+        // Top
+        ((0, 1), (1, 0)),
+        // Bottom
+        ((0, 0), (1, 0)),
+    ];
 
-    };
+    const CORNERS: [(u8, u8); 4] = [
+        (0, 0),
+        (1, 0),
+        (1, 1),
+        (0, 1),
+    ];
 
-    let chunk = &mut xv.chunks[((i << LOCAL_BITS) + j) as usize];
+    const INDEXES: [usize; 6] = [0, 1, 2,  0, 2, 3];
 
-    for v in range(0, CHUNK_SIZE) {
-        for x in range(0, CHUNK_SIZE) {
-            let idx = (v * CHUNK_SIZE + x) as usize;
-            let base = pos.get() / FACE_VERTS;
-            chunk.bases[idx] = base as u16;
-            for u in range(0, 4 * CHUNK_SIZE) {
-                let tile = chunk.tiles[idx][u as usize];
-                if tile != 0 {
-                    push_face(x, v, u, tile);
-                }
-                let offset = (pos.get() / FACE_VERTS) - base as usize;
-                chunk.offsets[idx][u as usize] = offset as u8;
-            }
-        }
-    }
+    fn place(buf: &mut TerrainGeometryBuffer,
+             base_idx: &mut usize,
+             tile_id: u16,
+             bx: i32,
+             by: i32,
+             bz: i32,
+             side: usize) {
+        let ((base_y, base_z), (step_y, step_z)) = SIDE_OFFSETS[side];
 
-    pos.get()
-}
+        let tile_s = (tile_id % ATLAS_SIZE) as u8;
+        let tile_t = (tile_id / ATLAS_SIZE) as u8;
 
-
-#[derive(PartialEq, Eq, Debug)]
-enum SpriteStatus {
-    // Sprite does not overlap the chunk.
-    Outside,
-    // Sprite will be drawn above all terrain in the chunk.
-    Above,
-    // Sprite will be drawn between some terrain layers in the chunk.
-    Between,
-}
-
-#[derive(Debug)]
-pub struct Sprite {
-    id: u16,
-    ref_x: u16,
-    ref_y: u16,
-    ref_z: u16,
-    width: u8,
-    height: u8,
-    anchor_x: u8,
-    anchor_y: u8,
-    status: SpriteStatus,
-}
-
-impl Sprite {
-    fn screen_pos(&self) -> (u16, u16) {
-        (self.ref_x - self.anchor_x as u16,
-         self.ref_y - self.ref_z - self.anchor_y as u16)
-    }
-
-    fn ref_uv(&self) -> (u16, u16) {
-        (self.ref_y + self.ref_z,
-         self.ref_y - self.ref_z)
-    }
-
-    fn clipped_bounds(&self, cx: u16, cy: u16) -> (u16, u16, u16, u16) {
-        let (screen_x, screen_y) = self.screen_pos();
-
-        let chunk_px = CHUNK_SIZE * TILE_SIZE;
-        let base_x0 = cx * chunk_px;
-        let base_x1 = base_x0 + chunk_px;
-        let base_y0 = cy * chunk_px;
-        let base_y1 = base_y0 + chunk_px;
-
-        fn clamp(x: u16, min: u16, max: u16) -> u16 {
-            if x < min { min }
-            else if x > max { max }
-            else { x }
-        }
-
-        let x0 = clamp(screen_x, base_x0, base_x1) - base_x0;
-        let x1 = clamp(screen_x + self.width as u16, base_x0, base_x1) - base_x0;
-        let y0 = clamp(screen_y, base_y0, base_y1) - base_y0;
-        let y1 = clamp(screen_y + self.height as u16, base_y0, base_y1) - base_y0;
-
-        (x0, x1, y0, y1)
-    }
-
-    fn clipped_tile_bounds(&self, cx: u16, cy: u16) -> (u16, u16, u16, u16) {
-        let (x0, x1, y0, y1) = self.clipped_bounds(cx, cy);
-
-        let tx0 = x0 / TILE_SIZE;
-        let tx1 = (x1 + TILE_SIZE - 1) / TILE_SIZE;
-        let ty0 = y0 / TILE_SIZE;
-        let ty1 = (y1 + TILE_SIZE - 1) / TILE_SIZE;
-
-        (tx0, tx1, ty0, ty1)
-    }
-
-    fn u_limit(&self, row: u16) -> u8 {
-        // Number of surfaces in each x,v position on this row that are entirely behind or entirely
-        // below the sprite.  These counts use the same units as XvData.tiles indices, so the front
-        // of one tile and the back of the adjacent tile are counted separately.
-        let behind = 4 * (self.ref_y / TILE_SIZE - row) - 1;
-        let below = 4 * (self.ref_z / TILE_SIZE) + 1;
-        let limit = cmp::max(0, cmp::max(behind as i16, below as i16));
-        limit as u8
-    }
-}
-
-
-pub fn render<FT, FS>(xv: &XvData,
-                      x: u16,
-                      y: u16,
-                      width: u16,
-                      height: u16,
-                      sprites: &mut [Sprite],
-                      mut draw_terrain: FT,
-                      mut draw_sprite: FS)
-        where FT: FnMut(u16, u16, u16, u16),
-              FS: FnMut(u16, u16, u16, u16, u16) {
-    quicksort(sprites, SpriteUV);
-
-    let chunk_px = CHUNK_SIZE * TILE_SIZE;
-
-    let cx0 = x / chunk_px;
-    let cx1 = (x + width + chunk_px - 1) / chunk_px;
-    let cy0 = y / chunk_px;
-    let cy1 = (y + height + chunk_px - 1) / chunk_px;
-
-    for cy in range(cy0, cy1) {
-        for cx in range(cx0, cx1) {
-            let i = cy % LOCAL_SIZE;
-            let j = cx % LOCAL_SIZE;
-            let idx = (i * LOCAL_SIZE + j) as usize;
-
-            let chunk = &xv.chunks[idx];
-            render_chunk(chunk, cx, cy, sprites,
-                         |a, b, c, d| draw_terrain(a, b, c, d),
-                         |a, b, c, d, e| draw_sprite(a, b, c, d, e));
-        }
-    }
-}
-
-fn render_chunk<FT, FS>(chunk: &XvChunk,
-                        cx: u16, cy: u16,
-                        sprites: &mut [Sprite],
-                        mut draw_terrain: FT,
-                        mut draw_sprite: FS)
-        where FT: FnMut(u16, u16, u16, u16),
-              FS: FnMut(u16, u16, u16, u16, u16) {
-    // Pass #1
-    //
-    // Examine each sprite.  For each sprite, determine whether it is Outside, Above, or Between
-    // the terrain layers.  Also mark each column in which terrain covers a sprite, as these
-    // columns need to be drawn incrementally.
-    let mut depth = [-1_u8; 1 << (2 * CHUNK_BITS)];
-
-    let max_idx = (CHUNK_SIZE * CHUNK_SIZE - 1) as usize;
-    let col_max_idx = (4 * CHUNK_SIZE - 1) as usize;
-
-    for sprite in sprites.iter_mut() {
-        let (tx0, tx1, ty0, ty1) = sprite.clipped_tile_bounds(cx, cy);
-        let inside = tx0 < tx1 && ty0 < ty1;
-        let mut below = false;
-        for ty in range(ty0, ty1) {
-            let limit = sprite.u_limit(cy * CHUNK_SIZE + ty);
-            for tx in range(tx0, tx1) {
-                let idx = (ty * CHUNK_SIZE + tx) as usize;
-                // Offset of the first face above the sprite in this column.  We look at index
-                // `limit - 1` is the first face *after* the one at u=limit, and we want the last
-                // one *before* u=limit.  This never underflows because limit is always >= 1
-                // (assuming ref_z >= 0).
-                let above = chunk.offsets[idx][limit as usize - 1];
-                // Offset of the last face in this column.
-                let col_max = chunk.offsets[idx][col_max_idx];
-
-                if above < col_max {
-                    depth[idx] = 0;
-                    below = true;
-                }
-            }
-        }
-
-        sprite.status =
-            if !inside {
-                SpriteStatus::Outside
-            } else if !below {
-                SpriteStatus::Above
-            } else {
-                SpriteStatus::Between
+        for &idx in INDEXES.iter() {
+            let (corner_u, corner_v) = CORNERS[idx];
+            let vert = TerrainVertex {
+                x: bx as u8 + corner_u,
+                y: by as u8 + base_y + (step_y & corner_v),
+                z: bz as u8 + base_z - (step_z & corner_v),
+                _pad0: 0,
+                s: tile_s + corner_u,
+                t: tile_t + corner_v,
+                _pad1: 0,
+                _pad2: 0,
             };
+            buf[*base_idx] = vert;
+            *base_idx += 1;
+        }
     }
 
-    // Pass #2
-    //
-    // Examine each column.  Collect runs of columns tha contain only Above sprites (or no sprites)
-    // and draw each run.
-    let mut last = 0;
-    for idx in range(0, depth.len()) {
-        if depth[idx] == -1 {
-            continue;
-        }
-
-        let cur = chunk.bases[idx];
-        if cur > last {
-            draw_terrain(cx, cy, last, cur);
-        }
-        last = cur + chunk.offsets[idx][col_max_idx] as u16;
-    }
-
-    let cur = chunk.bases[max_idx] + chunk.offsets[max_idx][col_max_idx] as u16;
-    if cur > last {
-        draw_terrain(cx, cy, last, cur);
-    }
-
-    // Pass #3
-    //
-    // Examine each sprite.  Draw all partial columns below the sprite, then draw the sprite
-    // itself.
-    for sprite in sprites.iter() {
-        if sprite.status == SpriteStatus::Outside {
-            continue;
-        }
-
-        let (tx0, tx1, ty0, ty1) = sprite.clipped_tile_bounds(cx, cy);
-        for ty in range(ty0, ty1) {
-            let limit = sprite.u_limit(cy * CHUNK_SIZE + ty);
-            for tx in range(tx0, tx1) {
-                let idx = (ty * CHUNK_SIZE + tx) as usize;
-                if depth[idx] == -1 {
-                    continue;
+    let chunk0 = &local[(cy0 * LOCAL_SIZE + cx) as usize];
+    for z in range(0, CHUNK_SIZE as i32) {
+        for y in range(z, CHUNK_SIZE as i32) {
+            for x in range(0, CHUNK_SIZE as i32) {
+                let block_id = chunk0[bounds.index(V3::new(x, y, z))] as usize;
+                for side in range(0, 4) {
+                    let tile_id = block_data[block_id].tile(side);
+                    if tile_id == 0 {
+                        continue;
+                    }
+                    place(geom, &mut out_idx, tile_id, x, y, z, side);
                 }
-
-                let base = chunk.bases[idx];
-                let start_off = depth[idx];
-                let end_off = chunk.offsets[idx][limit as usize - 1];
-                if start_off < end_off {
-                    draw_terrain(cx, cy,
-                                 base + start_off as u16,
-                                 base + end_off as u16);
-                }
-                depth[idx] = end_off;
             }
         }
-
-        let (x0, x1, y0, y1) = sprite.clipped_bounds(cx, cy);
-        let base_x = cx * CHUNK_SIZE * TILE_SIZE;
-        let base_y = cy * CHUNK_SIZE * TILE_SIZE;
-        draw_sprite(sprite.id,
-                    x0 + base_x,
-                    y0 + base_y,
-                    x1 - x0,
-                    y1 - y0);
     }
 
-    // Pass #4
-    //
-    // Examine each column.  If the column has been partially drawn, draw the topmost part of it.
-    for ty in range(0, CHUNK_SIZE) {
-        for tx in range(0, CHUNK_SIZE) {
-            let idx = (ty * CHUNK_SIZE + tx) as usize;
-            if depth[idx] == -1 {
+    let chunk1 = &local[(cy1 * LOCAL_SIZE + cx) as usize];
+    for z in range(0, CHUNK_SIZE as i32) {
+        for y in range(0, z + 1) {  // NB: 0..z+1 instead of z..SIZE
+            for x in range(0, CHUNK_SIZE as i32) {
+                let block_id = chunk1[bounds.index(V3::new(x, y, z))] as usize;
+                for side in range(0, 4) {
+                    let tile_id = block_data[block_id].tile(side);
+                    if tile_id == 0 {
+                        continue;
+                    }
+                    place(geom, &mut out_idx, tile_id, x, y + 16, z, side);  // NB: +16
+                }
+            }
+        }
+    }
+
+    out_idx
+}
+
+
+pub struct StructureTemplate {
+    size: (u8, u8, u8),
+    sheet: u8,
+    display_size: (u16, u16),
+    display_offset: (u16, u16),
+}
+
+/// All structure templates known to the client.  The number of elements is arbitrary.
+pub type StructureTemplateData = [StructureTemplate; 1024];
+
+
+pub struct Structure {
+    live: bool,
+
+    /// Structure position in tiles.  u8 is enough to cover the entire local region.
+    pos: (u8, u8, u8),
+
+    template_id: u16,
+}
+
+pub struct StructureBuffer<'a> {
+    templates: &'a StructureTemplateData,
+
+    /// Buffer containing all structures known to the client.  The limit is arbitrary, but 16 bits'
+    /// worth seems reasonable and happens to be 1/8 of the theoretical maximum (if every block in
+    /// the local region had a structure on both layers).
+    structures: [Structure; 1 << 16],
+
+    /// Index of the first empty slot in `structures`.
+    first_free: usize,
+
+    /// Index of the last non-empty slot in `structures`.
+    last_used: usize,
+
+
+    // Additional data used during geometry generation.
+
+    /// Indexes of structures that overlap the target chunk.  Limit is arbitrary.  We may need to
+    /// make multiple passes over this list to emit geometry for different sheets, which is why
+    /// it's saved between calls.
+    indexes: [u16; 1024],
+
+    /// Index of the next structure to check once everything in `indexes` is done.  We save this
+    /// separately (instead of just taking the last value in `indexes`) because we remove items
+    /// from `indexes` as we output geometry.
+    next_index: usize,
+
+    /// Number of slots in `indexes` that are actually populated.
+    num_indexes: usize,
+
+    /// Bitfield of sheet numbers that are present in `indexes`.
+    index_sheets: u32,
+}
+
+impl<'a> StructureBuffer<'a> {
+    pub fn init(&mut self, templates: &'a StructureTemplateData) {
+        unsafe { ptr::write(&mut self.templates, templates) };
+        self.first_free = 0;
+        self.last_used = 0;
+        self.next_index = 0;
+        self.num_indexes = 0;
+        self.index_sheets = 0;
+    }
+
+    pub fn add_structure(&mut self, pos: (u8, u8, u8), template_id: u32) -> usize {
+        let idx = {
+            let s = &mut self.structures[self.first_free];
+            s.live = true;
+            s.pos = pos;
+            s.template_id = template_id as u16;
+            self.first_free
+        };
+        while self.first_free < self.structures.len() && self.structures[self.first_free].live {
+            self.first_free += 1;
+        }
+        if idx > self.last_used {
+            self.last_used = idx;
+        }
+        idx
+    }
+
+    pub fn remove_structure(&mut self, idx: usize) {
+        self.structures[idx].live = false;
+        while self.last_used > 0 && !self.structures[self.last_used].live {
+            self.last_used -= 1;
+        }
+        if idx < self.first_free {
+            self.first_free = idx;
+        }
+    }
+
+    pub fn start_geometry_gen(&mut self) {
+        self.next_index = 0;
+        self.num_indexes = 0;
+        self.index_sheets = 0;
+    }
+
+    pub fn continue_geometry_gen(&mut self,
+                                 buf: &mut StructureGeometryBuffer,
+                                 cx: u8,
+                                 cy: u8) -> (usize, u8, bool) {
+        if self.num_indexes == 0 {
+            self.fill_indexes(cx, cy);
+        }
+
+        let (vertex_count, sheet) = self.generate_geometry(buf, cx, cy);
+        let more = self.index_sheets != 0 || self.next_index <= self.last_used;
+        (vertex_count, sheet, more)
+    }
+
+    fn fill_indexes(&mut self, cx: u8, cy: u8) {
+        // Most arithmetic in this function is wrapping arithmetic mod `LOCAL_SIZE * CHUNK_SIZE`.
+        const MASK: u8 = (LOCAL_SIZE * CHUNK_SIZE - 1) as u8;
+
+        fn add_wrap(a: u8, b: u8) -> u8 {
+            a.wrapping_add(b) & MASK
+        }
+
+        fn sub_wrap(a: u8, b: u8) -> u8 {
+            a.wrapping_sub(b) & MASK
+        }
+
+
+        const CHUNK_SIZE_U8: u8 = CHUNK_SIZE as u8;
+        let min_x = sub_wrap(cx * CHUNK_SIZE_U8, CHUNK_SIZE_U8);
+        let min_y = sub_wrap(cy * CHUNK_SIZE_U8, CHUNK_SIZE_U8);
+
+        let range_x = CHUNK_SIZE_U8 * 2;
+        let range_y = CHUNK_SIZE_U8 * 3;
+
+        for idx in range(self.next_index, self.last_used + 1) {
+            let s = &self.structures[idx];
+            if !s.live {
                 continue;
             }
 
-            let base = chunk.bases[idx];
-            let start_off = depth[idx];
-            let end_off = chunk.offsets[idx][col_max_idx];
-            if start_off < end_off {
-                draw_terrain(cx, cy,
-                             base + start_off as u16,
-                             base + end_off as u16);
+
+            // Broad phase: based only on the structure's position, filter out structures that
+            // definitely are not visible.
+            let (x, y, z) = s.pos;
+            let dx = sub_wrap(x, min_x);
+            let dy = sub_wrap(y, min_y);
+            if dx >= range_x || dy >= range_y {
+                continue;
+            }
+
+
+            // Narrow phase: look at the size of the structure template to determine whether parts
+            // of it might fall in the visible x,v region.
+            let t = &self.templates[s.template_id as usize];
+            let (sx, sy, sz) = t.size;
+            // v-coordinate of the structure's reference point (-x,-y,-z corner).
+            let v0 = sub_wrap(y, z);
+            // Minimum v-coordinate of the structure's display.  With sz=(, the display extends 1
+            // tile above v0, due to the top/back portion of the -y,-z row of blocks.  Every
+            // additional sz causes it to extend further in the -v direction.
+            let v = sub_wrap(v0, sz);
+
+            // The structure's maximum size is CHUNK_SIZE on each axis.  This means that if the
+            // structure does overlap the chunk, then at least one of {x, x + sx - 1} must be within
+            // the chunk along the x axis, and at least one of {v, v0, v + sv - 1} must be within the
+            // chunk along the v axis.
+            let x_left = x;
+            let x_right = add_wrap(x, sx - 1);
+            let v_top = v;
+            let v_middle = v0;
+            let v_bottom = add_wrap(v, sy + sz - 1);
+            let base_x = cx * CHUNK_SIZE_U8;
+            let base_v = cy * CHUNK_SIZE_U8;
+            if !((sub_wrap(x_left, base_x) < CHUNK_SIZE_U8 ||
+                  sub_wrap(x_right, base_x) < CHUNK_SIZE_U8) &&
+                 (sub_wrap(v_top, base_v) < CHUNK_SIZE_U8 ||
+                  sub_wrap(v_middle, base_v) < CHUNK_SIZE_U8 ||
+                  sub_wrap(v_bottom, base_v) < CHUNK_SIZE_U8)) {
+                continue;
+            }
+
+
+            // The structure is definitely within the chunk.
+            if self.num_indexes == self.indexes.len() {
+                self.next_index = idx;
+                break;
+            } else {
+                self.indexes[self.num_indexes] = idx as u16;
+                self.num_indexes += 1;
+                self.index_sheets |= 1 << t.sheet as usize;
             }
         }
-    }
-}
 
-
-pub trait Compare<T> {
-    fn is_less(&self, a: &T, b: &T) -> bool;
-}
-
-#[derive(Copy)]
-struct SpriteUV;
-impl Compare<Sprite> for SpriteUV {
-    fn is_less(&self, a: &Sprite, b: &Sprite) -> bool {
-        let (au, av) = a.ref_uv();
-        let (bu, bv) = b.ref_uv();
-        if au != bu {
-            au < bu
-        } else if av != bv {
-            av < bv
-        } else {
-            a.id < b.id
-        }
-    }
-}
-
-fn quicksort<T, C>(xs: &mut [T], comp: C)
-        where C: Compare<T> + Copy {
-    // Based on pseudocode from wikipedia: https://en.wikipedia.org/wiki/Quicksort
-    if xs.len() <= 1 {
-        return;
+        self.next_index = self.last_used + 1;
     }
 
-    let pivot = partition(xs, comp);
-    quicksort(&mut xs[.. pivot], comp);
-    quicksort(&mut xs[pivot + 1 ..], comp);
-
-    fn partition<T, C>(xs: &mut [T], comp: C) -> usize
-            where C: Compare<T> + Copy {
-        // Always choose rightmost element as the pivot.
-        let pivot = xs.len() - 1;
-        let mut store_index = 0;
-        for i in range(0, xs.len() - 1) {
-            if comp.is_less(&xs[i], &xs[pivot]) {
-                xs.swap(i, store_index);
-                store_index += 1;
+    fn generate_geometry(&mut self,
+                         buf: &mut StructureGeometryBuffer,
+                         cx: u8,
+                         cy: u8) -> (usize, u8) {
+        let mut sheet = 0;
+        for i in range(0, 32) {
+            if self.index_sheets & (1 << i) != 0 {
+                sheet = i;
+                break;
             }
         }
-        xs.swap(store_index, pivot);
-        store_index
+        let sheet = sheet;
+
+        let mut out_idx = 0;
+        let mut buf_idx = 0;
+
+        fn emit(buf: &mut StructureGeometryBuffer,
+                idx: &mut usize,
+                pos: (i16, i16, i16),
+                tex_coord: (u16, u16)) {
+            let (x, y, z) = pos;
+            buf[*idx].x = x;
+            buf[*idx].y = y;
+            buf[*idx].z = z;
+            let (s, t) = tex_coord;
+            buf[*idx].s = s;
+            buf[*idx].t = t;
+            *idx += 1;
+        }
+
+        fn tile_to_px(tile: u8) -> i16 {
+            return tile as i16 * TILE_SIZE as i16;
+        }
+
+        let base_x = tile_to_px(cx * CHUNK_SIZE as u8);
+        let base_y = tile_to_px(cy * CHUNK_SIZE as u8);
+
+        // Should be at least the maximum structure size, and no more than (local region size -
+        // chunk size - max structure size).
+        const MARGIN: i16 = (CHUNK_SIZE * TILE_SIZE) as i16;
+        let origin_x = base_x - MARGIN;
+        let origin_y = base_y - MARGIN;
+        const MASK: i16 = (LOCAL_SIZE * CHUNK_SIZE * TILE_SIZE - 1) as i16;
+
+        // Subtract (base_x, base_y) from (x, y), but wrap coordinates across the local region
+        // borders so that (parts of) structures in the top chunk can appear in the bottom one and
+        // vice versa.
+        //
+        //  +-----+    MARGIN   (remainder, may exceed MARGIN)
+        //  |     |        /-\ /-\
+        //  |     |        +-----+
+        //  |     |        |     |
+        //  |   +-+  wrap  | +-+ |
+        //  |   | |   =>   | | | |
+        //  +-----+        | +-+ |
+        //                 |     |
+        //                 +-----+
+        let sub_base_wrap = |x, y| {
+            (((x - origin_x) & MASK) - MARGIN,
+             ((y - origin_y) & MASK) - MARGIN)
+        };
+
+        const CORNERS: [(u8, u8); 6] = [(0,0), (1,0), (1,1),  (0,0), (1, 1), (0,1)];
+
+        // Walk through self.indexes, looking for structures whose template is on the correct
+        // sheet.  Structures on other sheets get moved to the front of the list (over the top of
+        // the matching structures, which need no futher processing).
+        for in_idx in range(0, self.num_indexes) {
+            let s = &self.structures[self.indexes[in_idx] as usize];
+            let t = &self.templates[s.template_id as usize];
+
+            if t.sheet != sheet {
+                self.indexes[out_idx] = self.indexes[in_idx];
+                out_idx += 1;
+                continue;
+            }
+
+            let (x, y, z) = s.pos;
+            let (_sx, sy, _sz) = t.size;
+
+            // Do the rendering at the front (+y) side of the structure.
+            let (px_x, px_y) = sub_base_wrap(tile_to_px(x), tile_to_px(y) + tile_to_px(sy));
+            let px_z = tile_to_px(z);
+
+            let (base_s, base_t) = t.display_offset;
+            let (step_s, step_t) = t.display_size;
+
+            for &(dx, dy) in CORNERS.iter() {
+                let off_x = dx as i16 * step_s as i16;
+                let off_y = 0;
+                let off_z = dy as i16 * step_t as i16;
+                let off_s = dx as u16 * step_s;
+                let off_t = (1 - dy) as u16 * step_t;
+
+                emit(buf, &mut buf_idx,
+                     (px_x + off_x,
+                      px_y + off_y,
+                      px_z + off_z),
+                     (base_s + off_s,
+                      base_t + off_t));
+            }
+        }
+
+        self.num_indexes = out_idx;
+        self.index_sheets &= !(1 << sheet);
+        (buf_idx, sheet)
     }
 }
+
+
+/// Vertex attributes for structure rendering.
+pub struct StructureVertex {
+    x: i16,
+    y: i16,
+    z: i16,
+    _pad0: u16,
+    s: u16,
+    t: u16,
+    _pad1: u16,
+    _pad2: u16,
+}
+
+/// Buffer for StructureVertex items.  The number of elements is set to 6 times the length of
+/// StructureBuffer.indexes.
+pub type StructureGeometryBuffer = [StructureVertex; 6 * 1024];

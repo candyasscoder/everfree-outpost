@@ -10,6 +10,8 @@ var Config = require('config').Config;
 var AnimCanvas = require('graphics/canvas').AnimCanvas;
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
 var Animation = require('graphics/sheet').Animation;
+var SimpleExtra = require('graphics/draw/simple').SimpleExtra;
+var LayeredExtra = require('graphics/draw/layered').LayeredExtra;
 var NamedExtra = require('graphics/draw/named').NamedExtra;
 var SpriteBase = require('graphics/renderer').SpriteBase;
 var Renderer = require('graphics/renderer').Renderer;
@@ -202,7 +204,12 @@ var current_item;
 // Top-level initialization function
 
 function init() {
-    canvas = new AnimCanvas(frame, 'webgl');
+    // Set up error_list first to catch errors in other parts of init.
+    error_list = new ErrorList();
+    error_list.attach(window);
+    document.body.appendChild(error_list.container);
+
+    canvas = new AnimCanvas(frame, 'webgl', ['WEBGL_depth_texture', 'EXT_frag_depth']);
     debug = new DebugMonitor();
     banner = new Banner();
     keyboard = new Keyboard();
@@ -210,7 +217,6 @@ function init() {
     chat = new ChatWindow();
     credits = new Iframe('credits.html');
     instructions = new Iframe('instructions.html');
-    error_list = new ErrorList();
 
     canvas.canvas.addEventListener('webglcontextlost', function(evt) {
         throw 'context lost!';
@@ -275,7 +281,8 @@ document.addEventListener('DOMContentLoaded', init);
 
 function loadAssets(next) {
     loader.loadJson('server.json', function(server_info) {
-        loader.loadPack('outpost.pack', function(loaded, total) {
+        // TODO: remove this hack since it prevents all caching
+        loader.loadPack('outpost.pack?' + Date.now(), function(loaded, total) {
             banner.update('Loading... (' + (loaded >> 10)+ 'k / ' + (total >> 10) + 'k)', loaded / total);
         }, function(assets_) {
             assets = assets_;
@@ -301,6 +308,7 @@ function loadAssets(next) {
             for (var i = 0; i < templates.length; ++i) {
                 TemplateDef.register(i, templates[i], assets);
             }
+            renderer.loadTemplateData(TemplateDef.by_id);
 
             var css = '.item-icon {' +
                 'background-image: url("' + assets['items'] + '");' +
@@ -394,7 +402,6 @@ function maybeRegister(info, next) {
 
 function buildUI() {
     keyboard.attach(document);
-    error_list.attach(window);
     setupKeyHandler();
 
     document.body.appendChild(canvas.canvas);
@@ -403,7 +410,6 @@ function buildUI() {
     document.body.appendChild(chat.container);
     document.body.appendChild(banner.container);
     document.body.appendChild(dialog.container);
-    document.body.appendChild(error_list.container);
     document.body.appendChild(debug.container);
 
     if (Config.show_key_display.get()) {
@@ -709,7 +715,7 @@ function handleTerrainChunk(i, data) {
 
     runner.job('load-chunk-' + i, function() {
         physics.loadChunk((i / LOCAL_SIZE)|0, (i % LOCAL_SIZE)|0, chunk._tiles);
-        renderer.loadChunk(0, i, chunk);
+        renderer.loadChunk((i / LOCAL_SIZE)|0, (i % LOCAL_SIZE)|0, chunk);
     });
 
     chunkLoaded[i] = true;
@@ -825,17 +831,19 @@ function handleEntityGone(id, time) {
 }
 
 function handleStructureAppear(id, template_id, x, y, z) {
-    var template = TemplateDef.by_id[template_id];
-    var px_pos = new Vec(x, y, z);
-    var pos = px_pos.divScalar(TILE_SIZE);
+    var idx = renderer.addStructure(x, y, z, template_id);
 
-    structures[id] = new Structure(pos, px_pos, template);;
+    var template = TemplateDef.by_id[template_id];
+    var pos = new Vec(x, y, z).divScalar(TILE_SIZE);
+
+    structures[id] = new Structure(pos, template, idx);
     physics.addStructure(structures[id]);
 }
 
 function handleStructureGone(id, time) {
     if (structures[id] != null) {
         physics.removeStructure(structures[id]);
+        renderer.removeStructure(structures[id].render_index);
     }
     delete structures[id];
 }
@@ -1002,8 +1010,7 @@ function frame(ac, client_now) {
 
 
     var entity_ids = Object.getOwnPropertyNames(entities);
-    var structure_ids = Object.getOwnPropertyNames(structures);
-    var sprites = new Array(entity_ids.length + structure_ids.length);
+    var sprites = new Array(entity_ids.length);
 
     for (var i = 0; i < entity_ids.length; ++i) {
         var entity = entities[entity_ids[i]];
@@ -1012,12 +1019,6 @@ function frame(ac, client_now) {
         } else {
             sprites[i] = localSprite(predict_now, entity, pos);
         }
-    }
-
-    for (var i = 0; i < structure_ids.length; ++i) {
-        var sprite = structures[structure_ids[i]].sprite;
-        checkLocalSprite(sprite, pos);
-        sprites[entity_ids.length + i] = sprite;
     }
 
 

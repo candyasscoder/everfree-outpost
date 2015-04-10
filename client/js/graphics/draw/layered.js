@@ -86,10 +86,10 @@ function Layered3D(gl, assets) {
         'cameraPos': uniform('vec2', null),
         'cameraSize': uniform('vec2', null),
         'sheetSize': uniform('vec2', null),
-        'srcPos': uniform('vec2', null),
-        'srcSize': uniform('vec2', null),
-        'destPos': uniform('vec2', null),
-        'destSize': uniform('vec2', null),
+        'pos': uniform('vec3', null),
+        'base': uniform('vec2', null),
+        'size': uniform('vec2', null),
+        'anchor': uniform('vec2', null),
         'color': uniform('vec4', null),
     };
     var textures = {};
@@ -98,7 +98,7 @@ function Layered3D(gl, assets) {
     }
     this._obj = new GlObject(gl, program,
             uniforms,
-            {'position': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
+            {'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
             textures);
 }
 exports.Layered3D = Layered3D;
@@ -112,7 +112,7 @@ Layered3D.prototype.setCamera = function(sx, sy, sw, sh) {
 // Draw the sprite.  It would normally appear at (base_x, base_y) on the
 // screen, but it has been clipped to the region defined by clip_* (in
 // sprite-relative coordinates).
-Layered3D.prototype.draw = function(r, sprite, base_x, base_y, clip_x, clip_y, clip_w, clip_h) {
+Layered3D.prototype.draw = function(r, sprite) {
     var extra = sprite.extra;
     var textures = {};
     var color_arr = [];
@@ -129,25 +129,14 @@ Layered3D.prototype.draw = function(r, sprite, base_x, base_y, clip_x, clip_y, c
         textures['sheetSampler[' + i + ']'] = tex;
     }
 
-    var off_x = clip_x;
-    var off_y = clip_y;
-    if (sprite.flip) {
-        off_x = sprite.width - off_x;
-    }
-
     var uniforms = {
-        'srcPos':       [extra.offset_x + off_x,
-                         extra.offset_y + off_y],
-        'srcSize':      [(sprite.flip ? -clip_w : clip_w),
-                         clip_h],
-        'destPos':      [base_x + clip_x,
-                         base_y + clip_y],
-        'destSize':     [clip_w,
-                         clip_h],
-
-        'sheetSize':    [extra.layers[0].image.width,
-                         extra.layers[0].image.height],
-
+        'sheetSize': [tex.width, tex.height],
+        'pos': [sprite.ref_x, sprite.ref_y, sprite.ref_z],
+        'base': [extra.offset_x + (sprite.flip ? sprite.width : 0),
+                 extra.offset_y],
+        'size': [(sprite.flip ? -sprite.width : sprite.width),
+                 sprite.height],
+        'anchor': [sprite.anchor_x, sprite.anchor_y],
         'color': color_arr,
     };
 

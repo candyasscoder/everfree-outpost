@@ -92,7 +92,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 8;
+    var EXPECT_SIZES = 12;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -103,15 +103,21 @@ var SIZEOF = (function() {
             'expected sizes for ' + EXPECT_SIZES + ' types, but got ' + view[0]);
 
     return ({
-        XvData: view[1],
-        Sprite: view[2],
-        BlockData: view[3],
-        ChunkData: view[4],
-        GeometryBuffer: view[5],
-        VertexData: view[6],
+        ShapeChunk: view[1],
+        ShapeLayers: view[2],
 
-        ShapeChunk: view[7],
-        ShapeLayers: view[8],
+        BlockData: view[3],
+        BlockChunk: view[4],
+        LocalChunks: view[5],
+
+        TerrainVertex: view[6],
+        TerrainGeometryBuffer: view[7],
+
+        StructureTemplate: view[8],
+        StructureTemplateData: view[9],
+        StructureBuffer: view[10],
+        StructureVertex: view[11],
+        StructureGeometryBuffer: view[12],
     });
 })();
 
@@ -181,9 +187,14 @@ Asm.prototype.memcpy = function(dest_offset, data) {
 };
 
 
+// Physics
 
 var PHYSICS_HEAP_START = HEAP_START;
-var PHYSICS_HEAP_END = PHYSICS_HEAP_START + SIZEOF.ShapeLayers * LOCAL_SIZE * LOCAL_SIZE;
+
+var SHAPE_LAYERS_START = HEAP_START;
+var SHAPE_LAYERS_END = SHAPE_LAYERS_START + SIZEOF.ShapeLayers * LOCAL_SIZE * LOCAL_SIZE;
+
+var PHYSICS_HEAP_END = SHAPE_LAYERS_END;
 
 Asm.prototype.collide = function(pos, size, velocity) {
     var input = this._stackAlloc(Int32Array, 9);
@@ -193,7 +204,7 @@ Asm.prototype.collide = function(pos, size, velocity) {
     this._storeVec(input, 3, size);
     this._storeVec(input, 6, velocity);
 
-    this._raw['collide'](PHYSICS_HEAP_START, input.byteOffset, output.byteOffset);
+    this._raw['collide'](SHAPE_LAYERS_START, input.byteOffset, output.byteOffset);
 
     var result = ({
         x: output[0],
@@ -216,10 +227,10 @@ Asm.prototype.setRegionShape = function(pos, size, layer, shape) {
     this._storeVec(input_bounds, 3, pos.add(size));
     input_shape.set(shape);
 
-    this._raw['set_region_shape'](PHYSICS_HEAP_START,
+    this._raw['set_region_shape'](SHAPE_LAYERS_START,
             input_bounds.byteOffset, layer,
             input_shape.byteOffset, input_shape.length);
-    this._raw['refresh_shape_cache'](PHYSICS_HEAP_START, input_bounds.byteOffset);
+    this._raw['refresh_shape_cache'](SHAPE_LAYERS_START, input_bounds.byteOffset);
 
     this._stackFree(input_shape);
     this._stackFree(input_bounds);
@@ -252,7 +263,7 @@ Asm.prototype.refreshShapeLayers = function(pos, size) {
     this._storeVec(input, 0, pos);
     this._storeVec(input, 3, pos.add(size));
 
-    this._raw['refresh_shape_cache'](PHYSICS_HEAP_START, input.byteOffset);
+    this._raw['refresh_shape_cache'](SHAPE_LAYERS_START, input.byteOffset);
 
     this._stackFree(input);
 };
@@ -262,7 +273,7 @@ Asm.prototype.shapeLayerView = function(chunk_idx, layer) {
     var layer_offset = (1 + layer) * SIZEOF.ShapeChunk;
 
     return new Uint8Array(this.buffer,
-            PHYSICS_HEAP_START + chunk_offset + layer_offset, SIZEOF.ShapeChunk);
+            SHAPE_LAYERS_START + chunk_offset + layer_offset, SIZEOF.ShapeChunk);
 };
 
 exports.getPhysicsHeapSize = function() {
@@ -270,105 +281,109 @@ exports.getPhysicsHeapSize = function() {
 };
 
 
-var RENDER_HEAP_START = HEAP_START;
+// Graphics
 
-var BLOCKS_START = HEAP_START;
-var BLOCKS_END = BLOCKS_START + SIZEOF.BlockData;
+var GRAPHICS_HEAP_START = HEAP_START;
 
-var CHUNK_START = BLOCKS_END;
-var CHUNK_END = CHUNK_START + SIZEOF.ChunkData;
+var BLOCK_DATA_START = HEAP_START;
+var BLOCK_DATA_END = BLOCK_DATA_START + SIZEOF.BlockData;
 
-var SPRITES_START = CHUNK_END;
-var SPRITES_END = SPRITES_START + SIZEOF.Sprite * 1024;
+var LOCAL_CHUNKS_START = BLOCK_DATA_END;
+var LOCAL_CHUNKS_END = LOCAL_CHUNKS_START + SIZEOF.LocalChunks;
 
-var GEOM_START = SPRITES_END;
-var GEOM_END = GEOM_START + SIZEOF.GeometryBuffer;
+var CHUNK_START = LOCAL_CHUNKS_END;
+var CHUNK_END = CHUNK_START + SIZEOF.BlockChunk;
 
-var XV_START = GEOM_END;
-var XV_END = XV_START + SIZEOF.XvData;
+var GEOM_START = CHUNK_END;
+var GEOM_END = GEOM_START + SIZEOF.TerrainGeometryBuffer;
 
-var RENDER_HEAP_END = XV_END;
+var TEMPLATE_DATA_START = GEOM_END;
+var TEMPLATE_DATA_END = TEMPLATE_DATA_START + SIZEOF.StructureTemplateData;
 
-Asm.prototype.render = function(x, y, w, h, sprites, draw_terrain, draw_sprite) {
-    var draw_terrain_idx = this._callbackAlloc(draw_terrain);
-    var draw_sprite_idx = this._callbackAlloc(draw_sprite);
+var STRUCTURES_START = TEMPLATE_DATA_END;
+var STRUCTURES_END = STRUCTURES_START + SIZEOF.StructureBuffer;
 
-    var view16 = this.spritesView();
-    var view8 = new Uint8Array(view16.buffer, view16.byteOffset, view16.byteLength);
-    for (var i = 0; i < sprites.length; ++i) {
-        var base8 = i * SIZEOF.Sprite;
-        var base16 = (base8 / 2)|0;
-        var sprite = sprites[i];
-        view16[base16 + 0] = i;
-        view16[base16 + 1] = sprite.ref_x;
-        view16[base16 + 2] = sprite.ref_y;
-        view16[base16 + 3] = sprite.ref_z;
-        view8[base8 + 8] = sprite.width;
-        view8[base8 + 9] = sprite.height;
-        view8[base8 + 10] = sprite.anchor_x;
-        view8[base8 + 11] = sprite.anchor_y;
-    }
+var STRUCTURE_GEOM_START = STRUCTURES_END;
+var STRUCTURE_GEOM_END = STRUCTURE_GEOM_START + SIZEOF.StructureGeometryBuffer;
 
-    this._raw['render'](XV_START, x, y, w, h, SPRITES_START, sprites.length,
-            draw_terrain_idx, draw_sprite_idx);
+var GRAPHICS_HEAP_END = STRUCTURE_GEOM_END;
 
-    this._callbackFree(draw_sprite_idx);
-    this._callbackFree(draw_terrain_idx);
+exports.getGraphicsHeapSize = function() {
+    return GRAPHICS_HEAP_END - GRAPHICS_HEAP_START;
 };
 
-Asm.prototype.updateXvData = function(i, j) {
-    this._raw['update_xv_data'](XV_START, BLOCKS_START, CHUNK_START, i, j);
-};
-
-Asm.prototype.generateGeometry = function(i, j) {
-    var count = this._stackAlloc(Int32Array, 1);
-    this._raw['generate_geometry'](XV_START, GEOM_START, i, j, count.byteOffset);
-    var result = this.geomView().subarray(0, SIZEOF.VertexData * count[0]);
-    this._stackFree(count);
-    return result;
-};
-
-// This should be a static method, but that confuses Closure Compiler.
-exports.getRendererHeapSize = function() {
-    return RENDER_HEAP_END - RENDER_HEAP_START;
-};
 
 Asm.prototype.blockDataView = function() {
-    return new Uint16Array(this.buffer, BLOCKS_START, SIZEOF.BlockData >> 1);
+    return new Uint16Array(this.buffer, BLOCK_DATA_START, SIZEOF.BlockData >> 1);
 };
 
-Asm.prototype.chunkDataView = function() {
-    return new Uint16Array(this.buffer, CHUNK_START, SIZEOF.ChunkData >> 1);
+Asm.prototype.chunkView = function() {
+    return new Uint16Array(this.buffer, CHUNK_START, SIZEOF.BlockChunk >> 1);
 };
 
-Asm.prototype.spritesView = function() {
-    return new Uint16Array(this.buffer, SPRITES_START, (SIZEOF.Sprite * 1024) >> 1);
+Asm.prototype.loadChunk = function(cx, cy) {
+    this._raw['load_chunk'](LOCAL_CHUNKS_START, CHUNK_START, cx, cy);
 };
 
-Asm.prototype.geomView = function() {
-    return new Uint8Array(this.buffer, GEOM_START, SIZEOF.GeometryBuffer);
+Asm.prototype.generateGeometry = function(cx, cy) {
+    var len = this._raw['generate_geometry'](
+            LOCAL_CHUNKS_START, BLOCK_DATA_START, GEOM_START, cx, cy);
+    return new Uint8Array(this.buffer, GEOM_START, SIZEOF.TerrainVertex * len);
+};
+
+Asm.prototype._localChunksView = function() {
+    return new Uint16Array(this.buffer, LOCAL_CHUNKS_START, SIZEOF.LocalChunks >> 1);
+};
+
+Asm.prototype._geometryView = function() {
+    return new Uint16Array(this.buffer, GEOM_START, SIZEOF.TerrainGeometryBuffer >> 1);
 };
 
 
-Asm.prototype.test = function(pos, size, velocity) {
-    var input = this._stackAlloc(Int32Array, 9);
-    var output = this._stackAlloc(Int32Array, 4);
+Asm.prototype.templateDataView8 = function() {
+    return new Uint8Array(this.buffer, TEMPLATE_DATA_START, SIZEOF.StructureTemplateData);
+};
 
-    this._storeVec(input, 0, pos);
-    this._storeVec(input, 3, size);
-    this._storeVec(input, 6, velocity);
+Asm.prototype.templateDataView16 = function() {
+    return new Uint16Array(this.buffer, TEMPLATE_DATA_START, SIZEOF.StructureTemplateData >> 1);
+};
 
-    this._raw['test'](input.byteOffset, output.byteOffset);
+Asm.prototype.initStructureBuffer = function() {
+    this._raw['init_structure_buffer'](STRUCTURES_START, TEMPLATE_DATA_START);
+};
 
-    var result = ({
-        x: output[0],
-        y: output[1],
-        z: output[2],
-        t: output[3],
-    });
+Asm.prototype.addStructure = function(x, y, z, template_id) {
+    return this._raw['add_structure'](STRUCTURES_START, x, y, z, template_id);
+};
+
+Asm.prototype.removeStructure = function(idx) {
+    this._raw['remove_structure'](STRUCTURES_START, idx);
+};
+
+Asm.prototype.resetStructureGeometry = function() {
+    this._raw['reset_structure_geometry'](STRUCTURES_START);
+};
+
+Asm.prototype.generateStructureGeometry = function(cx, cy) {
+    var output = this._stackAlloc(Int32Array, 2);
+    this._raw['generate_structure_geometry'](
+            STRUCTURES_START, STRUCTURE_GEOM_START, cx, cy, output.byteOffset);
+
+    var output8 = new Uint8Array(output.buffer, output.byteOffset, output.byteLength);
+    var vertex_count = output[0];
+    var result = {
+        geometry: new Int16Array(this.buffer, STRUCTURE_GEOM_START,
+                          (SIZEOF.StructureVertex * vertex_count) >> 1),
+        sheet: output8[4],
+        more: output8[5],
+    };
 
     this._stackFree(output);
-    this._stackFree(input);
-
     return result;
+};
+
+
+// Test
+
+Asm.prototype.test = function() {
 };

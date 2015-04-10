@@ -155,17 +155,17 @@ function Named3D(gl, assets) {
         'cameraPos': uniform('vec2', null),
         'cameraSize': uniform('vec2', null),
         'sheetSize': uniform('vec2', [NAME_BUFFER_WIDTH, NAME_BUFFER_HEIGHT]),
-        'srcPos': uniform('vec2', null),
-        'srcSize': uniform('vec2', null),
-        'destPos': uniform('vec2', null),
-        'destSize': uniform('vec2', null),
+        'pos': uniform('vec3', null),
+        'base': uniform('vec2', null),
+        'size': uniform('vec2', null),
+        'anchor': uniform('vec2', null),
     };
 
     this._texture = new Texture(gl);
     this._refreshTexture();
     this._name_obj = new GlObject(gl, program,
             uniforms,
-            {'position': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
+            {'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
             {'sheetSampler': this._texture});
 }
 exports.Named3D = Named3D;
@@ -180,25 +180,9 @@ Named3D.prototype.setCamera = function(sx, sy, sw, sh) {
     this._name_obj.setUniformValue('cameraSize', [sw, sh]);
 };
 
-Named3D.prototype.draw = function(r, sprite, base_x, base_y, clip_x, clip_y, clip_w, clip_h) {
-    this.layered.draw(r, sprite, base_x, base_y, clip_x, clip_y, clip_w, clip_h);
+Named3D.prototype.draw = function(r, sprite) {
+    this.layered.draw(r, sprite);
 
-    // TODO: hardcoded name positioning, should be computed somehow to center
-    // the name at a reasonable height.
-    var x = 0;
-    var y = 10;
-    var w = NAME_WIDTH;
-    var h = NAME_HEIGHT;
-
-    var name_x = Math.max(x, clip_x);
-    var name_y = Math.max(y, clip_y);
-    var name_w = Math.min(x + w, clip_x + clip_w) - name_x;
-    var name_h = Math.min(y + h, clip_y + clip_h) - name_y;
-
-    if (name_w <= 0 || name_h <= 0) {
-        // Name region does not overlap clip region.
-        return;
-    }
 
     var off = this._names.offset(sprite.extra.name);
     if (off.created) {
@@ -206,14 +190,12 @@ Named3D.prototype.draw = function(r, sprite, base_x, base_y, clip_x, clip_y, cli
     }
 
     var uniforms = {
-        'srcPos':       [name_x - x + off.x,
-                         name_y - y + off.y],
-        'srcSize':      [name_w,
-                         name_h],
-        'destPos':      [base_x + name_x,
-                         base_y + name_y],
-        'destSize':     [name_w,
-                         name_h],
+        // TODO: hardcoded name positioning, should be computed somehow to
+        // center the name at a reasonable height.
+        'pos': [sprite.ref_x, sprite.ref_y, sprite.ref_z + 90 - 22],
+        'base': [off.x, off.y],
+        'size': [NAME_WIDTH, NAME_HEIGHT],
+        'anchor': [NAME_WIDTH / 2, NAME_HEIGHT],
     };
     this._name_obj.draw(0, 6, uniforms, {}, {});
 };
