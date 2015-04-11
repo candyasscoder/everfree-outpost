@@ -19,6 +19,7 @@ shaders/terrain_block.vert
 shaders/terrain_block.frag
 shaders/blit.vert
 shaders/blit.frag
+shaders/blit_sliced.frag
 shaders/structure.vert
 shaders/structure.frag
 

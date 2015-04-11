@@ -1,35 +1,19 @@
 var TILE_SIZE = require('data/chunk').TILE_SIZE;
-var SimpleExtra = require('graphics/draw/simple').SimpleExtra;
 var Vec = require('util/vec').Vec;
-var SpriteBase = require('graphics/renderer').SpriteBase;
 
 
 /** @constructor */
 function TemplateDef_(id, info, assets) {
     this.id = id;
 
-    var display_size = info['display_size'];
     var size = info['size'];
-    var offset = info['offset'];
-
-    var extra = new SimpleExtra(assets['structures' + info['sheet']]);
-    extra.offset_x = offset[0];
-    extra.offset_y = offset[1];
-
-    var anchor_y;
-    if (info['layer'] == 0) {
-        anchor_y = display_size[1] - size[1] * TILE_SIZE;
-    } else {
-        anchor_y = display_size[1];
-    }
-    this.base = new SpriteBase(display_size[0], display_size[1], 0, anchor_y, extra);
-
     this.size = new Vec(size[0], size[1], size[2]);
+
     this.shape = info['shape'];
     this.layer = info['layer'];
     this.sheet = info['sheet'];
-    this.display_size = display_size;
-    this.display_offset = offset;
+    this.display_size = info['display_size'];
+    this.display_offset = info['offset'];
 }
 
 // Closure compiler doesn't like having static items on functions.

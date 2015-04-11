@@ -20,6 +20,4 @@ void main(void) {
     vec2 pxPos = rectPos + posOffset * rectSize - cameraPos;
     gl_Position = transform * vec4(pxPos / cameraSize, 0.0, 1.0);
     texCoord = posOffset;
-    //texCoord = posOffset * vec2(1.0, -1.0) + vec2(0.0, 1.0);
 }
-

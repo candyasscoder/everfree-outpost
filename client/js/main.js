@@ -1033,7 +1033,7 @@ function frame(ac, client_now) {
             camera_pos.x, camera_pos.y,
             camera_size.x, camera_size.y,
             sprites,
-            mask);
+            2, 0.5);
 
     if (show_cursor && pony != null) {
         var facing = FACINGS[pony.animId() % FACINGS.length];
