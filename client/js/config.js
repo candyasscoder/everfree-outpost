@@ -1,5 +1,6 @@
 var DEFAULT_CONFIG = {
     'show_controls': true,
+    'show_inventory_updates': true,
     'ignore_browser_warning': false,
     'chat_scrollback': 100,
 
@@ -64,6 +65,7 @@ var DEFAULT_CONFIG = {
 
 exports.Config = {
     show_controls: new ConfigItem('show_controls'),
+    show_inventory_updates: new ConfigItem('show_inventory_updates'),
     ignore_browser_warning: new ConfigItem('ignore_browser_warning'),
     chat_scrollback: new ConfigItem('chat_scrollback'),
 

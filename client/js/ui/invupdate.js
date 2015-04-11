@@ -1,4 +1,6 @@
 var util = require('util/misc');
+var ItemDef = require('data/items').ItemDef;
+var ItemRow = require('ui/inventory').ItemRow;
 var ToastList = require('ui/toast').ToastList;
 
 

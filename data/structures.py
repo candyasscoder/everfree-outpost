@@ -67,7 +67,7 @@ def do_tree(s, image, plane_image):
     stump_shape = Shape(4, 2, 1, tree_shape_arr[:8])
 
     tree_bounds = (0, 0, 4 * TILE_SIZE, 5 * TILE_SIZE)
-    stump_bounds = (0, 5 * TILE_SIZE, 4 * TILE_SIZE, 3 * TILE_SIZE)
+    stump_bounds = (0, 5 * TILE_SIZE, 4 * TILE_SIZE, 8 * TILE_SIZE)
 
     s.append(StructureDef(
         'tree',

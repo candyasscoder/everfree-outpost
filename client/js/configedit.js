@@ -20,6 +20,12 @@ function init() {
     });
     $('enable-motion-prediction').checked = Config.motion_prediction.get();
 
+    $('show-inventory-updates').addEventListener('change', function() {
+        var value = $('show-inventory-updates').checked;
+        Config.show_inventory_updates.set(value);
+    });
+    $('show-inventory-updates').checked = Config.show_inventory_updates.get();
+
     $('open-editor').addEventListener('click', function() {
         $('open-editor').disabled = true;
         var editor = new ConfigEditor();

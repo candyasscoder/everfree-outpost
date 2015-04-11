@@ -872,7 +872,9 @@ function handleMainInventory(iid) {
             }
         }
     });
-    inv_update_list.attach(main_inv);
+    if (Config.show_inventory_updates.get()) {
+        inv_update_list.attach(main_inv);
+    }
 }
 
 
