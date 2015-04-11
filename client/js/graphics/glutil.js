@@ -24,6 +24,11 @@ function Program(gl, vert_src, frag_src) {
     gl.attachShader(this.program, vert);
     gl.attachShader(this.program, frag);
     gl.linkProgram(this.program);
+    if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
+        console.log('program error', gl.getProgramInfoLog(this.program));
+        return null;
+    }
+
 
     this._locations = {};
 }

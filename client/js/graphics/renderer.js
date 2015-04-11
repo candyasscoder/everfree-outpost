@@ -32,7 +32,7 @@ function Renderer(gl) {
     this.texture_cache = new WeakMap();
     this.terrain_cache = new RenderCache(gl);
     this.sliced_cache = new RenderCache(gl);
-    this.last_slice_z = 16;
+    this.last_slice_z = -1;
 }
 exports.Renderer = Renderer;
 
@@ -412,11 +412,11 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, slice_z, slic
     this.terrain_cache.populate(chunk_idxs, function(idx, fb) {
         var cx = (idx % LOCAL_SIZE)|0;
         var cy = (idx / LOCAL_SIZE)|0;
-        this_._renderTerrain(fb, cx, cy, 16);
-        this_._renderStructures(fb, cx, cy, 16);
+        this_._renderTerrain(fb, cx, cy, CHUNK_SIZE);
+        this_._renderStructures(fb, cx, cy, CHUNK_SIZE);
     });
 
-    if (slice_z != 16) {
+    if (slice_z < CHUNK_SIZE) {
         if (slice_z != this.last_slice_z) {
             this.sliced_cache.invalidateAll();
         }
@@ -446,7 +446,7 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, slice_z, slic
         for (var cx = cx0; cx < cx1; ++cx) {
             var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
 
-            if (slice_z == 16) {
+            if (slice_z >= CHUNK_SIZE) {
                 this.blit.draw(0, 6, {
                     'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
                                 cy * CHUNK_SIZE * TILE_SIZE],
@@ -472,7 +472,11 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, slice_z, slic
     for (var i = 0; i < sprites.length; ++i) {
         var sprite = sprites[i];
         var cls = this.sprite_classes[sprite.cls];
-        cls.draw(this, sprite);
+        if (sprite.ref_z < slice_z * TILE_SIZE) {
+            cls.draw(this, sprite, 0);
+        } else {
+            cls.draw(this, sprite, slice_frac);
+        }
     }
 
     gl.disable(gl.DEPTH_TEST);

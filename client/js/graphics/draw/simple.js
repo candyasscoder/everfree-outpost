@@ -61,6 +61,7 @@ function Simple3D(gl, assets) {
         'cameraPos': uniform('vec2', null),
         'cameraSize': uniform('vec2', null),
         'sheetSize': uniform('vec2', null),
+        'sliceFrac': uniform('float', null),
         'pos': uniform('vec3', null),
         'base': uniform('vec2', null),
         'size': uniform('vec2', null),
@@ -78,12 +79,13 @@ Simple3D.prototype.setCamera = function(sx, sy, sw, sh) {
     this._obj.setUniformValue('cameraSize', [sw, sh]);
 };
 
-Simple3D.prototype.draw = function(r, sprite) {
+Simple3D.prototype.draw = function(r, sprite, slice_frac) {
     var extra = sprite.extra;
     var tex = r.cacheTexture(extra.image);
 
     var uniforms = {
         'sheetSize': [tex.width, tex.height],
+        'sliceFrac': [slice_frac],
         'pos': [sprite.ref_x, sprite.ref_y, sprite.ref_z],
         'base': [extra.offset_x + (sprite.flip ? sprite.width : 0),
                  extra.offset_y],

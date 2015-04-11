@@ -86,6 +86,7 @@ function Layered3D(gl, assets) {
         'cameraPos': uniform('vec2', null),
         'cameraSize': uniform('vec2', null),
         'sheetSize': uniform('vec2', null),
+        'sliceFrac': uniform('float', null),
         'pos': uniform('vec3', null),
         'base': uniform('vec2', null),
         'size': uniform('vec2', null),
@@ -112,7 +113,7 @@ Layered3D.prototype.setCamera = function(sx, sy, sw, sh) {
 // Draw the sprite.  It would normally appear at (base_x, base_y) on the
 // screen, but it has been clipped to the region defined by clip_* (in
 // sprite-relative coordinates).
-Layered3D.prototype.draw = function(r, sprite) {
+Layered3D.prototype.draw = function(r, sprite, slice_frac) {
     var extra = sprite.extra;
     var textures = {};
     var color_arr = [];
@@ -131,6 +132,7 @@ Layered3D.prototype.draw = function(r, sprite) {
 
     var uniforms = {
         'sheetSize': [tex.width, tex.height],
+        'sliceFrac': [slice_frac],
         'pos': [sprite.ref_x, sprite.ref_y, sprite.ref_z],
         'base': [extra.offset_x + (sprite.flip ? sprite.width : 0),
                  extra.offset_y],

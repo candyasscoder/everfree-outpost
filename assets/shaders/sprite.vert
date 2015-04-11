@@ -1,3 +1,5 @@
+precision mediump float;
+
 attribute vec2 posOffset;
 
 const mat4 projection =
@@ -21,7 +23,7 @@ uniform vec2 base;
 uniform vec2 size;
 uniform vec2 anchor;
 
-varying highp vec2 normalizedTexCoord;
+varying vec2 normalizedTexCoord;
 varying vec2 extra;
 
 void main(void) {

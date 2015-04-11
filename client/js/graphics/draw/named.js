@@ -155,6 +155,7 @@ function Named3D(gl, assets) {
         'cameraPos': uniform('vec2', null),
         'cameraSize': uniform('vec2', null),
         'sheetSize': uniform('vec2', [NAME_BUFFER_WIDTH, NAME_BUFFER_HEIGHT]),
+        'sliceFrac': uniform('float', null),
         'pos': uniform('vec3', null),
         'base': uniform('vec2', null),
         'size': uniform('vec2', null),
@@ -180,8 +181,8 @@ Named3D.prototype.setCamera = function(sx, sy, sw, sh) {
     this._name_obj.setUniformValue('cameraSize', [sw, sh]);
 };
 
-Named3D.prototype.draw = function(r, sprite) {
-    this.layered.draw(r, sprite);
+Named3D.prototype.draw = function(r, sprite, slice_frac) {
+    this.layered.draw(r, sprite, slice_frac);
 
 
     var off = this._names.offset(sprite.extra.name);
@@ -190,6 +191,7 @@ Named3D.prototype.draw = function(r, sprite) {
     }
 
     var uniforms = {
+        'sliceFrac': [slice_frac],
         // TODO: hardcoded name positioning, should be computed somehow to
         // center the name at a reasonable height.
         'pos': [sprite.ref_x, sprite.ref_y, sprite.ref_z + 90 - 22],
