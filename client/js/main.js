@@ -203,6 +203,7 @@ var timing;
 var load_counter;
 var inv_tracker;
 
+var main_inv;
 var current_item;
 
 // Top-level initialization function
@@ -251,6 +252,7 @@ function init() {
     timing = null;  // Initialized after connection is opened.
     load_counter = new LoadCounter(banner, keyboard);
 
+    main_inv = null;
     current_item = -1;
 
 
@@ -772,11 +774,15 @@ function handleOpenDialog(idx, args) {
         ui.enableSelect(current_item, function(new_id) {
             current_item = new_id;
             if (new_id == -1) {
-                $('item-box').firstElementChild.style.backgroundPosition = '0rem 0rem';
+                $('item-box-icon').style.backgroundPosition = '0rem 0rem';
+                $('item-box-qty').textContent = '';
             } else {
                 var info = ItemDef.by_id[new_id];
-                $('item-box').firstElementChild.style.backgroundPosition =
+                $('item-box-icon').style.backgroundPosition =
                     '-' + info.tile_x + 'rem -' + info.tile_y + 'rem';
+                if (main_inv != null) {
+                    $('item-box-qty').textContent = '' + main_inv.count(new_id);
+                }
             }
         });
 
@@ -857,7 +863,16 @@ function handleStructureGone(id, time) {
 }
 
 function handleMainInventory(iid) {
-    inv_update_list.attach(inv_tracker.subscribe(iid));
+    main_inv = inv_tracker.subscribe(iid);
+    main_inv.onUpdate(function(updates) {
+        for (var i = 0; i < updates.length; ++i) {
+            var update = updates[i];
+            if (update.id == current_item) {
+                $('item-box-qty').textContent = '' + update.new_count;
+            }
+        }
+    });
+    inv_update_list.attach(main_inv);
 }
 
 
