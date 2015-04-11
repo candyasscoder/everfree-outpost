@@ -33,6 +33,7 @@ var OP_ENTITY_GONE =            0x800d;
 var OP_REGISTER_RESULT =        0x800e;
 var OP_STRUCTURE_APPEAR =       0x800f;
 var OP_STRUCTURE_GONE =         0x8010;
+var OP_MAIN_INVENTORY =         0x8011;
 
 /** @constructor */
 function Connection(url) {
@@ -63,6 +64,7 @@ function Connection(url) {
     this.onRegisterResult = null;
     this.onStructureAppear = null;
     this.onStructureGone = null;
+    this.onMainInventory = null;
 }
 exports.Connection = Connection;
 
@@ -277,6 +279,13 @@ Connection.prototype._handleMessage = function(evt) {
             if (this.onStructureGone != null) {
                 var structure_id = get32();
                 this.onStructureGone(structure_id);
+            }
+            break;
+
+        case OP_MAIN_INVENTORY:
+            if (this.onMainInventory != null) {
+                var inventory_id = get32();
+                this.onMainInventory(inventory_id);
             }
             break;
 

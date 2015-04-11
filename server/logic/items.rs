@@ -58,6 +58,17 @@ pub fn open_crafting(mut eng: EngineRef,
     Ok(())
 }
 
+pub fn set_main_inventory(mut eng: EngineRef, cid: ClientId, iid: InventoryId) -> StrResult<()> {
+    // Check that IDs are valid.
+    unwrap!(eng.world().get_client(cid));
+    unwrap!(eng.world().get_inventory(iid));
+
+    eng.messages_mut().send_client(cid, ClientResponse::MainInventory(iid));
+    vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid);
+
+    Ok(())
+}
+
 
 pub fn move_items(mut eng: EngineRef,
                   from_iid: InventoryId,

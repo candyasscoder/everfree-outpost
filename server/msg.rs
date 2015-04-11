@@ -80,6 +80,7 @@ pub mod op {
         RegisterResult = 0x800e,
         StructureAppear = 0x800f,
         StructureGone = 0x8010,
+        MainInventory = 0x8011,
 
         // Deprecated responses
         PlayerMotion = 0x8002,
@@ -230,6 +231,7 @@ pub enum Response {
     RegisterResult(u32, String),
     StructureAppear(StructureId, TemplateId, (u16, u16, u16)),
     StructureGone(StructureId),
+    MainInventory(InventoryId),
 
     ClientRemoved(WireId),
     ReplResult(u16, String),
@@ -270,6 +272,8 @@ impl Response {
                 ww.write_msg(id, (op::StructureAppear, sid, template_id, pos)),
             StructureGone(sid) =>
                 ww.write_msg(id, (op::StructureGone, sid)),
+            MainInventory(iid) =>
+                ww.write_msg(id, (op::MainInventory, iid)),
 
             ClientRemoved(wire_id) =>
                 ww.write_msg(id, (op::ClientRemoved, wire_id)),
