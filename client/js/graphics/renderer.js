@@ -281,9 +281,6 @@ Renderer.prototype._renderStructures = function(fb, cx, cy) {
     var gl = this.gl;
     fb.bind();
     gl.viewport(0, 0, fb.width, fb.height);
-    gl.clearDepth(0.0);
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.GEQUAL);
 
