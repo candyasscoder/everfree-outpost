@@ -160,4 +160,9 @@ command.help.ignore = '/ignore <name>: Hide chat messages from named player'
 command.help.unignore = '/unignore <name>: Stop hiding chat messages from <name>'
 
 
+function outpost_ffi.callbacks.login(c)
+    c:set_main_inventory(c:pawn():inventory('main'))
+end
+
+
 print('\n\nup and running')

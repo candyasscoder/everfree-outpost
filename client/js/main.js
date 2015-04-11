@@ -39,6 +39,7 @@ var ConfigEditor = require('ui/configedit').ConfigEditor;
 var PonyEditor = require('ui/ponyedit').PonyEditor;
 var widget = require('ui/widget');
 var ErrorList = require('ui/errorlist').ErrorList;
+var InventoryUpdateList = require('ui/invupdate').InventoryUpdateList;
 
 var TileDef = require('data/chunk').TileDef;
 var ItemDef = require('data/items').ItemDef;
@@ -173,6 +174,7 @@ var chat;
 var credits;
 var instructions;
 var error_list;
+var inv_update_list;
 
 var main_menu;
 var debug_menu;
@@ -219,6 +221,7 @@ function init() {
     chat = new ChatWindow();
     credits = new Iframe('credits.html');
     instructions = new Iframe('instructions.html');
+    inv_update_list = new InventoryUpdateList();
 
     canvas.canvas.addEventListener('webglcontextlost', function(evt) {
         throw 'context lost!';
@@ -347,6 +350,7 @@ function openConn(info, next) {
     conn.onEntityGone = handleEntityGone;
     conn.onStructureAppear = handleStructureAppear;
     conn.onStructureGone = handleStructureGone;
+    conn.onMainInventory = handleMainInventory;
 }
 
 function maybeRegister(info, next) {
@@ -411,6 +415,7 @@ function buildUI() {
     document.body.appendChild($('key-list'));
     document.body.appendChild($('item-box'));
     document.body.appendChild(chat.container);
+    document.body.appendChild(inv_update_list.container);
     document.body.appendChild(banner.container);
     document.body.appendChild(dialog.container);
     document.body.appendChild(debug.container);
@@ -849,6 +854,10 @@ function handleStructureGone(id, time) {
         renderer.removeStructure(structures[id]);
     }
     delete structures[id];
+}
+
+function handleMainInventory(iid) {
+    inv_update_list.attach(inv_tracker.subscribe(iid));
 }
 
 

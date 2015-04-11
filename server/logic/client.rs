@@ -5,6 +5,7 @@ use engine::glue::*;
 use engine::split::EngineRef;
 use logic;
 use messages::ClientResponse;
+use script;
 use world;
 use world::object::*;
 use world::save::{self, ObjectReader, ObjectWriter};
@@ -94,6 +95,8 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
     }
 
     vision::Fragment::add_client(&mut eng.as_vision_fragment(), cid, region);
+
+    warn_on_err!(script::ScriptEngine::cb_login(eng.unwrap(), cid));
 
     Ok(())
 }
