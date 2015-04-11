@@ -121,7 +121,12 @@ Inventory.prototype.count = function(item_id) {
 };
 
 Inventory.prototype.itemIds = function() {
-    return Object.getOwnPropertyNames(this._data()._contents);
+    var ids = Object.getOwnPropertyNames(this._data()._contents);
+    // Convert all to numbers.
+    for (var i = 0; i < ids.length; ++i) {
+        ids[i] = +ids[i];
+    }
+    return ids;
 };
 
 Inventory.prototype.onUpdate = function(handler) {
