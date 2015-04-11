@@ -10,6 +10,7 @@ function action.use_item.teleporter(c, inv)
     local home = c:extra().home_pos
     if home == nil then
         c:send_message('Must /sethome before placing teleporter')
+        return
     end
     local s = structure_items.use_item(c, inv, 'teleporter', 'teleporter')
     s:extra().destination = home
