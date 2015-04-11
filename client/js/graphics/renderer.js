@@ -337,11 +337,11 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, mask_info) {
     }
 
     var this_ = this;
-    this.terrain_cache.populate(chunk_idxs, function(idx, fbs) {
+    this.terrain_cache.populate(chunk_idxs, function(idx, fb) {
         var cx = (idx % LOCAL_SIZE)|0;
         var cy = (idx / LOCAL_SIZE)|0;
-        this_._renderTerrain(fbs.terrain, cx, cy);
-        this_._renderStructures(fbs.structures, cx, cy);
+        this_._renderTerrain(fb, cx, cy);
+        this_._renderStructures(fb, cx, cy);
     });
 
     // `populate` may call `_renderTerrain`, which changes the OpenGL viewport.
@@ -358,16 +358,8 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, mask_info) {
                 'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
                             cy * CHUNK_SIZE * TILE_SIZE],
             }, {}, {
-                'imageTex': this.terrain_cache.get(idx).terrain.texture,
-                'depthTex': this.terrain_cache.get(idx).terrain.depth_texture,
-            });
-
-            this.blit.draw(0, 6, {
-                'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
-                            cy * CHUNK_SIZE * TILE_SIZE],
-            }, {}, {
-                'imageTex': this.terrain_cache.get(idx).structures.texture,
-                'depthTex': this.terrain_cache.get(idx).structures.depth_texture,
+                'imageTex': this.terrain_cache.get(idx).texture,
+                'depthTex': this.terrain_cache.get(idx).depth_texture,
             });
         }
     }
@@ -401,10 +393,7 @@ function RenderCache(gl) {
 
 RenderCache.prototype._addSlot = function() {
     var chunk_px = CHUNK_SIZE * TILE_SIZE;
-    this.slots.push({
-        terrain: new Framebuffer(this.gl, chunk_px, chunk_px),
-        structures: new Framebuffer(this.gl, chunk_px, chunk_px),
-    });
+    this.slots.push(new Framebuffer(this.gl, chunk_px, chunk_px));
     this.users.push(-1);
 };
 
