@@ -1082,8 +1082,7 @@ function frame(ac, client_now) {
 
     if (show_cursor && pony != null) {
         var facing = FACINGS[pony.animId() % FACINGS.length];
-        // TODO: hacky offset (see comment in handleEntityUpdate)
-        var cursor_pos = pos.add(new Vec(16, 16, 0)).divScalar(TILE_SIZE).add(facing);
+        var cursor_pos = pos.divScalar(TILE_SIZE).add(facing);
         cursor.draw(camera_pos, camera_size, cursor_pos);
     }
 
