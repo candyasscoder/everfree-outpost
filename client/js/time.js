@@ -25,11 +25,10 @@ var TIMER_MASK = 0xffff;
 /** @constructor */
 function Timing(conn) {
     this.conn = conn;
-    this.offset_send = -1;
-    this.offset_recv = -1;
 
     // The CT timestamp corresponding to PST 0.
     this.client_base = null;
+    this.ping = 0;
 
     var this_ = this;
     this.conn.onPong = function(cs, s, cr) { this_._handlePong(cs, s, cr); };

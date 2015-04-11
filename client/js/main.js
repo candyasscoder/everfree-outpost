@@ -6,6 +6,7 @@ var BackgroundJobRunner = require('util/jobs').BackgroundJobRunner;
 var Vec = require('util/vec').Vec;
 var DebugMonitor = require('debug').DebugMonitor;
 var Config = require('config').Config;
+var TimeVarying = require('util/timevarying').TimeVarying;
 
 var AnimCanvas = require('graphics/canvas').AnimCanvas;
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
@@ -193,6 +194,7 @@ var prediction;
 var renderer = null;
 var cursor;
 var show_cursor = false;
+var slice_radius;
 
 var conn;
 var timing;
@@ -240,6 +242,7 @@ function init() {
     renderer = new Renderer(canvas.ctx);
     cursor = null;
     show_cursor = false;
+    slice_radius = new TimeVarying(0, 0, 0, 0.9, 0);
 
     conn = null;    // Initialized after assets are loaded.
     timing = null;  // Initialized after connection is opened.
@@ -996,7 +999,8 @@ function frame(ac, client_now) {
 
         // Make sure the camera remains within the middle of the local space.
         localSprite(predict_now, pony, null);
-        pos = pony.position(predict_now);
+        // TODO: another hacky offset
+        pos = pony.position(predict_now).add(new Vec(16, 16, 0));
 
         debug.updateMotions(pony, timing);
     }
@@ -1022,18 +1026,33 @@ function frame(ac, client_now) {
     }
 
 
-    var mask;
     if (needs_mask(predict_now, pony)) {
-        mask = { center: [pos.x + 16, pos.y + 16 - pos.z - 16], radius: 64 };
+        if (slice_radius.velocity <= 0) {
+            slice_radius.setVelocity(predict_now, 2);
+        }
     } else {
-        mask = { center: [0, 0], radius: 0 };
+        if (slice_radius.velocity >= 0) {
+            slice_radius.setVelocity(predict_now, -2);
+        }
     }
 
-    renderer.render(gl,
-            camera_pos.x, camera_pos.y,
-            camera_size.x, camera_size.y,
-            sprites,
-            2, 0.5);
+    var radius = slice_radius.get(predict_now);
+    if (radius > 0 && pony != null) {
+        var slice_z = 2 + (pony.position(predict_now).z / TILE_SIZE)|0;
+        renderer.render(gl,
+                camera_pos.x, camera_pos.y,
+                camera_size.x, camera_size.y,
+                sprites,
+                slice_z,
+                radius);
+    } else {
+        renderer.render(gl,
+                camera_pos.x, camera_pos.y,
+                camera_size.x, camera_size.y,
+                sprites,
+                16, 0);
+    }
+
 
     if (show_cursor && pony != null) {
         var facing = FACINGS[pony.animId() % FACINGS.length];
