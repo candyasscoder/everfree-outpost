@@ -39,10 +39,10 @@ const LOCAL_SIZE: u16 = 1 << LOCAL_BITS;
 /// Tile numbers used to display a particular block.
 #[derive(Copy)]
 pub struct BlockDisplay {
-    front: u16,
-    back: u16,
-    top: u16,
-    bottom: u16,
+    pub front: u16,
+    pub back: u16,
+    pub top: u16,
+    pub bottom: u16,
 }
 
 impl BlockDisplay {
@@ -118,11 +118,13 @@ pub type TerrainGeometryBuffer = [TerrainVertex; GEOM_BLOCK_COUNT as usize * 4 *
 ///      +-+-+-+-+-*
 ///      |---------| CHUNK_SIZE + 1 output
 /// Corners marked * are output even though they aren't actually visible.
-pub fn generate_geometry(local: &LocalChunks,
-                         block_data: &BlockData,
-                         geom: &mut TerrainGeometryBuffer,
-                         cx: u16,
-                         cy: u16) -> usize {
+pub fn generate_geometry<F>(local: &LocalChunks,
+                            block_data: &BlockData,
+                            geom: &mut TerrainGeometryBuffer,
+                            cx: u16,
+                            cy: u16,
+                            filter: F) -> usize
+        where F: Fn(V3, u16, &BlockDisplay) -> bool {
 
     let cx = cx & (LOCAL_SIZE - 1);
     let cy0 = cy & (LOCAL_SIZE - 1);
@@ -185,9 +187,15 @@ pub fn generate_geometry(local: &LocalChunks,
     for z in range(0, CHUNK_SIZE as i32) {
         for y in range(z, CHUNK_SIZE as i32) {
             for x in range(0, CHUNK_SIZE as i32) {
-                let block_id = chunk0[bounds.index(V3::new(x, y, z))] as usize;
+                let block_id = chunk0[bounds.index(V3::new(x, y, z))];
+                let data = &block_data[block_id as usize];
+
+                if !filter(V3::new(x, y, z), block_id, data) {
+                    continue;
+                }
+
                 for side in range(0, 4) {
-                    let tile_id = block_data[block_id].tile(side);
+                    let tile_id = data.tile(side);
                     if tile_id == 0 {
                         continue;
                     }
@@ -201,9 +209,15 @@ pub fn generate_geometry(local: &LocalChunks,
     for z in range(0, CHUNK_SIZE as i32) {
         for y in range(0, z + 1) {  // NB: 0..z+1 instead of z..SIZE
             for x in range(0, CHUNK_SIZE as i32) {
-                let block_id = chunk1[bounds.index(V3::new(x, y, z))] as usize;
+                let block_id = chunk1[bounds.index(V3::new(x, y, z))];
+                let data = &block_data[block_id as usize];
+
+                if !filter(V3::new(x, y + 16, z), block_id, data) {
+                    continue;
+                }
+
                 for side in range(0, 4) {
-                    let tile_id = block_data[block_id].tile(side);
+                    let tile_id = data.tile(side);
                     if tile_id == 0 {
                         continue;
                     }
@@ -218,10 +232,10 @@ pub fn generate_geometry(local: &LocalChunks,
 
 
 pub struct StructureTemplate {
-    size: (u8, u8, u8),
-    sheet: u8,
-    display_size: (u16, u16),
-    display_offset: (u16, u16),
+    pub size: (u8, u8, u8),
+    pub sheet: u8,
+    pub display_size: (u16, u16),
+    pub display_offset: (u16, u16),
 }
 
 /// All structure templates known to the client.  The number of elements is arbitrary.
@@ -232,9 +246,9 @@ pub struct Structure {
     live: bool,
 
     /// Structure position in tiles.  u8 is enough to cover the entire local region.
-    pos: (u8, u8, u8),
+    pub pos: (u8, u8, u8),
 
-    template_id: u16,
+    pub template_id: u16,
 }
 
 pub struct StructureBuffer<'a> {
@@ -314,12 +328,14 @@ impl<'a> StructureBuffer<'a> {
         self.index_sheets = 0;
     }
 
-    pub fn continue_geometry_gen(&mut self,
-                                 buf: &mut StructureGeometryBuffer,
-                                 cx: u8,
-                                 cy: u8) -> (usize, u8, bool) {
+    pub fn continue_geometry_gen<F>(&mut self,
+                                    buf: &mut StructureGeometryBuffer,
+                                    cx: u8,
+                                    cy: u8,
+                                    filter: F) -> (usize, u8, bool)
+            where F: Fn(&Structure, &StructureTemplate) -> bool {
         if self.num_indexes == 0 {
-            self.fill_indexes(cx, cy);
+            self.fill_indexes(cx, cy, filter);
         }
 
         let (vertex_count, sheet) = self.generate_geometry(buf, cx, cy);
@@ -327,7 +343,8 @@ impl<'a> StructureBuffer<'a> {
         (vertex_count, sheet, more)
     }
 
-    fn fill_indexes(&mut self, cx: u8, cy: u8) {
+    fn fill_indexes<F>(&mut self, cx: u8, cy: u8, filter: F)
+            where F: Fn(&Structure, &StructureTemplate) -> bool {
         // Most arithmetic in this function is wrapping arithmetic mod `LOCAL_SIZE * CHUNK_SIZE`.
         const MASK: u8 = (LOCAL_SIZE * CHUNK_SIZE - 1) as u8;
 
@@ -391,6 +408,11 @@ impl<'a> StructureBuffer<'a> {
                  (sub_wrap(v_top, base_v) < CHUNK_SIZE_U8 ||
                   sub_wrap(v_middle, base_v) < CHUNK_SIZE_U8 ||
                   sub_wrap(v_bottom, base_v) < CHUNK_SIZE_U8)) {
+                continue;
+            }
+
+
+            if !filter(s, t) {
                 continue;
             }
 

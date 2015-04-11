@@ -325,9 +325,14 @@ Asm.prototype.loadChunk = function(cx, cy) {
     this._raw['load_chunk'](LOCAL_CHUNKS_START, CHUNK_START, cx, cy);
 };
 
-Asm.prototype.generateGeometry = function(cx, cy) {
-    var len = this._raw['generate_geometry'](
-            LOCAL_CHUNKS_START, BLOCK_DATA_START, GEOM_START, cx, cy);
+Asm.prototype.generateTerrainGeometry = function(cx, cy, max_z) {
+    if (max_z != 16) {
+        var len = this._raw['generate_sliced_terrain_geometry'](
+                LOCAL_CHUNKS_START, BLOCK_DATA_START, GEOM_START, cx, cy, max_z);
+    } else {
+        var len = this._raw['generate_terrain_geometry'](
+                LOCAL_CHUNKS_START, BLOCK_DATA_START, GEOM_START, cx, cy);
+    }
     return new Uint8Array(this.buffer, GEOM_START, SIZEOF.TerrainVertex * len);
 };
 
@@ -364,10 +369,16 @@ Asm.prototype.resetStructureGeometry = function() {
     this._raw['reset_structure_geometry'](STRUCTURES_START);
 };
 
-Asm.prototype.generateStructureGeometry = function(cx, cy) {
+Asm.prototype.generateStructureGeometry = function(cx, cy, max_z) {
     var output = this._stackAlloc(Int32Array, 2);
-    this._raw['generate_structure_geometry'](
-            STRUCTURES_START, STRUCTURE_GEOM_START, cx, cy, output.byteOffset);
+
+    if (max_z != 16) {
+        this._raw['generate_sliced_structure_geometry'](
+                STRUCTURES_START, STRUCTURE_GEOM_START, cx, cy, max_z, output.byteOffset);
+    } else {
+        this._raw['generate_structure_geometry'](
+                STRUCTURES_START, STRUCTURE_GEOM_START, cx, cy, output.byteOffset);
+    }
 
     var output8 = new Uint8Array(output.buffer, output.byteOffset, output.byteLength);
     var vertex_count = output[0];

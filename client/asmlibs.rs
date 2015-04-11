@@ -176,13 +176,24 @@ pub extern fn load_chunk(local: &mut LocalChunks,
     graphics::load_chunk(local, chunk, cx, cy);
 }
 
-#[export_name = "generate_geometry"]
-pub extern fn generate_geometry(local: &LocalChunks,
+#[export_name = "generate_terrain_geometry"]
+pub extern fn generate_terrain_geometry(local: &LocalChunks,
+                                        block_data: &BlockData,
+                                        geom: &mut TerrainGeometryBuffer,
+                                        cx: u16,
+                                        cy: u16) -> usize {
+    graphics::generate_geometry(local, block_data, geom, cx, cy, |_, _, _| true)
+}
+
+#[export_name = "generate_sliced_terrain_geometry"]
+pub extern fn generate_sliced_terrain_geometry(local: &LocalChunks,
                                 block_data: &BlockData,
                                 geom: &mut TerrainGeometryBuffer,
                                 cx: u16,
-                                cy: u16) -> usize {
-    graphics::generate_geometry(local, block_data, geom, cx, cy)
+                                cy: u16,
+                                max_z: i32) -> usize {
+    graphics::generate_geometry(local, block_data, geom, cx, cy,
+                                |pos, _, _| pos.z < max_z)
 }
 
 #[export_name = "init_structure_buffer"]
@@ -227,7 +238,21 @@ pub extern fn generate_structure_geometry(structures: &mut StructureBuffer,
                                           cx: u8,
                                           cy: u8,
                                           output: &mut StructureGeometryResult) {
-    let (vertex_count, sheet, more) = structures.continue_geometry_gen(geom, cx, cy);
+    let (vertex_count, sheet, more) = structures.continue_geometry_gen(geom, cx, cy, |_, _| true);
+    output.vertex_count = vertex_count;
+    output.sheet = sheet;
+    output.more = more as u8;
+}
+
+#[export_name = "generate_sliced_structure_geometry"]
+pub extern fn generate_sliced_structure_geometry(structures: &mut StructureBuffer,
+                                                 geom: &mut StructureGeometryBuffer,
+                                                 cx: u8,
+                                                 cy: u8,
+                                                 max_z: u8,
+                                                 output: &mut StructureGeometryResult) {
+    let (vertex_count, sheet, more) = structures.continue_geometry_gen(geom, cx, cy,
+                                                                       |s, _| s.pos.2 < max_z);
     output.vertex_count = vertex_count;
     output.sheet = sheet;
     output.more = more as u8;

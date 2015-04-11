@@ -4,9 +4,11 @@ collide
 set_region_shape
 refresh_shape_cache
 load_chunk
-generate_geometry
+generate_terrain_geometry
+generate_sliced_terrain_geometry
 init_structure_buffer
 add_structure
 remove_structure
 reset_structure_geometry
 generate_structure_geometry
+generate_sliced_structure_geometry

@@ -253,8 +253,8 @@ Renderer.prototype._invalidateStructureRegion = function(x, y, z, template) {
 
 // Render
 
-Renderer.prototype._renderTerrain = function(fb, cx, cy) {
-    var geom = this._asm.generateGeometry(cx, cy);
+Renderer.prototype._renderTerrain = function(fb, cx, cy, max_z) {
+    var geom = this._asm.generateTerrainGeometry(cx, cy, max_z);
 
     var gl = this.gl;
     fb.bind();
@@ -277,7 +277,7 @@ Renderer.prototype._renderTerrain = function(fb, cx, cy) {
     gl.disable(gl.DEPTH_TEST);
 };
 
-Renderer.prototype._renderStructures = function(fb, cx, cy) {
+Renderer.prototype._renderStructures = function(fb, cx, cy, max_z) {
     var gl = this.gl;
     fb.bind();
     gl.viewport(0, 0, fb.width, fb.height);
@@ -287,7 +287,7 @@ Renderer.prototype._renderStructures = function(fb, cx, cy) {
     this._asm.resetStructureGeometry();
     var more = true;
     while (more) {
-        var result = this._asm.generateStructureGeometry(cx, cy);
+        var result = this._asm.generateStructureGeometry(cx, cy, max_z);
         var geom = result.geometry;
         more = result.more;
         // TODO: use result.sheet
@@ -337,8 +337,8 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, mask_info) {
     this.terrain_cache.populate(chunk_idxs, function(idx, fb) {
         var cx = (idx % LOCAL_SIZE)|0;
         var cy = (idx / LOCAL_SIZE)|0;
-        this_._renderTerrain(fb, cx, cy);
-        this_._renderStructures(fb, cx, cy);
+        this_._renderTerrain(fb, cx, cy, 16);
+        this_._renderStructures(fb, cx, cy, 16);
     });
 
     // `populate` may call `_renderTerrain`, which changes the OpenGL viewport.
