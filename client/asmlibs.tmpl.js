@@ -146,6 +146,7 @@ var asmlibs_code_raw = function(global, env, buffer) {
         collide: _collide,
         set_region_shape: _set_region_shape,
         refresh_shape_cache: _refresh_shape_cache,
+        find_ceiling: _find_ceiling,
 
         load_chunk: _load_chunk,
         generate_terrain_geometry: _generate_terrain_geometry,

@@ -80,6 +80,10 @@ Physics.prototype.computeForecast = function(now, entity, target_velocity) {
     return motion;
 };
 
+Physics.prototype.findCeiling = function(pos) {
+    return this._asm.findCeiling(pos);
+};
+
 
 /** @constructor */
 function Prediction(physics) {

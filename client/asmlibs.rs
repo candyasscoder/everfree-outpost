@@ -15,7 +15,7 @@ use core::mem;
 use core::raw;
 use physics::v3::{V3, scalar, Region};
 use physics::{Shape, ShapeSource};
-use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE};
+use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE, TILE_BITS};
 use graphics::{BlockData, BlockChunk, LocalChunks};
 use graphics::{TerrainVertex, TerrainGeometryBuffer};
 use graphics::{StructureTemplate, StructureTemplateData, StructureBuffer,
@@ -163,6 +163,30 @@ pub extern fn refresh_shape_cache(layers: &mut [ShapeLayers; 1 << (2 * LOCAL_BIT
         let base = cpos.extend(0) * scalar(CHUNK_SIZE);
         layers[cidx as usize].refresh(*bounds - base);
     }
+}
+
+#[export_name = "find_ceiling"]
+pub extern fn find_ceiling(layers: &[ShapeLayers; 1 << (2 * LOCAL_BITS)],
+                           pos: &V3) -> i32 {
+    let tpos = *pos >> TILE_BITS;
+
+    let cx = tpos.x / CHUNK_SIZE % LOCAL_SIZE;
+    let cy = tpos.y / CHUNK_SIZE % LOCAL_SIZE;
+    let idx = (cy * LOCAL_SIZE + cx) as usize;
+
+    let x = tpos.x % CHUNK_SIZE;
+    let y = tpos.y % CHUNK_SIZE;
+    let mut z = tpos.z + 1;
+
+    let chunk = &layers[idx];
+    while z < 16 {
+        let tile_idx = x + CHUNK_SIZE * (y + CHUNK_SIZE * (z));
+        if chunk.merged[tile_idx as usize] != Shape::Empty {
+            break;
+        }
+        z += 1;
+    }
+    z
 }
 
 

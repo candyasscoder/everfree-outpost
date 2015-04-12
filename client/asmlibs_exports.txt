@@ -3,6 +3,7 @@ test
 collide
 set_region_shape
 refresh_shape_cache
+find_ceiling
 load_chunk
 generate_terrain_geometry
 generate_sliced_terrain_geometry

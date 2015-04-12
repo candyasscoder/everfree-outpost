@@ -276,6 +276,16 @@ Asm.prototype.shapeLayerView = function(chunk_idx, layer) {
             SHAPE_LAYERS_START + chunk_offset + layer_offset, SIZEOF.ShapeChunk);
 };
 
+Asm.prototype.findCeiling = function(pos) {
+    var input = this._stackAlloc(Int32Array, 3);
+    this._storeVec(input, 0, pos);
+
+    var result = this._raw['find_ceiling'](SHAPE_LAYERS_START, input.byteOffset);
+
+    this._stackFree(input);
+    return result;
+};
+
 exports.getPhysicsHeapSize = function() {
     return PHYSICS_HEAP_END - PHYSICS_HEAP_START;
 };

@@ -960,29 +960,8 @@ function needs_mask(now, pony) {
     }
 
     var pos = pony.position(now);
-
-    var x = ((pos.x + 16) / TILE_SIZE)|0;
-    var y = ((pos.y + 16) / TILE_SIZE)|0;
-    var z = (pos.z / TILE_SIZE)|0;
-
-    var cx = ((x / CHUNK_SIZE)|0) % LOCAL_SIZE;
-    var cy = ((y / CHUNK_SIZE)|0) % LOCAL_SIZE;
-
-    var tx = x % CHUNK_SIZE;
-    var ty = y % CHUNK_SIZE;
-
-    var chunk = chunks[cy * LOCAL_SIZE + cx];
-    if (chunk == null) {
-        console.log('chunk not loaded yet', cx, cy);
-        return false;
-    }
-
-    for (var tz = z + 1; tz < 16; ++tz) {
-        if (chunk.get(tx, ty, tz).id != 0) {
-            return true;
-        }
-    }
-    return false;
+    var ceiling = physics.findCeiling(pos);
+    return (ceiling < 16);
 }
 
 var FACINGS = [
