@@ -12,6 +12,7 @@ shaders/terrain.frag
 shaders/sprite.vert
 shaders/sprite.frag
 shaders/sprite_layered.frag
+shaders/sprite_pony_outline.frag
 shaders/cursor.vert
 shaders/cursor.frag
 

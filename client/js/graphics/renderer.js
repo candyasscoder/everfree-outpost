@@ -19,6 +19,7 @@ var attribute = require('graphics/glutil').attribute;
 var Simple3D = require('graphics/draw/simple').Simple3D;
 var Layered3D = require('graphics/draw/layered').Layered3D;
 var Named3D = require('graphics/draw/named').Named3D;
+var PonyOutline3D = require('graphics/draw/ponyoutline').PonyOutline3D;
 
 var Vec = require('util/vec').Vec;
 
@@ -66,6 +67,7 @@ Renderer.prototype.initGl = function(assets) {
         'simple': new Simple3D(gl, assets),
         'layered': new Layered3D(gl, assets),
         'named': new Named3D(gl, assets),
+        'pony_outline': new PonyOutline3D(gl, assets),
     };
 
     this.last_sw = -1;
@@ -367,7 +369,7 @@ Renderer.prototype._renderStructures = function(fb, cx, cy, max_z) {
     gl.disable(gl.DEPTH_TEST);
 };
 
-Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, slice_z, slice_frac) {
+Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_frac, draw_extra) {
     var gl = this.gl;
 
     this.blit.setUniformValue('cameraPos', [sx, sy]);
@@ -480,6 +482,8 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, slice_z, slic
     }
 
     gl.disable(gl.DEPTH_TEST);
+
+    draw_extra(this);
     this.fb.unbind();
 
 
@@ -491,6 +495,11 @@ Renderer.prototype.render = function(ctx, sx, sy, sw, sh, sprites, slice_z, slic
         'imageTex': this.fb.texture,
         'depthTex': this.fb.depth_texture,
     });
+};
+
+Renderer.prototype.renderSpecial = function(sprite, cls_name) {
+    var cls = this.sprite_classes[cls_name];
+    cls.draw(this, sprite, 0);
 };
 
 

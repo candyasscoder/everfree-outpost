@@ -45,6 +45,7 @@ def main(src_dir, build_dir, out_file):
     add('text', 'sprite.frag',          src('assets/shaders/sprite.frag'))
     add('text', 'sprite.vert',          src('assets/shaders/sprite.vert'))
     add('text', 'sprite_layered.frag',  src('assets/shaders/sprite_layered.frag'))
+    add('text', 'sprite_pony_outline.frag', src('assets/shaders/sprite_pony_outline.frag'))
     add('text', 'cursor.frag',          src('assets/shaders/cursor.frag'))
     add('text', 'cursor.vert',          src('assets/shaders/cursor.vert'))
 

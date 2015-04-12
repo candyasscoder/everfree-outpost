@@ -502,15 +502,24 @@ function buildPonySprite(appearance, name) {
 
     var hat = (appearance >> 8) & 1;
 
+    function mk_layer(name, color, skip, outline_skip) {
+        return {
+            image: assets[name],
+            color: color,
+            skip: skip,
+            outline_skip: outline_skip,
+        };
+    }
+
     var extra = new NamedExtra([
-            { image: assets['pony_f_wing_back'],    color: body,        skip: !wings },
-            { image: assets['pony_f_base'],         color: body,        skip: false },
-            { image: assets['pony_f_eyes_blue'],    color: 0xffffff,    skip: false },
-            { image: assets['pony_f_wing_front'],   color: body,        skip: !wings },
-            { image: assets['pony_f_tail_1'],       color: mane,        skip: false },
-            { image: assets['pony_f_mane_1'],       color: mane,        skip: false },
-            { image: assets['equip_f_hat'],         color: 0xffffff,    skip: !hat },
-            { image: assets['pony_f_horn'],         color: body,        skip: !horn },
+            mk_layer('pony_f_wing_back',    body,       !wings,     false),
+            mk_layer('pony_f_base',         body,       false,      false),
+            mk_layer('pony_f_eyes_blue',    0xffffff,   false,      true),
+            mk_layer('pony_f_wing_front',   body,       !wings,     false),
+            mk_layer('pony_f_tail_1',       mane,       false,      false),
+            mk_layer('pony_f_mane_1',       mane,       false,      false),
+            mk_layer('equip_f_hat',         0xffffff,   !hat,       true),
+            mk_layer('pony_f_horn',         body,       !horn,      false),
             ], name);
 
     return new SpriteBase(96, 96, 48, 90, extra);
@@ -1041,6 +1050,7 @@ function frame(ac, client_now) {
 
     var entity_ids = Object.getOwnPropertyNames(entities);
     var sprites = new Array(entity_ids.length);
+    var player_sprite = null;
 
     for (var i = 0; i < entity_ids.length; ++i) {
         var entity = entities[entity_ids[i]];
@@ -1048,6 +1058,7 @@ function frame(ac, client_now) {
             sprites[i] = localSprite(now, entity, pos);
         } else {
             sprites[i] = localSprite(predict_now, entity, pos);
+            player_sprite = sprites[i];
         }
     }
 
@@ -1062,21 +1073,29 @@ function frame(ac, client_now) {
         }
     }
 
+    function draw_extra(r) {
+        if (player_sprite != null) {
+            r.renderSpecial(player_sprite, 'pony_outline');
+        }
+    }
+
     var radius = slice_radius.get(predict_now);
     if (radius > 0 && pony != null) {
         var slice_z = 2 + (pony.position(predict_now).z / TILE_SIZE)|0;
-        renderer.render(gl,
+        renderer.render(
                 camera_pos.x, camera_pos.y,
                 camera_size.x, camera_size.y,
                 sprites,
                 slice_z,
-                radius);
+                radius,
+                draw_extra);
     } else {
-        renderer.render(gl,
+        renderer.render(
                 camera_pos.x, camera_pos.y,
                 camera_size.x, camera_size.y,
                 sprites,
-                16, 0);
+                16, 0,
+                draw_extra);
     }
 
 
