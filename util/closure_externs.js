@@ -15,3 +15,8 @@ CanvasRenderingContext2D.prototype.webkitImageSmoothingEnabled;
  * @type {!DOMURL}
  */
 Window.prototype.URL;
+
+
+/** @constructor @noalias */
+function WEBGL_draw_buffers() {}
+WEBGL_draw_buffers.prototype.drawBuffersWEBGL;
