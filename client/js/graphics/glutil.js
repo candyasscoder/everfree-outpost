@@ -7,6 +7,7 @@ function compile_shader(gl, type, src) {
 
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
         console.log('shader error', gl.getShaderInfoLog(shader));
+        console.log(src);
         return null;
     }
 
@@ -278,6 +279,7 @@ GlObject.prototype.drawMulti = function(vert_indexes, uniforms, attributes, text
 
         var attr = this.program.getAttributeLocation(key);
         if (attr == -1) {
+            console.log('no attr', key);
             continue;
         }
 
@@ -332,21 +334,28 @@ GlObject.prototype.drawMulti = function(vert_indexes, uniforms, attributes, text
 
 
 /** @constructor */
-function Framebuffer(gl, width, height) {
+function Framebuffer(gl, width, height, planes) {
     this.gl = gl;
     this.width = width;
     this.height = height;
+    planes = planes || 1;
 
-    this.texture = new Texture(gl);
-    this.texture.loadData(width, height, null);
+    this.textures = new Array(planes);
+    for (var i = 0; i < planes; ++i) {
+        this.textures[i] = new Texture(gl);
+        this.textures[i].loadData(width, height, null);
+    }
+    this.texture = this.textures[0];
 
     this.depth_texture = new Texture(gl);
     this.depth_texture.initDepth(width, height);
 
     this.fb = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fb);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D,
-            this.texture.getName(), 0);
+    for (var i = 0; i < planes; ++i) {
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D,
+                this.textures[i].getName(), 0);
+    }
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D,
             this.depth_texture.getName(), 0);
 
@@ -354,6 +363,13 @@ function Framebuffer(gl, width, height) {
     if (fb_status != gl.FRAMEBUFFER_COMPLETE) {
         throw 'framebuffer is not complete: ' + fb_status;
     }
+
+    var attachments = new Array(planes);
+    for (var i = 0; i < planes; ++i) {
+        attachments[i] = gl.COLOR_ATTACHMENT0 + i;
+    }
+    gl.getExtension('WEBGL_draw_buffers').drawBuffersWEBGL(attachments);
+
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindRenderbuffer(gl.RENDERBUFFER, null);

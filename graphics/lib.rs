@@ -450,11 +450,13 @@ impl<'a> StructureBuffer<'a> {
         fn emit(buf: &mut StructureGeometryBuffer,
                 idx: &mut usize,
                 pos: (i16, i16, i16),
+                base_z: i16,
                 tex_coord: (u16, u16)) {
             let (x, y, z) = pos;
             buf[*idx].x = x;
             buf[*idx].y = y;
             buf[*idx].z = z;
+            buf[*idx].base_z = base_z;
             let (s, t) = tex_coord;
             buf[*idx].s = s;
             buf[*idx].t = t;
@@ -529,6 +531,7 @@ impl<'a> StructureBuffer<'a> {
                      (px_x + off_x,
                       px_y + off_y,
                       px_z + off_z),
+                     px_z,
                      (base_s + off_s,
                       base_t + off_t));
             }
@@ -546,7 +549,7 @@ pub struct StructureVertex {
     x: i16,
     y: i16,
     z: i16,
-    _pad0: u16,
+    base_z: i16,
     s: u16,
     t: u16,
     _pad1: u16,

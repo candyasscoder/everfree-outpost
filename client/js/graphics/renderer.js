@@ -60,6 +60,7 @@ Renderer.prototype.initGl = function(assets) {
     this.blit = blits.normal;
     this.blit_sliced = blits.sliced;
     this.output = blits.output;
+    this.post_filter = blits.post;
     this.terrain_block = build_terrain_block(gl, assets, atlas_tex);
     this.structure = build_structure(gl, assets, struct_sheet_tex, struct_depth_tex);
 
@@ -72,7 +73,7 @@ Renderer.prototype.initGl = function(assets) {
 
     this.last_sw = -1;
     this.last_sh = -1;
-    this.output_fb = null;
+    this.fbs = [null, null];
 };
 
 function build_terrain_block(gl, assets, atlas_tex) {
@@ -99,13 +100,19 @@ function build_terrain_block(gl, assets, atlas_tex) {
 
 function build_blits(gl, assets) {
     var vert = assets['blit.vert'];
+    var vert_fullscreen = assets['blit_fullscreen.vert'];
+
     var frag = assets['blit.frag'];
     var program = new Program(gl, vert, frag);
-    // Same code, but different uniforms.
-    var program_output = new Program(gl, vert, frag);
 
     var frag_sliced = assets['blit_sliced.frag'];
     var program_sliced = new Program(gl, vert, frag_sliced);
+
+    var frag_output = assets['blit_output.frag'];
+    var program_output = new Program(gl, vert_fullscreen, frag_output);
+
+    var frag_post = assets['blit_post.frag'];
+    var program_post = new Program(gl, vert_fullscreen, frag_post);
 
     var buffer = new Buffer(gl);
     buffer.loadData(new Uint8Array([
@@ -131,7 +138,8 @@ function build_blits(gl, assets) {
     };
 
     var textures = {
-        'imageTex': null,
+        'image0Tex': null,
+        'image1Tex': null,
         'depthTex': null,
     };
 
@@ -151,21 +159,18 @@ function build_blits(gl, assets) {
     };
 
     var textures = {
-        'upperImageTex': null,
+        'upperImage0Tex': null,
+        'upperImage1Tex': null,
         'upperDepthTex': null,
-        'lowerImageTex': null,
+        'lowerImage0Tex': null,
+        'lowerImage1Tex': null,
         'lowerDepthTex': null,
     };
 
     var sliced = new GlObject(gl, program_sliced, uniforms, attributes, textures);
 
 
-    var uniforms = {
-        'rectPos': uniform('vec2', [0, 256]),
-        'rectSize': uniform('vec2', [256, -256]),
-        'cameraPos': uniform('vec2', [0, 0]),
-        'cameraSize': uniform('vec2', [256, 256]),
-    };
+    var uniforms = {};
 
     var attributes = {
         'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0),
@@ -173,13 +178,29 @@ function build_blits(gl, assets) {
 
     var textures = {
         'imageTex': null,
-        'depthTex': null,
     };
 
     var output = new GlObject(gl, program_output, uniforms, attributes, textures);
 
 
-    return { normal: normal, sliced: sliced, output: output };
+    var uniforms = {
+        'screenSize': uniform('vec2', null),
+    };
+
+    var attributes = {
+        'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0),
+    };
+
+    var textures = {
+        'image0Tex': null,
+        'image1Tex': null,
+        'depthTex': null,
+    };
+
+    var post = new GlObject(gl, program_post, uniforms, attributes, textures);
+
+
+    return { normal: normal, sliced: sliced, output: output, post: post };
 }
 
 function build_structure(gl, assets, sheet_tex, depth_tex) {
@@ -193,6 +214,7 @@ function build_structure(gl, assets, sheet_tex, depth_tex) {
 
     var attributes = {
         'position': attribute(null, 3, gl.SHORT, false, 16, 0),
+        'baseZAttr': attribute(null, 1, gl.SHORT, false, 16, 6),
         'texCoord': attribute(null, 2, gl.UNSIGNED_SHORT, false, 16, 8),
     };
 
@@ -361,6 +383,7 @@ Renderer.prototype._renderStructures = function(fb, cx, cy, max_z) {
 
         this.structure.draw(0, geom.length / 8, {}, {
             'position': buffer,
+            'baseZAttr': buffer,
             'texCoord': buffer,
         }, {});
     }
@@ -385,7 +408,8 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
 
 
     if (this.last_sw != sw || this.last_sh != sh) {
-        this.fb = new Framebuffer(gl, sw, sh);
+        this.fbs[0] = new Framebuffer(gl, sw, sh, 2);
+        this.fbs[1] = new Framebuffer(gl, sw, sh, 2);
         this.last_sw = sw;
         this.last_sh = sh;
     }
@@ -436,7 +460,7 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
 
     // Render to the output framebuffer.
 
-    this.fb.bind();
+    this.fbs[0].bind();
     gl.viewport(0, 0, sw, sh);
     gl.clearDepth(0.0);
     gl.clearColor(0, 0, 0, 0);
@@ -453,7 +477,8 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
                     'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
                                 cy * CHUNK_SIZE * TILE_SIZE],
                 }, {}, {
-                    'imageTex': this.terrain_cache.get(idx).texture,
+                    'image0Tex': this.terrain_cache.get(idx).textures[0],
+                    'image1Tex': this.terrain_cache.get(idx).textures[1],
                     'depthTex': this.terrain_cache.get(idx).depth_texture,
                 });
             } else {
@@ -462,9 +487,11 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
                                 cy * CHUNK_SIZE * TILE_SIZE],
                     'sliceFrac': [slice_frac],
                 }, {}, {
-                    'upperImageTex': this.terrain_cache.get(idx).texture,
+                    'upperImage0Tex': this.terrain_cache.get(idx).textures[0],
+                    'upperImage1Tex': this.terrain_cache.get(idx).textures[1],
                     'upperDepthTex': this.terrain_cache.get(idx).depth_texture,
-                    'lowerImageTex': this.sliced_cache.get(idx).texture,
+                    'lowerImage0Tex': this.sliced_cache.get(idx).textures[0],
+                    'lowerImage1Tex': this.sliced_cache.get(idx).textures[1],
                     'lowerDepthTex': this.sliced_cache.get(idx).depth_texture,
                 });
             }
@@ -482,9 +509,22 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
     }
 
     gl.disable(gl.DEPTH_TEST);
+    this.fbs[0].unbind();
+
+
+    // Apply post-processing pass
+
+    this.fbs[1].bind();
+    this.post_filter.draw(0, 6, {
+        'screenSize': [sw, sh],
+    }, {}, {
+        'image0Tex': this.fbs[0].textures[0],
+        'image1Tex': this.fbs[0].textures[1],
+        'depthTex': this.fbs[0].depth_texture,
+    });
 
     draw_extra(this);
-    this.fb.unbind();
+    this.fbs[1].unbind();
 
 
     // Copy output framebuffer to canvas.
@@ -492,8 +532,8 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
     this.output.draw(0, 6, {}, {}, {
-        'imageTex': this.fb.texture,
-        'depthTex': this.fb.depth_texture,
+        'imageTex': this.fbs[1].textures[0],
+        'depthTex': this.fbs[1].depth_texture,
     });
 };
 
@@ -522,7 +562,7 @@ function RenderCache(gl) {
 
 RenderCache.prototype._addSlot = function() {
     var chunk_px = CHUNK_SIZE * TILE_SIZE;
-    this.slots.push(new Framebuffer(this.gl, chunk_px, chunk_px));
+    this.slots.push(new Framebuffer(this.gl, chunk_px, chunk_px, 2));
     this.users.push(-1);
 };
 

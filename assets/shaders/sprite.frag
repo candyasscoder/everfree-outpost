@@ -1,5 +1,7 @@
 precision mediump float;
 
+#extension GL_EXT_draw_buffers : enable
+
 varying highp vec2 normalizedTexCoord;
 
 uniform vec2 cameraSize;
@@ -18,5 +20,6 @@ void main(void) {
     if (color.a == 0.0) {
         discard;
     }
-    gl_FragColor = color;
+    gl_FragData[0] = color;
+    gl_FragData[1] = vec4(0.0, 0.0, 0.0, 1.0);
 }

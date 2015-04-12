@@ -23,10 +23,13 @@ uniform vec2 sheetSize;
 
 attribute vec3 position;
 attribute vec2 texCoord;
+attribute float baseZAttr;
 
 varying vec2 normalizedTexCoord;
+varying float baseZ;
 
 void main(void) {
     gl_Position = projection * vec4(position, 1.0);
     normalizedTexCoord = texCoord / sheetSize;
+    baseZ = baseZAttr;
 }
