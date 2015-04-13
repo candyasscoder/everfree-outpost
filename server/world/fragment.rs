@@ -11,15 +11,13 @@ macro_rules! define_Fragment {
         object $Obj:ident {
             id $Id:ident;
             map $objs:ident;
+            module $module:ident;
             lifecycle ($($create_arg:ident: $create_arg_ty:ty),*)
-                $create_obj:ident => $create_obj_op:ident
-                    [$create_id_name:ident -> $create_id_expr:expr],
-                $destroy_obj:ident => $destroy_obj_op:ident,
-                $create_obj_hooks:ident, $destroy_obj_hooks:ident;
+                $create_obj:ident [$create_id_name:ident -> $create_id_expr:expr],
+                $destroy_obj:ident,
             lookups [$lookup_id_name:ident -> $lookup_id_expr:expr]
                 $get_obj:ident, $obj:ident,
                 $get_obj_mut:ident, $obj_mut:ident,
-                $get_obj_mut_hooks:ident, $obj_mut_hooks:ident;
             $(stable_ids
                 $transient_obj_id:ident;)*
         }
@@ -38,12 +36,12 @@ pub trait Fragment<'d>: Sized {
     fn $create_obj<'a>(&'a mut self, $($create_arg: $create_arg_ty,)*)
                    -> OpResult<ObjectRefMut<'a, 'd, $Obj, Self>> {
         #![allow(unused_variables)]  // id_expr may not reference id_name
-        let $create_id_name = try!(ops::$create_obj_op(self, $($create_arg,)*));
+        let $create_id_name = try!(ops::$module::create(self, $($create_arg,)*));
         Ok(ObjectRefMut::new(self, $create_id_expr))
     }
 
     fn $destroy_obj(&mut self, id: $Id) -> OpResult<()> {
-        ops::$destroy_obj_op(self, id)
+        ops::$module::destroy(self, id)
     }
 
     fn $get_obj_mut<'a>(&'a mut self, $lookup_id_name: $Id)
@@ -67,13 +65,13 @@ pub trait Fragment<'d>: Sized {
                                       pos: V3,
                                       tid: TemplateId)
                                       -> OpResult<ObjectRefMut<'a, 'd, Structure, Self>> {
-        let sid = ops::structure_create_unchecked(self);
+        let sid = ops::structure::create_unchecked(self);
         {
             let s = &mut self.world_mut().structures[sid];
             s.pos = pos;
             s.template = tid;
         }
-        try!(ops::structure_post_init(self, sid));
+        try!(ops::structure::post_init(self, sid));
         self.with_hooks(|h| h.on_structure_create(sid));
         Ok(ObjectRefMut::new(self, sid))
     }

@@ -144,14 +144,14 @@ impl<R: old_io::Reader> ObjectReader<R> {
         let child_entity_count = try!(self.r.read_count());
         for _ in 0..child_entity_count {
             let eid = try!(self.read_entity(f));
-            try!(f.with_world(|wf| ops::entity_attach(wf, eid, EntityAttachment::Client(cid))));
+            try!(f.with_world(|wf| ops::entity::attach(wf, eid, EntityAttachment::Client(cid))));
         }
 
         let child_inventory_count = try!(self.r.read_count());
         for _ in 0..child_inventory_count {
             let iid = try!(self.read_inventory(f));
             try!(f.with_world(|wf|
-                              ops::inventory_attach(wf, iid, InventoryAttachment::Client(cid))));
+                              ops::inventory::attach(wf, iid, InventoryAttachment::Client(cid))));
         }
 
         Ok(cid)
@@ -197,14 +197,14 @@ impl<R: old_io::Reader> ObjectReader<R> {
             *ptr = *id;
         }
 
-        try!(f.with_world(|wf| ops::terrain_chunk_create(wf, chunk_pos, blocks)));
+        try!(f.with_world(|wf| ops::terrain_chunk::create(wf, chunk_pos, blocks)));
 
         try!(f.with_hooks(|h| h.post_read_terrain_chunk(&mut self.r, chunk_pos)));
 
         let child_structure_count = try!(self.r.read_count());
         for _ in 0..child_structure_count {
             let sid = try!(self.read_structure(f));
-            try!(f.with_world(|wf| ops::structure_attach(wf, sid, StructureAttachment::Chunk)));
+            try!(f.with_world(|wf| ops::structure::attach(wf, sid, StructureAttachment::Chunk)));
         }
 
         Ok(chunk_pos)
@@ -251,7 +251,7 @@ impl<R: old_io::Reader> ObjectReader<R> {
         for _ in 0..child_inventory_count {
             let iid = try!(self.read_inventory(f));
             try!(f.with_world(|wf|
-                              ops::inventory_attach(wf, iid, InventoryAttachment::Entity(eid))));
+                              ops::inventory::attach(wf, iid, InventoryAttachment::Entity(eid))));
         }
 
         Ok(eid)
@@ -270,7 +270,7 @@ impl<R: old_io::Reader> ObjectReader<R> {
                 s.pos = try!(self.r.read());
                 s.template = try!(self.read_template_id(w.data));
             }
-            try!(ops::structure_post_init(wf, sid));
+            try!(ops::structure::post_init(wf, sid));
             Ok(())
         }));
 
@@ -279,8 +279,8 @@ impl<R: old_io::Reader> ObjectReader<R> {
         let child_inventory_count = try!(self.r.read_count());
         for _ in 0..child_inventory_count {
             let iid = try!(self.read_inventory(f));
-            try!(f.with_world(|wf| ops::inventory_attach(wf, iid,
-                                                         InventoryAttachment::Structure(sid))));
+            try!(f.with_world(|wf| ops::inventory::attach(wf, iid,
+                                                          InventoryAttachment::Structure(sid))));
         }
 
         Ok(sid)
@@ -435,7 +435,7 @@ impl<R: old_io::Reader> ObjectReader<R> {
                 AnyId::Structure(sid) => {
                     unwrap_warn(f.with_hooks(|h| h.cleanup_structure(sid)));
                     f.with_world(|wf| {
-                        unwrap_warn(ops::structure_pre_fini(wf, sid));
+                        unwrap_warn(ops::structure::pre_fini(wf, sid));
                         wf.world_mut().structures.remove(sid);
                     });
                 },

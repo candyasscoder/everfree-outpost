@@ -143,7 +143,7 @@ impl ReadId for ClientId {
     }
 
     fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> ClientId {
-        ops::client_create_unchecked(f)
+        ops::client::create_unchecked(f)
     }
 }
 
@@ -156,7 +156,7 @@ impl ReadId for EntityId {
     }
 
     fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> EntityId {
-        ops::entity_create_unchecked(f)
+        ops::entity::create_unchecked(f)
     }
 }
 
@@ -169,7 +169,7 @@ impl ReadId for StructureId {
     }
 
     fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> StructureId {
-        ops::structure_create_unchecked(f)
+        ops::structure::create_unchecked(f)
     }
 }
 
@@ -182,6 +182,6 @@ impl ReadId for InventoryId {
     }
 
     fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> InventoryId {
-        ops::inventory_create_unchecked(f)
+        ops::inventory::create_unchecked(f)
     }
 }

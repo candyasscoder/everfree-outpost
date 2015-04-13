@@ -233,8 +233,8 @@ pub trait ClientRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Client, F> {
     fn set_pawn(&mut self, pawn: Option<EntityId>) -> OpResult<Option<EntityId>> {
         let cid = self.id();
         match pawn {
-            Some(eid) => ops::client_set_pawn(self.fragment_mut(), cid, eid),
-            None => ops::client_clear_pawn(self.fragment_mut(), cid),
+            Some(eid) => ops::client::set_pawn(self.fragment_mut(), cid, eid),
+            None => ops::client::clear_pawn(self.fragment_mut(), cid),
         }
     }
 }
@@ -311,7 +311,7 @@ pub trait EntityRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Entity, F> {
 
     fn set_attachment(&mut self, attach: EntityAttachment) -> OpResult<EntityAttachment> {
         let eid = self.id();
-        ops::entity_attach(self.fragment_mut(), eid, attach)
+        ops::entity::attach(self.fragment_mut(), eid, attach)
     }
 }
 impl<'a, 'd, F: Fragment<'d>> EntityRefMut<'d, F> for ObjectRefMut<'a, 'd, Entity, F> { }
@@ -348,12 +348,12 @@ pub trait StructureRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Structure, 
 
     fn set_template_id(&mut self, template: TemplateId) -> OpResult<()> {
         let sid = self.id();
-        ops::structure_replace(self.fragment_mut(), sid, template)
+        ops::structure::replace(self.fragment_mut(), sid, template)
     }
 
     fn set_attachment(&mut self, attach: StructureAttachment) -> OpResult<StructureAttachment> {
         let sid = self.id();
-        ops::structure_attach(self.fragment_mut(), sid, attach)
+        ops::structure::attach(self.fragment_mut(), sid, attach)
     }
 }
 impl<'a, 'd, F: Fragment<'d>> StructureRefMut<'d, F> for ObjectRefMut<'a, 'd, Structure, F> { }
@@ -377,7 +377,7 @@ pub trait InventoryRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Inventory, 
     fn update(&mut self, item_id: ItemId, adjust: i16) -> u8 {
         let iid = self.id();
         // OK: self.id() is always a valid InventoryId
-        ops::inventory_update(self.fragment_mut(), iid, item_id, adjust).unwrap()
+        ops::inventory::update(self.fragment_mut(), iid, item_id, adjust).unwrap()
     }
 
     fn update_by_name(&mut self, name: &str, adjust: i16) -> OpResult<u8> {
@@ -387,7 +387,7 @@ pub trait InventoryRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Inventory, 
 
     fn set_attachment(&mut self, attach: InventoryAttachment) -> OpResult<InventoryAttachment> {
         let iid = self.id();
-        ops::inventory_attach(self.fragment_mut(), iid, attach)
+        ops::inventory::attach(self.fragment_mut(), iid, attach)
     }
 }
 impl<'a, 'd, F: Fragment<'d>> InventoryRefMut<'d, F> for ObjectRefMut<'a, 'd, Inventory, F> { }

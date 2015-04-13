@@ -78,14 +78,13 @@ macro_rules! process_objects {
             object Client {
                 id ClientId;
                 map clients;
+                module client;
                 lifecycle (name: &str)
-                    create_client => client_create [id -> id],
-                    destroy_client => client_destroy,
-                    create_client_hooks, destroy_client_hooks;
+                    create_client [id -> id],
+                    destroy_client,
                 lookups [id -> id]
                     get_client, client,
                     get_client_mut, client_mut,
-                    get_client_mut_hooks, client_mut_hooks;
                 stable_ids
                     transient_client_id;
             }
@@ -93,27 +92,25 @@ macro_rules! process_objects {
             object TerrainChunk {
                 id V2;
                 map terrain_chunks;
+                module terrain_chunk;
                 lifecycle (pos: V2, blocks: Box<BlockChunk>)
-                    create_terrain_chunk => terrain_chunk_create [id -> pos],
-                    destroy_terrain_chunk => terrain_chunk_destroy,
-                    create_terrain_chunk_hooks, destroy_terrain_chunk_hooks;
+                    create_terrain_chunk [id -> pos],
+                    destroy_terrain_chunk,
                 lookups [id -> &id]
                     get_terrain_chunk, terrain_chunk,
                     get_terrain_chunk_mut, terrain_chunk_mut,
-                    get_terrain_chunk_mut_hooks, terrain_chunk_mut_hooks;
             }
 
             object Entity {
                 id EntityId;
                 map entities;
+                module entity;
                 lifecycle (pos: V3, anim: AnimId, appearance: u32)
-                    create_entity => entity_create [id -> id],
-                    destroy_entity => entity_destroy,
-                    create_entity_hooks, destroy_entity_hooks;
+                    create_entity [id -> id],
+                    destroy_entity,
                 lookups [id -> id]
                     get_entity, entity,
                     get_entity_mut, entity_mut,
-                    get_entity_mut_hooks, entity_mut_hooks;
                 stable_ids
                     transient_entity_id;
             }
@@ -121,14 +118,13 @@ macro_rules! process_objects {
             object Structure {
                 id StructureId;
                 map structures;
+                module structure;
                 lifecycle (pos: V3, tid: TemplateId)
-                    create_structure => structure_create [id -> id],
-                    destroy_structure => structure_destroy,
-                    create_structure_hooks, destroy_structure_hooks;
+                    create_structure [id -> id],
+                    destroy_structure,
                 lookups [id -> id]
                     get_structure, structure,
                     get_structure_mut, structure_mut,
-                    get_structure_mut_hooks, structure_mut_hooks;
                 stable_ids
                     transient_structure_id;
             }
@@ -136,14 +132,13 @@ macro_rules! process_objects {
             object Inventory {
                 id InventoryId;
                 map inventories;
+                module inventory;
                 lifecycle ()
-                    create_inventory => inventory_create [id -> id],
-                    destroy_inventory => inventory_destroy,
-                    create_inventory_hooks, destroy_inventory_hooks;
+                    create_inventory [id -> id],
+                    destroy_inventory,
                 lookups [id -> id]
                     get_inventory, inventory,
                     get_inventory_mut, inventory_mut,
-                    get_inventory_mut_hooks, inventory_mut_hooks;
                 stable_ids
                     transient_inventory_id;
             }
@@ -156,15 +151,13 @@ macro_rules! world_methods {
         object $Obj:ident {
             id $Id:ident;
             map $objs:ident;
+            module $module:ident;
             lifecycle ($($create_arg:ident: $create_arg_ty:ty),*)
-                $create_obj:ident => $create_obj_op:ident
-                    [$create_id_name:ident -> $create_id_expr:expr],
-                $destroy_obj:ident => $destroy_obj_op:ident,
-                $create_obj_hooks:ident, $destroy_obj_hooks:ident;
+                $create_obj:ident [$create_id_name:ident -> $create_id_expr:expr],
+                $destroy_obj:ident,
             lookups [$lookup_id_name:ident -> $lookup_id_expr:expr]
                 $get_obj:ident, $obj:ident,
                 $get_obj_mut:ident, $obj_mut:ident,
-                $get_obj_mut_hooks:ident, $obj_mut_hooks:ident;
             $(stable_ids
                 $transient_obj_id:ident;)*
         }
