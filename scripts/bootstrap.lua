@@ -159,6 +159,8 @@ command.help.home = command.help.sethome
 command.help.ignore = '/ignore <name>: Hide chat messages from named player'
 command.help.unignore = '/unignore <name>: Stop hiding chat messages from <name>'
 
+command.help.count = '/count: Show the number of players currently online'
+
 
 function outpost_ffi.callbacks.login(c)
     c:set_main_inventory(c:pawn():inventory('main'))
