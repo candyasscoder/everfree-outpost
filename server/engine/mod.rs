@@ -322,7 +322,7 @@ fn name_valid(name: &str) -> Result<(), &'static str> {
         return Err("Names may only contain letters, numbers, spaces, and hyphens.");
     }
 
-    let has_alnum = name.chars().all(|c| {
+    let has_alnum = name.chars().any(|c| {
         (c >= 'a' && c <= 'z') ||
         (c >= 'A' && c <= 'Z') ||
         (c >= '0' && c <= '9')
