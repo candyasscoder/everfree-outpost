@@ -1,3 +1,6 @@
+#ifndef OUTPOST_WRAPPER_BACKEND_HPP
+#define OUTPOST_WRAPPER_BACKEND_HPP
+
 #include <boost/asio.hpp>
 #include <vector>
 
@@ -26,3 +29,5 @@ public:
 
     void write(uint16_t client_id, std::vector<uint8_t> msg);
 };
+
+#endif // OUTPOST_WRAPPER_BACKEND_HPP

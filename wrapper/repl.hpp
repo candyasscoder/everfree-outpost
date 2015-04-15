@@ -1,3 +1,6 @@
+#ifndef OUTPOST_WRAPPER_REPL_HPP
+#define OUTPOST_WRAPPER_REPL_HPP
+
 #include <boost/asio.hpp>
 #include <map>
 #include <vector>
@@ -52,3 +55,5 @@ public:
             std::vector<uint8_t>::const_iterator begin,
             std::vector<uint8_t>::const_iterator end);
 };
+
+#endif // OUTPOST_WRAPPER_REPL_HPP

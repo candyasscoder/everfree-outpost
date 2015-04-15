@@ -1,3 +1,6 @@
+#ifndef OUTPOST_WRAPPER_SERVER_HPP
+#define OUTPOST_WRAPPER_SERVER_HPP
+
 #include <boost/asio.hpp>
 #include <memory>
 #include <vector>
@@ -7,8 +10,8 @@
 
 
 class server {
-    std::unique_ptr<backend> backend;
-    std::unique_ptr<repl> repl;
+    std::unique_ptr<backend> backend_;
+    std::unique_ptr<repl> repl_;
 
 public:
     server(boost::asio::io_service& ios, int to_backend, int from_backend);
@@ -16,3 +19,5 @@ public:
     void handle_backend_response(uint16_t client_id, std::vector<uint8_t> msg);
     void handle_repl_command(std::vector<uint8_t> command);
 };
+
+#endif // OUTPOST_WRAPPER_SERVER_HPP

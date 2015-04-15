@@ -19,13 +19,14 @@ BUILD_NATIVE_DEBUG := $(BUILD)/native
 BUILD_NATIVE_RELEASE := $(BUILD)/native.opt
 BUILD_ASMLIBS := $(BUILD)/asmlibs
 BUILD_MIN := $(BUILD)/min
+BUILD_WRAPPER := $(BUILD)/wrapper
 
 DIST_BIN = $(DIST)/bin
 DIST_DATA = $(DIST)/data
 DIST_WWW = $(DIST)/www
 
 $(shell mkdir -p $(BUILD_ASMJS) $(BUILD_NATIVE_DEBUG) $(BUILD_NATIVE_RELEASE) \
-	$(BUILD_ASMLIBS) $(BUILD_MIN) \
+	$(BUILD_ASMLIBS) $(BUILD_MIN) $(BUILD_WRAPPER) \
 	$(DIST) $(DIST_BIN) $(DIST_DATA) $(DIST_WWW) $(DIST)/scripts)
 
 
@@ -202,6 +203,18 @@ $(BUILD_NATIVE)/backend: $(SRC)/server/main.rs \
 	$(RUSTC) $< --out-dir $(BUILD_NATIVE) $(RUSTFLAGS_native) $(RUSTFLAGS_extra_libdir) \
 		$(RELEASE_RUSTFLAGS_lto) --emit=link,dep-info
 		
+
+
+# Rules for building the server wrapper
+
+$(BUILD_WRAPPER)/%.o: $(SRC)/wrapper/%.cpp $(wildcard $(SRC)/wrapper/*.hpp)
+	$(CXX) -c $< -o $@ -std=c++14 $(CXXFLAGS)
+
+WRAPPER_SRCS = $(wildcard $(SRC)/wrapper/*.cpp)
+WRAPPER_OBJS = $(patsubst $(SRC)/wrapper/%.cpp,$(BUILD_WRAPPER)/%.o,$(WRAPPER_SRCS))
+
+$(BUILD_WRAPPER)/wrapper: $(WRAPPER_OBJS)
+	$(CXX) $^ -o $@ -std=c++14 $(CXXFLAGS) $(LDFLAGS) -lboost_system
 
 
 # Rules for misc files
