@@ -1,8 +1,5 @@
-#include "backend.hpp"
 #include "opcode.hpp"
-#include "repl.hpp"
 #include "server.hpp"
-#include "websocket.hpp"
 
 using namespace std;
 using namespace boost::asio;
@@ -12,6 +9,7 @@ server::server(io_service& ios, int to_backend, int from_backend, uint16_t ws_po
     : backend_(new backend(*this, ios, to_backend, from_backend)),
       control_(new control(*this, ios, "control")),
       repl_(new repl(*this, ios, "repl")),
+      signals_(new signals(*this, ios)),
       websocket_(new websocket(*this, ios, ws_port)) {
 }
 

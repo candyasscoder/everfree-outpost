@@ -213,7 +213,7 @@ WRAPPER_SRCS = $(wildcard $(SRC)/wrapper/*.cpp)
 WRAPPER_OBJS = $(patsubst $(SRC)/wrapper/%.cpp,$(BUILD_NATIVE)/%.o,$(WRAPPER_SRCS))
 
 $(BUILD_NATIVE)/wrapper: $(WRAPPER_OBJS)
-	$(CXX) $^ -o $@ -std=c++14 $(CXXFLAGS) $(LDFLAGS) -lboost_system
+	$(CXX) $^ -o $@ -std=c++14 $(CXXFLAGS) $(LDFLAGS) -lboost_system -lpthread
 
 
 # Rules for misc files
