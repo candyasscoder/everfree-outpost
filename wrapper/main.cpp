@@ -25,6 +25,9 @@ int main(int argc, char *argv[]) {
         close(from_backend[1]);
         execl("bin/backend", "bin/backend", ".", NULL);
         assert(0 && "backend failed to start");
+    } else {
+        close(to_backend[0]);
+        close(from_backend[1]);
     }
 
     io_service ios;
