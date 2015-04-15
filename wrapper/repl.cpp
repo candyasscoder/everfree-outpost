@@ -1,14 +1,14 @@
+#include "opcode.hpp"
 #include "repl.hpp"
 #include "server.hpp"
 
 using namespace std;
 using namespace boost::asio;
-using boost::system::error_code;
 
 
 void repl::accept() {
     acceptor.async_accept(accepted_socket,
-        [this] (error_code ec) {
+        [this] (boost::system::error_code ec) {
             if (!ec) {
                 errors = 0;
                 handle_accept();
@@ -52,7 +52,7 @@ void repl::handle_command(size_t id,
     buf.resize(4);
 
     uint16_t cookie = next_cookie++;
-    *(uint16_t*)&buf[0] = 0xff03;
+    *(uint16_t*)&buf[0] = opcode::OP_REPL_COMMAND;
     *(uint16_t*)&buf[2] = cookie;
     buf.insert(buf.end(), begin, end);
     owner.handle_repl_command(move(buf));
@@ -89,7 +89,7 @@ void repl_client::read() {
     size_t old_size = buf.size();
     buf.resize(old_size + 1024);
     socket.async_read_some(buffer(&buf[old_size], buf.size() - old_size),
-        [this, old_size] (error_code ec, size_t count) {
+        [this, old_size] (boost::system::error_code ec, size_t count) {
             if (!ec) {
                 buf.resize(old_size + count);
                 handle_read();
@@ -164,7 +164,7 @@ void repl_client::handle_response(
     auto msg_ptr = make_shared<vector<uint8_t>>(begin, end);
 
     async_write(socket, buffer(*msg_ptr),
-        [msg_ptr, this] (error_code ec, size_t len) {
+        [msg_ptr, this] (boost::system::error_code ec, size_t len) {
             if (ec) {
                 cerr << "error writing to client: " << ec << endl;
                 close();

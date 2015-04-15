@@ -3,12 +3,11 @@
 
 using namespace std;
 using namespace boost::asio;
-using boost::system::error_code;
 
 
 void backend::read_header() {
     async_read(pipe_from, buffer(&header_buf, sizeof(header)),
-        [this] (error_code ec, size_t len) {
+        [this] (boost::system::error_code ec, size_t len) {
             if (!ec) {
                 read_data();
             } else {
@@ -21,7 +20,7 @@ void backend::read_header() {
 void backend::read_data() {
     msg_buf.resize((size_t)header_buf.data_len);
     async_read(pipe_from, buffer(msg_buf),
-        [this] (error_code ec, size_t len) {
+        [this] (boost::system::error_code ec, size_t len) {
             if (!ec) {
                 handle_message();
                 read_header();
@@ -56,7 +55,7 @@ void backend::write(uint16_t client_id, vector<uint8_t> msg) {
     }};
 
     async_write(pipe_to, bufs,
-        [header_ptr, msg_ptr] (error_code ec, size_t len) {
+        [header_ptr, msg_ptr] (boost::system::error_code ec, size_t len) {
             if (ec) {
                 cerr << "error writing to backend: " << ec << endl;
                 assert(0);
