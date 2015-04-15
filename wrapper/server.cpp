@@ -8,10 +8,10 @@ using namespace std;
 using namespace boost::asio;
 
 
-server::server(io_service& ios, int to_backend, int from_backend)
+server::server(io_service& ios, int to_backend, int from_backend, uint16_t ws_port)
     : backend_(new backend(*this, ios, to_backend, from_backend)),
       repl_(new repl(*this, ios, "repl")),
-      websocket_(new websocket(*this, ios)) {
+      websocket_(new websocket(*this, ios, ws_port)) {
 }
 
 void server::handle_backend_response(uint16_t client_id, vector<uint8_t> msg) {

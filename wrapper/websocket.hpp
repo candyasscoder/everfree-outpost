@@ -77,7 +77,7 @@ class websocket {
     void handle_close(websocketpp::connection_hdl conn);
 
 public:
-    websocket(server& owner, boost::asio::io_service& ios);
+    websocket(server& owner, boost::asio::io_service& ios, uint16_t port);
 
     void send_message(uint16_t client_id, std::vector<uint8_t> msg);
     void handle_client_removed(uint16_t client_id);

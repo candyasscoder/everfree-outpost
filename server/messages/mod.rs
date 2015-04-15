@@ -392,7 +392,7 @@ impl Messages {
         let client = match self.clients.get(cid) {
             Some(x) => x,
             None => {
-                warn!("can't send to client {:?} (no wire): {:?}", cid, resp);
+                debug!("can't send to client {:?} (no wire): {:?}", cid, resp);
                 return;
             },
         };

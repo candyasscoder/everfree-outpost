@@ -9,7 +9,7 @@ using namespace boost::asio;
 using boost::system::error_code;
 
 
-int main() {
+int main(int argc, char *argv[]) {
     int from_backend[2];
     int to_backend[2];
 
@@ -23,13 +23,13 @@ int main() {
         close(to_backend[1]);
         close(from_backend[0]);
         close(from_backend[1]);
-        execl("dist/bin/backend", "dist/bin/backend", "dist", NULL);
+        execl("bin/backend", "bin/backend", ".", NULL);
         assert(0 && "backend failed to start");
     }
 
     io_service ios;
 
-    server s(ios, to_backend[1], from_backend[0]);
+    server s(ios, to_backend[1], from_backend[0], 8889);
 
     ios.run();
 }

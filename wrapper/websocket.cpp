@@ -8,7 +8,7 @@ using namespace boost::asio;
 using websocketpp::connection_hdl;
 
 
-websocket::websocket(server& owner, boost::asio::io_service& ios)
+websocket::websocket(server& owner, boost::asio::io_service& ios, uint16_t port)
     : owner(owner),
       ws_server(),
       next_id(1),
@@ -18,8 +18,9 @@ websocket::websocket(server& owner, boost::asio::io_service& ios)
 
     ws_server.set_open_handler(bind(&websocket::handle_open, this, ::_1));
     ws_server.set_message_handler(bind(&websocket::handle_message, this, ::_1, ::_2));
+    ws_server.set_close_handler(bind(&websocket::handle_close, this, ::_1));
 
-    ws_server.listen(8888);
+    ws_server.listen(port);
     ws_server.start_accept();
 }
 
@@ -85,7 +86,11 @@ void websocket::send_message(uint16_t client_id, std::vector<uint8_t> msg) {
         return;
     }
 
-    ws_server.send(conn, msg.data(), msg.size(), websocketpp::frame::opcode::binary);
+    std::error_code ec;
+    ws_server.send(conn, msg.data(), msg.size(), websocketpp::frame::opcode::binary, ec);
+    if (ec) {
+        cerr << "error sending to " << client_id << ": " << ec << endl;
+    }
 }
 
 void websocket::handle_client_removed(uint16_t client_id) {
@@ -107,7 +112,11 @@ void websocket::handle_client_removed(uint16_t client_id) {
         clients.erase(data_iter);
     } else {
         // Shut down the client connection as well.
-        ws_server.close(conn, websocketpp::close::status::normal, "");
+        std::error_code ec;
+        ws_server.close(conn, websocketpp::close::status::normal, "", ec);
+        if (ec) {
+            cerr << "error closing " << client_id << ": " << ec << endl;
+        }
         // NB: handle_close may have invalidated one or both of the iterators.
     }
 }

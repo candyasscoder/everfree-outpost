@@ -17,7 +17,7 @@ class server {
     std::unique_ptr<websocket> websocket_;
 
 public:
-    server(boost::asio::io_service& ios, int to_backend, int from_backend);
+    server(boost::asio::io_service& ios, int to_backend, int from_backend, uint16_t ws_port);
 
     void handle_backend_response(uint16_t client_id, std::vector<uint8_t> msg);
     void handle_repl_command(std::vector<uint8_t> command);
