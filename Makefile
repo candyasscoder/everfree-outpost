@@ -67,14 +67,14 @@ DEPS_backend = physics
 # Rules for building Rust libraries
 
 ifeq ($(RELEASE),)
-	RELEASE_RUSTFLAGS_opt = 
-	RELEASE_RUSTFLAGS_lto = 
-	RELEASE_ext = 
+	RELEASE_CXXFLAGS_opt =
+	RELEASE_RUSTFLAGS_opt =
+	RELEASE_RUSTFLAGS_lto =
 	BUILD_NATIVE = $(BUILD_NATIVE_DEBUG)
 else
+	RELEASE_CXXFLAGS_opt = -O3
 	RELEASE_RUSTFLAGS_opt = -C opt-level=3
 	RELEASE_RUSTFLAGS_lto = -C lto
-	RELEASE_ext = .opt
 	BUILD_NATIVE = $(BUILD_NATIVE_RELEASE)
 endif
 
@@ -204,6 +204,18 @@ $(BUILD_NATIVE)/backend: $(SRC)/server/main.rs \
 		
 
 
+# Rules for building the server wrapper
+
+$(BUILD_NATIVE)/%.o: $(SRC)/wrapper/%.cpp $(wildcard $(SRC)/wrapper/*.hpp)
+	$(CXX) -c $< -o $@ -std=c++14 $(CXXFLAGS) $(RELEASE_CXXFLAGS_opt)
+
+WRAPPER_SRCS = $(wildcard $(SRC)/wrapper/*.cpp)
+WRAPPER_OBJS = $(patsubst $(SRC)/wrapper/%.cpp,$(BUILD_NATIVE)/%.o,$(WRAPPER_SRCS))
+
+$(BUILD_NATIVE)/wrapper: $(WRAPPER_OBJS)
+	$(CXX) $^ -o $@ -std=c++14 $(CXXFLAGS) $(LDFLAGS) -lboost_system -lpthread
+
+
 # Rules for misc files
 
 $(BUILD)/tiles.png \
@@ -317,7 +329,6 @@ BIN_FILE = $(call DIST_FILE_,BIN,$(strip $(1)),$(strip $(2)))
 WWW_FILE = $(call DIST_FILE_,WWW,$(strip $(1)),$(strip $(2)))
 DATA_FILE = $(call DIST_FILE_,DATA,$(strip $(1)),$(strip $(2)))
 
-$(eval $(call BIN_FILE,		wrapper.py,			$(SRC)/server/wrapper.py))
 $(eval $(call BIN_FILE,		run_server.sh,		$(SRC)/util/run_server.sh))
 
 $(eval $(call DATA_FILE, 	blocks.json,		$(BUILD)/blocks-server.json))
@@ -363,6 +374,10 @@ $(DIST_BIN)/backend: $(BUILD_NATIVE)/backend
 	rm -fv $@
 	cp -v $< $@
 
-$(DIST)/all: $(DIST_BIN)/backend $(DIST_BIN)/wrapper.py
+$(DIST_BIN)/wrapper: $(BUILD_NATIVE)/wrapper
+	rm -fv $@
+	cp -v $< $@
+
+$(DIST)/all: $(DIST_BIN)/backend $(DIST_BIN)/wrapper
 
 .PHONY: all clean $(DIST)/all
