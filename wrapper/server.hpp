@@ -7,12 +7,14 @@
 #include <vector>
 
 #include "backend.hpp"
+#include "control.hpp"
 #include "repl.hpp"
 #include "websocket.hpp"
 
 
 class server {
     std::unique_ptr<backend> backend_;
+    std::unique_ptr<control> control_;
     std::unique_ptr<repl> repl_;
     std::unique_ptr<websocket> websocket_;
 
@@ -21,6 +23,7 @@ public:
 
     void handle_backend_response(uint16_t client_id, std::vector<uint8_t> msg);
     void handle_repl_command(std::vector<uint8_t> command);
+    void handle_control_command(uint16_t opcode);
 
     void handle_websocket_connect(uint16_t client_id);
     void handle_websocket_disconnect(uint16_t client_id);

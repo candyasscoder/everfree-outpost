@@ -10,6 +10,7 @@ using namespace boost::asio;
 
 server::server(io_service& ios, int to_backend, int from_backend, uint16_t ws_port)
     : backend_(new backend(*this, ios, to_backend, from_backend)),
+      control_(new control(*this, ios, "control")),
       repl_(new repl(*this, ios, "repl")),
       websocket_(new websocket(*this, ios, ws_port)) {
 }
@@ -33,6 +34,12 @@ void server::handle_backend_response(uint16_t client_id, vector<uint8_t> msg) {
 }
 
 void server::handle_repl_command(vector<uint8_t> command) {
+    backend_->write(0, move(command));
+}
+
+void server::handle_control_command(uint16_t opcode) {
+    vector<uint8_t> command(2);
+    *(uint16_t*)&command[0] = opcode;
     backend_->write(0, move(command));
 }
 
