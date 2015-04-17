@@ -1,4 +1,4 @@
-var Program = require('graphics/glutil').Program;
+var buildPrograms = require('graphics/glutil').buildPrograms;
 var Buffer = require('graphics/glutil').Buffer;
 
 var GlObject = require('graphics/glutil').GlObject;
@@ -44,7 +44,7 @@ function Simple3D(gl, assets) {
 
     var vert = assets['sprite.vert'];
     var frag = assets['sprite.frag'];
-    var program = new Program(gl, vert, frag);
+    var programs = buildPrograms(gl, vert, frag, 2);
 
     var buffer = new Buffer(gl);
     buffer.loadData(new Uint8Array([
@@ -67,7 +67,7 @@ function Simple3D(gl, assets) {
         'size': uniform('vec2', null),
         'anchor': uniform('vec2', null),
     };
-    this._obj = new GlObject(gl, [program],
+    this._obj = new GlObject(gl, programs,
             uniforms,
             {'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
             {'imageTex': null});
@@ -79,7 +79,7 @@ Simple3D.prototype.setCamera = function(sx, sy, sw, sh) {
     this._obj.setUniformValue('cameraSize', [sw, sh]);
 };
 
-Simple3D.prototype.draw = function(r, sprite, slice_frac) {
+Simple3D.prototype.draw = function(fb_idx, r, sprite, slice_frac) {
     var extra = sprite.extra;
     var tex = r.cacheTexture(extra.image);
 
@@ -98,7 +98,7 @@ Simple3D.prototype.draw = function(r, sprite, slice_frac) {
         'imageTex': tex,
     };
 
-    this._obj.draw(0, 6, uniforms, {}, textures);
+    this._obj.draw(fb_idx, 0, 6, uniforms, {}, textures);
 };
 
 

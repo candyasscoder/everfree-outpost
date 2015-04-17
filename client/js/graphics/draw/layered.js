@@ -1,5 +1,5 @@
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
-var Program = require('graphics/glutil').Program;
+var buildPrograms = require('graphics/glutil').buildPrograms;
 var Buffer = require('graphics/glutil').Buffer;
 
 var GlObject = require('graphics/glutil').GlObject;
@@ -69,7 +69,7 @@ function colorString(color) {
 function Layered3D(gl, assets) {
     var vert = assets['sprite.vert'];
     var frag = assets['sprite_layered.frag'];
-    var program = new Program(gl, vert, frag);
+    var programs = buildPrograms(gl, vert, frag, 2);
 
     var buffer = new Buffer(gl);
     buffer.loadData(new Uint8Array([
@@ -97,7 +97,7 @@ function Layered3D(gl, assets) {
     for (var i = 0; i < 8; ++i) {
         textures['sheetSampler[' + i + ']'] = null;
     }
-    this._obj = new GlObject(gl, [program],
+    this._obj = new GlObject(gl, programs,
             uniforms,
             {'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
             textures);
@@ -113,7 +113,7 @@ Layered3D.prototype.setCamera = function(sx, sy, sw, sh) {
 // Draw the sprite.  It would normally appear at (base_x, base_y) on the
 // screen, but it has been clipped to the region defined by clip_* (in
 // sprite-relative coordinates).
-Layered3D.prototype.draw = function(r, sprite, slice_frac) {
+Layered3D.prototype.draw = function(fb_idx, r, sprite, slice_frac) {
     var extra = sprite.extra;
     var textures = {};
     var color_arr = [];
@@ -142,7 +142,7 @@ Layered3D.prototype.draw = function(r, sprite, slice_frac) {
         'color': color_arr,
     };
 
-    this._obj.draw(0, 6, uniforms, {}, textures);
+    this._obj.draw(fb_idx, 0, 6, uniforms, {}, textures);
 };
 
 

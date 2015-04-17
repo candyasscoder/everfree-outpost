@@ -54,7 +54,7 @@ PonyOutline3D.prototype.setCamera = function(sx, sy, sw, sh) {
 // Draw the sprite.  It would normally appear at (base_x, base_y) on the
 // screen, but it has been clipped to the region defined by clip_* (in
 // sprite-relative coordinates).
-PonyOutline3D.prototype.draw = function(r, sprite, slice_frac) {
+PonyOutline3D.prototype.draw = function(fb_idx, r, sprite, slice_frac) {
     var extra = sprite.extra;
     var textures = {};
     var color_arr = [];
@@ -82,5 +82,5 @@ PonyOutline3D.prototype.draw = function(r, sprite, slice_frac) {
         'color': color_arr,
     };
 
-    this._obj.draw(0, 6, uniforms, {}, textures);
+    this._obj.draw(fb_idx, 0, 6, uniforms, {}, textures);
 };

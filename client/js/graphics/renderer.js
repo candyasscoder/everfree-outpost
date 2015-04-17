@@ -7,7 +7,7 @@ var TemplateDef = require('data/templates').TemplateDef;
 var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
 var TILE_SIZE = require('data/chunk').TILE_SIZE;
 var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
-var Program = require('graphics/glutil').Program;
+var buildPrograms = require('graphics/glutil').buildPrograms;
 var Texture = require('graphics/glutil').Texture;
 var Buffer = require('graphics/glutil').Buffer;
 var Framebuffer = require('graphics/glutil').Framebuffer;
@@ -79,7 +79,7 @@ Renderer.prototype.initGl = function(assets) {
 function build_terrain_block(gl, assets, atlas_tex) {
     var vert = assets['terrain_block.vert'];
     var frag = assets['terrain_block.frag'];
-    var program = new Program(gl, vert, frag);
+    var programs = buildPrograms(gl, vert, frag, 2);
 
     var uniforms = {
         'atlasSize': uniform('vec2', [(atlas_tex.width / TILE_SIZE)|0,
@@ -95,7 +95,7 @@ function build_terrain_block(gl, assets, atlas_tex) {
         'atlasTex': atlas_tex,
     };
 
-    return new GlObject(gl, [program], uniforms, attributes, textures);
+    return new GlObject(gl, programs, uniforms, attributes, textures);
 }
 
 function build_blits(gl, assets) {
@@ -103,16 +103,16 @@ function build_blits(gl, assets) {
     var vert_fullscreen = assets['blit_fullscreen.vert'];
 
     var frag = assets['blit.frag'];
-    var program = new Program(gl, vert, frag);
+    var programs = buildPrograms(gl, vert, frag, 2);
 
     var frag_sliced = assets['blit_sliced.frag'];
-    var program_sliced = new Program(gl, vert, frag_sliced);
+    var programs_sliced = buildPrograms(gl, vert, frag_sliced, 2);
 
     var frag_output = assets['blit_output.frag'];
-    var program_output = new Program(gl, vert_fullscreen, frag_output);
+    var programs_output = buildPrograms(gl, vert_fullscreen, frag_output, 1);
 
     var frag_post = assets['blit_post.frag'];
-    var program_post = new Program(gl, vert_fullscreen, frag_post);
+    var programs_post = buildPrograms(gl, vert_fullscreen, frag_post, 2);
 
     var buffer = new Buffer(gl);
     buffer.loadData(new Uint8Array([
@@ -143,7 +143,7 @@ function build_blits(gl, assets) {
         'depthTex': null,
     };
 
-    var normal = new GlObject(gl, [program], uniforms, attributes, textures);
+    var normal = new GlObject(gl, programs, uniforms, attributes, textures);
 
 
     var uniforms = {
@@ -167,7 +167,7 @@ function build_blits(gl, assets) {
         'lowerDepthTex': null,
     };
 
-    var sliced = new GlObject(gl, [program_sliced], uniforms, attributes, textures);
+    var sliced = new GlObject(gl, programs_sliced, uniforms, attributes, textures);
 
 
     var uniforms = {};
@@ -180,7 +180,7 @@ function build_blits(gl, assets) {
         'imageTex': null,
     };
 
-    var output = new GlObject(gl, [program_output], uniforms, attributes, textures);
+    var output = new GlObject(gl, programs_output, uniforms, attributes, textures);
 
 
     var uniforms = {
@@ -197,7 +197,7 @@ function build_blits(gl, assets) {
         'depthTex': null,
     };
 
-    var post = new GlObject(gl, [program_post], uniforms, attributes, textures);
+    var post = new GlObject(gl, programs_post, uniforms, attributes, textures);
 
 
     return { normal: normal, sliced: sliced, output: output, post: post };
@@ -206,7 +206,7 @@ function build_blits(gl, assets) {
 function build_structure(gl, assets, sheet_tex, depth_tex) {
     var vert = assets['structure.vert'];
     var frag = assets['structure.frag'];
-    var program = new Program(gl, vert, frag);
+    var programs = buildPrograms(gl, vert, frag, 2);
 
     var uniforms = {
         'sheetSize': uniform('vec2', [sheet_tex.width, sheet_tex.height]),
@@ -223,7 +223,7 @@ function build_structure(gl, assets, sheet_tex, depth_tex) {
         'depthTex': depth_tex,
     };
 
-    return new GlObject(gl, [program], uniforms, attributes, textures);
+    return new GlObject(gl, programs, uniforms, attributes, textures);
 }
 
 
@@ -343,29 +343,30 @@ Renderer.prototype._renderTerrain = function(fb, cx, cy, max_z) {
     var geom = this._asm.generateTerrainGeometry(cx, cy, max_z);
 
     var gl = this.gl;
-    fb.bind();
     gl.viewport(0, 0, fb.width, fb.height);
     gl.clearDepth(0.0);
     gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.GEQUAL);
 
     var buffer = new Buffer(gl);
     buffer.loadData(geom);
 
-    this.terrain_block.draw(0, geom.length / 8, {}, {
-        'position': buffer,
-        'texCoord': buffer,
-    }, {});
+    var this_ = this;
+    fb.use(function(idx) {
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    fb.unbind();
+        this_.terrain_block.draw(idx, 0, geom.length / 8, {}, {
+            'position': buffer,
+            'texCoord': buffer,
+        }, {});
+    });
+
     gl.disable(gl.DEPTH_TEST);
 };
 
 Renderer.prototype._renderStructures = function(fb, cx, cy, max_z) {
     var gl = this.gl;
-    fb.bind();
     gl.viewport(0, 0, fb.width, fb.height);
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.GEQUAL);
@@ -381,14 +382,16 @@ Renderer.prototype._renderStructures = function(fb, cx, cy, max_z) {
         var buffer = new Buffer(gl);
         buffer.loadData(geom);
 
-        this.structure.draw(0, geom.length / 8, {}, {
-            'position': buffer,
-            'baseZAttr': buffer,
-            'texCoord': buffer,
-        }, {});
+        var this_ = this;
+        fb.use(function(idx) {
+            this_.structure.draw(idx, 0, geom.length / 8, {}, {
+                'position': buffer,
+                'baseZAttr': buffer,
+                'texCoord': buffer,
+            }, {});
+        });
     }
 
-    fb.unbind();
     gl.disable(gl.DEPTH_TEST);
 };
 
@@ -460,86 +463,87 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
 
     // Render to the output framebuffer.
 
-    this.fbs[0].bind();
     gl.viewport(0, 0, sw, sh);
     gl.clearDepth(0.0);
     gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.GEQUAL);
 
-    for (var cy = cy0; cy < cy1; ++cy) {
-        for (var cx = cx0; cx < cx1; ++cx) {
-            var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
+    this.fbs[0].use(function(fb_idx) {
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-            if (slice_z >= CHUNK_SIZE) {
-                this.blit.draw(0, 6, {
-                    'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
-                                cy * CHUNK_SIZE * TILE_SIZE],
-                }, {}, {
-                    'image0Tex': this.terrain_cache.get(idx).textures[0],
-                    'image1Tex': this.terrain_cache.get(idx).textures[1],
-                    'depthTex': this.terrain_cache.get(idx).depth_texture,
-                });
-            } else {
-                this.blit_sliced.draw(0, 6, {
-                    'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
-                                cy * CHUNK_SIZE * TILE_SIZE],
-                    'sliceFrac': [slice_frac],
-                }, {}, {
-                    'upperImage0Tex': this.terrain_cache.get(idx).textures[0],
-                    'upperImage1Tex': this.terrain_cache.get(idx).textures[1],
-                    'upperDepthTex': this.terrain_cache.get(idx).depth_texture,
-                    'lowerImage0Tex': this.sliced_cache.get(idx).textures[0],
-                    'lowerImage1Tex': this.sliced_cache.get(idx).textures[1],
-                    'lowerDepthTex': this.sliced_cache.get(idx).depth_texture,
-                });
+        for (var cy = cy0; cy < cy1; ++cy) {
+            for (var cx = cx0; cx < cx1; ++cx) {
+                var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
+
+                if (slice_z >= CHUNK_SIZE) {
+                    this_.blit.draw(fb_idx, 0, 6, {
+                        'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
+                                    cy * CHUNK_SIZE * TILE_SIZE],
+                    }, {}, {
+                        'image0Tex': this_.terrain_cache.get(idx).textures[0],
+                        'image1Tex': this_.terrain_cache.get(idx).textures[1],
+                        'depthTex': this_.terrain_cache.get(idx).depth_texture,
+                    });
+                } else {
+                    this_.blit_sliced.draw(fb_idx, 0, 6, {
+                        'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
+                                    cy * CHUNK_SIZE * TILE_SIZE],
+                        'sliceFrac': [slice_frac],
+                    }, {}, {
+                        'upperImage0Tex': this_.terrain_cache.get(idx).textures[0],
+                        'upperImage1Tex': this_.terrain_cache.get(idx).textures[1],
+                        'upperDepthTex': this_.terrain_cache.get(idx).depth_texture,
+                        'lowerImage0Tex': this_.sliced_cache.get(idx).textures[0],
+                        'lowerImage1Tex': this_.sliced_cache.get(idx).textures[1],
+                        'lowerDepthTex': this_.sliced_cache.get(idx).depth_texture,
+                    });
+                }
             }
         }
-    }
 
-    for (var i = 0; i < sprites.length; ++i) {
-        var sprite = sprites[i];
-        var cls = this.sprite_classes[sprite.cls];
-        if (sprite.ref_z < slice_z * TILE_SIZE) {
-            cls.draw(this, sprite, 0);
-        } else {
-            cls.draw(this, sprite, slice_frac);
+        for (var i = 0; i < sprites.length; ++i) {
+            var sprite = sprites[i];
+            var cls = this_.sprite_classes[sprite.cls];
+            if (sprite.ref_z < slice_z * TILE_SIZE) {
+                cls.draw(fb_idx, this_, sprite, 0);
+            } else {
+                cls.draw(fb_idx, this_, sprite, slice_frac);
+            }
         }
-    }
+    });
 
     gl.disable(gl.DEPTH_TEST);
-    this.fbs[0].unbind();
 
 
     // Apply post-processing pass
 
-    this.fbs[1].bind();
-    this.post_filter.draw(0, 6, {
-        'screenSize': [sw, sh],
-    }, {}, {
-        'image0Tex': this.fbs[0].textures[0],
-        'image1Tex': this.fbs[0].textures[1],
-        'depthTex': this.fbs[0].depth_texture,
-    });
+    this.fbs[1].use(function(idx) {
+        this_.post_filter.draw(idx, 0, 6, {
+            'screenSize': [sw, sh],
+        }, {}, {
+            'image0Tex': this_.fbs[0].textures[0],
+            'image1Tex': this_.fbs[0].textures[1],
+            'depthTex': this_.fbs[0].depth_texture,
+        });
 
-    draw_extra(this);
-    this.fbs[1].unbind();
+        draw_extra(idx, this_);
+    });
 
 
     // Copy output framebuffer to canvas.
 
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-    this.output.draw(0, 6, {}, {}, {
+    this.output.draw(0, 0, 6, {}, {}, {
         'imageTex': this.fbs[1].textures[0],
         'depthTex': this.fbs[1].depth_texture,
     });
 };
 
-Renderer.prototype.renderSpecial = function(sprite, cls_name) {
+Renderer.prototype.renderSpecial = function(fb_idx, sprite, cls_name) {
     var cls = this.sprite_classes[cls_name];
-    cls.draw(this, sprite, 0);
+    cls.draw(fb_idx, this, sprite, 0);
 };
 
 

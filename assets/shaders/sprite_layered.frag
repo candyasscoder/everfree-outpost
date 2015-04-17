@@ -2,6 +2,12 @@ precision mediump float;
 
 #extension GL_EXT_draw_buffers : enable
 
+#ifdef GL_EXT_draw_buffers
+# define emit(idx, val)   gl_FragData[(idx)] = (val)
+#else
+# define emit(idx, val)   if (idx == OUTPUT_IDX) gl_FragData[0] = (val)
+#endif
+
 varying highp vec2 normalizedTexCoord;
 
 uniform vec2 cameraSize;
@@ -27,6 +33,6 @@ void main(void) {
         discard;
     }
 
-    gl_FragData[0] = result;
-    gl_FragData[1] = vec4(0.0, 0.0, 0.0, 1.0);
+    emit(0, result);
+    emit(1, vec4(0.0, 0.0, 0.0, 1.0));
 }

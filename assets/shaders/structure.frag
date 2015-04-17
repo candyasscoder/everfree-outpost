@@ -3,6 +3,12 @@ precision mediump float;
 #extension GL_EXT_frag_depth : enable
 #extension GL_EXT_draw_buffers : enable
 
+#ifdef GL_EXT_draw_buffers
+# define emit(idx, val)   gl_FragData[(idx)] = (val)
+#else
+# define emit(idx, val)   if (idx == OUTPUT_IDX) gl_FragData[0] = (val)
+#endif
+
 uniform sampler2D sheetTex;
 uniform sampler2D depthTex;
 
@@ -14,9 +20,9 @@ void main(void) {
     if (color.a == 0.0) {
         discard;
     } else {
-        gl_FragData[0] = color;
+        emit(0, color);
         float tileZ = baseZ / 32.0;
-        gl_FragData[1] = vec4(tileZ * 8.0 / 255.0, 0.0, 1.0, 1.0);
+        emit(1, vec4(tileZ * 8.0 / 255.0, 0.0, 1.0, 1.0));
     }
     // gl_FragCoord.z steps by 1/512, while color values step by 1/255.  Note
     // that gl_FragCoord varies in the range 0..1, not -1..+1

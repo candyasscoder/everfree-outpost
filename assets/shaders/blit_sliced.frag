@@ -3,6 +3,12 @@ precision mediump float;
 #extension GL_EXT_frag_depth : enable
 #extension GL_EXT_draw_buffers : enable
 
+#ifdef GL_EXT_draw_buffers
+# define emit(idx, val)   gl_FragData[(idx)] = (val)
+#else
+# define emit(idx, val)   if (idx == OUTPUT_IDX) gl_FragData[0] = (val)
+#endif
+
 varying vec2 texCoord;
 
 uniform sampler2D upperImage0Tex;
@@ -20,12 +26,12 @@ void main(void) {
     vec2 off = (gl_FragCoord.xy - 0.5 * cameraSize) / radius;
 
     if (dot(off, off) <= 1.0) {
-        gl_FragData[0] = texture2D(lowerImage0Tex, texCoord);
-        gl_FragData[1] = texture2D(lowerImage1Tex, texCoord);
+        emit(0, texture2D(lowerImage0Tex, texCoord));
+        emit(1, texture2D(lowerImage1Tex, texCoord));
         gl_FragDepthEXT = texture2D(lowerDepthTex, texCoord).r;
     } else {
-        gl_FragData[0] = texture2D(upperImage0Tex, texCoord);
-        gl_FragData[1] = texture2D(upperImage1Tex, texCoord);
+        emit(0, texture2D(upperImage0Tex, texCoord));
+        emit(1, texture2D(upperImage1Tex, texCoord));
         gl_FragDepthEXT = texture2D(upperDepthTex, texCoord).r;
     }
 }

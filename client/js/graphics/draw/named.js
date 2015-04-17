@@ -1,5 +1,5 @@
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
-var Program = require('graphics/glutil').Program;
+var buildPrograms = require('graphics/glutil').buildPrograms;
 var Buffer = require('graphics/glutil').Buffer;
 var Texture = require('graphics/glutil').Texture;
 
@@ -138,7 +138,7 @@ function Named3D(gl, assets) {
 
     var vert = assets['sprite.vert'];
     var frag = assets['sprite.frag'];
-    var program = new Program(gl, vert, frag);
+    var programs = buildPrograms(gl, vert, frag, 2);
 
     var buffer = new Buffer(gl);
     buffer.loadData(new Uint8Array([
@@ -164,7 +164,7 @@ function Named3D(gl, assets) {
 
     this._texture = new Texture(gl);
     this._refreshTexture();
-    this._name_obj = new GlObject(gl, [program],
+    this._name_obj = new GlObject(gl, programs,
             uniforms,
             {'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
             {'sheetSampler': this._texture});
@@ -181,8 +181,8 @@ Named3D.prototype.setCamera = function(sx, sy, sw, sh) {
     this._name_obj.setUniformValue('cameraSize', [sw, sh]);
 };
 
-Named3D.prototype.draw = function(r, sprite, slice_frac) {
-    this.layered.draw(r, sprite, slice_frac);
+Named3D.prototype.draw = function(fb_idx, r, sprite, slice_frac) {
+    this.layered.draw(fb_idx, r, sprite, slice_frac);
 
 
     var off = this._names.offset(sprite.extra.name);
@@ -199,7 +199,7 @@ Named3D.prototype.draw = function(r, sprite, slice_frac) {
         'size': [NAME_WIDTH, NAME_HEIGHT],
         'anchor': [NAME_WIDTH / 2, NAME_HEIGHT],
     };
-    this._name_obj.draw(0, 6, uniforms, {}, {});
+    this._name_obj.draw(fb_idx, 0, 6, uniforms, {}, {});
 };
 
 

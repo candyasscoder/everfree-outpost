@@ -1069,9 +1069,9 @@ function frame(ac, client_now) {
         }
     }
 
-    function draw_extra(r) {
+    function draw_extra(fb_idx, r) {
         if (player_sprite != null) {
-            r.renderSpecial(player_sprite, 'pony_outline');
+            r.renderSpecial(fb_idx, player_sprite, 'pony_outline');
         }
     }
 
@@ -1098,7 +1098,7 @@ function frame(ac, client_now) {
     if (show_cursor && pony != null) {
         var facing = FACINGS[pony.animId() % FACINGS.length];
         var cursor_pos = pos.divScalar(TILE_SIZE).add(facing);
-        cursor.draw(camera_pos, camera_size, cursor_pos);
+        cursor.draw(0, camera_pos, camera_size, cursor_pos);
     }
 
     debug.frameEnd();

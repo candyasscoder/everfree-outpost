@@ -112,12 +112,12 @@ Program.prototype.setUniform = function(name, type, vs) {
 
 function buildPrograms(gl, vert_src, frag_src, output_buffers) {
     if (hasExtension(gl, 'WEBGL_draw_buffers')) {
-        return [new Program(vert_src, frag_src)];
+        return [new Program(gl, vert_src, frag_src)];
     } else {
         var programs = new Array(output_buffers);
         for (var i = 0; i < output_buffers; ++i) {
             var define = '#define OUTPUT_IDX ' + i + '\n'
-            programs[i] = new Program(define + vert_src, define + frag_src);
+            programs[i] = new Program(gl, define + vert_src, define + frag_src);
         }
         return programs;
     }
@@ -224,6 +224,20 @@ function GlObject(gl, programs, uniforms, attributes, textures) {
     this.base_attributes = attributes;
     this.base_textures = textures;
 
+    var texture_index = 0;
+    for (var key in textures) {
+        var image = textures[key];
+
+        // Choose a texture slot.
+        var index = texture_index;
+        this.base_textures[key] = {
+            index: index,
+            image: image,
+        };
+
+        ++texture_index;
+    }
+
     for (var i = 0; i < this.programs.length; ++i) {
         this.programs[i].use();
 
@@ -234,18 +248,10 @@ function GlObject(gl, programs, uniforms, attributes, textures) {
             }
         }
 
-        var texture_index = 0;
         for (var key in textures) {
-            var image = textures[key];
-
-            // Choose a texture slot and set the shader's sampler uniform.
-            var index = texture_index;
+            // Set the shader's sampler uniform.
+            var index = this.base_textures[key].index;
             this.programs[i].setUniform(key, 'int', [index]);
-            this.base_textures[key] = {
-                index: index,
-                image: image,
-            };
-
             ++texture_index;
         }
     }
@@ -281,12 +287,15 @@ GlObject.prototype.getTexture = function(name) {
     return this.base_textures[name].image;
 };
 
-GlObject.prototype.draw = function(vert_base, vert_count, uniforms, attributes, textures) {
-    this.drawMulti([[vert_base, vert_count]], uniforms, attributes, textures);
+GlObject.prototype.draw = function(idx, vert_base, vert_count, uniforms, attributes, textures) {
+    this.drawMulti(idx, [[vert_base, vert_count]], uniforms, attributes, textures);
 };
 
-GlObject.prototype.drawMulti = function(vert_indexes, uniforms, attributes, textures) {
+GlObject.prototype.drawMulti = function(prog_idx, vert_indexes, uniforms, attributes, textures) {
     var gl = this.gl;
+    if (prog_idx >= this.programs.length) {
+        return;
+    }
 
     // Bind textures to the appropriate slots.
     for (var key in this.base_textures) {
@@ -300,62 +309,61 @@ GlObject.prototype.drawMulti = function(vert_indexes, uniforms, attributes, text
         image.bind();
     }
 
-    for (var i = 0; i < this.programs.length; ++i) {
-        this.programs[i].use();
+    var program = this.programs[prog_idx];
+    program.use();
 
-        // Set values for uniforms.  The `uniforms` argument has only the new
-        // values - the types are taken from the corresponding element of
-        // `base_uniforms`.
-        for (var key in uniforms) {
-            console.assert(this.base_uniforms.hasOwnProperty(key),
-                    'tried to override undefined uniform', key);
-            var base = this.base_uniforms[key];
-            var value = uniforms[key];
-            this.programs[i].setUniform(key, base.type, value);
+    // Set values for uniforms.  The `uniforms` argument has only the new
+    // values - the types are taken from the corresponding element of
+    // `base_uniforms`.
+    for (var key in uniforms) {
+        console.assert(this.base_uniforms.hasOwnProperty(key),
+                'tried to override undefined uniform', key);
+        var base = this.base_uniforms[key];
+        var value = uniforms[key];
+        program.setUniform(key, base.type, value);
+    }
+
+    // Enable and bind each vertex attribute.  For these, we *do* need to
+    // set the ones in `base_attributes` as well.
+    for (var key in this.base_attributes) {
+        var base = this.base_attributes[key];
+        var buffer = attributes[key] || base.buffer;
+        if (buffer == null) {
+            continue;
         }
 
-        // Enable and bind each vertex attribute.  For these, we *do* need to
-        // set the ones in `base_attributes` as well.
-        for (var key in this.base_attributes) {
-            var base = this.base_attributes[key];
-            var buffer = attributes[key] || base.buffer;
-            if (buffer == null) {
-                continue;
-            }
-
-            var attr = this.programs[i].getAttributeLocation(key);
-            if (attr == -1) {
-                console.log('no attr', key);
-                continue;
-            }
-
-            gl.enableVertexAttribArray(attr);
-            buffer.bind();
-            gl.vertexAttribPointer(attr,
-                    base.count, base.type, base.normalize, base.stride, base.offset);
-            buffer.unbind();
+        var attr = program.getAttributeLocation(key);
+        if (attr == -1) {
+            console.log('no attr', key);
+            continue;
         }
 
-        for (var j = 0; j < vert_indexes.length; ++j) {
-            gl.drawArrays(gl.TRIANGLES, vert_indexes[j][0], vert_indexes[j][1]);
-        }
+        gl.enableVertexAttribArray(attr);
+        buffer.bind();
+        gl.vertexAttribPointer(attr,
+                base.count, base.type, base.normalize, base.stride, base.offset);
+        buffer.unbind();
+    }
 
-        // Disable vertex attributes.
-        for (var key in this.base_attributes) {
-            var attr = this.programs[i].getAttributeLocation(key);
-            if (attr == -1) {
-                continue;
-            }
-            gl.disableVertexAttribArray(attr);
-        }
+    for (var j = 0; j < vert_indexes.length; ++j) {
+        gl.drawArrays(gl.TRIANGLES, vert_indexes[j][0], vert_indexes[j][1]);
+    }
 
-        // Uniforms that have a base value should be restored.  This lets us
-        // avoid setting "mostly static" uniforms on every draw call.
-        for (var key in uniforms) {
-            var base = this.base_uniforms[key];
-            if (base.value != null) {
-                this.programs[i].setUniform(key, base.type, base.value);
-            }
+    // Disable vertex attributes.
+    for (var key in this.base_attributes) {
+        var attr = program.getAttributeLocation(key);
+        if (attr == -1) {
+            continue;
+        }
+        gl.disableVertexAttribArray(attr);
+    }
+
+    // Uniforms that have a base value should be restored.  This lets us
+    // avoid setting "mostly static" uniforms on every draw call.
+    for (var key in uniforms) {
+        var base = this.base_uniforms[key];
+        if (base.value != null) {
+            program.setUniform(key, base.type, base.value);
         }
     }
 
@@ -385,26 +393,52 @@ function Framebuffer(gl, width, height, planes) {
     this.depth_texture = new Texture(gl);
     this.depth_texture.initDepth(width, height);
 
-    this.fb = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fb);
-    for (var i = 0; i < planes; ++i) {
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D,
-                this.textures[i].getName(), 0);
-    }
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D,
-            this.depth_texture.getName(), 0);
+    if (hasExtension(gl, 'WEBGL_draw_buffers')) {
+        this.fb = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.fb);
+        for (var i = 0; i < planes; ++i) {
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D,
+                    this.textures[i].getName(), 0);
+        }
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D,
+                this.depth_texture.getName(), 0);
 
-    var fb_status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-    if (fb_status != gl.FRAMEBUFFER_COMPLETE) {
-        throw 'framebuffer is not complete: ' + fb_status;
-    }
+        var fb_status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        if (fb_status != gl.FRAMEBUFFER_COMPLETE) {
+            throw 'framebuffer is not complete: ' + fb_status;
+        }
 
-    var attachments = new Array(planes);
-    for (var i = 0; i < planes; ++i) {
-        attachments[i] = gl.COLOR_ATTACHMENT0 + i;
-    }
-    gl.getExtension('WEBGL_draw_buffers').drawBuffersWEBGL(attachments);
+        var attachments = new Array(planes);
+        for (var i = 0; i < planes; ++i) {
+            attachments[i] = gl.COLOR_ATTACHMENT0 + i;
+        }
+        gl.getExtension('WEBGL_draw_buffers').drawBuffersWEBGL(attachments);
 
+        this.fbs = [this.fb];
+    } else {
+        this.fbs = new Array(planes);
+        for (var i = 0; i < planes; ++i) {
+            this.fbs[i] = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbs[i]);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D,
+                    this.textures[i].getName(), 0);
+            if (i == 0) {
+                gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D,
+                        this.depth_texture.getName(), 0);
+            } else {
+                var depth_buf = gl.createRenderbuffer();
+                gl.bindRenderbuffer(gl.RENDERBUFFER, depth_buf);
+                gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+                gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER,
+                        depth_buf);
+            }
+
+            var fb_status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+            if (fb_status != gl.FRAMEBUFFER_COMPLETE) {
+                throw 'framebuffer is not complete: ' + fb_status;
+            }
+        }
+    }
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindRenderbuffer(gl.RENDERBUFFER, null);
@@ -416,12 +450,13 @@ Framebuffer.prototype.getName = function() {
     return this.fb;
 };
 
-Framebuffer.prototype.bind = function() {
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.fb);
-};
-
-Framebuffer.prototype.unbind = function() {
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+Framebuffer.prototype.use = function(callback) {
+    var gl = this.gl;
+    for (var i = 0; i < this.fbs.length; ++i) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbs[i]);
+        callback(i);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 };
 
 
