@@ -33,7 +33,7 @@ function Cursor(gl, assets, radius) {
         'cursorPos': uniform('vec2', null),
         'cursorRadius': uniform('float', [radius]),
     };
-    this._obj = new GlObject(gl, program,
+    this._obj = new GlObject(gl, [program],
             uniforms,
             {'position': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
             {});

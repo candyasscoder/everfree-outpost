@@ -67,7 +67,7 @@ function Simple3D(gl, assets) {
         'size': uniform('vec2', null),
         'anchor': uniform('vec2', null),
     };
-    this._obj = new GlObject(gl, program,
+    this._obj = new GlObject(gl, [program],
             uniforms,
             {'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
             {'imageTex': null});

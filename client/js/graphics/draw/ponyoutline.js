@@ -38,7 +38,7 @@ function PonyOutline3D(gl, assets) {
     for (var i = 0; i < 8; ++i) {
         textures['sheetSampler[' + i + ']'] = null;
     }
-    this._obj = new GlObject(gl, program,
+    this._obj = new GlObject(gl, [program],
             uniforms,
             {'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
             textures);

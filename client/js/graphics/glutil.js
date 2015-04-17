@@ -191,34 +191,37 @@ Buffer.prototype.loadData = function(data) {
 
 
 /** @constructor */
-function GlObject(gl, program, uniforms, attributes, textures) {
+function GlObject(gl, programs, uniforms, attributes, textures) {
     this.gl = gl;
-    this.program = program;
+    this.programs = programs;
     this.base_uniforms = uniforms;
     this.base_attributes = attributes;
     this.base_textures = textures;
 
-    this.program.use();
-    for (var key in uniforms) {
-        var data = uniforms[key];
-        if (data.value != null) {
-            this.program.setUniform(key, data.type, data.value);
+    for (var i = 0; i < this.programs.length; ++i) {
+        this.programs[i].use();
+
+        for (var key in uniforms) {
+            var data = uniforms[key];
+            if (data.value != null) {
+                this.programs[i].setUniform(key, data.type, data.value);
+            }
         }
-    }
 
-    var texture_index = 0;
-    for (var key in textures) {
-        var image = textures[key];
+        var texture_index = 0;
+        for (var key in textures) {
+            var image = textures[key];
 
-        // Choose a texture slot and set the shader's sampler uniform.
-        var index = texture_index;
-        this.program.setUniform(key, 'int', [index]);
-        this.base_textures[key] = {
-            index: index,
-            image: image,
-        };
+            // Choose a texture slot and set the shader's sampler uniform.
+            var index = texture_index;
+            this.programs[i].setUniform(key, 'int', [index]);
+            this.base_textures[key] = {
+                index: index,
+                image: image,
+            };
 
-        ++texture_index;
+            ++texture_index;
+        }
     }
 }
 exports.GlObject = GlObject;
@@ -226,8 +229,10 @@ exports.GlObject = GlObject;
 GlObject.prototype.setUniform = function(name, data) {
     this.base_uniforms[name] = data;
     if (data.value != null) {
-        this.program.use();
-        this.program.setUniform(name, data.type,data.value);
+        for (var i = 0; i < this.programs.length; ++i) {
+            this.programs[i].use();
+            this.programs[i].setUniform(name, data.type,data.value);
+        }
     }
 };
 
@@ -235,8 +240,10 @@ GlObject.prototype.setUniformValue = function(name, value) {
     var base = this.base_uniforms[name];
     base.value = value;
     if (value != null) {
-        this.program.use();
-        this.program.setUniform(name, base.type, base.value);
+        for (var i = 0; i < this.programs.length; ++i) {
+            this.programs[i].use();
+            this.programs[i].setUniform(name, base.type, base.value);
+        }
     }
 };
 
@@ -255,41 +262,6 @@ GlObject.prototype.draw = function(vert_base, vert_count, uniforms, attributes, 
 GlObject.prototype.drawMulti = function(vert_indexes, uniforms, attributes, textures) {
     var gl = this.gl;
 
-    this.program.use();
-
-    // Set values for uniforms.  The `uniforms` argument has only the new
-    // values - the types are taken from the corresponding element of
-    // `base_uniforms`.
-    for (var key in uniforms) {
-        console.assert(this.base_uniforms.hasOwnProperty(key),
-                'tried to override undefined uniform', key);
-        var base = this.base_uniforms[key];
-        var value = uniforms[key];
-        this.program.setUniform(key, base.type, value);
-    }
-
-    // Enable and bind each vertex attribute.  For these, we *do* need to set
-    // the ones in `base_attributes` as well.
-    for (var key in this.base_attributes) {
-        var base = this.base_attributes[key];
-        var buffer = attributes[key] || base.buffer;
-        if (buffer == null) {
-            continue;
-        }
-
-        var attr = this.program.getAttributeLocation(key);
-        if (attr == -1) {
-            console.log('no attr', key);
-            continue;
-        }
-
-        gl.enableVertexAttribArray(attr);
-        buffer.bind();
-        gl.vertexAttribPointer(attr,
-                base.count, base.type, base.normalize, base.stride, base.offset);
-        buffer.unbind();
-    }
-
     // Bind textures to the appropriate slots.
     for (var key in this.base_textures) {
         var base = this.base_textures[key];
@@ -302,8 +274,63 @@ GlObject.prototype.drawMulti = function(vert_indexes, uniforms, attributes, text
         image.bind();
     }
 
-    for (var i = 0; i < vert_indexes.length; ++i) {
-        gl.drawArrays(gl.TRIANGLES, vert_indexes[i][0], vert_indexes[i][1]);
+    for (var i = 0; i < this.programs.length; ++i) {
+        this.programs[i].use();
+
+        // Set values for uniforms.  The `uniforms` argument has only the new
+        // values - the types are taken from the corresponding element of
+        // `base_uniforms`.
+        for (var key in uniforms) {
+            console.assert(this.base_uniforms.hasOwnProperty(key),
+                    'tried to override undefined uniform', key);
+            var base = this.base_uniforms[key];
+            var value = uniforms[key];
+            this.programs[i].setUniform(key, base.type, value);
+        }
+
+        // Enable and bind each vertex attribute.  For these, we *do* need to
+        // set the ones in `base_attributes` as well.
+        for (var key in this.base_attributes) {
+            var base = this.base_attributes[key];
+            var buffer = attributes[key] || base.buffer;
+            if (buffer == null) {
+                continue;
+            }
+
+            var attr = this.programs[i].getAttributeLocation(key);
+            if (attr == -1) {
+                console.log('no attr', key);
+                continue;
+            }
+
+            gl.enableVertexAttribArray(attr);
+            buffer.bind();
+            gl.vertexAttribPointer(attr,
+                    base.count, base.type, base.normalize, base.stride, base.offset);
+            buffer.unbind();
+        }
+
+        for (var j = 0; j < vert_indexes.length; ++j) {
+            gl.drawArrays(gl.TRIANGLES, vert_indexes[j][0], vert_indexes[j][1]);
+        }
+
+        // Disable vertex attributes.
+        for (var key in this.base_attributes) {
+            var attr = this.programs[i].getAttributeLocation(key);
+            if (attr == -1) {
+                continue;
+            }
+            gl.disableVertexAttribArray(attr);
+        }
+
+        // Uniforms that have a base value should be restored.  This lets us
+        // avoid setting "mostly static" uniforms on every draw call.
+        for (var key in uniforms) {
+            var base = this.base_uniforms[key];
+            if (base.value != null) {
+                this.programs[i].setUniform(key, base.type, base.value);
+            }
+        }
     }
 
     // Unbind all textures.
@@ -311,24 +338,6 @@ GlObject.prototype.drawMulti = function(vert_indexes, uniforms, attributes, text
         var base = this.base_textures[key];
         gl.activeTexture(gl.TEXTURE0 + base.index);
         gl.bindTexture(gl.TEXTURE_2D, null);
-    }
-
-    // Disable vertex attributes.
-    for (var key in this.base_attributes) {
-        var attr = this.program.getAttributeLocation(key);
-        if (attr == -1) {
-            continue;
-        }
-        gl.disableVertexAttribArray(attr);
-    }
-
-    // Uniforms that have a base value should be restored.  This lets us avoid
-    // setting "mostly static" uniforms on every draw call.
-    for (var key in uniforms) {
-        var base = this.base_uniforms[key];
-        if (base.value != null) {
-            this.program.setUniform(key, base.type, base.value);
-        }
     }
 };
 

@@ -164,7 +164,7 @@ function Named3D(gl, assets) {
 
     this._texture = new Texture(gl);
     this._refreshTexture();
-    this._name_obj = new GlObject(gl, program,
+    this._name_obj = new GlObject(gl, [program],
             uniforms,
             {'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0)},
             {'sheetSampler': this._texture});

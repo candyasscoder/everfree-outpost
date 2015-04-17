@@ -95,7 +95,7 @@ function build_terrain_block(gl, assets, atlas_tex) {
         'atlasTex': atlas_tex,
     };
 
-    return new GlObject(gl, program, uniforms, attributes, textures);
+    return new GlObject(gl, [program], uniforms, attributes, textures);
 }
 
 function build_blits(gl, assets) {
@@ -143,7 +143,7 @@ function build_blits(gl, assets) {
         'depthTex': null,
     };
 
-    var normal = new GlObject(gl, program, uniforms, attributes, textures);
+    var normal = new GlObject(gl, [program], uniforms, attributes, textures);
 
 
     var uniforms = {
@@ -167,7 +167,7 @@ function build_blits(gl, assets) {
         'lowerDepthTex': null,
     };
 
-    var sliced = new GlObject(gl, program_sliced, uniforms, attributes, textures);
+    var sliced = new GlObject(gl, [program_sliced], uniforms, attributes, textures);
 
 
     var uniforms = {};
@@ -180,7 +180,7 @@ function build_blits(gl, assets) {
         'imageTex': null,
     };
 
-    var output = new GlObject(gl, program_output, uniforms, attributes, textures);
+    var output = new GlObject(gl, [program_output], uniforms, attributes, textures);
 
 
     var uniforms = {
@@ -197,7 +197,7 @@ function build_blits(gl, assets) {
         'depthTex': null,
     };
 
-    var post = new GlObject(gl, program_post, uniforms, attributes, textures);
+    var post = new GlObject(gl, [program_post], uniforms, attributes, textures);
 
 
     return { normal: normal, sliced: sliced, output: output, post: post };
@@ -223,7 +223,7 @@ function build_structure(gl, assets, sheet_tex, depth_tex) {
         'depthTex': depth_tex,
     };
 
-    return new GlObject(gl, program, uniforms, attributes, textures);
+    return new GlObject(gl, [program], uniforms, attributes, textures);
 }
 
 
