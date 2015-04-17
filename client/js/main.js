@@ -1070,7 +1070,7 @@ function frame(ac, client_now) {
     }
 
     function draw_extra(fb_idx, r) {
-        if (player_sprite != null) {
+        if (player_sprite != null && Config.render_outline.get()) {
             r.renderSpecial(fb_idx, player_sprite, 'pony_outline');
         }
     }

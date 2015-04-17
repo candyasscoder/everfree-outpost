@@ -4,6 +4,10 @@ var DEFAULT_CONFIG = {
     'ignore_browser_warning': false,
     'chat_scrollback': 100,
     'chat_lines': 8,
+    'chat_autohide': false,
+
+    'render_outline': true,
+    'render_names': true,
 
     'motion_prediction': true,
     'input_delay': 10,
@@ -71,6 +75,10 @@ exports.Config = {
     ignore_browser_warning: new ConfigItem('ignore_browser_warning'),
     chat_scrollback: new ConfigItem('chat_scrollback'),
     chat_lines: new ConfigItem('chat_lines'),
+    chat_autohide: new ConfigItem('chat_autohide'),
+
+    render_outline: new ConfigItem('render_outline'),
+    render_names: new ConfigItem('render_names'),
 
     motion_prediction: new ConfigItem('motion_prediction'),
     input_delay: new ConfigItem('input_delay'),

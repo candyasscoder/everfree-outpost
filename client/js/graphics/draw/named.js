@@ -1,3 +1,5 @@
+var Config = require('config').Config;
+
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
 var buildPrograms = require('graphics/glutil').buildPrograms;
 var Buffer = require('graphics/glutil').Buffer;
@@ -184,6 +186,9 @@ Named3D.prototype.setCamera = function(sx, sy, sw, sh) {
 Named3D.prototype.draw = function(fb_idx, r, sprite, slice_frac) {
     this.layered.draw(fb_idx, r, sprite, slice_frac);
 
+    if (!Config.render_names.get()) {
+        return;
+    }
 
     var off = this._names.offset(sprite.extra.name);
     if (off.created) {

@@ -12,6 +12,10 @@ function ChatWindow() {
     this._entry = util.element('input', ['chat-input', 'maxlength=100'], this.container);
     this._entry.disabled = true;
 
+    if (Config.chat_autohide.get()) {
+        this.container.style.display = 'none';
+    }
+
     this.count = 0;
 }
 exports.ChatWindow = ChatWindow;
@@ -64,9 +68,14 @@ ChatWindow.prototype.removeIgnore = function(name) {
 ChatWindow.prototype.startTyping = function(keyboard, conn, init) {
     var this_ = this;
 
+    if (Config.chat_autohide.get()) {
+        this.container.style.display = 'flex';
+    }
+
     this._entry.disabled = false;
     this._entry.value = init;
     this._entry.focus();
+    this._entry.selectionStart = init.length;
 
     keyboard.pushHandler(function(down, evt) {
         if (document.activeElement !== this_._entry) {
@@ -118,4 +127,15 @@ ChatWindow.prototype.finishTyping = function(keyboard, conn, send) {
     this._entry.blur();
     this._entry.value = '';
     this._entry.disabled = true;
+
+    var this_ = this;
+    if (Config.chat_autohide.get()) {
+        window.setTimeout(function() {
+            if (!this_._entry.disabled) {
+                // User already started typing again.
+                return;
+            }
+            this_.container.style.display = 'none';
+        }, 3000);
+    }
 };
