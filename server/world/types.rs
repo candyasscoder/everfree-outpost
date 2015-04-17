@@ -54,6 +54,14 @@ impl super::Client {
 }
 
 impl super::Entity {
+    pub fn plane_id(&self) -> PlaneId {
+        self.plane
+    }
+
+    pub fn stable_plane_id(&self) -> Stable<PlaneId> {
+        self.stable_plane
+    }
+
     pub fn motion(&self) -> &Motion {
         &self.motion
     }

@@ -10,11 +10,17 @@ use world::ops::{self, OpResult};
 
 
 pub fn create<'d, F>(f: &mut F,
+                     stable_pid: Stable<PlaneId>,
                      pos: V3,
                      anim: AnimId,
                      appearance: u32) -> OpResult<EntityId>
         where F: Fragment<'d> {
+    let pid = f.world().planes.get_id(stable_pid).unwrap_or(PLANE_LIMBO);
+
     let e = Entity {
+        stable_plane: stable_pid,
+        plane: pid,
+
         motion: Motion::fixed(pos),
         anim: anim,
         facing: V3::new(1, 0, 0),
@@ -34,6 +40,9 @@ pub fn create<'d, F>(f: &mut F,
 pub fn create_unchecked<'d, F>(f: &mut F) -> EntityId
         where F: Fragment<'d> {
     let eid = f.world_mut().entities.insert(Entity {
+        stable_plane: Stable::none(),
+        plane: PLANE_LIMBO,
+
         motion: Motion::fixed(scalar(0)),
         anim: 0,
         facing: scalar(0),

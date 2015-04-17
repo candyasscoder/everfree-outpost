@@ -35,7 +35,8 @@ impl Userdata for World {
                              pos: V3,
                              anim: AnimId,
                              appearance: u32) -> StrResult<Entity> {
-                wf.create_entity(pos, anim, appearance)
+                let pid = wf.plane_mut(PLANE_FOREST).stable_id();
+                wf.create_entity(pid, pos, anim, appearance)
                   .map(|e| Entity { id: e.id() })
             }
 

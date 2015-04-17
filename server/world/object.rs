@@ -339,14 +339,16 @@ impl<'a, 'd> PlaneRef<'d> for ObjectRef<'a, 'd, Plane> { }
 impl<'a, 'd, F: Fragment<'d>> PlaneRef<'d> for ObjectRefMut<'a, 'd, Plane, F> { }
 
 pub trait PlaneRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Plane, F> {
+    fn stable_id(&mut self) -> Stable<PlaneId> {
+        let pid = self.id();
+        self.world_mut().planes.pin(pid)
+    }
 }
 impl<'a, 'd, F: Fragment<'d>> PlaneRefMut<'d, F> for ObjectRefMut<'a, 'd, Plane, F> { }
 
 
 
 pub trait TerrainChunkRef<'d>: ObjectRefBase<'d, TerrainChunk> {
-    // TODO: stable_id
-
     fn base_pos(&self) -> V3 {
         self.obj().chunk_pos().extend(0) * scalar(CHUNK_SIZE)
     }
@@ -377,6 +379,10 @@ impl<'a, 'd> TerrainChunkRef<'d> for ObjectRef<'a, 'd, TerrainChunk> { }
 impl<'a, 'd, F: Fragment<'d>> TerrainChunkRef<'d> for ObjectRefMut<'a, 'd, TerrainChunk, F> { }
 
 pub trait TerrainChunkRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, TerrainChunk, F> {
+    fn stable_id(&mut self) -> Stable<TerrainChunkId> {
+        let tcid = self.id();
+        self.world_mut().terrain_chunks.pin(tcid)
+    }
 }
 impl<'a, 'd, F: Fragment<'d>> TerrainChunkRefMut<'d, F> for ObjectRefMut<'a, 'd, TerrainChunk, F> { }
 

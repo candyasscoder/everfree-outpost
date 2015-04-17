@@ -133,11 +133,15 @@ impl<K: Copy+ObjectId, V: IntrusiveStableId> StableIdMap<K, V> {
     }
 
     pub fn pin(&mut self, transient_id: K) -> Stable<K> {
+        self.try_pin(transient_id).expect("no entry found for key")
+    }
+
+    pub fn try_pin(&mut self, transient_id: K) -> Option<Stable<K>> {
         let raw_transient_id = transient_id.to_usize();
-        let val = &mut self.map[raw_transient_id];
+        let val = unwrap_or!(self.map.get_mut(raw_transient_id), return None);
 
         if val.get_stable_id() != NO_STABLE_ID {
-            return Stable::new(val.get_stable_id());
+            return Some(Stable::new(val.get_stable_id()));
         }
 
         let stable_id = self.next_id;
@@ -146,7 +150,7 @@ impl<K: Copy+ObjectId, V: IntrusiveStableId> StableIdMap<K, V> {
         val.set_stable_id(stable_id);
         self.stable_ids.insert(stable_id, transient_id);
 
-        Stable::new(stable_id)
+        Some(Stable::new(stable_id))
     }
 
     pub fn unpin(&mut self, transient_id: K) {

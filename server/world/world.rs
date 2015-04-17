@@ -117,7 +117,7 @@ macro_rules! process_objects {
                 id EntityId;
                 map entities;
                 module entity;
-                lifecycle (pos: V3, anim: AnimId, appearance: u32)
+                lifecycle (plane: Stable<PlaneId>, pos: V3, anim: AnimId, appearance: u32)
                     create_entity [id -> id],
                     destroy_entity,
                 lookups [id -> id]

@@ -20,7 +20,8 @@ pub fn register(mut eng: EngineRef, name: &str, appearance: u32) -> save::Result
         let mut eng = eng.as_hidden_world_fragment();
 
         let pos = V3::new(32, 32, 0);
-        pawn_id = try!(world::Fragment::create_entity(&mut eng, pos, 2, appearance)).id();
+        let pid = world::Fragment::plane_mut(&mut eng, PLANE_FOREST).stable_id();
+        pawn_id = try!(world::Fragment::create_entity(&mut eng, pid, pos, 2, appearance)).id();
 
         cid = {
             let mut c = try!(world::Fragment::create_client(&mut eng, name));

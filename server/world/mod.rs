@@ -70,10 +70,11 @@ pub struct Client {
 impl_IntrusiveStableId!(Client, stable_id);
 
 pub struct Entity {
-    /*
-    plane: PlaneId,
+    /// StableId of the Plane where the Entity is currently located.
     stable_plane: Stable<PlaneId>,
-    */
+    /// Cached PlaneId of the plane containing the Entity.  If that plane is not loaded, then
+    /// `plane` is set to PLANE_LIMBO.
+    plane: PlaneId,
 
     motion: Motion,
     anim: AnimId,
