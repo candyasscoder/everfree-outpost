@@ -60,6 +60,7 @@ var DEFAULT_CONFIG = {
     'debug_show_panel': false,
     'debug_force_mobile_warning': false,
     'debug_force_browser_warning': false,
+    'debug_block_webgl_extensions': {},
 };
 
 
@@ -89,6 +90,7 @@ exports.Config = {
     debug_show_panel: new ConfigItem('debug_show_panel'),
     debug_force_mobile_warning: new ConfigItem('debug_force_mobile_warning'),
     debug_force_browser_warning: new ConfigItem('debug_force_browser_warning'),
+    debug_block_webgl_extensions: new ConfigItem('debug_block_webgl_extensions'),
 };
 
 

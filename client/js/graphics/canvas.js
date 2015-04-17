@@ -1,3 +1,6 @@
+var Config = require('config').Config;
+
+
 /** @constructor */
 function AnimCanvas(frame_callback, ctx_type, webgl_extensions) {
     this.canvas = document.createElement('canvas');
@@ -22,6 +25,9 @@ function AnimCanvas(frame_callback, ctx_type, webgl_extensions) {
         if (webgl_extensions != null) {
             for (var i = 0; i < webgl_extensions.length; ++i) {
                 var ext_name = webgl_extensions[i];
+                if (Config.debug_block_webgl_extensions.get()[ext_name]) {
+                    continue;
+                }
                 var ext_obj = this.ctx.getExtension(ext_name);
                 this.ext[ext_name] = ext_obj;
             }

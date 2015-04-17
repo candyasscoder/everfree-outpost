@@ -1,3 +1,14 @@
+var Config = require('config').Config;
+
+
+function hasExtension(gl, name) {
+    if (Config.debug_block_webgl_extensions.get()[name]) {
+        return false;
+    }
+    return gl.getExtension(name) != null;
+}
+exports.hasExtension = hasExtension;
+
 
 function compile_shader(gl, type, src) {
     var shader = gl.createShader(type);
@@ -97,6 +108,21 @@ Program.prototype.setUniform = function(name, type, vs) {
             throw 'bad uniform type';
     }
 };
+
+
+function buildPrograms(gl, vert_src, frag_src, output_buffers) {
+    if (hasExtension(gl, 'WEBGL_draw_buffers')) {
+        return [new Program(vert_src, frag_src)];
+    } else {
+        var programs = new Array(output_buffers);
+        for (var i = 0; i < output_buffers; ++i) {
+            var define = '#define OUTPUT_IDX ' + i + '\n'
+            programs[i] = new Program(define + vert_src, define + frag_src);
+        }
+        return programs;
+    }
+}
+exports.buildPrograms = buildPrograms;
 
 
 /** @constructor */

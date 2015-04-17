@@ -18,6 +18,7 @@ var SpriteBase = require('graphics/renderer').SpriteBase;
 var Renderer = require('graphics/renderer').Renderer;
 var Layered2D = require('graphics/draw/layered').Layered2D;
 var Cursor = require('graphics/cursor').Cursor;
+var glutil = require('graphics/glutil');
 
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
@@ -219,6 +220,18 @@ function init() {
             'EXT_frag_depth',
             'WEBGL_draw_buffers',
     ]);
+
+    if (!glutil.hasExtension(canvas.ctx, 'WEBGL_depth_texture')) {
+        throw 'missing extension: WEBGL_depth_texture';
+    }
+    if (!glutil.hasExtension(canvas.ctx, 'EXT_frag_depth')) {
+        throw 'missing extension: EXT_frag_depth';
+    }
+    if (!glutil.hasExtension(canvas.ctx, 'WEBGL_draw_buffers')) {
+        console.warn('missing optional extension: WEBGL_draw_buffers - ' +
+                'rendering in fallback mode');
+    }
+
     debug = new DebugMonitor();
     banner = new Banner();
     keyboard = new Keyboard();
