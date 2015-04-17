@@ -67,7 +67,8 @@ fn compute_shape(w: &World,
                  bounds: Region,
                  entry: &mut CacheEntry) -> StrResult<()> {
     let data = w.data();
-    let chunk = unwrap!(w.get_terrain_chunk(cpos));
+    let p = w.plane(PLANE_FOREST);
+    let chunk = unwrap!(p.get_terrain_chunk(cpos));
     let bounds = bounds.intersect(chunk.bounds());
 
     for p in bounds.points() {
@@ -76,7 +77,7 @@ fn compute_shape(w: &World,
         entry.layer_mask[idx] = 0;
     }
 
-    for s in w.chunk_structures(cpos) {
+    for s in w.chunk_structures(PLANE_FOREST, cpos) {
         if !s.bounds().overlaps(bounds) {
             continue;
         }

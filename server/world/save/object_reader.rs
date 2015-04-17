@@ -44,25 +44,29 @@ pub trait ReadHooks {
     fn post_read_client<R: Reader>(&mut self,
                                    reader: &mut R,
                                    cid: ClientId) -> Result<()> { Ok(()) }
-    fn post_read_terrain_chunk<R: Reader>(&mut self,
-                                          reader: &mut R,
-                                          pos: V2) -> Result<()> { Ok(()) }
     fn post_read_entity<R: Reader>(&mut self,
                                    reader: &mut R,
                                    eid: EntityId) -> Result<()> { Ok(()) }
-    fn post_read_structure<R: Reader>(&mut self,
-                                      reader: &mut R,
-                                      sid: StructureId) -> Result<()> { Ok(()) }
     fn post_read_inventory<R: Reader>(&mut self,
                                       reader: &mut R,
                                       iid: InventoryId) -> Result<()> { Ok(()) }
+    fn post_read_plane<R: Reader>(&mut self,
+                                  reader: &mut R,
+                                  pid: PlaneId) -> Result<()> { Ok(()) }
+    fn post_read_terrain_chunk<R: Reader>(&mut self,
+                                          reader: &mut R,
+                                          tcid: TerrainChunkId) -> Result<()> { Ok(()) }
+    fn post_read_structure<R: Reader>(&mut self,
+                                      reader: &mut R,
+                                      sid: StructureId) -> Result<()> { Ok(()) }
 
     fn cleanup_world(&mut self) -> Result<()> { Ok(()) }
     fn cleanup_client(&mut self, cid: ClientId) -> Result<()> { Ok(()) }
-    fn cleanup_terrain_chunk(&mut self, pos: V2) -> Result<()> { Ok(()) }
     fn cleanup_entity(&mut self, eid: EntityId) -> Result<()> { Ok(()) }
-    fn cleanup_structure(&mut self, sid: StructureId) -> Result<()> { Ok(()) }
     fn cleanup_inventory(&mut self, iid: InventoryId) -> Result<()> { Ok(()) }
+    fn cleanup_plane(&mut self, pid: PlaneId) -> Result<()> { Ok(()) }
+    fn cleanup_terrain_chunk(&mut self, tcid: TerrainChunkId) -> Result<()> { Ok(()) }
+    fn cleanup_structure(&mut self, sid: StructureId) -> Result<()> { Ok(()) }
 }
 
 impl<R: old_io::Reader> ObjectReader<R> {
@@ -157,59 +161,6 @@ impl<R: old_io::Reader> ObjectReader<R> {
         Ok(cid)
     }
 
-    fn read_terrain_chunk<'d, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<V2> {
-        let (save_id, chunk_pos) = try!(self.r.read());
-        self.r.id_map_mut().insert(save_id, AnyId::TerrainChunk(chunk_pos));
-
-        let mut blocks = Box::new([0; CHUNK_TOTAL]);
-        {
-            let byte_len = blocks.len() * mem::size_of::<BlockId>();
-            let byte_array = unsafe {
-                mem::transmute(raw::Slice {
-                    data: blocks.as_ptr() as *const u8,
-                    len: byte_len,
-                })
-            };
-            try!(self.r.read_buf(byte_array));
-        }
-
-        let mut block_map = HashMap::new();
-        let block_id_count = try!(self.r.read_count());
-        try!(f.with_world(|wf| -> Result<_> {
-            let w = world::Fragment::world(wf);
-            let block_data = &w.data().block_data;
-            for _ in 0..block_id_count {
-                let (old_id, shape, name_len): (u16, u8, u8) = try!(self.r.read());
-                let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_usize())));
-                let new_id = unwrap!(block_data.find_id(&*name));
-
-                if block_data.shape(new_id) as u8 != shape {
-                    fail!("block shape does not match");
-                }
-
-                block_map.insert(old_id, new_id);
-            }
-            Ok(())
-        }));
-
-        for ptr in blocks.iter_mut() {
-            let id = unwrap!(block_map.get(ptr));
-            *ptr = *id;
-        }
-
-        try!(f.with_world(|wf| ops::terrain_chunk::create(wf, chunk_pos, blocks)));
-
-        try!(f.with_hooks(|h| h.post_read_terrain_chunk(&mut self.r, chunk_pos)));
-
-        let child_structure_count = try!(self.r.read_count());
-        for _ in 0..child_structure_count {
-            let sid = try!(self.read_structure(f));
-            try!(f.with_world(|wf| ops::structure::attach(wf, sid, StructureAttachment::Chunk)));
-        }
-
-        Ok(chunk_pos)
-    }
-
     fn read_entity<'d, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<EntityId> {
         let (eid, stable_id) = try!(self.read_object_header(f));
 
@@ -257,35 +208,6 @@ impl<R: old_io::Reader> ObjectReader<R> {
         Ok(eid)
     }
 
-    fn read_structure<'d, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<StructureId> {
-        let (sid, stable_id) = try!(self.read_object_header(f));
-
-        try!(f.with_world(|wf| -> Result<_> {
-            {
-                let w = world::Fragment::world_mut(wf);
-                try!(w.structures.set_stable_id(sid, stable_id));
-
-                let s = &mut w.structures[sid];
-
-                s.pos = try!(self.r.read());
-                s.template = try!(self.read_template_id(w.data));
-            }
-            try!(ops::structure::post_init(wf, sid));
-            Ok(())
-        }));
-
-        try!(f.with_hooks(|h| h.post_read_structure(&mut self.r, sid)));
-
-        let child_inventory_count = try!(self.r.read_count());
-        for _ in 0..child_inventory_count {
-            let iid = try!(self.read_inventory(f));
-            try!(f.with_world(|wf| ops::inventory::attach(wf, iid,
-                                                          InventoryAttachment::Structure(sid))));
-        }
-
-        Ok(sid)
-    }
-
     fn read_inventory<'d, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<InventoryId> {
         use std::collections::hash_map::Entry::*;
         let (iid, stable_id) = try!(self.read_object_header(f));
@@ -319,13 +241,104 @@ impl<R: old_io::Reader> ObjectReader<R> {
         Ok(iid)
     }
 
+    fn read_terrain_chunk<'d, F: Fragment<'d>>(&mut self, f: &mut F)  
+                                               -> Result<TerrainChunkId> {
+        // TODO: probably broken
+        let (tcid, stable_id) = try!(self.read_object_header(f));
+
+        try!(f.with_world(|wf| -> Result<()> {
+            let w = world::Fragment::world_mut(wf);
+            try!(w.terrain_chunks.set_stable_id(tcid, stable_id));
+            let data = w.data();
+
+            let tc = &mut w.terrain_chunks[tcid];
+
+            // Read saved BlockIds into tc.blocks.
+            let byte_len = tc.blocks.len() * mem::size_of::<BlockId>();
+            let byte_array = unsafe {
+                mem::transmute(raw::Slice {
+                    data: tc.blocks.as_ptr() as *const u8,
+                    len: byte_len,
+                })
+            };
+            try!(self.r.read_buf(byte_array));
+
+            // Compute block_map, mapping old BlockIds to new ones.
+            let mut block_map = HashMap::new();
+            let block_id_count = try!(self.r.read_count());
+            let block_data = &data.block_data;
+            for _ in 0..block_id_count {
+                let (old_id, shape, name_len): (u16, u8, u8) = try!(self.r.read());
+                let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_usize())));
+                let new_id = unwrap!(block_data.find_id(&*name));
+
+                if block_data.shape(new_id) as u8 != shape {
+                    fail!("block shape does not match");
+                }
+
+                block_map.insert(old_id, new_id);
+            }
+
+            // Replace old BlockIds with new ones in tc.blocks.
+            for ptr in tc.blocks.iter_mut() {
+                let id = unwrap!(block_map.get(ptr));
+                *ptr = *id;
+            }
+
+            Ok(())
+        }));
+
+        try!(f.with_hooks(|h| h.post_read_terrain_chunk(&mut self.r, tcid)));
+
+        let child_structure_count = try!(self.r.read_count());
+        for _ in 0..child_structure_count {
+            let sid = try!(self.read_structure(f));
+            try!(f.with_world(|wf| ops::structure::attach(wf, sid, StructureAttachment::Chunk)));
+        }
+
+        Ok(tcid)
+    }
+
+    fn read_structure<'d, F: Fragment<'d>>(&mut self, f: &mut F)
+                                           -> Result<StructureId> {
+        let (sid, stable_id) = try!(self.read_object_header(f));
+
+        try!(f.with_world(|wf| -> Result<_> {
+            {
+                let w = world::Fragment::world_mut(wf);
+                try!(w.structures.set_stable_id(sid, stable_id));
+
+                let s = &mut w.structures[sid];
+
+                //s.plane = pid;
+                s.pos = try!(self.r.read());
+                s.template = try!(self.read_template_id(w.data));
+            }
+            try!(ops::structure::post_init(wf, sid));
+            Ok(())
+        }));
+
+        try!(f.with_hooks(|h| h.post_read_structure(&mut self.r, sid)));
+
+        let child_inventory_count = try!(self.r.read_count());
+        for _ in 0..child_inventory_count {
+            let iid = try!(self.read_inventory(f));
+            try!(f.with_world(|wf| ops::inventory::attach(wf, iid,
+                                                          InventoryAttachment::Structure(sid))));
+        }
+
+        Ok(sid)
+    }
+
     fn read_world<'d, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<()> {
         try!(f.with_world(|wf| -> Result<_> {
             let w = world::Fragment::world_mut(wf);
             w.clients.set_next_id(try!(self.r.read()));
             w.entities.set_next_id(try!(self.r.read()));
-            w.structures.set_next_id(try!(self.r.read()));
             w.inventories.set_next_id(try!(self.r.read()));
+            w.planes.set_next_id(try!(self.r.read()));
+            w.terrain_chunks.set_next_id(try!(self.r.read()));
+            w.structures.set_next_id(try!(self.r.read()));
             Ok(())
         }));
 
@@ -335,13 +348,6 @@ impl<R: old_io::Reader> ObjectReader<R> {
             let entity_count = try!(self.r.read_count());
             for _ in 0..entity_count {
                 try!(self.read_entity(f));
-            }
-        }
-
-        {
-            let structure_count = try!(self.r.read_count());
-            for _ in 0..structure_count {
-                try!(self.read_structure(f));
             }
         }
 
@@ -374,7 +380,8 @@ impl<R: old_io::Reader> ObjectReader<R> {
         self.load_object(f, |sr, f| sr.read_client(f))
     }
 
-    pub fn load_terrain_chunk<'d, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<V2> {
+    pub fn load_terrain_chunk<'d, F: Fragment<'d>>(&mut self, f: &mut F)
+                                                   -> Result<TerrainChunkId> {
         self.load_object(f, |sr, f| sr.read_terrain_chunk(f))
     }
 
@@ -401,17 +408,16 @@ impl<R: old_io::Reader> ObjectReader<R> {
             match aid {
                 AnyId::Client(cid) =>
                     f.with_world(|wf| wf.with_hooks(|h| h.on_client_create(cid))),
-                AnyId::TerrainChunk(cpos) =>
-                    f.with_world(|wf| wf.with_hooks(|h| {
-                        h.on_terrain_chunk_create(cpos);
-                        h.on_chunk_invalidate(cpos);
-                    })),
                 AnyId::Entity(eid) =>
                     f.with_world(|wf| wf.with_hooks(|h| h.on_entity_create(eid))),
-                AnyId::Structure(sid) =>
-                    f.with_world(|wf| wf.with_hooks(|h| h.on_structure_create(sid))),
                 AnyId::Inventory(iid) =>
                     f.with_world(|wf| wf.with_hooks(|h| h.on_inventory_create(iid))),
+                AnyId::Plane(pid) =>
+                    f.with_world(|wf| wf.with_hooks(|h| h.on_plane_create(pid))),
+                AnyId::TerrainChunk(tcid) =>
+                    f.with_world(|wf| wf.with_hooks(|h| h.on_terrain_chunk_create(tcid))),
+                AnyId::Structure(sid) =>
+                    f.with_world(|wf| wf.with_hooks(|h| h.on_structure_create(sid))),
             }
         }
     }
@@ -424,13 +430,21 @@ impl<R: old_io::Reader> ObjectReader<R> {
                     unwrap_warn(f.with_hooks(|h| h.cleanup_client(cid)));
                     f.with_world(|wf| wf.world_mut().clients.remove(cid));
                 },
-                AnyId::TerrainChunk(cpos) => {
-                    unwrap_warn(f.with_hooks(|h| h.cleanup_terrain_chunk(cpos)));
-                    f.with_world(|wf| wf.world_mut().terrain_chunks.remove(&cpos));
-                },
                 AnyId::Entity(eid) => {
                     unwrap_warn(f.with_hooks(|h| h.cleanup_entity(eid)));
                     f.with_world(|wf| wf.world_mut().entities.remove(eid));
+                },
+                AnyId::Inventory(iid) => {
+                    unwrap_warn(f.with_hooks(|h| h.cleanup_inventory(iid)));
+                    f.with_world(|wf| wf.world_mut().inventories.remove(iid));
+                },
+                AnyId::Plane(pid) => {
+                    unwrap_warn(f.with_hooks(|h| h.cleanup_plane(pid)));
+                    f.with_world(|wf| wf.world_mut().planes.remove(pid));
+                },
+                AnyId::TerrainChunk(tcid) => {
+                    unwrap_warn(f.with_hooks(|h| h.cleanup_terrain_chunk(tcid)));
+                    f.with_world(|wf| wf.world_mut().terrain_chunks.remove(tcid));
                 },
                 AnyId::Structure(sid) => {
                     unwrap_warn(f.with_hooks(|h| h.cleanup_structure(sid)));
@@ -438,10 +452,6 @@ impl<R: old_io::Reader> ObjectReader<R> {
                         unwrap_warn(ops::structure::pre_fini(wf, sid));
                         wf.world_mut().structures.remove(sid);
                     });
-                },
-                AnyId::Inventory(iid) => {
-                    unwrap_warn(f.with_hooks(|h| h.cleanup_inventory(iid)));
-                    f.with_world(|wf| wf.world_mut().inventories.remove(iid));
                 },
             }
         }

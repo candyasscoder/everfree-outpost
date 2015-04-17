@@ -5,7 +5,7 @@ use types::*;
 use input::InputBits;
 
 pub use super::World;
-pub use super::{Client, TerrainChunk, Entity, Structure, Inventory};
+pub use super::{Client, Entity, Inventory, Plane, TerrainChunk, Structure};
 
 
 #[derive(Copy, PartialEq, Eq, Debug)]
@@ -17,7 +17,7 @@ pub enum EntityAttachment {
 
 #[derive(Copy, PartialEq, Eq, Debug)]
 pub enum StructureAttachment {
-    World,
+    Plane,
     Chunk,
 }
 
@@ -50,16 +50,6 @@ impl super::Client {
     #[deprecated]
     pub fn chunk_offset(&self) -> (u8, u8) {
         (0, 0)
-    }
-}
-
-impl super::TerrainChunk {
-    pub fn block(&self, idx: usize) -> BlockId {
-        self.blocks[idx]
-    }
-
-    pub fn blocks(&self) -> &BlockChunk {
-        &*self.blocks
     }
 }
 
@@ -107,20 +97,6 @@ impl super::Entity {
     }
 }
 
-impl super::Structure {
-    pub fn pos(&self) -> V3 {
-        self.pos
-    }
-
-    pub fn template_id(&self) -> TemplateId {
-        self.template
-    }
-
-    pub fn attachment(&self) -> StructureAttachment {
-        self.attachment
-    }
-}
-
 impl super::Inventory {
     pub fn count(&self, item_id: ItemId) -> u8 {
         self.contents.get(&item_id).map_or(0, |&x| x)
@@ -131,6 +107,41 @@ impl super::Inventory {
     }
 
     pub fn attachment(&self) -> InventoryAttachment {
+        self.attachment
+    }
+}
+
+impl super::Plane {
+}
+
+impl super::TerrainChunk {
+    pub fn plane_id(&self) -> PlaneId {
+        self.plane
+    }
+
+    pub fn chunk_pos(&self) -> V2 {
+        self.cpos
+    }
+
+    pub fn block(&self, idx: usize) -> BlockId {
+        self.blocks[idx]
+    }
+
+    pub fn blocks(&self) -> &BlockChunk {
+        &*self.blocks
+    }
+}
+
+impl super::Structure {
+    pub fn pos(&self) -> V3 {
+        self.pos
+    }
+
+    pub fn template_id(&self) -> TemplateId {
+        self.template
+    }
+
+    pub fn attachment(&self) -> StructureAttachment {
         self.attachment
     }
 }

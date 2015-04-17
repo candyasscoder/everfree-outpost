@@ -38,17 +38,20 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
     }
 
 
-    fn on_terrain_chunk_create(&mut self, cpos: V2) {
+    fn on_terrain_chunk_create(&mut self, tcid: TerrainChunkId) {
+        let cpos = self.world().terrain_chunk(tcid).chunk_pos();
         vision::Fragment::add_chunk(&mut self.as_vision_fragment(), cpos);
 
         let Open { world, cache, .. } = (**self).open();
         warn_on_err!(cache.add_chunk(world, cpos));
     }
 
-    fn on_terrain_chunk_destroy(&mut self, cpos: V2) {
+    fn on_terrain_chunk_destroy(&mut self, tcid: TerrainChunkId) {
+        /* TODO
         vision::Fragment::remove_chunk(&mut self.as_vision_fragment(), cpos);
 
         self.cache_mut().remove_chunk(cpos);
+        */
     }
 
 
@@ -76,18 +79,25 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
         new_structure(self, sid);
     }
 
-    fn on_structure_destroy(&mut self, sid: StructureId, old_bounds: Region) {
+    fn on_structure_destroy(&mut self,
+                            sid: StructureId,
+                            pid: PlaneId,
+                            old_bounds: Region) {
         old_structure(self, sid, old_bounds);
         self.script_mut().cb_structure_destroyed(sid);
     }
 
-    fn on_structure_replace(&mut self, sid: StructureId, old_bounds: Region) {
+    fn on_structure_replace(&mut self,
+                            sid: StructureId,
+                            pid: PlaneId,
+                            old_bounds: Region) {
         old_structure(self, sid, old_bounds);
         new_structure(self, sid);
     }
 
     fn check_structure_placement(&self,
                                  template: &StructureTemplate,
+                                 pid: PlaneId,
                                  pos: V3) -> bool {
         check_structure_placement(self.world(), self.cache(), template, pos)
     }
@@ -137,17 +147,20 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
         self.script_mut().cb_client_destroyed(cid);
     }
 
-    fn on_terrain_chunk_create(&mut self, cpos: V2) {
+    fn on_terrain_chunk_create(&mut self, tcid: TerrainChunkId) {
+        let cpos = self.world().terrain_chunk(tcid).chunk_pos();
         vision::Fragment::add_chunk(&mut self.as_hidden_vision_fragment(), cpos);
 
         let Open { world, cache, .. } = (**self).open();
         warn_on_err!(cache.add_chunk(world, cpos));
     }
 
-    fn on_terrain_chunk_destroy(&mut self, cpos: V2) {
+    fn on_terrain_chunk_destroy(&mut self, tcid: TerrainChunkId) {
+        /* TODO
         vision::Fragment::remove_chunk(&mut self.as_hidden_vision_fragment(), cpos);
 
         self.cache_mut().remove_chunk(cpos);
+        */
     }
 
     fn on_entity_destroy(&mut self, eid: EntityId) {
@@ -159,18 +172,25 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
         new_structure_hidden(self, sid);
     }
 
-    fn on_structure_destroy(&mut self, sid: StructureId, old_bounds: Region) {
+    fn on_structure_destroy(&mut self,
+                            sid: StructureId,
+                            pid: PlaneId,
+                            old_bounds: Region) {
         old_structure_hidden(self, sid, old_bounds);
         self.script_mut().cb_structure_destroyed(sid);
     }
 
-    fn on_structure_replace(&mut self, sid: StructureId, old_bounds: Region) {
+    fn on_structure_replace(&mut self,
+                            sid: StructureId,
+                            pid: PlaneId,
+                            old_bounds: Region) {
         old_structure_hidden(self, sid, old_bounds);
         new_structure_hidden(self, sid);
     }
 
     fn check_structure_placement(&self,
                                  template: &StructureTemplate,
+                                 pid: PlaneId,
                                  pos: V3) -> bool {
         check_structure_placement(self.world(), self.cache(), template, pos)
     }
@@ -229,6 +249,7 @@ fn check_structure_placement(world: &World,
                              cache: &TerrainCache,
                              template: &StructureTemplate,
                              pos: V3) -> bool {
+    /* TODO
     let data = world.data();
     let bounds = Region::new(scalar(0), template.size) + pos;
 
@@ -253,6 +274,7 @@ fn check_structure_placement(world: &World,
             return false;
         }
     }
+    */
 
     true
 }

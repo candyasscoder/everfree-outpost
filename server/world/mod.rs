@@ -48,12 +48,13 @@ pub struct World<'d> {
     data: &'d Data,
 
     clients: StableIdMap<ClientId, Client>,
-    terrain_chunks: HashMap<V2, TerrainChunk>,
     entities: StableIdMap<EntityId, Entity>,
-    structures: StableIdMap<StructureId, Structure>,
     inventories: StableIdMap<InventoryId, Inventory>,
+    planes: StableIdMap<PlaneId, Plane>,
+    terrain_chunks: StableIdMap<TerrainChunkId, TerrainChunk>,
+    structures: StableIdMap<StructureId, Structure>,
 
-    structures_by_chunk: HashMap<V2, HashSet<StructureId>>,
+    structures_by_chunk: HashMap<(PlaneId, V2), HashSet<StructureId>>,
 }
 
 
@@ -68,13 +69,12 @@ pub struct Client {
 }
 impl_IntrusiveStableId!(Client, stable_id);
 
-pub struct TerrainChunk {
-    blocks: Box<BlockChunk>,
-
-    child_structures: HashSet<StructureId>,
-}
-
 pub struct Entity {
+    /*
+    plane: PlaneId,
+    stable_plane: Stable<PlaneId>,
+    */
+
     motion: Motion,
     anim: AnimId,
     facing: V3,
@@ -87,7 +87,34 @@ pub struct Entity {
 }
 impl_IntrusiveStableId!(Entity, stable_id);
 
+pub struct Inventory {
+    contents: HashMap<ItemId, u8>,
+
+    stable_id: StableId,
+    attachment: InventoryAttachment,
+}
+impl_IntrusiveStableId!(Inventory, stable_id);
+
+pub struct Plane {
+    loaded_chunks: HashMap<V2, TerrainChunkId>,
+    saved_chunks: HashMap<V2, StableId>,
+
+    stable_id: StableId,
+}
+impl_IntrusiveStableId!(Plane, stable_id);
+
+pub struct TerrainChunk {
+    plane: PlaneId,
+    cpos: V2,
+    blocks: Box<BlockChunk>,
+
+    stable_id: StableId,
+    child_structures: HashSet<StructureId>,
+}
+impl_IntrusiveStableId!(TerrainChunk, stable_id);
+
 pub struct Structure {
+    plane: PlaneId,
     pos: V3,
     template: TemplateId,
 
@@ -97,10 +124,3 @@ pub struct Structure {
 }
 impl_IntrusiveStableId!(Structure, stable_id);
 
-pub struct Inventory {
-    contents: HashMap<ItemId, u8>,
-
-    stable_id: StableId,
-    attachment: InventoryAttachment,
-}
-impl_IntrusiveStableId!(Inventory, stable_id);

@@ -1,7 +1,7 @@
 use types::*;
 
 use world::World;
-use world::{Client, TerrainChunk, Entity, Structure, Inventory};
+use world::{Client, Entity, Inventory, Plane, TerrainChunk, Structure};
 use world::hooks::Hooks;
 use world::object::ObjectRefMut;
 use world::ops::{self, OpResult};

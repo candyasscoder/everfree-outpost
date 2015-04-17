@@ -7,7 +7,7 @@ use data::Data;
 use types::*;
 use util::Convert;
 use util::IntrusiveStableId;
-use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
+use world::{World, Client, Entity, Inventory, Plane, TerrainChunk, Structure};
 use world::object::*;
 
 use super::Result;
@@ -32,18 +32,21 @@ pub trait WriteHooks {
     fn post_write_client<W: Writer>(&mut self,
                                     writer: &mut W,
                                     c: &ObjectRef<Client>) -> Result<()> { Ok(()) }
-    fn post_write_terrain_chunk<W: Writer>(&mut self,
-                                           writer: &mut W,
-                                           t: &ObjectRef<TerrainChunk>) -> Result<()> { Ok(()) }
     fn post_write_entity<W: Writer>(&mut self,
                                     writer: &mut W,
                                     e: &ObjectRef<Entity>) -> Result<()> { Ok(()) }
-    fn post_write_structure<W: Writer>(&mut self,
-                                       writer: &mut W,
-                                       s: &ObjectRef<Structure>) -> Result<()> { Ok(()) }
     fn post_write_inventory<W: Writer>(&mut self,
                                        writer: &mut W,
                                        i: &ObjectRef<Inventory>) -> Result<()> { Ok(()) }
+    fn post_write_plane<W: Writer>(&mut self,
+                                   writer: &mut W,
+                                   t: &ObjectRef<Plane>) -> Result<()> { Ok(()) }
+    fn post_write_terrain_chunk<W: Writer>(&mut self,
+                                           writer: &mut W,
+                                           t: &ObjectRef<TerrainChunk>) -> Result<()> { Ok(()) }
+    fn post_write_structure<W: Writer>(&mut self,
+                                       writer: &mut W,
+                                       s: &ObjectRef<Structure>) -> Result<()> { Ok(()) }
 }
 
 impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
@@ -64,8 +67,6 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
     fn write_object_header<O>(&mut self, o: &ObjectRef<O>) -> Result<()>
             where O: Object+IntrusiveStableId,
                   <O as Object>::Id: ToAnyId {
-        // NB: write_terrain_chunk contains a specialized copy of this code that can deal with
-        // TerrainChunk's idiosyncrasies.
         try!(self.w.write_id(o.id()));
         try!(self.w.write(o.get_stable_id()));
         self.objects_written.insert(o.id().to_any_id());
@@ -111,13 +112,59 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
         Ok(())
     }
 
+    fn write_entity(&mut self, e: &ObjectRef<Entity>) -> Result<()> {
+        try!(self.write_object_header(e));
+
+        // Body
+        let m = &e.motion;
+        try!(self.w.write((m.start_pos,
+                           m.end_pos,
+                           m.start_time,
+                           m.duration, e.anim,  // u16 * 2
+                           e.facing,
+                           e.target_velocity,
+                           e.appearance)));
+
+        try!(self.hooks.post_write_entity(&mut self.w, e));
+
+        // Children
+        try!(self.w.write_count(e.child_inventories.len()));
+        for i in e.child_inventories() {
+            try!(self.write_inventory(&i));
+        }
+
+        Ok(())
+    }
+
+    fn write_inventory(&mut self, i: &ObjectRef<Inventory>) -> Result<()> {
+        try!(self.write_object_header(i));
+        let data = i.world().data();
+
+        // Body
+        try!(self.w.write_count(i.contents.len()));
+        for (&item_id, &count) in i.contents.iter() {
+            if !self.seen_items.contains(&item_id) {
+                self.seen_items.insert(item_id);
+                let name = data.item_data.name(item_id);
+                try!(self.w.write((item_id,
+                                   count,
+                                   unwrap!(name.len().to_u8()))));
+                try!(self.w.write_str_bytes(name));
+            } else {
+                try!(self.w.write((item_id,
+                                   count,
+                                   0_u8)));
+            }
+        }
+
+        try!(self.hooks.post_write_inventory(&mut self.w, i));
+
+        Ok(())
+    }
+
     fn write_terrain_chunk(&mut self, t: &ObjectRef<TerrainChunk>) -> Result<()> {
-        // Write a custom object header.  Assign it a SaveId like normal, but use the chunk
-        // position as a stable ID.
-        let aid = AnyId::TerrainChunk(t.id());
-        try!(self.w.write_id(aid));
-        try!(self.w.write(t.id()));
-        self.objects_written.insert(aid);
+        // TODO: probably broken
+        try!(self.write_object_header(t));
 
         // Body - block data
         let len = t.blocks.len();
@@ -151,34 +198,13 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
         Ok(())
     }
 
-    fn write_entity(&mut self, e: &ObjectRef<Entity>) -> Result<()> {
-        try!(self.write_object_header(e));
-
-        // Body
-        let m = &e.motion;
-        try!(self.w.write((m.start_pos,
-                           m.end_pos,
-                           m.start_time,
-                           m.duration, e.anim,  // u16 * 2
-                           e.facing,
-                           e.target_velocity,
-                           e.appearance)));
-
-        try!(self.hooks.post_write_entity(&mut self.w, e));
-
-        // Children
-        try!(self.w.write_count(e.child_inventories.len()));
-        for i in e.child_inventories() {
-            try!(self.write_inventory(&i));
-        }
-
-        Ok(())
-    }
-
     fn write_structure(&mut self, s: &ObjectRef<Structure>) -> Result<()> {
         try!(self.write_object_header(s));
 
         // Body
+        // Don't write the PlaneId.  At read time, the plane will be set based on the PlaneId of
+        // the parent Plane/TerrainChunk.  This works because structures can't have attachment
+        // outside of their containing Plane.
         try!(self.w.write(s.pos));
         try!(self.write_template_id(s.world().data(), s.template));
 
@@ -193,39 +219,15 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
         Ok(())
     }
 
-    fn write_inventory(&mut self, i: &ObjectRef<Inventory>) -> Result<()> {
-        try!(self.write_object_header(i));
-        let data = i.world().data();
-
-        // Body
-        try!(self.w.write_count(i.contents.len()));
-        for (&item_id, &count) in i.contents.iter() {
-            if !self.seen_items.contains(&item_id) {
-                self.seen_items.insert(item_id);
-                let name = data.item_data.name(item_id);
-                try!(self.w.write((item_id,
-                                   count,
-                                   unwrap!(name.len().to_u8()))));
-                try!(self.w.write_str_bytes(name));
-            } else {
-                try!(self.w.write((item_id,
-                                   count,
-                                   0_u8)));
-            }
-        }
-
-        try!(self.hooks.post_write_inventory(&mut self.w, i));
-
-        Ok(())
-    }
-
     fn write_world(&mut self, w: &World) -> Result<()> {
         use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
 
         try!(self.w.write(w.clients.next_id()));
         try!(self.w.write(w.entities.next_id()));
-        try!(self.w.write(w.structures.next_id()));
         try!(self.w.write(w.inventories.next_id()));
+        try!(self.w.write(w.planes.next_id()));
+        try!(self.w.write(w.terrain_chunks.next_id()));
+        try!(self.w.write(w.structures.next_id()));
 
         try!(self.hooks.post_write_world(&mut self.w, w));
 
@@ -236,16 +238,6 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
             try!(self.w.write_count(es.len()));
             for e in es.into_iter() {
                 try!(self.write_entity(&e));
-            }
-        }
-
-        {
-            let ss = w.structures()
-                      .filter(|s| s.attachment() == StructureAttachment::World)
-                      .collect::<Vec<_>>();
-            try!(self.w.write_count(ss.len()));
-            for s in ss.into_iter() {
-                try!(self.write_structure(&s));
             }
         }
 

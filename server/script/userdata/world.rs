@@ -4,7 +4,6 @@ use physics::CHUNK_SIZE;
 
 use types::*;
 use util::StrResult;
-use util::Stable;
 
 use engine::Engine;
 use engine::glue::WorldFragment;
@@ -46,7 +45,7 @@ impl Userdata for World {
                 let chunk = pos.reduce().div_floor(scalar(CHUNK_SIZE));
                 let mut best_id = None;
                 let mut best_layer = 0;
-                for s in w.chunk_structures(chunk) {
+                for s in w.chunk_structures(PLANE_FOREST, chunk) {
                     if s.bounds().contains(pos) {
                         if s.template().layer >= best_layer {
                             best_layer = s.template().layer;
@@ -65,7 +64,7 @@ impl Userdata for World {
                     unwrap!(wf.data().structure_templates.find_id(template_name),
                             "named structure template does not exist");
 
-                wf.create_structure(pos, template_id)
+                wf.create_structure(PLANE_FOREST, pos, template_id)
                   .map(|s| Structure { id: s.id() })
             }}
 
@@ -329,9 +328,9 @@ impl Userdata for Structure {
                 s.set_template_id(new_template_id)
             }
 
-            fn attach_to_world(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
+            fn attach_to_plane(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
                 let mut s = unwrap!(wf.get_structure_mut(s.id));
-                try!(s.set_attachment(StructureAttachment::World));
+                try!(s.set_attachment(StructureAttachment::Plane));
                 Ok(())
             }
 

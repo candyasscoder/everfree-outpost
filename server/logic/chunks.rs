@@ -54,6 +54,7 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
             {
                 let mut hwf = self.as_hidden_world_fragment();
                 try!(world::Fragment::create_terrain_chunk(&mut hwf,
+                                                           PLANE_FOREST,
                                                            cpos,
                                                            gen_chunk.blocks));
                 let base = cpos.extend(0) * scalar(CHUNK_SIZE);
@@ -83,15 +84,18 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
     }
 
     fn unload(&mut self, cpos: V2) -> save::Result<()> {
-        {
+        let tcid = {
             let (h, eng) = self.borrow().0.split_off();
             let h = SaveWriteHooks(h);
-            let t = eng.world().terrain_chunk(cpos);
+            let p = eng.world().plane(PLANE_FOREST);
+            let t = p.terrain_chunk(cpos);
             let file = eng.storage().create_terrain_chunk_file(cpos);
             let mut sw = ObjectWriter::new(file, h);
             try!(sw.save_terrain_chunk(&t));
-        }
-        try!(world::Fragment::destroy_terrain_chunk(&mut self.as_hidden_world_fragment(), cpos));
+
+            t.id()
+        };
+        try!(world::Fragment::destroy_terrain_chunk(&mut self.as_hidden_world_fragment(), tcid));
         Ok(())
     }
 }

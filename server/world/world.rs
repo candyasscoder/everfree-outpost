@@ -3,7 +3,7 @@ use std::collections::{HashMap, hash_map, hash_set};
 use types::*;
 
 use data::Data;
-use util::stable_id_map::{self, StableIdMap, Stable};
+use util::stable_id_map::{self, StableIdMap};
 use world::types::*;
 use world::object::{Object, ObjectRef};
 
@@ -14,10 +14,11 @@ impl<'d> super::World<'d> {
             data: data,
 
             clients: StableIdMap::new(),
-            terrain_chunks: HashMap::new(),
             entities: StableIdMap::new(),
-            structures: StableIdMap::new(),
             inventories: StableIdMap::new(),
+            planes: StableIdMap::new(),
+            terrain_chunks: StableIdMap::new(),
+            structures: StableIdMap::new(),
 
             structures_by_chunk: HashMap::new(),
         }
@@ -28,10 +29,26 @@ impl<'d> super::World<'d> {
     }
 
 
-    pub fn chunk_structures<'a>(&'a self, chunk_id: V2) -> ChunkStructures<'a, 'd> {
+    pub fn get_chunk<'a>(&'a self, pid: PlaneId, cpos: V2)
+                         -> Option<ObjectRef<'a, 'd, TerrainChunk>> {
+        let p = unwrap_or!(self.planes.get(pid), return None);
+        let &tcid = unwrap_or!(p.loaded_chunks.get(&cpos), return None);
+        // `tcid` came from a plane's `loaded_chunks`, so it must refer to an existing
+        // TerrainChunk.
+        let tc = self.terrain_chunks.get(tcid).unwrap();
+
+        Some(ObjectRef {
+            world: self,
+            id: tcid,
+            obj: tc,
+        })
+    }
+
+
+    pub fn chunk_structures<'a>(&'a self, pid: PlaneId, cpos: V2) -> ChunkStructures<'a, 'd> {
         ChunkStructures {
             world: self,
-            iter: self.structures_by_chunk.get(&chunk_id).map(|xs| xs.iter()),
+            iter: self.structures_by_chunk.get(&(pid, cpos)).map(|xs| xs.iter()),
         }
     }
 
@@ -42,13 +59,6 @@ impl<'d> super::World<'d> {
         }
     }
 
-    pub fn terrain_chunks<'a>(&'a self) -> TerrainChunksById<'a, 'd, hash_map::Keys<'a, V2, TerrainChunk>> {
-        TerrainChunksById {
-            world: self,
-            iter: self.terrain_chunks.keys(),
-        }
-    }
-
     pub fn entities<'a>(&'a self) -> Entities<'a, 'd> {
         Entities {
             world: self,
@@ -56,17 +66,31 @@ impl<'d> super::World<'d> {
         }
     }
 
-    pub fn structures<'a>(&'a self) -> Structures<'a, 'd> {
-        Structures {
-            world: self,
-            iter: self.structures.iter(),
-        }
-    }
-
     pub fn inventories<'a>(&'a self) -> Inventories<'a, 'd> {
         Inventories {
             world: self,
             iter: self.inventories.iter(),
+        }
+    }
+
+    pub fn planes<'a>(&'a self) -> Planes<'a, 'd> {
+        Planes {
+            world: self,
+            iter: self.planes.iter(),
+        }
+    }
+
+    pub fn terrain_chunks<'a>(&'a self) -> TerrainChunks<'a, 'd> {
+        TerrainChunks {
+            world: self,
+            iter: self.terrain_chunks.iter(),
+        }
+    }
+
+    pub fn structures<'a>(&'a self) -> Structures<'a, 'd> {
+        Structures {
+            world: self,
+            iter: self.structures.iter(),
         }
     }
 
@@ -89,18 +113,6 @@ macro_rules! process_objects {
                     transient_client_id;
             }
 
-            object TerrainChunk {
-                id V2;
-                map terrain_chunks;
-                module terrain_chunk;
-                lifecycle (pos: V2, blocks: Box<BlockChunk>)
-                    create_terrain_chunk [id -> pos],
-                    destroy_terrain_chunk,
-                lookups [id -> &id]
-                    get_terrain_chunk, terrain_chunk,
-                    get_terrain_chunk_mut, terrain_chunk_mut,
-            }
-
             object Entity {
                 id EntityId;
                 map entities;
@@ -115,20 +127,6 @@ macro_rules! process_objects {
                     transient_entity_id;
             }
 
-            object Structure {
-                id StructureId;
-                map structures;
-                module structure;
-                lifecycle (pos: V3, tid: TemplateId)
-                    create_structure [id -> id],
-                    destroy_structure,
-                lookups [id -> id]
-                    get_structure, structure,
-                    get_structure_mut, structure_mut,
-                stable_ids
-                    transient_structure_id;
-            }
-
             object Inventory {
                 id InventoryId;
                 map inventories;
@@ -141,6 +139,44 @@ macro_rules! process_objects {
                     get_inventory_mut, inventory_mut,
                 stable_ids
                     transient_inventory_id;
+            }
+
+            object Plane {
+                id PlaneId;
+                map planes;
+                module plane;
+                lifecycle ()
+                    create_plane [id -> id],
+                    destroy_plane,
+                lookups [id -> id]
+                    get_plane, plane,
+                    get_plane_mut, plane_mut,
+            }
+
+            object TerrainChunk {
+                id TerrainChunkId;
+                map terrain_chunks;
+                module terrain_chunk;
+                lifecycle (pid: PlaneId, cpos: V2, blocks: Box<BlockChunk>)
+                    create_terrain_chunk [id -> id],
+                    destroy_terrain_chunk,
+                lookups [id -> id]
+                    get_terrain_chunk, terrain_chunk,
+                    get_terrain_chunk_mut, terrain_chunk_mut,
+            }
+
+            object Structure {
+                id StructureId;
+                map structures;
+                module structure;
+                lifecycle (pid: PlaneId, pos: V3, tid: TemplateId)
+                    create_structure [id -> id],
+                    destroy_structure,
+                lookups [id -> id]
+                    get_structure, structure,
+                    get_structure_mut, structure_mut,
+                stable_ids
+                    transient_structure_id;
             }
         );
     };
@@ -245,8 +281,10 @@ macro_rules! object_iter {
 
 object_iter!(Clients, Client, ClientId);
 object_iter!(Entities, Entity, EntityId);
-object_iter!(Structures, Structure, StructureId);
 object_iter!(Inventories, Inventory, InventoryId);
+object_iter!(Planes, Plane, PlaneId);
+object_iter!(TerrainChunks, TerrainChunk, TerrainChunkId);
+object_iter!(Structures, Structure, StructureId);
 
 
 macro_rules! object_iter_by_id {
@@ -282,7 +320,8 @@ macro_rules! object_iter_by_id {
 }
 
 object_iter_by_id!(ClientsById, Client, ClientId);
-object_iter_by_id!(TerrainChunksById, TerrainChunk, V2);
 object_iter_by_id!(EntitiesById, Entity, EntityId);
-object_iter_by_id!(StructuresById, Structure, StructureId);
 object_iter_by_id!(InventoriesById, Inventory, InventoryId);
+object_iter_by_id!(PlaneById, Plane, PlaneId);
+object_iter_by_id!(TerrainChunksById, TerrainChunk, TerrainChunkId);
+object_iter_by_id!(StructuresById, Structure, StructureId);

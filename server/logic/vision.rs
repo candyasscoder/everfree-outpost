@@ -12,8 +12,9 @@ use vision;
 impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
     fn on_chunk_update(&mut self, cid: ClientId, cpos: V2) {
         use util::encode_rle16;
-        let tc = unwrap_or!(self.world().get_terrain_chunk(cpos),
-            { warn!("no cached terrain available for {:?}", cpos); return });
+        let p = self.world().plane(PLANE_FOREST);
+        let tc = unwrap_or!(p.get_terrain_chunk(cpos),
+            { warn!("no terrain available for {:?}", cpos); return });
         let data = encode_rle16(tc.blocks().iter().map(|&x| x));
         self.messages().send_client(cid, ClientResponse::TerrainChunk(cpos, data));
     }
