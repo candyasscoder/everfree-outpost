@@ -3,6 +3,7 @@ var DEFAULT_CONFIG = {
     'show_inventory_updates': true,
     'ignore_browser_warning': false,
     'chat_scrollback': 100,
+    'chat_lines': 8,
 
     'motion_prediction': true,
     'input_delay': 10,
@@ -69,6 +70,7 @@ exports.Config = {
     show_inventory_updates: new ConfigItem('show_inventory_updates'),
     ignore_browser_warning: new ConfigItem('ignore_browser_warning'),
     chat_scrollback: new ConfigItem('chat_scrollback'),
+    chat_lines: new ConfigItem('chat_lines'),
 
     motion_prediction: new ConfigItem('motion_prediction'),
     input_delay: new ConfigItem('input_delay'),

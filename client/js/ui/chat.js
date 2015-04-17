@@ -3,8 +3,12 @@ var Config = require('config').Config;
 
 /** @constructor */
 function ChatWindow() {
+    var lines = Config.chat_lines.get();
+    // Font size is 0.7rem.  Add a little bit extra to cover line spacing.
+    var height = (lines * 0.85) + 'rem';
+
     this.container = util.element('div', ['chat-container']);
-    this._content = util.element('div', ['chat'], this.container);
+    this._content = util.element('div', ['chat', 'style=height:' + height], this.container);
     this._entry = util.element('input', ['chat-input', 'maxlength=100'], this.container);
     this._entry.disabled = true;
 
