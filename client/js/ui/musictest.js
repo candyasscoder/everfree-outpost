@@ -3,7 +3,13 @@ var util = require('util/misc');
 var widget = require('ui/widget');
 
 var TRACKS = [
-    ];
+    '8bit format of odd songt.mp3',
+    'A Beautiful Day part 2.mp3',
+    'lolOutpost2_looped.ogg',
+    'lolOutpost3_looped.ogg',
+    'lolOutpost4_looped.ogg',
+    'Something New, Something Different.mp3'
+];
 
 /** @constructor */
 function MusicTest() {
