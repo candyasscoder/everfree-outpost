@@ -1103,7 +1103,7 @@ function frame(ac, client_now) {
     if (show_cursor && pony != null) {
         var facing = FACINGS[pony.animId() % FACINGS.length];
         var cursor_pos = pos.divScalar(TILE_SIZE).add(facing);
-        cursor.draw(0, camera_pos, camera_size, cursor_pos);
+        cursor.draw(camera_pos, camera_size, cursor_pos);
     }
 
     debug.frameEnd();

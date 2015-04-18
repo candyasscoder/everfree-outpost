@@ -51,5 +51,5 @@ Cursor.prototype.draw = function(cameraPos, cameraSize, pos) {
         'cursorPos':    [adjusted_pos.x,
                          adjusted_pos.y],
     };
-    this._obj.draw(0, 6, uniforms, {}, {});
+    this._obj.draw(0, 0, 6, uniforms, {}, {});
 }
