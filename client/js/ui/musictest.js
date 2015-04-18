@@ -2,6 +2,9 @@ var Config = require('config').Config;
 var util = require('util/misc');
 var widget = require('ui/widget');
 
+var TRACKS = [
+    ];
+
 /** @constructor */
 function MusicTest() {
     this.dom = util.fromTemplate('music-test', {});
@@ -12,16 +15,25 @@ function MusicTest() {
 
     var objectUrl = null;
 
-    function unload() {
+    util.element('option', ['value=none', 'text=None'], select);
+    var opt_custom = util.element('option',
+            ['value=custom', 'text=Custom', 'disabled=true'], select);
+
+    function makeUrl(blob) {
         if (objectUrl != null) {
             window.URL.revokeObjectURL(objectUrl);
         }
+        objectUrl = window.URL.createObjectURL(blob);
+        opt_custom.disabled = false;
+        return objectUrl;
     }
 
     select.onchange = function() {
-        unload();
         if (select.value == 'none') {
-            player.src = null;
+            player.src = '';
+            player.load();
+        } else if (select.value == 'custom') {
+            player.src = objectUrl;
             player.load();
         } else {
             player.src = select.value;
@@ -30,10 +42,19 @@ function MusicTest() {
     };
 
     file.onchange = function() {
-        unload();
-        player.src = window.URL.createObjectURL(file.files[0]);
+        player.src = makeUrl(file.files[0]);
         player.play();
+        select.value = 'custom';
+        opt_custom.textContent = file.files[0].name;
     };
+
+    for (var i = 0; i < TRACKS.length; ++i) {
+        var name = TRACKS[i];
+
+        var option = util.element('option', [
+                'value=music/' + name,
+                'text=' + name], select);
+    }
 
     this.player = player;
     document.body.appendChild(this.player);
@@ -43,7 +64,7 @@ exports.MusicTest = MusicTest;
 MusicTest.prototype.handleOpen = function(dialog) {
     this.player.controls = true;
     this.dom.appendChild(this.player);
-    if (this.player.src != null) {
+    if (this.player.src != '') {
         this.player.play();
     }
 };
@@ -51,7 +72,7 @@ MusicTest.prototype.handleOpen = function(dialog) {
 MusicTest.prototype.handleClose = function(dialog) {
     this.player.controls = false;
     document.body.appendChild(this.player);
-    if (this.player.src != null) {
+    if (this.player.src != '') {
         this.player.play();
     }
 };
