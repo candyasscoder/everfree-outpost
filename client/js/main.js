@@ -1047,6 +1047,7 @@ function frame(ac, client_now) {
 
     var camera_size = new Vec(view_width, view_height, 0);
     var camera_pos = pos.sub(camera_size.divScalar(2));
+    camera_pos.y -= camera_pos.z;
 
 
     var entity_ids = Object.getOwnPropertyNames(entities);
@@ -1103,6 +1104,7 @@ function frame(ac, client_now) {
     if (show_cursor && pony != null) {
         var facing = FACINGS[pony.animId() % FACINGS.length];
         var cursor_pos = pos.divScalar(TILE_SIZE).add(facing);
+        cursor_pos.y -= cursor_pos.z;
         cursor.draw(camera_pos, camera_size, cursor_pos);
     }
 
