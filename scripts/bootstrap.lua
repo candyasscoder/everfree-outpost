@@ -205,6 +205,18 @@ function command.su_handler.give(client, args)
 end
 command.help.give = '/give <item> [count]: Add items to your inventory'
 
+function command.su_handler.tribe(client, args)
+    local value = {
+        E = 0x00,
+        P = 0x40,
+        U = 0x80,
+        A = 0xc0,
+    }
+
+    client:pawn():update_appearance(0xc0, value[args])
+end
+command.help.tribe = '/tribe [E|P|U|A]: Change the tribe of your character'
+
 
 function outpost_ffi.callbacks.login(c)
     c:set_main_inventory(c:pawn():inventory('main'))
