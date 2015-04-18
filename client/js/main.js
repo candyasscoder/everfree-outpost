@@ -798,6 +798,7 @@ function handleOpenDialog(idx, args) {
         dialog.show(ui);
 
         ui.enableSelect(current_item, function(new_id) {
+            console.log('in select handler', new_id);
             current_item = new_id;
             if (new_id == -1) {
                 $('item-box-icon').style.backgroundPosition = '0rem 0rem';

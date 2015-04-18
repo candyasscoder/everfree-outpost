@@ -34,6 +34,9 @@ InventoryUI.prototype.handleClose = function(dialog) {
 InventoryUI.prototype.enableSelect = function(last_selection, onchange) {
     this.list.select(last_selection);
     this.list.onchange = onchange;
+    if (onchange != null) {
+        onchange(this.list.selectedItem());
+    }
 };
 
 InventoryUI.prototype.disableSelect = function() {
