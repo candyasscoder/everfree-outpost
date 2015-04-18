@@ -198,7 +198,7 @@ def do_deploy_client(args):
     if not s3_path.endswith('/'):
         s3_path += '/'
 
-    run('s3cmd', 'sync', '--exclude=server.json', '--delete-removed',
+    run('s3cmd', 'sync', '--exclude=server.json',
             os.path.join(get_outpost_dir(), 'dist', 'www') + '/',
             s3_path)
 
