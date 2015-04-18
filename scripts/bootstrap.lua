@@ -156,10 +156,54 @@ end
 command.help.home = command.help.sethome
 
 
+no_op = function(...) end
+command.handler.ignore = no_op
 command.help.ignore = '/ignore <name>: Hide chat messages from named player'
+command.handler.unignore = no_op
 command.help.unignore = '/unignore <name>: Stop hiding chat messages from <name>'
 
+command.handler.count = no_op
 command.help.count = '/count: Show the number of players currently online'
+
+
+local function client_by_name(s)
+    local w = World.get()
+    for i = 0, 100 do
+        local c = w:get_client(i)
+        if c ~= nil and c:name() == s then
+            return c
+        end
+    end
+end
+
+function command.su_handler.tp(client, args)
+    x, y, z = args:match('([%d-]+) ([%d-]+) ([%d-]+)')
+    if x ~= nil then
+        client:pawn():teleport(V3.new(x + 0, y + 0, z + 0))
+    else
+        local other = client_by_name(args)
+        if other == nil then
+            client:send_message('No such player: ' .. args)
+        else
+            client:pawn():teleport(other:pawn():pos())
+        end
+    end
+end
+command.help.tp = {
+    "/tp <player>: Teleport to another player's location",
+    '/tp <x> <y> <z>: Teleport to specific coordinates'
+}
+
+function command.su_handler.give(client, args)
+    name, count = args:match('([^ ]+) ([%d-]+)')
+    if name == nil then
+        name = args
+        count = 1
+    end
+
+    client:pawn():inventory('main'):update(name, count + 0)
+end
+command.help.give = '/give <item> [count]: Add items to your inventory'
 
 
 function outpost_ffi.callbacks.login(c)

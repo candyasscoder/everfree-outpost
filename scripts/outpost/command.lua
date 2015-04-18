@@ -1,6 +1,7 @@
 local outpost_ffi = require('outpost_ffi')
 
 local command_handlers = {}
+local super_command_handlers = {}
 function outpost_ffi.callbacks.command(client, msg)
     if msg:sub(1, 1) ~= '/' then
         return
@@ -16,7 +17,16 @@ function outpost_ffi.callbacks.command(client, msg)
         args = msg:sub(index + 1)
     end
 
-    local handler = command_handlers[command]
+    local handler = nil
+    if client:extra().superuser then
+        handler = super_command_handlers[command]
+        if handler == nil then
+            handler = command_handlers[command]
+        end
+    else
+        handler = command_handlers[command]
+    end
+
     if handler == nil then
         client:send_message('unknown command: ' .. command)
         return
@@ -36,8 +46,13 @@ function command_handlers.help(client, args)
 
     if args == '' then
         names = {}
-        for k, v in pairs(command_help) do
+        for k, v in pairs(command_handlers) do
             names[#names + 1] = k
+        end
+        if client:extra().superuser then
+            for k, v in pairs(super_command_handlers) do
+                names[#names + 1] = k
+            end
         end
         table.sort(names)
 
@@ -51,13 +66,15 @@ function command_handlers.help(client, args)
     else
         name = args
 
+        if command_handlers[name] == nil and
+                (not client:extra().superuser or super_command_handlers[name] == nil) then
+            client:send_message('No such command: /' .. name)
+            return
+        end
+
         help = command_help[args]
         if help == nil then
-            if command_handlers[name] == nil then
-                client:send_message('No such command: /' .. name)
-            else
-                client:send_message('No help available for /' .. name)
-            end
+            client:send_message('No help available for /' .. name)
             return
         end
 
@@ -75,5 +92,6 @@ command_help.help = '/help <command>: Show detailed info about <command>'
 
 return {
     handler = command_handlers,
+    su_handler = super_command_handlers,
     help = command_help
 }
