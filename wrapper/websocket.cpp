@@ -16,6 +16,9 @@ websocket::websocket(server& owner, boost::asio::io_service& ios, uint16_t port)
       clients() {
     ws_server.init_asio(&ios);
 
+    ws_server.set_socket_init_handler([] (connection_hdl conn, ip::tcp::socket& socket) {
+        socket.set_option(ip::tcp::socket::reuse_address(true));
+    });
     ws_server.set_open_handler(bind(&websocket::handle_open, this, ::_1));
     ws_server.set_message_handler(bind(&websocket::handle_message, this, ::_1, ::_2));
     ws_server.set_close_handler(bind(&websocket::handle_close, this, ::_1));
