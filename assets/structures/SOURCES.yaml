@@ -109,3 +109,8 @@ rock.png:
         Skyler Robert Colladay 
     license: CC-BY-SA 3.0 / GPL 3.0
     derived-from: ../tiles/terrain_atlas.png
+
+statue.png:
+    title: Pony Statue
+    author: Fernando Ariel dos Santos Alves
+    license: CC-BY 4.0

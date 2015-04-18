@@ -1,5 +1,7 @@
 import os
 
+from PIL import Image
+
 from outpost_data.consts import *
 from outpost_data import depthmap
 import outpost_data.images as I
@@ -158,6 +160,13 @@ def do_fence_parts(s, basename, image):
             name = basename + '/' + part_name
             solid_small(s, name, image, (j, i))
 
+def do_statue(s, basename, image):
+    parts = [image.crop((x * 64, 0, (x + 1) * 64, 96)) for x in (0, 1, 2)]
+    solid_structure(s, basename + '/n', parts[0], (2, 1, 2))
+    solid_structure(s, basename + '/s', parts[1], (2, 1, 2))
+    solid_structure(s, basename + '/e', parts[2], (2, 1, 2))
+    solid_structure(s, basename + '/w', parts[2].transpose(Image.FLIP_LEFT_RIGHT), (2, 1, 2))
+
 
 def get_structures(asset_path):
     path = os.path.join(asset_path, 'structures')
@@ -187,5 +196,6 @@ def get_structures(asset_path):
 
     do_house_parts(s, 'house_wall', img('house.png'), img('house-planemap.png'))
     do_fence_parts(s, 'fence', img('fence.png'))
+    do_statue(s, 'statue', img('statue.png'))
 
     return s

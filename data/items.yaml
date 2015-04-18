@@ -109,3 +109,8 @@ table:
 hat:
     ui_name: Hat
     tile: equip_hat
+
+
+statue:
+    ui_name: Statue
+    tile: statue

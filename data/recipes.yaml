@@ -134,3 +134,9 @@ table:
     ui_name: Table
     inputs: { wood: 20 }
     outputs: { table: 1 }
+
+statue:
+    station: anvil
+    ui_name: Statue
+    inputs: { stone: 50 }
+    outputs: { statue: 1 }

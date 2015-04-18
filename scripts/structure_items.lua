@@ -76,6 +76,7 @@ add_structure_item('house_floor', 'wood_floor/center/v0')
 add_structure_item('road', 'road/center/v0')
 add_structure_item('bed')
 add_structure_item('table')
+add_structure_item('statue', 'statue/e')
 
 
 local function mallet_cycle(base, xs)
@@ -120,6 +121,8 @@ local terrain_cycle = {
 mallet_cycle('wood_floor/', terrain_cycle)
 mallet_cycle('road/', terrain_cycle)
 
+
+mallet_cycle('statue/', { 'e', 's', 'w', 'n' })
 
 return {
     place_structure = place_structure,
