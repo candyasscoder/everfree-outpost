@@ -37,6 +37,7 @@ var Iframe = require('ui/iframe').Iframe;
 var KeyDisplay = require('ui/keydisplay').KeyDisplay;
 var Menu = require('ui/menu').Menu;
 var ConfigEditor = require('ui/configedit').ConfigEditor;
+var MusicTest = require('ui/musictest').MusicTest;
 var PonyEditor = require('ui/ponyedit').PonyEditor;
 var widget = require('ui/widget');
 var ErrorList = require('ui/errorlist').ErrorList;
@@ -176,6 +177,7 @@ var credits;
 var instructions;
 var error_list;
 var inv_update_list;
+var music_test;
 
 var main_menu;
 var debug_menu;
@@ -240,6 +242,7 @@ function init() {
     credits = new Iframe('credits.html');
     instructions = new Iframe('instructions.html');
     inv_update_list = new InventoryUpdateList();
+    music_test = new MusicTest();
 
     canvas.canvas.addEventListener('webglcontextlost', function(evt) {
         throw 'context lost!';
@@ -471,6 +474,7 @@ function initMenus() {
 
     debug_menu = new Menu([
             ['&Config Editor', function() { dialog.show(new ConfigEditor()); }],
+            ['&Music Test', function() { dialog.show(music_test); }],
     ]);
 }
 
