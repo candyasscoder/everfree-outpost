@@ -221,7 +221,8 @@ lpc-cave-top.png:
     cave_top: *terrain-template
 
 lpc-cave-top-cross.png:
-    cave_top/cross: [0, 0]
+    cave_top/cross/nw: [0, 0]
+    cave_top/cross/ne: [0, 1]
 
 equip_hat_icon.png:
     item/equip_hat: [0, 0]

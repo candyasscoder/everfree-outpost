@@ -472,5 +472,5 @@ cave_top:
     corner/inner/_.prefix: corner/inner
     corner/inner: *diagonal-dirs
 
-    cross/nw.bottom: cross
-    cross/ne.bottom: cross
+    cross/nw.bottom: cross/nw
+    cross/ne.bottom: cross/ne
