@@ -42,7 +42,9 @@ local function place_cave(c, cpos, x, y, loot)
     c:set_block(V3.new(x + 1, y, 0), 'cave_entrance/x2/z0')
     c:set_block(V3.new(x + 1, y, 1), 'cave_entrance/x2/z1')
 
-    c:add_structure_with_extras(V3.new(x, y - 3, 0), 'chest', { loot = loot })
+    if loot ~= nil then
+        c:add_structure_with_extras(V3.new(x, y - 3, 0), 'chest', { loot = loot })
+    end
 end
 
 local function choose_loot(r)
@@ -96,7 +98,20 @@ function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
 
                 if not placed_entrance and x >= 2 and y >= 4 and
                         cb == 3 and old_cb_1 == 3 and old_cb_2 == 3 then
-                    place_cave(c, cpos, x - 1, y, choose_loot(r))
+                    local space = 0
+                    for i = 1, 3 do
+                        local cb2 = cave_border[(y - i) * 16 + x + 1]
+                        if cb2 == 1 then
+                            space = i
+                        else
+                            break
+                        end
+                    end
+                    if space >= 3 then
+                        place_cave(c, cpos, x - 1, y, choose_loot(r))
+                    else if space >= 1 then
+                        place_cave(c, cpos, x - 1, y, nil)
+                    end end
                     placed_entrance = true
                 end
                 old_cb_2 = old_cb_1
