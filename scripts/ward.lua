@@ -64,7 +64,11 @@ return {
         local info, dist = find_ward(c, pos, WARD_RADIUS)
         if info ~= nil then
             c:send_message('This area belongs to ' .. info.name)
-            return false
+            if c:extra().superuser then
+                return true
+            else
+                return false
+            end
         else
             return true
         end
