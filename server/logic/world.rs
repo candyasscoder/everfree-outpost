@@ -39,14 +39,14 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
 
 
     fn on_terrain_chunk_create(&mut self, tcid: TerrainChunkId) {
-        let (plane, cpos) = {
+        let (pid, cpos) = {
             let tc = self.world().terrain_chunk(tcid);
             (tc.plane_id(), tc.chunk_pos())
         };
-        vision::Fragment::add_terrain_chunk(&mut self.as_vision_fragment(), tcid, plane, cpos);
+        vision::Fragment::add_terrain_chunk(&mut self.as_vision_fragment(), tcid, pid, cpos);
 
         let Open { world, cache, .. } = (**self).open();
-        warn_on_err!(cache.add_chunk(world, cpos));
+        warn_on_err!(cache.add_chunk(world, pid, cpos));
     }
 
     fn on_terrain_chunk_destroy(&mut self, tcid: TerrainChunkId) {
@@ -92,7 +92,7 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
                             sid: StructureId,
                             pid: PlaneId,
                             old_bounds: Region) {
-        old_structure(self, sid, old_bounds);
+        old_structure(self, sid, pid, old_bounds);
         self.script_mut().cb_structure_destroyed(sid);
     }
 
@@ -100,7 +100,7 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
                             sid: StructureId,
                             pid: PlaneId,
                             old_bounds: Region) {
-        old_structure(self, sid, old_bounds);
+        old_structure(self, sid, pid, old_bounds);
         new_structure(self, sid);
     }
 
@@ -139,16 +139,17 @@ fn new_structure(wh: &mut WorldHooks,
 
     let Open { world, cache, .. } = (**wh).open();
     let s = world.structure(sid);
-    cache.update_region(world, s.bounds());
+    cache.update_region(world, pid, s.bounds());
 }
 
 fn old_structure(wh: &mut WorldHooks,
                  sid: StructureId,
+                 old_pid: PlaneId,
                  old_bounds: Region) {
     vision::Fragment::remove_structure(&mut wh.as_vision_fragment(), sid);
 
     let Open { world, cache, .. } = (**wh).open();
-    cache.update_region(world, old_bounds);
+    cache.update_region(world, old_pid, old_bounds);
 }
 
 
@@ -160,14 +161,14 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
     }
 
     fn on_terrain_chunk_create(&mut self, tcid: TerrainChunkId) {
-        let (plane, cpos) = {
+        let (pid, cpos) = {
             let tc = self.world().terrain_chunk(tcid);
             (tc.plane_id(), tc.chunk_pos())
         };
-        vision::Fragment::add_terrain_chunk(&mut self.as_hidden_vision_fragment(), tcid, plane, cpos);
+        vision::Fragment::add_terrain_chunk(&mut self.as_hidden_vision_fragment(), tcid, pid, cpos);
 
         let Open { world, cache, .. } = (**self).open();
-        warn_on_err!(cache.add_chunk(world, cpos));
+        warn_on_err!(cache.add_chunk(world, pid, cpos));
     }
 
     fn on_terrain_chunk_destroy(&mut self, tcid: TerrainChunkId) {
@@ -191,7 +192,7 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
                             sid: StructureId,
                             pid: PlaneId,
                             old_bounds: Region) {
-        old_structure_hidden(self, sid, old_bounds);
+        old_structure_hidden(self, sid, pid, old_bounds);
         self.script_mut().cb_structure_destroyed(sid);
     }
 
@@ -199,7 +200,7 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
                             sid: StructureId,
                             pid: PlaneId,
                             old_bounds: Region) {
-        old_structure_hidden(self, sid, old_bounds);
+        old_structure_hidden(self, sid, pid, old_bounds);
         new_structure_hidden(self, sid);
     }
 
@@ -226,17 +227,18 @@ fn new_structure_hidden(hwh: &mut HiddenWorldHooks,
 
     let Open { world, cache, .. } = (**hwh).open();
     let s = world.structure(sid);
-    cache.update_region(world, s.bounds());
+    cache.update_region(world, pid, s.bounds());
 }
 
 fn old_structure_hidden(hwh: &mut HiddenWorldHooks,
                         sid: StructureId,
+                        old_pid: PlaneId,
                         old_bounds: Region) {
     vision::Fragment::remove_structure(&mut hwh.as_hidden_vision_fragment(), sid);
 
 
     let Open { world, cache, .. } = (**hwh).open();
-    cache.update_region(world, old_bounds);
+    cache.update_region(world, old_pid, old_bounds);
 }
 
 

@@ -36,7 +36,7 @@ impl<'a> ShapeSource for ChunksSource<'a> {
         let offset = pos & scalar(CHUNK_MASK);
         let cpos = (pos >> CHUNK_BITS).reduce();
 
-        if let Some(entry) = self.cache.get(cpos) {
+        if let Some(entry) = self.cache.get(PLANE_FOREST, cpos) {
             let idx = Region::new(scalar(0), scalar(CHUNK_SIZE)).index(offset);
             debug!("{:?} -> {:?} + {:?} -> {:?}", pos, cpos, offset, entry.shape[idx]);
             entry.shape[idx]
