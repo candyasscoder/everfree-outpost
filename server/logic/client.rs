@@ -66,8 +66,11 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
             eids.push(e.id());
         }
         for &eid in eids.as_slice().iter() {
-            let area = logic::world::entity_area(eng.world(), eid);
-            vision::Fragment::add_entity(&mut eng.as_vision_fragment(), eid, area);
+            let (pid, area) = {
+                let e = eng.world().entity(eid);
+                (e.plane_id(), logic::world::entity_area(e))
+            };
+            vision::Fragment::add_entity(&mut eng.as_vision_fragment(), eid, pid, area);
         }
     }
 
@@ -89,13 +92,16 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
     eng.messages_mut().schedule_check_view(cid, now + 1000);
 
     // Send the client's startup messages.
-    if let Some(pawn_id) = eng.world().client(cid).pawn_id() {
-        eng.messages_mut().send_client(cid, ClientResponse::Init(pawn_id));
-    } else {
-        warn!("{:?}: client has no pawn", cid);
-    }
+    let client_plane =
+        if let Some(pawn_id) = eng.world().client(cid).pawn_id() {
+            eng.messages_mut().send_client(cid, ClientResponse::Init(pawn_id));
+            eng.world().entity(pawn_id).plane_id()
+        } else {
+            warn!("{:?}: client has no pawn", cid);
+            PLANE_LIMBO
+        };
 
-    vision::Fragment::add_client(&mut eng.as_vision_fragment(), cid, region);
+    vision::Fragment::add_client(&mut eng.as_vision_fragment(), cid, client_plane, region);
 
     warn_on_err!(script::ScriptEngine::cb_login(eng.unwrap(), cid));
 
@@ -133,14 +139,14 @@ pub fn update_view(mut eng: EngineRef, cid: ClientId) {
         None => return,
     };
 
-    let new_region = {
+    let (new_plane, new_region) = {
         // TODO: warn on None? - may indicate inconsistency between World and Vision
         let client = unwrap_or!(eng.world().get_client(cid));
 
         // TODO: make sure return is the right thing to do on None
         let pawn = unwrap_or!(client.pawn());
 
-        vision::vision_region(pawn.pos(now))
+        (pawn.plane_id(), vision::vision_region(pawn.pos(now)))
     };
 
     // un/load_chunk use HiddenWorldFragment, so do the calls in this specific order to make sure
@@ -150,7 +156,7 @@ pub fn update_view(mut eng: EngineRef, cid: ClientId) {
         logic::chunks::load_chunk(eng.borrow(), cpos);
     }
 
-    vision::Fragment::set_client_view(&mut eng.as_vision_fragment(), cid, new_region);
+    vision::Fragment::set_client_view(&mut eng.as_vision_fragment(), cid, new_plane, new_region);
 
     for cpos in old_region.points().filter(|&p| !new_region.contains(p)) {
         logic::chunks::unload_chunk(eng.borrow(), cpos);

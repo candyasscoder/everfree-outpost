@@ -9,7 +9,7 @@ use chunks;
 use data::StructureTemplate;
 use engine::glue::*;
 use engine::split::Open;
-use world::{self, World};
+use world::{self, World, Entity, Structure};
 use world::object::*;
 use vision::{self, vision_region};
 
@@ -28,19 +28,22 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
                              _old_pawn: Option<EntityId>,
                              _new_pawn: Option<EntityId>) {
         let now = self.now();
-        let center = match self.world().client(cid).pawn() {
-            Some(e) => e.pos(now),
-            None => scalar(0),
+        let (plane, center) = match self.world().client(cid).pawn() {
+            Some(e) => (e.plane_id(), e.pos(now)),
+            None => (PLANE_LIMBO, scalar(0)),
         };
 
         let region = vision_region(center);
-        vision::Fragment::set_client_view(&mut self.as_vision_fragment(), cid, region);
+        vision::Fragment::set_client_view(&mut self.as_vision_fragment(), cid, plane, region);
     }
 
 
     fn on_terrain_chunk_create(&mut self, tcid: TerrainChunkId) {
-        let cpos = self.world().terrain_chunk(tcid).chunk_pos();
-        vision::Fragment::add_chunk(&mut self.as_vision_fragment(), cpos);
+        let (plane, cpos) = {
+            let tc = self.world().terrain_chunk(tcid);
+            (tc.plane_id(), tc.chunk_pos())
+        };
+        vision::Fragment::add_terrain_chunk(&mut self.as_vision_fragment(), tcid, plane, cpos);
 
         let Open { world, cache, .. } = (**self).open();
         warn_on_err!(cache.add_chunk(world, cpos));
@@ -56,8 +59,11 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
 
 
     fn on_entity_create(&mut self, eid: EntityId) {
-        let area = entity_area(self.world(), eid);
-        vision::Fragment::add_entity(&mut self.as_vision_fragment(), eid, area);
+        let (plane, area) = {
+            let e = self.world().entity(eid);
+            (e.plane_id(), entity_area(self.world().entity(eid)))
+        };
+        vision::Fragment::add_entity(&mut self.as_vision_fragment(), eid, plane, area);
     }
 
     fn on_entity_destroy(&mut self, eid: EntityId) {
@@ -66,8 +72,11 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
     }
 
     fn on_entity_motion_change(&mut self, eid: EntityId) {
-        let area = entity_area(self.world(), eid);
-        vision::Fragment::set_entity_area(&mut self.as_vision_fragment(), eid, area);
+        let (plane, area) = {
+            let e = self.world().entity(eid);
+            (e.plane_id(), entity_area(self.world().entity(eid)))
+        };
+        vision::Fragment::set_entity_area(&mut self.as_vision_fragment(), eid, plane, area);
     }
 
     fn on_entity_appearance_change(&mut self, eid: EntityId) {
@@ -122,8 +131,11 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
 
 fn new_structure(wh: &mut WorldHooks,
                  sid: StructureId) {
-    let area = structure_area(wh.world(), sid);
-    vision::Fragment::add_structure(&mut wh.as_vision_fragment(), sid, area);
+    let (pid, area) = {
+        let s = wh.world().structure(sid);
+        (s.plane_id(), structure_area(s))
+    };
+    vision::Fragment::add_structure(&mut wh.as_vision_fragment(), sid, pid, area);
 
     let Open { world, cache, .. } = (**wh).open();
     let s = world.structure(sid);
@@ -148,8 +160,11 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
     }
 
     fn on_terrain_chunk_create(&mut self, tcid: TerrainChunkId) {
-        let cpos = self.world().terrain_chunk(tcid).chunk_pos();
-        vision::Fragment::add_chunk(&mut self.as_hidden_vision_fragment(), cpos);
+        let (plane, cpos) = {
+            let tc = self.world().terrain_chunk(tcid);
+            (tc.plane_id(), tc.chunk_pos())
+        };
+        vision::Fragment::add_terrain_chunk(&mut self.as_hidden_vision_fragment(), tcid, plane, cpos);
 
         let Open { world, cache, .. } = (**self).open();
         warn_on_err!(cache.add_chunk(world, cpos));
@@ -203,8 +218,11 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
 
 fn new_structure_hidden(hwh: &mut HiddenWorldHooks,
                         sid: StructureId) {
-    let area = structure_area(hwh.world(), sid);
-    vision::Fragment::add_structure(&mut hwh.as_hidden_vision_fragment(), sid, area);
+    let (pid, area) = {
+        let s = hwh.world().structure(sid);
+        (s.plane_id(), structure_area(s))
+    };
+    vision::Fragment::add_structure(&mut hwh.as_hidden_vision_fragment(), sid, pid, area);
 
     let Open { world, cache, .. } = (**hwh).open();
     let s = world.structure(sid);
@@ -222,8 +240,7 @@ fn old_structure_hidden(hwh: &mut HiddenWorldHooks,
 }
 
 
-pub fn entity_area(w: &World, eid: EntityId) -> SmallSet<V2> {
-    let e = w.entity(eid);
+pub fn entity_area(e: ObjectRef<Entity>) -> SmallSet<V2> {
     let mut area = SmallSet::new();
 
     let a = e.motion().start_pos.reduce().div_floor(scalar(CHUNK_SIZE * TILE_SIZE));
@@ -234,9 +251,7 @@ pub fn entity_area(w: &World, eid: EntityId) -> SmallSet<V2> {
     area
 }
 
-pub fn structure_area(w: &World, sid: StructureId) -> SmallSet<V2> {
-    let s = w.structure(sid);
-
+pub fn structure_area(s: ObjectRef<Structure>) -> SmallSet<V2> {
     let mut area = SmallSet::new();
     for p in s.bounds().reduce().div_round_signed(CHUNK_SIZE).points() {
         area.insert(p);

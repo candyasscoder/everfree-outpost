@@ -19,14 +19,19 @@ use vision;
 pub fn load_chunk(mut eng: EngineRef, cpos: V2) {
     let first = chunks::Fragment::load(&mut eng.as_chunks_fragment(), cpos);
     if first {
-        vision::Fragment::add_chunk(&mut eng.as_vision_fragment(), cpos);
+        let tcid = eng.world().plane(PLANE_FOREST).terrain_chunk(cpos).id();
+        vision::Fragment::add_terrain_chunk(&mut eng.as_vision_fragment(),
+                                            tcid,
+                                            PLANE_FOREST,
+                                            cpos);
     }
 }
 
 pub fn unload_chunk(mut eng: EngineRef, cpos: V2) {
+    let tcid = eng.world().plane(PLANE_FOREST).terrain_chunk(cpos).id();
     let last = chunks::Fragment::unload(&mut eng.as_chunks_fragment(), cpos);
     if last {
-        vision::Fragment::remove_chunk(&mut eng.as_vision_fragment(), cpos);
+        vision::Fragment::remove_terrain_chunk(&mut eng.as_vision_fragment(), tcid)
     }
 }
 

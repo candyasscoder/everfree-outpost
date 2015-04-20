@@ -21,47 +21,75 @@ pub fn vision_region(pos: V3) -> Region<V2> {
 }
 
 
+type ViewerId = ClientId;
+
 pub struct Vision {
-    clients: VecMap<VisionClient>,
-    entities: VecMap<VisionEntity>,
-    structures: VecMap<VisionStructure>,
+    viewers: VecMap<Viewer>,
+    viewers_by_pos: HashMap<(PlaneId, V2), HashSet<ViewerId>>,
 
-    clients_by_chunk: HashMap<V2, HashSet<ClientId>>,
-    entities_by_chunk: HashMap<V2, HashSet<EntityId>>,
-    structures_by_chunk: HashMap<V2, HashSet<StructureId>>,
+    entities: VecMap<Entity>,
+    terrain_chunks: VecMap<TerrainChunk>,
+    structures: VecMap<Structure>,
 
-    loaded_chunks: HashSet<V2>,
+    // NB: PLANE_LIMBO gets special treatment so that it always appears empty, no matter what is
+    // actually present.  This is done by skipping insertions into x_by_pos when the PlaneId is
+    // PLANE_LIMBO.  Thus, none of the x_by_pos maps should ever have PLANE_LIMBO in theer keys.
+    entities_by_pos: HashMap<(PlaneId, V2), HashSet<EntityId>>,
+    terrain_chunks_by_pos: HashMap<(PlaneId, V2), HashSet<TerrainChunkId>>,
+    structures_by_pos: HashMap<(PlaneId, V2), HashSet<StructureId>>,
 
-    inventory_viewers: HashMap<InventoryId, HashSet<ClientId>>,
+    inventory_viewers: HashMap<InventoryId, HashSet<ViewerId>>,
 }
 
-struct VisionClient {
+
+struct Viewer {
+    plane: PlaneId,
     view: Region<V2>,
+
     visible_entities: RefcountedMap<EntityId, ()>,
-    visible_inventories: RefcountedMap<InventoryId, ()>,
+    visible_terrain_chunks: RefcountedMap<TerrainChunkId, ()>,
     visible_structures: RefcountedMap<StructureId, ()>,
+    visible_inventories: RefcountedMap<InventoryId, ()>,
 }
 
-struct VisionEntity {
+struct Entity {
+    plane: PlaneId,
     area: SmallSet<V2>,
-    viewers: HashSet<ClientId>,
+    viewers: HashSet<ViewerId>,
 }
 
-struct VisionStructure {
-    area: SmallSet<V2>,
-    viewers: HashSet<ClientId>,
+struct TerrainChunk {
+    plane: PlaneId,
+    cpos: V2,
+    viewers: HashSet<ViewerId>,
 }
+
+struct Structure {
+    plane: PlaneId,
+    area: SmallSet<V2>,
+    viewers: HashSet<ViewerId>,
+}
+
 
 #[allow(unused_variables)]
 pub trait Hooks {
-    fn on_chunk_appear(&mut self, cid: ClientId, pos: V2) {}
-    fn on_chunk_disappear(&mut self, cid: ClientId, pos: V2) {}
-    fn on_chunk_update(&mut self, cid: ClientId, pos: V2) {}
-
     fn on_entity_appear(&mut self, cid: ClientId, eid: EntityId) {}
     fn on_entity_disappear(&mut self, cid: ClientId, eid: EntityId) {}
     fn on_entity_motion_update(&mut self, cid: ClientId, eid: EntityId) {}
     fn on_entity_appearance_update(&mut self, cid: ClientId, eid: EntityId) {}
+
+    fn on_terrain_chunk_appear(&mut self,
+                               cid: ClientId,
+                               tcid: TerrainChunkId,
+                               cpos: V2) {}
+    fn on_terrain_chunk_disappear(&mut self,
+                                  cid: ClientId,
+                                  tcid: TerrainChunkId,
+                                  cpos: V2) {}
+    fn on_terrain_chunk_update(&mut self,
+                               cid: ClientId,
+                               tcid: TerrainChunkId,
+                               cpos: V2) {}
 
     fn on_structure_appear(&mut self, cid: ClientId, sid: StructureId) {}
     fn on_structure_disappear(&mut self, cid: ClientId, sid: StructureId) {}
@@ -82,13 +110,17 @@ impl Hooks for NoHooks { }
 impl Vision {
     pub fn new() -> Vision {
         Vision {
-            clients: VecMap::new(),
+            viewers: VecMap::new(),
+            viewers_by_pos: HashMap::new(),
+
             entities: VecMap::new(),
+            terrain_chunks: VecMap::new(),
             structures: VecMap::new(),
-            clients_by_chunk: HashMap::new(),
-            entities_by_chunk: HashMap::new(),
-            structures_by_chunk: HashMap::new(),
-            loaded_chunks: HashSet::new(),
+
+            entities_by_pos: HashMap::new(),
+            terrain_chunks_by_pos: HashMap::new(),
+            structures_by_pos: HashMap::new(),
+
             inventory_viewers: HashMap::new(),
         }
     }
@@ -97,12 +129,13 @@ impl Vision {
 impl Vision {
     pub fn add_client<H>(&mut self,
                          cid: ClientId,
+                         plane: PlaneId,
                          view: Region<V2>,
                          h: &mut H)
             where H: Hooks {
         debug!("{:?} created", cid);
-        self.clients.insert(cid.unwrap() as usize, VisionClient::new());
-        self.set_client_view(cid, view, h);
+        self.viewers.insert(cid.unwrap() as usize, Viewer::new());
+        self.set_client_view(cid, plane, view, h);
     }
 
     pub fn remove_client<H>(&mut self,
@@ -110,125 +143,153 @@ impl Vision {
                             h: &mut H)
             where H: Hooks {
         debug!("{:?} destroyed", cid);
-        self.set_client_view(cid, Region::empty(), h);
-        self.clients.remove(&(cid.unwrap() as usize));
+        self.set_client_view(cid, PLANE_LIMBO, Region::empty(), h);
+        self.viewers.remove(&(cid.unwrap() as usize));
     }
 
     pub fn set_client_view<H>(&mut self,
                               cid: ClientId,
+                              new_plane: PlaneId,
                               new_view: Region<V2>,
                               h: &mut H)
             where H: Hooks {
         let raw_cid = cid.unwrap() as usize;
-        let client = unwrap_or!(self.clients.get_mut(&raw_cid));
-        let old_view = mem::replace(&mut client.view, new_view);
+        let viewer = unwrap_or!(self.viewers.get_mut(&raw_cid));
+        let old_plane = mem::replace(&mut viewer.plane, new_plane);
+        let old_view = mem::replace(&mut viewer.view, new_view);
+        let plane_change = old_plane != new_plane;
+
         let entities = &mut self.entities;
+        let terrain_chunks = &mut self.terrain_chunks;
         let structures = &mut self.structures;
 
-        for p in new_view.points().filter(|&p| !old_view.contains(p)) {
-            for &eid in self.entities_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
-                client.visible_entities.retain(eid, || {
+        for p in new_view.points().filter(|&p| !old_view.contains(p) || plane_change) {
+            let pos = (new_plane, p);
+
+            for &eid in self.entities_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
+                viewer.visible_entities.retain(eid, || {
                     debug!("{:?} moved: ++{:?}", cid, eid);
                     h.on_entity_appear(cid, eid);
-                    h.on_entity_motion_update(cid, eid);
                     entities[eid.unwrap() as usize].viewers.insert(cid);
                 });
             }
 
-            for &sid in self.structures_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
-                client.visible_structures.retain(sid, || {
+            for &tcid in self.terrain_chunks_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
+                viewer.visible_terrain_chunks.retain(tcid, || {
+                    debug!("{:?} moved: ++{:?}", cid, tcid);
+                    let cpos = terrain_chunks[tcid.unwrap() as usize].cpos;
+                    h.on_terrain_chunk_appear(cid, tcid, cpos);
+                    terrain_chunks[tcid.unwrap() as usize].viewers.insert(cid);
+                });
+            }
+
+            for &sid in self.structures_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
+                viewer.visible_structures.retain(sid, || {
                     debug!("{:?} moved: ++{:?}", cid, sid);
                     h.on_structure_appear(cid, sid);
                     structures[sid.unwrap() as usize].viewers.insert(cid);
                 });
             }
 
-            if self.loaded_chunks.contains(&p) {
-                debug!("{:?} moved: ++chunk {:?}", cid, p);
-                h.on_chunk_appear(cid, p);
-                h.on_chunk_update(cid, p);
+            if new_plane != PLANE_LIMBO {
+                multimap_insert(&mut self.viewers_by_pos, pos, cid);
             }
-            multimap_insert(&mut self.clients_by_chunk, p, cid);
         }
 
-        for p in old_view.points().filter(|&p| !new_view.contains(p)) {
-            for &eid in self.entities_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
-                client.visible_entities.release(eid, |()| {
+        for p in old_view.points().filter(|&p| !new_view.contains(p) || plane_change) {
+            let pos = (old_plane, p);
+
+            for &eid in self.entities_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
+                viewer.visible_entities.release(eid, |()| {
                     debug!("{:?} moved: --{:?}", cid, eid);
                     h.on_entity_disappear(cid, eid);
                     entities[eid.unwrap() as usize].viewers.remove(&cid);
                 });
             }
 
-            for &sid in self.structures_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
-                client.visible_structures.release(sid, |()| {
+            for &tcid in self.terrain_chunks_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
+                viewer.visible_terrain_chunks.release(tcid, |()| {
+                    debug!("{:?} moved: --{:?}", cid, tcid);
+                    let cpos = terrain_chunks[tcid.unwrap() as usize].cpos;
+                    h.on_terrain_chunk_disappear(cid, tcid, cpos);
+                    terrain_chunks[tcid.unwrap() as usize].viewers.remove(&cid);
+                });
+            }
+
+            for &sid in self.structures_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
+                viewer.visible_structures.release(sid, |()| {
                     debug!("{:?} moved: --{:?}", cid, sid);
                     h.on_structure_disappear(cid, sid);
                     structures[sid.unwrap() as usize].viewers.remove(&cid);
                 });
             }
 
-            if self.loaded_chunks.contains(&p) {
-                debug!("{:?} moved: --{:?}", cid, p);
-                h.on_chunk_disappear(cid, p);
-            }
-
-            multimap_remove(&mut self.clients_by_chunk, p, cid);
+            multimap_remove(&mut self.viewers_by_pos, pos, cid);
         }
     }
 
     pub fn client_view_area(&self, cid: ClientId) -> Option<Region<V2>> {
-        self.clients.get(&(cid.unwrap() as usize)).map(|c| c.view)
+        self.viewers.get(&(cid.unwrap() as usize)).map(|c| c.view)
     }
 
 
     pub fn add_entity<H>(&mut self,
                          eid: EntityId,
+                         plane: PlaneId,
                          area: SmallSet<V2>,
                          h: &mut H)
             where H: Hooks {
-        self.entities.insert(eid.unwrap() as usize, VisionEntity::new());
-        self.set_entity_area(eid, area, h);
+        debug!("{:?} created", eid);
+        self.entities.insert(eid.unwrap() as usize, Entity::new());
+        self.set_entity_area(eid, plane, area, h);
     }
 
     pub fn remove_entity<H>(&mut self,
                             eid: EntityId,
                             h: &mut H)
             where H: Hooks {
-        self.set_entity_area(eid, SmallSet::new(), h);
+        self.set_entity_area(eid, PLANE_LIMBO, SmallSet::new(), h);
         self.entities.remove(&(eid.unwrap() as usize));
     }
 
     pub fn set_entity_area<H>(&mut self,
                               eid: EntityId,
+                              new_plane: PlaneId,
                               new_area: SmallSet<V2>,
                               h: &mut H)
             where H: Hooks {
         let raw_eid = eid.unwrap() as usize;
         let entity = &mut self.entities[raw_eid];
 
+        let old_plane = mem::replace(&mut entity.plane, new_plane);
+        // SmallSet is non-Copy, so insert a dummy value here and set the real one later.
         let old_area = mem::replace(&mut entity.area, SmallSet::new());
+        let plane_change = new_plane != old_plane;
 
-        for &p in new_area.iter().filter(|&p| !old_area.contains(p)) {
-            for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
-                self.clients[cid.unwrap() as usize].visible_entities.retain(eid, || {
+        for &p in new_area.iter().filter(|&p| !old_area.contains(p) || plane_change) {
+            let pos = (new_plane, p);
+            for &cid in self.viewers_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
+                self.viewers[cid.unwrap() as usize].visible_entities.retain(eid, || {
                     debug!("{:?} moved: ++{:?}", eid, cid);
                     h.on_entity_appear(cid, eid);
                     entity.viewers.insert(cid);
                 });
             }
-            multimap_insert(&mut self.entities_by_chunk, p, eid);
+            if new_plane != PLANE_LIMBO {
+                multimap_insert(&mut self.entities_by_pos, pos, eid);
+            }
         }
 
-        for &p in old_area.iter().filter(|&p| !new_area.contains(p)) {
-            for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
-                self.clients[cid.unwrap() as usize].visible_entities.release(eid, |()| {
+        for &p in old_area.iter().filter(|&p| !new_area.contains(p) || plane_change) {
+            let pos = (old_plane, p);
+            for &cid in self.viewers_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
+                self.viewers[cid.unwrap() as usize].visible_entities.release(eid, |()| {
                     debug!("{:?} moved: --{:?}", eid, cid);
                     h.on_entity_disappear(cid, eid);
                     entity.viewers.remove(&cid);
                 });
             }
-            multimap_remove(&mut self.entities_by_chunk, p, eid);
+            multimap_remove(&mut self.entities_by_pos, pos, eid);
         }
 
         for &cid in entity.viewers.iter() {
@@ -252,25 +313,89 @@ impl Vision {
     }
 
 
+    pub fn add_terrain_chunk<H>(&mut self,
+                                tcid: TerrainChunkId,
+                                plane: PlaneId,
+                                cpos: V2,
+                                h: &mut H)
+            where H: Hooks {
+        self.terrain_chunks.insert(tcid.unwrap() as usize, TerrainChunk::new());
+        let terrain_chunk = &mut self.terrain_chunks[tcid.unwrap() as usize];
+
+        // Structures don't move, so we can inline the two halves of the set_x_area logic.
+
+        let pos = (plane, cpos);
+        for &cid in self.viewers_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
+            self.viewers[cid.unwrap() as usize].visible_terrain_chunks.retain(tcid, || {
+                debug!("{:?} moved: ++{:?}", tcid, cid);
+                h.on_terrain_chunk_appear(cid, tcid, cpos);
+                terrain_chunk.viewers.insert(cid);
+            });
+        }
+        if plane != PLANE_LIMBO {
+            multimap_insert(&mut self.terrain_chunks_by_pos, pos, tcid);
+        }
+
+        terrain_chunk.plane = plane;
+        terrain_chunk.cpos = cpos;
+    }
+
+    pub fn remove_terrain_chunk<H>(&mut self,
+                                   tcid: TerrainChunkId,
+                                   h: &mut H)
+            where H: Hooks {
+        let terrain_chunk = self.terrain_chunks.remove(&(tcid.unwrap() as usize)).unwrap();
+
+        let pos = (terrain_chunk.plane, terrain_chunk.cpos);
+        for &cid in self.viewers_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
+            self.viewers[cid.unwrap() as usize].visible_terrain_chunks.release(tcid, |()| {
+                debug!("{:?} moved: --{:?}", tcid, cid);
+                h.on_terrain_chunk_disappear(cid, tcid, terrain_chunk.cpos);
+            });
+        }
+        multimap_remove(&mut self.terrain_chunks_by_pos, pos, tcid);
+    }
+
+    pub fn update_terrain_chunk<H>(&mut self,
+                                   tcid: TerrainChunkId,
+                                   h: &mut H)
+            where H: Hooks {
+
+        let raw_tcid = tcid.unwrap() as usize;
+        let terrain_chunk = &self.terrain_chunks[raw_tcid];
+
+        for &cid in terrain_chunk.viewers.iter() {
+            h.on_terrain_chunk_update(cid, tcid, terrain_chunk.cpos);
+        }
+    }
+
+
     pub fn add_structure<H>(&mut self,
                             sid: StructureId,
+                            plane: PlaneId,
                             area: SmallSet<V2>,
                             h: &mut H)
             where H: Hooks {
-        self.structures.insert(sid.unwrap() as usize, VisionStructure::new());
+        self.structures.insert(sid.unwrap() as usize, Structure::new());
         let structure = &mut self.structures[sid.unwrap() as usize];
 
+        // Structures don't move, so we can inline the two halves of the set_x_area logic.
+
         for &p in area.iter() {
-            for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
-                self.clients[cid.unwrap() as usize].visible_structures.retain(sid, || {
+            let pos = (plane, p);
+            for &cid in self.viewers_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
+                self.viewers[cid.unwrap() as usize].visible_structures.retain(sid, || {
                     debug!("{:?} moved: ++{:?}", sid, cid);
                     h.on_structure_appear(cid, sid);
                     structure.viewers.insert(cid);
                 });
             }
-            multimap_insert(&mut self.structures_by_chunk, p, sid);
+            if plane != PLANE_LIMBO {
+                multimap_insert(&mut self.structures_by_pos, pos, sid);
+            }
         }
 
+        structure.plane = plane;
         structure.area = area;
     }
 
@@ -280,49 +405,18 @@ impl Vision {
             where H: Hooks {
         let structure = self.structures.remove(&(sid.unwrap() as usize)).unwrap();
         for &p in structure.area.iter() {
-            for &cid in self.clients_by_chunk.get(&p).map(|x| x.iter()).unwrap_iter() {
-                self.clients[cid.unwrap() as usize].visible_structures.release(sid, |()| {
+            let pos = (structure.plane, p);
+            for &cid in self.viewers_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
+                self.viewers[cid.unwrap() as usize].visible_structures.release(sid, |()| {
                     debug!("{:?} moved: --{:?}", sid, cid);
                     h.on_structure_disappear(cid, sid);
                 });
             }
-            multimap_remove(&mut self.structures_by_chunk, p, sid);
+            multimap_remove(&mut self.structures_by_pos, pos, sid);
         }
     }
 
-
-    pub fn add_chunk<H>(&mut self,
-                        pos: V2,
-                        h: &mut H)
-            where H: Hooks {
-        self.loaded_chunks.insert(pos);
-        for &cid in self.clients_by_chunk.get(&pos).map(|x| x.iter()).unwrap_iter() {
-            debug!("chunk {:?} created: ++{:?}", pos, cid);
-            h.on_chunk_appear(cid, pos);
-            h.on_chunk_update(cid, pos);
-        }
-    }
-
-    pub fn remove_chunk<H>(&mut self,
-                           pos: V2,
-                           h: &mut H)
-            where H: Hooks {
-        for &cid in self.clients_by_chunk.get(&pos).map(|x| x.iter()).unwrap_iter() {
-            debug!("chunk {:?} destroyed: --{:?}", pos, cid);
-            h.on_chunk_disappear(cid, pos);
-        }
-        self.loaded_chunks.remove(&pos);
-    }
-
-    pub fn update_chunk<H>(&mut self,
-                           pos: V2,
-                           h: &mut H)
-            where H: Hooks {
-        for &cid in self.clients_by_chunk.get(&pos).map(|x| x.iter()).unwrap_iter() {
-            debug!("chunk {:?} updated: **{:?}", pos, cid);
-            h.on_chunk_update(cid, pos);
-        }
-    }
+    // TODO: handle structure template changes
 
 
     pub fn subscribe_inventory<H>(&mut self,
@@ -330,10 +424,10 @@ impl Vision {
                                   iid: InventoryId,
                                   h: &mut H)
             where H: Hooks {
-        let client = unwrap_or!(self.clients.get_mut(&(cid.unwrap() as usize)));
+        let viewer = unwrap_or!(self.viewers.get_mut(&(cid.unwrap() as usize)));
         let inventory_viewers = &mut self.inventory_viewers;
 
-        client.visible_inventories.retain(iid, || {
+        viewer.visible_inventories.retain(iid, || {
             multimap_insert(inventory_viewers, iid, cid);
             h.on_inventory_appear(cid, iid);
         });
@@ -344,10 +438,10 @@ impl Vision {
                                     iid: InventoryId,
                                     h: &mut H)
             where H: Hooks {
-        let client = unwrap_or!(self.clients.get_mut(&(cid.unwrap() as usize)));
+        let viewer = unwrap_or!(self.viewers.get_mut(&(cid.unwrap() as usize)));
         let inventory_viewers = &mut self.inventory_viewers;
 
-        client.visible_inventories.release(iid, |()| {
+        viewer.visible_inventories.release(iid, |()| {
             multimap_remove(inventory_viewers, iid, cid);
             h.on_inventory_disappear(cid, iid);
         });
@@ -367,29 +461,43 @@ impl Vision {
     }
 }
 
-impl VisionClient {
-    fn new() -> VisionClient {
-        VisionClient {
+impl Viewer {
+    fn new() -> Viewer {
+        Viewer {
+            plane: PLANE_LIMBO,
             view: Region::empty(),
             visible_entities: RefcountedMap::new(),
-            visible_inventories: RefcountedMap::new(),
+            visible_terrain_chunks: RefcountedMap::new(),
             visible_structures: RefcountedMap::new(),
+            visible_inventories: RefcountedMap::new(),
         }
     }
 }
 
-impl VisionEntity {
-    fn new() -> VisionEntity {
-        VisionEntity {
+impl Entity {
+    fn new() -> Entity {
+        Entity {
+            plane: PLANE_LIMBO,
             area: SmallSet::new(),
             viewers: HashSet::new(),
         }
     }
 }
 
-impl VisionStructure {
-    fn new() -> VisionStructure {
-        VisionStructure {
+impl TerrainChunk {
+    fn new() -> TerrainChunk {
+        TerrainChunk {
+            plane: PLANE_LIMBO,
+            cpos: scalar(0),
+            viewers: HashSet::new(),
+        }
+    }
+}
+
+impl Structure {
+    fn new() -> Structure {
+        Structure {
+            plane: PLANE_LIMBO,
             area: SmallSet::new(),
             viewers: HashSet::new(),
         }
@@ -416,21 +524,21 @@ macro_rules! gen_Fragment {
 }
 
 gen_Fragment! {
-    fn add_client(cid: ClientId, view: Region<V2>);
+    fn add_client(cid: ClientId, plane: PlaneId, view: Region<V2>);
     fn remove_client(cid: ClientId);
-    fn set_client_view(cid: ClientId, view: Region<V2>);
+    fn set_client_view(cid: ClientId, plane: PlaneId, view: Region<V2>);
 
-    fn add_entity(eid: EntityId, area: SmallSet<V2>);
+    fn add_entity(eid: EntityId, plane: PlaneId, area: SmallSet<V2>);
     fn remove_entity(eid: EntityId);
-    fn set_entity_area(eid: EntityId, area: SmallSet<V2>);
+    fn set_entity_area(eid: EntityId, plane: PlaneId, area: SmallSet<V2>);
     fn update_entity_appearance(eid: EntityId);
 
-    fn add_structure(sid: StructureId, area: SmallSet<V2>);
-    fn remove_structure(sid: StructureId);
+    fn add_terrain_chunk(tcid: TerrainChunkId, plane: PlaneId, cpos: V2);
+    fn remove_terrain_chunk(tcid: TerrainChunkId);
+    fn update_terrain_chunk(tcid: TerrainChunkId);
 
-    fn add_chunk(pos: V2);
-    fn remove_chunk(pos: V2);
-    fn update_chunk(pos: V2);
+    fn add_structure(sid: StructureId, plane: PlaneId, area: SmallSet<V2>);
+    fn remove_structure(sid: StructureId);
 
     fn subscribe_inventory(cid: ClientId, iid: InventoryId);
     fn unsubscribe_inventory(cid: ClientId, iid: InventoryId);

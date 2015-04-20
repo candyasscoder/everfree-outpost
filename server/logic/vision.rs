@@ -10,7 +10,10 @@ use vision;
 
 
 impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
-    fn on_chunk_update(&mut self, cid: ClientId, cpos: V2) {
+    fn on_terrain_chunk_update(&mut self,
+                               cid: ClientId,
+                               tcid: TerrainChunkId,
+                               cpos: V2) {
         use util::encode_rle16;
         let p = self.world().plane(PLANE_FOREST);
         let tc = unwrap_or!(p.get_terrain_chunk(cpos),

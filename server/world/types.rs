@@ -141,6 +141,10 @@ impl super::TerrainChunk {
 }
 
 impl super::Structure {
+    pub fn plane_id(&self) -> PlaneId {
+        self.plane
+    }
+
     pub fn pos(&self) -> V3 {
         self.pos
     }
