@@ -29,7 +29,7 @@ pub trait Hooks {
     fn on_plane_destroy(&mut self, pid: PlaneId) {}
 
     fn on_terrain_chunk_create(&mut self, tcid: TerrainChunkId) {}
-    fn on_terrain_chunk_destroy(&mut self, tcid: TerrainChunkId) {}
+    fn on_terrain_chunk_destroy(&mut self, tcid: TerrainChunkId, plane_id: PlaneId, cpos: V2) {}
 
     fn on_structure_create(&mut self, sid: StructureId) {}
     fn on_structure_destroy(&mut self, sid: StructureId, plane_id: PlaneId, old_bounds: Region) {}

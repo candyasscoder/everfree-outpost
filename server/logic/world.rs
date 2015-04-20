@@ -49,12 +49,10 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
         warn_on_err!(cache.add_chunk(world, pid, cpos));
     }
 
-    fn on_terrain_chunk_destroy(&mut self, tcid: TerrainChunkId) {
-        /* TODO
-        vision::Fragment::remove_chunk(&mut self.as_vision_fragment(), cpos);
+    fn on_terrain_chunk_destroy(&mut self, tcid: TerrainChunkId, pid: PlaneId, cpos: V2) {
+        vision::Fragment::remove_terrain_chunk(&mut self.as_vision_fragment(), tcid);
 
-        self.cache_mut().remove_chunk(cpos);
-        */
+        self.cache_mut().remove_chunk(pid, cpos);
     }
 
 
@@ -108,7 +106,7 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
                                  template: &StructureTemplate,
                                  pid: PlaneId,
                                  pos: V3) -> bool {
-        check_structure_placement(self.world(), self.cache(), template, pos)
+        check_structure_placement(self.world(), self.cache(), template, pid, pos)
     }
 
 
@@ -171,12 +169,10 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
         warn_on_err!(cache.add_chunk(world, pid, cpos));
     }
 
-    fn on_terrain_chunk_destroy(&mut self, tcid: TerrainChunkId) {
-        /* TODO
-        vision::Fragment::remove_chunk(&mut self.as_hidden_vision_fragment(), cpos);
+    fn on_terrain_chunk_destroy(&mut self, tcid: TerrainChunkId, pid: PlaneId, cpos: V2) {
+        vision::Fragment::remove_terrain_chunk(&mut self.as_hidden_vision_fragment(), tcid);
 
-        self.cache_mut().remove_chunk(cpos);
-        */
+        self.cache_mut().remove_chunk(pid, cpos);
     }
 
     fn on_entity_destroy(&mut self, eid: EntityId) {
@@ -208,7 +204,7 @@ impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
                                  template: &StructureTemplate,
                                  pid: PlaneId,
                                  pos: V3) -> bool {
-        check_structure_placement(self.world(), self.cache(), template, pos)
+        check_structure_placement(self.world(), self.cache(), template, pid, pos)
     }
 
 
@@ -265,33 +261,33 @@ pub fn structure_area(s: ObjectRef<Structure>) -> SmallSet<V2> {
 fn check_structure_placement(world: &World,
                              cache: &TerrainCache,
                              template: &StructureTemplate,
-                             pos: V3) -> bool {
-    /* TODO
+                             pid: PlaneId,
+                             base_pos: V3) -> bool {
     let data = world.data();
-    let bounds = Region::new(scalar(0), template.size) + pos;
+    let bounds = Region::new(scalar(0), template.size) + base_pos;
 
-    for p in bounds.points() {
-        let cpos = p.reduce().div_floor(scalar(CHUNK_SIZE));
+    let p = unwrap_or!(world.get_plane(pid), return false);
+    for pos in bounds.points() {
+        let cpos = pos.reduce().div_floor(scalar(CHUNK_SIZE));
 
-        let tc = unwrap_or!(world.get_terrain_chunk(cpos), return false);
-        let shape = data.block_data.shape(tc.block(tc.bounds().index(p)));
+        let tc = unwrap_or!(p.get_terrain_chunk(cpos), return false);
+        let shape = data.block_data.shape(tc.block(tc.bounds().index(pos)));
         match shape {
             Shape::Empty => {},
-            Shape::Floor if p.z == pos.z => {},
+            Shape::Floor if pos.z == base_pos.z => {},
             _ => {
                 info!("placement failed due to terrain");
                 return false;
             },
         }
 
-        let entry = unwrap_or!(cache.get(cpos), return false);
-        let mask = entry.layer_mask[tc.bounds().index(p)];
+        let entry = unwrap_or!(cache.get(pid, cpos), return false);
+        let mask = entry.layer_mask[tc.bounds().index(pos)];
         if mask & (1 << template.layer as usize) != 0 {
             info!("placement failed due to layering");
             return false;
         }
     }
-    */
 
     true
 }

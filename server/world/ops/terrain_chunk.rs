@@ -52,6 +52,6 @@ pub fn destroy<'d, F>(f: &mut F,
         ops::structure::destroy(f, sid).unwrap();
     }
 
-    f.with_hooks(|h| h.on_terrain_chunk_destroy(tcid));
+    f.with_hooks(|h| h.on_terrain_chunk_destroy(tcid, tc.plane, tc.cpos));
     Ok(())
 }
