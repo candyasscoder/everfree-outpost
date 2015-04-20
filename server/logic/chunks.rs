@@ -16,33 +16,31 @@ use world::save::{self, ObjectReader, ObjectWriter};
 use vision;
 
 
-pub fn load_chunk(mut eng: EngineRef, cpos: V2) {
-    let first = chunks::Fragment::load(&mut eng.as_chunks_fragment(), cpos);
+pub fn load_chunk(mut eng: EngineRef, pid: PlaneId, cpos: V2) {
+    let first = chunks::Fragment::load(&mut eng.as_chunks_fragment(), pid, cpos);
     if first {
-        let tcid = eng.world().plane(PLANE_FOREST).terrain_chunk(cpos).id();
+        let tcid = eng.world().plane(pid).terrain_chunk(cpos).id();
         vision::Fragment::add_terrain_chunk(&mut eng.as_vision_fragment(),
                                             tcid,
-                                            PLANE_FOREST,
+                                            pid,
                                             cpos);
     }
 }
 
-pub fn unload_chunk(mut eng: EngineRef, cpos: V2) {
-    let tcid = eng.world().plane(PLANE_FOREST).terrain_chunk(cpos).id();
-    let last = chunks::Fragment::unload(&mut eng.as_chunks_fragment(), cpos);
+pub fn unload_chunk(mut eng: EngineRef, pid: PlaneId, cpos: V2) {
+    let tcid = eng.world().plane(pid).terrain_chunk(cpos).id();
+    let last = chunks::Fragment::unload(&mut eng.as_chunks_fragment(), pid, cpos);
     if last {
         vision::Fragment::remove_terrain_chunk(&mut eng.as_vision_fragment(), tcid)
     }
 }
 
 
-impl<'a, 'd> chunks::Hooks for ChunksHooks<'a, 'd> {
-}
-
 impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
     type E = save::Error;
 
-    fn load(&mut self, cpos: V2) -> save::Result<()> {
+    fn load(&mut self, pid: PlaneId, cpos: V2) -> save::Result<()> {
+        // TODO(plane): use PlaneId for filename and gen
         if let Some(file) = self.storage().open_terrain_chunk_file(cpos) {
             let mut sr = ObjectReader::new(file);
             try!(sr.load_terrain_chunk(&mut self.as_save_read_fragment()));
@@ -59,7 +57,7 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
             {
                 let mut hwf = self.as_hidden_world_fragment();
                 try!(world::Fragment::create_terrain_chunk(&mut hwf,
-                                                           PLANE_FOREST,
+                                                           pid,
                                                            cpos,
                                                            gen_chunk.blocks));
                 let base = cpos.extend(0) * scalar(CHUNK_SIZE);
@@ -88,11 +86,12 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
         Ok(())
     }
 
-    fn unload(&mut self, cpos: V2) -> save::Result<()> {
+    fn unload(&mut self, pid: PlaneId, cpos: V2) -> save::Result<()> {
+        // TODO(plane): use PlaneId for filename
         let tcid = {
             let (h, eng) = self.borrow().0.split_off();
             let h = SaveWriteHooks(h);
-            let p = eng.world().plane(PLANE_FOREST);
+            let p = eng.world().plane(pid);
             let t = p.terrain_chunk(cpos);
             let file = eng.storage().create_terrain_chunk_file(cpos);
             let mut sw = ObjectWriter::new(file, h);

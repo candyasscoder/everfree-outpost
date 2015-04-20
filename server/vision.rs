@@ -228,6 +228,10 @@ impl Vision {
         }
     }
 
+    pub fn client_view_plane(&self, cid: ClientId) -> Option<PlaneId> {
+        self.viewers.get(&(cid.unwrap() as usize)).map(|c| c.plane)
+    }
+
     pub fn client_view_area(&self, cid: ClientId) -> Option<Region<V2>> {
         self.viewers.get(&(cid.unwrap() as usize)).map(|c| c.view)
     }

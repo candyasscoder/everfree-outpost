@@ -48,10 +48,7 @@ macro_rules! part2 {
     // HiddenWorldFragment.  This prevents a dependency cycle (WorldFragment relies on Chunks to
     // provide up-to-date block info).
     (ChunksFragment, $($x:tt)*) => {
-        part2!(chunks, world, ChunksHooks, ChunkProvider, $($x)*);
-    };
-    (ChunksHooks, $($x:tt)*) => {
-        part2!($($x)*);
+        part2!(chunks, world, ChunkProvider, $($x)*);
     };
     (ChunkProvider, $($x:tt)*) => {
         part2!(HiddenWorldFragment, SaveReadFragment, TerrainGenFragment, $($x)*);
@@ -194,20 +191,13 @@ impl_slice! {
 }
 
 
-parts!(ChunksFragment, ChunksHooks, ChunkProvider);
+parts!(ChunksFragment, ChunkProvider);
 
 impl<'a, 'd> chunks::Fragment<'d> for ChunksFragment<'a, 'd> {
     fn with_world<F, R>(&mut self, f: F) -> R
             where F: FnOnce(&mut Chunks<'d>, &World<'d>) -> R {
         let Open { chunks, world, .. } = self.open();
         f(chunks, world)
-    }
-
-    type H = ChunksHooks<'a, 'd>;
-    fn with_hooks<F, R>(&mut self, f: F) -> R
-            where F: FnOnce(&mut ChunksHooks<'a, 'd>) -> R {
-        let e = unsafe { self.borrow().fiddle().to_part().slice() };
-        f(&mut Part::from_part(e))
     }
 
     type P = ChunkProvider<'a, 'd>;

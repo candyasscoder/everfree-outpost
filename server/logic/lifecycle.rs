@@ -20,9 +20,12 @@ pub fn shut_down(mut eng: EngineRef) {
         warn_on_err!(logic::client::logout(eng.borrow(), cid));
     }
 
-    while let Some(cpos) = eng.world().terrain_chunks().next().map(|tc| tc.chunk_pos()) {
-        logic::chunks::unload_chunk(eng.borrow(), cpos);
+    while let Some((pid, cpos)) = eng.world().terrain_chunks().next()
+                              .map(|tc| (tc.plane_id(), tc.chunk_pos())) {
+        logic::chunks::unload_chunk(eng.borrow(), pid, cpos);
     }
+
+    // TODO(plane): unload planes
 
     {
         let (h, eng) = eng.borrow().0.split_off();

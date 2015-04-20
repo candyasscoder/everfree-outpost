@@ -75,14 +75,14 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
     }
 
     // Load the chunks the client can currently see.
-    let center = match eng.world().client(cid).pawn() {
-        Some(eng) => eng.pos(now),
-        None => scalar(0),
+    let (pawn_pid, center) = match eng.world().client(cid).pawn() {
+        Some(e) => (e.plane_id(), e.pos(now)),
+        None => (PLANE_LIMBO, scalar(0)),
     };
     let region = vision::vision_region(center);
 
     for cpos in region.points() {
-        logic::chunks::load_chunk(eng.borrow(), cpos);
+        logic::chunks::load_chunk(eng.borrow(), pawn_pid, cpos);
     }
 
     // Set up the client to receive messages.
@@ -92,16 +92,13 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
     eng.messages_mut().schedule_check_view(cid, now + 1000);
 
     // Send the client's startup messages.
-    let client_plane =
-        if let Some(pawn_id) = eng.world().client(cid).pawn_id() {
-            eng.messages_mut().send_client(cid, ClientResponse::Init(pawn_id));
-            eng.world().entity(pawn_id).plane_id()
-        } else {
-            warn!("{:?}: client has no pawn", cid);
-            PLANE_LIMBO
-        };
+    if let Some(pawn_id) = eng.world().client(cid).pawn_id() {
+        eng.messages_mut().send_client(cid, ClientResponse::Init(pawn_id));
+    } else {
+        warn!("{:?}: client has no pawn", cid);
+    };
 
-    vision::Fragment::add_client(&mut eng.as_vision_fragment(), cid, client_plane, region);
+    vision::Fragment::add_client(&mut eng.as_vision_fragment(), cid, pawn_pid, region);
 
     warn_on_err!(script::ScriptEngine::cb_login(eng.unwrap(), cid));
 
@@ -112,10 +109,11 @@ pub fn logout(mut eng: EngineRef, cid: ClientId) -> save::Result<()> {
     eng.messages_mut().remove_client(cid);
 
     let old_region = eng.vision().client_view_area(cid);
+    let old_pid = eng.vision().client_view_plane(cid);
     vision::Fragment::remove_client(&mut eng.as_vision_fragment(), cid);
-    if let Some(old_region) = old_region {
+    if let (Some(old_region), Some(old_pid)) = (old_region, old_pid) {
         for cpos in old_region.points() {
-            logic::chunks::unload_chunk(eng.borrow(), cpos);
+            logic::chunks::unload_chunk(eng.borrow(), old_pid, cpos);
         }
     }
 
@@ -134,12 +132,10 @@ pub fn logout(mut eng: EngineRef, cid: ClientId) -> save::Result<()> {
 pub fn update_view(mut eng: EngineRef, cid: ClientId) {
     let now = eng.now();
 
-    let old_region = match eng.vision().client_view_area(cid) {
-        Some(x) => x,
-        None => return,
-    };
+    let old_region = unwrap_or!(eng.vision().client_view_area(cid));
+    let old_pid = unwrap_or!(eng.vision().client_view_plane(cid));
 
-    let (new_plane, new_region) = {
+    let (new_pid, new_region) = {
         // TODO: warn on None? - may indicate inconsistency between World and Vision
         let client = unwrap_or!(eng.world().get_client(cid));
 
@@ -149,17 +145,19 @@ pub fn update_view(mut eng: EngineRef, cid: ClientId) {
         (pawn.plane_id(), vision::vision_region(pawn.pos(now)))
     };
 
+    let plane_change = new_pid != old_pid;
+
     // un/load_chunk use HiddenWorldFragment, so do the calls in this specific order to make sure
     // the chunks being un/loaded are actually not in the client's vision.
 
-    for cpos in new_region.points().filter(|&p| !old_region.contains(p)) {
-        logic::chunks::load_chunk(eng.borrow(), cpos);
+    for cpos in new_region.points().filter(|&p| !old_region.contains(p) || plane_change) {
+        logic::chunks::load_chunk(eng.borrow(), new_pid, cpos);
     }
 
-    vision::Fragment::set_client_view(&mut eng.as_vision_fragment(), cid, new_plane, new_region);
+    vision::Fragment::set_client_view(&mut eng.as_vision_fragment(), cid, new_pid, new_region);
 
-    for cpos in old_region.points().filter(|&p| !new_region.contains(p)) {
-        logic::chunks::unload_chunk(eng.borrow(), cpos);
+    for cpos in old_region.points().filter(|&p| !new_region.contains(p) || plane_change) {
+        logic::chunks::unload_chunk(eng.borrow(), old_pid, cpos);
     }
 
     eng.messages_mut().schedule_check_view(cid, now + 1000);
