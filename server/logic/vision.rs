@@ -15,9 +15,8 @@ impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
                                tcid: TerrainChunkId,
                                cpos: V2) {
         use util::encode_rle16;
-        let p = self.world().plane(PLANE_FOREST);
-        let tc = unwrap_or!(p.get_terrain_chunk(cpos),
-            { warn!("no terrain available for {:?}", cpos); return });
+        let tc = unwrap_or!(self.world().get_terrain_chunk(tcid),
+            { warn!("no terrain available for {:?}", tcid); return });
         let data = encode_rle16(tc.blocks().iter().map(|&x| x));
         self.messages().send_client(cid, ClientResponse::TerrainChunk(cpos, data));
     }
