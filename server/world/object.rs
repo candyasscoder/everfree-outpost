@@ -267,6 +267,16 @@ pub trait EntityRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Entity, F> {
         self.world_mut().entities.pin(eid)
     }
 
+    fn set_plane_id(&mut self, pid: PlaneId) -> OpResult<()> {
+        let eid = self.id();
+        ops::entity::set_plane(self.fragment_mut(), eid, pid)
+    }
+
+    fn set_stable_plane_id(&mut self, stable_pid: Stable<PlaneId>) -> OpResult<()> {
+        let eid = self.id();
+        ops::entity::set_stable_plane(self.fragment_mut(), eid, stable_pid)
+    }
+
     fn set_motion(&mut self, motion: Motion) {
         let eid = self.id();
         // TODO: update entity-by-chunk cache

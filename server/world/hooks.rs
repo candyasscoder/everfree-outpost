@@ -16,6 +16,7 @@ pub trait Hooks {
     fn on_entity_destroy(&mut self, eid: EntityId) {}
     fn on_entity_motion_change(&mut self, eid: EntityId) {}
     fn on_entity_appearance_change(&mut self, eid: EntityId) {}
+    fn on_entity_plane_change(&mut self, eid: EntityId) {}
 
     fn on_inventory_create(&mut self, iid: InventoryId) {}
     fn on_inventory_destroy(&mut self, iid: InventoryId) {}

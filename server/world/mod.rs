@@ -55,11 +55,20 @@ pub struct World<'d> {
     structures: StableIdMap<StructureId, Structure>,
 
     structures_by_chunk: HashMap<(PlaneId, V2), HashSet<StructureId>>,
+
+    /// Entities indexed by their containing plane.  Entities in PLANE_LIMBO are not included here.
+    entities_by_plane: HashMap<PlaneId, HashSet<EntityId>>,
+
+    /// Entities in PLANE_LIMBO, indexed by the stable ID of their containing plane.  When a plane
+    /// is loaded, its entities will automatically be moved out of limbo.
+    limbo_entities: HashMap<Stable<PlaneId>, HashSet<EntityId>>,
 }
 
 
 pub struct Client {
     name: String,
+    /// *Invariant*: If `pawn` is `Some(eid)`, then entity `eid` exists and is a child of this
+    /// client.
     pawn: Option<EntityId>,
     current_input: InputBits,
 
@@ -74,6 +83,9 @@ pub struct Entity {
     stable_plane: Stable<PlaneId>,
     /// Cached PlaneId of the plane containing the Entity.  If that plane is not loaded, then
     /// `plane` is set to PLANE_LIMBO.
+    ///
+    /// *Invariant*: Either `plane` refers to a loaded plane whose stable ID is `stable_plane`, or
+    /// `plane` is `PLANE_LIMBO` and the plane with stable ID `stable_plane` is not loaded.
     plane: PlaneId,
 
     motion: Motion,
@@ -97,6 +109,8 @@ pub struct Inventory {
 impl_IntrusiveStableId!(Inventory, stable_id);
 
 pub struct Plane {
+    /// *Invariant*: If the same `cpos` is in both maps, then `saved_chunks[cpos]` is the stable ID
+    /// of the chunk with ID `loaded_chunks[cpos]`.
     loaded_chunks: HashMap<V2, TerrainChunkId>,
     saved_chunks: HashMap<V2, StableId>,
 
@@ -105,6 +119,7 @@ pub struct Plane {
 impl_IntrusiveStableId!(Plane, stable_id);
 
 pub struct TerrainChunk {
+    /// *Invariant*: `plane` always refers to a loaded plane.
     plane: PlaneId,
     cpos: V2,
     blocks: Box<BlockChunk>,
@@ -115,6 +130,7 @@ pub struct TerrainChunk {
 impl_IntrusiveStableId!(TerrainChunk, stable_id);
 
 pub struct Structure {
+    /// *Invariant*: `plane` always refers to a loaded plane.
     plane: PlaneId,
     pos: V3,
     template: TemplateId,

@@ -21,6 +21,8 @@ impl<'d> super::World<'d> {
             structures: StableIdMap::new(),
 
             structures_by_chunk: HashMap::new(),
+            entities_by_plane: HashMap::new(),
+            limbo_entities: HashMap::new(),
         }
     }
 

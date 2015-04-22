@@ -189,6 +189,8 @@ impl<R: old_io::Reader> ObjectReader<R> {
                 e.target_velocity = target_velocity;
                 e.appearance = appearance;
             }
+            ops::entity::post_init(wf, eid);
+            // TODO: is it right to call hooks here?
             world::Fragment::with_hooks(wf, |h| {
                 world::Hooks::on_entity_motion_change(h, eid);
             });
@@ -432,7 +434,10 @@ impl<R: old_io::Reader> ObjectReader<R> {
                 },
                 AnyId::Entity(eid) => {
                     unwrap_warn(f.with_hooks(|h| h.cleanup_entity(eid)));
-                    f.with_world(|wf| wf.world_mut().entities.remove(eid));
+                    f.with_world(|wf| {
+                        ops::entity::pre_fini(wf, eid);
+                        wf.world_mut().entities.remove(eid);
+                    });
                 },
                 AnyId::Inventory(iid) => {
                     unwrap_warn(f.with_hooks(|h| h.cleanup_inventory(iid)));
@@ -440,7 +445,10 @@ impl<R: old_io::Reader> ObjectReader<R> {
                 },
                 AnyId::Plane(pid) => {
                     unwrap_warn(f.with_hooks(|h| h.cleanup_plane(pid)));
-                    f.with_world(|wf| wf.world_mut().planes.remove(pid));
+                    f.with_world(|wf| {
+                        ops::plane::pre_fini(wf, pid);
+                        wf.world_mut().planes.remove(pid);
+                    });
                 },
                 AnyId::TerrainChunk(tcid) => {
                     unwrap_warn(f.with_hooks(|h| h.cleanup_terrain_chunk(tcid)));

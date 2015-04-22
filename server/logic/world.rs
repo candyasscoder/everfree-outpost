@@ -81,6 +81,10 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
         vision::Fragment::update_entity_appearance(&mut self.as_vision_fragment(), eid);
     }
 
+    fn on_entity_plane_change(&mut self, eid: EntityId) {
+        self.on_entity_motion_change(eid);
+    }
+
 
     fn on_structure_create(&mut self, sid: StructureId) {
         new_structure(self, sid);

@@ -18,7 +18,13 @@ pub struct StableIdMap<K, V> {
 #[derive(Copy, PartialEq, Eq, Debug, Hash)]
 pub struct Stable<Id> {
     pub val: StableId,
-    _marker0: PhantomData<Id>,
+    pub _marker0: PhantomData<Id>,
+}
+
+macro_rules! const_Stable {
+    ($val:expr) => {
+        Stable { val: $val, _marker0: ::std::marker::PhantomData }
+    };
 }
 
 impl<Id> Stable<Id> {

@@ -40,6 +40,7 @@ mk_id_newtypes! {
 }
 
 pub const PLANE_LIMBO: PlaneId = PlaneId(0);
+pub const STABLE_PLANE_LIMBO: Stable<PlaneId> = const_Stable!(1);
 pub const PLANE_FOREST: PlaneId = PlaneId(1);
 
 pub const CONTROL_WIRE_ID: WireId = WireId(0);
