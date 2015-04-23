@@ -39,7 +39,15 @@ pub fn unload_chunk(mut eng: EngineRef, pid: PlaneId, cpos: V2) {
 impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
     type E = save::Error;
 
-    fn load(&mut self, pid: PlaneId, cpos: V2) -> save::Result<()> {
+    fn load_plane(&mut self, stable_pid: Stable<PlaneId>) -> save::Result<()> {
+        Ok(())
+    }
+
+    fn unload_plane(&mut self, pid: PlaneId) -> save::Result<()> {
+        Ok(())
+    }
+
+    fn load_terrain_chunk(&mut self, pid: PlaneId, cpos: V2) -> save::Result<()> {
         // TODO(plane): use PlaneId for filename and gen
         if let Some(file) = self.storage().open_terrain_chunk_file(cpos) {
             let mut sr = ObjectReader::new(file);
@@ -86,7 +94,7 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
         Ok(())
     }
 
-    fn unload(&mut self, pid: PlaneId, cpos: V2) -> save::Result<()> {
+    fn unload_terrain_chunk(&mut self, pid: PlaneId, cpos: V2) -> save::Result<()> {
         // TODO(plane): use PlaneId for filename
         let tcid = {
             let (h, eng) = self.borrow().0.split_off();

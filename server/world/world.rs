@@ -153,6 +153,8 @@ macro_rules! process_objects {
                 lookups [id -> id]
                     get_plane, plane,
                     get_plane_mut, plane_mut,
+                stable_ids
+                    transient_plane_id;
             }
 
             object TerrainChunk {
@@ -165,6 +167,8 @@ macro_rules! process_objects {
                 lookups [id -> id]
                     get_terrain_chunk, terrain_chunk,
                     get_terrain_chunk_mut, terrain_chunk_mut,
+                stable_ids
+                    transient_terrain_chunk_id;
             }
 
             object Structure {

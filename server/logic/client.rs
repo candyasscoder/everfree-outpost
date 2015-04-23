@@ -1,6 +1,7 @@
 use types::*;
 use util::SmallVec;
 
+use chunks;
 use engine::glue::*;
 use engine::split::EngineRef;
 use logic;
@@ -75,12 +76,13 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
     }
 
     // Load the chunks the client can currently see.
-    let (pawn_pid, center) = match eng.world().client(cid).pawn() {
-        Some(e) => (e.plane_id(), e.pos(now)),
-        None => (PLANE_LIMBO, scalar(0)),
+    let (pawn_stable_pid, center) = match eng.world().client(cid).pawn() {
+        Some(e) => (e.stable_plane_id(), e.pos(now)),
+        None => (STABLE_PLANE_LIMBO, scalar(0)),
     };
     let region = vision::vision_region(center);
 
+    let pawn_pid = chunks::Fragment::get_plane_id(&mut eng.as_chunks_fragment(), pawn_stable_pid);
     for cpos in region.points() {
         logic::chunks::load_chunk(eng.borrow(), pawn_pid, cpos);
     }
@@ -135,15 +137,16 @@ pub fn update_view(mut eng: EngineRef, cid: ClientId) {
     let old_region = unwrap_or!(eng.vision().client_view_area(cid));
     let old_pid = unwrap_or!(eng.vision().client_view_plane(cid));
 
-    let (new_pid, new_region) = {
+    let (new_stable_pid, new_region) = {
         // TODO: warn on None? - may indicate inconsistency between World and Vision
         let client = unwrap_or!(eng.world().get_client(cid));
 
         // TODO: make sure return is the right thing to do on None
         let pawn = unwrap_or!(client.pawn());
 
-        (pawn.plane_id(), vision::vision_region(pawn.pos(now)))
+        (pawn.stable_plane_id(), vision::vision_region(pawn.pos(now)))
     };
+    let new_pid = chunks::Fragment::get_plane_id(&mut eng.as_chunks_fragment(), new_stable_pid);
 
     let plane_change = new_pid != old_pid;
 
