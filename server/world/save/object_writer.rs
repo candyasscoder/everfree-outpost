@@ -3,8 +3,10 @@ use std::old_io;
 use std::mem;
 use std::slice;
 
-use data::Data;
+use physics::CHUNK_SIZE;
 use types::*;
+
+use data::Data;
 use util::Convert;
 use util::IntrusiveStableId;
 use world::{World, Client, Entity, Inventory, Plane, TerrainChunk, Structure};
@@ -94,7 +96,7 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
 
         // Body
         try!(self.w.write_opt_id(c.pawn));
-        try!(self.w.write_str(c.name()));
+        // Don't write `name`.  It will be reconstructed from metadata.
 
         try!(self.hooks.post_write_client(&mut self.w, c));
 
@@ -117,7 +119,8 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
 
         // Body
         let m = &e.motion;
-        try!(self.w.write((m.start_pos,
+        try!(self.w.write((e.stable_plane.unwrap(),
+                           m.start_pos,
                            m.end_pos,
                            m.start_time,
                            m.duration, e.anim,  // u16 * 2
@@ -162,9 +165,23 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
         Ok(())
     }
 
+    fn write_plane(&mut self, p: &ObjectRef<Plane>) -> Result<()> {
+        try!(self.write_object_header(p));
+
+        // Body
+        try!(self.w.write_count(p.saved_chunks.len()));
+        for (&cpos, &stable_tcid) in p.saved_chunks.iter() {
+            try!(self.w.write((cpos, stable_tcid.unwrap())));
+        }
+
+        try!(self.hooks.post_write_plane(&mut self.w, p));
+        Ok(())
+    }
+
     fn write_terrain_chunk(&mut self, t: &ObjectRef<TerrainChunk>) -> Result<()> {
-        // TODO: probably broken
         try!(self.write_object_header(t));
+
+        // Don't write `plane` or `cpos`.  These will be reconstructed from metadata.
 
         // Body - block data
         let len = t.blocks.len();
@@ -191,21 +208,21 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
 
         // Children
         try!(self.w.write_count(t.child_structures.len()));
+        let base = t.cpos.extend(0) * scalar(CHUNK_SIZE);
         for s in t.child_structures() {
-            try!(self.write_structure(&s));
+            try!(self.write_structure(&s, base));
         }
 
         Ok(())
     }
 
-    fn write_structure(&mut self, s: &ObjectRef<Structure>) -> Result<()> {
+    fn write_structure(&mut self, s: &ObjectRef<Structure>, base: V3) -> Result<()> {
         try!(self.write_object_header(s));
 
         // Body
-        // Don't write the PlaneId.  At read time, the plane will be set based on the PlaneId of
-        // the parent Plane/TerrainChunk.  This works because structures can't have attachment
-        // outside of their containing Plane.
-        try!(self.w.write(s.pos));
+        // Don't write `plane`.  It will be reconstructed from metadata.
+        // Write only the offset of `pos` from `base`.
+        try!(self.w.write(s.pos - base));
         try!(self.write_template_id(s.world().data(), s.template));
 
         try!(self.hooks.post_write_structure(&mut self.w, s));

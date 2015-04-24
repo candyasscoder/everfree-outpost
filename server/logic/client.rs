@@ -1,3 +1,5 @@
+use std::borrow::ToOwned;
+
 use types::*;
 use util::SmallVec;
 
@@ -55,7 +57,7 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
     let cid =
         if let Some(file) = eng.storage().open_client_file(name) {
             let mut sr = ObjectReader::new(file);
-            try!(sr.load_client(&mut eng.as_save_read_fragment()))
+            try!(sr.load_client(&mut eng.as_save_read_fragment(), name.to_owned()))
         } else {
             fail!("client file not found");
         };

@@ -94,8 +94,8 @@ impl Storage {
         path
     }
 
-    pub fn terrain_chunk_path(&self, tcid: TerrainChunkId) -> Path {
-        let name = format!("{:x}", tcid.unwrap());
+    pub fn terrain_chunk_path(&self, stable_tcid: Stable<TerrainChunkId>) -> Path {
+        let name = format!("{:x}", stable_tcid.unwrap());
         let mut path = self.base.clone();
         path.push_many(&[SAVE_DIR, TERRAIN_CHUNK_DIR, &*name]);
         path.set_extension("terrain_chunk");
@@ -114,8 +114,8 @@ impl Storage {
         try_open_file(&self.plane_path(stable_pid))
     }
 
-    pub fn open_terrain_chunk_file(&self, tcid: TerrainChunkId) -> Option<File> {
-        try_open_file(&self.terrain_chunk_path(tcid))
+    pub fn open_terrain_chunk_file(&self, stable_tcid: Stable<TerrainChunkId>) -> Option<File> {
+        try_open_file(&self.terrain_chunk_path(stable_tcid))
     }
 
     pub fn create_world_file(&self) -> File {
@@ -130,8 +130,8 @@ impl Storage {
         File::create(&self.plane_path(stable_pid)).unwrap()
     }
 
-    pub fn create_terrain_chunk_file(&self, tcid: TerrainChunkId) -> File {
-        File::create(&self.terrain_chunk_path(tcid)).unwrap()
+    pub fn create_terrain_chunk_file(&self, stable_tcid: Stable<TerrainChunkId>) -> File {
+        File::create(&self.terrain_chunk_path(stable_tcid)).unwrap()
     }
 }
 

@@ -112,7 +112,7 @@ pub struct Plane {
     /// *Invariant*: If the same `cpos` is in both maps, then `saved_chunks[cpos]` is the stable ID
     /// of the chunk with ID `loaded_chunks[cpos]`.
     loaded_chunks: HashMap<V2, TerrainChunkId>,
-    saved_chunks: HashMap<V2, StableId>,
+    saved_chunks: HashMap<V2, Stable<TerrainChunkId>>,
 
     stable_id: StableId,
 }

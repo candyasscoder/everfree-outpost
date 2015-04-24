@@ -353,6 +353,28 @@ pub trait PlaneRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Plane, F> {
         let pid = self.id();
         self.world_mut().planes.pin(pid)
     }
+
+    fn get_terrain_chunk_mut<'b>(&'b mut self, cpos: V2)
+                                 -> Option<ObjectRefMut<'b, 'd, TerrainChunk, F>> {
+        let &tcid = unwrap_or!(self.obj().loaded_chunks.get(&cpos), return None);
+        Some(self.fragment_mut().terrain_chunk_mut(tcid))
+    }
+
+    fn terrain_chunk_mut<'b>(&'b mut self, cpos: V2) -> ObjectRefMut<'b, 'd, TerrainChunk, F> {
+        self.get_terrain_chunk_mut(cpos).expect("no TerrainChunk at given pos")
+    }
+
+    fn try_save_terrain_chunk(&mut self, cpos: V2) -> Option<Stable<TerrainChunkId>> {
+        let result = self.get_terrain_chunk_mut(cpos).map(|mut tc| tc.stable_id());
+        if let Some(stable_tcid) = result {
+            self.obj_mut().saved_chunks.insert(cpos, stable_tcid);
+        }
+        result
+    }
+
+    fn save_terrain_chunk(&mut self, cpos: V2) -> Stable<TerrainChunkId> {
+        self.try_save_terrain_chunk(cpos).expect("no TerrainChunk at given pos")
+    }
 }
 impl<'a, 'd, F: Fragment<'d>> PlaneRefMut<'d, F> for ObjectRefMut<'a, 'd, Plane, F> { }
 

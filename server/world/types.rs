@@ -127,6 +127,14 @@ impl super::Plane {
     pub fn terrain_chunk_id(&self, cpos: V2) -> TerrainChunkId {
         self.get_terrain_chunk_id(cpos).expect("no TerrainChunk at given pos")
     }
+
+    pub fn get_saved_terrain_chunk_id(&self, cpos: V2) -> Option<Stable<TerrainChunkId>> {
+        self.saved_chunks.get(&cpos).map(|&x| x)
+    }
+
+    pub fn saved_terrain_chunk_id(&self, cpos: V2) -> Stable<TerrainChunkId> {
+        self.get_saved_terrain_chunk_id(cpos).expect("no TerrainChunk at given pos")
+    }
 }
 
 impl super::TerrainChunk {

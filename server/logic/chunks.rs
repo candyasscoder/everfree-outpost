@@ -63,11 +63,11 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
 
     fn load_terrain_chunk(&mut self, pid: PlaneId, cpos: V2) -> save::Result<()> {
         // TODO(plane): use PlaneId for filename and gen
-        let opt_tcid = self.world().plane(pid).get_terrain_chunk_id(cpos);
+        let opt_tcid = self.world().plane(pid).get_saved_terrain_chunk_id(cpos);
         let opt_file = opt_tcid.and_then(|tcid| self.storage().open_terrain_chunk_file(tcid));
         if let Some(file) = opt_file {
             let mut sr = ObjectReader::new(file);
-            try!(sr.load_terrain_chunk(&mut self.as_save_read_fragment()));
+            try!(sr.load_terrain_chunk(&mut self.as_save_read_fragment(), pid, cpos));
         } else {
             let gen_chunk = {
                 match terrain_gen::Fragment::generate(&mut self.as_terrain_gen_fragment(), cpos) {
@@ -112,13 +112,14 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
 
     fn unload_terrain_chunk(&mut self, pid: PlaneId, cpos: V2) -> save::Result<()> {
         // TODO(plane): use PlaneId for filename
+        let stable_tcid = self.as_hidden_world_fragment().plane_mut(pid).save_terrain_chunk(cpos);
         let tcid = {
             let (h, eng) = self.borrow().0.split_off();
             let h = SaveWriteHooks(h);
             let p = eng.world().plane(pid);
             let tc = p.terrain_chunk(cpos);
 
-            let file = eng.storage().create_terrain_chunk_file(tc.id());
+            let file = eng.storage().create_terrain_chunk_file(stable_tcid);
             let mut sw = ObjectWriter::new(file, h);
             try!(sw.save_terrain_chunk(&tc));
 

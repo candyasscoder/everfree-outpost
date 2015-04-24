@@ -5,8 +5,10 @@ use std::mem;
 use std::raw;
 use std::result;
 
-use data::Data;
+use physics::CHUNK_SIZE;
 use types::*;
+
+use data::Data;
 use util::Convert;
 use world;
 use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
@@ -121,7 +123,9 @@ impl<R: old_io::Reader> ObjectReader<R> {
     }
 
 
-    fn read_client<'d, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<ClientId> {
+    fn read_client<'d, F: Fragment<'d>>(&mut self,
+                                        f: &mut F,
+                                        name: String) -> Result<ClientId> {
         let (cid, stable_id) = try!(self.read_object_header(f));
 
         // TODO: check if this return type annotation is actually needed.  also check the others.
@@ -132,8 +136,6 @@ impl<R: old_io::Reader> ObjectReader<R> {
             try!(w.clients.set_stable_id(cid, stable_id));
 
             let c = &mut w.clients[cid];
-
-            let name = try!(self.r.read_str());
 
             c.name = name;
             c.pawn = pawn_id;
@@ -171,13 +173,17 @@ impl<R: old_io::Reader> ObjectReader<R> {
 
                 let e = &mut w.entities[eid];
 
-                let (start_pos,
+                let (stable_plane,
+                     start_pos,
                      end_pos,
                      start_time,
                      duration, anim,    // u16 * 2
                      facing,
                      target_velocity,
                      appearance) = try!(self.r.read());
+
+                e.stable_plane = Stable::new(stable_plane);
+                e.plane = PLANE_LIMBO;
 
                 e.motion.start_pos = start_pos;
                 e.motion.end_pos = end_pos;
@@ -190,10 +196,12 @@ impl<R: old_io::Reader> ObjectReader<R> {
                 e.appearance = appearance;
             }
             ops::entity::post_init(wf, eid);
+            /*
             // TODO: is it right to call hooks here?
             world::Fragment::with_hooks(wf, |h| {
                 world::Hooks::on_entity_motion_change(h, eid);
             });
+            */
 
             Ok(())
         }));
@@ -243,9 +251,33 @@ impl<R: old_io::Reader> ObjectReader<R> {
         Ok(iid)
     }
 
-    fn read_terrain_chunk<'d, F: Fragment<'d>>(&mut self, f: &mut F)  
+    fn read_plane<'d, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<PlaneId> {
+        let (pid, stable_id) = try!(self.read_object_header(f));
+
+        try!(f.with_world(|wf| -> Result<_> {
+            let w = world::Fragment::world_mut(wf);
+            try!(w.planes.set_stable_id(pid, stable_id));
+
+            let p = &mut w.planes[pid];
+
+            let chunks_count = try!(self.r.read_count());
+            for _ in 0..chunks_count {
+                let (cpos, stable_tcid) = try!(self.r.read());
+                let stable_tcid = Stable::new(stable_tcid);
+                p.saved_chunks.insert(cpos, stable_tcid);
+            }
+            Ok(())
+        }));
+
+        try!(f.with_hooks(|h| h.post_read_plane(&mut self.r, pid)));
+        Ok(pid)
+    }
+
+    fn read_terrain_chunk<'d, F: Fragment<'d>>(&mut self,
+                                               f: &mut F,
+                                               plane: PlaneId,
+                                               cpos: V2)
                                                -> Result<TerrainChunkId> {
-        // TODO: probably broken
         let (tcid, stable_id) = try!(self.read_object_header(f));
 
         try!(f.with_world(|wf| -> Result<()> {
@@ -254,6 +286,9 @@ impl<R: old_io::Reader> ObjectReader<R> {
             let data = w.data();
 
             let tc = &mut w.terrain_chunks[tcid];
+
+            tc.plane = plane;
+            tc.cpos = cpos;
 
             // Read saved BlockIds into tc.blocks.
             let byte_len = tc.blocks.len() * mem::size_of::<BlockId>();
@@ -293,15 +328,19 @@ impl<R: old_io::Reader> ObjectReader<R> {
         try!(f.with_hooks(|h| h.post_read_terrain_chunk(&mut self.r, tcid)));
 
         let child_structure_count = try!(self.r.read_count());
+        let base = cpos.extend(0) * scalar(CHUNK_SIZE);
         for _ in 0..child_structure_count {
-            let sid = try!(self.read_structure(f));
+            let sid = try!(self.read_structure(f, plane, base));
             try!(f.with_world(|wf| ops::structure::attach(wf, sid, StructureAttachment::Chunk)));
         }
 
         Ok(tcid)
     }
 
-    fn read_structure<'d, F: Fragment<'d>>(&mut self, f: &mut F)
+    fn read_structure<'d, F: Fragment<'d>>(&mut self,
+                                           f: &mut F,
+                                           plane: PlaneId,
+                                           base: V3)
                                            -> Result<StructureId> {
         let (sid, stable_id) = try!(self.read_object_header(f));
 
@@ -312,8 +351,8 @@ impl<R: old_io::Reader> ObjectReader<R> {
 
                 let s = &mut w.structures[sid];
 
-                //s.plane = pid;
-                s.pos = try!(self.r.read());
+                s.plane = plane;
+                s.pos = base + try!(self.r.read());
                 s.template = try!(self.read_template_id(w.data));
             }
             try!(ops::structure::post_init(wf, sid));
@@ -378,18 +417,22 @@ impl<R: old_io::Reader> ObjectReader<R> {
         result
     }
 
-    pub fn load_client<'d, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<ClientId> {
-        self.load_object(f, |sr, f| sr.read_client(f))
+    pub fn load_client<'d, F: Fragment<'d>>(&mut self,
+                                            f: &mut F,
+                                            name: String) -> Result<ClientId> {
+        self.load_object(f, |sr, f| sr.read_client(f, name))
     }
 
     pub fn load_plane<'d, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<PlaneId> {
-        //self.load_object(f, |sr, f| sr.read_terrain_chunk(f))
-        fail!("unimplemented")
+        self.load_object(f, |sr, f| sr.read_plane(f))
     }
 
-    pub fn load_terrain_chunk<'d, F: Fragment<'d>>(&mut self, f: &mut F)
+    pub fn load_terrain_chunk<'d, F: Fragment<'d>>(&mut self,
+                                                   f: &mut F,
+                                                   plane: PlaneId,
+                                                   cpos: V2)
                                                    -> Result<TerrainChunkId> {
-        self.load_object(f, |sr, f| sr.read_terrain_chunk(f))
+        self.load_object(f, |sr, f| sr.read_terrain_chunk(f, plane, cpos))
     }
 
     pub fn load_world<'d, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<()> {
