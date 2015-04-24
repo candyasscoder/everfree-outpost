@@ -3,7 +3,7 @@ use std::old_io::{self, IoErrorKind};
 use std::old_io::fs;
 use std::old_io::fs::File;
 
-use physics::v3::V2;
+use types::*;
 
 
 const DATA_DIR: &'static str = "data";
@@ -17,6 +17,7 @@ const SCRIPT_DIR: &'static str = "scripts";
 
 const SAVE_DIR: &'static str = "save";
 const CLIENT_DIR: &'static str = "clients";
+const PLANE_DIR: &'static str = "planes";
 const TERRAIN_CHUNK_DIR: &'static str = "terrain_chunks";
 const WORLD_FILE_NAME: &'static str = "world.dat";
 const AUTH_DB_FILE_NAME: &'static str = "auth.sqlite";
@@ -85,8 +86,16 @@ impl Storage {
         path
     }
 
-    pub fn terrain_chunk_path(&self, pos: V2) -> Path {
-        let name = format!("{},{}", pos.x, pos.y);
+    pub fn plane_path(&self, stable_pid: Stable<PlaneId>) -> Path {
+        let name = format!("{:x}", stable_pid.unwrap());
+        let mut path = self.base.clone();
+        path.push_many(&[SAVE_DIR, PLANE_DIR, &*name]);
+        path.set_extension("plane");
+        path
+    }
+
+    pub fn terrain_chunk_path(&self, tcid: TerrainChunkId) -> Path {
+        let name = format!("{:x}", tcid.unwrap());
         let mut path = self.base.clone();
         path.push_many(&[SAVE_DIR, TERRAIN_CHUNK_DIR, &*name]);
         path.set_extension("terrain_chunk");
@@ -101,8 +110,12 @@ impl Storage {
         try_open_file(&self.client_path(name))
     }
 
-    pub fn open_terrain_chunk_file(&self, pos: V2) -> Option<File> {
-        try_open_file(&self.terrain_chunk_path(pos))
+    pub fn open_plane_file(&self, stable_pid: Stable<PlaneId>) -> Option<File> {
+        try_open_file(&self.plane_path(stable_pid))
+    }
+
+    pub fn open_terrain_chunk_file(&self, tcid: TerrainChunkId) -> Option<File> {
+        try_open_file(&self.terrain_chunk_path(tcid))
     }
 
     pub fn create_world_file(&self) -> File {
@@ -113,8 +126,12 @@ impl Storage {
         File::create(&self.client_path(name)).unwrap()
     }
 
-    pub fn create_terrain_chunk_file(&self, pos: V2) -> File {
-        File::create(&self.terrain_chunk_path(pos)).unwrap()
+    pub fn create_plane_file(&self, stable_pid: Stable<PlaneId>) -> File {
+        File::create(&self.plane_path(stable_pid)).unwrap()
+    }
+
+    pub fn create_terrain_chunk_file(&self, tcid: TerrainChunkId) -> File {
+        File::create(&self.terrain_chunk_path(tcid)).unwrap()
     }
 }
 

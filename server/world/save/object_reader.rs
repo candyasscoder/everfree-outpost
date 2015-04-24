@@ -382,6 +382,11 @@ impl<R: old_io::Reader> ObjectReader<R> {
         self.load_object(f, |sr, f| sr.read_client(f))
     }
 
+    pub fn load_plane<'d, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<PlaneId> {
+        //self.load_object(f, |sr, f| sr.read_terrain_chunk(f))
+        fail!("unimplemented")
+    }
+
     pub fn load_terrain_chunk<'d, F: Fragment<'d>>(&mut self, f: &mut F)
                                                    -> Result<TerrainChunkId> {
         self.load_object(f, |sr, f| sr.read_terrain_chunk(f))

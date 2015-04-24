@@ -41,6 +41,10 @@ impl<Id> Stable<Id> {
             _marker0: PhantomData,
         }
     }
+
+    pub fn unwrap(self) -> StableId {
+        self.val
+    }
 }
 
 pub const NO_STABLE_ID: StableId = 0;

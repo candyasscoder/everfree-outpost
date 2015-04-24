@@ -266,6 +266,11 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
         self.save_object(|sw| sw.write_client(c))
     }
 
+    pub fn save_plane(&mut self, t: &ObjectRef<Plane>) -> Result<()> {
+        //self.save_object(|sw| sw.write_terrain_chunk(t))
+        fail!("unimplemented")
+    }
+
     pub fn save_terrain_chunk(&mut self, t: &ObjectRef<TerrainChunk>) -> Result<()> {
         self.save_object(|sw| sw.write_terrain_chunk(t))
     }

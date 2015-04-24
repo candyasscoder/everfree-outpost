@@ -10,7 +10,7 @@ use engine::glue::*;
 use engine::split::EngineRef;
 use script;
 use terrain_gen;
-use world;
+use world::{self, Fragment};
 use world::object::*;
 use world::save::{self, ObjectReader, ObjectWriter};
 use vision;
@@ -40,16 +40,32 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
     type E = save::Error;
 
     fn load_plane(&mut self, stable_pid: Stable<PlaneId>) -> save::Result<()> {
+        let file = unwrap!(self.storage().open_plane_file(stable_pid));
+        let mut sr = ObjectReader::new(file);
+        try!(sr.load_plane(&mut self.as_save_read_fragment()));
         Ok(())
     }
 
     fn unload_plane(&mut self, pid: PlaneId) -> save::Result<()> {
+        let stable_pid = self.as_hidden_world_fragment().plane_mut(pid).stable_id();
+        {
+            let (h, eng) = self.borrow().0.split_off();
+            let h = SaveWriteHooks(h);
+            let p = eng.world().plane(pid);
+
+            let file = eng.storage().create_plane_file(stable_pid);
+            let mut sw = ObjectWriter::new(file, h);
+            try!(sw.save_plane(&p));
+        }
+        try!(world::Fragment::destroy_plane(&mut self.as_hidden_world_fragment(), pid));
         Ok(())
     }
 
     fn load_terrain_chunk(&mut self, pid: PlaneId, cpos: V2) -> save::Result<()> {
         // TODO(plane): use PlaneId for filename and gen
-        if let Some(file) = self.storage().open_terrain_chunk_file(cpos) {
+        let opt_tcid = self.world().plane(pid).get_terrain_chunk_id(cpos);
+        let opt_file = opt_tcid.and_then(|tcid| self.storage().open_terrain_chunk_file(tcid));
+        if let Some(file) = opt_file {
             let mut sr = ObjectReader::new(file);
             try!(sr.load_terrain_chunk(&mut self.as_save_read_fragment()));
         } else {
@@ -100,12 +116,13 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
             let (h, eng) = self.borrow().0.split_off();
             let h = SaveWriteHooks(h);
             let p = eng.world().plane(pid);
-            let t = p.terrain_chunk(cpos);
-            let file = eng.storage().create_terrain_chunk_file(cpos);
-            let mut sw = ObjectWriter::new(file, h);
-            try!(sw.save_terrain_chunk(&t));
+            let tc = p.terrain_chunk(cpos);
 
-            t.id()
+            let file = eng.storage().create_terrain_chunk_file(tc.id());
+            let mut sw = ObjectWriter::new(file, h);
+            try!(sw.save_terrain_chunk(&tc));
+
+            tc.id()
         };
         try!(world::Fragment::destroy_terrain_chunk(&mut self.as_hidden_world_fragment(), tcid));
         Ok(())
