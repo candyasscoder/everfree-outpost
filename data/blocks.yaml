@@ -474,3 +474,64 @@ cave_top:
 
     cross/nw.bottom: cross/nw
     cross/ne.bottom: cross/ne
+
+cave_inside:
+    _.prefix: cave_inside
+    _.shape: solid
+    
+    center:
+        z0.bottom: /dirt_dark/center/v0
+        z0.shape: floor
+        z1.shape: empty
+
+    edge:
+        n:
+            z0.bottom: /dirt_dark/center/v0
+            z0.front: front/center/01
+            z1.front: front/center/00
+            z1.top: top/edge/n
+        s:
+            z0.bottom: /dirt_dark/center/v0
+            z1.top: top/edge/s
+        w:
+            z0.bottom: /dirt_dark/center/v0
+            z1.top: top/edge/w
+        e:
+            z0.bottom: /dirt_dark/center/v0
+            z1.top: top/edge/e
+
+    corner/outer:
+        nw:
+            z0.bottom: /dirt_dark/center/v0
+            z0.front: front/center/01
+            z1.front: front/center/00
+            z1.top: top/corner/outer/nw
+        ne:
+            z0.bottom: /dirt_dark/center/v0
+            z0.front: front/center/01
+            z1.front: front/center/00
+            z1.top: top/corner/outer/ne
+        sw:
+            z0.bottom: /dirt_dark/center/v0
+            z1.top: top/corner/outer/sw
+        se:
+            z0.bottom: /dirt_dark/center/v0
+            z1.top: top/corner/outer/se
+
+    corner/inner:
+        nw:
+            z0.bottom: /dirt_dark/center/v0
+            z1.top: top/corner/inner/nw
+        ne:
+            z0.bottom: /dirt_dark/center/v0
+            z1.top: top/corner/inner/ne
+        sw:
+            z0.bottom: /dirt_dark/center/v0
+            z0.front: front/right/01
+            z1.front: front/right/00
+            z1.top: top/corner/inner/sw
+        se:
+            z0.bottom: /dirt_dark/center/v0
+            z0.front: front/center/01
+            z1.front: front/center/00
+            z1.top: top/corner/inner/se

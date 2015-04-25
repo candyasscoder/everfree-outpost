@@ -329,6 +329,14 @@ lpc-cave-walls.xcf: *cave-walls
 lpc-cave-top.png: *cave-walls
 lpc-cave-top-cross.png: *cave-walls
 
+lpc-cave-inside.png:
+    title: LPC Cave Interior
+    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution:
+        Cave wall rearranged and cut up to form interior walls.
+    derived-from: lpc-cave-walls.png
+
 "daneeklu_farming_tilesets/*.png":
     title: "[LPC] Farming tilesets, magic animations and UI elements"
     author: Daniel Eddeland (daneeklu)

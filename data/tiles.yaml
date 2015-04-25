@@ -229,3 +229,12 @@ equip_hat_icon.png:
 
 statue_icon.png:
     item/statue: [0, 0]
+
+lpc-cave-inside.png:
+    cave_inside:
+        top: *terrain-template
+        front:
+            left: [0, 6, 1, 2]
+            center: [1, 6, 1, 2]
+            right: [2, 6, 1, 2]
+
