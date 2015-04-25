@@ -110,13 +110,14 @@ enum Tag {
     World,
     Client,
     Entity,
-    Structure,
     Inventory,
+    Structure,
 
     StableClient,
     StableEntity,
-    StableStructure,
     StableInventory,
+    StablePlane,
+    StableStructure,
 
     V3,
 }
@@ -304,14 +305,14 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
         try!(w.write_id(e.id));
         return Ok(());
     }
-    if let Some(s) = get_userdata_opt::<userdata::world::Structure>(lua, index) {
-        try!(w.write(Tag::Structure as u8));
-        try!(w.write_id(s.id));
-        return Ok(());
-    }
     if let Some(i) = get_userdata_opt::<userdata::world::Inventory>(lua, index) {
         try!(w.write(Tag::Inventory as u8));
         try!(w.write_id(i.id));
+        return Ok(());
+    }
+    if let Some(s) = get_userdata_opt::<userdata::world::Structure>(lua, index) {
+        try!(w.write(Tag::Structure as u8));
+        try!(w.write_id(s.id));
         return Ok(());
     }
 
@@ -325,14 +326,19 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
         try!(w.write(e.id.val));
         return Ok(());
     }
-    if let Some(s) = get_userdata_opt::<userdata::world::StableStructure>(lua, index) {
-        try!(w.write(Tag::StableStructure as u8));
-        try!(w.write(s.id.val));
-        return Ok(());
-    }
     if let Some(i) = get_userdata_opt::<userdata::world::StableInventory>(lua, index) {
         try!(w.write(Tag::StableInventory as u8));
         try!(w.write(i.id.val));
+        return Ok(());
+    }
+    if let Some(s) = get_userdata_opt::<userdata::world::StablePlane>(lua, index) {
+        try!(w.write(Tag::StablePlane as u8));
+        try!(w.write(s.id.val));
+        return Ok(());
+    }
+    if let Some(s) = get_userdata_opt::<userdata::world::StableStructure>(lua, index) {
+        try!(w.write(Tag::StableStructure as u8));
+        try!(w.write(s.id.val));
         return Ok(());
     }
 
@@ -538,15 +544,15 @@ impl<'a, 'd> ReadHooks<'a, 'd> {
                 let e = userdata::world::Entity { id: eid };
                 e.to_lua(&mut self.lua());
             },
-            Tag::Structure => {
-                let sid = try!(r.read_id(&mut self.wf()));
-                let s = userdata::world::Structure { id: sid };
-                s.to_lua(&mut self.lua());
-            },
             Tag::Inventory => {
                 let iid = try!(r.read_id(&mut self.wf()));
                 let i = userdata::world::Inventory { id: iid };
                 i.to_lua(&mut self.lua());
+            },
+            Tag::Structure => {
+                let sid = try!(r.read_id(&mut self.wf()));
+                let s = userdata::world::Structure { id: sid };
+                s.to_lua(&mut self.lua());
             },
 
             Tag::StableClient => {
@@ -559,15 +565,20 @@ impl<'a, 'd> ReadHooks<'a, 'd> {
                 let e = userdata::world::StableEntity { id: Stable::new(eid) };
                 e.to_lua(&mut self.lua());
             },
-            Tag::StableStructure => {
-                let sid = try!(r.read());
-                let s = userdata::world::StableStructure { id: Stable::new(sid) };
-                s.to_lua(&mut self.lua());
-            },
             Tag::StableInventory => {
                 let iid = try!(r.read());
                 let i = userdata::world::StableInventory { id: Stable::new(iid) };
                 i.to_lua(&mut self.lua());
+            },
+            Tag::StablePlane => {
+                let sid = try!(r.read());
+                let s = userdata::world::StablePlane { id: Stable::new(sid) };
+                s.to_lua(&mut self.lua());
+            },
+            Tag::StableStructure => {
+                let sid = try!(r.read());
+                let s = userdata::world::StableStructure { id: Stable::new(sid) };
+                s.to_lua(&mut self.lua());
             },
 
             Tag::V3 => {
