@@ -32,10 +32,13 @@ impl Userdata for World {
             }
 
             fn create_entity(!partial wf: WorldFragment,
+                             _w: World,
+                             plane: Plane,
                              pos: V3,
                              anim: AnimId,
                              appearance: u32) -> StrResult<Entity> {
-                wf.create_entity(STABLE_PLANE_FOREST, pos, anim, appearance)
+                let stable_pid = wf.plane_mut(plane.id).stable_id();
+                wf.create_entity(stable_pid, pos, anim, appearance)
                   .map(|e| Entity { id: e.id() })
             }
 
@@ -48,11 +51,12 @@ impl Userdata for World {
 
             fn find_structure_at_point(!partial w: &world::World,
                                        _w: World,
+                                       plane: Plane,
                                        pos: V3) -> Option<Structure> {
                 let chunk = pos.reduce().div_floor(scalar(CHUNK_SIZE));
                 let mut best_id = None;
                 let mut best_layer = 0;
-                for s in w.chunk_structures(PLANE_FOREST, chunk) {
+                for s in w.chunk_structures(plane.id, chunk) {
                     if s.bounds().contains(pos) {
                         if s.template().layer >= best_layer {
                             best_layer = s.template().layer;
@@ -65,13 +69,14 @@ impl Userdata for World {
 
             fn create_structure(!partial wf: WorldFragment,
                                 _w: World,
+                                plane: Plane,
                                 pos: V3,
                                 template_name: &str) -> StrResult<Structure> {{
                 let template_id =
                     unwrap!(wf.data().structure_templates.find_id(template_name),
                             "named structure template does not exist");
 
-                wf.create_structure(PLANE_FOREST, pos, template_id)
+                wf.create_structure(plane.id, pos, template_id)
                   .map(|s| Structure { id: s.id() })
             }}
 

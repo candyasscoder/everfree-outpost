@@ -3,12 +3,12 @@ local util = require('outpost.util')
 local ward = require('ward')
 local mallet = require('mallet')
 
-local function place_structure(world, inv, pos, item_name, template_name)
+local function place_structure(world, inv, plane, pos, item_name, template_name)
     if inv:count(item_name) == 0 then
         return
     end
 
-    s, err = world:create_structure(pos, template_name)
+    s, err = world:create_structure(plane, pos, template_name)
 
     if s ~= nil then
         s:attach_to_chunk()
@@ -32,13 +32,15 @@ local function take_structure(s, inv, item_name)
 end
 
 local function use_item(c, inv, item_name, template_name)
+    local pawn = c:pawn()
+    local plane = pawn:plane()
     local pos = util.hit_tile(c:pawn())
 
     if not ward.check(c, pos) then
         return
     end
 
-    return place_structure(c:world(), inv, pos, item_name, template_name)
+    return place_structure(c:world(), inv, plane, pos, item_name, template_name)
 end
 
 local function use_structure(c, s, item_name)

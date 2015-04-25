@@ -6,7 +6,7 @@ local function hit_tile(entity)
 end
 
 local function hit_structure(entity)
-    return entity:world():find_structure_at_point(hit_tile(entity))
+    return entity:world():find_structure_at_point(entity:plane(), hit_tile(entity))
 end
 
 return {
