@@ -75,15 +75,13 @@ local function choose_loot(r)
     end
 end
 
-function outpost_ffi.callbacks.generate_chunk(c, plane_name, cpos, plane_rng, chunk_rng)
-    print('generate for plane ' .. plane_name)
+local function generate_forest(c, cpos, r)
     local grass = {
         ['grass/center/v0'] = 1,
         ['grass/center/v1'] = 1,
         ['grass/center/v2'] = 1,
         ['grass/center/v3'] = 1,
     }
-    local r = chunk_rng
 
     local min = cpos * V2.new(16, 16)
     local max = min + V2.new(16, 16)
@@ -158,6 +156,29 @@ function outpost_ffi.callbacks.generate_chunk(c, plane_name, cpos, plane_rng, ch
     end
 end
 
+
+local function generate_dungeon(c, cpos, rp, rc)
+    for y = 0, 15 do
+        for x = 0, 15 do
+            c:set_block(V3.new(x, y, 0), 'cave_inside/center/z0')
+        end
+    end
+end
+
+
+function outpost_ffi.callbacks.generate_chunk(c, plane_name, cpos, plane_rng, chunk_rng)
+    print('generate for plane ' .. plane_name)
+    local r = chunk_rng
+
+    if plane_name == 'Everfree Forest' then
+        generate_forest(c, cpos, chunk_rng)
+    else if plane_name == 'Dungeon' then
+        generate_dungeon(c, cpos, plane_rng, chunk_rng)
+    end end
+end
+
+
+
 function outpost_ffi.callbacks.apply_structure_extra(s, k, v)
     if k == 'loot' then
         print('spawning loot: ', v)
@@ -172,3 +193,6 @@ function outpost_ffi.callbacks.apply_structure_extra(s, k, v)
         s:inventory('contents'):update(item, 0 + count)
     end
 end
+
+
+

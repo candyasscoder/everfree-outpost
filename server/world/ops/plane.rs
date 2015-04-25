@@ -42,41 +42,48 @@ pub fn create_unchecked<'d, F>(f: &mut F) -> PlaneId
 pub fn post_init<'d, F>(f: &mut F,
                         pid: PlaneId)
         where F: Fragment<'d> {
+    trace!("post_init({:?})", pid);
     let stable_pid = f.world_mut().planes.pin(pid);
 
-    let eids = f.world_mut().limbo_entities.remove(&stable_pid).unwrap_or_else(|| HashSet::new());
-    let mut eids_vec = Vec::with_capacity(eids.len());
-    for &eid in eids.iter() {
-        f.world_mut().entities[eid].plane = pid;
-        eids_vec.push(eid);
-    }
-    f.world_mut().entities_by_plane.insert(pid, eids);
+    // limbo_entities is manipulated using multimap_insert/multimap_remove, so if there are no
+    // entities in limbo targeting this plane, there may be not HashSet under the given key.
+    if let Some(eids) = f.world_mut().limbo_entities.remove(&stable_pid) {
+        let mut eids_vec = Vec::with_capacity(eids.len());
+        for &eid in eids.iter() {
+            f.world_mut().entities[eid].plane = pid;
+            eids_vec.push(eid);
+        }
+        f.world_mut().entities_by_plane.insert(pid, eids);
 
-    trace!("post_init: transfer {} entities for {:?} ({:?})", eids_vec.len(), pid, stable_pid);
-    trace!("post_init: entities: {:?}", eids_vec);
+        trace!("post_init: transfer {} entities for {:?} ({:?})", eids_vec.len(), pid, stable_pid);
+        trace!("post_init: entities: {:?}", eids_vec);
 
-    // TODO: Not sure this is a good idea.  The hook might mutate the world during this loop.
-    for eid in eids_vec.into_iter() {
-        f.with_hooks(|h| h.on_entity_plane_change(eid));
+        // TODO: Not sure this is a good idea.  The hook might mutate the world during this loop.
+        for eid in eids_vec.into_iter() {
+            f.with_hooks(|h| h.on_entity_plane_change(eid));
+        }
     }
 }
 
 pub fn pre_fini<'d, F>(f: &mut F,
                        pid: PlaneId)
         where F: Fragment<'d> {
+    trace!("pre_fini({:?})", pid);
     let stable_pid = f.world_mut().planes.pin(pid);
 
-    let eids = f.world_mut().entities_by_plane.remove(&pid).unwrap();
-    let mut eids_vec = Vec::with_capacity(eids.len());
-    for &eid in eids.iter() {
-        f.world_mut().entities[eid].plane = PLANE_LIMBO;
-        eids_vec.push(eid);
-    }
-    f.world_mut().limbo_entities.insert(stable_pid, eids);
+    // Same multimap_* stuff as is post_init.
+    if let Some(eids) = f.world_mut().entities_by_plane.remove(&pid) {
+        let mut eids_vec = Vec::with_capacity(eids.len());
+        for &eid in eids.iter() {
+            f.world_mut().entities[eid].plane = PLANE_LIMBO;
+            eids_vec.push(eid);
+        }
+        f.world_mut().limbo_entities.insert(stable_pid, eids);
 
-    // TODO: Not sure this is a good idea.  The hook might mutate the world during this loop.
-    for eid in eids_vec.into_iter() {
-        f.with_hooks(|h| h.on_entity_plane_change(eid));
+        // TODO: Not sure this is a good idea.  The hook might mutate the world during this loop.
+        for eid in eids_vec.into_iter() {
+            f.with_hooks(|h| h.on_entity_plane_change(eid));
+        }
     }
 }
 

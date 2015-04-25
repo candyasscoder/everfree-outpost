@@ -39,6 +39,13 @@ impl Userdata for World {
                   .map(|e| Entity { id: e.id() })
             }
 
+            fn create_plane(!partial wf: WorldFragment,
+                            _w: World,
+                            name: &str) -> StrResult<Plane> {
+                wf.create_plane(name.to_owned())
+                  .map(|p| Plane { id: p.id() })
+            }
+
             fn find_structure_at_point(!partial w: &world::World,
                                        _w: World,
                                        pos: V3) -> Option<Structure> {
@@ -259,6 +266,17 @@ impl Userdata for Entity {
                 let now = wf.now();
                 let mut e = unwrap!(wf.get_entity_mut(e.id));
                 try!(e.set_plane_id(p.id));
+                e.set_motion(world::Motion::stationary(pos, now));
+                Ok(())
+            }
+
+            fn teleport_stable_plane(!partial wf: WorldFragment,
+                                     e: Entity,
+                                     p: StablePlane,
+                                     pos: V3) -> StrResult<()> {
+                let now = wf.now();
+                let mut e = unwrap!(wf.get_entity_mut(e.id));
+                try!(e.set_stable_plane_id(p.id));
                 e.set_motion(world::Motion::stationary(pos, now));
                 Ok(())
             }

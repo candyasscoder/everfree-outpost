@@ -22,6 +22,10 @@ end
 
 
 function action.use.dungeon_entrance(c, s)
-    c:send_message('Not yet implemented')
+    if s:extra().target_plane == nil then
+        s:extra().target_plane = s:world():create_plane('Dungeon'):stable_id()
+    end
+
+    c:pawn():teleport_stable_plane(s:extra().target_plane, V3.new(256, 256, 0))
 end
 
