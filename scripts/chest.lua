@@ -32,7 +32,7 @@ function action.use.cabinets(c, s)
 end
 
 function action.use_item.cabinets(c, inv)
-    structure_items.use_item(c, inv, 'cabinets', 'cabinets')
+    structure_items.use_attachment_item(c, inv, 'cabinets', 'cabinets')
 end
 
 function tools.handler.axe.cabinets(c, s, inv)

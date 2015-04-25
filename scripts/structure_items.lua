@@ -64,6 +64,8 @@ local function add_structure_item(item_name, template_name)
     end
 end
 
+
+
 add_structure_item('fence', 'fence/edge/horiz')
 add_structure_item('fence_tee', 'fence/tee/e')
 add_structure_item('fence_post', 'fence/end/fancy/e')
@@ -126,9 +128,86 @@ mallet_cycle('road/', terrain_cycle)
 
 mallet_cycle('statue/', { 'e', 's', 'w', 'n' })
 
+
+
+attachment_map = {}
+local function check_attachment(attach, s)
+    if s == nil then
+        return true
+    end
+
+    if s:layer() == 0 then
+        return true
+    else if s:layer() > 1 then
+        return false
+    end end
+
+    if not attachment_map[attach][s:template()] then
+        return false
+    else
+        return true
+    end
+end
+
+
+local function use_attachment_item(c, inv, item_name, template_name)
+    local pawn = c:pawn()
+    local plane = pawn:plane()
+    local s = util.hit_structure(pawn)
+
+    local pos
+    if s == nil then
+        pos = util.hit_tile(c:pawn())
+    else
+        pos = s:pos()
+    end
+
+    if not ward.check(c, pos) then
+        return
+    end
+
+    if not check_attachment(template_name, s) then
+        return nil
+    end
+
+    return place_structure(c:world(), inv, plane, pos, item_name, template_name)
+end
+
+local function add_attachment_item(item_name, template_name)
+    if template_name == nil then
+        template_name = item_name
+    end
+
+    action.use_item[item_name] = function(c, inv)
+        use_attachment_item(c, inv, item_name, template_name)
+    end
+
+    action.use[template_name] = function(c, s)
+        use_structure(c, s, item_name)
+    end
+end
+
+
+horiz_walls = {
+    ['house_wall/edge/horiz/in'] = true,
+    ['house_wall/edge/horiz/out'] = true,
+    ['house_wall/tee/n/in'] = true,
+    ['house_wall/tee/n/out'] = true,
+}
+
+attachment_map['cabinets'] = horiz_walls
+attachment_map['bookshelf/0'] = horiz_walls
+
+add_attachment_item('bookshelf', 'bookshelf/0')
+
+
+
+
+
 return {
     place_structure = place_structure,
     take_structure = take_structure,
     use_item = use_item,
+    use_attachment_item = use_attachment_item,
     use_structure = use_structure,
 }

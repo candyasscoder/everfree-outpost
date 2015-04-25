@@ -466,6 +466,13 @@ impl Userdata for Structure {
                  .map(|t| t.name.clone())
             }
 
+            fn layer(!partial w: &world::World, s: Structure) -> Option<u8> {
+                w.get_structure(s.id)
+                 .map(|s| s.template_id())
+                 .and_then(|id| w.data().structure_templates.get_template(id))
+                 .map(|t| t.layer)
+            }
+
             fn replace(!partial wf: WorldFragment,
                        s: Structure,
                        new_template_name: &str) -> StrResult<()> {

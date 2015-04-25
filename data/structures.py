@@ -26,7 +26,8 @@ def terrain_floor(s, basename, image):
             name = basename + '/' + part_name
             s.append(StructureDef(name, tile, depth, floor(1, 1, 1), 0))
 
-def solid_structure(s, name, image, size, base=(0, 0), display_size=None, plane_image=None):
+def solid_structure(s, name, image, size, base=(0, 0), display_size=None,
+        plane_image=None, layer=1):
     base_x, base_y = base
     x = base_x * TILE_SIZE
     y = base_y * TILE_SIZE
@@ -48,7 +49,7 @@ def solid_structure(s, name, image, size, base=(0, 0), display_size=None, plane_
         depth = depth.crop((0, depth_height - h, w, depth_height))
     else:
         depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
-    s.append(StructureDef(name, struct_img, depth, solid(*size), 1))
+    s.append(StructureDef(name, struct_img, depth, solid(*size), layer))
 
 
 def solid_small(s, name, image, base=(0, 0)):
@@ -190,10 +191,11 @@ def get_structures(asset_path):
     plane = img('furniture-planemap.png')
     solid_structure(s, 'bed', image, (2, 2, 1), (0, 0), plane_image=plane)
     solid_structure(s, 'table', image, (2, 2, 1), (2, 0), plane_image=plane)
-    solid_structure(s, 'cabinets', image, (1, 1, 2), (4, 0), plane_image=plane)
-    solid_structure(s, 'bookshelf/0', image, (1, 1, 2), (5, 0), plane_image=plane)
-    solid_structure(s, 'bookshelf/1', image, (1, 1, 2), (6, 0), plane_image=plane)
-    solid_structure(s, 'bookshelf/2', image, (1, 1, 2), (7, 0), plane_image=plane)
+
+    solid_structure(s, 'cabinets', image, (1, 1, 2), (4, 0), plane_image=plane, layer=2)
+    solid_structure(s, 'bookshelf/0', image, (1, 1, 2), (5, 0), plane_image=plane, layer=2)
+    solid_structure(s, 'bookshelf/1', image, (1, 1, 2), (6, 0), plane_image=plane, layer=2)
+    solid_structure(s, 'bookshelf/2', image, (1, 1, 2), (7, 0), plane_image=plane, layer=2)
 
     do_house_parts(s, 'house_wall', img('house.png'), img('house-planemap.png'))
     do_fence_parts(s, 'fence', img('fence.png'))
