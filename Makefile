@@ -330,6 +330,7 @@ WWW_FILE = $(call DIST_FILE_,WWW,$(strip $(1)),$(strip $(2)))
 DATA_FILE = $(call DIST_FILE_,DATA,$(strip $(1)),$(strip $(2)))
 
 $(eval $(call BIN_FILE,		run_server.sh,		$(SRC)/util/run_server.sh))
+$(eval $(call BIN_FILE,		wrapper.py,			$(SRC)/server/wrapper.py))
 
 $(eval $(call DATA_FILE, 	blocks.json,		$(BUILD)/blocks-server.json))
 $(eval $(call DATA_FILE, 	items.json,			$(BUILD)/items-server.json))
