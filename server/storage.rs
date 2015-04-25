@@ -30,6 +30,8 @@ impl Storage {
     pub fn new(base: Path) -> Storage {
         fs::mkdir_recursive(&base.join_many(&[SAVE_DIR, CLIENT_DIR]),
                             old_io::ALL_PERMISSIONS).unwrap();
+        fs::mkdir_recursive(&base.join_many(&[SAVE_DIR, PLANE_DIR]), 
+                            old_io::ALL_PERMISSIONS).unwrap();
         fs::mkdir_recursive(&base.join_many(&[SAVE_DIR, TERRAIN_CHUNK_DIR]), 
                             old_io::ALL_PERMISSIONS).unwrap();
 

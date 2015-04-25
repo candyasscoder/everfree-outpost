@@ -24,6 +24,7 @@ pub fn create<'d, F>(f: &mut F,
 
     // unwrap() always succeeds because stable_id is NO_STABLE_ID.
     let tcid = f.world_mut().terrain_chunks.insert(tc).unwrap();
+    post_init(f, tcid);
     f.with_hooks(|h| h.on_terrain_chunk_create(tcid));
     Ok(tcid)
 }
@@ -41,12 +42,31 @@ pub fn create_unchecked<'d, F>(f: &mut F) -> TerrainChunkId
     tcid
 }
 
+pub fn post_init<'d, F>(f: &mut F,
+                        tcid: TerrainChunkId)
+        where F: Fragment<'d> {
+    let w = f.world_mut();
+    let tc = &w.terrain_chunks[tcid];
+    // TODO: error handling: check for duplicate entries with same cpos
+    w.planes[tc.plane].loaded_chunks.insert(tc.cpos, tcid);
+}
+
+pub fn pre_fini<'d, F>(f: &mut F,
+                       tcid: TerrainChunkId)
+        where F: Fragment<'d> {
+    let w = f.world_mut();
+    let tc = &w.terrain_chunks[tcid];
+    // Containing plane may be missing during recursive destruction.
+    w.planes.get_mut(tc.plane)
+     .map(|p| p.loaded_chunks.remove(&tc.cpos));
+}
+
 pub fn destroy<'d, F>(f: &mut F,
                       tcid: TerrainChunkId) -> OpResult<()>
         where F: Fragment<'d> {
+    trace!("destroy {:?}", tcid);
+    pre_fini(f, tcid);
     let tc = unwrap!(f.world_mut().terrain_chunks.remove(tcid));
-
-    f.world_mut().planes[tc.plane].loaded_chunks.remove(&tc.cpos);
 
     for &sid in tc.child_structures.iter() {
         ops::structure::destroy(f, sid).unwrap();

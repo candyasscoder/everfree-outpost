@@ -47,6 +47,7 @@ pub trait Fragment<'d> {
 
     fn get_plane_id(&mut self, stable_pid: Stable<PlaneId>) -> PlaneId {
         if let Some(pid) = self.with_world(|_, w| w.transient_plane_id(stable_pid)) {
+            trace!("get_plane_id({:?}) = {:?} (hit)", stable_pid, pid);
             return pid;
         }
 
@@ -55,13 +56,14 @@ pub trait Fragment<'d> {
         });
         // Correctly implemented provider should create or load a Plane with the given StableId.
         let pid = self.with_world(|_, w| w.transient_plane_id(stable_pid)).unwrap();
-        self.with_world(|sys, _| sys.plane_ref_count.insert(pid, 0));
+        trace!("get_plane_id({:?}) = {:?} (miss)", stable_pid, pid);
         pid
     }
 
     /// Returns `true` iff the chunk was actually loaded as a result of this call (as opposed to
     /// simply having its refcount incremented).
     fn load(&mut self, pid: PlaneId, cpos: V2) -> bool {
+        trace!("load({:?}, {:?})", pid, cpos);
         self.with_provider(|sys, provider| {
             let first = sys.lifecycle.retain(pid, cpos, |pid, cpos| {
                 warn_on_err!(provider.load_terrain_chunk(pid, cpos))
@@ -69,7 +71,10 @@ pub trait Fragment<'d> {
             if first {
                 // No need to load anything, since the Plane must already be loaded to have a
                 // PlaneId.
-                sys.plane_ref_count[pid] += 1;
+                match sys.plane_ref_count.entry(pid) {
+                    Vacant(e) => { e.insert(1); },
+                    Occupied(e) => { *e.into_mut() += 1; },
+                }
             }
             first
         })
@@ -77,6 +82,7 @@ pub trait Fragment<'d> {
 
     /// Returns `true` iff the chunk was actually unloaded as a result of this call.
     fn unload(&mut self, pid: PlaneId, cpos: V2) -> bool {
+        trace!("unload({:?}, {:?})", pid, cpos);
         self.with_provider(|sys, provider| {
             let last = sys.lifecycle.release(pid, cpos, |pid, cpos| {
                 warn_on_err!(provider.unload_terrain_chunk(pid, cpos))

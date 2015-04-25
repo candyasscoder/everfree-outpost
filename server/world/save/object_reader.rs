@@ -255,17 +255,20 @@ impl<R: old_io::Reader> ObjectReader<R> {
         let (pid, stable_id) = try!(self.read_object_header(f));
 
         try!(f.with_world(|wf| -> Result<_> {
-            let w = world::Fragment::world_mut(wf);
-            try!(w.planes.set_stable_id(pid, stable_id));
+            {
+                let w = world::Fragment::world_mut(wf);
+                try!(w.planes.set_stable_id(pid, stable_id));
 
-            let p = &mut w.planes[pid];
+                let p = &mut w.planes[pid];
 
-            let chunks_count = try!(self.r.read_count());
-            for _ in 0..chunks_count {
-                let (cpos, stable_tcid) = try!(self.r.read());
-                let stable_tcid = Stable::new(stable_tcid);
-                p.saved_chunks.insert(cpos, stable_tcid);
+                let chunks_count = try!(self.r.read_count());
+                for _ in 0..chunks_count {
+                    let (cpos, stable_tcid) = try!(self.r.read());
+                    let stable_tcid = Stable::new(stable_tcid);
+                    p.saved_chunks.insert(cpos, stable_tcid);
+                }
             }
+            ops::plane::post_init(wf, pid);
             Ok(())
         }));
 
@@ -281,47 +284,50 @@ impl<R: old_io::Reader> ObjectReader<R> {
         let (tcid, stable_id) = try!(self.read_object_header(f));
 
         try!(f.with_world(|wf| -> Result<()> {
-            let w = world::Fragment::world_mut(wf);
-            try!(w.terrain_chunks.set_stable_id(tcid, stable_id));
-            let data = w.data();
+            {
+                let w = world::Fragment::world_mut(wf);
+                try!(w.terrain_chunks.set_stable_id(tcid, stable_id));
+                let data = w.data();
 
-            let tc = &mut w.terrain_chunks[tcid];
+                let tc = &mut w.terrain_chunks[tcid];
 
-            tc.plane = plane;
-            tc.cpos = cpos;
+                tc.plane = plane;
+                tc.cpos = cpos;
 
-            // Read saved BlockIds into tc.blocks.
-            let byte_len = tc.blocks.len() * mem::size_of::<BlockId>();
-            let byte_array = unsafe {
-                mem::transmute(raw::Slice {
-                    data: tc.blocks.as_ptr() as *const u8,
-                    len: byte_len,
-                })
-            };
-            try!(self.r.read_buf(byte_array));
+                // Read saved BlockIds into tc.blocks.
+                let byte_len = tc.blocks.len() * mem::size_of::<BlockId>();
+                let byte_array = unsafe {
+                    mem::transmute(raw::Slice {
+                        data: tc.blocks.as_ptr() as *const u8,
+                        len: byte_len,
+                    })
+                };
+                try!(self.r.read_buf(byte_array));
 
-            // Compute block_map, mapping old BlockIds to new ones.
-            let mut block_map = HashMap::new();
-            let block_id_count = try!(self.r.read_count());
-            let block_data = &data.block_data;
-            for _ in 0..block_id_count {
-                let (old_id, shape, name_len): (u16, u8, u8) = try!(self.r.read());
-                let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_usize())));
-                let new_id = unwrap!(block_data.find_id(&*name));
+                // Compute block_map, mapping old BlockIds to new ones.
+                let mut block_map = HashMap::new();
+                let block_id_count = try!(self.r.read_count());
+                let block_data = &data.block_data;
+                for _ in 0..block_id_count {
+                    let (old_id, shape, name_len): (u16, u8, u8) = try!(self.r.read());
+                    let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_usize())));
+                    let new_id = unwrap!(block_data.find_id(&*name));
 
-                if block_data.shape(new_id) as u8 != shape {
-                    fail!("block shape does not match");
+                    if block_data.shape(new_id) as u8 != shape {
+                        fail!("block shape does not match");
+                    }
+
+                    block_map.insert(old_id, new_id);
                 }
 
-                block_map.insert(old_id, new_id);
+                // Replace old BlockIds with new ones in tc.blocks.
+                for ptr in tc.blocks.iter_mut() {
+                    let id = unwrap!(block_map.get(ptr));
+                    *ptr = *id;
+                }
             }
 
-            // Replace old BlockIds with new ones in tc.blocks.
-            for ptr in tc.blocks.iter_mut() {
-                let id = unwrap!(block_map.get(ptr));
-                *ptr = *id;
-            }
-
+            ops::terrain_chunk::post_init(wf, tcid);
             Ok(())
         }));
 
@@ -500,7 +506,10 @@ impl<R: old_io::Reader> ObjectReader<R> {
                 },
                 AnyId::TerrainChunk(tcid) => {
                     unwrap_warn(f.with_hooks(|h| h.cleanup_terrain_chunk(tcid)));
-                    f.with_world(|wf| wf.world_mut().terrain_chunks.remove(tcid));
+                    f.with_world(|wf| {
+                        ops::terrain_chunk::pre_fini(wf, tcid);
+                        wf.world_mut().terrain_chunks.remove(tcid);
+                    });
                 },
                 AnyId::Structure(sid) => {
                     unwrap_warn(f.with_hooks(|h| h.cleanup_structure(sid)));

@@ -64,6 +64,7 @@ pub fn post_init<'d, F>(f: &mut F,
     let e = &mut w.entities[eid];
 
     e.plane = w.planes.get_id(e.stable_plane).unwrap_or(PLANE_LIMBO);
+    trace!("looking for stable plane {:?} for entity {:?}: {:?}", e.stable_plane, eid, e.plane);
     if e.plane == PLANE_LIMBO {
         multimap_insert(&mut w.limbo_entities, e.stable_plane, eid);
     } else {

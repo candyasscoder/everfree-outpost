@@ -41,6 +41,9 @@ pub fn post_init<'d, F>(f: &mut F,
     }
     f.world_mut().entities_by_plane.insert(pid, eids);
 
+    trace!("post_init: transfer {} entities for {:?} ({:?})", eids_vec.len(), pid, stable_pid);
+    trace!("post_init: entities: {:?}", eids_vec);
+
     // TODO: Not sure this is a good idea.  The hook might mutate the world during this loop.
     for eid in eids_vec.into_iter() {
         f.with_hooks(|h| h.on_entity_plane_change(eid));

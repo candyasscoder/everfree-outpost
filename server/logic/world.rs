@@ -14,13 +14,19 @@ use world::object::*;
 use vision::{self, vision_region};
 
 
-impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
+macro_rules! impl_world_Hooks {
+    ($WorldHooks:ident, $as_vision_fragment:ident,
+     $old_structure:ident, $new_structure:ident) => {
+
+impl<'a, 'd> world::Hooks for $WorldHooks<'a, 'd> {
+    // We should never get client callbacks in the HiddenWorldHooks variant.
+
     // No client_create callback because clients are added to vision in the logic::client code.
 
     fn on_client_destroy(&mut self, cid: ClientId) {
         self.script_mut().cb_client_destroyed(cid);
         // TODO: should this be here or in logic::clients?
-        vision::Fragment::remove_client(&mut self.as_vision_fragment(), cid);
+        vision::Fragment::remove_client(&mut self.$as_vision_fragment(), cid);
     }
 
     fn on_client_change_pawn(&mut self,
@@ -34,7 +40,7 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
         };
 
         let region = vision_region(center);
-        vision::Fragment::set_client_view(&mut self.as_vision_fragment(), cid, plane, region);
+        vision::Fragment::set_client_view(&mut self.$as_vision_fragment(), cid, plane, region);
     }
 
 
@@ -43,14 +49,14 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
             let tc = self.world().terrain_chunk(tcid);
             (tc.plane_id(), tc.chunk_pos())
         };
-        vision::Fragment::add_terrain_chunk(&mut self.as_vision_fragment(), tcid, pid, cpos);
+        vision::Fragment::add_terrain_chunk(&mut self.$as_vision_fragment(), tcid, pid, cpos);
 
         let Open { world, cache, .. } = (**self).open();
         warn_on_err!(cache.add_chunk(world, pid, cpos));
     }
 
     fn on_terrain_chunk_destroy(&mut self, tcid: TerrainChunkId, pid: PlaneId, cpos: V2) {
-        vision::Fragment::remove_terrain_chunk(&mut self.as_vision_fragment(), tcid);
+        vision::Fragment::remove_terrain_chunk(&mut self.$as_vision_fragment(), tcid);
 
         self.cache_mut().remove_chunk(pid, cpos);
     }
@@ -61,12 +67,13 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
             let e = self.world().entity(eid);
             (e.plane_id(), entity_area(self.world().entity(eid)))
         };
-        vision::Fragment::add_entity(&mut self.as_vision_fragment(), eid, plane, area);
+        trace!("entity {:?} created at {:?}", eid, plane);
+        vision::Fragment::add_entity(&mut self.$as_vision_fragment(), eid, plane, area);
     }
 
     fn on_entity_destroy(&mut self, eid: EntityId) {
         self.script_mut().cb_entity_destroyed(eid);
-        vision::Fragment::remove_entity(&mut self.as_vision_fragment(), eid);
+        vision::Fragment::remove_entity(&mut self.$as_vision_fragment(), eid);
     }
 
     fn on_entity_motion_change(&mut self, eid: EntityId) {
@@ -74,27 +81,29 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
             let e = self.world().entity(eid);
             (e.plane_id(), entity_area(self.world().entity(eid)))
         };
-        vision::Fragment::set_entity_area(&mut self.as_vision_fragment(), eid, plane, area);
+        trace!("entity {:?} motion changed to {:?}", eid, plane);
+        vision::Fragment::set_entity_area(&mut self.$as_vision_fragment(), eid, plane, area);
     }
 
     fn on_entity_appearance_change(&mut self, eid: EntityId) {
-        vision::Fragment::update_entity_appearance(&mut self.as_vision_fragment(), eid);
+        vision::Fragment::update_entity_appearance(&mut self.$as_vision_fragment(), eid);
     }
 
     fn on_entity_plane_change(&mut self, eid: EntityId) {
+        trace!("entity {:?} plane changed", eid);
         self.on_entity_motion_change(eid);
     }
 
 
     fn on_structure_create(&mut self, sid: StructureId) {
-        new_structure(self, sid);
+        $new_structure(self, sid);
     }
 
     fn on_structure_destroy(&mut self,
                             sid: StructureId,
                             pid: PlaneId,
                             old_bounds: Region) {
-        old_structure(self, sid, pid, old_bounds);
+        $old_structure(self, sid, pid, old_bounds);
         self.script_mut().cb_structure_destroyed(sid);
     }
 
@@ -102,8 +111,8 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
                             sid: StructureId,
                             pid: PlaneId,
                             old_bounds: Region) {
-        old_structure(self, sid, pid, old_bounds);
-        new_structure(self, sid);
+        $old_structure(self, sid, pid, old_bounds);
+        $new_structure(self, sid);
     }
 
     fn check_structure_placement(&self,
@@ -126,120 +135,43 @@ impl<'a, 'd> world::Hooks for WorldHooks<'a, 'd> {
                            item_id: ItemId,
                            old_count: u8,
                            new_count: u8) {
-        vision::Fragment::update_inventory(&mut self.as_vision_fragment(),
+        vision::Fragment::update_inventory(&mut self.$as_vision_fragment(),
                                            iid, item_id, old_count, new_count);
     }
 }
 
-fn new_structure(wh: &mut WorldHooks,
-                 sid: StructureId) {
+fn $new_structure(wh: &mut $WorldHooks,
+                  sid: StructureId) {
     let (pid, area) = {
         let s = wh.world().structure(sid);
         (s.plane_id(), structure_area(s))
     };
-    vision::Fragment::add_structure(&mut wh.as_vision_fragment(), sid, pid, area);
+    vision::Fragment::add_structure(&mut wh.$as_vision_fragment(), sid, pid, area);
 
     let Open { world, cache, .. } = (**wh).open();
     let s = world.structure(sid);
     cache.update_region(world, pid, s.bounds());
 }
 
-fn old_structure(wh: &mut WorldHooks,
-                 sid: StructureId,
-                 old_pid: PlaneId,
-                 old_bounds: Region) {
-    vision::Fragment::remove_structure(&mut wh.as_vision_fragment(), sid);
+fn $old_structure(wh: &mut $WorldHooks,
+                  sid: StructureId,
+                  old_pid: PlaneId,
+                  old_bounds: Region) {
+    vision::Fragment::remove_structure(&mut wh.$as_vision_fragment(), sid);
 
     let Open { world, cache, .. } = (**wh).open();
     cache.update_region(world, old_pid, old_bounds);
 }
 
-
-// HiddenWorldHooks is like WorldHooks but does not send updates to clients.  Only the server's
-// internal data structures are updated.
-impl<'a, 'd> world::Hooks for HiddenWorldHooks<'a, 'd> {
-    fn on_client_destroy(&mut self, cid: ClientId) {
-        self.script_mut().cb_client_destroyed(cid);
-    }
-
-    fn on_terrain_chunk_create(&mut self, tcid: TerrainChunkId) {
-        let (pid, cpos) = {
-            let tc = self.world().terrain_chunk(tcid);
-            (tc.plane_id(), tc.chunk_pos())
-        };
-        vision::Fragment::add_terrain_chunk(&mut self.as_hidden_vision_fragment(), tcid, pid, cpos);
-
-        let Open { world, cache, .. } = (**self).open();
-        warn_on_err!(cache.add_chunk(world, pid, cpos));
-    }
-
-    fn on_terrain_chunk_destroy(&mut self, tcid: TerrainChunkId, pid: PlaneId, cpos: V2) {
-        vision::Fragment::remove_terrain_chunk(&mut self.as_hidden_vision_fragment(), tcid);
-
-        self.cache_mut().remove_chunk(pid, cpos);
-    }
-
-    fn on_entity_destroy(&mut self, eid: EntityId) {
-        self.script_mut().cb_entity_destroyed(eid);
-    }
-
-
-    fn on_structure_create(&mut self, sid: StructureId) {
-        new_structure_hidden(self, sid);
-    }
-
-    fn on_structure_destroy(&mut self,
-                            sid: StructureId,
-                            pid: PlaneId,
-                            old_bounds: Region) {
-        old_structure_hidden(self, sid, pid, old_bounds);
-        self.script_mut().cb_structure_destroyed(sid);
-    }
-
-    fn on_structure_replace(&mut self,
-                            sid: StructureId,
-                            pid: PlaneId,
-                            old_bounds: Region) {
-        old_structure_hidden(self, sid, pid, old_bounds);
-        new_structure_hidden(self, sid);
-    }
-
-    fn check_structure_placement(&self,
-                                 template: &StructureTemplate,
-                                 pid: PlaneId,
-                                 pos: V3) -> bool {
-        check_structure_placement(self.world(), self.cache(), template, pid, pos)
-    }
-
-
-    fn on_inventory_destroy(&mut self, iid: InventoryId) {
-        self.script_mut().cb_inventory_destroyed(iid);
-    }
-}
-
-fn new_structure_hidden(hwh: &mut HiddenWorldHooks,
-                        sid: StructureId) {
-    let (pid, area) = {
-        let s = hwh.world().structure(sid);
-        (s.plane_id(), structure_area(s))
+// End of macro_rules
     };
-    vision::Fragment::add_structure(&mut hwh.as_hidden_vision_fragment(), sid, pid, area);
-
-    let Open { world, cache, .. } = (**hwh).open();
-    let s = world.structure(sid);
-    cache.update_region(world, pid, s.bounds());
 }
 
-fn old_structure_hidden(hwh: &mut HiddenWorldHooks,
-                        sid: StructureId,
-                        old_pid: PlaneId,
-                        old_bounds: Region) {
-    vision::Fragment::remove_structure(&mut hwh.as_hidden_vision_fragment(), sid);
 
-
-    let Open { world, cache, .. } = (**hwh).open();
-    cache.update_region(world, old_pid, old_bounds);
-}
+impl_world_Hooks!(WorldHooks, as_vision_fragment,
+                  old_structure, new_structure);
+impl_world_Hooks!(HiddenWorldHooks, as_hidden_vision_fragment,
+                  old_structure_hidden, new_structure_hidden);
 
 
 pub fn entity_area(e: ObjectRef<Entity>) -> SmallSet<V2> {

@@ -67,6 +67,7 @@ fn compute_shape(w: &World,
                  cpos: V2,
                  bounds: Region,
                  entry: &mut CacheEntry) -> StrResult<()> {
+    trace!("compute_shape({:?}, {:?})", pid, cpos);
     let data = w.data();
     let p = unwrap!(w.get_plane(pid));
     let chunk = unwrap!(p.get_terrain_chunk(cpos));

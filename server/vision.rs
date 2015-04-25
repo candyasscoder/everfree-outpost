@@ -133,7 +133,7 @@ impl Vision {
                          view: Region<V2>,
                          h: &mut H)
             where H: Hooks {
-        debug!("{:?} created", cid);
+        trace!("{:?} created", cid);
         self.viewers.insert(cid.unwrap() as usize, Viewer::new());
         self.set_client_view(cid, plane, view, h);
     }
@@ -142,7 +142,7 @@ impl Vision {
                             cid: ClientId,
                             h: &mut H)
             where H: Hooks {
-        debug!("{:?} destroyed", cid);
+        trace!("{:?} destroyed", cid);
         self.set_client_view(cid, PLANE_LIMBO, Region::empty(), h);
         self.viewers.remove(&(cid.unwrap() as usize));
     }
@@ -168,7 +168,7 @@ impl Vision {
 
             for &eid in self.entities_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
                 viewer.visible_entities.retain(eid, || {
-                    debug!("{:?} moved: ++{:?}", cid, eid);
+                    trace!("{:?} moved: ++{:?}", cid, eid);
                     h.on_entity_appear(cid, eid);
                     entities[eid.unwrap() as usize].viewers.insert(cid);
                 });
@@ -176,7 +176,7 @@ impl Vision {
 
             for &tcid in self.terrain_chunks_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
                 viewer.visible_terrain_chunks.retain(tcid, || {
-                    debug!("{:?} moved: ++{:?}", cid, tcid);
+                    trace!("{:?} moved: ++{:?}", cid, tcid);
                     let cpos = terrain_chunks[tcid.unwrap() as usize].cpos;
                     h.on_terrain_chunk_appear(cid, tcid, cpos);
                     terrain_chunks[tcid.unwrap() as usize].viewers.insert(cid);
@@ -185,7 +185,7 @@ impl Vision {
 
             for &sid in self.structures_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
                 viewer.visible_structures.retain(sid, || {
-                    debug!("{:?} moved: ++{:?}", cid, sid);
+                    trace!("{:?} moved: ++{:?}", cid, sid);
                     h.on_structure_appear(cid, sid);
                     structures[sid.unwrap() as usize].viewers.insert(cid);
                 });
@@ -201,7 +201,7 @@ impl Vision {
 
             for &eid in self.entities_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
                 viewer.visible_entities.release(eid, |()| {
-                    debug!("{:?} moved: --{:?}", cid, eid);
+                    trace!("{:?} moved: --{:?}", cid, eid);
                     h.on_entity_disappear(cid, eid);
                     entities[eid.unwrap() as usize].viewers.remove(&cid);
                 });
@@ -209,7 +209,7 @@ impl Vision {
 
             for &tcid in self.terrain_chunks_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
                 viewer.visible_terrain_chunks.release(tcid, |()| {
-                    debug!("{:?} moved: --{:?}", cid, tcid);
+                    trace!("{:?} moved: --{:?}", cid, tcid);
                     let cpos = terrain_chunks[tcid.unwrap() as usize].cpos;
                     h.on_terrain_chunk_disappear(cid, tcid, cpos);
                     terrain_chunks[tcid.unwrap() as usize].viewers.remove(&cid);
@@ -218,7 +218,7 @@ impl Vision {
 
             for &sid in self.structures_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
                 viewer.visible_structures.release(sid, |()| {
-                    debug!("{:?} moved: --{:?}", cid, sid);
+                    trace!("{:?} moved: --{:?}", cid, sid);
                     h.on_structure_disappear(cid, sid);
                     structures[sid.unwrap() as usize].viewers.remove(&cid);
                 });
@@ -243,7 +243,7 @@ impl Vision {
                          area: SmallSet<V2>,
                          h: &mut H)
             where H: Hooks {
-        debug!("{:?} created", eid);
+        trace!("{:?} created", eid);
         self.entities.insert(eid.unwrap() as usize, Entity::new());
         self.set_entity_area(eid, plane, area, h);
     }
@@ -252,6 +252,7 @@ impl Vision {
                             eid: EntityId,
                             h: &mut H)
             where H: Hooks {
+        trace!("{:?} destroyed", eid);
         self.set_entity_area(eid, PLANE_LIMBO, SmallSet::new(), h);
         self.entities.remove(&(eid.unwrap() as usize));
     }
@@ -274,7 +275,7 @@ impl Vision {
             let pos = (new_plane, p);
             for &cid in self.viewers_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
                 self.viewers[cid.unwrap() as usize].visible_entities.retain(eid, || {
-                    debug!("{:?} moved: ++{:?}", eid, cid);
+                    trace!("{:?} moved: ++{:?}", eid, cid);
                     h.on_entity_appear(cid, eid);
                     entity.viewers.insert(cid);
                 });
@@ -288,7 +289,7 @@ impl Vision {
             let pos = (old_plane, p);
             for &cid in self.viewers_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
                 self.viewers[cid.unwrap() as usize].visible_entities.release(eid, |()| {
-                    debug!("{:?} moved: --{:?}", eid, cid);
+                    trace!("{:?} moved: --{:?}", eid, cid);
                     h.on_entity_disappear(cid, eid);
                     entity.viewers.remove(&cid);
                 });
@@ -297,7 +298,7 @@ impl Vision {
         }
 
         for &cid in entity.viewers.iter() {
-            debug!("{:?} moved: **{:?}", eid, cid);
+            trace!("{:?} moved: **{:?}", eid, cid);
             h.on_entity_motion_update(cid, eid);
         }
 
@@ -323,6 +324,7 @@ impl Vision {
                                 cpos: V2,
                                 h: &mut H)
             where H: Hooks {
+        trace!("{:?} created @ {:?}, {:?}", tcid, plane, cpos);
         self.terrain_chunks.insert(tcid.unwrap() as usize, TerrainChunk::new());
         let terrain_chunk = &mut self.terrain_chunks[tcid.unwrap() as usize];
 
@@ -331,7 +333,7 @@ impl Vision {
         let pos = (plane, cpos);
         for &cid in self.viewers_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
             self.viewers[cid.unwrap() as usize].visible_terrain_chunks.retain(tcid, || {
-                debug!("{:?} moved: ++{:?}", tcid, cid);
+                trace!("{:?} moved: ++{:?}", tcid, cid);
                 h.on_terrain_chunk_appear(cid, tcid, cpos);
                 terrain_chunk.viewers.insert(cid);
             });
@@ -348,6 +350,7 @@ impl Vision {
                                    tcid: TerrainChunkId,
                                    h: &mut H)
             where H: Hooks {
+        trace!("{:?} destroyed", tcid);
         let terrain_chunk = self.terrain_chunks.remove(&(tcid.unwrap() as usize)).unwrap();
 
         let pos = (terrain_chunk.plane, terrain_chunk.cpos);
