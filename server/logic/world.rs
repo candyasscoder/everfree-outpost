@@ -194,6 +194,26 @@ pub fn structure_area(s: ObjectRef<Structure>) -> SmallSet<V2> {
     area
 }
 
+
+// There are (currently) three layers for structure placement, each with distinct properties.
+//
+// Layer 0: Floor-type structures.  House floor, road, etc.  These can be placed over terrain
+// floors and in empty space.
+//
+// Layer 1: Solid structures.  House wall, anvil, chest, etc.  These require empty space throughout
+// their volume and also a floor at the bottom.
+//
+// Layer 2: Solid attachments.  Cabinets, bookshelves, etc.  These can be placed like Layer 1
+// structures (floor + empty space above), or they can instead be placed over a Layer 1 structure
+// with no shape restrictions.  In the case of placement over an existing Layer 1 structure, the
+// script doing the placement is responsible for enforcing any additional invariants.
+
+const PLACEMENT_MASK: [u8; 3] = [
+    0x1,    // Layer 0 can be placed under existing structures.
+    0x6,    // Layer 1 can be placed over Layer 0, but not under Layer 2.
+    0x4,    // Layer 2 can be placed over Layer 0 and 1.
+];
+
 fn check_structure_placement(world: &World,
                              cache: &TerrainCache,
                              template: &StructureTemplate,
@@ -208,22 +228,53 @@ fn check_structure_placement(world: &World,
 
         let tc = unwrap_or!(p.get_terrain_chunk(cpos), return false);
         let shape = data.block_data.shape(tc.block(tc.bounds().index(pos)));
-        match shape {
-            Shape::Empty => {},
-            Shape::Floor if pos.z == base_pos.z => {},
-            _ => {
-                info!("placement failed due to terrain");
-                return false;
-            },
-        }
 
         let entry = unwrap_or!(cache.get(pid, cpos), return false);
         let mask = entry.layer_mask[tc.bounds().index(pos)];
-        if mask & (1 << template.layer as usize) != 0 {
+
+        let shape_ok = match template.layer {
+            0 => check_shape_0(shape, pos.z == base_pos.z),
+            1 => check_shape_1(shape, pos.z == base_pos.z),
+            2 => {
+                if mask & (1 << 1) != 0 {
+                    // Allow unrestricted placement over layer-1 structures.
+                    true
+                } else {
+                    check_shape_1(shape, pos.z == base_pos.z)
+                }
+            },
+            x => {
+                info!("unexpected template layer: {}", x);
+                false
+            },
+        };
+
+        if !shape_ok {
+            info!("placement failed due to terrain");
+            return false;
+        }
+
+        if mask & PLACEMENT_MASK[template.layer as usize] != 0 {
             info!("placement failed due to layering");
             return false;
         }
     }
 
     true
+}
+
+fn check_shape_0(shape: Shape, is_bottom: bool) -> bool {
+    match shape {
+        Shape::Empty => true,
+        Shape::Floor if is_bottom => true,
+        _ => false,
+    }
+}
+
+fn check_shape_1(shape: Shape, is_bottom: bool) -> bool {
+    match shape {
+        Shape::Empty if !is_bottom => true,
+        Shape::Floor if is_bottom => true,
+        _ => false,
+    }
 }

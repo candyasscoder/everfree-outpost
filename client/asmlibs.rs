@@ -39,7 +39,7 @@ pub const REPEAT_MASK: i32 = REPEAT_SIZE - 1;
 #[allow(dead_code)] #[static_assert]
 static REPEAT_SIZE_BITS: bool = REPEAT_SIZE == 1 << REPEAT_BITS as usize;
 
-pub const NUM_LAYERS: usize = 2;
+pub const NUM_LAYERS: usize = 3;
 
 
 // Physics
