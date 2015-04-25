@@ -54,6 +54,8 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
     }
 
     // Load the client into the world.
+    // NB: SaveReadFragment uses HiddenWorldFragment, which means it does not send updates to
+    // clients.
     let cid =
         if let Some(file) = eng.storage().open_client_file(name) {
             let mut sr = ObjectReader::new(file);
@@ -73,6 +75,10 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
                 let e = eng.world().entity(eid);
                 (e.plane_id(), logic::world::entity_area(e))
             };
+            // TODO: This is kind of a hack.  The entity was loaded using HiddenVisionFragment, so
+            // clients were not notified.  We remove and re-add the entity using the normal
+            // VisionFragment so that other clients can see the new entity.
+            vision::Fragment::remove_entity(&mut eng.as_vision_fragment(), eid);
             vision::Fragment::add_entity(&mut eng.as_vision_fragment(), eid, pid, area);
         }
     }

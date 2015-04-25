@@ -30,6 +30,7 @@ impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
 
 
     fn on_entity_appear(&mut self, cid: ClientId, eid: EntityId) {
+        trace!("on_entity_appear({:?}, {:?})", cid, eid);
         {
             let entity = self.world().entity(eid);
 
@@ -49,6 +50,7 @@ impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
     }
 
     fn on_entity_disappear(&mut self, cid: ClientId, eid: EntityId) {
+        trace!("on_entity_disappear({:?}, {:?})", cid, eid);
         let time =
             if let Some(entity) = self.world().get_entity(eid) {
                 entity.motion().start_time
@@ -61,6 +63,7 @@ impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
     }
 
     fn on_entity_motion_update(&mut self, cid: ClientId, eid: EntityId) {
+        trace!("on_entity_motion_update({:?}, {:?})", cid, eid);
         let entity = self.world().entity(eid);
 
         let motion = entity.motion().clone();
@@ -69,6 +72,7 @@ impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
     }
 
     fn on_entity_appearance_update(&mut self, cid: ClientId, eid: EntityId) {
+        trace!("on_entity_appearance_update({:?}, {:?})", cid, eid);
         self.on_entity_appear(cid, eid);
     }
 
