@@ -19,3 +19,9 @@ end
 function tools.handler.pick.teleporter(c, s, inv)
     structure_items.use_structure(c, s, 'teleporter')
 end
+
+
+function action.use.dungeon_entrance(c, s)
+    c:send_message('Not yet implemented')
+end
+

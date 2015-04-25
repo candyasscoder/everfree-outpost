@@ -60,6 +60,12 @@ crystal-formation.png:
     license: CC-BY-SA 3.0
     derived-from: ../tiles/gervais_roguelike/dg_misc32.gif
 
+crystal-formation-red.png:
+    title: Red Crystal Formation
+    author: David E. Gervais
+    license: CC-BY-SA 3.0
+    derived-from: crystal-formation.png
+
 anvil.png:
     title: LPC Anvil
     author: Daniel Eddeland (daneeklu)

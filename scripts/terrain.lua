@@ -43,11 +43,19 @@ local function place_cave(c, cpos, x, y, loot)
     c:set_block(V3.new(x + 1, y, 1), 'cave_entrance/x2/z1')
 
     if loot ~= nil then
-        c:add_structure_with_extras(V3.new(x, y - 3, 0), 'chest', { loot = loot })
+        if loot == 'dungeon' then
+            c:add_structure(V3.new(x, y - 3, 0), 'dungeon_entrance')
+        else
+            c:add_structure_with_extras(V3.new(x, y - 3, 0), 'chest', { loot = loot })
+        end
     end
 end
 
 local function choose_loot(r)
+    if r:gen(1, 20) == 1 then
+        return 'dungeon'
+    end
+
     local item = r:choose_weighted(pairs({
         wood = 5,
         stone = 5,
