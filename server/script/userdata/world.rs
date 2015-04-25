@@ -218,6 +218,11 @@ impl Userdata for Entity {
                 wf.destroy_entity(e.id)
             }
 
+            fn plane(!partial w: &world::World, s: Structure) -> Option<Plane> {
+                w.get_structure(s.id)
+                 .map(|s| Plane { id: s.plane_id() })
+            }
+
             fn pos(!partial wf: WorldFragment, e: Entity) -> Option<V3> {
                 let now = wf.now();
                 wf.world().get_entity(e.id).map(|e| e.pos(now))
@@ -247,6 +252,17 @@ impl Userdata for Entity {
                 Ok(())
             }
 
+            fn teleport_plane(!partial wf: WorldFragment,
+                              e: Entity,
+                              p: Plane,
+                              pos: V3) -> StrResult<()> {
+                let now = wf.now();
+                let mut e = unwrap!(wf.get_entity_mut(e.id));
+                try!(e.set_plane_id(p.id));
+                e.set_motion(world::Motion::stationary(pos, now));
+                Ok(())
+            }
+
             // TODO: come up with a lua representation of attachment so we can unify these methods
             // and also return the previous attachment (like the underlying op does)
             fn attach_to_world(!partial wf: WorldFragment,
@@ -261,82 +277,6 @@ impl Userdata for Entity {
                                 c: Client) -> StrResult<()> {
                 let mut e = unwrap!(wf.get_entity_mut(e.id));
                 try!(e.set_attachment(EntityAttachment::Client(c.id)));
-                Ok(())
-            }
-        }
-    }
-}
-
-
-#[derive(Copy)]
-pub struct Structure {
-    pub id: StructureId,
-}
-
-impl_type_name!(Structure);
-impl_metatable_key!(Structure);
-
-impl Userdata for Structure {
-    fn populate_table(lua: &mut LuaState) {
-        use world::StructureAttachment;
-
-        lua_table_fns2! {
-            lua, -1,
-
-            fn world(_s: Structure) -> World { World }
-            fn id(s: Structure) -> u32 { s.id.unwrap() }
-
-            fn stable_id(!partial wf: WorldFragment, s: Structure) -> Option<StableStructure> {
-                wf.get_structure_mut(s.id)
-                  .map(|mut s| StableStructure { id: s.stable_id() })
-            }
-
-            fn destroy(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
-                wf.destroy_structure(s.id)
-            }
-
-            fn pos(!partial w: &world::World, s: Structure) -> Option<V3> {
-                w.get_structure(s.id)
-                 .map(|s| s.pos())
-            }
-
-            fn size(!partial w: &world::World, s: Structure) -> Option<V3> {
-                w.get_structure(s.id)
-                 .map(|s| s.size())
-            }
-
-            fn template_id(!partial w: &world::World, s: Structure) -> Option<u32> {
-                w.get_structure(s.id)
-                 .map(|s| s.template_id())
-            }
-
-            fn template(!partial w: &world::World, s: Structure) -> Option<String> {
-                w.get_structure(s.id)
-                 .map(|s| s.template_id())
-                 .and_then(|id| w.data().structure_templates.get_template(id))
-                 .map(|t| t.name.clone())
-            }
-
-            fn replace(!partial wf: WorldFragment,
-                       s: Structure,
-                       new_template_name: &str) -> StrResult<()> {
-                let new_template_id =
-                    unwrap!(wf.data().structure_templates.find_id(new_template_name),
-                            "named structure template does not exist");
-
-                let mut s = unwrap!(wf.get_structure_mut(s.id));
-                s.set_template_id(new_template_id)
-            }
-
-            fn attach_to_plane(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
-                let mut s = unwrap!(wf.get_structure_mut(s.id));
-                try!(s.set_attachment(StructureAttachment::Plane));
-                Ok(())
-            }
-
-            fn attach_to_chunk(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
-                let mut s = unwrap!(wf.get_structure_mut(s.id));
-                try!(s.set_attachment(StructureAttachment::Chunk));
                 Ok(())
             }
         }
@@ -419,6 +359,112 @@ impl Userdata for Inventory {
 }
 
 
+#[derive(Copy)]
+pub struct Plane {
+    pub id: PlaneId,
+}
+
+impl_type_name!(Plane);
+impl_metatable_key!(Plane);
+
+impl Userdata for Plane {
+    fn populate_table(lua: &mut LuaState) {
+        lua_table_fns2! {
+            lua, -1,
+
+            fn world(_p: Plane) -> World { World }
+            fn id(p: Plane) -> u32 { p.id.unwrap() }
+
+            fn stable_id(!partial wf: WorldFragment, p: Plane) -> Option<StablePlane> {
+                wf.get_plane_mut(p.id)
+                  .map(|mut p| StablePlane { id: p.stable_id() })
+            }
+        }
+    }
+}
+
+
+#[derive(Copy)]
+pub struct Structure {
+    pub id: StructureId,
+}
+
+impl_type_name!(Structure);
+impl_metatable_key!(Structure);
+
+impl Userdata for Structure {
+    fn populate_table(lua: &mut LuaState) {
+        use world::StructureAttachment;
+
+        lua_table_fns2! {
+            lua, -1,
+
+            fn world(_s: Structure) -> World { World }
+            fn id(s: Structure) -> u32 { s.id.unwrap() }
+
+            fn stable_id(!partial wf: WorldFragment, s: Structure) -> Option<StableStructure> {
+                wf.get_structure_mut(s.id)
+                  .map(|mut s| StableStructure { id: s.stable_id() })
+            }
+
+            fn destroy(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
+                wf.destroy_structure(s.id)
+            }
+
+            fn plane(!partial w: &world::World, s: Structure) -> Option<Plane> {
+                w.get_structure(s.id)
+                 .map(|s| Plane { id: s.plane_id() })
+            }
+
+            fn pos(!partial w: &world::World, s: Structure) -> Option<V3> {
+                w.get_structure(s.id)
+                 .map(|s| s.pos())
+            }
+
+            fn size(!partial w: &world::World, s: Structure) -> Option<V3> {
+                w.get_structure(s.id)
+                 .map(|s| s.size())
+            }
+
+            fn template_id(!partial w: &world::World, s: Structure) -> Option<u32> {
+                w.get_structure(s.id)
+                 .map(|s| s.template_id())
+            }
+
+            fn template(!partial w: &world::World, s: Structure) -> Option<String> {
+                w.get_structure(s.id)
+                 .map(|s| s.template_id())
+                 .and_then(|id| w.data().structure_templates.get_template(id))
+                 .map(|t| t.name.clone())
+            }
+
+            fn replace(!partial wf: WorldFragment,
+                       s: Structure,
+                       new_template_name: &str) -> StrResult<()> {
+                let new_template_id =
+                    unwrap!(wf.data().structure_templates.find_id(new_template_name),
+                            "named structure template does not exist");
+
+                let mut s = unwrap!(wf.get_structure_mut(s.id));
+                s.set_template_id(new_template_id)
+            }
+
+            fn attach_to_plane(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
+                let mut s = unwrap!(wf.get_structure_mut(s.id));
+                try!(s.set_attachment(StructureAttachment::Plane));
+                Ok(())
+            }
+
+            fn attach_to_chunk(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
+                let mut s = unwrap!(wf.get_structure_mut(s.id));
+                try!(s.set_attachment(StructureAttachment::Chunk));
+                Ok(())
+            }
+        }
+    }
+}
+
+
 macro_rules! define_stable_wrapper {
     ($name:ident, $obj_ty:ident, $id_ty:ty, $transient_id:ident) => {
         #[derive(Copy)]
@@ -460,5 +506,6 @@ macro_rules! define_stable_wrapper {
 
 define_stable_wrapper!(StableClient, Client, ClientId, transient_client_id);
 define_stable_wrapper!(StableEntity, Entity, EntityId, transient_entity_id);
-define_stable_wrapper!(StableStructure, Structure, StructureId, transient_structure_id);
 define_stable_wrapper!(StableInventory, Inventory, InventoryId, transient_inventory_id);
+define_stable_wrapper!(StablePlane, Plane, PlaneId, transient_plane_id);
+define_stable_wrapper!(StableStructure, Structure, StructureId, transient_structure_id);
