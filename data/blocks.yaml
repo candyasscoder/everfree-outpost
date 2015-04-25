@@ -478,7 +478,11 @@ cave_top:
 cave_inside:
     _.prefix: cave_inside
     _.shape: solid
-    
+
+    outside:
+        z0: {}
+        z1.top: black
+
     center:
         z0.bottom: /dirt_dark/center/v0
         z0.shape: floor

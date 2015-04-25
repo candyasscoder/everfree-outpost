@@ -237,4 +237,5 @@ lpc-cave-inside.png:
             left: [0, 6, 1, 2]
             center: [1, 6, 1, 2]
             right: [2, 6, 1, 2]
+        black: [2, 5]
 
