@@ -60,6 +60,18 @@ pub trait Fragment<'d> {
         pid
     }
 
+    fn unload_plane(&mut self, pid: PlaneId) {
+        self.with_provider(|sys, provider| {
+            if let Some(&ref_count) = sys.plane_ref_count.get(&pid) {
+                if ref_count > 0 {
+                    warn!("unloading {:?} despite nonzero ref count", pid);
+                }
+            }
+
+            warn_on_err!(provider.unload_plane(pid));
+        });
+    }
+
     /// Returns `true` iff the chunk was actually loaded as a result of this call (as opposed to
     /// simply having its refcount incremented).
     fn load(&mut self, pid: PlaneId, cpos: V2) -> bool {

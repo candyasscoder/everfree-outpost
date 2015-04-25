@@ -27,6 +27,13 @@ pub fn unload_chunk(mut eng: EngineRef, pid: PlaneId, cpos: V2) {
     chunks::Fragment::unload(&mut eng.as_chunks_fragment(), pid, cpos);
 }
 
+// NB: This should only be used when there is reason to believe none of the plane's chunks are
+// loaded.
+pub fn unload_plane(mut eng: EngineRef, pid: PlaneId) {
+    trace!("unload_plane({:?})", pid);
+    chunks::Fragment::unload_plane(&mut eng.as_chunks_fragment(), pid);
+}
+
 
 impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
     type E = save::Error;

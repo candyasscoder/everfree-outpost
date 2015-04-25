@@ -46,7 +46,9 @@ pub fn shut_down(mut eng: EngineRef) {
         logic::chunks::unload_chunk(eng.borrow(), pid, cpos);
     }
 
-    // TODO(plane): unload planes
+    while let Some(pid) = eng.world().planes().next().map(|p| p.id()) {
+        logic::chunks::unload_plane(eng.borrow(), pid);
+    }
 
     {
         let (h, eng) = eng.borrow().0.split_off();
