@@ -3,11 +3,13 @@ use std::old_io;
 use std::mem;
 use std::slice;
 
-use data::Data;
+use physics::CHUNK_SIZE;
 use types::*;
+
+use data::Data;
 use util::Convert;
 use util::IntrusiveStableId;
-use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
+use world::{World, Client, Entity, Inventory, Plane, TerrainChunk, Structure};
 use world::object::*;
 
 use super::Result;
@@ -32,18 +34,21 @@ pub trait WriteHooks {
     fn post_write_client<W: Writer>(&mut self,
                                     writer: &mut W,
                                     c: &ObjectRef<Client>) -> Result<()> { Ok(()) }
-    fn post_write_terrain_chunk<W: Writer>(&mut self,
-                                           writer: &mut W,
-                                           t: &ObjectRef<TerrainChunk>) -> Result<()> { Ok(()) }
     fn post_write_entity<W: Writer>(&mut self,
                                     writer: &mut W,
                                     e: &ObjectRef<Entity>) -> Result<()> { Ok(()) }
-    fn post_write_structure<W: Writer>(&mut self,
-                                       writer: &mut W,
-                                       s: &ObjectRef<Structure>) -> Result<()> { Ok(()) }
     fn post_write_inventory<W: Writer>(&mut self,
                                        writer: &mut W,
                                        i: &ObjectRef<Inventory>) -> Result<()> { Ok(()) }
+    fn post_write_plane<W: Writer>(&mut self,
+                                   writer: &mut W,
+                                   t: &ObjectRef<Plane>) -> Result<()> { Ok(()) }
+    fn post_write_terrain_chunk<W: Writer>(&mut self,
+                                           writer: &mut W,
+                                           t: &ObjectRef<TerrainChunk>) -> Result<()> { Ok(()) }
+    fn post_write_structure<W: Writer>(&mut self,
+                                       writer: &mut W,
+                                       s: &ObjectRef<Structure>) -> Result<()> { Ok(()) }
 }
 
 impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
@@ -64,8 +69,6 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
     fn write_object_header<O>(&mut self, o: &ObjectRef<O>) -> Result<()>
             where O: Object+IntrusiveStableId,
                   <O as Object>::Id: ToAnyId {
-        // NB: write_terrain_chunk contains a specialized copy of this code that can deal with
-        // TerrainChunk's idiosyncrasies.
         try!(self.w.write_id(o.id()));
         try!(self.w.write(o.get_stable_id()));
         self.objects_written.insert(o.id().to_any_id());
@@ -93,7 +96,7 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
 
         // Body
         try!(self.w.write_opt_id(c.pawn));
-        try!(self.w.write_str(c.name()));
+        // Don't write `name`.  It will be reconstructed from metadata.
 
         try!(self.hooks.post_write_client(&mut self.w, c));
 
@@ -111,52 +114,13 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
         Ok(())
     }
 
-    fn write_terrain_chunk(&mut self, t: &ObjectRef<TerrainChunk>) -> Result<()> {
-        // Write a custom object header.  Assign it a SaveId like normal, but use the chunk
-        // position as a stable ID.
-        let aid = AnyId::TerrainChunk(t.id());
-        try!(self.w.write_id(aid));
-        try!(self.w.write(t.id()));
-        self.objects_written.insert(aid);
-
-        // Body - block data
-        let len = t.blocks.len();
-        let byte_len = len * mem::size_of::<BlockId>();
-        let byte_array = unsafe {
-            slice::from_raw_parts(t.blocks.as_ptr() as *const u8, byte_len)
-        };
-        try!(self.w.write_bytes(byte_array));
-
-        // Body - lookup table
-        let blocks_seen = t.blocks.iter().map(|&x| x).collect::<HashSet<_>>();
-        try!(self.w.write_count(blocks_seen.len()));
-        let block_data = &t.world().data().block_data;
-        for b in blocks_seen.into_iter() {
-            let shape = block_data.shape(b);
-            let name = block_data.name(b);
-            try!(self.w.write((b,
-                               shape as u8,
-                               unwrap!(name.len().to_u8()))));
-            try!(self.w.write_str_bytes(name));
-        }
-
-        try!(self.hooks.post_write_terrain_chunk(&mut self.w, t));
-
-        // Children
-        try!(self.w.write_count(t.child_structures.len()));
-        for s in t.child_structures() {
-            try!(self.write_structure(&s));
-        }
-
-        Ok(())
-    }
-
     fn write_entity(&mut self, e: &ObjectRef<Entity>) -> Result<()> {
         try!(self.write_object_header(e));
 
         // Body
         let m = &e.motion;
-        try!(self.w.write((m.start_pos,
+        try!(self.w.write((e.stable_plane.unwrap(),
+                           m.start_pos,
                            m.end_pos,
                            m.start_time,
                            m.duration, e.anim,  // u16 * 2
@@ -169,24 +133,6 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
         // Children
         try!(self.w.write_count(e.child_inventories.len()));
         for i in e.child_inventories() {
-            try!(self.write_inventory(&i));
-        }
-
-        Ok(())
-    }
-
-    fn write_structure(&mut self, s: &ObjectRef<Structure>) -> Result<()> {
-        try!(self.write_object_header(s));
-
-        // Body
-        try!(self.w.write(s.pos));
-        try!(self.write_template_id(s.world().data(), s.template));
-
-        try!(self.hooks.post_write_structure(&mut self.w, s));
-
-        // Children
-        try!(self.w.write_count(s.child_inventories.len()));
-        for i in s.child_inventories() {
             try!(self.write_inventory(&i));
         }
 
@@ -219,13 +165,86 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
         Ok(())
     }
 
+    fn write_plane(&mut self, p: &ObjectRef<Plane>) -> Result<()> {
+        try!(self.write_object_header(p));
+
+        // Body
+        try!(self.w.write_count(p.saved_chunks.len()));
+        for (&cpos, &stable_tcid) in p.saved_chunks.iter() {
+            try!(self.w.write((cpos, stable_tcid.unwrap())));
+        }
+
+        try!(self.hooks.post_write_plane(&mut self.w, p));
+        Ok(())
+    }
+
+    fn write_terrain_chunk(&mut self, t: &ObjectRef<TerrainChunk>) -> Result<()> {
+        try!(self.write_object_header(t));
+
+        // Don't write `plane` or `cpos`.  These will be reconstructed from metadata.
+
+        // Body - block data
+        let len = t.blocks.len();
+        let byte_len = len * mem::size_of::<BlockId>();
+        let byte_array = unsafe {
+            slice::from_raw_parts(t.blocks.as_ptr() as *const u8, byte_len)
+        };
+        try!(self.w.write_bytes(byte_array));
+
+        // Body - lookup table
+        let blocks_seen = t.blocks.iter().map(|&x| x).collect::<HashSet<_>>();
+        try!(self.w.write_count(blocks_seen.len()));
+        let block_data = &t.world().data().block_data;
+        for b in blocks_seen.into_iter() {
+            let shape = block_data.shape(b);
+            let name = block_data.name(b);
+            try!(self.w.write((b,
+                               shape as u8,
+                               unwrap!(name.len().to_u8()))));
+            try!(self.w.write_str_bytes(name));
+        }
+
+        try!(self.hooks.post_write_terrain_chunk(&mut self.w, t));
+
+        // Children
+        try!(self.w.write_count(t.child_structures.len()));
+        let base = t.cpos.extend(0) * scalar(CHUNK_SIZE);
+        for s in t.child_structures() {
+            try!(self.write_structure(&s, base));
+        }
+
+        Ok(())
+    }
+
+    fn write_structure(&mut self, s: &ObjectRef<Structure>, base: V3) -> Result<()> {
+        try!(self.write_object_header(s));
+
+        // Body
+        // Don't write `plane`.  It will be reconstructed from metadata.
+        // Write only the offset of `pos` from `base`.
+        try!(self.w.write(s.pos - base));
+        try!(self.write_template_id(s.world().data(), s.template));
+
+        try!(self.hooks.post_write_structure(&mut self.w, s));
+
+        // Children
+        try!(self.w.write_count(s.child_inventories.len()));
+        for i in s.child_inventories() {
+            try!(self.write_inventory(&i));
+        }
+
+        Ok(())
+    }
+
     fn write_world(&mut self, w: &World) -> Result<()> {
         use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
 
         try!(self.w.write(w.clients.next_id()));
         try!(self.w.write(w.entities.next_id()));
-        try!(self.w.write(w.structures.next_id()));
         try!(self.w.write(w.inventories.next_id()));
+        try!(self.w.write(w.planes.next_id()));
+        try!(self.w.write(w.terrain_chunks.next_id()));
+        try!(self.w.write(w.structures.next_id()));
 
         try!(self.hooks.post_write_world(&mut self.w, w));
 
@@ -236,16 +255,6 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
             try!(self.w.write_count(es.len()));
             for e in es.into_iter() {
                 try!(self.write_entity(&e));
-            }
-        }
-
-        {
-            let ss = w.structures()
-                      .filter(|s| s.attachment() == StructureAttachment::World)
-                      .collect::<Vec<_>>();
-            try!(self.w.write_count(ss.len()));
-            for s in ss.into_iter() {
-                try!(self.write_structure(&s));
             }
         }
 
@@ -272,6 +281,10 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
 
     pub fn save_client(&mut self, c: &ObjectRef<Client>) -> Result<()> {
         self.save_object(|sw| sw.write_client(c))
+    }
+
+    pub fn save_plane(&mut self, p: &ObjectRef<Plane>) -> Result<()> {
+        self.save_object(|sw| sw.write_plane(p))
     }
 
     pub fn save_terrain_chunk(&mut self, t: &ObjectRef<TerrainChunk>) -> Result<()> {

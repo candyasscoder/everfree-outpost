@@ -8,14 +8,13 @@ use physics::Shape;
 use data::StructureTemplate;
 use types::*;
 use world::World;
-use world::{Client, TerrainChunk, Entity, Structure, Inventory};
+use world::{Client, Entity, Inventory, Plane, TerrainChunk, Structure};
 use world::{EntitiesById, StructuresById, InventoriesById};
 use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::Motion;
 use world::fragment::Fragment;
 use world::hooks::Hooks;
 use world::ops::{self, OpResult};
-use util::Stable;
 
 
 pub trait Object: 'static {
@@ -37,18 +36,6 @@ impl Object for Client {
     }
 }
 
-impl Object for TerrainChunk {
-    type Id = V2;
-
-    fn get<'a>(world: &'a World, id: V2) -> Option<&'a TerrainChunk> {
-        world.terrain_chunks.get(&id)
-    }
-
-    fn get_mut<'a>(world: &'a mut World, id: V2) -> Option<&'a mut TerrainChunk> {
-        world.terrain_chunks.get_mut(&id)
-    }
-}
-
 impl Object for Entity {
     type Id = EntityId;
 
@@ -61,18 +48,6 @@ impl Object for Entity {
     }
 }
 
-impl Object for Structure {
-    type Id = StructureId;
-
-    fn get<'a>(world: &'a World, id: StructureId) -> Option<&'a Structure> {
-        world.structures.get(id)
-    }
-
-    fn get_mut<'a>(world: &'a mut World, id: StructureId) -> Option<&'a mut Structure> {
-        world.structures.get_mut(id)
-    }
-}
-
 impl Object for Inventory {
     type Id = InventoryId;
 
@@ -82,6 +57,42 @@ impl Object for Inventory {
 
     fn get_mut<'a>(world: &'a mut World, id: InventoryId) -> Option<&'a mut Inventory> {
         world.inventories.get_mut(id)
+    }
+}
+
+impl Object for Plane {
+    type Id = PlaneId;
+
+    fn get<'a>(world: &'a World, id: PlaneId) -> Option<&'a Plane> {
+        world.planes.get(id)
+    }
+
+    fn get_mut<'a>(world: &'a mut World, id: PlaneId) -> Option<&'a mut Plane> {
+        world.planes.get_mut(id)
+    }
+}
+
+impl Object for TerrainChunk {
+    type Id = TerrainChunkId;
+
+    fn get<'a>(world: &'a World, id: TerrainChunkId) -> Option<&'a TerrainChunk> {
+        world.terrain_chunks.get(id)
+    }
+
+    fn get_mut<'a>(world: &'a mut World, id: TerrainChunkId) -> Option<&'a mut TerrainChunk> {
+        world.terrain_chunks.get_mut(id)
+    }
+}
+
+impl Object for Structure {
+    type Id = StructureId;
+
+    fn get<'a>(world: &'a World, id: StructureId) -> Option<&'a Structure> {
+        world.structures.get(id)
+    }
+
+    fn get_mut<'a>(world: &'a mut World, id: StructureId) -> Option<&'a mut Structure> {
+        world.structures.get_mut(id)
     }
 }
 
@@ -233,17 +244,145 @@ pub trait ClientRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Client, F> {
     fn set_pawn(&mut self, pawn: Option<EntityId>) -> OpResult<Option<EntityId>> {
         let cid = self.id();
         match pawn {
-            Some(eid) => ops::client_set_pawn(self.fragment_mut(), cid, eid),
-            None => ops::client_clear_pawn(self.fragment_mut(), cid),
+            Some(eid) => ops::client::set_pawn(self.fragment_mut(), cid, eid),
+            None => ops::client::clear_pawn(self.fragment_mut(), cid),
         }
     }
 }
 impl<'a, 'd, F: Fragment<'d>> ClientRefMut<'d, F> for ObjectRefMut<'a, 'd, Client, F> { }
 
 
+pub trait EntityRef<'d>: ObjectRefBase<'d, Entity> {
+    fn child_inventories<'b>(&'b self)
+            -> InventoriesById<'b, 'd, hash_set::Iter<'b, InventoryId>> {
+        InventoriesById::new(self.world(), self.obj().child_inventories.iter())
+    }
+}
+impl<'a, 'd> EntityRef<'d> for ObjectRef<'a, 'd, Entity> { }
+impl<'a, 'd, F: Fragment<'d>> EntityRef<'d> for ObjectRefMut<'a, 'd, Entity, F> { }
+
+pub trait EntityRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Entity, F> {
+    fn stable_id(&mut self) -> Stable<EntityId> {
+        let eid = self.id();
+        self.world_mut().entities.pin(eid)
+    }
+
+    fn set_plane_id(&mut self, pid: PlaneId) -> OpResult<()> {
+        let eid = self.id();
+        ops::entity::set_plane(self.fragment_mut(), eid, pid)
+    }
+
+    fn set_stable_plane_id(&mut self, stable_pid: Stable<PlaneId>) -> OpResult<()> {
+        let eid = self.id();
+        ops::entity::set_stable_plane(self.fragment_mut(), eid, stable_pid)
+    }
+
+    fn set_motion(&mut self, motion: Motion) {
+        let eid = self.id();
+        // TODO: update entity-by-chunk cache
+        self.obj_mut().motion = motion;
+        self.fragment_mut().with_hooks(|h| h.on_entity_motion_change(eid));
+    }
+
+    fn set_appearance(&mut self, appearance: u32) {
+        let eid = self.id();
+        self.obj_mut().appearance = appearance;
+        self.fragment_mut().with_hooks(|h| h.on_entity_appearance_change(eid));
+    }
+
+    fn set_attachment(&mut self, attach: EntityAttachment) -> OpResult<EntityAttachment> {
+        let eid = self.id();
+        ops::entity::attach(self.fragment_mut(), eid, attach)
+    }
+}
+impl<'a, 'd, F: Fragment<'d>> EntityRefMut<'d, F> for ObjectRefMut<'a, 'd, Entity, F> { }
+
+
+
+pub trait InventoryRef<'d>: ObjectRefBase<'d, Inventory> {
+    fn count_by_name(&self, name: &str) -> OpResult<u8> {
+        let item_id = unwrap!(self.world().data().item_data.find_id(name));
+        Ok(self.obj().count(item_id))
+    }
+}
+impl<'a, 'd> InventoryRef<'d> for ObjectRef<'a, 'd, Inventory> { }
+impl<'a, 'd, F: Fragment<'d>> InventoryRef<'d> for ObjectRefMut<'a, 'd, Inventory, F> { }
+
+pub trait InventoryRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Inventory, F> {
+    fn stable_id(&mut self) -> Stable<InventoryId> {
+        let iid = self.id();
+        self.world_mut().inventories.pin(iid)
+    }
+
+    fn update(&mut self, item_id: ItemId, adjust: i16) -> u8 {
+        let iid = self.id();
+        // OK: self.id() is always a valid InventoryId
+        ops::inventory::update(self.fragment_mut(), iid, item_id, adjust).unwrap()
+    }
+
+    fn update_by_name(&mut self, name: &str, adjust: i16) -> OpResult<u8> {
+        let item_id = unwrap!(self.world().data().item_data.find_id(name));
+        Ok(self.update(item_id, adjust))
+    }
+
+    fn set_attachment(&mut self, attach: InventoryAttachment) -> OpResult<InventoryAttachment> {
+        let iid = self.id();
+        ops::inventory::attach(self.fragment_mut(), iid, attach)
+    }
+}
+impl<'a, 'd, F: Fragment<'d>> InventoryRefMut<'d, F> for ObjectRefMut<'a, 'd, Inventory, F> { }
+
+
+
+pub trait PlaneRef<'d>: ObjectRefBase<'d, Plane> {
+    fn get_terrain_chunk<'b>(&'b self, cpos: V2) -> Option<ObjectRef<'b, 'd, TerrainChunk>> {
+        let &tcid = unwrap_or!(self.obj().loaded_chunks.get(&cpos), return None);
+        // Since `tcid` is in `loaded_chunks`, there should exist a chunk with that ID.
+        Some(self.world().terrain_chunk(tcid))
+    }
+
+    fn terrain_chunk<'b>(&'b self, cpos: V2) -> ObjectRef<'b, 'd, TerrainChunk> {
+        self.get_terrain_chunk(cpos).expect("no TerrainChunk at given pos")
+    }
+}
+impl<'a, 'd> PlaneRef<'d> for ObjectRef<'a, 'd, Plane> { }
+impl<'a, 'd, F: Fragment<'d>> PlaneRef<'d> for ObjectRefMut<'a, 'd, Plane, F> { }
+
+pub trait PlaneRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Plane, F> {
+    fn stable_id(&mut self) -> Stable<PlaneId> {
+        let pid = self.id();
+        self.world_mut().planes.pin(pid)
+    }
+
+    fn get_terrain_chunk_mut<'b>(&'b mut self, cpos: V2)
+                                 -> Option<ObjectRefMut<'b, 'd, TerrainChunk, F>> {
+        let &tcid = unwrap_or!(self.obj().loaded_chunks.get(&cpos), return None);
+        Some(self.fragment_mut().terrain_chunk_mut(tcid))
+    }
+
+    fn terrain_chunk_mut<'b>(&'b mut self, cpos: V2) -> ObjectRefMut<'b, 'd, TerrainChunk, F> {
+        self.get_terrain_chunk_mut(cpos).expect("no TerrainChunk at given pos")
+    }
+
+    fn try_save_terrain_chunk(&mut self, cpos: V2) -> Option<Stable<TerrainChunkId>> {
+        let result = self.get_terrain_chunk_mut(cpos).map(|mut tc| tc.stable_id());
+        if let Some(stable_tcid) = result {
+            self.obj_mut().saved_chunks.insert(cpos, stable_tcid);
+        }
+        result
+    }
+
+    fn save_terrain_chunk(&mut self, cpos: V2) -> Stable<TerrainChunkId> {
+        self.try_save_terrain_chunk(cpos).expect("no TerrainChunk at given pos")
+    }
+}
+impl<'a, 'd, F: Fragment<'d>> PlaneRefMut<'d, F> for ObjectRefMut<'a, 'd, Plane, F> { }
+
+
+
 pub trait TerrainChunkRef<'d>: ObjectRefBase<'d, TerrainChunk> {
     fn base_pos(&self) -> V3 {
-        self.id().extend(0) * scalar(CHUNK_SIZE)
+        self.obj().chunk_pos().extend(0) * scalar(CHUNK_SIZE)
     }
 
     fn bounds(&self) -> Region {
@@ -272,6 +411,10 @@ impl<'a, 'd> TerrainChunkRef<'d> for ObjectRef<'a, 'd, TerrainChunk> { }
 impl<'a, 'd, F: Fragment<'d>> TerrainChunkRef<'d> for ObjectRefMut<'a, 'd, TerrainChunk, F> { }
 
 pub trait TerrainChunkRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, TerrainChunk, F> {
+    fn stable_id(&mut self) -> Stable<TerrainChunkId> {
+        let tcid = self.id();
+        self.world_mut().terrain_chunks.pin(tcid)
+    }
 }
 impl<'a, 'd, F: Fragment<'d>> TerrainChunkRefMut<'d, F> for ObjectRefMut<'a, 'd, TerrainChunk, F> { }
 
@@ -280,41 +423,6 @@ fn block_pos_to_idx<'d, R: ?Sized+TerrainChunkRef<'d>>(self_: &R, pos: V3) -> us
     Region::new(scalar(0), scalar(CHUNK_SIZE)).index(offset)
 }
 
-
-pub trait EntityRef<'d>: ObjectRefBase<'d, Entity> {
-    fn child_inventories<'b>(&'b self)
-            -> InventoriesById<'b, 'd, hash_set::Iter<'b, InventoryId>> {
-        InventoriesById::new(self.world(), self.obj().child_inventories.iter())
-    }
-}
-impl<'a, 'd> EntityRef<'d> for ObjectRef<'a, 'd, Entity> { }
-impl<'a, 'd, F: Fragment<'d>> EntityRef<'d> for ObjectRefMut<'a, 'd, Entity, F> { }
-
-pub trait EntityRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Entity, F> {
-    fn stable_id(&mut self) -> Stable<EntityId> {
-        let eid = self.id();
-        self.world_mut().entities.pin(eid)
-    }
-
-    fn set_motion(&mut self, motion: Motion) {
-        let eid = self.id();
-        // TODO: update entity-by-chunk cache
-        self.obj_mut().motion = motion;
-        self.fragment_mut().with_hooks(|h| h.on_entity_motion_change(eid));
-    }
-
-    fn set_appearance(&mut self, appearance: u32) {
-        let eid = self.id();
-        self.obj_mut().appearance = appearance;
-        self.fragment_mut().with_hooks(|h| h.on_entity_appearance_change(eid));
-    }
-
-    fn set_attachment(&mut self, attach: EntityAttachment) -> OpResult<EntityAttachment> {
-        let eid = self.id();
-        ops::entity_attach(self.fragment_mut(), eid, attach)
-    }
-}
-impl<'a, 'd, F: Fragment<'d>> EntityRefMut<'d, F> for ObjectRefMut<'a, 'd, Entity, F> { }
 
 
 pub trait StructureRef<'d>: ObjectRefBase<'d, Structure> {
@@ -348,46 +456,12 @@ pub trait StructureRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Structure, 
 
     fn set_template_id(&mut self, template: TemplateId) -> OpResult<()> {
         let sid = self.id();
-        ops::structure_replace(self.fragment_mut(), sid, template)
+        ops::structure::replace(self.fragment_mut(), sid, template)
     }
 
     fn set_attachment(&mut self, attach: StructureAttachment) -> OpResult<StructureAttachment> {
         let sid = self.id();
-        ops::structure_attach(self.fragment_mut(), sid, attach)
+        ops::structure::attach(self.fragment_mut(), sid, attach)
     }
 }
 impl<'a, 'd, F: Fragment<'d>> StructureRefMut<'d, F> for ObjectRefMut<'a, 'd, Structure, F> { }
-
-
-pub trait InventoryRef<'d>: ObjectRefBase<'d, Inventory> {
-    fn count_by_name(&self, name: &str) -> OpResult<u8> {
-        let item_id = unwrap!(self.world().data().item_data.find_id(name));
-        Ok(self.obj().count(item_id))
-    }
-}
-impl<'a, 'd> InventoryRef<'d> for ObjectRef<'a, 'd, Inventory> { }
-impl<'a, 'd, F: Fragment<'d>> InventoryRef<'d> for ObjectRefMut<'a, 'd, Inventory, F> { }
-
-pub trait InventoryRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Inventory, F> {
-    fn stable_id(&mut self) -> Stable<InventoryId> {
-        let iid = self.id();
-        self.world_mut().inventories.pin(iid)
-    }
-
-    fn update(&mut self, item_id: ItemId, adjust: i16) -> u8 {
-        let iid = self.id();
-        // OK: self.id() is always a valid InventoryId
-        ops::inventory_update(self.fragment_mut(), iid, item_id, adjust).unwrap()
-    }
-
-    fn update_by_name(&mut self, name: &str, adjust: i16) -> OpResult<u8> {
-        let item_id = unwrap!(self.world().data().item_data.find_id(name));
-        Ok(self.update(item_id, adjust))
-    }
-
-    fn set_attachment(&mut self, attach: InventoryAttachment) -> OpResult<InventoryAttachment> {
-        let iid = self.id();
-        ops::inventory_attach(self.fragment_mut(), iid, attach)
-    }
-}
-impl<'a, 'd, F: Fragment<'d>> InventoryRefMut<'d, F> for ObjectRefMut<'a, 'd, Inventory, F> { }

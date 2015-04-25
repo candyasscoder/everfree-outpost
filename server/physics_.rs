@@ -27,6 +27,7 @@ impl<'d> Physics<'d> {
 struct ChunksSource<'a> {
     cache: &'a TerrainCache,
     base_tile: V3,
+    plane: PlaneId,
 }
 
 impl<'a> ShapeSource for ChunksSource<'a> {
@@ -36,7 +37,7 @@ impl<'a> ShapeSource for ChunksSource<'a> {
         let offset = pos & scalar(CHUNK_MASK);
         let cpos = (pos >> CHUNK_BITS).reduce();
 
-        if let Some(entry) = self.cache.get(cpos) {
+        if let Some(entry) = self.cache.get(self.plane, cpos) {
             let idx = Region::new(scalar(0), scalar(CHUNK_SIZE)).index(offset);
             debug!("{:?} -> {:?} + {:?} -> {:?}", pos, cpos, offset, entry.shape[idx]);
             entry.shape[idx]
@@ -86,6 +87,7 @@ pub trait Fragment<'d> {
             let source = ChunksSource {
                 cache: cache,
                 base_tile: base_tile,
+                plane: e.plane_id(),
             };
             let (mut end_pos, mut dur) =
                 physics::collide(&source, start_pos - base_px, size, velocity);

@@ -48,17 +48,27 @@ pub struct World<'d> {
     data: &'d Data,
 
     clients: StableIdMap<ClientId, Client>,
-    terrain_chunks: HashMap<V2, TerrainChunk>,
     entities: StableIdMap<EntityId, Entity>,
-    structures: StableIdMap<StructureId, Structure>,
     inventories: StableIdMap<InventoryId, Inventory>,
+    planes: StableIdMap<PlaneId, Plane>,
+    terrain_chunks: StableIdMap<TerrainChunkId, TerrainChunk>,
+    structures: StableIdMap<StructureId, Structure>,
 
-    structures_by_chunk: HashMap<V2, HashSet<StructureId>>,
+    structures_by_chunk: HashMap<(PlaneId, V2), HashSet<StructureId>>,
+
+    /// Entities indexed by their containing plane.  Entities in PLANE_LIMBO are not included here.
+    entities_by_plane: HashMap<PlaneId, HashSet<EntityId>>,
+
+    /// Entities in PLANE_LIMBO, indexed by the stable ID of their containing plane.  When a plane
+    /// is loaded, its entities will automatically be moved out of limbo.
+    limbo_entities: HashMap<Stable<PlaneId>, HashSet<EntityId>>,
 }
 
 
 pub struct Client {
     name: String,
+    /// *Invariant*: If `pawn` is `Some(eid)`, then entity `eid` exists and is a child of this
+    /// client.
     pawn: Option<EntityId>,
     current_input: InputBits,
 
@@ -68,13 +78,16 @@ pub struct Client {
 }
 impl_IntrusiveStableId!(Client, stable_id);
 
-pub struct TerrainChunk {
-    blocks: Box<BlockChunk>,
-
-    child_structures: HashSet<StructureId>,
-}
-
 pub struct Entity {
+    /// StableId of the Plane where the Entity is currently located.
+    stable_plane: Stable<PlaneId>,
+    /// Cached PlaneId of the plane containing the Entity.  If that plane is not loaded, then
+    /// `plane` is set to PLANE_LIMBO.
+    ///
+    /// *Invariant*: Either `plane` refers to a loaded plane whose stable ID is `stable_plane`, or
+    /// `plane` is `PLANE_LIMBO` and the plane with stable ID `stable_plane` is not loaded.
+    plane: PlaneId,
+
     motion: Motion,
     anim: AnimId,
     facing: V3,
@@ -87,7 +100,38 @@ pub struct Entity {
 }
 impl_IntrusiveStableId!(Entity, stable_id);
 
+pub struct Inventory {
+    contents: HashMap<ItemId, u8>,
+
+    stable_id: StableId,
+    attachment: InventoryAttachment,
+}
+impl_IntrusiveStableId!(Inventory, stable_id);
+
+pub struct Plane {
+    /// *Invariant*: If the same `cpos` is in both maps, then `saved_chunks[cpos]` is the stable ID
+    /// of the chunk with ID `loaded_chunks[cpos]`.
+    loaded_chunks: HashMap<V2, TerrainChunkId>,
+    saved_chunks: HashMap<V2, Stable<TerrainChunkId>>,
+
+    stable_id: StableId,
+}
+impl_IntrusiveStableId!(Plane, stable_id);
+
+pub struct TerrainChunk {
+    /// *Invariant*: `plane` always refers to a loaded plane.
+    plane: PlaneId,
+    cpos: V2,
+    blocks: Box<BlockChunk>,
+
+    stable_id: StableId,
+    child_structures: HashSet<StructureId>,
+}
+impl_IntrusiveStableId!(TerrainChunk, stable_id);
+
 pub struct Structure {
+    /// *Invariant*: `plane` always refers to a loaded plane.
+    plane: PlaneId,
     pos: V3,
     template: TemplateId,
 
@@ -97,10 +141,3 @@ pub struct Structure {
 }
 impl_IntrusiveStableId!(Structure, stable_id);
 
-pub struct Inventory {
-    contents: HashMap<ItemId, u8>,
-
-    stable_id: StableId,
-    attachment: InventoryAttachment,
-}
-impl_IntrusiveStableId!(Inventory, stable_id);

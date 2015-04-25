@@ -10,28 +10,42 @@ use vision;
 
 
 impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
-    fn on_chunk_update(&mut self, cid: ClientId, cpos: V2) {
+    fn on_terrain_chunk_appear(&mut self,
+                               cid: ClientId,
+                               tcid: TerrainChunkId,
+                               cpos: V2) {
+        self.on_terrain_chunk_update(cid, tcid, cpos);
+    }
+
+    fn on_terrain_chunk_update(&mut self,
+                               cid: ClientId,
+                               tcid: TerrainChunkId,
+                               cpos: V2) {
         use util::encode_rle16;
-        let tc = unwrap_or!(self.world().get_terrain_chunk(cpos),
-            { warn!("no cached terrain available for {:?}", cpos); return });
+        let tc = unwrap_or!(self.world().get_terrain_chunk(tcid),
+            { warn!("no terrain available for {:?}", tcid); return });
         let data = encode_rle16(tc.blocks().iter().map(|&x| x));
         self.messages().send_client(cid, ClientResponse::TerrainChunk(cpos, data));
     }
 
 
     fn on_entity_appear(&mut self, cid: ClientId, eid: EntityId) {
-        let entity = self.world().entity(eid);
+        {
+            let entity = self.world().entity(eid);
 
-        let appearance = entity.appearance();
-        // TODO: hack.  Should have a separate "entity name" field somewhere.
-        let name =
-            if let world::EntityAttachment::Client(controller_cid) = entity.attachment() {
-                self.world().client(controller_cid).name().to_owned()
-            } else {
-                String::new()
-            };
+            let appearance = entity.appearance();
+            // TODO: hack.  Should have a separate "entity name" field somewhere.
+            let name =
+                if let world::EntityAttachment::Client(controller_cid) = entity.attachment() {
+                    self.world().client(controller_cid).name().to_owned()
+                } else {
+                    String::new()
+                };
 
-        self.messages().send_client(cid, ClientResponse::EntityAppear(eid, appearance, name));
+            self.messages().send_client(cid, ClientResponse::EntityAppear(eid, appearance, name));
+        }
+
+        self.on_entity_motion_update(cid, eid);
     }
 
     fn on_entity_disappear(&mut self, cid: ClientId, eid: EntityId) {

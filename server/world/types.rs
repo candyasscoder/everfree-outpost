@@ -5,7 +5,7 @@ use types::*;
 use input::InputBits;
 
 pub use super::World;
-pub use super::{Client, TerrainChunk, Entity, Structure, Inventory};
+pub use super::{Client, Entity, Inventory, Plane, TerrainChunk, Structure};
 
 
 #[derive(Copy, PartialEq, Eq, Debug)]
@@ -17,7 +17,7 @@ pub enum EntityAttachment {
 
 #[derive(Copy, PartialEq, Eq, Debug)]
 pub enum StructureAttachment {
-    World,
+    Plane,
     Chunk,
 }
 
@@ -53,17 +53,15 @@ impl super::Client {
     }
 }
 
-impl super::TerrainChunk {
-    pub fn block(&self, idx: usize) -> BlockId {
-        self.blocks[idx]
-    }
-
-    pub fn blocks(&self) -> &BlockChunk {
-        &*self.blocks
-    }
-}
-
 impl super::Entity {
+    pub fn plane_id(&self) -> PlaneId {
+        self.plane
+    }
+
+    pub fn stable_plane_id(&self) -> Stable<PlaneId> {
+        self.stable_plane
+    }
+
     pub fn motion(&self) -> &Motion {
         &self.motion
     }
@@ -107,20 +105,6 @@ impl super::Entity {
     }
 }
 
-impl super::Structure {
-    pub fn pos(&self) -> V3 {
-        self.pos
-    }
-
-    pub fn template_id(&self) -> TemplateId {
-        self.template
-    }
-
-    pub fn attachment(&self) -> StructureAttachment {
-        self.attachment
-    }
-}
-
 impl super::Inventory {
     pub fn count(&self, item_id: ItemId) -> u8 {
         self.contents.get(&item_id).map_or(0, |&x| x)
@@ -131,6 +115,60 @@ impl super::Inventory {
     }
 
     pub fn attachment(&self) -> InventoryAttachment {
+        self.attachment
+    }
+}
+
+impl super::Plane {
+    pub fn get_terrain_chunk_id(&self, cpos: V2) -> Option<TerrainChunkId> {
+        self.loaded_chunks.get(&cpos).map(|&x| x)
+    }
+
+    pub fn terrain_chunk_id(&self, cpos: V2) -> TerrainChunkId {
+        self.get_terrain_chunk_id(cpos).expect("no TerrainChunk at given pos")
+    }
+
+    pub fn get_saved_terrain_chunk_id(&self, cpos: V2) -> Option<Stable<TerrainChunkId>> {
+        self.saved_chunks.get(&cpos).map(|&x| x)
+    }
+
+    pub fn saved_terrain_chunk_id(&self, cpos: V2) -> Stable<TerrainChunkId> {
+        self.get_saved_terrain_chunk_id(cpos).expect("no TerrainChunk at given pos")
+    }
+}
+
+impl super::TerrainChunk {
+    pub fn plane_id(&self) -> PlaneId {
+        self.plane
+    }
+
+    pub fn chunk_pos(&self) -> V2 {
+        self.cpos
+    }
+
+    pub fn block(&self, idx: usize) -> BlockId {
+        self.blocks[idx]
+    }
+
+    pub fn blocks(&self) -> &BlockChunk {
+        &*self.blocks
+    }
+}
+
+impl super::Structure {
+    pub fn plane_id(&self) -> PlaneId {
+        self.plane
+    }
+
+    pub fn pos(&self) -> V3 {
+        self.pos
+    }
+
+    pub fn template_id(&self) -> TemplateId {
+        self.template
+    }
+
+    pub fn attachment(&self) -> StructureAttachment {
         self.attachment
     }
 }

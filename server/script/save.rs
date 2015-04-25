@@ -10,7 +10,6 @@ use types::*;
 use engine::glue::HiddenWorldFragment;
 use lua::{self, LuaState, ValueType, REGISTRY_INDEX};
 use util::Convert;
-use util::Stable;
 use util::StrError;
 use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
 use world::object::*;
@@ -369,13 +368,6 @@ impl<'a, 'd> save::ReadHooks for ReadHooks<'a, 'd> {
         Ok(())
     }
 
-    fn post_read_terrain_chunk<R: Reader>(&mut self,
-                                          _reader: &mut R,
-                                          _pos: V2) -> save::Result<()> {
-        // TODO: support terrain_chunk script data
-        Ok(())
-    }
-
     fn post_read_entity<R: Reader>(&mut self,
                                    reader: &mut R,
                                    eid: EntityId) -> save::Result<()> {
@@ -385,20 +377,34 @@ impl<'a, 'd> save::ReadHooks for ReadHooks<'a, 'd> {
         Ok(())
     }
 
-    fn post_read_structure<R: Reader>(&mut self,
-                                      reader: &mut R,
-                                      sid: StructureId) -> save::Result<()> {
-        try!(self.read_extra(reader, |lua| {
-            push_setter_and_id(lua, "outpost_callback_set_structure_extra", sid.unwrap())
-        }));
-        Ok(())
-    }
-
     fn post_read_inventory<R: Reader>(&mut self,
                                       reader: &mut R,
                                       iid: InventoryId) -> save::Result<()> {
         try!(self.read_extra(reader, |lua| {
             push_setter_and_id(lua, "outpost_callback_set_inventory_extra", iid.unwrap())
+        }));
+        Ok(())
+    }
+
+    fn post_read_plane<R: Reader>(&mut self,
+                                  _reader: &mut R,
+                                  _pid: PlaneId) -> save::Result<()> {
+        // TODO: support plane script data
+        Ok(())
+    }
+
+    fn post_read_terrain_chunk<R: Reader>(&mut self,
+                                          _reader: &mut R,
+                                          _tcid: TerrainChunkId) -> save::Result<()> {
+        // TODO: support terrain_chunk script data
+        Ok(())
+    }
+
+    fn post_read_structure<R: Reader>(&mut self,
+                                      reader: &mut R,
+                                      sid: StructureId) -> save::Result<()> {
+        try!(self.read_extra(reader, |lua| {
+            push_setter_and_id(lua, "outpost_callback_set_structure_extra", sid.unwrap())
         }));
         Ok(())
     }
@@ -419,11 +425,6 @@ impl<'a, 'd> save::ReadHooks for ReadHooks<'a, 'd> {
         Ok(())
     }
 
-    fn cleanup_terrain_chunk(&mut self, _pos: V2) -> save::Result<()> {
-        // TODO: support terrain_chunk script data
-        Ok(())
-    }
-
     fn cleanup_entity(&mut self, eid: EntityId) -> save::Result<()> {
         try!(clear_extra(self.script_mut().owned_lua.get(), |lua| {
             push_setter_and_id(lua, "outpost_callback_set_entity_extra", eid.unwrap())
@@ -431,16 +432,26 @@ impl<'a, 'd> save::ReadHooks for ReadHooks<'a, 'd> {
         Ok(())
     }
 
-    fn cleanup_structure(&mut self, sid: StructureId) -> save::Result<()> {
+    fn cleanup_inventory(&mut self, iid: InventoryId) -> save::Result<()> {
         try!(clear_extra(self.script_mut().owned_lua.get(), |lua| {
-            push_setter_and_id(lua, "outpost_callback_set_structure_extra", sid.unwrap())
+            push_setter_and_id(lua, "outpost_callback_set_inventory_extra", iid.unwrap())
         }));
         Ok(())
     }
 
-    fn cleanup_inventory(&mut self, iid: InventoryId) -> save::Result<()> {
+    fn cleanup_plane(&mut self, _pid: PlaneId) -> save::Result<()> {
+        // TODO: support plane script data
+        Ok(())
+    }
+
+    fn cleanup_terrain_chunk(&mut self, _tcid: TerrainChunkId) -> save::Result<()> {
+        // TODO: support terrain_chunk script data
+        Ok(())
+    }
+
+    fn cleanup_structure(&mut self, sid: StructureId) -> save::Result<()> {
         try!(clear_extra(self.script_mut().owned_lua.get(), |lua| {
-            push_setter_and_id(lua, "outpost_callback_set_inventory_extra", iid.unwrap())
+            push_setter_and_id(lua, "outpost_callback_set_structure_extra", sid.unwrap())
         }));
         Ok(())
     }

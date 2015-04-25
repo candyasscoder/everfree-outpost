@@ -9,7 +9,7 @@ use world::object::*;
 
 
 pub struct TerrainCache {
-    cache: HashMap<V2, CacheEntry>,
+    cache: HashMap<(PlaneId, V2), CacheEntry>,
 }
 
 struct CacheEntry {
@@ -24,31 +24,31 @@ impl TerrainCache {
         }
     }
 
-    pub fn add_chunk(&mut self, w: &World, cpos: V2) -> StrResult<()> {
+    pub fn add_chunk(&mut self, w: &World, pid: PlaneId, cpos: V2) -> StrResult<()> {
         let mut entry = CacheEntry::new();
 
         let base = cpos.extend(0) * scalar(CHUNK_SIZE);
         let bounds = Region::new(base, base + scalar(CHUNK_SIZE));
-        try!(compute_shape(w, cpos, bounds, &mut entry));
+        try!(compute_shape(w, pid, cpos, bounds, &mut entry));
 
-        self.cache.insert(cpos, entry);
+        self.cache.insert((pid, cpos), entry);
         Ok(())
     }
 
-    pub fn remove_chunk(&mut self, cpos: V2) {
-        self.cache.remove(&cpos);
+    pub fn remove_chunk(&mut self, pid: PlaneId, cpos: V2) {
+        self.cache.remove(&(pid, cpos));
     }
 
-    pub fn update_region(&mut self, w: &World, bounds: Region) {
+    pub fn update_region(&mut self, w: &World, pid: PlaneId, bounds: Region) {
         for cpos in bounds.reduce().div_round_signed(CHUNK_SIZE).points() {
-            if let Some(entry) = self.cache.get_mut(&cpos) {
-                compute_shape(w, cpos, bounds, entry);
+            if let Some(entry) = self.cache.get_mut(&(pid, cpos)) {
+                compute_shape(w, pid, cpos, bounds, entry);
             }
         }
     }
 
-    pub fn get(&self, cpos: V2) -> Option<&CacheEntry> {
-        self.cache.get(&cpos)
+    pub fn get(&self, pid: PlaneId, cpos: V2) -> Option<&CacheEntry> {
+        self.cache.get(&(pid, cpos))
     }
 }
 
@@ -63,11 +63,14 @@ impl CacheEntry {
 
 
 fn compute_shape(w: &World,
+                 pid: PlaneId,
                  cpos: V2,
                  bounds: Region,
                  entry: &mut CacheEntry) -> StrResult<()> {
+    trace!("compute_shape({:?}, {:?})", pid, cpos);
     let data = w.data();
-    let chunk = unwrap!(w.get_terrain_chunk(cpos));
+    let p = unwrap!(w.get_plane(pid));
+    let chunk = unwrap!(p.get_terrain_chunk(cpos));
     let bounds = bounds.intersect(chunk.bounds());
 
     for p in bounds.points() {
@@ -76,7 +79,7 @@ fn compute_shape(w: &World,
         entry.layer_mask[idx] = 0;
     }
 
-    for s in w.chunk_structures(cpos) {
+    for s in w.chunk_structures(pid, cpos) {
         if !s.bounds().overlaps(bounds) {
             continue;
         }

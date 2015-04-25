@@ -4,6 +4,8 @@ use physics::CHUNK_BITS;
 
 pub use physics::v3::{V2, V3, Vn, scalar, Region, Region2};
 
+pub use util::stable_id_map::Stable;
+
 pub type LocalTime = u16;
 pub type LocalCoord = u16;
 
@@ -31,9 +33,16 @@ mk_id_newtypes! {
     WireId(u16);
     ClientId(u16);
     EntityId(u32);
-    StructureId(u32);
     InventoryId(u32);
+    PlaneId(u32);
+    TerrainChunkId(u32);
+    StructureId(u32);
 }
+
+pub const PLANE_LIMBO: PlaneId = PlaneId(0);
+pub const STABLE_PLANE_LIMBO: Stable<PlaneId> = const_Stable!(1);
+pub const PLANE_FOREST: PlaneId = PlaneId(1);
+pub const STABLE_PLANE_FOREST: Stable<PlaneId> = const_Stable!(2);
 
 pub const CONTROL_WIRE_ID: WireId = WireId(0);
 

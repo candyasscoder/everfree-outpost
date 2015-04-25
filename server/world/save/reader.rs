@@ -143,7 +143,7 @@ impl ReadId for ClientId {
     }
 
     fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> ClientId {
-        ops::client_create_unchecked(f)
+        ops::client::create_unchecked(f)
     }
 }
 
@@ -156,20 +156,7 @@ impl ReadId for EntityId {
     }
 
     fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> EntityId {
-        ops::entity_create_unchecked(f)
-    }
-}
-
-impl ReadId for StructureId {
-    fn from_any_id(id: AnyId) -> Result<StructureId> {
-        match id {
-            AnyId::Structure(id) => Ok(id),
-            _ => fail!("expected AnyID::Structure"),
-        }
-    }
-
-    fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> StructureId {
-        ops::structure_create_unchecked(f)
+        ops::entity::create_unchecked(f)
     }
 }
 
@@ -182,6 +169,45 @@ impl ReadId for InventoryId {
     }
 
     fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> InventoryId {
-        ops::inventory_create_unchecked(f)
+        ops::inventory::create_unchecked(f)
+    }
+}
+
+impl ReadId for PlaneId {
+    fn from_any_id(id: AnyId) -> Result<PlaneId> {
+        match id {
+            AnyId::Plane(id) => Ok(id),
+            _ => fail!("expected AnyID::Plane"),
+        }
+    }
+
+    fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> PlaneId {
+        ops::plane::create_unchecked(f)
+    }
+}
+
+impl ReadId for TerrainChunkId {
+    fn from_any_id(id: AnyId) -> Result<TerrainChunkId> {
+        match id {
+            AnyId::TerrainChunk(id) => Ok(id),
+            _ => fail!("expected AnyID::TerrainChunk"),
+        }
+    }
+
+    fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> TerrainChunkId {
+        ops::terrain_chunk::create_unchecked(f)
+    }
+}
+
+impl ReadId for StructureId {
+    fn from_any_id(id: AnyId) -> Result<StructureId> {
+        match id {
+            AnyId::Structure(id) => Ok(id),
+            _ => fail!("expected AnyID::Structure"),
+        }
+    }
+
+    fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> StructureId {
+        ops::structure::create_unchecked(f)
     }
 }

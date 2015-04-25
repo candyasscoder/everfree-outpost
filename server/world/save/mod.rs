@@ -21,10 +21,11 @@ type SaveId = u32;
 #[derive(Copy, PartialEq, Eq, Debug, Hash)]
 pub enum AnyId {
     Client(ClientId),
-    TerrainChunk(V2),
     Entity(EntityId),
-    Structure(StructureId),
     Inventory(InventoryId),
+    Plane(PlaneId),
+    TerrainChunk(TerrainChunkId),
+    Structure(StructureId),
 }
 
 
@@ -44,16 +45,24 @@ impl ToAnyId for EntityId {
     fn to_any_id(self) -> AnyId { AnyId::Entity(self) }
 }
 
-impl ToAnyId for StructureId {
-    fn to_any_id(self) -> AnyId { AnyId::Structure(self) }
-}
-
 impl ToAnyId for InventoryId {
     fn to_any_id(self) -> AnyId { AnyId::Inventory(self) }
 }
 
+impl ToAnyId for PlaneId {
+    fn to_any_id(self) -> AnyId { AnyId::Plane(self) }
+}
 
-const CURRENT_VERSION: u32 = 1;
+impl ToAnyId for TerrainChunkId {
+    fn to_any_id(self) -> AnyId { AnyId::TerrainChunk(self) }
+}
+
+impl ToAnyId for StructureId {
+    fn to_any_id(self) -> AnyId { AnyId::Structure(self) }
+}
+
+
+const CURRENT_VERSION: u32 = 2;
 
 
 fn padding(len: usize) -> usize {

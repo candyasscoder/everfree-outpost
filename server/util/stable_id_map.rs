@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::ops::{Index, IndexMut};
 
-use types::*;
+use types::{ClientId, EntityId, InventoryId, PlaneId, TerrainChunkId, StructureId};
+use types::StableId;
 use util::id_map::{self, IdMap};
 use util::StrResult;
 
@@ -14,18 +15,35 @@ pub struct StableIdMap<K, V> {
     _marker0: PhantomData<K>,
 }
 
-#[derive(Copy, PartialEq, Eq, Debug)]
+#[derive(Copy, PartialEq, Eq, Debug, Hash)]
 pub struct Stable<Id> {
     pub val: StableId,
-    _marker0: PhantomData<Id>,
+    pub _marker0: PhantomData<Id>,
+}
+
+macro_rules! const_Stable {
+    ($val:expr) => {
+        Stable { val: $val, _marker0: ::std::marker::PhantomData }
+    };
 }
 
 impl<Id> Stable<Id> {
+    pub fn none() -> Stable<Id> {
+        Stable {
+            val: NO_STABLE_ID,
+            _marker0: PhantomData,
+        }
+    }
+
     pub fn new(val: StableId) -> Stable<Id> {
         Stable {
             val: val,
             _marker0: PhantomData,
         }
+    }
+
+    pub fn unwrap(self) -> StableId {
+        self.val
     }
 }
 
@@ -125,11 +143,15 @@ impl<K: Copy+ObjectId, V: IntrusiveStableId> StableIdMap<K, V> {
     }
 
     pub fn pin(&mut self, transient_id: K) -> Stable<K> {
+        self.try_pin(transient_id).expect("no entry found for key")
+    }
+
+    pub fn try_pin(&mut self, transient_id: K) -> Option<Stable<K>> {
         let raw_transient_id = transient_id.to_usize();
-        let val = &mut self.map[raw_transient_id];
+        let val = unwrap_or!(self.map.get_mut(raw_transient_id), return None);
 
         if val.get_stable_id() != NO_STABLE_ID {
-            return Stable::new(val.get_stable_id());
+            return Some(Stable::new(val.get_stable_id()));
         }
 
         let stable_id = self.next_id;
@@ -138,7 +160,7 @@ impl<K: Copy+ObjectId, V: IntrusiveStableId> StableIdMap<K, V> {
         val.set_stable_id(stable_id);
         self.stable_ids.insert(stable_id, transient_id);
 
-        Stable::new(stable_id)
+        Some(Stable::new(stable_id))
     }
 
     pub fn unpin(&mut self, transient_id: K) {
@@ -165,6 +187,15 @@ impl<K: Copy+ObjectId, V: IntrusiveStableId> StableIdMap<K, V> {
 
     pub fn get_mut(&mut self, transient_id: K) -> Option<&mut V> {
         self.map.get_mut(transient_id.to_usize())
+    }
+
+    pub fn get_stable(&self, stable_id: Stable<K>) -> Option<&V> {
+        self.get_id(stable_id).and_then(|k| self.get(k))
+    }
+
+    pub fn get_stable_mut(&mut self, stable_id: Stable<K>) -> Option<&mut V> {
+        let k = unwrap_or!(self.get_id(stable_id), return None);
+        self.get_mut(k)
     }
 
     pub fn iter(&self) -> Iter<K, V> {
@@ -227,5 +258,7 @@ macro_rules! ObjectId_impl {
 
 ObjectId_impl!(ClientId, u16);
 ObjectId_impl!(EntityId, u32);
-ObjectId_impl!(StructureId, u32);
 ObjectId_impl!(InventoryId, u32);
+ObjectId_impl!(PlaneId, u32);
+ObjectId_impl!(TerrainChunkId, u32);
+ObjectId_impl!(StructureId, u32);
