@@ -137,7 +137,7 @@ local spawn_point = V3.new(32, 32, 0)
 PLANE_FOREST = 'Everfree Forest'
 
 function check_forest(client)
-    if not client:pawn():plane():name() ~= PLANE_FOREST then
+    if client:pawn():plane():name() ~= PLANE_FOREST then
         client:send_message("That doesn't work here.")
         return false
     else

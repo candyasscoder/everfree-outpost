@@ -62,7 +62,7 @@ return {
 
     check = function(c, pos)
         -- There are no wards outside the forest.
-        if not c:pawn():plane():is_forest() then
+        if c:pawn():plane():name() ~= PLANE_FOREST then
             return true
         end
 
