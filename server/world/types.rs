@@ -120,6 +120,10 @@ impl super::Inventory {
 }
 
 impl super::Plane {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     pub fn get_terrain_chunk_id(&self, cpos: V2) -> Option<TerrainChunkId> {
         self.loaded_chunks.get(&cpos).map(|&x| x)
     }

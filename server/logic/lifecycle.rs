@@ -1,3 +1,5 @@
+use std::borrow::ToOwned;
+
 use types::*;
 
 use engine::glue::*;
@@ -18,7 +20,8 @@ pub fn start_up(mut eng: EngineRef) {
         let mut sr = ObjectReader::new(file);
         sr.load_plane(&mut eng.as_save_read_fragment()).unwrap();
     } else {
-        let stable_pid = eng.as_hidden_world_fragment().create_plane().unwrap().stable_id();
+        let name = "Limbo".to_owned();
+        let stable_pid = eng.as_hidden_world_fragment().create_plane(name).unwrap().stable_id();
         assert!(stable_pid == STABLE_PLANE_LIMBO);
     }
 
@@ -26,7 +29,8 @@ pub fn start_up(mut eng: EngineRef) {
         let mut sr = ObjectReader::new(file);
         sr.load_plane(&mut eng.as_save_read_fragment()).unwrap();
     } else {
-        let stable_pid = eng.as_hidden_world_fragment().create_plane().unwrap().stable_id();
+        let name = "Everfree Forest".to_owned();
+        let stable_pid = eng.as_hidden_world_fragment().create_plane(name).unwrap().stable_id();
         assert!(stable_pid == STABLE_PLANE_FOREST);
     }
 }

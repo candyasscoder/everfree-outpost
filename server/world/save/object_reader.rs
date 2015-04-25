@@ -261,6 +261,8 @@ impl<R: old_io::Reader> ObjectReader<R> {
 
                 let p = &mut w.planes[pid];
 
+                p.name = try!(self.r.read_str());
+
                 let chunks_count = try!(self.r.read_count());
                 for _ in 0..chunks_count {
                     let (cpos, stable_tcid) = try!(self.r.read());

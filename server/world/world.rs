@@ -147,7 +147,7 @@ macro_rules! process_objects {
                 id PlaneId;
                 map planes;
                 module plane;
-                lifecycle ()
+                lifecycle (name: String)
                     create_plane [id -> id],
                     destroy_plane,
                 lookups [id -> id]

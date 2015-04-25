@@ -9,9 +9,18 @@ use world::{Fragment, Hooks};
 use world::ops::{self, OpResult};
 
 
-pub fn create<'d, F>(f: &mut F) -> OpResult<PlaneId>
+pub fn create<'d, F>(f: &mut F, name: String) -> OpResult<PlaneId>
         where F: Fragment<'d> {
-    let pid = create_unchecked(f);
+    let p = Plane {
+        name: name,
+
+        loaded_chunks: HashMap::new(),
+        saved_chunks: HashMap::new(),
+
+        stable_id: NO_STABLE_ID,
+    };
+
+    let pid = unwrap!(f.world_mut().planes.insert(p));
     post_init(f, pid);
     f.with_hooks(|h| h.on_plane_create(pid));
     Ok(pid)
@@ -20,6 +29,8 @@ pub fn create<'d, F>(f: &mut F) -> OpResult<PlaneId>
 pub fn create_unchecked<'d, F>(f: &mut F) -> PlaneId
         where F: Fragment<'d> {
     let pid = f.world_mut().planes.insert(Plane {
+        name: String::new(),
+
         loaded_chunks: HashMap::new(),
         saved_chunks: HashMap::new(),
 

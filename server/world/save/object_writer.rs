@@ -169,6 +169,8 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
         try!(self.write_object_header(p));
 
         // Body
+        try!(self.w.write_str(p.name()));
+
         try!(self.w.write_count(p.saved_chunks.len()));
         for (&cpos, &stable_tcid) in p.saved_chunks.iter() {
             try!(self.w.write((cpos, stable_tcid.unwrap())));

@@ -218,9 +218,9 @@ impl Userdata for Entity {
                 wf.destroy_entity(e.id)
             }
 
-            fn plane(!partial w: &world::World, s: Structure) -> Option<Plane> {
-                w.get_structure(s.id)
-                 .map(|s| Plane { id: s.plane_id() })
+            fn plane(!partial w: &world::World, e: Entity) -> Option<Plane> {
+                w.get_entity(e.id)
+                 .map(|e| Plane { id: e.plane_id() })
             }
 
             fn pos(!partial wf: WorldFragment, e: Entity) -> Option<V3> {
@@ -378,6 +378,11 @@ impl Userdata for Plane {
             fn stable_id(!partial wf: WorldFragment, p: Plane) -> Option<StablePlane> {
                 wf.get_plane_mut(p.id)
                   .map(|mut p| StablePlane { id: p.stable_id() })
+            }
+
+            fn name(!partial w: &world::World, p: Plane) -> Option<String> {
+                w.get_plane(p.id)
+                 .map(|p| p.name().to_owned())
             }
         }
     }
