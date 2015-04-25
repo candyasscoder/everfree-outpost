@@ -134,13 +134,25 @@ end
 command.help.where = '/where: Show coordinates of your current position'
 
 local spawn_point = V3.new(32, 32, 0)
+PLANE_FOREST = 'Everfree Forest'
+
+function check_forest(client)
+    if not client:pawn():plane():name() ~= PLANE_FOREST then
+        client:send_message("That doesn't work here.")
+        return false
+    else
+        return true
+    end
+end
 
 function command.handler.spawn(client, args)
+    if not check_forest(client) then return end
     client:pawn():teleport(spawn_point)
 end
 command.help.spawn = '/spawn: Teleport to the spawn point'
 
 function command.handler.sethome(client, args)
+    if not check_forest(client) then return end
     local home = client:pawn():pos()
     client:extra().home_pos = home
     client:send_message('Set home to ' .. tostring(home))
@@ -151,6 +163,7 @@ command.help.sethome = {
 }
 
 function command.handler.home(client, args)
+    if not check_forest(client) then return end
     local home = client:extra().home_pos or spawn_point
     client:pawn():teleport(home)
 end
@@ -167,7 +180,7 @@ command.handler.count = no_op
 command.help.count = '/count: Show the number of players currently online'
 
 
-local function client_by_name(s)
+function client_by_name(s)
     local w = World.get()
     for i = 0, 100 do
         local c = w:get_client(i)
@@ -186,7 +199,7 @@ function command.su_handler.tp(client, args)
         if other == nil then
             client:send_message('No such player: ' .. args)
         else
-            client:pawn():teleport(other:pawn():pos())
+            client:pawn():teleport_plane(other:pawn():plane(), other:pawn():pos())
         end
     end
 end

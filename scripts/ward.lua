@@ -61,6 +61,11 @@ return {
     ward_info = ward_info,
 
     check = function(c, pos)
+        -- There are no wards outside the forest.
+        if not c:pawn():plane():is_forest() then
+            return true
+        end
+
         local info, dist = find_ward(c, pos, WARD_RADIUS)
         if info ~= nil then
             c:send_message('This area belongs to ' .. info.name)

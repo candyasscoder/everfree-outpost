@@ -18,6 +18,8 @@ function action.use.ward(c, s)
 end
 
 function action.use_item.ward(c, inv)
+    if not check_forest(c) then return end
+
     if ward.ward_info(c:stable_id()) ~= nil then
         c:send_message('You may only place one ward at a time.')
         return
