@@ -209,8 +209,10 @@ impl ScriptEngine {
 
     pub fn cb_generate_chunk(&mut self,
                              ctx: &mut terrain_gen::TerrainGen,
+                             plane_name: &str,
                              cpos: V2,
-                             rng: XorShiftRng) -> StringResult<terrain_gen::GenChunk> {
+                             plane_rng: XorShiftRng,
+                             chunk_rng: XorShiftRng) -> StringResult<terrain_gen::GenChunk> {
         use script::userdata::terrain_gen::GenChunk;
         self.with_context(ctx as *mut _, |lua| {
             let gc = terrain_gen::GenChunk::new();
@@ -220,9 +222,11 @@ impl ScriptEngine {
 
             lua.get_field(REGISTRY_INDEX, "outpost_callback_generate_chunk");
             lua.copy(gc_idx);
+            plane_name.to_lua(lua);
             cpos.to_lua(lua);
-            userdata::terrain_gen::Rng::new(rng).to_lua(lua);
-            try!(lua.pcall(3, 0, 0)
+            userdata::terrain_gen::Rng::new(plane_rng).to_lua(lua);
+            userdata::terrain_gen::Rng::new(chunk_rng).to_lua(lua);
+            try!(lua.pcall(5, 0, 0)
                     .map_err(|(e, s)| StringError { msg: format!("{:?}: {}", e, s) }));
 
             let gc = {

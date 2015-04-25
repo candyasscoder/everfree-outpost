@@ -75,13 +75,15 @@ local function choose_loot(r)
     end
 end
 
-function outpost_ffi.callbacks.generate_chunk(c, cpos, r)
+function outpost_ffi.callbacks.generate_chunk(c, plane_name, cpos, plane_rng, chunk_rng)
+    print('generate for plane ' .. plane_name)
     local grass = {
         ['grass/center/v0'] = 1,
         ['grass/center/v1'] = 1,
         ['grass/center/v2'] = 1,
         ['grass/center/v3'] = 1,
     }
+    local r = chunk_rng
 
     local min = cpos * V2.new(16, 16)
     local max = min + V2.new(16, 16)

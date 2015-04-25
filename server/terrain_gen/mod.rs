@@ -20,14 +20,14 @@ mod fields;
 
 pub struct TerrainGen<'d> {
     data: &'d Data,
-    world_seed: u32,
+    world_seed: u64,
 }
 
 impl<'d> TerrainGen<'d> {
     pub fn new(data: &'d Data) -> TerrainGen<'d> {
         TerrainGen {
             data: data,
-            world_seed: 0x12345,
+            world_seed: 0xe0e0e0e0_00012345,
         }
     }
 
@@ -35,15 +35,39 @@ impl<'d> TerrainGen<'d> {
         self.data
     }
 
-    pub fn chunk_rng(&self, cpos: V2, seed: u32) -> XorShiftRng {
-        SeedableRng::from_seed([self.world_seed ^ 0xfaa3e2a2,
-                                cpos.x as u32,
-                                cpos.y as u32,
-                                seed])
+    pub fn plane_rng(&self, pid: Stable<PlaneId>, seed: u32) -> XorShiftRng {
+        let mut hasher = SipHasher::new_with_keys(self.world_seed, 0xac87_2554_6d5c_bc1f);
+        (pid.unwrap(), seed).hash(&mut hasher);
+        let seed0 = hasher.finish();
+
+        SeedableRng::from_seed([(seed0 >> 32) as u32,
+                                seed0 as u32,
+                                0xa21b_0552,
+                                0x204c_17f8])
+    }
+
+    pub fn chunk_rng(&self, pid: Stable<PlaneId>, cpos: V2, seed: u32) -> XorShiftRng {
+        // TODO: temporary hack to avoid regenerating terrain in PLANE_FOREST
+        if pid == STABLE_PLANE_FOREST {
+            SeedableRng::from_seed([self.world_seed as u32 ^ 0xfaa3e2a2,
+                                    cpos.x as u32,
+                                    cpos.y as u32,
+                                    seed])
+        } else {
+            let mut hasher = SipHasher::new_with_keys(self.world_seed, 0xb953_9155_1d94_626c);
+            (pid.unwrap(), cpos, seed).hash(&mut hasher);
+            let seed0 = hasher.finish();
+
+            SeedableRng::from_seed([(seed0 >> 32) as u32,
+                                    seed0 as u32,
+                                    0x7307_3120,
+                                    0x7f68_4998])
+        }
     }
 
     pub fn rng(&self, seed: u32) -> XorShiftRng {
-        SeedableRng::from_seed([self.world_seed ^ 0x3ba6d154,
+        // TODO: make this use all of world_seed
+        SeedableRng::from_seed([self.world_seed as u32 ^ 0x3ba6d154,
                                 0x34c9c7b1,
                                 0xf8499a88,
                                 seed])
@@ -54,10 +78,14 @@ pub trait Fragment<'d> {
     fn open<F, R>(&mut self, f: F) -> R
         where F: FnOnce(&mut TerrainGen<'d>, &mut ScriptEngine) -> R;
 
-    fn generate(&mut self, cpos: V2) -> StringResult<GenChunk> {
+    fn generate(&mut self,
+                pid: Stable<PlaneId>,
+                plane_name: &str,
+                cpos: V2) -> StringResult<GenChunk> {
         self.open(|tg, script| {
-            let rng = tg.chunk_rng(cpos, 0);
-            script.cb_generate_chunk(tg, cpos, rng)
+            let plane_rng = tg.plane_rng(pid, 0);
+            let chunk_rng = tg.chunk_rng(pid, cpos, 0);
+            script.cb_generate_chunk(tg, plane_name, cpos, plane_rng, chunk_rng)
         })
     }
 }

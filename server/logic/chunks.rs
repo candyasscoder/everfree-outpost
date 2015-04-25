@@ -73,10 +73,17 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
         } else {
             trace!("generating terrain for {:?} {:?}", pid, cpos);
             let gen_chunk = {
-                match terrain_gen::Fragment::generate(&mut self.as_terrain_gen_fragment(), cpos) {
+                let stable_pid = self.as_hidden_world_fragment().plane_mut(pid).stable_id();
+                let (tgf, eng) = self.borrow().0.split_off();
+                let result = terrain_gen::Fragment::generate(&mut TerrainGenFragment(tgf),
+                                                             stable_pid,
+                                                             eng.world().plane(pid).name(),
+                                                             cpos);
+                match result {
                     Ok(gc) => gc,
                     Err(e) => {
-                        warn!("terrain generation failed for {:?}: {}", cpos, e.description());
+                        warn!("terrain generation failed for {:?} {:?}: {}",
+                              pid, cpos, e.description());
                         terrain_gen::GenChunk::new()
                     },
                 }
