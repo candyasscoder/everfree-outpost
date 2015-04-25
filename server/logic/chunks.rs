@@ -64,6 +64,7 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
             let mut sr = ObjectReader::new(file);
             try!(sr.load_terrain_chunk(&mut self.as_save_read_fragment(), pid, cpos));
         } else {
+            trace!("generating terrain for {:?} {:?}", pid, cpos);
             let gen_chunk = {
                 match terrain_gen::Fragment::generate(&mut self.as_terrain_gen_fragment(), cpos) {
                     Ok(gc) => gc,
@@ -84,7 +85,7 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
                     let result = (|| -> StringResult<_> {
                         let sid = {
                             let mut s = try!(world::Fragment::create_structure_unchecked(
-                                    &mut hwf, gs.pos + base, gs.template));
+                                    &mut hwf, pid, gs.pos + base, gs.template));
                             s.set_attachment(world::StructureAttachment::Chunk);
                             s.id()
                         };

@@ -62,12 +62,17 @@ pub trait Fragment<'d>: Sized {
     )*
 
     fn create_structure_unchecked<'a>(&'a mut self,
+                                      pid: PlaneId,
                                       pos: V3,
                                       tid: TemplateId)
                                       -> OpResult<ObjectRefMut<'a, 'd, Structure, Self>> {
+        // Check validity of `pid`.
+        unwrap!(self.world().get_plane(pid));
+
         let sid = ops::structure::create_unchecked(self);
         {
             let s = &mut self.world_mut().structures[sid];
+            s.plane = pid;
             s.pos = pos;
             s.template = tid;
         }
