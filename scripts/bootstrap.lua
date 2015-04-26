@@ -70,6 +70,7 @@ require('hat')
 require('teleporter')
 
 require('terrain')
+local util = require('outpost.util')
 
 
 function action.open_inventory(c)
@@ -121,6 +122,44 @@ function tools.handler.pick.rock(c, s, inv)
     if math.random() < 0.2 then
         print(inv:update('crystal', 1))
     end
+end
+
+
+-- 'bookshelf' behavior
+action.use['bookshelf/1'] = function(c, s)
+    if not ward.check(c, s:pos()) then return end
+    local plane = s:plane()
+    local pos = s:pos()
+    s:destroy()
+    s:world():create_structure(plane, pos, 'bookshelf/0')
+    c:pawn():inventory('main'):update('book', 1)
+end
+
+action.use['bookshelf/2'] = function(c, s)
+    if not ward.check(c, s:pos()) then return end
+    local plane = s:plane()
+    local pos = s:pos()
+    s:destroy()
+    s:world():create_structure(plane, pos, 'bookshelf/1')
+    c:pawn():inventory('main'):update('book', 1)
+end
+
+function action.use_item.book(c, inv)
+    local s = util.hit_structure(c:pawn())
+    if s == nil then return end
+
+    local plane = s:plane()
+    local pos = s:pos()
+    local template = s:template()
+    if template == 'bookshelf/0' then
+        inv:update('book', -1)
+        s:destroy()
+        s:world():create_structure(plane, pos, 'bookshelf/1')
+    else if template == 'bookshelf/1' then
+        inv:update('book', -1)
+        s:destroy()
+        s:world():create_structure(plane, pos, 'bookshelf/2')
+    end end
 end
 
 
