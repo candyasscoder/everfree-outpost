@@ -260,6 +260,15 @@ function command.su_handler.give(client, args)
 end
 command.help.give = '/give <item> [count]: Add items to your inventory'
 
+function command.su_handler.place(client, args)
+    local pawn = client:pawn()
+    s, err = client:world():create_structure(pawn:plane(), util.hit_tile(pawn), args)
+    if s == nil then
+        client:send_message(err)
+    end
+end
+command.help.place = '/place <structure>: Place a structure at your current location'
+
 function command.su_handler.tribe(client, args)
     local value = {
         E = 0x00,
