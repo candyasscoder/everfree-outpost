@@ -403,7 +403,6 @@ end
 
 
 function outpost_ffi.callbacks.generate_chunk(c, plane_name, cpos, plane_rng, chunk_rng)
-    print('generate for plane ' .. plane_name)
     local r = chunk_rng
 
     if plane_name == 'Everfree Forest' then
