@@ -79,12 +79,10 @@ fn main() {
     let block_json = read_json(storage.open_block_data());
     let item_json = read_json(storage.open_item_data());
     let recipe_json = read_json(storage.open_recipe_data());
-    let old_template_json = read_json(storage.open_old_template_data());
     let template_json = read_json(storage.open_template_data());
     let data = data::Data::from_json(block_json,
                                      item_json,
                                      recipe_json,
-                                     old_template_json,
                                      template_json).unwrap();
 
     let (req_send, req_recv) = channel();

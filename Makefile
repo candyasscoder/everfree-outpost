@@ -334,7 +334,6 @@ $(eval $(call BIN_FILE,		wrapper.py,			$(SRC)/server/wrapper.py))
 
 $(eval $(call DATA_FILE, 	blocks.json,		$(BUILD)/blocks-server.json))
 $(eval $(call DATA_FILE, 	items.json,			$(BUILD)/items-server.json))
-$(eval $(call DATA_FILE, 	objects.json,		$(BUILD)/objects.json))
 $(eval $(call DATA_FILE, 	recipes.json,		$(BUILD)/recipes.json))
 $(eval $(call DATA_FILE, 	structures.json,	$(BUILD)/data/structures_server.json))
 $(eval $(call WWW_FILE, 	credits.html,		$(BUILD)/credits.html))

@@ -16,7 +16,6 @@ pub struct Data {
     pub block_data: BlockData,
     pub item_data: ItemData,
     pub recipes: RecipeData,
-    object_templates: ObjectTemplates,  // TODO: remove
     pub structure_templates: StructureTemplates,
 }
 
@@ -24,19 +23,15 @@ impl Data {
     pub fn from_json(block_json: Json,
                      item_json: Json,
                      recipe_json: Json,
-                     template_json: Json,
                      structure_template_json: Json) -> Result<Data, ParseError> {
         let block_data = try!(BlockData::from_json(block_json));
         let item_data = try!(ItemData::from_json(item_json));
         let recipes = try!(RecipeData::from_json(recipe_json));
-        let object_templates = try!(ObjectTemplates::from_json(template_json,
-                                                               &block_data));
         let structure_templates = try!(StructureTemplates::from_json(structure_template_json));
         Ok(Data {
             block_data: block_data,
             item_data: item_data,
             recipes: recipes,
-            object_templates: object_templates,
             structure_templates: structure_templates,
         })
     }
@@ -297,90 +292,6 @@ impl RecipeData {
 
     pub fn find_id(&self, name: &str) -> Option<RecipeId> {
         self.name_to_id.get(name).map(|&x| x)
-    }
-}
-
-
-pub struct ObjectTemplate {
-    pub size: V3,
-    pub blocks: Vec<BlockId>,
-    pub name: String,
-}
-
-pub struct ObjectTemplates {
-    templates: Vec<ObjectTemplate>,
-    name_to_id: HashMap<String, TemplateId>,
-}
-
-impl ObjectTemplates {
-    pub fn from_json(json: Json,
-                     block_data: &BlockData) -> Result<ObjectTemplates, ParseError> {
-        let objects = get_convert!(json, "objects", as_array,
-                                     "at top level");
-
-        let mut by_id = Vec::with_capacity(objects.len());
-        let mut name_to_id = HashMap::new();
-
-        for (i, template) in objects.iter().enumerate() {
-            let name = get_convert!(template, "name", as_string,
-                                    "for template {}", i);
-            let size_x = get_convert!(template, "size_x", as_i64,
-                                      "for template {} ({})", i, name);
-            let size_y = get_convert!(template, "size_y", as_i64,
-                                      "for template {} ({})", i, name);
-            let size_z = get_convert!(template, "size_z", as_i64,
-                                      "for template {} ({})", i, name);
-            let block_strs = get_convert!(template, "blocks", as_array,
-                                          "for template {} ({})", i, name);
-
-            let size = V3::new(size_x as i32,
-                               size_y as i32,
-                               size_z as i32);
-
-            let mut blocks = Vec::with_capacity(block_strs.len());
-            for block_json in block_strs.iter() {
-                let block_str = expect!(block_json.as_string(),
-                                        "found non-string in objects[{}].blocks ({})",
-                                        i, name);
-                let block_id = expect!(block_data.find_id(block_str),
-                                       "invalid block name \"{}\" in \
-                                        objects[{}].blocks ({})",
-                                       block_str, i, name);
-                blocks.push(block_id);
-            }
-
-            by_id.push(ObjectTemplate {
-                size: size,
-                blocks: blocks,
-                name: name.to_owned(),
-            });
-            name_to_id.insert(name.to_owned(), i as TemplateId);
-        }
-
-        Ok(ObjectTemplates {
-            templates: by_id,
-            name_to_id: name_to_id,
-        })
-    }
-
-    pub fn template(&self, id: TemplateId) -> &ObjectTemplate {
-        self.get_template(id).unwrap()
-    }
-
-    pub fn get_template(&self, id: TemplateId) -> Option<&ObjectTemplate> {
-        self.templates.get(id as usize)
-    }
-
-    pub fn get_id(&self, name: &str) -> TemplateId {
-        self.find_id(name).unwrap_or_else(|| panic!("unknown object template id: {}", name))
-    }
-
-    pub fn find_id(&self, name: &str) -> Option<TemplateId> {
-        self.name_to_id.get(name).map(|&x| x)
-    }
-
-    pub fn get_by_id(&self, name: &str) -> &ObjectTemplate {
-        self.template(self.get_id(name))
     }
 }
 
