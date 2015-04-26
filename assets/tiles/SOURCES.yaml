@@ -399,3 +399,17 @@ statue_icon.png:
     title: Pony Statue (Icon)
     author: Fernando Ariel dos Santos Alves
     license: CC-BY 4.0
+
+cup_icon.png:
+    title: LPC Trophy Icon
+    author: Lanea Zimmerman (AKA Sharm)
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution:
+        Rescaled trophy from Lanea Zimmerman's LPC contributions
+    derived-from: lpc-base-tiles/cup.png
+
+fountain_icon.png:
+    title: LPC Fountain Icon
+    author: Lanea Zimmerman (AKA Sharm)
+    license: CC-BY 3.0
+    derived-from: ../structures/fountain.png

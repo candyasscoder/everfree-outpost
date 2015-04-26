@@ -197,6 +197,9 @@ lpc-base-tiles/victoria.png:
     bed: [2, 0, 2, 3]
     table: [4, 0, 2, 3]
 
+lpc-base-tiles/cabinets.png:
+    item/bookshelf: [0, 1]
+
 lpc-cave-walls.png:
     cave_wall:
         top:
@@ -239,3 +242,11 @@ lpc-cave-inside.png:
             right: [2, 6, 1, 2]
         black: [2, 5]
 
+cup_icon.png:
+    item/trophy: [0, 0]
+
+fountain_icon.png:
+    item/fountain: [0, 0]
+
+gervais_roguelike/AngbandTk_book.png:
+    item/book: [0, 0]

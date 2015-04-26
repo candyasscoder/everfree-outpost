@@ -120,3 +120,15 @@ statue.png:
     title: Pony Statue
     author: Fernando Ariel dos Santos Alves
     license: CC-BY 4.0
+
+trophy.png:
+    title: LPC Trophy
+    author: Lanea Zimmerman (AKA Sharm)
+    license: CC-BY 3.0
+    derived-from: ../tiles/lpc-base-tiles/cup.png
+
+fountain.png:
+    title: "[LPC] Water Fountain"
+    author: Lanea Zimmerman (AKA Sharm), William.Thompsonj, Curt
+    license: CC-BY 3.0
+    url: http://opengameart.org/content/lpc-water-fountain

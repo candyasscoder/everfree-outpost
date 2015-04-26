@@ -114,3 +114,19 @@ hat:
 statue:
     ui_name: Statue
     tile: statue
+
+book:
+    ui_name: Book
+    tile: book
+
+bookshelf:
+    ui_name: Bookshelves
+    tile: bookshelf
+
+trophy:
+    ui_name: Trophy
+    tile: trophy
+
+fountain:
+    ui_name: Fountain
+    tile: fountain

@@ -345,7 +345,7 @@ function ROOM_EXTRA_FUNCS.trophy(c, size, rc)
         fill_rect(c, rc:gen(2, size - 1), 'cave_' .. moat)
         fill_rect_inverse(c, 1, 'cave_' .. moat)
     end
-    -- TODO: c:add_structure(V3.new(7. rc:gen(7. 8), 0), 'trophy')
+    c:add_structure(V3.new(rc:gen(7, 8), 7, 0), 'trophy')
 end
 
 local function maybe_place_bookshelf(c, x, y, rc)
@@ -368,7 +368,7 @@ end
 
 function ROOM_EXTRA_FUNCS.fountain(c, size, rc)
     if size < 2 then return end
-    -- TODO c:add_structure(V3.new(7, 7, 0), 'fountain')
+    c:add_structure(V3.new(7, 7, 0), 'fountain')
 end
 
 
@@ -385,6 +385,7 @@ local function generate_dungeon(c, cpos, rp, rc)
     generate_dungeon_room(c, room_size, ds_north[1], ds_here[1], ds_west[2], ds_here[2])
 
     local extra = rc:choose_weighted(pairs(ROOM_EXTRAS))
+    extra = 'library'
     ROOM_EXTRA_FUNCS[extra](c, room_size, rc)
 end
 
