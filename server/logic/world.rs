@@ -233,16 +233,9 @@ fn check_structure_placement(world: &World,
         let mask = entry.layer_mask[tc.bounds().index(pos)];
 
         let shape_ok = match template.layer {
-            0 => check_shape_0(shape, pos.z == base_pos.z),
-            1 => check_shape_1(shape, pos.z == base_pos.z),
-            2 => {
-                if mask & (1 << 1) != 0 {
-                    // Allow unrestricted placement over layer-1 structures.
-                    true
-                } else {
-                    check_shape_1(shape, pos.z == base_pos.z)
-                }
-            },
+            0 => check_shape_0(shape, pos.z == base_pos.z, mask),
+            1 => check_shape_1(shape, pos.z == base_pos.z, mask),
+            2 => check_shape_2(shape, pos.z == base_pos.z, mask),
             x => {
                 info!("unexpected template layer: {}", x);
                 false
@@ -263,18 +256,26 @@ fn check_structure_placement(world: &World,
     true
 }
 
-fn check_shape_0(shape: Shape, is_bottom: bool) -> bool {
-    match shape {
-        Shape::Empty => true,
-        Shape::Floor if is_bottom => true,
-        _ => false,
+fn check_shape_0(shape: Shape, is_bottom: bool, mask: u8) -> bool {
+    if is_bottom {
+        shape == Shape::Floor || shape == Shape::Empty
+    } else {
+        shape == Shape::Empty
     }
 }
 
-fn check_shape_1(shape: Shape, is_bottom: bool) -> bool {
-    match shape {
-        Shape::Empty if !is_bottom => true,
-        Shape::Floor if is_bottom => true,
-        _ => false,
+fn check_shape_1(shape: Shape, is_bottom: bool, mask: u8) -> bool {
+    if is_bottom {
+        mask & (1 << 0) != 0 || shape == Shape::Floor
+    } else {
+        mask & (1 << 0) == 0 && shape == Shape::Empty
+    }
+}
+
+fn check_shape_2(shape: Shape, is_bottom: bool, mask: u8) -> bool {
+    if mask & (1 << 1) != 0 {
+        true
+    } else {
+        check_shape_1(shape, is_bottom, mask)
     }
 }
