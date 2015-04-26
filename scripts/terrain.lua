@@ -243,8 +243,34 @@ local function generate_dungeon_room(c, room, n, s, w, e)
     end
 end
 
+
+local function room_rng(plane_seed, x, y)
+    return Rng.with_seed(plane_seed * 37 + x * 31 + y)
+end
+
+local DOOR_SIZES = {
+    [0] = 10,
+    [1] = 10,
+    [2] =  7,
+    [7] =  3,
+}
+
+local function door_sizes(plane_seed, x, y)
+    local r = room_rng(plane_seed, x, y)
+    return { r:choose_weighted(pairs(DOOR_SIZES)),
+             r:choose_weighted(pairs(DOOR_SIZES)) }
+end
+
 local function generate_dungeon(c, cpos, rp, rc)
-    generate_dungeon_room(c, 4, 1, 1, 1, 1)
+    local plane_seed = rp:gen(0, 0x3fffffff)
+
+    local ds_here = door_sizes(plane_seed, cpos:x(), cpos:y())
+    local ds_north = door_sizes(plane_seed, cpos:x(), cpos:y() - 1)
+    local ds_west = door_sizes(plane_seed, cpos:x() - 1, cpos:y())
+
+    local room_size = rc:gen(0, 7)
+
+    generate_dungeon_room(c, room_size, ds_north[1], ds_here[1], ds_west[2], ds_here[2])
 end
 
 
