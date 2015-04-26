@@ -539,3 +539,56 @@ cave_inside:
             z0.front: front/right/01
             z1.front: front/right/00
             z1.top: top/corner/inner/se
+
+cave_water:
+    _.prefix: water
+    _.shape: empty
+
+    center.bottom: center/v0
+
+    edge/_.prefix: edge
+    edge: &cave-cardinal-dirs
+        n.bottom: /dirt_dark/center/v0 + n
+        s.bottom: /dirt_dark/center/v0 + s
+        w.bottom: /dirt_dark/center/v0 + w
+        e.bottom: /dirt_dark/center/v0 + e
+
+    corner/outer/_.prefix: corner/outer
+    corner/outer: &cave-diagonal-dirs
+        nw.bottom: /dirt_dark/center/v0 + nw
+        ne.bottom: /dirt_dark/center/v0 + ne
+        sw.bottom: /dirt_dark/center/v0 + sw
+        se.bottom: /dirt_dark/center/v0 + se
+
+    corner/inner/_.prefix: corner/inner
+    corner/inner: *cave-diagonal-dirs
+
+cave_lava:
+    _.prefix: lava
+    _.shape: empty
+
+    center.bottom: center/v0
+
+    edge/_.prefix: edge
+    edge: *cave-cardinal-dirs
+
+    corner/outer/_.prefix: corner/outer
+    corner/outer: *cave-diagonal-dirs
+
+    corner/inner/_.prefix: corner/inner
+    corner/inner: *cave-diagonal-dirs
+
+cave_pit:
+    _.prefix: hole_dark
+    _.shape: empty
+
+    center.bottom: center/v0
+
+    edge/_.prefix: edge
+    edge: *cave-cardinal-dirs
+
+    corner/outer/_.prefix: corner/outer
+    corner/outer: *cave-diagonal-dirs
+
+    corner/inner/_.prefix: corner/inner
+    corner/inner: *cave-diagonal-dirs

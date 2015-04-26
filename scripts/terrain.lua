@@ -249,7 +249,7 @@ local function room_rng(plane_seed, x, y)
 end
 
 local DOOR_SIZES = {
-    [0] = 10,
+    [0] = 15,
     [1] = 10,
     [2] =  7,
     [7] =  3,
@@ -261,6 +261,118 @@ local function door_sizes(plane_seed, x, y)
              r:choose_weighted(pairs(DOOR_SIZES)) }
 end
 
+local function fill_rect_generic(c, size, tile_map)
+    local c0 = 7 - size
+    local c1 = 8 + size
+
+    for y = c0 + 1, c1 - 1 do
+        for x = c0 + 1, c1 - 1 do
+            c:set_block(V3.new(x, y, 0), tile_map.center)
+        end
+    end
+
+    for i = c0 + 1, c1 - 1 do
+        c:set_block(V3.new(i, c0, 0), tile_map.edge_n)
+        c:set_block(V3.new(i, c1, 0), tile_map.edge_s)
+        c:set_block(V3.new(c0, i, 0), tile_map.edge_w)
+        c:set_block(V3.new(c1, i, 0), tile_map.edge_e)
+    end
+    c:set_block(V3.new(c0, c0, 0), tile_map.corner_nw)
+    c:set_block(V3.new(c1, c0, 0), tile_map.corner_ne)
+    c:set_block(V3.new(c0, c1, 0), tile_map.corner_sw)
+    c:set_block(V3.new(c1, c1, 0), tile_map.corner_se)
+end
+
+local function fill_rect(c, size, tileset)
+    fill_rect_generic(c, size, {
+        center = tileset .. '/center',
+        edge_n = tileset .. '/edge/n',
+        edge_s = tileset .. '/edge/s',
+        edge_w = tileset .. '/edge/w',
+        edge_e = tileset .. '/edge/e',
+        corner_nw = tileset .. '/corner/outer/nw',
+        corner_ne = tileset .. '/corner/outer/ne',
+        corner_sw = tileset .. '/corner/outer/sw',
+        corner_se = tileset .. '/corner/outer/se',
+    })
+end
+
+local function fill_rect_inverse(c, size, tileset)
+    fill_rect_generic(c, size, {
+        center = 'cave_inside/center/z0',
+        edge_n = tileset .. '/edge/s',
+        edge_s = tileset .. '/edge/n',
+        edge_w = tileset .. '/edge/e',
+        edge_e = tileset .. '/edge/w',
+        corner_nw = tileset .. '/corner/inner/se',
+        corner_ne = tileset .. '/corner/inner/sw',
+        corner_sw = tileset .. '/corner/inner/ne',
+        corner_se = tileset .. '/corner/inner/nw',
+    })
+end
+
+local ROOM_EXTRAS = {
+    nothing = 15,
+    lava = 4,
+    water = 6,
+    pit = 2,
+    trophy = 1,
+    library = 1,
+    fountain = 1,
+}
+
+local ROOM_EXTRA_FUNCS = {}
+
+function ROOM_EXTRA_FUNCS.nothing(c, size, rc)
+end
+
+function ROOM_EXTRA_FUNCS.lava(c, size, rc)
+    fill_rect(c, rc:gen(size - 3, size - 1), 'cave_lava')
+end
+
+function ROOM_EXTRA_FUNCS.water(c, size, rc)
+    fill_rect(c, rc:gen(size - 3, size - 1), 'cave_water')
+end
+
+function ROOM_EXTRA_FUNCS.pit(c, size, rc)
+    fill_rect(c, rc:gen(size - 3, size - 1), 'cave_pit')
+end
+
+function ROOM_EXTRA_FUNCS.trophy(c, size, rc)
+    if size < 3 then return end
+    if rc:gen(1, 3) <= 2 then
+        local moat = rc:choose_weighted(pairs({pit = 5, lava = 2, water = 1}))
+        fill_rect(c, rc:gen(2, size - 1), 'cave_' .. moat)
+        fill_rect_inverse(c, 1, 'cave_' .. moat)
+    end
+    -- TODO: c:add_structure(V3.new(7. rc:gen(7. 8), 0), 'trophy')
+end
+
+local function maybe_place_bookshelf(c, x, y, rc)
+    if rc:gen(1, 10) <= 3 then return end
+    local variant = rc:choose_weighted(pairs({[0] = 7, [1] = 2, [2] = 1}))
+    c:add_structure(V3.new(x, y, 0), 'bookshelf/' .. variant)
+end
+
+function ROOM_EXTRA_FUNCS.library(c, size, rc)
+    if size < 2 then return end
+    for dy = 2, size, 2 do
+        for dx = 2, size do
+            maybe_place_bookshelf(c, 8 - dx, 8 - dy, rc)
+            maybe_place_bookshelf(c, 8 - dx, 7 + dy, rc)
+            maybe_place_bookshelf(c, 7 + dx, 8 - dy, rc)
+            maybe_place_bookshelf(c, 7 + dx, 7 + dy, rc)
+        end
+    end
+end
+
+function ROOM_EXTRA_FUNCS.fountain(c, size, rc)
+    if size < 2 then return end
+    -- TODO c:add_structure(V3.new(7, 7, 0), 'fountain')
+end
+
+
+
 local function generate_dungeon(c, cpos, rp, rc)
     local plane_seed = rp:gen(0, 0x3fffffff)
 
@@ -271,6 +383,9 @@ local function generate_dungeon(c, cpos, rp, rc)
     local room_size = rc:gen(0, 7)
 
     generate_dungeon_room(c, room_size, ds_north[1], ds_here[1], ds_west[2], ds_here[2])
+
+    local extra = rc:choose_weighted(pairs(ROOM_EXTRAS))
+    ROOM_EXTRA_FUNCS[extra](c, room_size, rc)
 end
 
 
