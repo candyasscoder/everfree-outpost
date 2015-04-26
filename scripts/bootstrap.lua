@@ -168,7 +168,8 @@ function command.handler.where(client, args)
     local pawn = client:pawn()
     local plane = pawn:plane()
     local pos = client:pawn():pos()
-    client:send_message('Location: ' .. plane:name() .. ' (' .. plane:id() .. '), ' ..
+    client:send_message('Location: ' .. plane:name() ..
+            ' (' .. plane:stable_id():id() .. '), ' ..
             pos:x() .. ', ' .. pos:y() .. ', ' .. pos:z())
 end
 command.help.where = '/where: Show coordinates of your current position'
