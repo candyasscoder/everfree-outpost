@@ -81,7 +81,10 @@ impl Userdata for World {
                             "named structure template does not exist");
 
                 wf.create_structure(plane.id, pos, template_id)
-                  .map(|s| Structure { id: s.id() })
+                  .map(|mut s| {
+                      s.set_attachment(world::StructureAttachment::Chunk);
+                      Structure { id: s.id() }
+                  })
             }}
 
             fn create_inventory(!partial wf: WorldFragment, _w: World) -> StrResult<Inventory> {
