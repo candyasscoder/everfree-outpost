@@ -19,7 +19,7 @@ Chunk.prototype.getId = function(x, y, z) {
 };
 
 Chunk.prototype.get = function(x, y, z) {
-    return TileDef.by_id[this.getId(x, y, z)];
+    return BlockDef.by_id[this.getId(x, y, z)];
 };
 
 Chunk.prototype.set = function(x, y, z, tile) {
@@ -38,7 +38,7 @@ Chunk.prototype.set = function(x, y, z, tile) {
 
 
 /** @constructor */
-function TileDef_(id, info) {
+function BlockDef_(id, info) {
     this.id = id;
     this.shape = info['shape'];
     this.top = info['top'] || 0;
@@ -48,19 +48,19 @@ function TileDef_(id, info) {
 }
 
 // Closure compiler doesn't like having static items on functions.
-var TileDef = {};
-exports.TileDef = TileDef;
+var BlockDef = {};
+exports.BlockDef = BlockDef;
 
-TileDef.by_id = [];
+BlockDef.by_id = [];
 
-TileDef.register = function(id, info) {
+BlockDef.register = function(id, info) {
     if (info == null) {
         return;
     }
 
-    var tile = new TileDef_(id, info);
-    while (TileDef.by_id.length <= tile.id) {
-        TileDef.by_id.push(null);
+    var tile = new BlockDef_(id, info);
+    while (BlockDef.by_id.length <= tile.id) {
+        BlockDef.by_id.push(null);
     }
-    TileDef.by_id[tile.id] = tile;
+    BlockDef.by_id[tile.id] = tile;
 };

@@ -11,3 +11,5 @@ SHAPE_ID = {
         'ramp_n': 6,
         'ramp_top': 7,
         }
+
+BLOCK_SIDES = ('front', 'back', 'top', 'bottom')

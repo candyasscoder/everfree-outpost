@@ -27,6 +27,7 @@ class StructureDef(object):
         self.shape = shape.shape_array
         self.layer = layer
 
+        self.id = None
         self.sheet_idx = None
         self.offset = None
 
@@ -36,37 +37,13 @@ class StructureDef(object):
                 (h + TILE_SIZE - 1) // TILE_SIZE)
 
 
-class SheetBuilder(object):
-    def __init__(self, idx, w, h):
-        self.idx = idx
-        self.image = Image.new('RGBA', (w * TILE_SIZE, h * TILE_SIZE))
-        self.depthmap = Image.new('RGBA', (w * TILE_SIZE, h * TILE_SIZE))
-        self.in_use = 0
-        self.stride = h
-        self.area = w * h
-
-    def place(self, w, h):
-        base_mask = (1 << w) - 1
-        mask = 0
-        for i in range(h):
-            mask |= base_mask << (i * self.stride)
-
-        i = 0
-        in_use = self.in_use
-        while in_use != 0 and i < self.area:
-            if mask & in_use == 0:
-                break
-            i += 1
-            in_use >>= 1
-
-        if i < self.area:
-            self.in_use |= mask << i
-            return (i % self.stride, i // self.stride)
-        else:
-            return None
-
+# Sprite sheets
 
 def build_sheets(structures):
+    '''Build sprite sheet(s) containing all the images and depthmaps for the
+    provided structures.  This also updates each structure's `sheet_idx` and
+    `offset` field with its position in the generated sheet(s).
+    '''
     def key(s):
         w, h = s.image.size
         return (w * h, h, w)
@@ -108,9 +85,39 @@ def build_sheets(structures):
 
     return [(s.image, s.depthmap) for s in sheets]
 
-def build_client_json(structures):
-    structures = sorted(structures, key=lambda s: s.name)
+class SheetBuilder(object):
+    def __init__(self, idx, w, h):
+        self.idx = idx
+        self.image = Image.new('RGBA', (w * TILE_SIZE, h * TILE_SIZE))
+        self.depthmap = Image.new('RGBA', (w * TILE_SIZE, h * TILE_SIZE))
+        self.in_use = 0
+        self.stride = h
+        self.area = w * h
 
+    def place(self, w, h):
+        base_mask = (1 << w) - 1
+        mask = 0
+        for i in range(h):
+            mask |= base_mask << (i * self.stride)
+
+        i = 0
+        in_use = self.in_use
+        while in_use != 0 and i < self.area:
+            if mask & in_use == 0:
+                break
+            i += 1
+            in_use >>= 1
+
+        if i < self.area:
+            self.in_use |= mask << i
+            return (i % self.stride, i // self.stride)
+        else:
+            return None
+
+
+# JSON output
+
+def build_client_json(structures):
     def convert(s):
         return {
                 'size': s.size,
@@ -124,8 +131,6 @@ def build_client_json(structures):
     return list(convert(s) for s in structures)
 
 def build_server_json(structures):
-    structures = sorted(structures, key=lambda s: s.name)
-
     def convert(s):
         return {
                 'name': s.name,

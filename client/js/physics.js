@@ -3,7 +3,7 @@ var Vec = require('util/vec').Vec;
 var Asm = require('asmlibs').Asm;
 var getPhysicsHeapSize = require('asmlibs').getPhysicsHeapSize;
 var Motion = require('entity').Motion;
-var TileDef = require('data/chunk').TileDef;
+var BlockDef = require('data/chunk').BlockDef;
 var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
 var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
 
@@ -27,7 +27,7 @@ Physics.prototype.loadChunk = function(ci, cj, tiles) {
             'expected ' + view.length + ' tiles, but got ' + tiles.length);
 
     for (var i = 0; i < tiles.length; ++i) {
-        view[i] = TileDef.by_id[tiles[i]].shape;
+        view[i] = BlockDef.by_id[tiles[i]].shape;
     }
 
     var base = new Vec(cj * CHUNK_SIZE,

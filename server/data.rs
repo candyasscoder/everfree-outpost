@@ -110,8 +110,8 @@ pub struct BlockData {
 
 impl BlockData {
     pub fn from_json(json: Json) -> Result<BlockData, ParseError> {
-        let blocks = get_convert!(json, "blocks", as_array,
-                                  "at top level");
+        let blocks = expect!(json.as_array(),
+                                "found non-array at top level");
 
         let mut shapes = repeat(Shape::Empty).take(blocks.len()).collect::<Vec<_>>();
         let mut names = Vec::with_capacity(shapes.len());

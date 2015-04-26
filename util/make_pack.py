@@ -30,11 +30,10 @@ def main(src_dir, build_dir, out_file):
     add('image', 'pony_f_tail_1',       src('assets/sprites/maretail1.png'))
     add('image', 'equip_f_hat',         src('assets/sprites/equip_f_hat.png'))
 
-    add('image', 'tiles',   build('tiles.png'))
     add('image', 'font',    build('font.png'))
     add('url',   'items',   build('items.png'))
 
-    add('json', 'tile_defs',        build('tiles.json'))
+    add('json', 'block_defs',       build('data/blocks_client.json'))
     add('json', 'item_defs',        build('items.json'))
     add('json', 'recipe_defs',      build('recipes.json'))
     add('json', 'template_defs',    build('data/structures_client.json'))
@@ -68,6 +67,10 @@ def main(src_dir, build_dir, out_file):
         else:
             break
 
+    add('image', 'tiles', build('data/tiles.png'))
+
+
+    # Generate the pack containing the files added above.
 
     offset = 0
     for entry in index:

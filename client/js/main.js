@@ -43,7 +43,7 @@ var widget = require('ui/widget');
 var ErrorList = require('ui/errorlist').ErrorList;
 var InventoryUpdateList = require('ui/invupdate').InventoryUpdateList;
 
-var TileDef = require('data/chunk').TileDef;
+var BlockDef = require('data/chunk').BlockDef;
 var ItemDef = require('data/items').ItemDef;
 var RecipeDef = require('data/recipes').RecipeDef;
 var TemplateDef = require('data/templates').TemplateDef;
@@ -316,11 +316,11 @@ function loadAssets(next) {
             assets = assets_;
             assets['server_info'] = server_info;
 
-            var tiles = assets['tile_defs']['blocks'];
-            for (var i = 0; i < tiles.length; ++i) {
-                TileDef.register(i, tiles[i]);
+            var blocks = assets['block_defs'];
+            for (var i = 0; i < blocks.length; ++i) {
+                BlockDef.register(i, blocks[i]);
             }
-            renderer.loadBlockData(TileDef.by_id);
+            renderer.loadBlockData(BlockDef.by_id);
 
             var items = assets['item_defs']['items'];
             for (var i = 0; i < items.length; ++i) {

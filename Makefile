@@ -307,7 +307,7 @@ $(BUILD)/outpost.pack: \
 	$(PYTHON3) $< $(SRC) $(BUILD) $@
 
 $(BUILD)/data/stamp \
-$(BUILD)/data/structures_client.json \
+$(BUILD)/data/blocks_server.json \
 $(BUILD)/data/structures_server.json: \
 		$(shell find $(SRC)/data -name \*.py) \
 		$(shell find $(SRC)/assets -name \*.png)
@@ -332,7 +332,7 @@ DATA_FILE = $(call DIST_FILE_,DATA,$(strip $(1)),$(strip $(2)))
 $(eval $(call BIN_FILE,		run_server.sh,		$(SRC)/util/run_server.sh))
 $(eval $(call BIN_FILE,		wrapper.py,			$(SRC)/server/wrapper.py))
 
-$(eval $(call DATA_FILE, 	blocks.json,		$(BUILD)/blocks-server.json))
+$(eval $(call DATA_FILE, 	blocks.json,		$(BUILD)/data/blocks_server.json))
 $(eval $(call DATA_FILE, 	items.json,			$(BUILD)/items-server.json))
 $(eval $(call DATA_FILE, 	recipes.json,		$(BUILD)/recipes.json))
 $(eval $(call DATA_FILE, 	structures.json,	$(BUILD)/data/structures_server.json))
