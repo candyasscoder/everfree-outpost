@@ -249,8 +249,8 @@ local function room_rng(plane_seed, x, y)
 end
 
 local DOOR_SIZES = {
-    [0] = 15,
-    [1] = 10,
+    [0] = 10,
+    [1] = 12,
     [2] =  7,
     [7] =  3,
 }
@@ -262,6 +262,8 @@ local function door_sizes(plane_seed, x, y)
 end
 
 local function fill_rect_generic(c, size, tile_map)
+    if size < 0 then return end
+
     local c0 = 7 - size
     local c1 = 8 + size
 
@@ -327,14 +329,17 @@ function ROOM_EXTRA_FUNCS.nothing(c, size, rc)
 end
 
 function ROOM_EXTRA_FUNCS.lava(c, size, rc)
+    if size < 2 then return end
     fill_rect(c, rc:gen(size - 3, size - 1), 'cave_lava')
 end
 
 function ROOM_EXTRA_FUNCS.water(c, size, rc)
+    if size < 2 then return end
     fill_rect(c, rc:gen(size - 3, size - 1), 'cave_water')
 end
 
 function ROOM_EXTRA_FUNCS.pit(c, size, rc)
+    if size < 2 then return end
     fill_rect(c, rc:gen(size - 3, size - 1), 'cave_pit')
 end
 
@@ -380,12 +385,11 @@ local function generate_dungeon(c, cpos, rp, rc)
     local ds_north = door_sizes(plane_seed, cpos:x(), cpos:y() - 1)
     local ds_west = door_sizes(plane_seed, cpos:x() - 1, cpos:y())
 
-    local room_size = rc:gen(0, 7)
+    local room_size = rc:gen(1, 7)
 
     generate_dungeon_room(c, room_size, ds_north[1], ds_here[1], ds_west[2], ds_here[2])
 
     local extra = rc:choose_weighted(pairs(ROOM_EXTRAS))
-    extra = 'library'
     ROOM_EXTRA_FUNCS[extra](c, room_size, rc)
 end
 
