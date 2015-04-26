@@ -157,12 +157,94 @@ local function generate_forest(c, cpos, r)
 end
 
 
-local function generate_dungeon(c, cpos, rp, rc)
-    for y = 0, 15 do
-        for x = 0, 15 do
-            c:set_block(V3.new(x, y, 0), 'cave_inside/center/z0')
+local function place_cave_inside(c, x, y, variant)
+    c:set_block(V3.new(x, y, 0), 'cave_inside/' .. variant .. '/z0')
+    c:set_block(V3.new(x, y, 1), 'cave_inside/' .. variant .. '/z1')
+end
+
+local function fill_grid(grid, x0, y0, x1, y1)
+    for y = y0, y1 do
+        for x = x0, x1 do
+            grid[y + 2][x + 2] = 1
         end
     end
+end
+
+
+local BORDER_LOOKUP = {
+    k1000 = 'edge/s',
+    k0100 = 'edge/n',
+    k0010 = 'edge/e',
+    k0001 = 'edge/w',
+    k1010 = 'corner/inner/nw',
+    k1001 = 'corner/inner/ne',
+    k0110 = 'corner/inner/sw',
+    k0101 = 'corner/inner/se',
+}
+
+local function variant_from_grid(g, x, y)
+    if g[y][x] == 1 then
+        return 'center'
+    end
+
+    local n = g[y - 1][x]
+    local s = g[y + 1][x]
+    local w = g[y][x - 1]
+    local e = g[y][x + 1]
+
+    local key = 'k' .. n .. s .. w .. e
+    if key == 'k0000' then
+        if g[y - 1][x - 1] == 1 then
+            return 'corner/outer/se'
+        end
+        if g[y - 1][x + 1] == 1 then
+            return 'corner/outer/sw'
+        end
+        if g[y + 1][x - 1] == 1 then
+            return 'corner/outer/ne'
+        end
+        if g[y + 1][x + 1] == 1 then
+            return 'corner/outer/nw'
+        end
+        return 'outside'
+    else
+        local v = BORDER_LOOKUP[key]
+        if v == nil then
+            return 'outside'
+        else
+            return v
+        end
+    end
+end
+
+local function generate_dungeon_room(c, room, n, s, w, e)
+    local grid = {}
+    for i = 1, 18 do
+        local row = {}
+        for j = 1, 18 do
+            row[j] = 0
+        end
+        grid[i] = row
+    end
+
+    local room0 = 8 - room
+    local room1 = 7 + room
+    fill_grid(grid, room0, room0, room1, room1)
+    fill_grid(grid, 8 - n, 0, 7 + n, 7)
+    fill_grid(grid, 8 - s, 8, 7 + s, 15)
+    fill_grid(grid, 0, 8 - w, 7, 7 + w)
+    fill_grid(grid, 8, 8 - e, 15, 7 + e)
+
+    for y = 0, 15 do
+        for x = 0, 15 do
+            local v = variant_from_grid(grid, x + 2, y + 2)
+            place_cave_inside(c, x, y, v)
+        end
+    end
+end
+
+local function generate_dungeon(c, cpos, rp, rc)
+    generate_dungeon_room(c, 4, 1, 1, 1, 1)
 end
 
 
