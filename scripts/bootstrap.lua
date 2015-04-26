@@ -186,8 +186,9 @@ function check_forest(client)
 end
 
 function command.handler.spawn(client, args)
-    if not check_forest(client) then return end
-    client:pawn():teleport(spawn_point)
+    --if not check_forest(client) then return end
+    --client:pawn():teleport(spawn_point)
+    client:pawn():teleport_stable_plane(client:world():get_forest_plane(), spawn_point)
 end
 command.help.spawn = '/spawn: Teleport to the spawn point'
 

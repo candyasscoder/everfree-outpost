@@ -381,16 +381,24 @@ end
 local function generate_dungeon(c, cpos, rp, rc)
     local plane_seed = rp:gen(0, 0x3fffffff)
 
-    local ds_here = door_sizes(plane_seed, cpos:x(), cpos:y())
-    local ds_north = door_sizes(plane_seed, cpos:x(), cpos:y() - 1)
-    local ds_west = door_sizes(plane_seed, cpos:x() - 1, cpos:y())
+    local cx = cpos:x()
+    local cy = cpos:y()
 
-    local room_size = rc:gen(1, 7)
+    local ds_here = door_sizes(plane_seed, cx, cy)
+    local ds_north = door_sizes(plane_seed, cx, cy - 1)
+    local ds_west = door_sizes(plane_seed, cx - 1, cy)
 
-    generate_dungeon_room(c, room_size, ds_north[1], ds_here[1], ds_west[2], ds_here[2])
+    if cx == 0 and cy == 0 then
+        generate_dungeon_room(c, 4, ds_north[1], ds_here[1], ds_west[2], ds_here[2])
+        c:add_structure(V3.new(7, 7, 0), 'dungeon_exit')
+    else
+        local room_size = rc:gen(1, 7)
 
-    local extra = rc:choose_weighted(pairs(ROOM_EXTRAS))
-    ROOM_EXTRA_FUNCS[extra](c, room_size, rc)
+        generate_dungeon_room(c, room_size, ds_north[1], ds_here[1], ds_west[2], ds_here[2])
+
+        local extra = rc:choose_weighted(pairs(ROOM_EXTRAS))
+        ROOM_EXTRA_FUNCS[extra](c, room_size, rc)
+    end
 end
 
 

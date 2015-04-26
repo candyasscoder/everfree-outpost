@@ -49,6 +49,10 @@ impl Userdata for World {
                   .map(|p| Plane { id: p.id() })
             }
 
+            fn get_forest_plane(_w: World) -> StablePlane {
+                StablePlane { id: STABLE_PLANE_FOREST }
+            }
+
             fn find_structure_at_point(!partial w: &world::World,
                                        _w: World,
                                        plane: Plane,

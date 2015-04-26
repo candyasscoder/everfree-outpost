@@ -185,6 +185,7 @@ def get_structures(asset_path):
     solid_small(s, 'chest', img('chest.png'))
     solid_small(s, 'teleporter', img('crystal-formation.png'))
     solid_small(s, 'dungeon_entrance', img('crystal-formation-red.png'))
+    solid_small(s, 'dungeon_exit', img('crystal-formation-red.png'))
     solid_structure(s, 'ward', img('crystal-ward.png'), (1, 1, 1))
     solid_structure(s, 'trophy', img('trophy.png'), (1, 1, 1))
     solid_structure(s, 'fountain', img('fountain.png'), (2, 2, 1))

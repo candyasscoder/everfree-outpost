@@ -29,3 +29,8 @@ function action.use.dungeon_entrance(c, s)
     c:pawn():teleport_stable_plane(s:extra().target_plane, V3.new(256, 256, 0))
 end
 
+
+function action.use.dungeon_exit(c, s)
+    c:pawn():teleport_stable_plane(c:world():get_forest_plane(), V3.new(32, 32, 0))
+end
+
