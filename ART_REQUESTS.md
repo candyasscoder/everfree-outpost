@@ -6,9 +6,11 @@ is sorted roughly by how soon the feature will be implemented.
 
 ## Torches
 
- * Torch attached to a horizontal (east-west) house wall.  For this, the middle
-   torch from [LPC castle_lightsources.png][castle_lightsources] is probably
-   fine.
+ * Torch attached to a horizontal (east-west) house wall.  It should fit within
+   a single 32x32px tile.  The left torch from
+   [LPC castle_lightsources.png][castle_lightsources] might work okay for this,
+   but it's a little hard to make out exactly what that tile is supposed to be
+   (it looks more like a candle than a torch, at least to me).
 
 [castle_lightsources]: assets/tiles/lpc-base-tiles/castle_lightsources.png
 
