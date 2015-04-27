@@ -10,7 +10,8 @@ is sorted roughly by how soon the feature will be implemented.
    a single 32x32px tile.  The left torch from
    [LPC castle_lightsources.png][castle_lightsources] might work okay for this,
    but it's a little hard to make out exactly what that tile is supposed to be
-   (it looks more like a candle than a torch, at least to me).
+   (it looks more like a candle than a torch, at least to me).  The middle
+   torch looks better but is too large (32x64).
 
 [castle_lightsources]: assets/tiles/lpc-base-tiles/castle_lightsources.png
 
