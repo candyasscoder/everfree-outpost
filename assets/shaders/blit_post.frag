@@ -1,18 +1,10 @@
 precision mediump float;
 
-#extension GL_EXT_frag_depth : enable
-#extension GL_EXT_draw_buffers : enable
-
-#ifdef GL_EXT_draw_buffers
-# define emit(idx, val)   gl_FragData[(idx)] = (val)
-#else
-# define emit(idx, val)   if (idx == OUTPUT_IDX) gl_FragData[0] = (val)
-#endif
-
 varying vec2 texCoord;
 
 uniform sampler2D image0Tex;
 uniform sampler2D image1Tex;
+uniform sampler2D lightTex;
 uniform sampler2D depthTex;
 uniform vec2 screenSize;
 
@@ -97,10 +89,15 @@ float get_highlight() {
 
 void main(void) {
     //vec4 mainColor = texture2D(depthTex, texCoord) * 2.0;
-    vec4 mainColor = texture2D(image0Tex, texCoord);
-    vec4 highlightColor = vec4(0.0, 0.75, 1.0, 1.0);
-    emit(0, mix(mainColor, highlightColor, get_highlight()));
+    vec4 lightColor = texture2D(lightTex, texCoord);
+    vec4 mainColor = texture2D(image0Tex, texCoord) * lightColor;
+    vec4 highlightColor = vec4(0.0, 0.75, 1.0, 1.0) * lightColor.a;
+    gl_FragColor = mix(mainColor, highlightColor, get_highlight());
+    gl_FragColor.a = 1.0;
+    /*
+    emit(0, );
     //gl_FragData[0] = texture2D(depthTex, texCoord) * 2.0;
     emit(1, texture2D(image1Tex, texCoord));
-    gl_FragDepthEXT = texture2D(depthTex, texCoord).r;
+    //gl_FragDepthEXT = texture2D(depthTex, texCoord).r;
+    */
 }

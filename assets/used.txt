@@ -26,5 +26,7 @@ shaders/blit_post.frag
 shaders/blit_output.frag
 shaders/structure.vert
 shaders/structure.frag
+shaders/light.vert
+shaders/light.frag
 
 misc/NeoSans.png

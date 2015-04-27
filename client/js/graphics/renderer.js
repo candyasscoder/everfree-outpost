@@ -43,10 +43,6 @@ exports.Renderer = Renderer;
 Renderer.prototype.initGl = function(assets) {
     var gl = this.gl;
 
-    gl.clearColor(0, 0, 0, 1);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-
     var atlas = assets['tiles'];
     var atlas_tex = this.cacheTexture(atlas);
 
@@ -63,6 +59,7 @@ Renderer.prototype.initGl = function(assets) {
     this.post_filter = blits.post;
     this.terrain_block = build_terrain_block(gl, assets, atlas_tex);
     this.structure = build_structure(gl, assets, struct_sheet_tex, struct_depth_tex);
+    this.light = build_light(gl, assets);
 
     this.sprite_classes = {
         'simple': new Simple3D(gl, assets),
@@ -112,7 +109,7 @@ function build_blits(gl, assets) {
     var programs_output = buildPrograms(gl, vert_fullscreen, frag_output, 1);
 
     var frag_post = assets['blit_post.frag'];
-    var programs_post = buildPrograms(gl, vert_fullscreen, frag_post, 2);
+    var programs_post = buildPrograms(gl, vert_fullscreen, frag_post, 1);
 
     var buffer = new Buffer(gl);
     buffer.loadData(new Uint8Array([
@@ -194,6 +191,7 @@ function build_blits(gl, assets) {
     var textures = {
         'image0Tex': null,
         'image1Tex': null,
+        'lightTex': null,
         'depthTex': null,
     };
 
@@ -201,6 +199,41 @@ function build_blits(gl, assets) {
 
 
     return { normal: normal, sliced: sliced, output: output, post: post };
+}
+
+function build_light(gl, assets) {
+    var vert = assets['light.vert'];
+    var frag = assets['light.frag'];
+    var programs = buildPrograms(gl, vert, frag, 1);
+
+    var buffer = new Buffer(gl);
+    buffer.loadData(new Int8Array([
+        -1, -1,
+        -1,  1,
+         1,  1,
+
+        -1, -1,
+         1,  1,
+         1, -1,
+    ]));
+
+
+    var uniforms = {
+        'center': uniform('vec3', null),
+        'radius': uniform('float', null),
+        'color': uniform('vec3', null),
+        'cameraSize': uniform('vec2', null),
+    };
+
+    var attributes = {
+        'posOffset': attribute(buffer, 2, gl.BYTE, false, 0, 0),
+    };
+
+    var textures = {
+        'depthTex': null,
+    };
+
+    return new GlObject(gl, programs, uniforms, attributes, textures);
 }
 
 function build_structure(gl, assets, sheet_tex, depth_tex) {
@@ -225,6 +258,14 @@ function build_structure(gl, assets, sheet_tex, depth_tex) {
 
     return new GlObject(gl, programs, uniforms, attributes, textures);
 }
+
+Renderer.prototype._initFramebuffers = function(sw, sh) {
+    this.fb_world = new Framebuffer(this.gl, sw, sh, 2);
+    this.fb_light = new Framebuffer(this.gl, sw, sh, 1, false);
+    this.fb_post = new Framebuffer(this.gl, sw, sh, 1, false);
+    this.last_sw = sw;
+    this.last_sh = sh;
+};
 
 
 // Texture object management
@@ -402,6 +443,7 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
     this.blit.setUniformValue('cameraSize', [sw, sh]);
     this.blit_sliced.setUniformValue('cameraPos', [sx, sy]);
     this.blit_sliced.setUniformValue('cameraSize', [sw, sh]);
+    this.light.setUniformValue('cameraSize', [sw, sh]);
     // this.output uses fixed camera
 
     for (var k in this.sprite_classes) {
@@ -411,10 +453,7 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
 
 
     if (this.last_sw != sw || this.last_sh != sh) {
-        this.fbs[0] = new Framebuffer(gl, sw, sh, 2);
-        this.fbs[1] = new Framebuffer(gl, sw, sh, 2);
-        this.last_sw = sw;
-        this.last_sh = sh;
+        this._initFramebuffers(sw, sh);
     }
 
 
@@ -461,7 +500,7 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
     }
 
 
-    // Render to the output framebuffer.
+    // Render everything into the world framebuffer.
 
     gl.viewport(0, 0, sw, sh);
     gl.clearDepth(0.0);
@@ -469,7 +508,7 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.GEQUAL);
 
-    this.fbs[0].use(function(fb_idx) {
+    this.fb_world.use(function(fb_idx) {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         for (var cy = cy0; cy < cy1; ++cy) {
@@ -516,15 +555,38 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
     gl.disable(gl.DEPTH_TEST);
 
 
+    // Render lights into the light framebuffer.
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.clearColor(0.1, 0.1, 0.1, 0.0);
+
+    this.fb_light.use(function(fb_idx) {
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        this_.light.draw(fb_idx, 0, 6, {
+            'center': [sw / 2, sh / 2, 0],
+            'radius': [300],
+            //'color': [0.80, 0.53, 1.00],
+            'color': [1.20, 0.80, 1.50],
+        }, {}, {
+            'depthTex': this_.fb_world.depth_texture,
+        });
+    });
+
+    gl.disable(gl.BLEND);
+
+
     // Apply post-processing pass
 
-    this.fbs[1].use(function(idx) {
+    this.fb_post.use(function(idx) {
         this_.post_filter.draw(idx, 0, 6, {
             'screenSize': [sw, sh],
         }, {}, {
-            'image0Tex': this_.fbs[0].textures[0],
-            'image1Tex': this_.fbs[0].textures[1],
-            'depthTex': this_.fbs[0].depth_texture,
+            'image0Tex': this_.fb_world.textures[0],
+            'image1Tex': this_.fb_world.textures[1],
+            'lightTex': this_.fb_light.textures[0],
+            'depthTex': this_.fb_world.depth_texture,
         });
 
         draw_extra(idx, this_);
@@ -536,8 +598,7 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
     this.output.draw(0, 0, 6, {}, {}, {
-        'imageTex': this.fbs[1].textures[0],
-        'depthTex': this.fbs[1].depth_texture,
+        'imageTex': this.fb_post.textures[0],
     });
 };
 

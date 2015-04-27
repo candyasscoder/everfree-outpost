@@ -58,6 +58,8 @@ def main(src_dir, build_dir, out_file):
     add('text', 'blit_fullscreen.vert', src('assets/shaders/blit_fullscreen.vert'))
     add('text', 'structure.frag',       src('assets/shaders/structure.frag'))
     add('text', 'structure.vert',       src('assets/shaders/structure.vert'))
+    add('text', 'light.frag',           src('assets/shaders/light.frag'))
+    add('text', 'light.vert',           src('assets/shaders/light.vert'))
 
     for i in count(0):
         path = build('data/structures%d.png' % i)

@@ -377,11 +377,17 @@ GlObject.prototype.drawMulti = function(prog_idx, vert_indexes, uniforms, attrib
 
 
 /** @constructor */
-function Framebuffer(gl, width, height, planes) {
+function Framebuffer(gl, width, height, planes, depth) {
     this.gl = gl;
     this.width = width;
     this.height = height;
-    planes = planes || 1;
+
+    if (planes == null) {
+        planes = 1;
+    }
+    if (depth == null) {
+        depth = true;
+    }
 
     this.textures = new Array(planes);
     for (var i = 0; i < planes; ++i) {
@@ -390,8 +396,12 @@ function Framebuffer(gl, width, height, planes) {
     }
     this.texture = this.textures[0];
 
-    this.depth_texture = new Texture(gl);
-    this.depth_texture.initDepth(width, height);
+    if (depth) {
+        this.depth_texture = new Texture(gl);
+        this.depth_texture.initDepth(width, height);
+    } else {
+        this.depth_texture = null;
+    }
 
     if (hasExtension(gl, 'WEBGL_draw_buffers')) {
         this.fb = gl.createFramebuffer();
@@ -400,8 +410,10 @@ function Framebuffer(gl, width, height, planes) {
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D,
                     this.textures[i].getName(), 0);
         }
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D,
-                this.depth_texture.getName(), 0);
+        if (depth) {
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D,
+                    this.depth_texture.getName(), 0);
+        }
 
         var fb_status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
         if (fb_status != gl.FRAMEBUFFER_COMPLETE) {
@@ -422,15 +434,17 @@ function Framebuffer(gl, width, height, planes) {
             gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbs[i]);
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D,
                     this.textures[i].getName(), 0);
-            if (i == 0) {
-                gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D,
-                        this.depth_texture.getName(), 0);
-            } else {
-                var depth_buf = gl.createRenderbuffer();
-                gl.bindRenderbuffer(gl.RENDERBUFFER, depth_buf);
-                gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
-                gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER,
-                        depth_buf);
+            if (depth) {
+                if (i == 0) {
+                    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D,
+                            this.depth_texture.getName(), 0);
+                } else {
+                    var depth_buf = gl.createRenderbuffer();
+                    gl.bindRenderbuffer(gl.RENDERBUFFER, depth_buf);
+                    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+                    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT,
+                            gl.RENDERBUFFER, depth_buf);
+                }
             }
 
             var fb_status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
