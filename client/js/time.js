@@ -86,11 +86,17 @@ Timing.prototype._handlePong = function(client_send, server_time, client_recv_ra
 
 // Get the latest visible time.
 Timing.prototype.visibleNow = function() {
+    if (this.client_base == null) {
+        return -0xffff;
+    }
     return (Date.now() - this.client_base)|0;
 };
 
 // Get the next arrival time.
 Timing.prototype.nextArrival = function() {
+    if (this.client_base == null) {
+        return -0xffff;
+    }
     return (Date.now() - this.client_base + this.ping)|0;
 };
 

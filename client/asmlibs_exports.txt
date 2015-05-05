@@ -13,3 +13,6 @@ remove_structure
 reset_structure_geometry
 generate_structure_geometry
 generate_sliced_structure_geometry
+init_light_state
+reset_light_geometry
+generate_light_geometry

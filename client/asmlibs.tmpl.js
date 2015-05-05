@@ -159,6 +159,10 @@ var asmlibs_code_raw = function(global, env, buffer) {
         generate_structure_geometry: _generate_structure_geometry,
         generate_sliced_structure_geometry: _generate_sliced_structure_geometry,
 
+        init_light_state: _init_light_state,
+        reset_light_geometry: _reset_light_geometry,
+        generate_light_geometry: _generate_light_geometry,
+
         test: _test,
     });
 };

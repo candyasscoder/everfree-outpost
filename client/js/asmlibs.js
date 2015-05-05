@@ -92,7 +92,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 12;
+    var EXPECT_SIZES = 15;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -118,6 +118,10 @@ var SIZEOF = (function() {
         StructureBuffer: view[10],
         StructureVertex: view[11],
         StructureGeometryBuffer: view[12],
+
+        LightGeometryState: view[13],
+        LightVertex: view[14],
+        LightGeometryBuffer: view[15],
     });
 })();
 
@@ -316,14 +320,24 @@ var STRUCTURES_END = STRUCTURES_START + SIZEOF.StructureBuffer;
 var STRUCTURE_GEOM_START = STRUCTURES_END;
 var STRUCTURE_GEOM_END = STRUCTURE_GEOM_START + SIZEOF.StructureGeometryBuffer;
 
-var GRAPHICS_HEAP_END = STRUCTURE_GEOM_END;
+var LIGHT_STATE_START = STRUCTURE_GEOM_END;
+var LIGHT_STATE_END = LIGHT_STATE_START + SIZEOF.LightGeometryState;
+
+var LIGHT_GEOM_START = LIGHT_STATE_END;
+var LIGHT_GEOM_END = LIGHT_GEOM_START + SIZEOF.LightGeometryBuffer;
+
+var GRAPHICS_HEAP_END = LIGHT_GEOM_END;
 
 exports.getGraphicsHeapSize = function() {
     return GRAPHICS_HEAP_END - GRAPHICS_HEAP_START;
 };
 
 
-Asm.prototype.blockDataView = function() {
+Asm.prototype.blockDataView8 = function() {
+    return new Uint8Array(this.buffer, BLOCK_DATA_START, SIZEOF.BlockData >> 0);
+};
+
+Asm.prototype.blockDataView16 = function() {
     return new Uint16Array(this.buffer, BLOCK_DATA_START, SIZEOF.BlockData >> 1);
 };
 
@@ -397,6 +411,34 @@ Asm.prototype.generateStructureGeometry = function(cx, cy, max_z) {
                           (SIZEOF.StructureVertex * vertex_count) >> 1),
         sheet: output8[4],
         more: output8[5],
+    };
+
+    this._stackFree(output);
+    return result;
+};
+
+
+Asm.prototype.initLightState = function() {
+    this._raw['init_light_state'](LIGHT_STATE_START, BLOCK_DATA_START);
+};
+
+Asm.prototype.resetLightGeometry = function(cx0, cy0, cx1, cy1) {
+    this._raw['reset_light_geometry'](LIGHT_STATE_START, cx0, cy0, cx1, cy1);
+}
+
+Asm.prototype.generateLightGeometry = function() {
+    var output = this._stackAlloc(Int32Array, 2);
+
+    this._raw['generate_light_geometry'](
+            LIGHT_STATE_START, LIGHT_GEOM_START, LOCAL_CHUNKS_START, output.byteOffset);
+
+    var vertex_count = output[0];
+    var more = (output[1] & 1) != 0;
+
+    var result = {
+        geometry: new Uint8Array(this.buffer, LIGHT_GEOM_START,
+                          SIZEOF.LightVertex * vertex_count),
+        more: more,
     };
 
     this._stackFree(output);

@@ -13,13 +13,14 @@ extern crate graphics;
 use core::prelude::*;
 use core::mem;
 use core::raw;
-use physics::v3::{V3, scalar, Region};
+use physics::v3::{V3, V2, scalar, Region};
 use physics::{Shape, ShapeSource};
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE, TILE_BITS};
 use graphics::{BlockData, BlockChunk, LocalChunks};
 use graphics::{TerrainVertex, TerrainGeometryBuffer};
 use graphics::{StructureTemplate, StructureTemplateData, StructureBuffer,
                StructureVertex, StructureGeometryBuffer};
+use graphics::{LightGeometryState, LightVertex, LightGeometryBuffer};
 
 mod std {
     pub use core::fmt;
@@ -223,7 +224,7 @@ pub extern fn generate_sliced_terrain_geometry(local: &LocalChunks,
 #[export_name = "init_structure_buffer"]
 pub extern fn init_structure_buffer(structures: &mut StructureBuffer<'static>,
                                     templates: &'static StructureTemplateData) {
-    structures.init(templates);
+    unsafe { structures.init(templates) };
 }
 
 #[export_name = "add_structure"]
@@ -283,6 +284,39 @@ pub extern fn generate_sliced_structure_geometry(structures: &mut StructureBuffe
 }
 
 
+#[export_name = "init_light_state"]
+pub extern fn init_light_state(light_state: &mut LightGeometryState<'static>,
+                               block_data: &'static BlockData) {
+    unsafe { light_state.init(block_data) };
+}
+
+#[export_name = "reset_light_geometry"]
+pub extern fn reset_light_geometry(light_state: &mut LightGeometryState,
+                                   cx0: u8,
+                                   cy0: u8,
+                                   cx1: u8,
+                                   cy1: u8) {
+    light_state.start_geometry_gen(
+        Region::new(V2::new(cx0 as i32, cy0 as i32),
+                    V2::new(cx1 as i32, cy1 as i32)));
+}
+
+pub struct LightGeometryResult {
+    vertex_count: usize,
+    more: u8,
+}
+
+#[export_name = "generate_light_geometry"]
+pub extern fn generate_light_geometry(light_state: &mut LightGeometryState,
+                                      geom: &mut LightGeometryBuffer,
+                                      local: &LocalChunks,
+                                      output: &mut LightGeometryResult) {
+    let (count, more) = light_state.generate_geometry(geom, local);
+    output.vertex_count = count;
+    output.more = more as u8;
+}
+
+
 // SIZEOF
 
 #[repr(C)]
@@ -303,6 +337,10 @@ pub struct Sizes {
     structure_buffer: usize,
     structure_vertex: usize,
     structure_geometry_buffer: usize,
+
+    light_geometry_state: usize,
+    light_vertex: usize,
+    light_geometry_buffer: usize,
 }
 
 #[export_name = "get_sizes"]
@@ -324,6 +362,10 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
     sizes.structure_buffer = size_of::<StructureBuffer>();
     sizes.structure_vertex = size_of::<StructureVertex>();
     sizes.structure_geometry_buffer = size_of::<StructureGeometryBuffer>();
+
+    sizes.light_geometry_state = size_of::<LightGeometryState>();
+    sizes.light_vertex = size_of::<LightVertex>();
+    sizes.light_geometry_buffer = size_of::<LightGeometryBuffer>();
 
     *num_sizes = size_of::<Sizes>() / size_of::<usize>();
 }

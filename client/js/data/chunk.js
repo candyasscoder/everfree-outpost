@@ -45,6 +45,11 @@ function BlockDef_(id, info) {
     this.bottom = info['bottom'] || 0;
     this.front = info['front'] || 0;
     this.back = info['back'] || 0;
+
+    this.light_r = info['light_r'] || 0;
+    this.light_g = info['light_g'] || 0;
+    this.light_b = info['light_b'] || 0;
+    this.light_radius = info['light_radius'] || 0;
 }
 
 // Closure compiler doesn't like having static items on functions.

@@ -16,7 +16,7 @@ use core::ptr;
 use core::num::wrapping::WrappingOps;
 
 use physics::{TILE_BITS, CHUNK_BITS};
-use physics::v3::{V3, scalar, Region};
+use physics::v3::{V3, V2, scalar, Region, RegionPoints};
 
 
 #[cfg(asmjs)]
@@ -43,6 +43,10 @@ pub struct BlockDisplay {
     pub back: u16,
     pub top: u16,
     pub bottom: u16,
+
+    pub light_color: (u8, u8, u8),
+    pub _pad1: u8,
+    pub light_radius: u16,
 }
 
 impl BlockDisplay {
@@ -76,6 +80,12 @@ pub fn load_chunk(local: &mut LocalChunks,
     let idx = cy * LOCAL_SIZE + cx;
 
     local[idx as usize] = *chunk;
+}
+
+pub fn get_chunk<'a>(local: &'a LocalChunks, cpos: V2) -> &'a BlockChunk {
+    let i = cpos.y as u16 % LOCAL_SIZE;
+    let j = cpos.x as u16 % LOCAL_SIZE;
+    &local[(i * LOCAL_SIZE + j) as usize]
 }
 
 
@@ -286,8 +296,8 @@ pub struct StructureBuffer<'a> {
 }
 
 impl<'a> StructureBuffer<'a> {
-    pub fn init(&mut self, templates: &'a StructureTemplateData) {
-        unsafe { ptr::write(&mut self.templates, templates) };
+    pub unsafe fn init(&mut self, templates: &'a StructureTemplateData) {
+        ptr::write(&mut self.templates, templates);
         self.first_free = 0;
         self.last_used = 0;
         self.next_index = 0;
@@ -559,3 +569,123 @@ pub struct StructureVertex {
 /// Buffer for StructureVertex items.  The number of elements is set to 6 times the length of
 /// StructureBuffer.indexes.
 pub type StructureGeometryBuffer = [StructureVertex; 6 * 1024];
+
+
+
+/// State that needs to persist across `generate_light_geometry` calls.  Mainly, we need to keep
+/// track of what blocks we've processed so far.
+pub struct LightGeometryState<'a> {
+    block_data: &'a BlockData,
+
+    chunk_iter: RegionPoints<V2>,
+    block_iter: RegionPoints<V3>,
+}
+
+const CHUNK_BOUNDS: Region = Region {
+    min: V3 { x: 0, y: 0, z: 0 },
+    max: V3 {
+        x: CHUNK_SIZE as i32,
+        y: CHUNK_SIZE as i32,
+        z: CHUNK_SIZE as i32,
+    },
+};
+
+impl<'a> LightGeometryState<'a> {
+    pub unsafe fn init(&mut self, block_data: &'a BlockData) {
+        ptr::write(&mut self.block_data, block_data);
+        ptr::write(&mut self.chunk_iter, Region::new(scalar(0), scalar(0)).points());
+        ptr::write(&mut self.block_iter, Region::new(scalar(0), scalar(0)).points());
+    }
+
+    pub fn start_geometry_gen(&mut self, cregion: Region<V2>) {
+        self.chunk_iter = cregion.points();
+        self.block_iter = CHUNK_BOUNDS.points();
+    }
+
+    pub fn generate_geometry(&mut self,
+                             geom: &mut LightGeometryBuffer,
+                             local: &LocalChunks) -> (usize, bool) {
+        let mut geom_idx = 0;
+        for cpos in self.chunk_iter {
+            let chunk = get_chunk(local, cpos);
+            for offset in self.block_iter {
+                let block_id = chunk[CHUNK_BOUNDS.index(offset)];
+                let block = &self.block_data[block_id as usize];
+                if block.light_radius == 0 {
+                    continue;
+                }
+
+                let p = cpos.extend(0) * scalar(CHUNK_SIZE as i32) + offset;
+                // TODO: check if `p` is within `light_radius` pixels of the center chunk
+                if !self.emit(geom, &mut geom_idx, p, &block) {
+                    return (geom_idx, true);
+                }
+
+            }
+            self.block_iter = CHUNK_BOUNDS.points();
+        }
+
+        (geom_idx, false)
+    }
+
+    /// Emit a set of light vertices into the geometry buffer.  Returns `false` if there is no
+    /// space left in the buffer.
+    fn emit(&mut self,
+            geom: &mut LightGeometryBuffer,
+            idx: &mut usize,
+            pos: V3,
+            block: &BlockDisplay) -> bool {
+        const CORNERS: [(i8, i8); 6] = [(-1,-1), (1,-1), (1,1),  (-1,-1), (1, 1), (-1,1)];
+        if *idx + CORNERS.len() >= geom.len() {
+            return false;
+        }
+
+        for &corner in CORNERS.iter() {
+            self.emit_one(geom, idx, corner, pos, block);
+        }
+        true
+    }
+
+    fn emit_one(&mut self,
+                geom: &mut LightGeometryBuffer,
+                idx: &mut usize,
+                corner: (i8, i8),
+                pos: V3,
+                block: &BlockDisplay) {
+        let v = &mut geom[*idx];
+        *idx += 1;
+
+        fn adjust(x: i32) -> i16 {
+            const STEP: i32 = TILE_SIZE as i32;
+            (x * STEP + STEP / 2) as i16
+        }
+
+        v.x = corner.0;
+        v.y = corner.1;
+        v.center_x = adjust(pos.x);
+        v.center_y = adjust(pos.y);
+        v.center_z = adjust(pos.z);
+        v.color_r = block.light_color.0;
+        v.color_g = block.light_color.1;
+        v.color_b = block.light_color.2;
+        v.radius = block.light_radius;
+    }
+}
+
+pub struct LightVertex {
+    // Size: 16 bytes
+    x: i8,
+    y: i8,
+    center_x: i16,
+    center_y: i16,
+    center_z: i16,
+    color_r: u8,
+    color_g: u8,
+    color_b: u8,
+    _pad1: u8,
+    radius: u16,
+    _pad2: u16,
+}
+
+/// Buffer for LightVertex items.  The number of elements is arbitrary.
+pub type LightGeometryBuffer = [LightVertex; 6 * 256];

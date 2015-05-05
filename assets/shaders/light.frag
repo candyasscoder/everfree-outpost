@@ -1,18 +1,21 @@
 precision mediump float;
 
-varying vec2 texCoord;
-varying vec2 pos;
+varying vec3 localCenter;
+varying float radius;
+varying vec3 color;
+varying vec2 localPos;
 
-uniform vec3 center;
-uniform float radius;
-uniform vec3 color;
+uniform vec2 cameraSize;
 uniform sampler2D depthTex;
 
 void main(void) {
+    vec2 texCoord = localPos / cameraSize;
+    texCoord.y = 1.0 - texCoord.y;
+
     float depth = texture2D(depthTex, texCoord).r;
     float z = depth * 512.0;
-    vec3 pos3 = vec3(pos.x, pos.y - z, z);
-    vec3 off = pos3 - center;
+    vec3 localPos3 = vec3(localPos.x, localPos.y + z, z);
+    vec3 off = localPos3 - localCenter;
     float dist = length(off);
 
     float ratio = 1.0 - (dist * dist) / (radius * radius);

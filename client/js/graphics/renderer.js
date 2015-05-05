@@ -23,16 +23,26 @@ var PonyOutline3D = require('graphics/draw/ponyoutline').PonyOutline3D;
 
 var Vec = require('util/vec').Vec;
 
+var CHUNK_PX = CHUNK_SIZE * TILE_SIZE;
 
 /** @constructor */
 function Renderer(gl) {
     this.gl = gl;
     this._asm = new Asm(getGraphicsHeapSize());
     this._asm.initStructureBuffer();
+    this._asm.initLightState();
 
     this.texture_cache = new WeakMap();
-    this.terrain_cache = new RenderCache(gl);
-    this.sliced_cache = new RenderCache(gl);
+    this.terrain_cache = new RenderCache(gl, function(gl) {
+        return {
+            image: new Framebuffer(gl, CHUNK_PX, CHUNK_PX, 2),
+        };
+    });
+    this.sliced_cache = new RenderCache(gl, function(gl) {
+        return {
+            image: new Framebuffer(gl, CHUNK_PX, CHUNK_PX, 2),
+        };
+    });
     this.last_slice_z = -1;
 }
 exports.Renderer = Renderer;
@@ -206,27 +216,16 @@ function build_light(gl, assets) {
     var frag = assets['light.frag'];
     var programs = buildPrograms(gl, vert, frag, 1);
 
-    var buffer = new Buffer(gl);
-    buffer.loadData(new Int8Array([
-        -1, -1,
-        -1,  1,
-         1,  1,
-
-        -1, -1,
-         1,  1,
-         1, -1,
-    ]));
-
-
     var uniforms = {
-        'center': uniform('vec3', null),
-        'radius': uniform('float', null),
-        'color': uniform('vec3', null),
+        'cameraPos': uniform('vec2', null),
         'cameraSize': uniform('vec2', null),
     };
 
     var attributes = {
-        'posOffset': attribute(buffer, 2, gl.BYTE, false, 0, 0),
+        'posOffset': attribute(null, 2, gl.BYTE, false, 16, 0),
+        'center': attribute(null, 3, gl.SHORT, false, 16, 2),
+        'colorAttr': attribute(null, 3, gl.UNSIGNED_BYTE, true, 16, 8),
+        'radiusAttr': attribute(null, 1, gl.UNSIGNED_SHORT, false, 16, 12),
     };
 
     var textures = {
@@ -295,14 +294,22 @@ Renderer.prototype.refreshTexture = function(image) {
 // Data loading
 
 Renderer.prototype.loadBlockData = function(blocks) {
-    var view = this._asm.blockDataView();
+    var view8 = this._asm.blockDataView8();
+    var view16 = this._asm.blockDataView16();
     for (var i = 0; i < blocks.length; ++i) {
         var block = blocks[i];
-        var base = i * 4;
-        view[base + 0] = block.front;
-        view[base + 1] = block.back;
-        view[base + 2] = block.top;
-        view[base + 3] = block.bottom;
+
+        var out8 = view8.subarray(i * 14, (i + 1) * 14);
+        var out16 = view16.subarray(i * 7, (i + 1) * 7);
+        out16[0] = block.front;
+        out16[1] = block.back;
+        out16[2] = block.top;
+        out16[3] = block.bottom;
+
+        out8[8] = block.light_r;
+        out8[9] = block.light_g;
+        out8[10] = block.light_b;
+        out16[6] = block.light_radius;
     }
 };
 
@@ -436,6 +443,43 @@ Renderer.prototype._renderStructures = function(fb, cx, cy, max_z) {
     gl.disable(gl.DEPTH_TEST);
 };
 
+Renderer.prototype._renderLights = function(fb, depth_tex, cx0, cy0, cx1, cy1) {
+    var gl = this.gl;
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    // clearColor sets the ambient light color+intensity
+    gl.clearColor(0.2, 0.2, 0.2, 0.0);
+
+    this._asm.resetLightGeometry(cx0, cy0, cx1, cy1);
+    var more = true;
+    while (more) {
+        var result = this._asm.generateLightGeometry();
+        var geom = result.geometry;
+        more = result.more;
+
+        var buffer = new Buffer(gl);
+        buffer.loadData(geom);
+
+        var this_ = this;
+        fb.use(function(idx) {
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            if (geom.length > 0) {
+                this_.light.draw(idx, 0, geom.length / 16, {}, {
+                    'posOffset': buffer,
+                    'center': buffer,
+                    'colorAttr': buffer,
+                    'radiusAttr': buffer,
+                }, {
+                    'depthTex': depth_tex,
+                });
+            }
+        });
+    }
+
+    gl.disable(gl.BLEND);
+};
+
 Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_frac, draw_extra) {
     var gl = this.gl;
 
@@ -443,6 +487,7 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
     this.blit.setUniformValue('cameraSize', [sw, sh]);
     this.blit_sliced.setUniformValue('cameraPos', [sx, sy]);
     this.blit_sliced.setUniformValue('cameraSize', [sw, sh]);
+    this.light.setUniformValue('cameraPos', [sx, sy]);
     this.light.setUniformValue('cameraSize', [sw, sh]);
     // this.output uses fixed camera
 
@@ -459,11 +504,10 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
 
     // Populate the terrain caches.
 
-    var chunk_px = CHUNK_SIZE * TILE_SIZE;
-    var cx0 = ((sx|0) / chunk_px)|0;
-    var cx1 = (((sx|0) + (sw|0) + chunk_px) / chunk_px)|0;
-    var cy0 = ((sy|0) / chunk_px)|0;
-    var cy1 = (((sy|0) + (sh|0) + chunk_px) / chunk_px)|0;
+    var cx0 = ((sx|0) / CHUNK_PX)|0;
+    var cx1 = (((sx|0) + (sw|0) + CHUNK_PX) / CHUNK_PX)|0;
+    var cy0 = ((sy|0) / CHUNK_PX)|0;
+    var cy1 = (((sy|0) + (sh|0) + CHUNK_PX) / CHUNK_PX)|0;
 
     var chunk_idxs = new Array((cx1 - cx0) * (cy1 - cy0));
 
@@ -477,22 +521,22 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
     }
 
     var this_ = this;
-    this.terrain_cache.populate(chunk_idxs, function(idx, fb) {
+    this.terrain_cache.populate(chunk_idxs, function(idx, fbs) {
         var cx = (idx % LOCAL_SIZE)|0;
         var cy = (idx / LOCAL_SIZE)|0;
-        this_._renderTerrain(fb, cx, cy, CHUNK_SIZE);
-        this_._renderStructures(fb, cx, cy, CHUNK_SIZE);
+        this_._renderTerrain(fbs.image, cx, cy, CHUNK_SIZE);
+        this_._renderStructures(fbs.image, cx, cy, CHUNK_SIZE);
     });
 
     if (slice_z < CHUNK_SIZE) {
         if (slice_z != this.last_slice_z) {
             this.sliced_cache.invalidateAll();
         }
-        this.sliced_cache.populate(chunk_idxs, function(idx, fb) {
+        this.sliced_cache.populate(chunk_idxs, function(idx, fbs) {
             var cx = (idx % LOCAL_SIZE)|0;
             var cy = (idx / LOCAL_SIZE)|0;
-            this_._renderTerrain(fb, cx, cy, slice_z);
-            this_._renderStructures(fb, cx, cy, slice_z);
+            this_._renderTerrain(fbs.image, cx, cy, slice_z);
+            this_._renderStructures(fbs.image, cx, cy, slice_z);
         });
         this.last_slice_z = slice_z;
     } else {
@@ -520,9 +564,9 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
                         'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
                                     cy * CHUNK_SIZE * TILE_SIZE],
                     }, {}, {
-                        'image0Tex': this_.terrain_cache.get(idx).textures[0],
-                        'image1Tex': this_.terrain_cache.get(idx).textures[1],
-                        'depthTex': this_.terrain_cache.get(idx).depth_texture,
+                        'image0Tex': this_.terrain_cache.get(idx).image.textures[0],
+                        'image1Tex': this_.terrain_cache.get(idx).image.textures[1],
+                        'depthTex': this_.terrain_cache.get(idx).image.depth_texture,
                     });
                 } else {
                     this_.blit_sliced.draw(fb_idx, 0, 6, {
@@ -530,12 +574,12 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
                                     cy * CHUNK_SIZE * TILE_SIZE],
                         'sliceFrac': [slice_frac],
                     }, {}, {
-                        'upperImage0Tex': this_.terrain_cache.get(idx).textures[0],
-                        'upperImage1Tex': this_.terrain_cache.get(idx).textures[1],
-                        'upperDepthTex': this_.terrain_cache.get(idx).depth_texture,
-                        'lowerImage0Tex': this_.sliced_cache.get(idx).textures[0],
-                        'lowerImage1Tex': this_.sliced_cache.get(idx).textures[1],
-                        'lowerDepthTex': this_.sliced_cache.get(idx).depth_texture,
+                        'upperImage0Tex': this_.terrain_cache.get(idx).image.textures[0],
+                        'upperImage1Tex': this_.terrain_cache.get(idx).image.textures[1],
+                        'upperDepthTex': this_.terrain_cache.get(idx).image.depth_texture,
+                        'lowerImage0Tex': this_.sliced_cache.get(idx).image.textures[0],
+                        'lowerImage1Tex': this_.sliced_cache.get(idx).image.textures[1],
+                        'lowerDepthTex': this_.sliced_cache.get(idx).image.depth_texture,
                     });
                 }
             }
@@ -557,24 +601,8 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
 
     // Render lights into the light framebuffer.
 
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-    gl.clearColor(0.1, 0.1, 0.1, 0.0);
-
-    this.fb_light.use(function(fb_idx) {
-        gl.clear(gl.COLOR_BUFFER_BIT);
-
-        this_.light.draw(fb_idx, 0, 6, {
-            'center': [sw / 2, sh / 2, 0],
-            'radius': [300],
-            //'color': [0.80, 0.53, 1.00],
-            'color': [1.20, 0.80, 1.50],
-        }, {}, {
-            'depthTex': this_.fb_world.depth_texture,
-        });
-    });
-
-    gl.disable(gl.BLEND);
+    this._renderLights(this.fb_light, this.fb_world.depth_texture,
+            cx0, cy0, cx1, cy1);
 
 
     // Apply post-processing pass
@@ -610,8 +638,10 @@ Renderer.prototype.renderSpecial = function(fb_idx, sprite, cls_name) {
 
 
 /** @constructor */
-function RenderCache(gl) {
+function RenderCache(gl, init) {
     this.gl = gl;
+    this.init = init;
+
     this.slots = [];
     this.users = [];
 
@@ -626,8 +656,7 @@ function RenderCache(gl) {
 }
 
 RenderCache.prototype._addSlot = function() {
-    var chunk_px = CHUNK_SIZE * TILE_SIZE;
-    this.slots.push(new Framebuffer(this.gl, chunk_px, chunk_px, 2));
+    this.slots.push(this.init(this.gl));
     this.users.push(-1);
 };
 
