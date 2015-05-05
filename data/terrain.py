@@ -49,7 +49,7 @@ def mk_floor_from_dict(basename, dct, shape='empty', base_img=None):
 def mk_floor_blocks(img, basename, **kwargs):
     dct = chop_terrain(img)
     dct['center'] = dct['center/v0']
-    mk_floor_from_dict(basename, dct, **kwargs)
+    return mk_floor_from_dict(basename, dct, **kwargs)
 
 def mk_floor_cross(img, basename, **kwargs):
     dct = {
@@ -187,7 +187,12 @@ def init(asset_path):
     cave_floor = dirt2['center/v0']
     mk_cave_inside(img('lpc-cave-inside.png'), 'cave_inside', cave_floor)
     mk_floor_blocks(img('lpc-base-tiles/water.png'), 'cave_water', base_img=cave_floor)
-    mk_floor_blocks(img('lpc-base-tiles/lava.png'), 'cave_lava', base_img=cave_floor)
+
+    lava = mk_floor_blocks(img('lpc-base-tiles/lava.png'), 'cave_lava', base_img=cave_floor)
+    for b in lava.values():
+        b.light_color = (255, 100, 0)
+        b.light_radius = 50
+
     mk_floor_blocks(img('lpc-base-tiles/holemid.png'), 'cave_pit', base_img=cave_floor)
 
     mk_floor_blocks(img('lpc-cave-top.png'), 'cave_top', shape='floor')

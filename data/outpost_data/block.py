@@ -10,6 +10,9 @@ class BlockDef(object):
         self.shape = shape
         self.tile_names = tiles
 
+        self.light_color = None
+        self.light_radius = None
+
         self.id = None
         self.tile_ids = None
 
@@ -36,6 +39,13 @@ def build_client_json(blocks):
         for k in BLOCK_SIDES:
             if k in b.tile_ids:
                 dct[k] = b.tile_ids[k]
+        if b.light_color is not None:
+            red, green, blue = b.light_color
+            dct.update(
+                light_r=red,
+                light_g=green,
+                light_b=blue,
+                light_radius=b.light_radius)
         return dct
 
     return list(convert(b) for b in blocks)
