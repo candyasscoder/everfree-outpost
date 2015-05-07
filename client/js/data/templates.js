@@ -14,6 +14,10 @@ function TemplateDef_(id, info, assets) {
     this.sheet = info['sheet'];
     this.display_size = info['display_size'];
     this.display_offset = info['offset'];
+
+    this.light_pos = info['light_pos'] || [0, 0, 0];
+    this.light_color = info['light_color'] || [0, 0, 0];
+    this.light_radius = info['light_radius'] || 0;
 }
 
 // Closure compiler doesn't like having static items on functions.

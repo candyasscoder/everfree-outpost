@@ -16,7 +16,7 @@ use core::ptr;
 use core::num::wrapping::WrappingOps;
 
 use physics::{TILE_BITS, CHUNK_BITS};
-use physics::v3::{V3, V2, scalar, Region, RegionPoints};
+use physics::v3::{V3, V2, scalar, Region};
 
 
 #[cfg(asmjs)]
@@ -246,6 +246,12 @@ pub struct StructureTemplate {
     pub sheet: u8,
     pub display_size: (u16, u16),
     pub display_offset: (u16, u16),
+
+    pub light_pos: (u8, u8, u8),
+    pub _pad1: u8,
+    pub light_color: (u8, u8, u8),
+    pub _pad2: u8,
+    pub light_radius: u16,
 }
 
 /// All structure templates known to the client.  The number of elements is arbitrary.
@@ -303,6 +309,10 @@ impl<'a> StructureBuffer<'a> {
         self.next_index = 0;
         self.num_indexes = 0;
         self.index_sheets = 0;
+    }
+
+    pub fn structures(&self) -> &[Structure] {
+        &self.structures[..self.last_used]
     }
 
     pub fn add_structure(&mut self, pos: (u8, u8, u8), template_id: u32) -> usize {
@@ -576,9 +586,12 @@ pub type StructureGeometryBuffer = [StructureVertex; 6 * 1024];
 /// track of what blocks we've processed so far.
 pub struct LightGeometryState<'a> {
     block_data: &'a BlockData,
+    templates: &'a StructureTemplateData,
 
-    chunk_iter: RegionPoints<V2>,
-    block_iter: RegionPoints<V3>,
+    chunk_region: Region<V2>,
+    chunk_idx: usize,
+    block_idx: usize,
+    struct_idx: usize,
 }
 
 const CHUNK_BOUNDS: Region = Region {
@@ -591,85 +604,135 @@ const CHUNK_BOUNDS: Region = Region {
 };
 
 impl<'a> LightGeometryState<'a> {
-    pub unsafe fn init(&mut self, block_data: &'a BlockData) {
+    pub unsafe fn init(&mut self,
+                       block_data: &'a BlockData,
+                       templates: &'a StructureTemplateData) {
         ptr::write(&mut self.block_data, block_data);
-        ptr::write(&mut self.chunk_iter, Region::new(scalar(0), scalar(0)).points());
-        ptr::write(&mut self.block_iter, Region::new(scalar(0), scalar(0)).points());
+        ptr::write(&mut self.templates, templates);
+        ptr::write(&mut self.chunk_region, Region::new(scalar(0), scalar(0)));
+        self.chunk_idx = 0;
+        self.block_idx = 0;
+        self.struct_idx = 0;
     }
 
     pub fn start_geometry_gen(&mut self, cregion: Region<V2>) {
-        self.chunk_iter = cregion.points();
-        self.block_iter = CHUNK_BOUNDS.points();
+        self.chunk_region = cregion;//.expand(scalar(1));
+        self.chunk_idx = 0;
+        self.block_idx = 0;
+        self.struct_idx = 0;
     }
 
     pub fn generate_geometry(&mut self,
                              geom: &mut LightGeometryBuffer,
-                             local: &LocalChunks) -> (usize, bool) {
+                             local: &LocalChunks,
+                             structs: &[Structure]) -> (usize, bool) {
         let mut geom_idx = 0;
-        for cpos in self.chunk_iter {
+
+        for chunk_idx in range(self.chunk_idx, self.chunk_region.volume() as usize) {
+            let cpos = self.chunk_region.from_index(chunk_idx);
             let chunk = get_chunk(local, cpos);
-            for offset in self.block_iter {
-                let block_id = chunk[CHUNK_BOUNDS.index(offset)];
+            for block_idx in range(self.block_idx, CHUNK_BOUNDS.volume() as usize) {
+                let block_id = chunk[block_idx];
                 let block = &self.block_data[block_id as usize];
                 if block.light_radius == 0 {
                     continue;
                 }
 
+                let offset = CHUNK_BOUNDS.from_index(block_idx);
                 let p = cpos.extend(0) * scalar(CHUNK_SIZE as i32) + offset;
                 // TODO: check if `p` is within `light_radius` pixels of the center chunk
-                if !self.emit(geom, &mut geom_idx, p, &block) {
+                if !self.emit(geom, &mut geom_idx, block_center(p),
+                              block.light_color, block.light_radius) {
+                    // Remember that we made it this far.  Save `block_idx` instead of
+                    // `block_idx + 1` because we failed to generate its geometry just now.
+                    self.chunk_idx = chunk_idx;
+                    self.block_idx = block_idx;
                     return (geom_idx, true);
                 }
-
             }
-            self.block_iter = CHUNK_BOUNDS.points();
+
+            self.block_idx = 0;
         }
+        // Remember that we finished all the blocks.
+        self.chunk_idx = self.chunk_region.volume() as usize;
+
+        for struct_idx in range(self.struct_idx, structs.len()) {
+            let s = &structs[struct_idx];
+            if !s.live {
+                continue;
+            }
+            let t = &self.templates[s.template_id as usize];
+
+            if t.light_radius == 0 {
+                continue;
+            }
+
+            let light_pos = V3::new(t.light_pos.0 as i32,
+                                    t.light_pos.1 as i32,
+                                    t.light_pos.2 as i32);
+            let struct_pos = V3::new(s.pos.0 as i32,
+                                     s.pos.1 as i32,
+                                     s.pos.2 as i32);
+            let p = struct_pos * scalar(TILE_SIZE as i32) + light_pos;
+            if !self.emit(geom, &mut geom_idx, p, t.light_color, t.light_radius) {
+                self.struct_idx = struct_idx;
+                return (geom_idx, true);
+            }
+        }
+        // Remember that we finished all the structures.
+        self.struct_idx = structs.len();
 
         (geom_idx, false)
     }
 
     /// Emit a set of light vertices into the geometry buffer.  Returns `false` if there is no
     /// space left in the buffer.
+    // TODO: The `color` arguments gets represented in LLVM as an i24, which confuses Emscripten's
+    // JsBackend.  As a workaround, force inlining so the argument never appears in the IR.
+    #[inline(always)]
     fn emit(&mut self,
             geom: &mut LightGeometryBuffer,
             idx: &mut usize,
             pos: V3,
-            block: &BlockDisplay) -> bool {
+            color: (u8, u8, u8),
+            radius: u16) -> bool {
         const CORNERS: [(i8, i8); 6] = [(-1,-1), (1,-1), (1,1),  (-1,-1), (1, 1), (-1,1)];
         if *idx + CORNERS.len() >= geom.len() {
             return false;
         }
 
         for &corner in CORNERS.iter() {
-            self.emit_one(geom, idx, corner, pos, block);
+            self.emit_one(geom, idx, corner, pos, color, radius);
         }
         true
     }
 
+    // TODO: Workaround for Emscripten bug, see above.
+    #[inline(always)]
     fn emit_one(&mut self,
                 geom: &mut LightGeometryBuffer,
                 idx: &mut usize,
                 corner: (i8, i8),
                 pos: V3,
-                block: &BlockDisplay) {
+                color: (u8, u8, u8),
+                radius: u16) {
         let v = &mut geom[*idx];
         *idx += 1;
 
-        fn adjust(x: i32) -> i16 {
-            const STEP: i32 = TILE_SIZE as i32;
-            (x * STEP + STEP / 2) as i16
-        }
-
         v.x = corner.0;
         v.y = corner.1;
-        v.center_x = adjust(pos.x);
-        v.center_y = adjust(pos.y);
-        v.center_z = adjust(pos.z);
-        v.color_r = block.light_color.0;
-        v.color_g = block.light_color.1;
-        v.color_b = block.light_color.2;
-        v.radius = block.light_radius;
+        v.center_x = pos.x as i16;
+        v.center_y = pos.y as i16;
+        v.center_z = pos.z as i16;
+        v.color_r = color.0;
+        v.color_g = color.1;
+        v.color_b = color.2;
+        v.radius = radius;
     }
+}
+
+fn block_center(pos: V3) -> V3 {
+    pos * scalar(TILE_SIZE as i32) + scalar(TILE_SIZE as i32 / 2)
 }
 
 pub struct LightVertex {

@@ -501,6 +501,17 @@ impl<V: Vn + Add<V, Output=V> + Sub<V, Output=V> > Region<V> {
              mul * size.get(a) as usize)
         }).0
     }
+
+    #[inline]
+    pub fn from_index(&self, idx: usize) -> V {
+        let size = self.size();
+        <V as Vn>::unfold(idx, |a, acc| {
+            let len = size.get(a) as usize;
+            let x = self.min.get(a) + (acc % len) as i32;
+            let acc = acc / len;
+            (x, acc)
+        }).0
+    }
 }
 
 impl<V > Region<V>

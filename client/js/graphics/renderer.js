@@ -328,8 +328,8 @@ Renderer.prototype.loadTemplateData = function(templates) {
     var view16 = this._asm.templateDataView16();
     for (var i = 0; i < templates.length; ++i) {
         var template = templates[i];
-        var out8 = view8.subarray(i * 12, (i + 1) * 12);
-        var out16 = view16.subarray(i * 6, (i + 1) * 6);
+        var out8 = view8.subarray(i * 22, (i + 1) * 22);
+        var out16 = view16.subarray(i * 11, (i + 1) * 11);
 
         out8[0] = template.size.x;
         out8[1] = template.size.y;
@@ -339,6 +339,14 @@ Renderer.prototype.loadTemplateData = function(templates) {
         out16[3] = template.display_size[1];
         out16[4] = template.display_offset[0];
         out16[5] = template.display_offset[1];
+
+        out8[12] = template.light_pos[0];
+        out8[13] = template.light_pos[1];
+        out8[14] = template.light_pos[2];
+        out8[16] = template.light_color[0];
+        out8[17] = template.light_color[1];
+        out8[18] = template.light_color[2];
+        out16[10] = template.light_radius;
     }
 };
 

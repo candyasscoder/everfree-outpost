@@ -286,8 +286,9 @@ pub extern fn generate_sliced_structure_geometry(structures: &mut StructureBuffe
 
 #[export_name = "init_light_state"]
 pub extern fn init_light_state(light_state: &mut LightGeometryState<'static>,
-                               block_data: &'static BlockData) {
-    unsafe { light_state.init(block_data) };
+                               block_data: &'static BlockData,
+                               templates: &'static StructureTemplateData) {
+    unsafe { light_state.init(block_data, templates) };
 }
 
 #[export_name = "reset_light_geometry"]
@@ -310,8 +311,11 @@ pub struct LightGeometryResult {
 pub extern fn generate_light_geometry(light_state: &mut LightGeometryState,
                                       geom: &mut LightGeometryBuffer,
                                       local: &LocalChunks,
+                                      structure_buffer: &StructureBuffer,
                                       output: &mut LightGeometryResult) {
-    let (count, more) = light_state.generate_geometry(geom, local);
+    let (count, more) = light_state.generate_geometry(geom,
+                                                      local,
+                                                      structure_buffer.structures());
     output.vertex_count = count;
     output.more = more as u8;
 }

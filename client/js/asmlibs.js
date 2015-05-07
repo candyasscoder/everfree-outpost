@@ -419,7 +419,7 @@ Asm.prototype.generateStructureGeometry = function(cx, cy, max_z) {
 
 
 Asm.prototype.initLightState = function() {
-    this._raw['init_light_state'](LIGHT_STATE_START, BLOCK_DATA_START);
+    this._raw['init_light_state'](LIGHT_STATE_START, BLOCK_DATA_START, TEMPLATE_DATA_START);
 };
 
 Asm.prototype.resetLightGeometry = function(cx0, cy0, cx1, cy1) {
@@ -430,7 +430,11 @@ Asm.prototype.generateLightGeometry = function() {
     var output = this._stackAlloc(Int32Array, 2);
 
     this._raw['generate_light_geometry'](
-            LIGHT_STATE_START, LIGHT_GEOM_START, LOCAL_CHUNKS_START, output.byteOffset);
+            LIGHT_STATE_START,
+            LIGHT_GEOM_START,
+            LOCAL_CHUNKS_START,
+            STRUCTURES_START,
+            output.byteOffset);
 
     var vertex_count = output[0];
     var more = (output[1] & 1) != 0;
