@@ -62,7 +62,7 @@ def chop_image(img):
     w, h = img.size
     tw = (w + TILE_SIZE - 1) // TILE_SIZE
     th = (h + TILE_SIZE - 1) // TILE_SIZE
-    return chop_image_named(img, [[(j, i) for i in range(th)] for j in range(tw)])
+    return chop_image_named(img, [[(i, j) for i in range(tw)] for j in range(th)])
 
 def stack(base, *args):
     img = base.copy()
