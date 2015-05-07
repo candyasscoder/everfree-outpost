@@ -1,5 +1,7 @@
 import sys
 
+from outpost_data.consts import *
+
 
 def assign_ids(objs, reserved=None):
     '''Assign a unique ID to every object in `objs`.  This function sets the
@@ -41,3 +43,29 @@ def err(s):
     global SAW_ERROR
     SAW_ERROR = True
     sys.stderr.write('error: ' + s + '\n')
+
+
+def chop_image_named(img, table):
+    result = {}
+    for i, row in enumerate(table):
+        for j, part_name in enumerate(row):
+            x = j * TILE_SIZE
+            y = i * TILE_SIZE
+            tile = img.crop((x, y, x + TILE_SIZE, y + TILE_SIZE))
+            result[part_name] = tile
+    return result
+
+def chop_terrain(img):
+    return chop_image_named(img, TERRAIN_PARTS)
+
+def chop_image(img):
+    w, h = img.size
+    tw = (w + TILE_SIZE - 1) // TILE_SIZE
+    th = (h + TILE_SIZE - 1) // TILE_SIZE
+    return chop_image_named(img, [[(j, i) for i in range(th)] for j in range(tw)])
+
+def stack(base, *args):
+    img = base.copy()
+    for layer in args:
+        img.paste(layer, (0, 0), layer)
+    return img

@@ -5,32 +5,7 @@ from PIL import Image
 from outpost_data.builder import *
 from outpost_data.consts import *
 import outpost_data.images as I
-
-TERRAIN_PARTS = (
-        ('spot/large',      'corner/inner/se',  'corner/inner/sw'),
-        ('spot/small',      'corner/inner/ne',  'corner/inner/nw'),
-        ('corner/outer/nw', 'edge/n',           'corner/outer/ne'),
-        ('edge/w',          'center/v0',        'edge/e'),
-        ('corner/outer/sw', 'edge/s',           'corner/outer/se'),
-        ('center/v1',       'center/v2',        'center/v3'),
-        )
-
-def chop_image_named(img, table):
-    result = {}
-    for i, row in enumerate(table):
-        for j, part_name in enumerate(row):
-            x = j * TILE_SIZE
-            y = i * TILE_SIZE
-            tile = img.crop((x, y, x + TILE_SIZE, y + TILE_SIZE))
-            result[part_name] = tile
-    return result
-
-def chop_terrain(img):
-    return chop_image_named(img, TERRAIN_PARTS)
-
-def chop_image(img):
-    w, h = img.size
-    return chop_image_named(img, [[(i, j) for i in range(h)] for j in range(w)])
+from outpost_data.util import *
 
 
 def mk_floor_from_dict(basename, dct, shape='empty', base_img=None):
@@ -57,13 +32,6 @@ def mk_floor_cross(img, basename, **kwargs):
             'cross/ne': img.crop((0, TILE_SIZE, TILE_SIZE, 2 * TILE_SIZE)),
             }
     mk_floor_from_dict(basename, dct, **kwargs)
-
-
-def stack(base, *args):
-    img = base.copy()
-    for layer in args:
-        img.paste(layer, (0, 0), layer)
-    return img
 
 
 def mk_cave_walls(img_grass, img_dirt, img_cave_walls, basename):

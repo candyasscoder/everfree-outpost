@@ -42,7 +42,13 @@ class Builder(object):
         self.gen_tile_cache.setdefault(h, []).append((img, name))
         return name
 
+    def mk_structure(self, name, image, depthmap, shape, layer):
+        s = structure.StructureDef(name, image, depthmap, shape, layer)
+        self.structures.append(s)
+        return s
+
 
 INSTANCE = Builder()
 mk_tile = INSTANCE.mk_tile
 mk_block = INSTANCE.mk_block
+mk_structure = INSTANCE.mk_structure

@@ -13,3 +13,12 @@ SHAPE_ID = {
         }
 
 BLOCK_SIDES = ('front', 'back', 'top', 'bottom')
+
+TERRAIN_PARTS = (
+        ('spot/large',      'corner/inner/se',  'corner/inner/sw'),
+        ('spot/small',      'corner/inner/ne',  'corner/inner/nw'),
+        ('corner/outer/nw', 'edge/n',           'corner/outer/ne'),
+        ('edge/w',          'center/v0',        'edge/e'),
+        ('corner/outer/sw', 'edge/s',           'corner/outer/se'),
+        ('center/v1',       'center/v2',        'center/v3'),
+        )

@@ -27,6 +27,10 @@ class StructureDef(object):
         self.shape = shape.shape_array
         self.layer = layer
 
+        self.light_pos = None
+        self.light_color = None
+        self.light_radius = None
+
         self.id = None
         self.sheet_idx = None
         self.offset = None
@@ -35,6 +39,11 @@ class StructureDef(object):
         w, h = self.image.size
         return ((w + TILE_SIZE - 1) // TILE_SIZE,
                 (h + TILE_SIZE - 1) // TILE_SIZE)
+
+    def set_light(self, pos, color, radius):
+        self.light_pos = pos
+        self.light_color = color
+        self.light_radius = radius
 
 
 # Sprite sheets
@@ -119,7 +128,7 @@ class SheetBuilder(object):
 
 def build_client_json(structures):
     def convert(s):
-        return {
+        dct = {
                 'size': s.size,
                 'shape': [SHAPE_ID[x] for x in s.shape],
                 'sheet': s.sheet_idx,
@@ -127,6 +136,12 @@ def build_client_json(structures):
                 'display_size': s.image.size,
                 'layer': s.layer,
                 }
+        if s.light_color is not None:
+            dct.update(
+                light_pos=s.light_pos,
+                light_color=s.light_color,
+                light_radius=s.light_radius)
+        return dct
 
     return list(convert(s) for s in structures)
 

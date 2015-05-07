@@ -7,7 +7,7 @@ import outpost_data.structure as S
 import outpost_data.tile as T
 import outpost_data.block as B
 
-from structures import get_structures
+import structures
 import terrain
 
 def postprocess(b):
@@ -46,8 +46,8 @@ def emit_blocks(output_dir, blocks):
 
 def main(asset_dir, output_dir):
     terrain.init(asset_dir)
+    structures.init(asset_dir)
     b = builder.INSTANCE
-    b.structures += get_structures(asset_dir)
     postprocess(b)
 
     emit_structures(output_dir, b.structures)
