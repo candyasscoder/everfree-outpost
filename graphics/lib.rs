@@ -616,7 +616,7 @@ impl<'a> LightGeometryState<'a> {
     }
 
     pub fn start_geometry_gen(&mut self, cregion: Region<V2>) {
-        self.chunk_region = cregion;//.expand(scalar(1));
+        self.chunk_region = cregion.expand(scalar(1));
         self.chunk_idx = 0;
         self.block_idx = 0;
         self.struct_idx = 0;
@@ -673,6 +673,10 @@ impl<'a> LightGeometryState<'a> {
             let struct_pos = V3::new(s.pos.0 as i32,
                                      s.pos.1 as i32,
                                      s.pos.2 as i32);
+            let struct_pos = match wrap_local_tile(self.chunk_region, struct_pos) {
+                Some(x) => x,
+                None => continue,
+            };
             let p = struct_pos * scalar(TILE_SIZE as i32) + light_pos;
             if !self.emit(geom, &mut geom_idx, p, t.light_color, t.light_radius) {
                 self.struct_idx = struct_idx;
@@ -733,6 +737,18 @@ impl<'a> LightGeometryState<'a> {
 
 fn block_center(pos: V3) -> V3 {
     pos * scalar(TILE_SIZE as i32) + scalar(TILE_SIZE as i32 / 2)
+}
+
+fn wrap_local_tile(region: Region<V2>, pos: V3) -> Option<V3> {
+    let region = region * scalar(CHUNK_SIZE as i32);
+    let mask = scalar((CHUNK_SIZE * LOCAL_SIZE - 1) as i32);
+    let size = (region.max - region.min) & mask;
+    let offset = (pos.reduce() - region.min) & mask;
+    if offset.x < size.x && offset.y < size.y {
+        Some((region.min + offset).extend(pos.z))
+    } else {
+        None
+    }
 }
 
 pub struct LightVertex {
