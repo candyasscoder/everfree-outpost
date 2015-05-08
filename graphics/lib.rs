@@ -312,7 +312,7 @@ impl<'a> StructureBuffer<'a> {
     }
 
     pub fn structures(&self) -> &[Structure] {
-        &self.structures[..self.last_used]
+        &self.structures[.. self.last_used + 1]
     }
 
     pub fn add_structure(&mut self, pos: (u8, u8, u8), template_id: u32) -> usize {
@@ -740,6 +740,7 @@ fn block_center(pos: V3) -> V3 {
 }
 
 fn wrap_local_tile(region: Region<V2>, pos: V3) -> Option<V3> {
+    // TODO: this function breaks when region.size() exceeds LOCAL_SIZE along either axis
     let region = region * scalar(CHUNK_SIZE as i32);
     let mask = scalar((CHUNK_SIZE * LOCAL_SIZE - 1) as i32);
     let size = (region.max - region.min) & mask;
