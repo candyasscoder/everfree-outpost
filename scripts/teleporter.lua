@@ -7,6 +7,8 @@ function action.use.teleporter(c, s)
 end
 
 function action.use_item.teleporter(c, inv)
+    if not check_forest(c) then return end
+
     local home = c:extra().home_pos
     if home == nil then
         c:send_message('Must /sethome before placing teleporter')
