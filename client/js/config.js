@@ -5,6 +5,8 @@ var DEFAULT_CONFIG = {
     'chat_scrollback': 100,
     'chat_lines': 8,
     'chat_autohide': false,
+    'scale_world': 0,
+    'scale_ui': 0,
 
     'render_outline': true,
     'render_names': true,
@@ -76,6 +78,8 @@ exports.Config = {
     chat_scrollback: new ConfigItem('chat_scrollback'),
     chat_lines: new ConfigItem('chat_lines'),
     chat_autohide: new ConfigItem('chat_autohide'),
+    scale_world: new ConfigItem('scale_world'),
+    scale_ui: new ConfigItem('scale_ui'),
 
     render_outline: new ConfigItem('render_outline'),
     render_names: new ConfigItem('render_names'),

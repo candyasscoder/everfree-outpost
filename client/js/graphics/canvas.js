@@ -78,6 +78,7 @@ AnimCanvas.prototype._handleResize = function() {
     var width = window.innerWidth;
     var height = window.innerHeight;
 
+    // Calculate the best canvas scale and font size for the current window.
     this.scale = calcScale(Math.max(width, height));
 
     var scale;
@@ -89,6 +90,19 @@ AnimCanvas.prototype._handleResize = function() {
         scale = this.scale;
         invScale = 1.0 / scale;
     }
+
+    var fontSize = 16 * scale;
+
+    // Override scale/invScale/fontSize based on user configs.
+    if (Config.scale_world.get() != 0) {
+        scale = Config.scale_world.get();
+        invScale = 1.0 / scale;
+    }
+
+    if (Config.scale_ui.get() != 0) {
+        fontSize = 16 * Config.scale_ui.get();
+    }
+
 
     var virtWidth = Math.ceil(width * invScale);
     var virtHeight = Math.ceil(height * invScale);
@@ -104,7 +118,6 @@ AnimCanvas.prototype._handleResize = function() {
     this.canvas.style.height = physHeight + 'px';
 
     // TODO: this is really not an appropriate place to put this code
-    var fontSize = 16 * scale;
     document.firstElementChild.style.fontSize = fontSize + 'px';
     document.body.dataset.scale = scale;
 
