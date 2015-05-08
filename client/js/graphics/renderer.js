@@ -460,6 +460,7 @@ Renderer.prototype._renderLights = function(fb, depth_tex, cx0, cy0, cx1, cy1) {
 
     this._asm.resetLightGeometry(cx0, cy0, cx1, cy1);
     var more = true;
+    var first = true;
     while (more) {
         var result = this._asm.generateLightGeometry();
         var geom = result.geometry;
@@ -470,7 +471,10 @@ Renderer.prototype._renderLights = function(fb, depth_tex, cx0, cy0, cx1, cy1) {
 
         var this_ = this;
         fb.use(function(idx) {
-            gl.clear(gl.COLOR_BUFFER_BIT);
+            if (first) {
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                first = false;
+            }
 
             if (geom.length > 0) {
                 this_.light.draw(idx, 0, geom.length / 16, {}, {
