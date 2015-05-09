@@ -130,3 +130,20 @@ trophy:
 fountain:
     ui_name: Fountain
     tile: fountain
+
+
+ability:
+    _.prefix: /ability
+
+    remove_hat:
+        ui_name: Remove Hat
+        description: >
+            Remove your hat, returning it to your inventory.
+        tile: equip_hat_remove
+
+    light:
+        ui_name: Light
+        description: >
+            Illuminate your surroundings with magical light.
+        tile: light
+
