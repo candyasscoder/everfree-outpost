@@ -140,3 +140,9 @@ statue:
     ui_name: Statue
     inputs: { stone: 50 }
     outputs: { statue: 1 }
+
+torch:
+    station: anvil
+    ui_name: Torch
+    inputs: { wood: 2, stone: 1 }
+    outputs: { torch: 1 }

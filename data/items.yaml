@@ -131,6 +131,10 @@ fountain:
     ui_name: Fountain
     tile: fountain
 
+torch:
+    ui_name: Torch
+    tile: torch
+
 
 ability:
     _.prefix: /ability

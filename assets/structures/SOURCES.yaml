@@ -138,3 +138,18 @@ fountain.png:
     author: Lanea Zimmerman (AKA Sharm), William.Thompsonj, Curt
     license: CC-BY 3.0
     url: http://opengameart.org/content/lpc-water-fountain
+
+WaterAndFire_2.png:
+    title: "[LPC] Animated water and fire"
+    author: Lanea Zimmerman (AKA Sharm), Curt
+    license: CC-BY 3.0
+    url: http://opengameart.org/content/lpc-animated-water-and-fire
+    attribution: the torch is from Crawl-CC0
+
+torch.*:
+    title: Standing Torch
+    author: Lanea Zimmerman (AKA Sharm), Curt, Daniel Eddeland (daneeklu), Stuart Pernsteiner
+    license: CC-BY-SA 3.0
+    attribution:
+        Daniel Eddeland's fence post, plus the top of the torch from Curt's animated water and fire.
+    derived-from: WaterAndFire_2.png, ../tiles/daneeklu_farming_tilesets/fence.png

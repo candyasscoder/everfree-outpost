@@ -190,6 +190,8 @@ def init(asset_path):
             .set_light((16, 16, 16), (48, 96, 48), 50)
     mk_solid_structure('trophy', img('trophy.png'), (1, 1, 1))
     mk_solid_structure('fountain', img('fountain.png'), (2, 2, 1))
+    mk_solid_structure('torch', img('torch.png'), (1, 1, 1)) \
+            .set_light((16, 16, 32), (255, 230, 200), 300)
 
     image = img('furniture.png')
     plane = img('furniture-planemap.png')

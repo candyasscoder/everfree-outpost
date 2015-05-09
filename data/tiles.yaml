@@ -256,3 +256,6 @@ fountain_icon.png:
 
 gervais_roguelike/AngbandTk_book.png:
     item/book: [0, 0]
+
+../structures/WaterAndFire_2.png:
+    item/torch: [1, 5]
