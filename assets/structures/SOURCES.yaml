@@ -66,6 +66,12 @@ crystal-formation-red.png:
     license: CC-BY-SA 3.0
     derived-from: crystal-formation.png
 
+crystal-formation-green.png:
+    title: Green Crystal Formation
+    author: David E. Gervais
+    license: CC-BY-SA 3.0
+    derived-from: crystal-formation.png
+
 anvil.png:
     title: LPC Anvil
     author: Daniel Eddeland (daneeklu)

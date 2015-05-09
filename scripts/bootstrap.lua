@@ -72,6 +72,9 @@ require('teleporter')
 require('terrain')
 local util = require('outpost.util')
 
+-- No 'local' so it gets exposed to repl scripts
+trigger = require('trigger')
+
 
 function action.open_inventory(c)
     c:open_inventory(c:pawn():inventory('main'))
