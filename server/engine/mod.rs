@@ -209,10 +209,6 @@ impl<'d> Engine<'d> {
                 logic::input::use_ability(self.as_ref(), cid, item_id);
             },
 
-            OpenInventory => {
-                logic::input::open_inventory(self.as_ref(), cid);
-            },
-
             CheckView => {
                 logic::client::update_view(self.as_ref(), cid);
             },

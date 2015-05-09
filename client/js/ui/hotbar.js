@@ -78,9 +78,6 @@ ActiveItems.prototype.setItem = function(id) {
 };
 
 ActiveItems.prototype.attachAbilities = function(inv) {
-    if (this._abilityInv != null) {
-        this._abilityInv.unsubscribe();
-    }
     this._itemInv = inv;
 
     var this_ = this;
@@ -92,9 +89,6 @@ ActiveItems.prototype.attachAbilities = function(inv) {
 };
 
 ActiveItems.prototype.attachItems = function(inv) {
-    if (this._itemInv != null) {
-        this._itemInv.unsubscribe();
-    }
     this._itemInv = inv;
 
     var this_ = this;

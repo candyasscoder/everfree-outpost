@@ -57,12 +57,12 @@ pub mod op {
         Interact = 0x000c,
         UseItem = 0x000d,
         UseAbility = 0x000e,
-        OpenInventory = 0x000f,
 
         // Deprecated requests
         GetTerrain = 0x0001,
         UpdateMotion = 0x0002,
         Action = 0x0006,
+        OpenInventory = 0x000f,
 
         // Responses
         TerrainChunk = 0x8001,

@@ -67,7 +67,6 @@ pub enum ClientEvent {
     Interact,
     UseItem(ItemId),
     UseAbility(ItemId),
-    OpenInventory,
     CheckView,
     BadRequest,
 }
@@ -355,9 +354,6 @@ impl Messages {
                 self.wake.push(time, WakeReason::DeferredUseAbility(cid, item_id));
                 Ok(None)
             },
-
-            Request::OpenInventory =>
-                Ok(Some(ClientEvent::OpenInventory)),
 
             _ => fail!("bad request: {:?}", req),
         }

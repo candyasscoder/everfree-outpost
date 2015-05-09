@@ -14,16 +14,11 @@ function InventoryUpdateList() {
 exports.InventoryUpdateList = InventoryUpdateList;
 
 InventoryUpdateList.prototype.attach = function(inv) {
-    if (this.inv != null) {
-        this.inv.unsubscribe();
-    }
     this.inv = inv;
 
-    if (inv.getRefCount() == 1) {
-        // Skip the first update, which just gives the initial contents of the
-        // inventory.
-        this.skip = true;
-    }
+    // Skip the first update, which just gives the initial contents of the
+    // inventory.
+    this.skip = true;
 
     var this_ = this;
     inv.onUpdate(function(updates) {

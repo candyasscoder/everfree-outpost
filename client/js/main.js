@@ -208,6 +208,8 @@ var timing;
 var load_counter;
 var inv_tracker;
 
+var item_inv;
+
 
 // Top-level initialization function
 
@@ -272,6 +274,8 @@ function init() {
     conn = null;    // Initialized after assets are loaded.
     timing = null;  // Initialized after connection is opened.
     load_counter = new LoadCounter(banner, keyboard);
+
+    item_inv = null;
 
 
     buildUI();
@@ -653,6 +657,18 @@ function setupKeyHandler() {
                     show_cursor = !show_cursor;
                     break;
 
+                case 'inventory':
+                    if (item_inv == null) {
+                        break;
+                    }
+                    var ui = new InventoryUI(item_inv);
+                    dialog.show(ui);
+
+                    ui.enableSelect(active.getItem(), function(new_id) {
+                        active.setItem(new_id);
+                    });
+                    break;
+
                 // Commands to the server
                 case 'interact':
                     conn.sendInteract(time);
@@ -662,9 +678,6 @@ function setupKeyHandler() {
                     break;
                 case 'use_ability':
                     conn.sendUseAbility(time, 0 /* TODO */);
-                    break;
-                case 'inventory':
-                    conn.sendOpenInventory();
                     break;
 
                 default:
@@ -795,17 +808,8 @@ function handleUnloadChunk(idx) {
 
 function handleOpenDialog(idx, args) {
     if (idx == 0) {
-        var inv = inv_tracker.subscribe(args[0]);
-        var ui = new InventoryUI(inv);
-        dialog.show(ui);
-
-        ui.enableSelect(active.getItem(), function(new_id) {
-            active.setItem(new_id);
-        });
-
-        ui.onclose = function() {
-            inv.unsubscribe();
-        };
+        // Cancel server-side subscription.
+        inv_tracker.subscribe(args[0]).unsubscribe();
     } else if (idx == 1) {
         var inv1 = inv_tracker.subscribe(args[0]);
         var inv2 = inv_tracker.subscribe(args[1]);
@@ -878,9 +882,13 @@ function handleStructureGone(id, time) {
 }
 
 function handleMainInventory(iid) {
-    active.attachItems(inv_tracker.subscribe(iid));
+    if (item_inv != null) {
+        item_inv.unsubscribe();
+    }
+    item_inv = inv_tracker.subscribe(iid);
+    active.attachItems(item_inv);
     if (Config.show_inventory_updates.get()) {
-        inv_update_list.attach(inv_tracker.subscribe(iid));
+        inv_update_list.attach(item_inv);
     }
 }
 
