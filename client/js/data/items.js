@@ -12,6 +12,7 @@ var ItemDef = {};
 exports.ItemDef = ItemDef;
 
 ItemDef.by_id = [];
+ItemDef.by_name = {};
 
 ItemDef.register = function(id, info) {
     if (info == null) {
@@ -23,4 +24,5 @@ ItemDef.register = function(id, info) {
         ItemDef.by_id.push(null);
     }
     ItemDef.by_id[item.id] = item;
+    ItemDef.by_name[item.name] = item;
 };

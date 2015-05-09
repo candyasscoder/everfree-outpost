@@ -42,6 +42,7 @@ var PonyEditor = require('ui/ponyedit').PonyEditor;
 var widget = require('ui/widget');
 var ErrorList = require('ui/errorlist').ErrorList;
 var InventoryUpdateList = require('ui/invupdate').InventoryUpdateList;
+var ActiveItems = require('ui/hotbar').ActiveItems;
 
 var BlockDef = require('data/chunk').BlockDef;
 var ItemDef = require('data/items').ItemDef;
@@ -178,6 +179,7 @@ var instructions;
 var error_list;
 var inv_update_list;
 var music_test;
+var active;
 
 var main_menu;
 var debug_menu;
@@ -206,8 +208,6 @@ var timing;
 var load_counter;
 var inv_tracker;
 
-var main_inv;
-var current_item;
 
 // Top-level initialization function
 
@@ -243,6 +243,7 @@ function init() {
     instructions = new Iframe('instructions.html');
     inv_update_list = new InventoryUpdateList();
     music_test = new MusicTest();
+    active = new ActiveItems();
 
     canvas.canvas.addEventListener('webglcontextlost', function(evt) {
         throw 'context lost!';
@@ -271,9 +272,6 @@ function init() {
     conn = null;    // Initialized after assets are loaded.
     timing = null;  // Initialized after connection is opened.
     load_counter = new LoadCounter(banner, keyboard);
-
-    main_inv = null;
-    current_item = -1;
 
 
     buildUI();
@@ -435,7 +433,7 @@ function buildUI() {
 
     document.body.appendChild(canvas.canvas);
     document.body.appendChild($('key-list'));
-    document.body.appendChild($('item-box'));
+    document.body.appendChild(active.dom);
     document.body.appendChild(chat.container);
     document.body.appendChild(inv_update_list.container);
     document.body.appendChild(banner.container);
@@ -660,7 +658,7 @@ function setupKeyHandler() {
                     conn.sendInteract(time);
                     break;
                 case 'use_item':
-                    conn.sendUseItem(time, current_item);
+                    conn.sendUseItem(time, active.getItem());
                     break;
                 case 'use_ability':
                     conn.sendUseAbility(time, 0 /* TODO */);
@@ -801,20 +799,8 @@ function handleOpenDialog(idx, args) {
         var ui = new InventoryUI(inv);
         dialog.show(ui);
 
-        ui.enableSelect(current_item, function(new_id) {
-            console.log('in select handler', new_id);
-            current_item = new_id;
-            if (new_id == -1) {
-                $('item-box-icon').style.backgroundPosition = '0rem 0rem';
-                $('item-box-qty').textContent = '';
-            } else {
-                var info = ItemDef.by_id[new_id];
-                $('item-box-icon').style.backgroundPosition =
-                    '-' + info.tile_x + 'rem -' + info.tile_y + 'rem';
-                if (main_inv != null) {
-                    $('item-box-qty').textContent = '' + main_inv.count(new_id);
-                }
-            }
+        ui.enableSelect(active.getItem(), function(new_id) {
+            active.setItem(new_id);
         });
 
         ui.onclose = function() {
@@ -892,17 +878,9 @@ function handleStructureGone(id, time) {
 }
 
 function handleMainInventory(iid) {
-    main_inv = inv_tracker.subscribe(iid);
-    main_inv.onUpdate(function(updates) {
-        for (var i = 0; i < updates.length; ++i) {
-            var update = updates[i];
-            if (update.id == current_item) {
-                $('item-box-qty').textContent = '' + update.new_count;
-            }
-        }
-    });
+    active.attachItems(inv_tracker.subscribe(iid));
     if (Config.show_inventory_updates.get()) {
-        inv_update_list.attach(main_inv);
+        inv_update_list.attach(inv_tracker.subscribe(iid));
     }
 }
 

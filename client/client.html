@@ -216,10 +216,18 @@
             }
 
 
-            #item-box {
+            .active-items {
                 position: absolute;
-                top: 0.5rem;
-                left: 0.5rem;
+                top: 0.25rem;
+                left: 0.25rem;
+            }
+
+            .active-items > .item-box {
+                display: inline-flex;
+            }
+
+            .item-box {
+                margin: 0.25rem;
                 padding: 0.25rem;
                 border-radius: 0.5rem;
                 background-color: rgba(255, 255, 255, 0.5);
@@ -445,11 +453,6 @@
         <script type='text/javascript' src='outpost.js'></script>
 
         <div style="display: none">
-            <div id="item-box">
-                <div class="item-icon" id="item-box-icon"></div>
-                <div class="item-qty" id="item-box-qty"></div>
-            </div>
-
             <div id="key-list">
                 <table>
                     <tr>
