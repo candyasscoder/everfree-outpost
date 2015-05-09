@@ -38,6 +38,7 @@ def main(src_dir, build_dir, out_file):
     add('json', 'recipe_defs',      build('recipes.json'))
     add('json', 'template_defs',    build('data/structures_client.json'))
     add('json', 'font_metrics',     build('metrics.json'))
+    add('json', 'day_night',        build('day_night.json'))
 
     add('text', 'terrain.frag',         src('assets/shaders/terrain.frag'))
     add('text', 'terrain.vert',         src('assets/shaders/terrain.vert'))

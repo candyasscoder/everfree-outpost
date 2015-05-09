@@ -292,12 +292,15 @@ $(BUILD)/credits.html: $(SRC)/util/gen_credits.py \
 $(BUILD)/server.json: $(SRC)/util/gen_server_json.py
 	$(PYTHON3) $< >$@
 
+$(BUILD)/day_night.json: $(SRC)/util/gen_day_night.py $(SRC)/assets/misc/day_night_pixels.png
+	$(PYTHON3) $^ >$@
+
 
 # Rules for client asset pack
 
 PACK_GEN_FILES = tiles.png font.png items.png \
 				 tiles.json items.json recipes.json metrics.json \
-				 data/structures_client.json
+				 data/structures_client.json day_night.json
 
 $(BUILD)/outpost.pack: \
 		$(SRC)/util/make_pack.py \
