@@ -105,6 +105,8 @@ pub enum ClientResponse {
     //InventoryAppear(InventoryId, Vec<(ItemId, u8)>),
     InventoryUpdate(InventoryId, Vec<(ItemId, u8, u8)>),
     //InventoryGone(InventoryId),
+    
+    PlaneFlags(u32),
 
     OpenDialog(Dialog),
     MainInventory(InventoryId),
@@ -443,6 +445,10 @@ impl Messages {
 
             ClientResponse::InventoryUpdate(iid, update) =>
                 self.send_raw(wire_id, Response::InventoryUpdate(iid, update)),
+
+
+            ClientResponse::PlaneFlags(flags) =>
+                self.send_raw(wire_id, Response::PlaneFlags(flags)),
 
 
             ClientResponse::OpenDialog(dialog) => {

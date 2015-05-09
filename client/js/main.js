@@ -383,6 +383,7 @@ function openConn(info, next) {
     conn.onStructureGone = handleStructureGone;
     conn.onMainInventory = handleMainInventory;
     conn.onAbilityInventory = handleAbilityInventory;
+    conn.onPlaneFlags = handlePlaneFlags;
 }
 
 function maybeRegister(info, next) {
@@ -942,6 +943,10 @@ function handleAbilityInventory(iid) {
     }
     ability_inv = inv_tracker.subscribe(iid);
     active.attachAbilities(ability_inv.clone());
+}
+
+function handlePlaneFlags(flags) {
+    day_night.active = (flags == 0);
 }
 
 

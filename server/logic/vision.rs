@@ -77,6 +77,19 @@ impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
     }
 
 
+    fn on_plane_change(&mut self,
+                       cid: ClientId,
+                       _: PlaneId,
+                       pid: PlaneId) {
+        // TODO: super hack.  add a flags field to the plane or something.
+        let is_dark = match self.world().get_plane(pid) {
+            Some(p) => p.name() != "Everfree Forest",
+            None => true,
+        };
+        self.messages().send_client(cid, ClientResponse::PlaneFlags(is_dark as u32));
+    }
+
+
     fn on_structure_appear(&mut self, cid: ClientId, sid: StructureId) {
         let s = self.world().structure(sid);
         self.messages().send_client(cid, ClientResponse::StructureAppear(

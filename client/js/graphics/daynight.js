@@ -12,6 +12,10 @@ function DayNight(assets) {
     this.day_end = info['day_end'] - day_start;
     this.night_start = info['night_start'] - day_start;
     this.night_end = info['night_end'] - day_start;
+
+    this.active = true;
+    this.base_time = 0;
+    this.cycle_ms = 24000;
 }
 exports.DayNight = DayNight;
 
@@ -29,10 +33,14 @@ DayNight.prototype._phaseTime = function(time) {
     }
 };
 
-DayNight.prototype.getAmbientColor = function(time) {
-    var pt = this._phaseTime(time);
+DayNight.prototype.getAmbientColor = function(now) {
+    if (!this.active) {
+        return [0, 0, 0];
+    }
+
+    var pt = this._phaseTime((now - this.base_time) * CYCLE_LENGTH / this.cycle_ms);
     var phase = pt[0];
-    time = pt[1];
+    var time = pt[1];
     if (phase == 0) {
         return [255, 255, 255];
     } else if (phase == 1) {

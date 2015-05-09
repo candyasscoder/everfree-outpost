@@ -82,6 +82,7 @@ pub mod op {
         StructureGone = 0x8010,
         MainInventory = 0x8011,
         AbilityInventory = 0x8012,
+        PlaneFlags = 0x8013,
 
         // Deprecated responses
         PlayerMotion = 0x8002,
@@ -234,6 +235,7 @@ pub enum Response {
     StructureGone(StructureId),
     MainInventory(InventoryId),
     AbilityInventory(InventoryId),
+    PlaneFlags(u32),
 
     ClientRemoved(WireId),
     ReplResult(u16, String),
@@ -278,6 +280,8 @@ impl Response {
                 ww.write_msg(id, (op::MainInventory, iid)),
             AbilityInventory(iid) =>
                 ww.write_msg(id, (op::AbilityInventory, iid)),
+            PlaneFlags(flags) =>
+                ww.write_msg(id, (op::PlaneFlags, flags)),
 
             ClientRemoved(wire_id) =>
                 ww.write_msg(id, (op::ClientRemoved, wire_id)),

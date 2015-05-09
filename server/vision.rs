@@ -78,6 +78,11 @@ pub trait Hooks {
     fn on_entity_motion_update(&mut self, cid: ClientId, eid: EntityId) {}
     fn on_entity_appearance_update(&mut self, cid: ClientId, eid: EntityId) {}
 
+    fn on_plane_change(&mut self,
+                       cid: ClientId,
+                       old_pid: PlaneId,
+                       new_pid: PlaneId) {}
+
     fn on_terrain_chunk_appear(&mut self,
                                cid: ClientId,
                                tcid: TerrainChunkId,
@@ -197,6 +202,10 @@ impl Vision {
             }
 
             multimap_remove(&mut self.viewers_by_pos, pos, cid);
+        }
+
+        if plane_change {
+            h.on_plane_change(cid, old_plane, new_plane);
         }
 
         for p in new_view.points().filter(|&p| !old_view.contains(p) || plane_change) {
