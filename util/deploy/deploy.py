@@ -198,12 +198,14 @@ def do_deploy_client(args):
     if not s3_path.endswith('/'):
         s3_path += '/'
 
-    run('s3cmd', 'sync', '--exclude=server.json',
-            os.path.join(get_outpost_dir(), 'dist', 'www') + '/',
-            s3_path)
+    downtime_message = args.get('downtime_message')
+
+    if downtime_message is None:
+        run('s3cmd', 'sync', '--exclude=server.json',
+                os.path.join(get_outpost_dir(), 'dist', 'www') + '/',
+                s3_path)
 
     with open('server.json', 'w') as f:
-        downtime_message = args.get('downtime_message')
         if downtime_message is not None:
             msg = 'The server is currently offline.<br>' + downtime_message
             json.dump({ 'message': msg }, f)
