@@ -28,8 +28,8 @@ def build_client_json(recipe_arr, items_by_name, objects_by_name):
         name = recipe['name']
         ui_name = recipe['ui_name']
         station = objects_by_name[recipe['station']]['id']
-        inputs = [(objects_by_name[k]['id'], v) for k,v in recipe['inputs'].items()]
-        outputs = [(objects_by_name[k]['id'], v) for k,v in recipe['outputs'].items()]
+        inputs = [(items_by_name[k]['id'], v) for k,v in recipe['inputs'].items()]
+        outputs = [(items_by_name[k]['id'], v) for k,v in recipe['outputs'].items()]
 
         return {
                 'name': name,
@@ -48,8 +48,8 @@ def build_server_json(recipe_arr, items_by_name, objects_by_name):
 
         name = recipe['name']
         station = objects_by_name[recipe['station']]['id']
-        inputs = [(objects_by_name[k]['id'], v) for k,v in recipe['inputs'].items()]
-        outputs = [(objects_by_name[k]['id'], v) for k,v in recipe['outputs'].items()]
+        inputs = [(items_by_name[k]['id'], v) for k,v in recipe['inputs'].items()]
+        outputs = [(items_by_name[k]['id'], v) for k,v in recipe['outputs'].items()]
 
         return {
                 'name': name,

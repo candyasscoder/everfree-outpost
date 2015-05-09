@@ -117,7 +117,7 @@ def main():
 
     objects = memoize(lambda: O.parse_raw(raw_objects()))
     object_arr = memoize(lambda: U.build_array(objects()))
-    objects_by_name = memoize(lambda: U.build_name_map(items()))
+    objects_by_name = memoize(lambda: U.build_name_map(objects()))
 
     recipes = memoize(lambda: R.parse_raw(raw_recipes()))
     recipe_arr = memoize(lambda: U.build_array(recipes()))
