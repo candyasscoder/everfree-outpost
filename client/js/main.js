@@ -20,6 +20,7 @@ var Layered2D = require('graphics/draw/layered').Layered2D;
 var Cursor = require('graphics/cursor').Cursor;
 var glutil = require('graphics/glutil');
 var Scene = require('graphics/scene').Scene;
+var DayNight = require('graphics/daynight').DayNight;
 
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
@@ -203,6 +204,7 @@ var renderer = null;
 var cursor;
 var show_cursor = false;
 var slice_radius;
+var day_night;
 
 var conn;
 var timing;
@@ -272,6 +274,7 @@ function init() {
     cursor = null;
     show_cursor = false;
     slice_radius = new TimeVarying(0, 0, 0, 0.9, 0);
+    day_night = null;
 
     conn = null;    // Initialized after assets are loaded.
     timing = null;  // Initialized after connection is opened.
@@ -289,6 +292,7 @@ function init() {
             runner.job('preload-textures', preloadTextures);
 
             cursor = new Cursor(canvas.ctx, assets, TILE_SIZE / 2 + 1);
+            day_night = new DayNight(assets);
 
             var info = assets['server_info'];
             openConn(info, function() {
@@ -1104,6 +1108,7 @@ function frame(ac, client_now) {
 
     s.camera_pos = [camera_pos.x, camera_pos.y];
     s.camera_size = [camera_size.x, camera_size.y];
+    s.ambient_color = day_night.getAmbientColor(predict_now + 24000 * 3);
 
     var radius = slice_radius.get(predict_now);
     if (radius > 0 && pony != null) {

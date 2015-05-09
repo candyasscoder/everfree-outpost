@@ -7,5 +7,6 @@ function Scene() {
     this.sprites = null;
     this.slice_z = 16;
     this.slice_frac = 0;
+    this.ambient_color = [0, 0, 0];
 }
 exports.Scene = Scene;

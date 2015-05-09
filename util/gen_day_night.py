@@ -14,8 +14,14 @@ def main(filename):
     img = Image.open(filename)
 
     j = {
-            'sunrise': get_row(img, 0),
-            'sunset': get_row(img, 1),
+            'sunrise': get_row(img, 0) + [(255, 255, 255)],
+            'sunset': get_row(img, 1) + [(255, 255, 255)],
+
+            # Duration of a single day/night cycle is 24000 units.
+            'day_start': 0,
+            'day_end': 14000,
+            'night_start': 16000,
+            'night_end': 22000,
             }
 
     json.dump(j, sys.stdout)

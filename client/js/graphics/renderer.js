@@ -451,12 +451,12 @@ Renderer.prototype._renderStructures = function(fb, cx, cy, max_z) {
     gl.disable(gl.DEPTH_TEST);
 };
 
-Renderer.prototype._renderLights = function(fb, depth_tex, cx0, cy0, cx1, cy1) {
+Renderer.prototype._renderLights = function(fb, depth_tex, cx0, cy0, cx1, cy1, amb) {
     var gl = this.gl;
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
     // clearColor sets the ambient light color+intensity
-    gl.clearColor(0.2, 0.2, 0.2, 0.0);
+    gl.clearColor(amb[0] / 255, amb[1] / 255, amb[2] / 255, 0.0);
 
     this._asm.resetLightGeometry(cx0, cy0, cx1, cy1);
     var more = true;
@@ -616,7 +616,8 @@ Renderer.prototype.render = function(s, draw_extra) {
     // Render lights into the light framebuffer.
 
     this._renderLights(this.fb_light, this.fb_world.depth_texture,
-            cx0, cy0, cx1, cy1);
+            cx0, cy0, cx1, cy1,
+            s.ambient_color);
 
 
     // Apply post-processing pass
