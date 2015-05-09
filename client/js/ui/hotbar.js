@@ -29,11 +29,8 @@ ItemBox.prototype.setQuantity = function(qty) {
 };
 
 ItemBox.prototype.setDisabled = function(disabled) {
-    if (disabled) {
-        this.iconDiv.style.filter = 'grayscale(100%);';
-    } else {
-        this.iconDiv.style.filter = '';
-    }
+    // TODO: find a way to mark things as disabled.  filter: grayscale doesn't
+    // seem to apply to background images.
 };
 
 
@@ -78,10 +75,12 @@ ActiveItems.prototype.setItem = function(id) {
 };
 
 ActiveItems.prototype.attachAbilities = function(inv) {
-    this._itemInv = inv;
+    this._abilityInv = inv;
 
     var this_ = this;
     inv.onUpdate(function(updates) {
+        console.log('update abilities', this_._abilityId,
+                inv.count(this_._abilityId));
         if (this_._abilityId != -1) {
             this_.ability.setDisabled(inv.count(this_._abilityId) == 0);
         }

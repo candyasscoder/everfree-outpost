@@ -8,12 +8,16 @@ var widget = require('ui/widget');
 
 
 /** @constructor */
-function InventoryUI(inv) {
+function InventoryUI(inv, title) {
     this.list = new ItemList(inv);
     this.list.dom.classList.add('active');
 
     this.dom = fromTemplate('inventory', { 'item_list': this.list.dom });
     this.keys = this.list.keys;
+
+    if (title != null) {
+        this.dom.getElementsByClassName('title')[0].textContent = title;
+    }
 
     this.dialog = null;
 

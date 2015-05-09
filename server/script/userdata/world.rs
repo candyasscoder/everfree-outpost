@@ -188,10 +188,14 @@ impl Userdata for Client {
                 logic::items::open_crafting(eng.as_ref(), c.id, s.id, i.id)
             }
 
-            fn set_main_inventory(!full eng: &mut Engine,
-                                  c: Client,
-                                  i: Inventory) -> StrResult<()> {
-                logic::items::set_main_inventory(eng.as_ref(), c.id, i.id)
+            fn set_main_inventories(!full eng: &mut Engine,
+                                    c: Client,
+                                    item_inv: Inventory,
+                                    ability_inv: Inventory) -> StrResult<()> {
+                logic::items::set_main_inventories(eng.as_ref(),
+                                                   c.id,
+                                                   item_inv.id,
+                                                   ability_inv.id)
             }
 
             fn send_message_raw(!full eng: &mut Engine,

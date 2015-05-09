@@ -291,7 +291,8 @@ command.help.tribe = '/tribe [E|P|U|A]: Change the tribe of your character'
 
 
 function outpost_ffi.callbacks.login(c)
-    c:set_main_inventory(c:pawn():inventory('main'))
+    c:set_main_inventories(c:pawn():inventory('main'),
+                           c:pawn():inventory('ability'))
 end
 
 

@@ -58,13 +58,19 @@ pub fn open_crafting(mut eng: EngineRef,
     Ok(())
 }
 
-pub fn set_main_inventory(mut eng: EngineRef, cid: ClientId, iid: InventoryId) -> StrResult<()> {
+pub fn set_main_inventories(mut eng: EngineRef,
+                            cid: ClientId,
+                            item_iid: InventoryId,
+                            ability_iid: InventoryId) -> StrResult<()> {
     // Check that IDs are valid.
     unwrap!(eng.world().get_client(cid));
-    unwrap!(eng.world().get_inventory(iid));
+    unwrap!(eng.world().get_inventory(item_iid));
+    unwrap!(eng.world().get_inventory(ability_iid));
 
-    eng.messages_mut().send_client(cid, ClientResponse::MainInventory(iid));
-    vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid);
+    eng.messages_mut().send_client(cid, ClientResponse::MainInventory(item_iid));
+    eng.messages_mut().send_client(cid, ClientResponse::AbilityInventory(ability_iid));
+    vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, item_iid);
+    vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, ability_iid);
 
     Ok(())
 }

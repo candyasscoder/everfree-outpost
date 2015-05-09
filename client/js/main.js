@@ -209,6 +209,7 @@ var load_counter;
 var inv_tracker;
 
 var item_inv;
+var ability_inv;
 
 
 // Top-level initialization function
@@ -276,6 +277,7 @@ function init() {
     load_counter = new LoadCounter(banner, keyboard);
 
     item_inv = null;
+    ability_inv = null;
 
 
     buildUI();
@@ -375,6 +377,7 @@ function openConn(info, next) {
     conn.onStructureAppear = handleStructureAppear;
     conn.onStructureGone = handleStructureGone;
     conn.onMainInventory = handleMainInventory;
+    conn.onAbilityInventory = handleAbilityInventory;
 }
 
 function maybeRegister(info, next) {
@@ -661,12 +664,34 @@ function setupKeyHandler() {
                     if (item_inv == null) {
                         break;
                     }
-                    var ui = new InventoryUI(item_inv);
+                    var inv = item_inv.clone();
+                    var ui = new InventoryUI(inv);
                     dialog.show(ui);
 
                     ui.enableSelect(active.getItem(), function(new_id) {
                         active.setItem(new_id);
                     });
+
+                    ui.onclose = function() {
+                        inv.unsubscribe();
+                    };
+                    break;
+
+                case 'abilities':
+                    if (ability_inv == null) {
+                        break;
+                    }
+                    var inv = ability_inv.clone();
+                    var ui = new InventoryUI(inv, 'Abilities');
+                    dialog.show(ui);
+
+                    ui.enableSelect(active.getAbility(), function(new_id) {
+                        active.setAbility(new_id);
+                    });
+
+                    ui.onclose = function() {
+                        inv.unsubscribe();
+                    };
                     break;
 
                 // Commands to the server
@@ -886,10 +911,18 @@ function handleMainInventory(iid) {
         item_inv.unsubscribe();
     }
     item_inv = inv_tracker.subscribe(iid);
-    active.attachItems(item_inv);
+    active.attachItems(item_inv.clone());
     if (Config.show_inventory_updates.get()) {
-        inv_update_list.attach(item_inv);
+        inv_update_list.attach(item_inv.clone());
     }
+}
+
+function handleAbilityInventory(iid) {
+    if (ability_inv != null) {
+        ability_inv.unsubscribe();
+    }
+    ability_inv = inv_tracker.subscribe(iid);
+    active.attachAbilities(ability_inv.clone());
 }
 
 

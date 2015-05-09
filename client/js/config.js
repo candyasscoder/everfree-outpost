@@ -28,8 +28,9 @@ var DEFAULT_CONFIG = {
         16: 'run',          // Shift
 
         65: 'interact',     // A
-        68: 'use_item',     // D
         83: 'use_ability',  // S
+        87: 'abilities',    // W
+        68: 'use_item',     // D
         69: 'inventory',    // E
 
         112: 'show_controls', // F1

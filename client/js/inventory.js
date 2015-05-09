@@ -98,10 +98,11 @@ InventoryData.prototype._removeHandler = function(handler) {
 
 
 /** @constructor */
-function Inventory(owner, id) {
+function Inventory(owner, id, hold_ref) {
     this._owner = owner;
     this._id = id;
     this._handlers = [];
+    this._holds_ref = hold_ref != null ? hold_ref : true;
 }
 
 Inventory.prototype._data = function() {
@@ -139,5 +140,11 @@ Inventory.prototype.unsubscribe = function() {
         this._data()._removeHandler(this._handlers[i]);
     }
     this._handlers = [];
-    this._owner._unsubscribe(this._id);
+    if (this._holds_ref) {
+        this._owner._unsubscribe(this._id);
+    }
+};
+
+Inventory.prototype.clone = function() {
+    return new Inventory(this._owner, this._id, false);
 };

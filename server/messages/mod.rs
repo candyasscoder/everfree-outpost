@@ -108,6 +108,7 @@ pub enum ClientResponse {
 
     OpenDialog(Dialog),
     MainInventory(InventoryId),
+    AbilityInventory(InventoryId),
     ChatUpdate(String),
     KickReason(String),
 }
@@ -458,6 +459,9 @@ impl Messages {
 
             ClientResponse::MainInventory(iid) =>
                 self.send_raw(wire_id, Response::MainInventory(iid)),
+
+            ClientResponse::AbilityInventory(iid) =>
+                self.send_raw(wire_id, Response::AbilityInventory(iid)),
 
             ClientResponse::ChatUpdate(msg) =>
                 self.send_raw(wire_id, Response::ChatUpdate(msg)),

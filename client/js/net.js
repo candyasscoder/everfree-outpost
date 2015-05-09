@@ -34,6 +34,7 @@ var OP_REGISTER_RESULT =        0x800e;
 var OP_STRUCTURE_APPEAR =       0x800f;
 var OP_STRUCTURE_GONE =         0x8010;
 var OP_MAIN_INVENTORY =         0x8011;
+var OP_ABILITY_INVENTORY =      0x8012;
 
 /** @constructor */
 function Connection(url) {
@@ -65,6 +66,7 @@ function Connection(url) {
     this.onStructureAppear = null;
     this.onStructureGone = null;
     this.onMainInventory = null;
+    this.onAbilityInventory = null;
 }
 exports.Connection = Connection;
 
@@ -286,6 +288,13 @@ Connection.prototype._handleMessage = function(evt) {
             if (this.onMainInventory != null) {
                 var inventory_id = get32();
                 this.onMainInventory(inventory_id);
+            }
+            break;
+
+        case OP_ABILITY_INVENTORY:
+            if (this.onAbilityInventory != null) {
+                var inventory_id = get32();
+                this.onAbilityInventory(inventory_id);
             }
             break;
 
