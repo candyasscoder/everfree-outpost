@@ -177,10 +177,10 @@ Named3D.prototype._refreshTexture = function() {
     this._texture.loadImage(this._names.image());
 };
 
-Named3D.prototype.setCamera = function(sx, sy, sw, sh) {
-    this.layered.setCamera(sx, sy, sw, sh);
-    this._name_obj.setUniformValue('cameraPos', [sx, sy]);
-    this._name_obj.setUniformValue('cameraSize', [sw, sh]);
+Named3D.prototype.setCamera = function(pos, size) {
+    this.layered.setCamera(pos, size);
+    this._name_obj.setUniformValue('cameraPos', pos);
+    this._name_obj.setUniformValue('cameraSize', size);
 };
 
 Named3D.prototype.draw = function(fb_idx, r, sprite, slice_frac) {

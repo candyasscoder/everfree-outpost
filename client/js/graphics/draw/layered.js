@@ -104,9 +104,9 @@ function Layered3D(gl, assets) {
 }
 exports.Layered3D = Layered3D;
 
-Layered3D.prototype.setCamera = function(sx, sy, sw, sh) {
-    this._obj.setUniformValue('cameraPos', [sx, sy]);
-    this._obj.setUniformValue('cameraSize', [sw, sh]);
+Layered3D.prototype.setCamera = function(pos, size) {
+    this._obj.setUniformValue('cameraPos', pos);
+    this._obj.setUniformValue('cameraSize', size);
 };
 
 

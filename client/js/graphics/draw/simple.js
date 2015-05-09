@@ -74,9 +74,9 @@ function Simple3D(gl, assets) {
 }
 exports.Simple3D = Simple3D;
 
-Simple3D.prototype.setCamera = function(sx, sy, sw, sh) {
-    this._obj.setUniformValue('cameraPos', [sx, sy]);
-    this._obj.setUniformValue('cameraSize', [sw, sh]);
+Simple3D.prototype.setCamera = function(pos, size) {
+    this._obj.setUniformValue('cameraPos', pos);
+    this._obj.setUniformValue('cameraSize', size);
 };
 
 Simple3D.prototype.draw = function(fb_idx, r, sprite, slice_frac) {

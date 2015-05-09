@@ -492,34 +492,36 @@ Renderer.prototype._renderLights = function(fb, depth_tex, cx0, cy0, cx1, cy1) {
     gl.disable(gl.BLEND);
 };
 
-Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_frac, draw_extra) {
+Renderer.prototype.render = function(s, draw_extra) {
     var gl = this.gl;
 
-    this.blit.setUniformValue('cameraPos', [sx, sy]);
-    this.blit.setUniformValue('cameraSize', [sw, sh]);
-    this.blit_sliced.setUniformValue('cameraPos', [sx, sy]);
-    this.blit_sliced.setUniformValue('cameraSize', [sw, sh]);
-    this.light.setUniformValue('cameraPos', [sx, sy]);
-    this.light.setUniformValue('cameraSize', [sw, sh]);
+    var pos = s.camera_pos;
+    var size = s.camera_size;
+
+    this.blit.setUniformValue('cameraPos', pos);
+    this.blit.setUniformValue('cameraSize', size);
+    this.blit_sliced.setUniformValue('cameraPos', pos);
+    this.blit_sliced.setUniformValue('cameraSize', size);
+    this.light.setUniformValue('cameraPos', pos);
+    this.light.setUniformValue('cameraSize', size);
     // this.output uses fixed camera
 
     for (var k in this.sprite_classes) {
         var cls = this.sprite_classes[k];
-        cls.setCamera(sx, sy, sw, sh);
+        cls.setCamera(pos, size);
     }
 
 
-    if (this.last_sw != sw || this.last_sh != sh) {
-        this._initFramebuffers(sw, sh);
+    if (this.last_sw != size[0] || this.last_sh != size[1]) {
+        this._initFramebuffers(size[0], size[1]);
     }
 
 
     // Populate the terrain caches.
-
-    var cx0 = ((sx|0) / CHUNK_PX)|0;
-    var cx1 = (((sx|0) + (sw|0) + CHUNK_PX) / CHUNK_PX)|0;
-    var cy0 = ((sy|0) / CHUNK_PX)|0;
-    var cy1 = (((sy|0) + (sh|0) + CHUNK_PX) / CHUNK_PX)|0;
+    var cx0 = ((pos[0]|0) / CHUNK_PX)|0;
+    var cx1 = (((pos[0]|0) + (size[0]|0) + CHUNK_PX) / CHUNK_PX)|0;
+    var cy0 = ((pos[1]|0) / CHUNK_PX)|0;
+    var cy1 = (((pos[1]|0) + (size[1]|0) + CHUNK_PX) / CHUNK_PX)|0;
 
     var chunk_idxs = new Array((cx1 - cx0) * (cy1 - cy0));
 
@@ -540,17 +542,17 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
         this_._renderStructures(fbs.image, cx, cy, CHUNK_SIZE);
     });
 
-    if (slice_z < CHUNK_SIZE) {
-        if (slice_z != this.last_slice_z) {
+    if (s.slice_z < CHUNK_SIZE) {
+        if (s.slice_z != this.last_slice_z) {
             this.sliced_cache.invalidateAll();
         }
         this.sliced_cache.populate(chunk_idxs, function(idx, fbs) {
             var cx = (idx % LOCAL_SIZE)|0;
             var cy = (idx / LOCAL_SIZE)|0;
-            this_._renderTerrain(fbs.image, cx, cy, slice_z);
-            this_._renderStructures(fbs.image, cx, cy, slice_z);
+            this_._renderTerrain(fbs.image, cx, cy, s.slice_z);
+            this_._renderStructures(fbs.image, cx, cy, s.slice_z);
         });
-        this.last_slice_z = slice_z;
+        this.last_slice_z = s.slice_z;
     } else {
         this.sliced_cache.reduce(0);
     }
@@ -558,7 +560,7 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
 
     // Render everything into the world framebuffer.
 
-    gl.viewport(0, 0, sw, sh);
+    gl.viewport(0, 0, size[0], size[1]);
     gl.clearDepth(0.0);
     gl.clearColor(0, 0, 0, 0);
     gl.enable(gl.DEPTH_TEST);
@@ -571,7 +573,7 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
             for (var cx = cx0; cx < cx1; ++cx) {
                 var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
 
-                if (slice_z >= CHUNK_SIZE) {
+                if (s.slice_z >= CHUNK_SIZE) {
                     this_.blit.draw(fb_idx, 0, 6, {
                         'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
                                     cy * CHUNK_SIZE * TILE_SIZE],
@@ -584,7 +586,7 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
                     this_.blit_sliced.draw(fb_idx, 0, 6, {
                         'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
                                     cy * CHUNK_SIZE * TILE_SIZE],
-                        'sliceFrac': [slice_frac],
+                        'sliceFrac': [s.slice_frac],
                     }, {}, {
                         'upperImage0Tex': this_.terrain_cache.get(idx).image.textures[0],
                         'upperImage1Tex': this_.terrain_cache.get(idx).image.textures[1],
@@ -597,13 +599,13 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
             }
         }
 
-        for (var i = 0; i < sprites.length; ++i) {
-            var sprite = sprites[i];
+        for (var i = 0; i < s.sprites.length; ++i) {
+            var sprite = s.sprites[i];
             var cls = this_.sprite_classes[sprite.cls];
-            if (sprite.ref_z < slice_z * TILE_SIZE) {
+            if (sprite.ref_z < s.slice_z * TILE_SIZE) {
                 cls.draw(fb_idx, this_, sprite, 0);
             } else {
-                cls.draw(fb_idx, this_, sprite, slice_frac);
+                cls.draw(fb_idx, this_, sprite, s.slice_frac);
             }
         }
     });
@@ -621,7 +623,7 @@ Renderer.prototype.render = function(sx, sy, sw, sh, sprites, slice_z, slice_fra
 
     this.fb_post.use(function(idx) {
         this_.post_filter.draw(idx, 0, 6, {
-            'screenSize': [sw, sh],
+            'screenSize': size,
         }, {}, {
             'image0Tex': this_.fb_world.textures[0],
             'image1Tex': this_.fb_world.textures[1],

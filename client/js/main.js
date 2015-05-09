@@ -19,6 +19,7 @@ var Renderer = require('graphics/renderer').Renderer;
 var Layered2D = require('graphics/draw/layered').Layered2D;
 var Cursor = require('graphics/cursor').Cursor;
 var glutil = require('graphics/glutil');
+var Scene = require('graphics/scene').Scene;
 
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
@@ -1067,17 +1068,20 @@ function frame(ac, client_now) {
     camera_pos.y -= camera_pos.z;
 
 
+    var s = new Scene();
+
+
     var entity_ids = Object.getOwnPropertyNames(entities);
-    var sprites = new Array(entity_ids.length);
+    s.sprites = new Array(entity_ids.length);
     var player_sprite = null;
 
     for (var i = 0; i < entity_ids.length; ++i) {
         var entity = entities[entity_ids[i]];
         if (entity_ids[i] != player_entity) {
-            sprites[i] = localSprite(now, entity, pos);
+            s.sprites[i] = localSprite(now, entity, pos);
         } else {
-            sprites[i] = localSprite(predict_now, entity, pos);
-            player_sprite = sprites[i];
+            s.sprites[i] = localSprite(predict_now, entity, pos);
+            player_sprite = s.sprites[i];
         }
     }
 
@@ -1098,24 +1102,15 @@ function frame(ac, client_now) {
         }
     }
 
+    s.camera_pos = [camera_pos.x, camera_pos.y];
+    s.camera_size = [camera_size.x, camera_size.y];
+
     var radius = slice_radius.get(predict_now);
     if (radius > 0 && pony != null) {
-        var slice_z = 2 + (pony.position(predict_now).z / TILE_SIZE)|0;
-        renderer.render(
-                camera_pos.x, camera_pos.y,
-                camera_size.x, camera_size.y,
-                sprites,
-                slice_z,
-                radius,
-                draw_extra);
-    } else {
-        renderer.render(
-                camera_pos.x, camera_pos.y,
-                camera_size.x, camera_size.y,
-                sprites,
-                16, 0,
-                draw_extra);
+        s.slice_frac = radius;
+        s.slice_z = 2 + (pony.position(predict_now).z / TILE_SIZE)|0;
     }
+    renderer.render(s, draw_extra);
 
 
     if (show_cursor && pony != null) {
@@ -1128,13 +1123,4 @@ function frame(ac, client_now) {
     debug.frameEnd();
     debug.updateJobs(runner);
     debug.updateTiming(timing);
-
-    if (sprites.length > 0) {
-        sprites[0].ref_x = 48;
-        sprites[0].ref_y = 90;
-        sprites[0].ref_z = 0;
-        window.last_sprite = sprites[0];
-    }
 }
-
-window.verbose = 1;

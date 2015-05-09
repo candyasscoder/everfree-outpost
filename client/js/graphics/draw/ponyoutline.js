@@ -45,9 +45,9 @@ function PonyOutline3D(gl, assets) {
 }
 exports.PonyOutline3D = PonyOutline3D;
 
-PonyOutline3D.prototype.setCamera = function(sx, sy, sw, sh) {
-    this._obj.setUniformValue('cameraPos', [sx, sy]);
-    this._obj.setUniformValue('cameraSize', [sw, sh]);
+PonyOutline3D.prototype.setCamera = function(pos, size) {
+    this._obj.setUniformValue('cameraPos', pos);
+    this._obj.setUniformValue('cameraSize', size);
 };
 
 
