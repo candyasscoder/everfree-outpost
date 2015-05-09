@@ -516,7 +516,9 @@ function makeSecret() {
     return secret_buf;
 }
 
-function buildPonySprite(appearance, name) {
+function buildPonyAppearance(appearance, name) {
+    var light = (appearance >> 9) & 1;
+    var hat = (appearance >> 8) & 1;
     var horn = (appearance >> 7) & 1;
     var wings = (appearance >> 6) & 1;
     var r = (appearance >> 4) & 3;
@@ -530,8 +532,6 @@ function buildPonySprite(appearance, name) {
     var mane = (steps[r] << 16) |
                (steps[g] <<  8) |
                (steps[b]);
-
-    var hat = (appearance >> 8) & 1;
 
     function mk_layer(name, color, skip, outline_skip) {
         return {
@@ -553,7 +553,20 @@ function buildPonySprite(appearance, name) {
             mk_layer('pony_f_horn',         body,       !horn,      false),
             ], name);
 
-    return new SpriteBase(96, 96, 48, 90, extra);
+    var light_color = null;
+    if (light) {
+        light_color = [
+            steps[r + 1],
+            steps[g + 1],
+            steps[b + 1],
+        ];
+    }
+
+    var sprite = new SpriteBase(96, 96, 48, 90, extra);
+    return {
+        sprite: sprite,
+        light_color: light_color,
+    };
 }
 
 function calcAppearance(tribe, r, g, b) {
@@ -573,8 +586,8 @@ function calcAppearance(tribe, r, g, b) {
 }
 
 function drawPony(ctx, tribe, r, g, b) {
-    var base = buildPonySprite(calcAppearance(tribe, r, g, b), '');
-    var sprite = base.instantiate();
+    var base = buildPonyAppearance(calcAppearance(tribe, r, g, b), '');
+    var sprite = base.sprite.instantiate();
     sprite.ref_x = sprite.anchor_x;
     sprite.ref_y = sprite.anchor_y;
     // Make pony face to the left.
@@ -880,12 +893,13 @@ function handleEntityAppear(id, appearance, name) {
     if (id == player_entity) {
         name = '';
     }
-    var sprite_base = buildPonySprite(appearance, name);
+    var app = buildPonyAppearance(appearance, name);
     if (entities[id] != null) {
-        entities[id].setSpriteBase(sprite_base);
+        entities[id].setSpriteBase(app.sprite);
     } else {
-        entities[id] = new Entity(sprite_base, pony_anims, new Vec(0, 0, 0));
+        entities[id] = new Entity(app.sprite, pony_anims, new Vec(0, 0, 0));
     }
+    entities[id].setLight(app.light_color == null ? 0 : 200, app.light_color);
 }
 
 function handleEntityGone(id, time) {
@@ -1086,6 +1100,18 @@ function frame(ac, client_now) {
         } else {
             s.sprites[i] = localSprite(predict_now, entity, pos);
             player_sprite = s.sprites[i];
+        }
+
+        var light = entity.getLight();
+        if (light != null) {
+            s.lights.push({
+                'pos': new Vec(
+                    s.sprites[i].ref_x,
+                    s.sprites[i].ref_y,
+                    s.sprites[i].ref_z),
+                'color': light.color,
+                'radius': light.radius,
+            });
         }
     }
 

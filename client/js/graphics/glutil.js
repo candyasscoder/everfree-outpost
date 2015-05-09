@@ -110,14 +110,29 @@ Program.prototype.setUniform = function(name, type, vs) {
 };
 
 
-function buildPrograms(gl, vert_src, frag_src, output_buffers) {
+function buildPrograms(gl, vert_src, frag_src, output_buffers, def_map) {
+    var defs = '';
+
+    var debug_def_map = Config.debug_shader_defs.get();
+    for (var k in debug_def_map) {
+        defs += '#define ' + k + ' ' + def_map[k] + '\n'
+    }
+
+    if (def_map != null) {
+        for (var k in def_map) {
+            defs += '#define ' + k + ' ' + def_map[k] + '\n'
+        }
+    }
+
+
     if (hasExtension(gl, 'WEBGL_draw_buffers')) {
-        return [new Program(gl, vert_src, frag_src)];
+        return [new Program(gl, defs + vert_src, defs + frag_src)];
     } else {
         var programs = new Array(output_buffers);
         for (var i = 0; i < output_buffers; ++i) {
-            var define = '#define OUTPUT_IDX ' + i + '\n'
-            programs[i] = new Program(gl, define + vert_src, define + frag_src);
+            var define = '#define OUTPUT_IDX ' + i + '\n';
+            var prefix = defs + define;
+            programs[i] = new Program(gl, prefix + vert_src, prefix + frag_src);
         }
         return programs;
     }

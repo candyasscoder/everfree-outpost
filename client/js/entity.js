@@ -39,6 +39,8 @@ function Entity(sprite_base, anim_info, pos) {
     this._sprite_base = sprite_base;
     this._anim = new Animation();
     this._anim_info = anim_info;
+    this._light_radius = 0;
+    this._light_color = null;
 
     this._cur_motion = new Motion(pos);
     this._motions = new Deque();
@@ -109,4 +111,20 @@ Entity.prototype.motionEndTime = function(now) {
 Entity.prototype.animId = function(now) {
     this._dequeueUntil(now);
     return this._cur_motion.anim_id;
+};
+
+Entity.prototype.setLight = function(radius, color) {
+    this._light_radius = radius;
+    this._light_color = color;
+};
+
+Entity.prototype.getLight = function() {
+    if (this._light_radius <= 0) {
+        return null;
+    } else {
+        return {
+            color: this._light_color,
+            radius: this._light_radius,
+        };
+    }
 };

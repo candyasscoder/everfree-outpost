@@ -1,9 +1,9 @@
 precision mediump float;
 
 attribute vec2 posOffset;
-attribute vec3 center;
-attribute float radiusAttr;
-attribute vec3 colorAttr;
+LIGHT_INPUT vec3 center;
+LIGHT_INPUT float radiusIn;
+LIGHT_INPUT vec3 colorIn;
 
 uniform vec2 cameraPos;
 uniform vec2 cameraSize;
@@ -21,8 +21,8 @@ const mat4 transform = mat4(
        );
 
 void main(void) {
-    radius = radiusAttr;
-    color = colorAttr;
+    radius = radiusIn;
+    color = colorIn;
 
     localCenter = center - vec3(cameraPos, 0.0);
     localPos = vec2(localCenter.x, localCenter.y - localCenter.z) +

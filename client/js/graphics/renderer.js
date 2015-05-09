@@ -69,7 +69,10 @@ Renderer.prototype.initGl = function(assets) {
     this.post_filter = blits.post;
     this.terrain_block = build_terrain_block(gl, assets, atlas_tex);
     this.structure = build_structure(gl, assets, struct_sheet_tex, struct_depth_tex);
-    this.light = build_light(gl, assets);
+
+    var lights = build_lights(gl, assets);
+    this.static_light = lights.static_;
+    this.dynamic_light = lights.dynamic;
 
     this.sprite_classes = {
         'simple': new Simple3D(gl, assets),
@@ -211,10 +214,25 @@ function build_blits(gl, assets) {
     return { normal: normal, sliced: sliced, output: output, post: post };
 }
 
-function build_light(gl, assets) {
+function build_lights(gl, assets) {
     var vert = assets['light.vert'];
     var frag = assets['light.frag'];
-    var programs = buildPrograms(gl, vert, frag, 1);
+    var programs_static = buildPrograms(gl, vert, frag, 1,
+            {'LIGHT_INPUT': 'attribute'});
+    var programs_dynamic = buildPrograms(gl, vert, frag, 1,
+            {'LIGHT_INPUT': 'uniform'});
+
+    var buffer = new Buffer(gl);
+    buffer.loadData(new Int8Array([
+        -1, -1,
+        -1,  1,
+         1,  1,
+
+        -1, -1,
+         1,  1,
+         1, -1,
+    ]));
+
 
     var uniforms = {
         'cameraPos': uniform('vec2', null),
@@ -224,15 +242,35 @@ function build_light(gl, assets) {
     var attributes = {
         'posOffset': attribute(null, 2, gl.BYTE, false, 16, 0),
         'center': attribute(null, 3, gl.SHORT, false, 16, 2),
-        'colorAttr': attribute(null, 3, gl.UNSIGNED_BYTE, true, 16, 8),
-        'radiusAttr': attribute(null, 1, gl.UNSIGNED_SHORT, false, 16, 12),
+        'colorIn': attribute(null, 3, gl.UNSIGNED_BYTE, true, 16, 8),
+        'radiusIn': attribute(null, 1, gl.UNSIGNED_SHORT, false, 16, 12),
     };
 
     var textures = {
         'depthTex': null,
     };
 
-    return new GlObject(gl, programs, uniforms, attributes, textures);
+    var static_obj = new GlObject(gl, programs_static, uniforms, attributes, textures);
+
+
+    var uniforms = {
+        'cameraPos': uniform('vec2', null),
+        'cameraSize': uniform('vec2', null),
+        'center': uniform('vec3', null),
+        'colorIn': uniform('vec3', null),
+        'radiusIn': uniform('float', null),
+    };
+
+    var attributes = {
+        'posOffset': attribute(buffer, 2, gl.BYTE, false, 0, 0),
+    };
+
+    var dynamic_obj = new GlObject(gl, programs_dynamic, uniforms, attributes, textures);
+
+    return {
+        static_: static_obj,
+        dynamic: dynamic_obj,
+    };
 }
 
 function build_structure(gl, assets, sheet_tex, depth_tex) {
@@ -451,16 +489,19 @@ Renderer.prototype._renderStructures = function(fb, cx, cy, max_z) {
     gl.disable(gl.DEPTH_TEST);
 };
 
-Renderer.prototype._renderLights = function(fb, depth_tex, cx0, cy0, cx1, cy1, amb) {
+Renderer.prototype._renderStaticLights = function(fb, depth_tex, cx0, cy0, cx1, cy1, amb) {
     var gl = this.gl;
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
     // clearColor sets the ambient light color+intensity
     gl.clearColor(amb[0] / 255, amb[1] / 255, amb[2] / 255, 0.0);
 
+    fb.use(function(idx) {
+        gl.clear(gl.COLOR_BUFFER_BIT);
+    });
+
     this._asm.resetLightGeometry(cx0, cy0, cx1, cy1);
     var more = true;
-    var first = true;
     while (more) {
         var result = this._asm.generateLightGeometry();
         var geom = result.geometry;
@@ -471,23 +512,48 @@ Renderer.prototype._renderLights = function(fb, depth_tex, cx0, cy0, cx1, cy1, a
 
         var this_ = this;
         fb.use(function(idx) {
-            if (first) {
-                gl.clear(gl.COLOR_BUFFER_BIT);
-                first = false;
-            }
-
             if (geom.length > 0) {
-                this_.light.draw(idx, 0, geom.length / 16, {}, {
+                this_.static_light.draw(idx, 0, geom.length / 16, {}, {
                     'posOffset': buffer,
                     'center': buffer,
-                    'colorAttr': buffer,
-                    'radiusAttr': buffer,
+                    'colorIn': buffer,
+                    'radiusIn': buffer,
                 }, {
                     'depthTex': depth_tex,
                 });
             }
         });
     }
+
+    gl.disable(gl.BLEND);
+};
+
+Renderer.prototype._renderDynamicLights = function(fb, depth_tex, lights) {
+    var gl = this.gl;
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+
+    var this_ = this;
+    fb.use(function(idx) {
+        for (var i = 0; i < lights.length; ++i) {
+            var light = lights[i];
+            this_.dynamic_light.draw(idx, 0, 6, {
+                'center': [
+                    light.pos.x,
+                    light.pos.y,
+                    light.pos.z,
+                ],
+                'colorIn': [
+                    light.color[0] / 255,
+                    light.color[1] / 255,
+                    light.color[2] / 255,
+                ],
+                'radiusIn': [light.radius],
+            }, {}, {
+                'depthTex': depth_tex,
+            });
+        }
+    });
 
     gl.disable(gl.BLEND);
 };
@@ -502,8 +568,10 @@ Renderer.prototype.render = function(s, draw_extra) {
     this.blit.setUniformValue('cameraSize', size);
     this.blit_sliced.setUniformValue('cameraPos', pos);
     this.blit_sliced.setUniformValue('cameraSize', size);
-    this.light.setUniformValue('cameraPos', pos);
-    this.light.setUniformValue('cameraSize', size);
+    this.static_light.setUniformValue('cameraPos', pos);
+    this.static_light.setUniformValue('cameraSize', size);
+    this.dynamic_light.setUniformValue('cameraPos', pos);
+    this.dynamic_light.setUniformValue('cameraSize', size);
     // this.output uses fixed camera
 
     for (var k in this.sprite_classes) {
@@ -615,9 +683,12 @@ Renderer.prototype.render = function(s, draw_extra) {
 
     // Render lights into the light framebuffer.
 
-    this._renderLights(this.fb_light, this.fb_world.depth_texture,
+    this._renderStaticLights(this.fb_light, this.fb_world.depth_texture,
             cx0, cy0, cx1, cy1,
             s.ambient_color);
+
+    this._renderDynamicLights(this.fb_light, this.fb_world.depth_texture,
+            s.lights);
 
 
     // Apply post-processing pass
