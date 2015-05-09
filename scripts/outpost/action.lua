@@ -43,18 +43,24 @@ end
 
 local ability_use_handlers = {}
 function outpost_ffi.callbacks.use_ability(c, arg)
-    --local item_type = c:world():item_id_to_name(arg)
-    --if item_type == nil then
-    --    return
-    --end
+    local item_type = c:world():item_id_to_name(arg)
+    if item_type == nil then
+        return
+    end
 
-    --local inv = c:pawn():inventory('ability')
-    --if inv:count(item_type) == 0 then
-    --    return
-    --end
+    local inv = c:pawn():inventory('ability')
+    if inv:count(item_type) == 0 then
+        return
+    end
 
-    --local handler = get_or_noop(ability_use_handlers, item_type)
-    local handler = get_or_noop(ability_use_handlers, '_')
+    local prefix = 'ability/'
+    if item_type:sub(1, #prefix) ~= prefix then
+        print('tried to use non-ability: ' .. item_type)
+        return
+    end
+    name = item_type:sub(#prefix + 1)
+
+    local handler = get_or_noop(ability_use_handlers, name)
     handler(c, inv)
 end
 

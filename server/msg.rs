@@ -295,15 +295,15 @@ impl Response {
 
 pub struct InitData {
     pub entity_id: EntityId,
-    pub camera_pos: (u16, u16),
-    pub chunks: u8,
-    pub entities: u8,
+    pub now: LocalTime,
+    pub cycle_base: u32,
+    pub cycle_ms: u32,
 }
 
 impl InitData {
-    fn flatten(&self) -> (EntityId, (u16, u16), u8, u8) {
-        let InitData { entity_id, camera_pos, chunks, entities } = *self;
-        (entity_id, camera_pos, chunks, entities)
+    fn flatten(&self) -> (EntityId, LocalTime, u32, u32) {
+        let InitData { entity_id, now, cycle_base, cycle_ms } = *self;
+        (entity_id, now, cycle_base, cycle_ms)
     }
 }
 

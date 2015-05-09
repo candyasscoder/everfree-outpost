@@ -255,6 +255,12 @@ impl Userdata for Entity {
                 w.get_entity(e.id).map(|e| e.facing())
             }
 
+            fn get_appearance(!partial w: &world::World,
+                              e: Entity) -> Option<u32> {
+                w.get_entity(e.id)
+                 .map(|e| e.appearance())
+            }
+
             fn update_appearance(!partial wf: WorldFragment,
                                  e: Entity,
                                  mask: u32,

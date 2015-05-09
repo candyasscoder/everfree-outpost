@@ -90,7 +90,7 @@ pub enum WireResponse {
 
 #[derive(Debug, Clone)]
 pub enum ClientResponse {
-    Init(EntityId),
+    Init(Option<EntityId>, Time, u32, u32),
 
     TerrainChunk(V2, Vec<u16>),
     UnloadChunk(V2),
@@ -398,12 +398,12 @@ impl Messages {
         let wire_id = client.wire_id();
 
         match resp {
-            ClientResponse::Init(eid) => {
+            ClientResponse::Init(opt_eid, time, cycle_base, cycle_ms) => {
                 let data = InitData {
-                    entity_id: eid,
-                    camera_pos: (0, 0),
-                    chunks: 0,
-                    entities: 0,
+                    entity_id: opt_eid.unwrap_or(EntityId(-1 as u32)),
+                    now: time.to_local(),
+                    cycle_base: cycle_base,
+                    cycle_ms: cycle_ms,
                 };
                 self.send_raw(wire_id, Response::Init(data));
             },

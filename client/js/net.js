@@ -178,11 +178,10 @@ Connection.prototype._handleMessage = function(evt) {
         case OP_INIT:
             if (this.onInit != null) {
                 var entity_id = get32();
-                var camera_x = get16();
-                var camera_y = get16();
-                var chunks = get8();
-                var entities = get8();
-                this.onInit(entity_id, camera_x, camera_y, chunks, entities);
+                var now = get16();
+                var cycle_base = get32();
+                var cycle_ms = get32();
+                this.onInit(entity_id, now, cycle_base, cycle_ms);
             }
             break;
 

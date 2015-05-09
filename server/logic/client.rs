@@ -15,6 +15,9 @@ use world::save::{self, ObjectReader, ObjectWriter};
 use vision::{self, vision_region};
 
 
+const DAY_NIGHT_CYCLE_TICKS: u32 = 24_000;
+const DAY_NIGHT_CYCLE_MS: u32 = 24 * 60 * 1000;
+
 pub fn register(mut eng: EngineRef, name: &str, appearance: u32) -> save::Result<()> {
     let pawn_id;
     let cid;
@@ -102,11 +105,12 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
     eng.messages_mut().schedule_check_view(cid, now + 1000);
 
     // Send the client's startup messages.
-    if let Some(pawn_id) = eng.world().client(cid).pawn_id() {
-        eng.messages_mut().send_client(cid, ClientResponse::Init(pawn_id));
-    } else {
-        warn!("{:?}: client has no pawn", cid);
-    };
+    let opt_eid = eng.world().client(cid).pawn_id();
+    let cycle_base = (now % DAY_NIGHT_CYCLE_MS as Time) as u32;
+    eng.messages_mut().send_client(cid, ClientResponse::Init(opt_eid,
+                                                             now,
+                                                             cycle_base,
+                                                             DAY_NIGHT_CYCLE_MS));
 
     vision::Fragment::add_client(&mut eng.as_vision_fragment(), cid, pawn_pid, region);
 

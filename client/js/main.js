@@ -556,11 +556,7 @@ function buildPonyAppearance(appearance, name) {
 
     var light_color = null;
     if (light) {
-        light_color = [
-            steps[r + 1],
-            steps[g + 1],
-            steps[b + 1],
-        ];
+        light_color = [100, 180, 255];
     }
 
     var sprite = new SpriteBase(96, 96, 48, 90, extra);
@@ -721,7 +717,7 @@ function setupKeyHandler() {
                     conn.sendUseItem(time, active.getItem());
                     break;
                 case 'use_ability':
-                    conn.sendUseAbility(time, 0 /* TODO */);
+                    conn.sendUseAbility(time, active.getAbility());
                     break;
 
                 default:
@@ -794,9 +790,12 @@ function handleClose(evt, reason) {
     dialog.show(w);
 }
 
-function handleInit(entity_id, camera_x, camera_y, chunks, entities) {
+function handleInit(entity_id, now, cycle_base, cycle_ms) {
     player_entity = entity_id;
-    load_counter.begin(chunks, entities);
+    //load_counter.begin(chunks, entities);
+    var pst_now = timing.decodeRecv(now);
+    day_night.base_time = pst_now - cycle_base;
+    day_night.cycle_ms = cycle_ms;
 }
 
 function handleTerrainChunk(i, data) {
@@ -1110,12 +1109,12 @@ function frame(ac, client_now) {
         var light = entity.getLight();
         if (light != null) {
             s.lights.push({
-                'pos': new Vec(
+                pos: new Vec(
                     s.sprites[i].ref_x,
                     s.sprites[i].ref_y,
                     s.sprites[i].ref_z),
-                'color': light.color,
-                'radius': light.radius,
+                color: light.color,
+                radius: light.radius,
             });
         }
     }
@@ -1139,7 +1138,7 @@ function frame(ac, client_now) {
 
     s.camera_pos = [camera_pos.x, camera_pos.y];
     s.camera_size = [camera_size.x, camera_size.y];
-    s.ambient_color = day_night.getAmbientColor(predict_now + 24000 * 3);
+    s.ambient_color = day_night.getAmbientColor(predict_now);
 
     var radius = slice_radius.get(predict_now);
     if (radius > 0 && pony != null) {
