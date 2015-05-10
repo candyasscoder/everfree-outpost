@@ -206,14 +206,17 @@ $(BUILD_NATIVE)/backend: $(SRC)/server/main.rs \
 
 # Rules for building the server wrapper
 
+# Running without this option seems to cause segfaults.
+WRAPPER_CXXFLAGS = -DWEBSOCKETPP_STRICT_MASKING $(CXXFLAGS)
+
 $(BUILD_NATIVE)/%.o: $(SRC)/wrapper/%.cpp $(wildcard $(SRC)/wrapper/*.hpp)
-	$(CXX) -c $< -o $@ -std=c++14 $(CXXFLAGS) $(RELEASE_CXXFLAGS_opt)
+	$(CXX) -c $< -o $@ -std=c++14 $(WRAPPER_CXXFLAGS) $(RELEASE_CXXFLAGS_opt)
 
 WRAPPER_SRCS = $(wildcard $(SRC)/wrapper/*.cpp)
 WRAPPER_OBJS = $(patsubst $(SRC)/wrapper/%.cpp,$(BUILD_NATIVE)/%.o,$(WRAPPER_SRCS))
 
 $(BUILD_NATIVE)/wrapper: $(WRAPPER_OBJS)
-	$(CXX) $^ -o $@ -std=c++14 $(CXXFLAGS) $(LDFLAGS) -lboost_system -lpthread -static
+	$(CXX) $^ -o $@ -std=c++14 $(WRAPPER_CXXFLAGS) $(LDFLAGS) -lboost_system -lpthread -static
 
 
 # Rules for misc files
