@@ -16,6 +16,11 @@ class BlockDef(object):
         self.id = None
         self.tile_ids = None
 
+    def set_light(self, color, radius):
+        self.light_color = color
+        self.light_radius = radius
+
+
 def resolve_tile_ids(blocks, tile_id_map):
     for b in blocks:
         b.tile_ids = {}

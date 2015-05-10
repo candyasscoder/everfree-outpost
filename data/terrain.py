@@ -158,8 +158,7 @@ def init(asset_path):
 
     lava = mk_floor_blocks(img('lpc-base-tiles/lava.png'), 'cave_lava', base_img=cave_floor)
     for b in lava.values():
-        b.light_color = (255, 100, 0)
-        b.light_radius = 50
+        b.light((255, 100, 0), 50)
 
     mk_floor_blocks(img('lpc-base-tiles/holemid.png'), 'cave_pit', base_img=cave_floor)
 

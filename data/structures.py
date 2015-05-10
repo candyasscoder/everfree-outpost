@@ -179,19 +179,19 @@ def init(asset_path):
     mk_solid_small('anvil', img('anvil.png'))
     mk_solid_small('chest', img('chest.png'))
     mk_solid_small('teleporter', img('crystal-formation.png')) \
-            .set_light((16, 16, 16), (48, 48, 96), 50)
+            .light((16, 16, 16), (48, 48, 96), 50)
     mk_solid_small('dungeon_entrance', img('crystal-formation-red.png')) \
-            .set_light((16, 16, 16), (96, 48, 48), 50)
+            .light((16, 16, 16), (96, 48, 48), 50)
     mk_solid_small('dungeon_exit', img('crystal-formation-red.png')) \
-            .set_light((16, 16, 16), (96, 48, 48), 50)
+            .light((16, 16, 16), (96, 48, 48), 50)
     mk_solid_structure('ward', img('crystal-ward.png'), (1, 1, 1)) \
-            .set_light((16, 16, 48), (48, 48, 96), 50)
+            .light((16, 16, 48), (48, 48, 96), 50)
     mk_solid_small('script_trigger', img('crystal-formation-green.png')) \
-            .set_light((16, 16, 16), (48, 96, 48), 50)
+            .light((16, 16, 16), (48, 96, 48), 50)
     mk_solid_structure('trophy', img('trophy.png'), (1, 1, 1))
     mk_solid_structure('fountain', img('fountain.png'), (2, 2, 1))
     mk_solid_structure('torch', img('torch.png'), (1, 1, 1)) \
-            .set_light((16, 16, 32), (255, 230, 200), 300)
+            .light((16, 16, 32), (255, 230, 200), 300)
 
     image = img('furniture.png')
     plane = img('furniture-planemap.png')
