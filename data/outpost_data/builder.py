@@ -1,4 +1,4 @@
-from outpost_data import structure, tile, block
+from outpost_data import structure, tile, block, item
 
 
 class Builder(object):
@@ -6,6 +6,8 @@ class Builder(object):
         self.structures = []
         self.tiles = []
         self.blocks = []
+        self.items = []
+        self.recipes = []
 
         self.gen_tile_cache = {}
 
@@ -47,8 +49,19 @@ class Builder(object):
         self.structures.append(s)
         return s
 
+    def mk_item(self, name, ui_name, image):
+        i = item.ItemDef(name, ui_name, image)
+        self.items.append(i)
+        return i
+
+    def mk_recipe(self, name, ui_name, station, inputs, outputs):
+        r = recipe.RecipeDef(name, ui_name, station, inputs, outputs)
+        self.recipes.append(r)
+        return r
+
 
 INSTANCE = Builder()
 mk_tile = INSTANCE.mk_tile
 mk_block = INSTANCE.mk_block
 mk_structure = INSTANCE.mk_structure
+mk_item = INSTANCE.mk_item

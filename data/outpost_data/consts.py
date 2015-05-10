@@ -1,5 +1,6 @@
 TILE_SIZE = 32
 SHEET_SIZE = (32, 32)
+SHEET_PX = 32 * 32  # 1024
 
 SHAPE_ID = {
         'empty': 0,

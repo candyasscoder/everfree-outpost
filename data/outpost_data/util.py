@@ -1,5 +1,7 @@
 import sys
 
+from PIL import Image
+
 from outpost_data.consts import *
 
 
@@ -69,3 +71,28 @@ def stack(base, *args):
     for layer in args:
         img.paste(layer, (0, 0), layer)
     return img
+
+
+def build_sheet(objs):
+    """Build a sprite sheet for fixed-size objects.  Each object should have
+    `image` and `id` fields.  The `image` will be copied into the sheet at a
+    position based on its `id`.  The width of the sheet in objects (used for
+    computing positions from IDs) will be SHEET_PX // obj_width.
+    """
+
+    if len(objs) == 0:
+        return Image.new('RGBA', (1, 1))
+
+    obj_w, obj_h = objs[0].image.size
+    sheet_cols = SHEET_PX // obj_w
+    sheet_rows = (len(objs) + sheet_cols - 1) // sheet_cols
+    assert sheet_rows * obj_h <= SHEET_PX
+    sheet = Image.new('RGBA', (SHEET_PX, sheet_rows * obj_h))
+
+    for o in objs:
+        assert o.id < len(objs)
+        x = o.id % sheet_cols
+        y = o.id // sheet_cols
+        sheet.paste(o.image, (x * obj_w, y * obj_h))
+
+    return sheet
