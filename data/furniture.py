@@ -44,7 +44,7 @@ def init(asset_path):
 
     s.merge(mk_solid_structure('bookshelf/0', image, (1, 1, 2), (5, 0),
             plane_image=plane, layer=2))
-    mk_structure_item(s['bookshelf/0'], 'bookshelves', 'Bookshelves', (0, 1))
+    mk_structure_item(s['bookshelf/0'], 'bookshelf', 'Bookshelves', (0, 1))
     mk_solid_structure('bookshelf/1', image, (1, 1, 2), (6, 0), plane_image=plane, layer=2)
     mk_solid_structure('bookshelf/2', image, (1, 1, 2), (7, 0), plane_image=plane, layer=2)
     mk_item('book', 'Book', tiles('gervais_roguelike/AngbandTk_book.png'))
