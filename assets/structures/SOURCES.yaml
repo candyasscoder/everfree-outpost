@@ -153,3 +153,11 @@ torch.*:
     attribution:
         Daniel Eddeland's fence post, plus the top of the torch from Curt's animated water and fire.
     derived-from: WaterAndFire_2.png, ../tiles/daneeklu_farming_tilesets/fence.png
+
+wood_wall.png: &wood-wall
+    title: Wooden Wall
+    author: Lanea Zimmerman (AKA Sharm), Nonnykins, Stuart Pernsteiner
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution: Wall texture taken from Lanea Zimmerman's wooden table.
+    derived-from: furniture.png
+wood_wall-planemap.png: *wood-wall

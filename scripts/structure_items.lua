@@ -76,6 +76,12 @@ add_structure_item('house_wall/tee', 'house_wall/tee/n/in')
 add_structure_item('house_wall/cross', 'house_wall/cross/in_in')
 add_structure_item('house_door', 'house_wall/door/in')
 
+add_structure_item('wood_wall/side', 'wood_wall/edge/horiz')
+add_structure_item('wood_wall/corner', 'wood_wall/corner/nw')
+add_structure_item('wood_wall/tee', 'wood_wall/tee/n')
+add_structure_item('wood_wall/cross', 'wood_wall/cross')
+add_structure_item('wood_door', 'wood_wall/door')
+
 add_structure_item('house_floor', 'wood_floor/center/v0')
 add_structure_item('road', 'road/center/v0')
 add_structure_item('bed')
@@ -117,6 +123,11 @@ mallet_cycle('house_wall/cross/', {
 })
 
 mallet_cycle('house_wall/door/', { 'in', 'out' })
+
+mallet_cycle('wood_wall/edge/', { 'horiz', 'vert' })
+mallet_cycle('wood_wall/corner/', { 'nw', 'ne', 'se', 'sw', })
+mallet_cycle('wood_wall/tee/', { 'n', 'e', 's', 'w', })
+
 
 
 local terrain_cycle = {

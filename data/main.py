@@ -19,6 +19,7 @@ import furniture
 import house
 import misc
 import tools
+import walls
 
 def postprocess(b):
     structure_id_map = util.assign_ids(b.structures)
@@ -86,6 +87,7 @@ def main(asset_dir, output_dir):
     house.init(asset_dir)
     misc.init(asset_dir)
     tools.init(asset_dir)
+    walls.init(asset_dir)
 
     b = builder.INSTANCE
     postprocess(b)
