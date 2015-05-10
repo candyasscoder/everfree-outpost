@@ -80,8 +80,9 @@ pub fn chat(mut eng: EngineRef, cid: ClientId, msg: String) {
     } else if msg.starts_with("/") {
         warn_on_err!(script::ScriptEngine::cb_chat_command(eng.unwrap(), cid, &*msg));
     } else {
-        if msg.len() > 100 {
+        if msg.len() > 400 {
             warn!("{:?}: bad request: chat message too long ({})", cid, msg.len());
+            return;
         }
 
         let msg_out = format!("<{}>\t{}",
