@@ -9,8 +9,16 @@ import outpost_data.block as B
 import outpost_data.item as I
 import outpost_data.recipe as R
 
-import structures
-import terrain
+import abilities
+import base
+import cave
+import dungeon
+import fence
+import forest
+import furniture
+import house
+import misc
+import tools
 
 def postprocess(b):
     structure_id_map = util.assign_ids(b.structures)
@@ -68,8 +76,17 @@ def emit_recipes(output_dir, recipes):
             R.build_client_json(recipes))
 
 def main(asset_dir, output_dir):
-    terrain.init(asset_dir)
-    structures.init(asset_dir)
+    abilities.init(asset_dir)
+    base.init(asset_dir)
+    cave.init(asset_dir)
+    dungeon.init(asset_dir)
+    fence.init(asset_dir)
+    forest.init(asset_dir)
+    furniture.init(asset_dir)
+    house.init(asset_dir)
+    misc.init(asset_dir)
+    tools.init(asset_dir)
+
     b = builder.INSTANCE
     postprocess(b)
 

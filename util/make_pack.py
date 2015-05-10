@@ -31,11 +31,11 @@ def main(src_dir, build_dir, out_file):
     add('image', 'equip_f_hat',         src('assets/sprites/equip_f_hat.png'))
 
     add('image', 'font',    build('font.png'))
-    add('url',   'items',   build('items.png'))
+    add('url',   'items',   build('data/items.png'))
 
     add('json', 'block_defs',       build('data/blocks_client.json'))
-    add('json', 'item_defs',        build('items.json'))
-    add('json', 'recipe_defs',      build('recipes.json'))
+    add('json', 'item_defs',        build('data/items_client.json'))
+    add('json', 'recipe_defs',      build('data/recipes_client.json'))
     add('json', 'template_defs',    build('data/structures_client.json'))
     add('json', 'font_metrics',     build('metrics.json'))
     add('json', 'day_night',        build('day_night.json'))

@@ -1,8 +1,10 @@
+import os
 import sys
 
 from PIL import Image
 
 from outpost_data.consts import *
+import outpost_data.images as I
 
 
 def assign_ids(objs, reserved=None):
@@ -72,6 +74,16 @@ def stack(base, *args):
         img.paste(layer, (0, 0), layer)
     return img
 
+def extract(img, pos, size=(1, 1)):
+    x, y = pos
+    w, h = size
+
+    x *= TILE_SIZE
+    y *= TILE_SIZE
+    w *= TILE_SIZE
+    h *= TILE_SIZE
+    return img.crop((x, y, x + w, y + h))
+
 
 def build_sheet(objs):
     """Build a sprite sheet for fixed-size objects.  Each object should have
@@ -96,3 +108,8 @@ def build_sheet(objs):
         sheet.paste(o.image, (x * obj_w, y * obj_h))
 
     return sheet
+
+
+def loader(asset_path, name):
+    path = os.path.join(asset_path, name)
+    return lambda name: I.load(os.path.join(path, name))

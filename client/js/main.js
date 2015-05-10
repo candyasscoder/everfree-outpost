@@ -331,12 +331,12 @@ function loadAssets(next) {
             }
             renderer.loadBlockData(BlockDef.by_id);
 
-            var items = assets['item_defs']['items'];
+            var items = assets['item_defs'];
             for (var i = 0; i < items.length; ++i) {
                 ItemDef.register(i, items[i]);
             }
 
-            var recipes = assets['recipe_defs']['recipes'];
+            var recipes = assets['recipe_defs'];
             for (var i = 0; i < recipes.length; ++i) {
                 RecipeDef.register(i, recipes[i]);
             }

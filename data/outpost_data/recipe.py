@@ -1,11 +1,12 @@
 from outpost_data.consts import *
+from outpost_data.util import err
 
 
 class RecipeDef(object):
     def __init__(self, name, ui_name, station, inputs, outputs):
         self.name = name
         self.ui_name = ui_name
-        self.station_name = station_name
+        self.station_name = station
         self.input_names = tuple(inputs.items())
         self.output_names = tuple(outputs.items())
 
@@ -23,8 +24,8 @@ def resolve_item_ids(recipes, item_id_map):
         return id
 
     for r in recipes:
-        r.input_ids = ((go(r.name, k), v) for k,v in r.input_names.items())
-        r.output_ids = ((go(r.name, k), v) for k,v in r.output_names.items())
+        r.input_ids = tuple((go(r.name, k), v) for k,v in r.input_names)
+        r.output_ids = tuple((go(r.name, k), v) for k,v in r.output_names)
 
 def resolve_structure_ids(recipes, structure_id_map):
     for r in recipes:
@@ -37,8 +38,8 @@ def build_client_json(recipes):
         return {
                 'ui_name': r.ui_name,
                 'station': r.station_id,
-                'inputs': dict(r.input_ids),
-                'outputs': dict(r.output_ids),
+                'inputs': r.input_ids,
+                'outputs': r.output_ids,
                 }
     return list(convert(r) for r in recipes)
 
@@ -47,7 +48,7 @@ def build_server_json(recipes):
         return {
                 'name': r.name,
                 'station': r.station_id,
-                'inputs': dict(r.input_ids),
-                'outputs': dict(r.output_ids),
+                'inputs': r.input_ids,
+                'outputs': r.output_ids,
                 }
     return list(convert(r) for r in recipes)

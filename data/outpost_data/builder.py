@@ -1,4 +1,4 @@
-from outpost_data import structure, tile, block, item
+from outpost_data import structure, tile, block, item, recipe
 
 
 class Objects(object):
@@ -14,14 +14,28 @@ class Objects(object):
         result.x = dict((k, v) for (k, v) in self.x.items() if pred(v))
         return result
 
+    def merge(self, other):
+        assert(type(self) is type(other))
+        for k, v in other.x.items():
+            self.x[k] = v
+
     def _foreach(self, f):
         for v in self.x.values():
             f(v)
 
+    def __getitem__(self, k):
+        return self.x[k]
+
+    def unwrap(self):
+        assert len(self.x) == 1
+        return next(iter(self.x.values()))
+
 
 class Tiles(Objects):
     def create(self, name, image):
-        self._add(tile.TileDef(name, image))
+        t = tile.TileDef(name, image)
+        self._add(t)
+        self.owner.tiles.append(t)
         return self
 
 class Blocks(Objects):
@@ -35,7 +49,9 @@ class Blocks(Objects):
             else:
                 tile_names[k] = self.owner.gen_tile('%s/%s' % (name, k), v)
 
-        self._add(block.BlockDef(name, shape, tile_names))
+        b = block.BlockDef(name, shape, tile_names)
+        self._add(b)
+        self.owner.blocks.append(b)
         return self
 
     def light(self, color, radius):
@@ -44,7 +60,9 @@ class Blocks(Objects):
 
 class Structures(Objects):
     def create(self, name, image, depthmap, shape, layer):
-        self._add(structure.StructureDef(name, image, depthmap, shape, layer))
+        s = structure.StructureDef(name, image, depthmap, shape, layer)
+        self._add(s)
+        self.owner.structures.append(s)
         return self
 
     def light(self, pos, color, radius):
@@ -53,18 +71,22 @@ class Structures(Objects):
 
 class Items(Objects):
     def create(self, name, ui_name, image):
-        self._add(item.ItemDef(name, ui_name, image))
+        i = item.ItemDef(name, ui_name, image)
+        self._add(i)
+        self.owner.items.append(i)
         return self
 
     def recipe(self, station, inputs, count=1):
         def go(i):
-            self.owner.mk_recipe(r.name, r.ui_name, station, inputs, {r.name: count})
+            self.owner.mk_recipe(i.name, i.ui_name, station, inputs, {i.name: count})
         self._foreach(go)
         return self
 
 class Recipes(Objects):
     def create(self, name, ui_name, station, inputs, outputs):
-        self._add(structure.StructureDef(name, ui_name, station, inputs, outputs))
+        r = recipe.RecipeDef(name, ui_name, station, inputs, outputs)
+        self._add(r)
+        self.owner.recipes.append(r)
         return self
 
 
@@ -122,7 +144,7 @@ class Builder(object):
 
 
     def recipe_builder(self):
-        return recipes(self)
+        return Recipes(self)
 
     def mk_recipe(self, *args, **kwargs):
         return self.recipe_builder().create(*args, **kwargs)

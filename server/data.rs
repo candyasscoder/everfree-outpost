@@ -171,8 +171,8 @@ pub struct ItemData {
 
 impl ItemData {
     pub fn from_json(json: Json) -> Result<ItemData, ParseError> {
-        let items = get_convert!(json, "items", as_array,
-                                  "at top level");
+        let items = expect!(json.as_array(),
+                                "found non-array at top level");
 
         let mut names = Vec::with_capacity(items.len());
         let mut name_to_id = HashMap::new();
@@ -223,8 +223,8 @@ pub struct RecipeData {
 
 impl RecipeData {
     pub fn from_json(json: Json) -> Result<RecipeData, ParseError> {
-        let recipes_json = get_convert!(json, "recipes", as_array,
-                                        "at top level");
+        let recipes_json = expect!(json.as_array(),
+                                "found non-array at top level");
 
         let mut recipes = Vec::with_capacity(recipes_json.len());
         let mut name_to_id = HashMap::new();

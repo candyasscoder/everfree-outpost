@@ -221,53 +221,6 @@ $(BUILD_NATIVE)/wrapper: $(WRAPPER_OBJS)
 
 # Rules for misc files
 
-$(BUILD)/tiles.png \
-$(BUILD)/tiles.json \
-$(BUILD)/blocks-server.json \
-$(BUILD)/items.png \
-$(BUILD)/items.json \
-$(BUILD)/items-server.json \
-$(BUILD)/tile-assets-used.txt: \
-		$(SRC)/data/tiles.yaml \
-		$(SRC)/data/blocks.yaml \
-		$(SRC)/data/items.yaml \
-		$(SRC)/util/process_tiles.py \
-		$(wildcard $(SRC)/util/process_tiles/*.py)
-	$(PYTHON3) $(SRC)/util/process_tiles.py \
-		--tile-yaml=$(SRC)/data/tiles.yaml \
-		--tile-image-dir=$(SRC)/assets/tiles \
-		--block-yaml=$(SRC)/data/blocks.yaml \
-		--item-yaml=$(SRC)/data/items.yaml \
-		--block-atlas-image-out=$(BUILD)/tiles.png \
-		--item-atlas-image-out=$(BUILD)/items.png \
-		--client-block-json-out=$(BUILD)/tiles.json \
-		--server-block-json-out=$(BUILD)/blocks-server.json \
-		--client-item-json-out=$(BUILD)/items.json \
-		--server-item-json-out=$(BUILD)/items-server.json \
-		--asset-list-out=$(BUILD)/tile-assets-used.txt
-
-$(BUILD)/objects.json: \
-		$(SRC)/data/objects.yaml \
-		$(SRC)/util/process_tiles.py \
-		$(wildcard $(SRC)/util/process_tiles/*.py)
-	$(PYTHON3) $(SRC)/util/process_tiles.py \
-		--template-yaml=$(SRC)/data/objects.yaml \
-		--server-template-json-out=$(BUILD)/objects.json
-
-$(BUILD)/recipes.json \
-$(BUILD)/recipes-server.json: \
-		$(SRC)/data/recipes.yaml \
-		$(SRC)/data/items.yaml \
-		$(SRC)/data/objects.yaml \
-		$(SRC)/util/process_tiles.py \
-		$(wildcard $(SRC)/util/process_tiles/*.py)
-	$(PYTHON3) $(SRC)/util/process_tiles.py \
-		--item-yaml=$(SRC)/data/items.yaml \
-		--template-yaml=$(SRC)/data/objects.yaml \
-		--recipe-yaml=$(SRC)/data/recipes.yaml \
-		--client-recipe-json-out=$(BUILD)/recipes.json \
-		--server-recipe-json-out=$(BUILD)/recipes-server.json
-
 $(BUILD)/font.png \
 $(BUILD)/metrics.json: \
 		$(SRC)/util/process_font.py \
@@ -314,7 +267,9 @@ $(BUILD)/outpost.pack: \
 
 $(BUILD)/data/stamp \
 $(BUILD)/data/blocks_server.json \
-$(BUILD)/data/structures_server.json: \
+$(BUILD)/data/structures_server.json \
+$(BUILD)/data/items_server.json \
+$(BUILD)/data/recipes_server.json: \
 		$(shell find $(SRC)/data -name \*.py) \
 		$(shell find $(SRC)/assets -name \*.png)
 	mkdir -pv $(BUILD)/data
@@ -339,8 +294,8 @@ $(eval $(call BIN_FILE,		run_server.sh,		$(SRC)/util/run_server.sh))
 $(eval $(call BIN_FILE,		wrapper.py,			$(SRC)/server/wrapper.py))
 
 $(eval $(call DATA_FILE, 	blocks.json,		$(BUILD)/data/blocks_server.json))
-$(eval $(call DATA_FILE, 	items.json,			$(BUILD)/items-server.json))
-$(eval $(call DATA_FILE, 	recipes.json,		$(BUILD)/recipes.json))
+$(eval $(call DATA_FILE, 	items.json,			$(BUILD)/data/items_server.json))
+$(eval $(call DATA_FILE, 	recipes.json,		$(BUILD)/data/recipes_server.json))
 $(eval $(call DATA_FILE, 	structures.json,	$(BUILD)/data/structures_server.json))
 $(eval $(call WWW_FILE, 	credits.html,		$(BUILD)/credits.html))
 $(eval $(call WWW_FILE, 	instructions.html,	$(SRC)/client/instructions.html))
