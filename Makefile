@@ -238,9 +238,8 @@ $(BUILD)/%.debug.html: $(SRC)/client/%.html \
 
 $(BUILD)/credits.html: $(SRC)/util/gen_credits.py \
 		$(SRC)/assets/used.txt \
-		$(BUILD)/tile-assets-used.txt \
 		$(BUILD)/data/used_assets.txt
-	cat $(SRC)/assets/used.txt $(BUILD)/tile-assets-used.txt $(BUILD)/data/used_assets.txt | \
+	cat $(SRC)/assets/used.txt $(BUILD)/data/used_assets.txt | \
 		grep -vE '(\.frag|\.vert)$$' |\
 		$(PYTHON3) $(SRC)/util/gen_credits.py >$@.tmp
 	mv -v $@.tmp $@
@@ -254,9 +253,10 @@ $(BUILD)/day_night.json: $(SRC)/util/gen_day_night.py $(SRC)/assets/misc/day_nig
 
 # Rules for client asset pack
 
-PACK_GEN_FILES = tiles.png font.png items.png \
-				 tiles.json items.json recipes.json metrics.json \
-				 data/structures_client.json day_night.json
+# List of generated files that go in the client pack.  Does *not* include
+# anything under $(BUILD)/data - those are handled by the dependency on
+# $(BUILD)/data/stamp.
+PACK_GEN_FILES = font.png metrics.json day_night.json
 
 $(BUILD)/outpost.pack: \
 		$(SRC)/util/make_pack.py \
