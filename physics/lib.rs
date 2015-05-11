@@ -14,7 +14,7 @@ use core::prelude::*;
 use core::cmp;
 use core::num::SignedInt;
 
-use v3::{Vn, V3, Axis, DirAxis, Region, scalar};
+use v3::{Vn, V3, Axis, Region, scalar};
 
 
 pub mod v3;
@@ -103,6 +103,217 @@ pub trait ShapeSource {
 }
 
 
+pub fn collide<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> (V3, i32) {
+    if velocity == scalar(0) {
+        return (pos, core::i32::MAX);
+    }
+
+    let end_pos = walk_path(chunk, pos, size, velocity, GroundStep { size: size });
+
+    // Find the actual velocity after adjustment
+    let offset = end_pos - pos;
+    let abs = offset.abs();
+    let max = cmp::max(cmp::max(abs.x, abs.y), abs.z);
+    let t =
+        if max == 0 {
+            0
+        } else if max == abs.x {
+            offset.x * 1000 / velocity.x
+        } else if max == abs.y {
+            offset.y * 1000 / velocity.y
+        } else {
+            offset.z * 1000 / velocity.z
+        };
+
+    (end_pos, t)
+}
+
+
+trait StepCallback {
+    fn check<S: ShapeSource>(&self, chunk: &S, pos: V3, dir: V3) -> Collision;
+}
+
+const AXIS_X: u8 = 1;
+const AXIS_Y: u8 = 2;
+const AXIS_Z: u8 = 4;
+
+#[derive(PartialEq, Eq, Debug)]
+pub enum Collision {
+    None,
+    Blocked(u8),
+    Ramp,
+}
+
+fn walk_path<S, CB>(chunk: &S, start_pos: V3, _size: V3, velocity: V3,
+                    cb: CB) -> V3
+        where S: ShapeSource,
+              CB: StepCallback {
+    let dir = velocity.signum();
+    let mut pos = start_pos;
+
+    let mut last_adj_dir = dir;
+
+    for i in 0..500 {
+        // Try up to 4 times to find a direction we can move in.
+        let mut adj_dir = dir;
+        for _ in 0..4 {
+            let collision = cb.check(chunk, pos + adj_dir, adj_dir);
+            if collision == Collision::None {
+                break;
+            } else {
+                adj_dir = adjust_direction(adj_dir, collision);
+                if adj_dir == scalar(0) {
+                    break;
+                }
+            }
+        }
+
+        // Stop if the adjustment changes, sending us in a new direction.  Otherwise, stop if
+        // progress is completely blocked.
+        if (adj_dir != last_adj_dir && i != 0) || adj_dir == scalar(0) {
+            break;
+        }
+
+        last_adj_dir = adj_dir;
+        pos = pos + adj_dir;
+    }
+
+    pos
+}
+
+fn adjust_direction(dir: V3, collision: Collision) -> V3 {
+    use self::Collision::*;
+    match collision {
+        None => dir,
+        Blocked(axes) => {
+            let mut dir = dir;
+            if axes & AXIS_X != 0 {
+                dir.x = 0;
+            }
+            if axes & AXIS_Y != 0 {
+                dir.y = 0;
+            }
+            if axes & AXIS_Z != 0 {
+                dir.z = 0;
+            }
+            dir
+        },
+        Ramp => dir.with(Axis::Z, 1),
+    }
+}
+
+
+struct GroundStep {
+    size: V3,
+}
+
+impl StepCallback for GroundStep {
+    fn check<S: ShapeSource>(&self, chunk: &S, pos: V3, dir: V3) -> Collision {
+        let bounds = Region::new(pos, pos + self.size);
+        // `bounds` converted to block coordinates.
+        let bounds_tiles = bounds.div_round(TILE_SIZE);
+
+        let corner = pos + dir.is_positive() * (self.size - scalar(1));
+
+        // Divide the space into sections, like this but in 3 dimensions:
+        //
+        //    +-+-----+
+        //    |3| 2   |
+        //    +-+-----+
+        //    | |     |
+        //    |1| 0   |
+        //    | |     |
+        //    | |     |
+        //    | |     |
+        //    +-+-----+
+        //
+        // The edge and corner sections face in the direction of motion.  This diagrams shows the
+        // version for the -x,-y direction.  The section number is a bitfield indicating which axes
+        // are 'outside' (the 1-px region in the direction of motion) vs 'inside' (everything else).
+
+        // Bitfield indicating which sections are collided with terrain.
+        let mut blocked_sections = 0_u8;
+
+        for tile_pos in bounds_tiles.points() {
+            let shape = chunk.get_shape(tile_pos);
+
+            let tile_base_px = tile_pos * scalar(TILE_SIZE);
+            let tile_bounds = Region::new(tile_base_px, tile_base_px + scalar(TILE_SIZE));
+            let overlap = bounds.intersect(tile_bounds);
+            if collide_tile(shape, overlap - tile_base_px) {
+                let x_edge = overlap.min.x <= corner.x && corner.x < overlap.max.x;
+                let y_edge = overlap.min.y <= corner.y && corner.y < overlap.max.y;
+                let z_edge = overlap.min.z <= corner.z && corner.z < overlap.max.z;
+
+                let x_mid = overlap.size().x >= (1 + x_edge as i32);
+                let y_mid = overlap.size().y >= (1 + y_edge as i32);
+                let z_mid = overlap.size().z >= (1 + z_edge as i32);
+
+                let key = ((x_edge as u8) << 0) |
+                          ((y_edge as u8) << 1) |
+                          ((z_edge as u8) << 2) |
+                          ((x_mid as u8) << 3) |
+                          ((y_mid as u8) << 4) |
+                          ((z_mid as u8) << 5);
+
+                blocked_sections |= BLOCKED_SECTIONS_TABLE[key as usize];
+            }
+        }
+
+        // TODO: check for appropriate floor.
+
+        if blocked_sections == 0 {
+            Collision::None
+        } else if blocked_sections & (1 << 0) != 0 {
+            // The correct thing to return here is actually Blocked(7), but that makes it too easy
+            // for players to get stuck by placing structures that overlap their current position.
+            Collision::None
+        } else {
+            Collision::Blocked(BLOCKING_TABLE[blocked_sections as usize])
+        }
+    }
+}
+
+fn collide_tile(shape: Shape, _overlap: Region) -> bool {
+    shape == Shape::Solid
+}
+
+
+// Generated 2015-05-11 09:04:28 by util/gen_physics_tables.py
+const BLOCKED_SECTIONS_TABLE: [u8; 64] = [
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0xc0,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0xa0, 0x00, 0x00, 0x00, 0x00, 0x10, 0x30, 0x50, 0xf0,
+    0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x88, 0x00, 0x00, 0x04, 0x0c, 0x00, 0x00, 0x44, 0xcc,
+    0x00, 0x02, 0x00, 0x0a, 0x00, 0x22, 0x00, 0xaa, 0x01, 0x03, 0x05, 0x0f, 0x11, 0x33, 0x55, 0xff,
+];
+
+// Generated 2015-05-11 09:26:13 by util/gen_physics_tables.py
+const BLOCKING_TABLE: [u8; 256] = [
+    0x00, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07, 0x03, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07,
+    0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07, 0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07,
+    0x05, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07, 0x07, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07,
+    0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07, 0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07,
+    0x06, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07, 0x07, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07,
+    0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07, 0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07,
+    0x07, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07, 0x07, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07,
+    0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07, 0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07,
+    0x07, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07, 0x03, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07,
+    0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07, 0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07,
+    0x05, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07, 0x07, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07,
+    0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07, 0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07,
+    0x06, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07, 0x07, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07,
+    0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07, 0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07,
+    0x07, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07, 0x07, 0x07, 0x01, 0x07, 0x02, 0x07, 0x03, 0x07,
+    0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07, 0x04, 0x07, 0x05, 0x07, 0x06, 0x07, 0x07, 0x07,
+];
+
+
+
+
+
+
+/*  old version
+
 trait StepCallback {
     fn check<S: ShapeSource>(&self, chunk: &S, pos: V3, dir_axis: DirAxis) -> bool;
 
@@ -190,38 +401,6 @@ impl StepCallback for CheckRegionSlide {
 }
 
 
-pub fn collide<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> (V3, i32) {
-    if velocity == scalar(0) {
-        return (pos, core::i32::MAX);
-    }
-
-    let mut velocity = velocity;
-
-    let mut end_pos = walk_path(chunk, pos, size, velocity, CheckRegion::new(size));
-    if end_pos == pos {
-        let blocked = blocked_sides(chunk, pos, size, velocity);
-        if blocked != velocity.signum() {
-            velocity = velocity * blocked.is_zero();
-            end_pos = walk_path(chunk, pos, size, velocity,
-                                CheckRegionSlide::new(size, blocked));
-        }
-    }
-
-
-    let abs = velocity.abs();
-    let max = cmp::max(cmp::max(abs.x, abs.y), abs.z);
-    let t =
-        if max == abs.x {
-            (end_pos.x - pos.x) * 1000 / velocity.x
-        } else if max == abs.y {
-            (end_pos.y - pos.y) * 1000 / velocity.y
-        } else {
-            (end_pos.z - pos.z) * 1000 / velocity.z
-        };
-
-    (end_pos, t)
-}
-
 
 fn blocked_sides<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> V3 {
     let neg = velocity.is_negative();
@@ -273,51 +452,8 @@ fn check_region<S: ShapeSource>(chunk: &S, new: Region) -> bool {
     true
 }
 
-fn walk_path<S, CB>(chunk: &S, start_pos: V3, _size: V3, velocity: V3,
-                    cb: CB) -> V3
-        where S: ShapeSource,
-              CB: StepCallback {
-    let mag = velocity.abs();
-    let dir = velocity.signum();
-    let mut accum = V3::new(0, 0, 0);
-    let step_size = cmp::max(cmp::max(mag.x, mag.y), mag.z);
+*/
 
-    let mut last_pos = start_pos;
 
-    for _ in 0..500 {
-        accum = accum + mag;
-        let mut pos = last_pos;
 
-        // I tried using an unboxed closure for most of this instead of a macro, but it caused a
-        // 2.5x slowdown due to LLVM not inlining the closure body.  There's no way I could find to
-        // give a closure body #[inline(always)], so I used this macro instead.
-        macro_rules! maybe_step_axis {
-            ($AXIS:ident) => {{
-                let axis = Axis::$AXIS;
-                if accum.get(axis) >= step_size {
-                    // This is simply `accum.$axis -= step_size`.
-                    accum = accum.with(axis, accum.get(axis) - step_size);
 
-                    let neg = dir.get(axis) < 0;
-                    if !cb.check(chunk, pos, (axis, neg)) {
-                        break;
-                    }
-
-                    pos = pos + dir.only(axis);
-                }}
-            };
-        }
-
-        maybe_step_axis!(X);
-        maybe_step_axis!(Y);
-        maybe_step_axis!(Z);
-
-        last_pos = pos;
-
-        if !cb.check_post(chunk, last_pos) {
-            break;
-        }
-    }
-
-    last_pos
-}
