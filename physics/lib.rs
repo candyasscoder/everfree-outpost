@@ -207,7 +207,7 @@ fn adjust_direction(dir: V3, collision: Collision) -> V3 {
             dir
         },
         RampUp => dir.with(Axis::Z, 1),
-        RampDown => dir.with(Axis::Z, 1),
+        RampDown => dir.with(Axis::Z, -1),
     }
 }
 
@@ -298,6 +298,7 @@ impl StepCallback for GroundStep {
         // 1) `blocked_sections`-like flags indicating which regions have no floor below.
         // 2) Z-coord of the topmost ramp section below the player's outline
 
+        let near_floor = pos.z <= bounds_tiles.min.z * TILE_SIZE + 1;
         let mut missing_floor = 0_u8;
         // -2 because -1 could theoretically trigger the `ramp_top == pos.z - 1` case when
         // `pos.z == 0`.
@@ -307,7 +308,7 @@ impl StepCallback for GroundStep {
             let shape = chunk.get_shape(tile_pos.extend(bounds_tiles.min.z));
 
             // Floor only counts if the player is directly on the surface of the floor.
-            if shape == Shape::Floor && pos.z == bounds_tiles.min.z * TILE_SIZE {
+            if shape == Shape::Floor && near_floor {
                 continue;
             }
 
@@ -340,9 +341,17 @@ impl StepCallback for GroundStep {
         }
 
         debug!("{:?}: ramp_top = {}", pos, ramp_top);
-        if ramp_top == pos.z && check_ramp_continuity(chunk, bounds) {
-            debug!("ON A RAMP!");
-            return Collision::None;
+        if ramp_top == pos.z || ramp_top == pos.z - 1 {
+            let cont = check_ramp_continuity(chunk, bounds);
+            let above = ramp_top == pos.z - 1;
+            if cont && !above {
+                return Collision::None;
+            } else if cont && above {
+                return Collision::RampDown;
+            } else {    // !cont
+                // TODO: be more specific based on which side had the discontinuity
+                return Collision::Blocked(7);
+            }
         }
 
         if missing_floor != 0 {
@@ -351,6 +360,15 @@ impl StepCallback for GroundStep {
             if axes != 0 {
                 return Collision::Blocked(axes);
             }
+        }
+
+        // Allow the player to step from z=1 to z=0 if there is floor available.  This lets the
+        // player step down from a ramp onto the floor without requiring a check of adjacent tiles.
+        // (Pressing "down" at y=31 z=1 will try to move to y=32 z=1, which is 1px above the
+        // ground, and not above any ramp-related tiles.  But we notice there is floor at y=32 z=0,
+        // so we suggest RampDown.)
+        if near_floor && pos.z == bounds_tiles.min.z * TILE_SIZE + 1 {
+            return Collision::RampDown;
         }
 
         Collision::None
