@@ -315,7 +315,10 @@ impl StepCallback for GroundStep {
             let tile_bounds = Region::new(tile_base_px, tile_base_px + scalar(TILE_SIZE));
             let overlap = bounds.reduce().intersect(tile_bounds);
 
-            let key = overlap_key(overlap.extend(0, 1),
+            // `extend(0, 2)` to make the `overlap` argument cover both `z_edge` (z == 0) and
+            // `z_mid`.  (Basically, there is no actual `z` information for "missing floor"
+            // collisions, so just pretend all z-positions are colliding.)
+            let key = overlap_key(overlap.extend(0, 2),
                                   corner.with(Axis::Z, 0));
             missing_floor |= BLOCKED_SECTIONS_TABLE[key as usize];
 
@@ -343,7 +346,7 @@ impl StepCallback for GroundStep {
         }
 
         if missing_floor != 0 {
-            let index = adjust_blocked(missing_floor, axis_mask & !AXIS_Z) as usize;
+            let index = adjust_blocked(missing_floor, axis_mask) as usize;
             let axes = BLOCKING_TABLE[index];
             if axes != 0 {
                 return Collision::Blocked(axes);
