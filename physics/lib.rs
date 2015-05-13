@@ -63,6 +63,7 @@ impl Shape {
             0 => Empty,
             1 => Floor,
             2 => Solid,
+            6 => RampN,
             // TODO: add ramp variants once they are actually supported
             _ => return None,
         };

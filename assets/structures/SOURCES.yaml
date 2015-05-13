@@ -161,3 +161,10 @@ wood_wall.png: &wood-wall
     attribution: Wall texture taken from Lanea Zimmerman's wooden table.
     derived-from: furniture.png
 wood_wall-planemap.png: *wood-wall
+
+stair.png: &stair
+    title: LPC Stairs
+    author: Lanea Zimmerman (AKA Sharm)
+    license: CC-BY-SA 3.0 / GPL 3.0
+    derived-from: ../tiles/lpc-base-tiles/stairs.png
+stair-planemap.png: *stair
