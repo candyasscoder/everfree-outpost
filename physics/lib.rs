@@ -14,7 +14,7 @@ use core::prelude::*;
 use core::cmp;
 use core::num::SignedInt;
 
-use v3::{Vn, V3, Axis, Region, scalar};
+use v3::{Vn, V3, V2, Axis, Region, scalar};
 
 
 pub mod v3;
@@ -53,7 +53,6 @@ pub enum Shape {
     RampW = 4,
     RampS = 5,
     RampN = 6,
-    RampTop = 7,
 }
 
 impl Shape {
@@ -80,8 +79,7 @@ impl Shape {
 
     pub fn is_empty(&self) -> bool {
         match *self {
-            Shape::Empty |
-            Shape::RampTop => true,
+            Shape::Empty => true,
             _ => false,
         }
     }
@@ -112,18 +110,13 @@ pub fn collide<S: ShapeSource>(chunk: &S, pos: V3, size: V3, velocity: V3) -> (V
     let end_pos = walk_path(chunk, pos, size, velocity, GroundStep { size: size });
 
     // Find the actual velocity after adjustment
-    let offset = end_pos - pos;
-    let abs = offset.abs();
-    let max = cmp::max(cmp::max(abs.x, abs.y), abs.z);
+    let velocity_mag = velocity.abs().max();
+    let offset_mag = (end_pos - pos).abs().max();
     let t =
-        if max == 0 {
+        if velocity_mag == 0 {
             0
-        } else if max == abs.x {
-            offset.x * 1000 / velocity.x
-        } else if max == abs.y {
-            offset.y * 1000 / velocity.y
         } else {
-            offset.z * 1000 / velocity.z
+            offset_mag * 1000 / velocity_mag
         };
 
     (end_pos, t)
@@ -142,7 +135,8 @@ const AXIS_Z: u8 = 4;
 pub enum Collision {
     None,
     Blocked(u8),
-    Ramp,
+    RampUp,
+    RampDown,
 }
 
 fn walk_path<S, CB>(chunk: &S, start_pos: V3, _size: V3, velocity: V3,
@@ -157,16 +151,29 @@ fn walk_path<S, CB>(chunk: &S, start_pos: V3, _size: V3, velocity: V3,
     for i in 0..500 {
         // Try up to 4 times to find a direction we can move in.
         let mut adj_dir = dir;
+        let mut ok = false;
         for _ in 0..4 {
             let collision = cb.check(chunk, pos + adj_dir, adj_dir);
             if collision == Collision::None {
+                ok = true;
                 break;
             } else {
-                adj_dir = adjust_direction(adj_dir, collision);
+                let new_adj_dir = adjust_direction(adj_dir, collision);
+                if new_adj_dir == adj_dir {
+                    // Made no progress.  Looping more is useless.  Leave `ok == false`.
+                    break;
+                }
+                adj_dir = new_adj_dir;
                 if adj_dir == scalar(0) {
+                    // It's always okay to not move at all.
+                    ok = true;
                     break;
                 }
             }
+        }
+
+        if !ok {
+            break;
         }
 
         // Stop if the adjustment changes, sending us in a new direction.  Otherwise, stop if
@@ -199,7 +206,8 @@ fn adjust_direction(dir: V3, collision: Collision) -> V3 {
             }
             dir
         },
-        Ramp => dir.with(Axis::Z, 1),
+        RampUp => dir.with(Axis::Z, 1),
+        RampDown => dir.with(Axis::Z, 1),
     }
 }
 
@@ -239,6 +247,10 @@ impl StepCallback for GroundStep {
         // Bitfield indicating which sections are collided with terrain.
         let mut blocked_sections = 0_u8;
 
+        // Counts of the number of collided tiles of various types.
+        let mut hit_tiles = 0;
+        let mut hit_ramps = 0;
+
         for tile_pos in bounds_tiles.points() {
             let shape = chunk.get_shape(tile_pos);
 
@@ -246,21 +258,12 @@ impl StepCallback for GroundStep {
             let tile_bounds = Region::new(tile_base_px, tile_base_px + scalar(TILE_SIZE));
             let overlap = bounds.intersect(tile_bounds);
             if collide_tile(shape, overlap - tile_base_px) {
-                let x_edge = overlap.min.x <= corner.x && corner.x < overlap.max.x;
-                let y_edge = overlap.min.y <= corner.y && corner.y < overlap.max.y;
-                let z_edge = overlap.min.z <= corner.z && corner.z < overlap.max.z;
+                hit_tiles += 1;
+                if shape.is_ramp() {
+                    hit_ramps += 1;
+                }
 
-                let x_mid = overlap.size().x >= (1 + x_edge as i32);
-                let y_mid = overlap.size().y >= (1 + y_edge as i32);
-                let z_mid = overlap.size().z >= (1 + z_edge as i32);
-
-                let key = ((x_edge as u8) << 0) |
-                          ((y_edge as u8) << 1) |
-                          ((z_edge as u8) << 2) |
-                          ((x_mid as u8) << 3) |
-                          ((y_mid as u8) << 4) |
-                          ((z_mid as u8) << 5);
-
+                let key = overlap_key(overlap, corner);
                 blocked_sections |= BLOCKED_SECTIONS_TABLE[key as usize];
             }
         }
@@ -268,9 +271,16 @@ impl StepCallback for GroundStep {
         // If blocked_sections is 0 (nothing blocked) or 1 (only section #0 blocked), then
         // continue.  If anything else is blocked, return that status.
         if blocked_sections != 0 {
-            let axes = BLOCKING_TABLE[blocked_sections as usize];
-            if axes & axis_mask != 0 {
-                return Collision::Blocked(axes);
+            let index = adjust_blocked(blocked_sections, axis_mask) as usize;
+            let axes = BLOCKING_TABLE[index];
+            debug!("{:?}: collision: {} / {} ramps, {} / {} axes, {:x} blocked",
+                   pos, hit_ramps, hit_tiles, axes, axis_mask, blocked_sections);
+            if axes != 0 {
+                if hit_ramps == hit_tiles {
+                    return Collision::RampUp;
+                } else {
+                    return Collision::Blocked(axes);
+                }
             }
         }
 
@@ -289,38 +299,53 @@ impl StepCallback for GroundStep {
         // 2) Z-coord of the topmost ramp section below the player's outline
 
         let mut missing_floor = 0_u8;
-        let mut ramp_top = -2;  // Not a legal value for `pos.z`, nor for `pos.z - 1`.
+        // -2 because -1 could theoretically trigger the `ramp_top == pos.z - 1` case when
+        // `pos.z == 0`.
+        let mut ramp_top = -2; 
 
         for tile_pos in bounds_tiles.reduce().points() {
             let shape = chunk.get_shape(tile_pos.extend(bounds_tiles.min.z));
 
-            if shape != Shape::Floor {
-                let tile_base_px = tile_pos * scalar(TILE_SIZE);
-                let tile_bounds = Region::new(tile_base_px, tile_base_px + scalar(TILE_SIZE));
-                let overlap = bounds.reduce().intersect(tile_bounds);
+            // Floor only counts if the player is directly on the surface of the floor.
+            if shape == Shape::Floor && pos.z == bounds_tiles.min.z * TILE_SIZE {
+                continue;
+            }
 
-                let x_edge = overlap.min.x <= corner.x && corner.x < overlap.max.x;
-                let y_edge = overlap.min.y <= corner.y && corner.y < overlap.max.y;
-                let z_edge = true;
+            let tile_base_px = tile_pos * scalar(TILE_SIZE);
+            let tile_bounds = Region::new(tile_base_px, tile_base_px + scalar(TILE_SIZE));
+            let overlap = bounds.reduce().intersect(tile_bounds);
 
-                let x_mid = overlap.size().x >= (1 + x_edge as i32);
-                let y_mid = overlap.size().y >= (1 + y_edge as i32);
-                let z_mid = true;
+            let key = overlap_key(overlap.extend(0, 1),
+                                  corner.with(Axis::Z, 0));
+            missing_floor |= BLOCKED_SECTIONS_TABLE[key as usize];
 
-                let key = ((x_edge as u8) << 0) |
-                          ((y_edge as u8) << 1) |
-                          ((z_edge as u8) << 2) |
-                          ((x_mid as u8) << 3) |
-                          ((y_mid as u8) << 4) |
-                          ((z_mid as u8) << 5);
-
-                missing_floor |= BLOCKED_SECTIONS_TABLE[key as usize];
+            if shape.is_ramp() {
+                debug!("object at {:?} is a ramp", tile_pos.extend(bounds_tiles.min.z));
+                let new_top = max_altitude(shape, overlap - tile_base_px) +
+                        bounds_tiles.min.z * TILE_SIZE;
+                ramp_top = cmp::max(new_top, ramp_top);
+            } else if shape == Shape::Empty && bounds_tiles.min.z > 0 {
+                debug!("not a ramp, but checking below...");
+                let shape_below = chunk.get_shape(tile_pos.extend(bounds_tiles.min.z - 1));
+                if shape_below.is_ramp() {
+                    debug!("object below at {:?} is a ramp", tile_pos.extend(bounds_tiles.min.z - 1));
+                    let new_top = max_altitude(shape_below, overlap - tile_base_px) +
+                            (bounds_tiles.min.z - 1) * TILE_SIZE;
+                    ramp_top = cmp::max(new_top, ramp_top);
+                }
             }
         }
 
+        debug!("{:?}: ramp_top = {}", pos, ramp_top);
+        if ramp_top == pos.z && check_ramp_continuity(chunk, bounds) {
+            debug!("ON A RAMP!");
+            return Collision::None;
+        }
+
         if missing_floor != 0 {
-            let axes = BLOCKING_TABLE[missing_floor as usize];
-            if axes & axis_mask != 0 {
+            let index = adjust_blocked(missing_floor, axis_mask & !AXIS_Z) as usize;
+            let axes = BLOCKING_TABLE[index];
+            if axes != 0 {
                 return Collision::Blocked(axes);
             }
         }
@@ -329,8 +354,161 @@ impl StepCallback for GroundStep {
     }
 }
 
-fn collide_tile(shape: Shape, _overlap: Region) -> bool {
-    shape == Shape::Solid
+fn overlap_key(overlap: Region, corner: V3) -> u8 {
+    let x_edge = overlap.min.x <= corner.x && corner.x < overlap.max.x;
+    let y_edge = overlap.min.y <= corner.y && corner.y < overlap.max.y;
+    let z_edge = overlap.min.z <= corner.z && corner.z < overlap.max.z;
+
+    let x_mid = overlap.size().x >= (1 + x_edge as i32);
+    let y_mid = overlap.size().y >= (1 + y_edge as i32);
+    let z_mid = overlap.size().z >= (1 + z_edge as i32);
+
+    ((x_edge as u8) << 0) |
+    ((y_edge as u8) << 1) |
+    ((z_edge as u8) << 2) |
+    ((x_mid as u8) << 3) |
+    ((y_mid as u8) << 4) |
+    ((z_mid as u8) << 5)
+}
+
+/// Adjust the `blocked` bitmask such that for any "uninteresting" axis (not selected by
+/// `axis_mask`), the entire span along that axis is considered `mid`.
+fn adjust_blocked(blocked: u8, axis_mask: u8) -> u8 {
+    let mut blocked = blocked;
+    if axis_mask & AXIS_X == 0 {
+        blocked = (blocked | blocked >> 1) & 0x55;
+    }
+    if axis_mask & AXIS_Y == 0 {
+        blocked = (blocked | blocked >> 2) & 0x33;
+    }
+    if axis_mask & AXIS_Z == 0 {
+        blocked = (blocked | blocked >> 4) & 0x0f;
+    }
+    blocked
+}
+
+fn collide_tile(shape: Shape, overlap: Region) -> bool {
+    use self::Shape::*;
+    match shape {
+        Empty => false,
+        // Overlap can't represent the possibility of spanning the floor plane in the z axis.
+        Floor => false,
+        Solid => true,
+        r if r.is_ramp() => overlap.min.z < max_altitude(r, overlap.reduce()),
+        _ => unreachable!(),
+    }
+}
+
+fn max_altitude(shape: Shape, overlap: Region<V2>) -> i32 {
+    use self::Shape::*;
+    match shape {
+        // TODO: not sure -1 is a good thing to return here
+        Empty => -1,
+        Floor => 0,
+        Solid => TILE_SIZE,
+        RampE => overlap.max.x,
+        RampW => TILE_SIZE - overlap.min.x,
+        RampS => overlap.max.y,
+        RampN => TILE_SIZE - overlap.min.y,
+    }
+}
+
+// TODO: update to use Region<V2>
+fn check_ramp_continuity<S: ShapeSource>(chunk: &S, region: Region) -> bool {
+    let Region { min, max } = region.div_round(TILE_SIZE);
+    let top_z = min.z;
+
+    let mut next_z_x = -1;
+    let mut next_z_y = -1;
+
+    for y in range(min.y, max.y) {
+        for x in range(min.x, max.x) {
+            // Get z-level to inspect for the current tile.
+            let (shape_here, z_here) = chunk.get_shape_below(V3::new(x, y, top_z));
+            if x > min.x && next_z_x != z_here {
+                return false;
+            } else if x == min.x && y > min.y && next_z_y != z_here {
+                return false;
+            }
+
+            // Coordinates within the tile of the intersection of the tile region and the footprint
+            // region.  That means these range from [0..32], with numbers other than 0 and 32
+            // appearing only at the edges.
+            let x0 = if x > min.x { 0 } else { region.min.x - min.x * TILE_SIZE };
+            let y0 = if y > min.y { 0 } else { region.min.y - min.y * TILE_SIZE };
+            let x1 = if x < max.x - 1 { TILE_SIZE } else { region.max.x - (max.x - 1) * TILE_SIZE};
+            let y1 = if y < max.y - 1 { TILE_SIZE } else { region.max.y - (max.y - 1) * TILE_SIZE};
+            let alt_here_11 = altitude_at_pixel(shape_here, x1, y1);
+            let look_up = alt_here_11 == TILE_SIZE && z_here < top_z;
+
+            // Check the line between this tile and the one to the east, but only the parts that
+            // lie within `region`.
+            if x < max.x - 1 {
+                let (shape_right, z_right) = adjacent_shape(chunk, x + 1, y, z_here, look_up);
+                let alt_here_10 = altitude_at_pixel(shape_here, TILE_SIZE, y0);
+                let alt_right_00 = altitude_at_pixel(shape_right, 0, y0);
+                let alt_right_01 = altitude_at_pixel(shape_right, 0, y1);
+                if z_here * TILE_SIZE + alt_here_10 != z_right * TILE_SIZE + alt_right_00 ||
+                   z_here * TILE_SIZE + alt_here_11 != z_right * TILE_SIZE + alt_right_01 {
+                    return false;
+                }
+                // Save the z that we expect to see when visiting the tile to the east.  If we see
+                // a different z, then there's a problem like this:
+                //   _ /
+                //    \_
+                // The \ ramp is properly connected to the rightmost _, but the / ramp is actually
+                // the topmost tile in that column.
+                next_z_x = z_right;
+            }
+
+            // Check the line between this tile and the one to the south.
+            if y < max.y - 1 {
+                let (shape_down, z_down) = adjacent_shape(chunk, x, y + 1, z_here, look_up);
+                let alt_here_01 = altitude_at_pixel(shape_here, x0, TILE_SIZE);
+                let alt_down_00 = altitude_at_pixel(shape_down, x0, 0);
+                let alt_down_10 = altitude_at_pixel(shape_down, x1, 0);
+                if z_here * TILE_SIZE + alt_here_01 != z_down * TILE_SIZE + alt_down_00 ||
+                   z_here * TILE_SIZE + alt_here_11 != z_down * TILE_SIZE + alt_down_10 {
+                    return false;
+                }
+                if x == min.x {
+                    next_z_y = z_down;
+                }
+            }
+        }
+    }
+
+    return true;
+
+    fn adjacent_shape<S: ShapeSource>(chunk: &S, x: i32, y: i32, z: i32,
+                                      look_up: bool) -> (Shape, i32) {
+        if look_up {
+            let s = chunk.get_shape(V3::new(x, y, z + 1));
+            if !s.is_empty() {
+                return (s, z + 1);
+            }
+        }
+
+        let s = chunk.get_shape(V3::new(x, y, z));
+        if !s.is_empty() {
+            (s, z)
+        } else {
+            (chunk.get_shape(V3::new(x, y, z - 1)), z - 1)
+        }
+    }
+}
+
+fn altitude_at_pixel(shape: Shape, x: i32, y: i32) -> i32 {
+    use self::Shape::*;
+    match shape {
+        Empty => -1,
+        Floor => 0,
+        Solid => TILE_SIZE,
+        RampE => x,
+        RampW => TILE_SIZE - x,
+        RampS => y,
+        RampN => TILE_SIZE - y,
+    }
 }
 
 
