@@ -48,9 +48,9 @@ def gen_blocking():
 
         out = 0
 
-        if mid:
-            out |= 1 | 2 | 4
-        elif x or y or z:
+        # `if mid: out |= 1 | 2 | 4` if you want any intersection with a block
+        # to prevent the player from moving.
+        if x or y or z:
             out |= 1 if x else 0
             out |= 2 if y else 0
             out |= 4 if z else 0
