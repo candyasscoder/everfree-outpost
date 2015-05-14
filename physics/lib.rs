@@ -342,15 +342,24 @@ impl StepCallback for GroundStep {
 
         debug!("{:?}: ramp_top = {}", pos, ramp_top);
         if ramp_top == pos.z || ramp_top == pos.z - 1 {
-            let cont = check_ramp_continuity(chunk, bounds);
+            let blocked = check_ramp_continuity(chunk,
+                                                bounds.reduce(),
+                                                bounds_tiles.min.z,
+                                                corner.reduce());
+
+            let index = adjust_blocked(blocked, axis_mask) as usize;
+            let axes = BLOCKING_TABLE[index];
+            let cont = axes == 0;
+
+            debug!("{:?}: blocked sections: {:x}, axes: {}", pos, blocked, axes);
+
             let above = ramp_top == pos.z - 1;
             if cont && !above {
                 return Collision::None;
             } else if cont && above {
                 return Collision::RampDown;
             } else {    // !cont
-                // TODO: be more specific based on which side had the discontinuity
-                return Collision::Blocked(7);
+                return Collision::Blocked(axes | AXIS_Z);
             }
         }
 
@@ -435,71 +444,106 @@ fn max_altitude(shape: Shape, overlap: Region<V2>) -> i32 {
 }
 
 // TODO: update to use Region<V2>
-fn check_ramp_continuity<S: ShapeSource>(chunk: &S, region: Region) -> bool {
-    let Region { min, max } = region.div_round(TILE_SIZE);
-    let top_z = min.z;
+fn check_ramp_continuity<S: ShapeSource>(chunk: &S,
+                                         region: Region<V2>,
+                                         top_z: i32,
+                                         corner: V2) -> u8 {
+    let region_tiles = region.div_round(TILE_SIZE);
+    let Region { min, max } = region_tiles;
 
     let mut next_z_x = -1;
     let mut next_z_y = -1;
 
-    for y in range(min.y, max.y) {
-        for x in range(min.x, max.x) {
-            // Get z-level to inspect for the current tile.
-            let (shape_here, z_here) = chunk.get_shape_below(V3::new(x, y, top_z));
-            if x > min.x && next_z_x != z_here {
-                return false;
-            } else if x == min.x && y > min.y && next_z_y != z_here {
-                return false;
+    //   |   |   |   |
+    //   |   |   |   |
+    // --+---+---+---+--
+    //   |   |   |   |
+    //   | *-*---*-* |
+    //   | | |   | | |
+    // --+-*-*---*-*-+--
+    //   | | |   | | |
+    //   | | |   | | |
+    //   | | |   | | |
+    // --+-*-*---*-*-+--
+    //   | | |   | | |
+    //   | *-*---*-* |
+    //   |   |   |   |
+    // --+---+---+---+--
+    //   |   |   |   |
+    //   |   |   |   |
+    //
+    // The input `region` lies somewhere over the tile grid.  We want to know if the ramp height is
+    // continuous across every interior line segment within the region.  That is, for each segment
+    // between *s (except those that make up the border of the region), for each of the two
+    // endpoints, the altitude should be the same when measured in the tile to each side of the
+    // line (for a horizontal line, the tile above and the tile below).
+
+    let mut blocked_sections = 0_u8;
+
+    for p in region_tiles.points() {
+        let V2 { x, y } = p;
+        // Get z-level to inspect for the current tile.
+        let (shape_here, z_here) = chunk.get_shape_below(V3::new(x, y, top_z));
+        if x > min.x && next_z_x != z_here {
+            // Discontinuity along the left edge of the current tile.
+            let line = Region::new(p, p + V2::new(0, 1)) * scalar(TILE_SIZE);
+            blocked_sections |= blocked_by_line(line.intersect(region), corner);
+        } else if x == min.x && y > min.y && next_z_y != z_here {
+            let line = Region::new(p, p + V2::new(1, 0)) * scalar(TILE_SIZE);
+            blocked_sections |= blocked_by_line(line.intersect(region), corner);
+        }
+
+        // Coordinates within the tile of the intersection of the tile region and the footprint
+        // region.  That means these range from [0..32], with numbers other than 0 and 32
+        // appearing only at the edges of the region.
+        let x0 = if x > min.x { 0 } else { region.min.x - min.x * TILE_SIZE };
+        let y0 = if y > min.y { 0 } else { region.min.y - min.y * TILE_SIZE };
+        let x1 = if x < max.x - 1 { TILE_SIZE } else { region.max.x - (max.x - 1) * TILE_SIZE};
+        let y1 = if y < max.y - 1 { TILE_SIZE } else { region.max.y - (max.y - 1) * TILE_SIZE};
+        let alt_here_11 = altitude_at_pixel(shape_here, x1, y1);
+        let look_up = alt_here_11 == TILE_SIZE && z_here < top_z;
+
+        // Check the line between this tile and the one to the east, but only the parts that
+        // lie within `region`.  (That is, check the eastern border of this tile.)
+        if x < max.x - 1 {
+            let (shape_right, z_right) = adjacent_shape(chunk, x + 1, y, z_here, look_up);
+            let alt_here_10 = altitude_at_pixel(shape_here, TILE_SIZE, y0);
+            let alt_right_00 = altitude_at_pixel(shape_right, 0, y0);
+            let alt_right_01 = altitude_at_pixel(shape_right, 0, y1);
+            if z_here * TILE_SIZE + alt_here_10 != z_right * TILE_SIZE + alt_right_00 ||
+               z_here * TILE_SIZE + alt_here_11 != z_right * TILE_SIZE + alt_right_01 {
+                // Discontinuity along the eastern edge of this tile.
+                let line = Region::new(p + V2::new(1, 0), p + V2::new(1, 1)) * scalar(TILE_SIZE);
+                blocked_sections |= blocked_by_line(line.intersect(region), corner);
             }
+            // Save the z that we expect to see when visiting the tile to the east.  If we see
+            // a different z, then there's a problem like this:
+            //   _ /
+            //    \_
+            // The \ ramp is properly connected to the rightmost _, but the / ramp is actually
+            // the topmost tile in that column.
+            next_z_x = z_right;
+        }
 
-            // Coordinates within the tile of the intersection of the tile region and the footprint
-            // region.  That means these range from [0..32], with numbers other than 0 and 32
-            // appearing only at the edges.
-            let x0 = if x > min.x { 0 } else { region.min.x - min.x * TILE_SIZE };
-            let y0 = if y > min.y { 0 } else { region.min.y - min.y * TILE_SIZE };
-            let x1 = if x < max.x - 1 { TILE_SIZE } else { region.max.x - (max.x - 1) * TILE_SIZE};
-            let y1 = if y < max.y - 1 { TILE_SIZE } else { region.max.y - (max.y - 1) * TILE_SIZE};
-            let alt_here_11 = altitude_at_pixel(shape_here, x1, y1);
-            let look_up = alt_here_11 == TILE_SIZE && z_here < top_z;
-
-            // Check the line between this tile and the one to the east, but only the parts that
-            // lie within `region`.
-            if x < max.x - 1 {
-                let (shape_right, z_right) = adjacent_shape(chunk, x + 1, y, z_here, look_up);
-                let alt_here_10 = altitude_at_pixel(shape_here, TILE_SIZE, y0);
-                let alt_right_00 = altitude_at_pixel(shape_right, 0, y0);
-                let alt_right_01 = altitude_at_pixel(shape_right, 0, y1);
-                if z_here * TILE_SIZE + alt_here_10 != z_right * TILE_SIZE + alt_right_00 ||
-                   z_here * TILE_SIZE + alt_here_11 != z_right * TILE_SIZE + alt_right_01 {
-                    return false;
-                }
-                // Save the z that we expect to see when visiting the tile to the east.  If we see
-                // a different z, then there's a problem like this:
-                //   _ /
-                //    \_
-                // The \ ramp is properly connected to the rightmost _, but the / ramp is actually
-                // the topmost tile in that column.
-                next_z_x = z_right;
+        // Check the line between this tile and the one to the south.
+        if y < max.y - 1 {
+            let (shape_down, z_down) = adjacent_shape(chunk, x, y + 1, z_here, look_up);
+            let alt_here_01 = altitude_at_pixel(shape_here, x0, TILE_SIZE);
+            let alt_down_00 = altitude_at_pixel(shape_down, x0, 0);
+            let alt_down_10 = altitude_at_pixel(shape_down, x1, 0);
+            if z_here * TILE_SIZE + alt_here_01 != z_down * TILE_SIZE + alt_down_00 ||
+               z_here * TILE_SIZE + alt_here_11 != z_down * TILE_SIZE + alt_down_10 {
+                // Discontinuity along the southern edge of this tile.
+                let line = Region::new(p + V2::new(0, 1), p + V2::new(1, 1)) * scalar(TILE_SIZE);
+                blocked_sections |= blocked_by_line(line.intersect(region), corner);
             }
-
-            // Check the line between this tile and the one to the south.
-            if y < max.y - 1 {
-                let (shape_down, z_down) = adjacent_shape(chunk, x, y + 1, z_here, look_up);
-                let alt_here_01 = altitude_at_pixel(shape_here, x0, TILE_SIZE);
-                let alt_down_00 = altitude_at_pixel(shape_down, x0, 0);
-                let alt_down_10 = altitude_at_pixel(shape_down, x1, 0);
-                if z_here * TILE_SIZE + alt_here_01 != z_down * TILE_SIZE + alt_down_00 ||
-                   z_here * TILE_SIZE + alt_here_11 != z_down * TILE_SIZE + alt_down_10 {
-                    return false;
-                }
-                if x == min.x {
-                    next_z_y = z_down;
-                }
+            if x == min.x {
+                next_z_y = z_down;
             }
         }
     }
 
-    return true;
+    return blocked_sections;
 
     fn adjacent_shape<S: ShapeSource>(chunk: &S, x: i32, y: i32, z: i32,
                                       look_up: bool) -> (Shape, i32) {
@@ -517,6 +561,44 @@ fn check_ramp_continuity<S: ShapeSource>(chunk: &S, region: Region) -> bool {
             (chunk.get_shape(V3::new(x, y, z - 1)), z - 1)
         }
     }
+}
+
+fn blocked_by_line(line: Region<V2>, corner: V2) -> u8 {
+    let (x_edge, y_edge, x_mid, y_mid) =
+        if line.min.y == line.max.y {
+            // Horizontal line
+            let x_edge = line.min.x <= corner.x && corner.x < line.max.x;
+            let y_edge = corner.y == line.min.y || corner.y + 1 == line.min.y;
+            let x_mid = (line.max.x - line.min.x) >= (1 + x_edge as i32);
+            (x_edge,
+             y_edge,
+             x_mid,
+             !y_edge)
+        } else {
+            // Vertical line
+            let x_edge = corner.x == line.min.x || corner.x + 1 == line.min.x;
+            let y_edge = line.min.y <= corner.y && corner.y < line.max.y;
+            let y_mid = (line.max.y - line.min.y) >= (1 + y_edge as i32);
+            (x_edge,
+             y_edge,
+             !x_edge,
+             y_mid)
+        };
+
+    let z_edge = true;
+    let z_mid = true;
+
+    let key = ((x_edge as u8) << 0) |
+              ((y_edge as u8) << 1) |
+              ((z_edge as u8) << 2) |
+              ((x_mid as u8) << 3) |
+              ((y_mid as u8) << 4) |
+              ((z_mid as u8) << 5);
+
+    let result = BLOCKED_SECTIONS_TABLE[key as usize];
+    debug!("line {:?}, corner {:?} -> {}, {}, {}, {} -> blocked {:x}",
+           line, corner, x_edge as u8, y_edge as u8, x_mid as u8, y_mid as u8, result);
+    result
 }
 
 fn altitude_at_pixel(shape: Shape, x: i32, y: i32) -> i32 {
