@@ -63,3 +63,9 @@ def init(asset_path):
     s.merge(do_statue('statue', structures('statue.png')))
     mk_structure_item(s['statue/e'], 'statue', 'Statue') \
             .recipe('anvil', {'stone': 50})
+
+    stair_img = structures('stair.png')
+    stair_plane = structures('stair-planemap.png')
+    stair_depth = depthmap.from_planemap(stair_plane)
+    stair_shape = Shape(1, 1, 1, ['ramp_n'])
+    mk_structure('stair', stair_img, stair_depth, stair_shape, 1)

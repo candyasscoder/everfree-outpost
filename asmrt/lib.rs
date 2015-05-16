@@ -87,6 +87,12 @@ macro_rules! log {
     };
 }
 
+#[macro_export]
+macro_rules! debug {
+    ($str:expr) => { () };
+    ($str:expr, $($rest:tt)*) => { () };
+}
+
 
 // Generic interface for calling back into Javascript code.
 
