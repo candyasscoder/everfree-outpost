@@ -1,9 +1,15 @@
+# Path to the Rust checkout
+RUST_SRC ?= ../rust
+# Path to the bitflags checkout
+LIBBITFLAGS_SRC ?= $(RUST_SRC)/../rust-libs/bitflags
+# Path to the emscripten-fastcomp build/install prefix directory
+EM_FASTCOMP ?= /usr
+# Path to the rust-emscripten-plugins directory
+EM_PLUGINS ?= 
+
 RUSTC ?= rustc
 PYTHON ?= python
 PYTHON3 ?= python3
-RUST_SRC ?= ../rust
-EM_FASTCOMP ?= /usr
-EM_PLUGINS ?= 
 CLOSURE_COMPILER ?= closure-compiler
 YUI_COMPRESSOR ?= yui-compressor
 
@@ -100,6 +106,18 @@ $(BUILD_ASMJS)/lib%.rlib: $(SRC)/%/lib.rs
 
 # Special rule for libcore, since its source code is in a weird location.
 $(BUILD_ASMJS)/libcore.rlib: $(RUST_SRC)/src/libcore/lib.rs
+	$(RUSTC) $< --out-dir $(BUILD_ASMJS) --crate-type=rlib $(RUSTFLAGS_asmjs)
+
+# Special rules for libbitflags, which needs a little patching to work without
+# libstd.
+$(BUILD_ASMJS)/bitflags.rs: $(LIBBITFLAGS_SRC)/src/lib.rs
+	echo '#![crate_name = "bitflags"]' > $@.tmp
+	echo '#![feature(no_std)]' >> $@.tmp
+	echo '#![no_std]' >> $@.tmp
+	cat $< >>$@.tmp
+	mv -v $@.tmp $@
+
+$(BUILD_ASMJS)/libbitflags.rlib: $(BUILD_ASMJS)/bitflags.rs
 	$(RUSTC) $< --out-dir $(BUILD_ASMJS) --crate-type=rlib $(RUSTFLAGS_asmjs)
 
 $(BUILD_NATIVE)/lib%.rlib: $(SRC)/%/lib.rs
