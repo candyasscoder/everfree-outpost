@@ -89,14 +89,17 @@ struct AsmJsShapeSource<'a> {
 
 impl<'a> ShapeSource for AsmJsShapeSource<'a> {
     fn get_shape(&self, pos: V3) -> Shape {
+        if pos.z < 0 || pos.z >= CHUNK_SIZE {
+            return Shape::Empty;
+        }
+
         let V3 { x: tile_x, y: tile_y, z: tile_z } = pos & V3::new(CHUNK_MASK, CHUNK_MASK, -1);
         let V3 { x: chunk_x, y: chunk_y, z: _ } = (pos >> CHUNK_BITS) & scalar(LOCAL_MASK);
 
         let chunk_idx = chunk_y * LOCAL_SIZE + chunk_x;
         let tile_idx = (tile_z * CHUNK_SIZE + tile_y) * CHUNK_SIZE + tile_x;
 
-        let shape = self.layers[chunk_idx as usize].merged.get(tile_idx as usize)
-                        .map(|&x| x).unwrap_or(Shape::Empty);
+        let shape = self.layers[chunk_idx as usize].merged[tile_idx as usize];
         shape
     }
 }

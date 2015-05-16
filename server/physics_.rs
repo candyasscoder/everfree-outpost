@@ -32,14 +32,18 @@ struct ChunksSource<'a> {
 
 impl<'a> ShapeSource for ChunksSource<'a> {
     fn get_shape(&self, pos: V3) -> Shape {
+        if pos.z < 0 || pos.z >= CHUNK_SIZE {
+            return Shape::Empty;
+        }
+
         let pos = pos + self.base_tile;
 
-        let offset = pos & V3::new(CHUNK_MASK, CHUNK_MASK, -1);
+        let offset = pos & scalar(CHUNK_MASK);
         let cpos = (pos >> CHUNK_BITS).reduce();
 
         if let Some(entry) = self.cache.get(self.plane, cpos) {
             let idx = Region::new(scalar(0), scalar(CHUNK_SIZE)).index(offset);
-            entry.shape.get(idx).map(|&x| x).unwrap_or(Shape::Empty)
+            entry.shape[idx]
         } else {
             return Shape::Empty;
         }
