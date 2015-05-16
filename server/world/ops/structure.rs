@@ -19,6 +19,10 @@ pub fn create<'d, F>(f: &mut F,
     let t = unwrap!(f.world().data.structure_templates.get_template(tid));
     let bounds = Region::new(pos, pos + t.size);
 
+    if bounds.min.z < 0 || bounds.max.z > CHUNK_SIZE {
+        fail!("structure placement blocked by map bounds");
+    }
+
     if !f.with_hooks(|h| h.check_structure_placement(t, pid, pos)) {
         fail!("structure placement blocked by terrain or other structure");
     }

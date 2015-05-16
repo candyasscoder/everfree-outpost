@@ -34,13 +34,12 @@ impl<'a> ShapeSource for ChunksSource<'a> {
     fn get_shape(&self, pos: V3) -> Shape {
         let pos = pos + self.base_tile;
 
-        let offset = pos & scalar(CHUNK_MASK);
+        let offset = pos & V3::new(CHUNK_MASK, CHUNK_MASK, -1);
         let cpos = (pos >> CHUNK_BITS).reduce();
 
         if let Some(entry) = self.cache.get(self.plane, cpos) {
             let idx = Region::new(scalar(0), scalar(CHUNK_SIZE)).index(offset);
-            debug!("{:?} -> {:?} + {:?} -> {:?}", pos, cpos, offset, entry.shape[idx]);
-            entry.shape[idx]
+            entry.shape.get(idx).map(|&x| x).unwrap_or(Shape::Empty)
         } else {
             return Shape::Empty;
         }
