@@ -90,6 +90,7 @@ add_structure_item('statue', 'statue/e')
 add_structure_item('trophy', 'trophy')
 add_structure_item('fountain', 'fountain')
 add_structure_item('torch', 'torch')
+add_structure_item('stair', 'stair/n')
 
 
 local function mallet_cycle(base, xs)

@@ -68,4 +68,6 @@ def init(asset_path):
     stair_plane = structures('stair-planemap.png')
     stair_depth = depthmap.from_planemap(stair_plane)
     stair_shape = Shape(1, 1, 1, ['ramp_n'])
-    mk_structure('stair', stair_img, stair_depth, stair_shape, 1)
+    stair = mk_structure('stair/n', stair_img, stair_depth, stair_shape, 1)
+    mk_structure_item(stair['stair/n'], 'stair', 'Stairs') \
+            .recipe('anvil', {'wood': 10})
