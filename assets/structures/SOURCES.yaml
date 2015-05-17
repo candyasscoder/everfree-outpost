@@ -168,3 +168,11 @@ stair.png: &stair
     license: CC-BY-SA 3.0 / GPL 3.0
     derived-from: ../tiles/lpc-base-tiles/stairs.png
 stair-planemap.png: *stair
+
+stone-wall.png: &stone-wall
+    title: Stone Brick Wall
+    author: Nonnykins, Stuart Pernsteiner
+    license: CC-BY-SA 3.0 / GPL 3.0
+stone-wall.xcf: *stone-wall
+stone-wall-planemap.png: *stone-wall
+

@@ -69,3 +69,29 @@ def init(asset_path):
 
     mk_structure_item(wall['wood_wall/door'], 'wood_door', 'Wooden Door') \
             .recipe('anvil', {'wood': 15})
+
+
+
+    image = structures('stone-wall.png')
+    planemap = structures('stone-wall-planemap.png')
+    wall = do_wall_parts('stone_wall',
+            structures('stone-wall.png'), structures('stone-wall-planemap.png'),
+            mk_door=True)
+    mk_solid_structure('stone_wall/window/v0', image, (1, 1, 2), base=(15, 0),
+            plane_image=planemap)
+    mk_solid_structure('stone_wall/window/v1', image, (1, 1, 2), base=(16, 0),
+            plane_image=planemap)
+
+    i = item_builder()
+    i.merge(mk_structure_item(wall['stone_wall/edge/horiz'],
+        'stone_wall/side', 'Stone Side', (0, 0)))
+    i.merge(mk_structure_item(wall['stone_wall/corner/nw'],
+        'stone_wall/corner', 'Stone Corner', (0, 0)))
+    i.merge(mk_structure_item(wall['stone_wall/tee/e'],
+        'stone_wall/tee', 'Stone Tee', (0, 0)))
+    i.merge(mk_structure_item(wall['stone_wall/cross'],
+        'stone_wall/cross', 'Stone Cross', (0, 0)))
+    i.recipe('anvil', {'stone': 5})
+
+    mk_structure_item(wall['stone_wall/door'], 'stone_door', 'Stone Door') \
+            .recipe('anvil', {'stone': 15})

@@ -82,6 +82,12 @@ add_structure_item('wood_wall/tee', 'wood_wall/tee/n')
 add_structure_item('wood_wall/cross', 'wood_wall/cross')
 add_structure_item('wood_door', 'wood_wall/door')
 
+add_structure_item('stone_wall/side', 'stone_wall/edge/horiz')
+add_structure_item('stone_wall/corner', 'stone_wall/corner/nw')
+add_structure_item('stone_wall/tee', 'stone_wall/tee/n')
+add_structure_item('stone_wall/cross', 'stone_wall/cross')
+add_structure_item('stone_door', 'stone_wall/door')
+
 add_structure_item('house_floor', 'wood_floor/center/v0')
 add_structure_item('road', 'road/center/v0')
 add_structure_item('bed')
@@ -128,6 +134,10 @@ mallet_cycle('house_wall/door/', { 'in', 'out' })
 mallet_cycle('wood_wall/edge/', { 'horiz', 'vert' })
 mallet_cycle('wood_wall/corner/', { 'nw', 'ne', 'se', 'sw', })
 mallet_cycle('wood_wall/tee/', { 'n', 'e', 's', 'w', })
+
+mallet_cycle('stone_wall/', { 'edge/horiz', 'edge/vert', 'window/v0', 'window/v1' })
+mallet_cycle('stone_wall/corner/', { 'nw', 'ne', 'se', 'sw', })
+mallet_cycle('stone_wall/tee/', { 'n', 'e', 's', 'w', })
 
 
 
