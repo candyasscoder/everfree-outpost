@@ -220,6 +220,8 @@ horiz_walls = {
     ['house_wall/tee/n/out'] = true,
     ['wood_wall/edge/horiz'] = true,
     ['wood_wall/tee/n'] = true,
+    ['stone_wall/edge/horiz'] = true,
+    ['stone_wall/tee/n'] = true,
 }
 
 attachment_map['cabinets'] = horiz_walls
