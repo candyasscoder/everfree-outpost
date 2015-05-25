@@ -1,4 +1,6 @@
 use std::cmp;
+use std::collections::HashMap;
+use std::hash::Hash;
 use std::old_io::{self, IoError, IoResult};
 use std::mem;
 use std::slice;
@@ -95,7 +97,7 @@ impl<W: Writer> WireWriter<W> {
         Ok(())
     }
 
-    fn write<A: WriteTo>(&mut self, msg: A) -> IoResult<()> {
+    pub fn write<A: WriteTo>(&mut self, msg: A) -> IoResult<()> {
         msg.write_to(self)
     }
 
@@ -378,4 +380,44 @@ impl WriteTo for [u32; 4] {
 
     #[inline]
     fn size_is_fixed() -> bool { true }
+}
+
+
+impl<K: ReadFrom+Eq+Hash, V: ReadFrom> ReadFrom for HashMap<K, V> {
+    #[inline]
+    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<HashMap<K, V>> {
+        let count = try!(r.read::<u16>()) as usize;
+        let mut result = HashMap::with_capacity(count);
+        for _ in 0..count {
+            let k = try!(r.read());
+            let v = try!(r.read());
+            result.insert(k, v);
+        }
+        Ok(result)
+    }
+}
+
+impl<K: WriteTo+Eq+Hash, V: WriteTo> WriteTo for HashMap<K, V> {
+    #[inline]
+    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+        assert!(self.len() <= u16::MAX as usize);
+        try!(w.write(self.len() as u16));
+        for (k, v) in self.iter() {
+            try!(w.write(k));
+            try!(w.write(v));
+        }
+        Ok(())
+    }
+
+    #[inline]
+    fn size(&self) -> usize {
+        let mut size = 123_u16.size();
+        for (k, v) in self.iter() {
+            size += k.size() + v.size();
+        }
+        size
+    }
+
+    #[inline]
+    fn size_is_fixed() -> bool { false }
 }

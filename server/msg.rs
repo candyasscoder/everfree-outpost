@@ -1,4 +1,5 @@
-use std::old_io::IoResult;
+use std::collections::HashMap;
+use std::old_io::{IoResult, IoError, IoErrorKind};
 
 use wire;
 use wire::{WireReader, WireWriter};
@@ -53,6 +54,9 @@ pub mod op {
         Interact = 0x000c,
         UseItem = 0x000d,
         UseAbility = 0x000e,
+        InteractWithArgs = 0x0010,
+        UseItemWithArgs = 0x0011,
+        UseAbilityWithArgs = 0x0012,
 
         // Deprecated requests
         GetTerrain = 0x0001,
@@ -79,6 +83,9 @@ pub mod op {
         MainInventory = 0x8011,
         AbilityInventory = 0x8012,
         PlaneFlags = 0x8013,
+        GetInteractArgs = 0x8014,
+        GetUseItemArgs = 0x8015,
+        GetUseAbilityArgs = 0x8016,
 
         // Deprecated responses
         PlayerMotion = 0x8002,
@@ -114,6 +121,9 @@ pub enum Request {
     UseItem(LocalTime, ItemId),
     UseAbility(LocalTime, ItemId),
     OpenInventory,
+    InteractWithArgs(LocalTime, ExtraArg),
+    UseItemWithArgs(LocalTime, ItemId, ExtraArg),
+    UseAbilityWithArgs(LocalTime, ItemId, ExtraArg),
 
     // Control messages
     AddClient(WireId),
@@ -183,6 +193,18 @@ impl Request {
             op::OpenInventory => {
                 OpenInventory
             },
+            op::InteractWithArgs => {
+                let (a, b) = try!(wr.read());
+                InteractWithArgs(a, b)
+            },
+            op::UseItemWithArgs => {
+                let (a, b, c) = try!(wr.read());
+                UseItemWithArgs(a, b, c)
+            },
+            op::UseAbilityWithArgs => {
+                let (a, b, c) = try!(wr.read());
+                UseAbilityWithArgs(a, b, c)
+            },
 
             op::AddClient => {
                 let a = try!(wr.read());
@@ -232,6 +254,9 @@ pub enum Response {
     MainInventory(InventoryId),
     AbilityInventory(InventoryId),
     PlaneFlags(u32),
+    GetInteractArgs(u32, ExtraArg),
+    GetUseItemArgs(ItemId, u32, ExtraArg),
+    GetUseAbilityArgs(ItemId, u32, ExtraArg),
 
     ClientRemoved(WireId),
     ReplResult(u16, String),
@@ -278,6 +303,12 @@ impl Response {
                 ww.write_msg(id, (op::AbilityInventory, iid)),
             PlaneFlags(flags) =>
                 ww.write_msg(id, (op::PlaneFlags, flags)),
+            GetInteractArgs(dialog_id, ref args) =>
+                ww.write_msg(id, (op::GetInteractArgs, dialog_id, args)),
+            GetUseItemArgs(item_id, dialog_id, ref args) =>
+                ww.write_msg(id, (op::GetUseItemArgs, item_id, dialog_id, args)),
+            GetUseAbilityArgs(item_id, dialog_id, ref args) =>
+                ww.write_msg(id, (op::GetUseAbilityArgs, item_id, dialog_id, args)),
 
             ClientRemoved(wire_id) =>
                 ww.write_msg(id, (op::ClientRemoved, wire_id)),
@@ -342,4 +373,149 @@ impl wire::WriteTo for Motion {
     }
 
     fn size_is_fixed() -> bool { true }
+}
+
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub enum SimpleArg {
+    Int(i32),
+    Str(String),
+}
+
+impl SimpleArg {
+    fn into_extra_arg(self) -> ExtraArg {
+        match self {
+            SimpleArg::Int(x) => ExtraArg::Int(x),
+            SimpleArg::Str(x) => ExtraArg::Str(x),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ExtraArg {
+    Int(i32),
+    Str(String),
+    List(Vec<ExtraArg>),
+    Map(HashMap<SimpleArg, ExtraArg>),
+}
+
+impl ExtraArg {
+    fn into_simple_arg(self) -> Result<SimpleArg, ExtraArg> {
+        match self {
+            ExtraArg::Int(x) => Ok(SimpleArg::Int(x)),
+            ExtraArg::Str(x) => Ok(SimpleArg::Str(x)),
+            e => Err(e),
+        }
+    }
+}
+
+
+#[derive(Debug, PartialEq, Eq, Copy)]
+enum ArgTag {
+    Int = 0,
+    Str = 1,
+    List = 2,
+    Map = 3,
+}
+
+impl wire::ReadFrom for ArgTag {
+    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<ArgTag> {
+        let tag = match try!(r.read::<u8>()) {
+            // TODO: figure out how to use `ArgTag::Int as u8` constants
+            0 => ArgTag::Int,
+            1 => ArgTag::Str,
+            2 => ArgTag::List,
+            3 => ArgTag::Map,
+            x => return Err(IoError {
+                kind: IoErrorKind::OtherIoError,
+                desc: "bad ArgTag variant",
+                detail: Some(format!("tag = {}", x)),
+            }),
+        };
+        Ok(tag)
+    }
+}
+
+impl wire::WriteTo for ArgTag {
+    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+        w.write(*self as u8)
+    }
+
+    fn size(&self) -> usize { (*self as u8).size() }
+
+    fn size_is_fixed() -> bool { true }
+}
+
+
+impl wire::ReadFrom for SimpleArg {
+    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<SimpleArg> {
+        let arg = try!(r.read::<ExtraArg>());
+        let simple = unwrap_or!(arg.into_simple_arg().ok(),
+                                return Err(IoError {
+                                    kind: IoErrorKind::OtherIoError,
+                                    desc: "non-simple SimpleArg",
+                                    detail: None,
+                                }));
+        Ok(simple)
+    }
+}
+
+impl wire::WriteTo for SimpleArg {
+    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+        use self::SimpleArg::*;
+        match *self {
+            Int(i) => w.write((ArgTag::Int, i)),
+            Str(ref s) => w.write((ArgTag::Str, s)),
+        }
+    }
+
+    fn size(&self) -> usize {
+        use self::SimpleArg::*;
+        let inner_size = match *self {
+            Int(i) => i.size(),
+            Str(ref s) => s.size(),
+        };
+        1 + inner_size
+    }
+
+    fn size_is_fixed() -> bool { false }
+}
+
+
+impl wire::ReadFrom for ExtraArg {
+    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<ExtraArg> {
+        use self::ExtraArg::*;
+        let arg = match try!(r.read()) {
+            ArgTag::Int => Int(try!(r.read())),
+            ArgTag::Str => Str(try!(r.read())),
+            ArgTag::List => List(try!(r.read())),
+            ArgTag::Map => Map(try!(r.read())),
+        };
+        Ok(arg)
+    }
+}
+
+impl wire::WriteTo for ExtraArg {
+    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+        use self::ExtraArg::*;
+        match *self {
+            Int(i) => w.write((ArgTag::Int, i)),
+            Str(ref s) => w.write((ArgTag::Str, s)),
+            List(ref l) => w.write((ArgTag::List, l)),
+            Map(ref m) => w.write((ArgTag::Map, m)),
+        }
+    }
+
+    fn size(&self) -> usize {
+        use self::ExtraArg::*;
+        let inner_size = match *self {
+            Int(i) => i.size(),
+            Str(ref s) => s.size(),
+            List(ref l) => l.size(),
+            Map(ref m) => m.size(),
+        };
+        1 + inner_size
+    }
+
+    fn size_is_fixed() -> bool { false }
 }

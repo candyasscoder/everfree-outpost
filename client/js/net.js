@@ -16,6 +16,9 @@ var OP_INTERACT =               0x000c;
 var OP_USE_ITEM =               0x000d;
 var OP_USE_ABILITY =            0x000e;
 var OP_OPEN_INVENTORY =         0x000f;
+var OP_INTERACT_WITH_ARGS =     0x0010;
+var OP_USE_ITEM_WITH_ARGS =     0x0011;
+var OP_USE_ABILITY_WITH_ARGS =  0x0012;
 
 var OP_TERRAIN_CHUNK =          0x8001;
 var OP_PLAYER_MOTION =          0x8002;
@@ -36,6 +39,9 @@ var OP_STRUCTURE_GONE =         0x8010;
 var OP_MAIN_INVENTORY =         0x8011;
 var OP_ABILITY_INVENTORY =      0x8012;
 var OP_PLANE_FLAGS =            0x8013;
+var OP_GET_INTERACT_ARGS =      0x8014;
+var OP_GET_USE_ITEM_ARGS =      0x8015;
+var OP_GET_USE_ABILITY_ARGS =   0x8016;
 
 /** @constructor */
 function Connection(url) {
@@ -69,6 +75,9 @@ function Connection(url) {
     this.onMainInventory = null;
     this.onAbilityInventory = null;
     this.onPlaneFlags = null;
+    this.onGetInteractArgs = null;
+    this.onGetUseItemArgs = null;
+    this.onGetUseAbilityArgs = null;
 }
 exports.Connection = Connection;
 
@@ -111,6 +120,32 @@ Connection.prototype._handleMessage = function(evt) {
         var result = decodeUtf8(new Uint8Array(view.buffer, offset, len));
         offset += len;
         return result;
+    }
+
+    function getArg() {
+        var tag = get8();
+        switch (tag) {
+            case 0: return get32();
+            case 1: return getString();
+
+            case 2:
+                var len = get16();
+                var arr = new Array(len);
+                for (var i = 0; i < len; ++i) {
+                    arr[i] = getArg();
+                }
+                return arr;
+
+            case 3:
+                var len = get16();
+                var map = new Object();
+                for (var i = 0; i < len; ++i) {
+                    var k = getArg();
+                    var v = getArg();
+                    map[k] = v;
+                }
+                return map;
+        }
     }
 
     var opcode = get16();
@@ -311,6 +346,32 @@ Connection.prototype._handleMessage = function(evt) {
             }
             break;
 
+        case OP_GET_INTERACT_ARGS:
+            if (this.onGetInteractArgs != null) {
+                var dialog_id = get32();
+                var args = getArgs();
+                this.onGetInteractArgs(dialog_id, args);
+            }
+            break;
+
+        case OP_GET_USE_ITEM_ARGS:
+            if (this.onGetUseItemArgs != null) {
+                var item_id = get32();
+                var dialog_id = get32();
+                var args = getArgs();
+                this.onGetUseItemArgs(item_id, dialog_id, args);
+            }
+            break;
+
+        case OP_GET_USE_ABILITY_ARGS:
+            if (this.onGetUseItemArgs != null) {
+                var item_id = get32();
+                var dialog_id = get32();
+                var args = getArgs();
+                this.onGetUseAbilityArgs(item_id, dialog_id, args);
+            }
+            break;
+
         default:
             console.assert(false, 'received invalid opcode:', opcode.toString(16));
             break;
@@ -342,15 +403,64 @@ MessageBuilder.prototype.put32 = function(n) {
     this._offset += 4;
 };
 
-MessageBuilder.prototype.done = function() {
-    console.assert(this._offset == this._buf.byteLength);
-    return this._buf;
+MessageBuilder.prototype.putString = function(s) {
+    var utf8 = unescape(encodeURIComponent(s));
+    this.put16(utf8.length);
+    for (var i = 0; i < utf8.length; ++i) {
+        this.put8(utf8.charCodeAt(i));
+    }
 };
+
+MessageBuilder.prototype.putArg = function(a) {
+    switch (typeof(a)) {
+        case 'boolean':
+        case 'number':
+            this.put8(0);
+            this.put32(a);
+            break;
+
+        case 'string':
+            this.put8(1);
+            this.putString(a);
+            break;
+
+        default:
+            if (a.constructor == Array) {
+                this.put8(2);
+                this.put16(a.length);
+                for (var i = 0; i < a.length; ++i) {
+                    this.putArg(a[i]);
+                }
+            } else {
+                this.put8(3);
+                var props = Object.getOwnPropertyNames(a);
+                this.put16(props.length);
+                for (var i = 0; i < props.length; ++i) {
+                    this.putArg(props[i]);
+                    this.putArg(a[props[i]]);
+                }
+            }
+            break;
+    }
+}
+
+MessageBuilder.prototype.done = function() {
+    var buf = new Uint8Array(this._buf.buffer, 0, this._offset);
+    return buf;
+};
+
+MessageBuilder.prototype.reset = function() {
+    this._offset = 0;
+    return this;
+};
+
+
+var MESSAGE_BUILDER = new MessageBuilder(8192);
 
 
 Connection.prototype.sendGetTerrain = function() {
     console.error('deprecated message: GetTerrain');
-    var msg = new MessageBuilder(2);
+    var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_GET_TERRAIN);
     this.socket.send(msg.done());
 };
@@ -364,14 +474,14 @@ Connection.prototype.sendUpdateMotion = function(data) {
 };
 
 Connection.prototype.sendPing = function(data) {
-    var msg = new MessageBuilder(4);
+    var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_PING);
     msg.put16(data);
     this.socket.send(msg.done());
 };
 
 Connection.prototype.sendInput = function(time, input) {
-    var msg = new MessageBuilder(6);
+    var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_INPUT);
     msg.put16(time);
     msg.put16(input);
@@ -379,24 +489,20 @@ Connection.prototype.sendInput = function(time, input) {
 };
 
 Connection.prototype.sendLogin = function(name, secret) {
-    var name_utf8 = unescape(encodeURIComponent(name));
-    var msg = new MessageBuilder(2 + 16 + 2 + name_utf8.length);
+    var msg = MESSAGE_BUILDER.reset();
 
     msg.put16(OP_LOGIN);
     for (var i = 0; i < 4; ++i) {
         msg.put32(secret[i]);
     }
-    msg.put16(name_utf8.length);
-    for (var i = 0; i < name_utf8.length; ++i) {
-        msg.put8(name_utf8.charCodeAt(i));
-    }
+    msg.putString(name);
 
     this.socket.send(msg.done());
 };
 
 Connection.prototype.sendAction = function(time, action, arg) {
     console.error('deprecated message: Action');
-    var msg = new MessageBuilder(10);
+    var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_ACTION);
     msg.put16(time);
     msg.put16(action);
@@ -405,14 +511,14 @@ Connection.prototype.sendAction = function(time, action, arg) {
 };
 
 Connection.prototype.sendUnsubscribeInventory = function(inventory_id) {
-    var msg = new MessageBuilder(6);
+    var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_UNSUBSCRIBE_INVENTORY);
     msg.put32(inventory_id);
     this.socket.send(msg.done());
 };
 
 Connection.prototype.sendMoveItem = function(from_inventory, to_inventory, item_id, amount) {
-    var msg = new MessageBuilder(14);
+    var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_MOVE_ITEM);
     msg.put32(from_inventory);
     msg.put32(to_inventory);
@@ -422,7 +528,7 @@ Connection.prototype.sendMoveItem = function(from_inventory, to_inventory, item_
 };
 
 Connection.prototype.sendCraftRecipe = function(station_id, inventory_id, recipe_id, count) {
-    var msg = new MessageBuilder(14);
+    var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_CRAFT_RECIPE);
     msg.put32(station_id);
     msg.put32(inventory_id);
@@ -431,43 +537,35 @@ Connection.prototype.sendCraftRecipe = function(station_id, inventory_id, recipe
     this.socket.send(msg.done());
 };
 
-Connection.prototype.sendChat = function(msg) {
-    var utf8 = unescape(encodeURIComponent(msg));
-    var msg = new MessageBuilder(4 + utf8.length);
+Connection.prototype.sendChat = function(text) {
+    var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_CHAT);
-    msg.put16(utf8.length);
-    for (var i = 0; i < utf8.length; ++i) {
-        msg.put8(utf8.charCodeAt(i));
-    }
+    msg.putString(text);
     this.socket.send(msg.done());
 };
 
 Connection.prototype.sendRegister = function(name, secret, appearance) {
-    var utf8 = unescape(encodeURIComponent(name));
-    var msg = new MessageBuilder(2 + 16 + 6 + utf8.length);
+    var msg = MESSAGE_BUILDER.reset();
 
     msg.put16(OP_REGISTER);
     for (var i = 0; i < 4; ++i) {
         msg.put32(secret[i]);
     }
     msg.put32(appearance);
-    msg.put16(utf8.length);
-    for (var i = 0; i < utf8.length; ++i) {
-        msg.put8(utf8.charCodeAt(i));
-    }
+    msg.putString(name);
 
     this.socket.send(msg.done());
 };
 
 Connection.prototype.sendInteract = function(time) {
-    var msg = new MessageBuilder(4);
+    var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_INTERACT);
     msg.put16(time);
     this.socket.send(msg.done());
 };
 
 Connection.prototype.sendUseItem = function(time, item_id) {
-    var msg = new MessageBuilder(6);
+    var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_USE_ITEM);
     msg.put16(time);
     msg.put16(item_id);
@@ -475,7 +573,7 @@ Connection.prototype.sendUseItem = function(time, item_id) {
 };
 
 Connection.prototype.sendUseAbility = function(time, item_id) {
-    var msg = new MessageBuilder(6);
+    var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_USE_ABILITY);
     msg.put16(time);
     msg.put16(item_id);
@@ -483,7 +581,7 @@ Connection.prototype.sendUseAbility = function(time, item_id) {
 };
 
 Connection.prototype.sendOpenInventory = function() {
-    var msg = new MessageBuilder(2);
+    var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_OPEN_INVENTORY);
     this.socket.send(msg.done());
 };
