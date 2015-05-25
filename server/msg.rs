@@ -19,17 +19,13 @@ impl Opcode {
 }
 
 impl wire::WriteTo for Opcode {
-    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
+    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
         self.unwrap().write_to(w)
     }
 
     fn size(&self) -> usize { self.unwrap().size() }
-}
 
-impl wire::WriteToFixed for Opcode {
-    fn size_fixed(_: Option<Opcode>) -> usize {
-        wire::WriteToFixed::size_fixed(None::<u16>)
-    }
+    fn size_is_fixed() -> bool { true }
 }
 
 macro_rules! opcodes {
@@ -317,9 +313,9 @@ pub struct Motion {
 }
 
 impl wire::ReadFrom for Motion {
-    fn read_from<R: Reader>(r: &mut R, bytes: usize) -> IoResult<Motion> {
+    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<Motion> {
         let (a, b, c, d): ((u16, u16, u16), LocalTime, (u16, u16, u16), LocalTime) =
-                            try!(wire::ReadFrom::read_from(r, bytes));
+                            try!(wire::ReadFrom::read_from(r));
         Ok(Motion {
             start_pos: a,
             start_time: b,
@@ -327,16 +323,10 @@ impl wire::ReadFrom for Motion {
             end_time: d,
         })
     }
-
-    fn size(_: Option<Motion>) -> (usize, usize) {
-        let fixed = 2 * wire::ReadFrom::size(None::<(u16, u16, u16)>).0 +
-                    2 * wire::ReadFrom::size(None::<LocalTime>).0;
-        (fixed, 0)
-    }
 }
 
 impl wire::WriteTo for Motion {
-    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
+    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
         try!(self.start_pos.write_to(w));
         try!(self.start_time.write_to(w));
         try!(self.end_pos.write_to(w));
@@ -350,4 +340,6 @@ impl wire::WriteTo for Motion {
         self.end_pos.size() +
         self.end_time.size()
     }
+
+    fn size_is_fixed() -> bool { true }
 }

@@ -1,6 +1,8 @@
 use std::cmp;
 use std::old_io::{self, IoError, IoResult};
 use std::mem;
+use std::slice;
+use std::u16;
 
 use types::*;
 
@@ -23,23 +25,31 @@ impl<R: Reader> WireReader<R> {
             try!(self.skip_remaining());
         }
 
-        let id = try!(ReadFrom::read_from(&mut self.r, 2));
-        let len: u16 = try!(ReadFrom::read_from(&mut self.r, 2));
+        self.msg_left = 4;
+        let id = try!(self.read());
+        let len = try!(self.read::<u16>());
         self.msg_left = len as usize;
         Ok(id)
     }
 
-    pub fn read<A: ReadFrom>(&mut self) -> IoResult<A> {
-        let result = try!(ReadFrom::read_from(&mut self.r, self.msg_left));
-
-        let (fixed, step) = ReadFrom::size(None::<A>);
-        if step == 0 {
-            self.msg_left -= fixed;
-        } else {
-            self.msg_left = (self.msg_left - fixed) % step;
+    fn read_raw(&mut self, dest: &mut [u8]) -> IoResult<()> {
+        if dest.len() > self.msg_left {
+            return Err(IoError {
+                kind: old_io::IoErrorKind::OtherIoError,
+                desc: "not enough bytes in message",
+                detail: Some(format!("expected at least {} bytes, but only {} remain",
+                                     dest.len(),
+                                     self.msg_left)),
+            });
         }
 
-        Ok(result)
+        try!(self.r.read_at_least(dest.len(), dest));
+        self.msg_left -= dest.len();
+        Ok(())
+    }
+
+    pub fn read<A: ReadFrom>(&mut self) -> IoResult<A> {
+        ReadFrom::read_from(self)
     }
 
     pub fn done(&self) -> bool {
@@ -60,20 +70,57 @@ impl<R: Reader> WireReader<R> {
 
 pub struct WireWriter<W> {
     w: W,
+    msg_left: usize,
 }
 
 impl<W: Writer> WireWriter<W> {
     pub fn new(w: W) -> WireWriter<W> {
         WireWriter {
             w: w,
+            msg_left: 0,
         }
     }
 
     pub fn write_msg<A: WriteTo>(&mut self, id: WireId, msg: A) -> IoResult<()> {
-        assert!(msg.size() <= ::std::u16::MAX as usize);
-        try!(id.write_to(&mut self.w));
-        try!((msg.size() as u16).write_to(&mut self.w));
-        try!(msg.write_to(&mut self.w));
+        // In case an error occurred while writing the previous message, pad it out to the expected
+        // length to avoid confusing the destination.  (The message will contain garbage, but at
+        // least it will be the right size.)
+        try!(self.zero_remaining());
+
+        assert!(msg.size() <= u16::MAX as usize);
+        self.msg_left = 4 + msg.size();
+        try!(id.write_to(self));
+        try!((msg.size() as u16).write_to(self));
+        try!(msg.write_to(self));
+        Ok(())
+    }
+
+    fn write<A: WriteTo>(&mut self, msg: A) -> IoResult<()> {
+        msg.write_to(self)
+    }
+
+    fn write_raw(&mut self, src: &[u8]) -> IoResult<()> {
+        if src.len() > self.msg_left {
+            return Err(IoError {
+                kind: old_io::IoErrorKind::OtherIoError,
+                desc: "too many bytes in message",
+                detail: Some(format!("expected at most {} bytes, but tried to write {}",
+                                     self.msg_left,
+                                     src.len())),
+            });
+        }
+        try!(self.w.write_all(src));
+        self.msg_left -= src.len();
+        Ok(())
+    }
+
+    fn zero_remaining(&mut self) -> IoResult<()> {
+        let buf = [0; 1024];
+        while self.msg_left > 0 {
+            let count = cmp::min(buf.len(), self.msg_left);
+            try!(self.w.write_all(&buf[..count]));
+            self.msg_left -= count;
+        }
         Ok(())
     }
 
@@ -85,26 +132,13 @@ impl<W: Writer> WireWriter<W> {
 
 
 pub trait ReadFrom {
-    fn read_from<R: Reader>(r: &mut R, bytes: usize) -> IoResult<Self>;
-    fn size(_: Option<Self>) -> (usize, usize);
-}
-
-// TODO: shouldn't need Sized here.  Might require UFCS to avoid it.
-pub trait ReadFromFixed: Sized + ReadFrom {
-    fn size_fixed(x: Option<Self>) -> usize {
-        let (fixed, step) = ReadFrom::size(x);
-        assert!(step == 0);
-        fixed
-    }
+    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<Self>;
 }
 
 pub trait WriteTo {
-    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()>;
+    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()>;
     fn size(&self) -> usize;
-}
-
-pub trait WriteToFixed: WriteTo {
-    fn size_fixed(_: Option<Self>) -> usize;
+    fn size_is_fixed() -> bool;
 }
 
 
@@ -112,38 +146,35 @@ macro_rules! prim_impl {
     ( $ty:ty, $read_fn:ident, $write_fn:ident ) => {
         impl ReadFrom for $ty {
             #[inline]
-            fn read_from<R: Reader>(r: &mut R, bytes: usize) -> IoResult<$ty> {
-                if bytes < mem::size_of::<$ty>() {
-                    return Err(IoError {
-                        kind: old_io::IoErrorKind::OtherIoError,
-                        desc: "not enough bytes in message",
-                        detail: Some(format!("expected at least {} bytes, but only {} remain",
-                                             mem::size_of::<$ty>(),
-                                             bytes)),
-                    });
+            fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<$ty> {
+                let mut val: $ty = 0;
+                {
+                    let buf = unsafe {
+                        slice::from_raw_parts_mut(&mut val as *mut $ty as *mut u8,
+                                                  mem::size_of::<$ty>())
+                    };
+                    try!(r.read_raw(buf));
                 }
-                r.$read_fn()
+                Ok(val)
             }
-
-            #[inline]
-            fn size(_: Option<$ty>) -> (usize, usize) { (mem::size_of::<$ty>(), 0) }
         }
-
-        impl ReadFromFixed for $ty { }
 
         impl WriteTo for $ty {
             #[inline]
-            fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
-                w.$write_fn(*self)
+            fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+                let buf = unsafe {
+                    slice::from_raw_parts(self as *const $ty as *const u8,
+                                          mem::size_of::<$ty>())
+                };
+                try!(w.write_raw(buf));
+                Ok(())
             }
 
             #[inline]
             fn size(&self) -> usize { mem::size_of::<$ty>() }
-        }
 
-        impl WriteToFixed for $ty {
             #[inline]
-            fn size_fixed(_: Option<$ty>) -> usize { mem::size_of::<$ty>() }
+            fn size_is_fixed() -> bool { true }
         }
     }
 }
@@ -156,116 +187,85 @@ prim_impl!(u32, read_le_u32, write_le_u32);
 prim_impl!(i32, read_le_i32, write_le_i32);
 prim_impl!(u64, read_le_u64, write_le_u64);
 prim_impl!(i64, read_le_i64, write_le_i64);
-prim_impl!(usize, read_le_uint, write_le_uint);
-prim_impl!(isize, read_le_int, write_le_int);
 
 
 impl ReadFrom for () {
     #[inline]
-    fn read_from<R: Reader>(_: &mut R, _: usize) -> IoResult<()> {
+    fn read_from<R: Reader>(_: &mut WireReader<R>) -> IoResult<()> {
         Ok(())
     }
-
-    #[inline]
-    fn size(_: Option<()>) -> (usize, usize) { (0, 0) }
 }
-
-impl ReadFromFixed for () { }
 
 impl WriteTo for () {
     #[inline]
-    fn write_to<W: Writer>(&self, _: &mut W) -> IoResult<()> {
+    fn write_to<W: Writer>(&self, _: &mut WireWriter<W>) -> IoResult<()> {
         Ok(())
     }
 
     #[inline]
     fn size(&self) -> usize { 0 }
-}
 
-impl WriteToFixed for () {
     #[inline]
-    fn size_fixed(_: Option<()>) -> usize { 0 }
+    fn size_is_fixed() -> bool { true }
 }
 
 
 macro_rules! tuple_impl {
-    ( $($name:ident : $ty:ident),+ ; $name1:ident : $ty1:ident  ) => {
-        impl<$($ty: ReadFromFixed),+, $ty1: ReadFrom> ReadFrom for ($($ty),+, $ty1) {
-            fn read_from<R: Reader>(r: &mut R, bytes: usize) -> IoResult<($($ty),+, $ty1)> {
-                let fixed_sum = $(ReadFromFixed::size_fixed(None::<$ty>) +)+ 0;
-                $( let $name: $ty = try!(
-                        ReadFrom::read_from(r, ReadFromFixed::size_fixed(None::<$ty>))); )+
-                let $name1: $ty1 = try!(ReadFrom::read_from(r, bytes - fixed_sum));
-                Ok(($($name),+, $name1))
-            }
-
-            fn size(_: Option<($($ty),+, $ty1)>) -> (usize, usize) {
-                let (fixed1, step1) = ReadFrom::size(None::<$ty1>);
-                let fixed = $(ReadFromFixed::size_fixed(None::<$ty>) +)+ fixed1;
-                (fixed, step1)
+    ( $($name:ident : $ty:ident),+ ) => {
+        impl<$($ty: ReadFrom),+> ReadFrom for ($($ty),+) {
+            fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<($($ty),+)> {
+                $( let $name: $ty = try!(ReadFrom::read_from(r)); )+
+                Ok(($($name),+))
             }
         }
 
-        impl<$($ty: ReadFromFixed),+, $ty1: ReadFromFixed> ReadFromFixed for ($($ty),+, $ty1) { }
-
-        impl<$($ty: WriteTo),+, $ty1: WriteTo> WriteTo for ($($ty),+, $ty1) {
-            fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
-                let ($(ref $name),+, ref $name1) = *self;
+        impl<$($ty: WriteTo),+> WriteTo for ($($ty),+) {
+            fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+                let ($(ref $name),+) = *self;
                 $( try!($name.write_to(w)); )*
-                try!($name1.write_to(w));
                 Ok(())
             }
 
             fn size(&self) -> usize {
-                let ($(ref $name),+, ref $name1) = *self;
-                $( $name.size() + )+ $name1.size()
+                let ($(ref $name),+) = *self;
+                0 $( + $name.size() )+
             }
-        }
 
-        impl<$($ty: WriteToFixed),+, $ty1: WriteToFixed> WriteToFixed for ($($ty),+, $ty1) {
-            fn size_fixed(_: Option<($($ty),+, $ty1)>) -> usize {
-                $( WriteToFixed::size_fixed(None::<$ty>) + )+
-                    WriteToFixed::size_fixed(None::<$ty1>)
+            fn size_is_fixed() -> bool {
+                true $( && <$ty as WriteTo>::size_is_fixed() )+
             }
         }
     }
 }
 
-tuple_impl!(a: A ; b: B);
-tuple_impl!(a: A , b: B ; c: C);
-tuple_impl!(a: A , b: B , c: C ; d: D);
-tuple_impl!(a: A , b: B , c: C , d: D ; e: E);
-tuple_impl!(a: A , b: B , c: C , d: D , e: E ; f: F);
+tuple_impl!(a: A , b: B);
+tuple_impl!(a: A , b: B , c: C);
+tuple_impl!(a: A , b: B , c: C , d: D);
+tuple_impl!(a: A , b: B , c: C , d: D , e: E);
+tuple_impl!(a: A , b: B , c: C , d: D , e: E , f: F);
 
 
 macro_rules! id_newtype_impl {
     ($name:ident : $inner:ident) => {
         impl ReadFrom for $name {
             #[inline]
-            fn read_from<R: Reader>(r: &mut R, bytes: usize) -> IoResult<$name> {
-                <$inner as ReadFrom>::read_from(r, bytes)
+            fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<$name> {
+                <$inner as ReadFrom>::read_from(r)
                     .map(|x| $name(x))
             }
-
-            #[inline]
-            fn size(_: Option<$name>) -> (usize, usize) { <$inner as ReadFrom>::size(None) }
         }
-
-        impl ReadFromFixed for $name { }
 
         impl WriteTo for $name {
             #[inline]
-            fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
+            fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
                 self.unwrap().write_to(w)
             }
 
             #[inline]
             fn size(&self) -> usize { <$inner as WriteTo>::size(&self.unwrap()) }
-        }
 
-        impl WriteToFixed for $name {
             #[inline]
-            fn size_fixed(_: Option<$name>) -> usize { <$inner as WriteToFixed>::size_fixed(None) }
+            fn size_is_fixed() -> bool { <$inner as WriteTo>::size_is_fixed() }
         }
     };
 }
@@ -276,113 +276,106 @@ id_newtype_impl!(StructureId: u32);
 id_newtype_impl!(InventoryId: u32);
 
 
-impl<A: ReadFromFixed> ReadFrom for Vec<A> {
-    fn read_from<R: Reader>(r: &mut R, bytes: usize) -> IoResult<Vec<A>> {
-        let step = ReadFromFixed::size_fixed(None::<A>);
-        let count = bytes / step;
+impl<A: ReadFrom> ReadFrom for Vec<A> {
+    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<Vec<A>> {
+        let count = try!(r.read::<u16>()) as usize;
         let mut result = Vec::with_capacity(count);
         for _ in 0..count {
-            result.push(try!(ReadFrom::read_from(r, step)));
+            result.push(try!(r.read()));
         }
         Ok(result)
     }
-
-    fn size(_: Option<Vec<A>>) -> (usize, usize) {
-        (0, ReadFromFixed::size_fixed(None::<A>))
-    }
 }
 
-impl<A: WriteToFixed> WriteTo for Vec<A> {
-    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
+impl<A: WriteTo> WriteTo for Vec<A> {
+    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+        self.as_slice().write_to(w)
+    }
+
+    fn size(&self) -> usize {
+        self.as_slice().size()
+    }
+
+    fn size_is_fixed() -> bool { false }
+}
+
+
+impl<A: WriteTo> WriteTo for [A] {
+    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+        assert!(self.len() <= u16::MAX as usize);
+        try!(w.write(self.len() as u16));
         for x in self.iter() {
-            try!(x.write_to(w));
+            try!(w.write(x));
         }
         Ok(())
     }
 
     fn size(&self) -> usize {
-        self.len() * WriteToFixed::size_fixed(None::<A>)
-    }
-}
-
-
-impl<'a, A: WriteToFixed> WriteTo for &'a [A] {
-    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
-        for x in self.iter() {
-            try!(x.write_to(w));
+        if self.len() == 0 {
+            123_u16.size()
+        } else if <A as WriteTo>::size_is_fixed() {
+            123_u16.size() + self.len() * self[0].size()
+        } else {
+            let mut size = 123_u16.size();
+            for x in self.iter() {
+                size += x.size();
+            }
+            size
         }
-        Ok(())
     }
 
-    fn size(&self) -> usize {
-        self.len() * WriteToFixed::size_fixed(None::<A>)
-    }
+    fn size_is_fixed() -> bool { false }
 }
 
 
 impl<'a, A: WriteTo> WriteTo for &'a A {
-    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
+    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
         (*self).write_to(w)
     }
 
     fn size(&self) -> usize { (*self).size() }
-}
 
-impl<'a, A: WriteToFixed> WriteToFixed for &'a A {
-    fn size_fixed(_: Option<&'a A>) -> usize {
-        WriteToFixed::size_fixed(None::<A>)
-    }
+    fn size_is_fixed() -> bool { <A as WriteTo>::size_is_fixed() }
 }
 
 
 impl ReadFrom for String {
-    fn read_from<R: Reader>(r: &mut R, bytes: usize) -> IoResult<String> {
-        let bytes: Vec<u8> = try!(ReadFrom::read_from(r, bytes));
+    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<String> {
+        let bytes: Vec<u8> = try!(ReadFrom::read_from(r));
         Ok(String::from_utf8_lossy(&*bytes).into_owned())
-    }
-
-    fn size(_: Option<String>) -> (usize, usize) {
-        (0, 1)
     }
 }
 
 impl WriteTo for String {
-    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
+    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
         self.as_bytes().write_to(w)
     }
 
     fn size(&self) -> usize {
-        self.len()
+        self.as_bytes().size()
     }
+
+    fn size_is_fixed() -> bool { false }
 }
 
 
 impl ReadFrom for [u32; 4] {
     #[inline]
-    fn read_from<R: Reader>(r: &mut R, bytes: usize) -> IoResult<[u32; 4]> {
-        let (a, b, c, d) = try!(ReadFrom::read_from(r, bytes));
+    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<[u32; 4]> {
+        let (a, b, c, d) = try!(r.read());
         Ok([a, b, c, d])
     }
-
-    #[inline]
-    fn size(_: Option<[u32; 4]>) -> (usize, usize) { (16, 0) }
 }
-
-impl ReadFromFixed for [u32; 4] { }
 
 impl WriteTo for [u32; 4] {
     #[inline]
-    fn write_to<W: Writer>(&self, w: &mut W) -> IoResult<()> {
-        (self[0], self[1], self[2], self[3]).write_to(w)
+    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+        w.write((self[0], self[1], self[2], self[3]))
     }
 
     #[inline]
     fn size(&self) -> usize { 16 }
-}
 
-impl WriteToFixed for [u32; 4] {
     #[inline]
-    fn size_fixed(_: Option<[u32; 4]>) -> usize { 16 }
+    fn size_is_fixed() -> bool { true }
 }
-
-

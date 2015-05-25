@@ -107,8 +107,9 @@ Connection.prototype._handleMessage = function(evt) {
     }
 
     function getString() {
-        var result = decodeUtf8(new Uint8Array(view.buffer, offset));
-        offset = view.buffer.byteLength;
+        var len = get16();
+        var result = decodeUtf8(new Uint8Array(view.buffer, offset, len));
+        offset += len;
         return result;
     }
 
@@ -120,7 +121,9 @@ Connection.prototype._handleMessage = function(evt) {
                 var chunk_idx = get16();
                 // TODO: byte order in the Uint16Array will be wrong on
                 // big-endian systems.
-                this.onTerrainChunk(chunk_idx, new Uint16Array(view.buffer, 4));
+                var len = get16();
+                this.onTerrainChunk(chunk_idx, new Uint16Array(view.buffer, offset, len));
+                offset += 2 * len;
             }
             break;
 
@@ -200,8 +203,9 @@ Connection.prototype._handleMessage = function(evt) {
         case OP_OPEN_DIALOG:
             if (this.onOpenDialog != null) {
                 var idx = get32();
+                var len = get16();
                 var args = [];
-                while (offset < view.byteLength) {
+                for (var i = 0; i < len; ++i) {
                     args.push(get32());
                 }
                 this.onOpenDialog(idx, args);
@@ -211,8 +215,9 @@ Connection.prototype._handleMessage = function(evt) {
         case OP_INVENTORY_UPDATE:
             if (this.onInventoryUpdate != null) {
                 var inventory_id = get32();
+                var len = get16();
                 var updates = [];
-                while (offset < view.byteLength) {
+                for (var i = 0; i < len; ++i) {
                     var item_id = get16();
                     var old_count = get8();
                     var new_count = get8();
@@ -310,6 +315,9 @@ Connection.prototype._handleMessage = function(evt) {
             console.assert(false, 'received invalid opcode:', opcode.toString(16));
             break;
     }
+
+    console.assert(offset == view.buffer.byteLength,
+            'received message with bad length');
 };
 
 
@@ -372,12 +380,13 @@ Connection.prototype.sendInput = function(time, input) {
 
 Connection.prototype.sendLogin = function(name, secret) {
     var name_utf8 = unescape(encodeURIComponent(name));
-    var msg = new MessageBuilder(2 + 16 + name_utf8.length);
+    var msg = new MessageBuilder(2 + 16 + 2 + name_utf8.length);
 
     msg.put16(OP_LOGIN);
     for (var i = 0; i < 4; ++i) {
         msg.put32(secret[i]);
     }
+    msg.put16(name_utf8.length);
     for (var i = 0; i < name_utf8.length; ++i) {
         msg.put8(name_utf8.charCodeAt(i));
     }
@@ -424,8 +433,9 @@ Connection.prototype.sendCraftRecipe = function(station_id, inventory_id, recipe
 
 Connection.prototype.sendChat = function(msg) {
     var utf8 = unescape(encodeURIComponent(msg));
-    var msg = new MessageBuilder(2 + utf8.length);
+    var msg = new MessageBuilder(4 + utf8.length);
     msg.put16(OP_CHAT);
+    msg.put16(utf8.length);
     for (var i = 0; i < utf8.length; ++i) {
         msg.put8(utf8.charCodeAt(i));
     }
@@ -434,13 +444,14 @@ Connection.prototype.sendChat = function(msg) {
 
 Connection.prototype.sendRegister = function(name, secret, appearance) {
     var utf8 = unescape(encodeURIComponent(name));
-    var msg = new MessageBuilder(2 + 16 + 4 + utf8.length);
+    var msg = new MessageBuilder(2 + 16 + 6 + utf8.length);
 
     msg.put16(OP_REGISTER);
     for (var i = 0; i < 4; ++i) {
         msg.put32(secret[i]);
     }
     msg.put32(appearance);
+    msg.put16(utf8.length);
     for (var i = 0; i < utf8.length; ++i) {
         msg.put8(utf8.charCodeAt(i));
     }
