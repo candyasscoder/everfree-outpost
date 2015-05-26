@@ -9,6 +9,7 @@ use util::{StringError, StringResult};
 
 use engine;
 use engine::glue::WorldFragment;
+use msg;
 use terrain_gen;
 use world;
 use world::object::*;
@@ -130,15 +131,6 @@ impl ScriptEngine {
         })
     }
 
-    pub fn cb_interact(eng: &mut engine::Engine, cid: ClientId) -> StringResult<()> {
-        let ptr = eng as *mut engine::Engine;
-        eng.script.with_context(ptr, |lua| {
-            run_callback(lua,
-                         "outpost_callback_interact",
-                         (userdata::world::Client { id: cid }))
-        })
-    }
-
     pub fn cb_open_inventory(eng: &mut engine::Engine, cid: ClientId) -> StringResult<()> {
         let ptr = eng as *mut engine::Engine;
         eng.script.with_context(ptr, |lua| {
@@ -148,27 +140,47 @@ impl ScriptEngine {
         })
     }
 
+
+    pub fn cb_interact(eng: &mut engine::Engine,
+                       cid: ClientId,
+                       args: Option<msg::ExtraArg>) -> StringResult<()> {
+        let ptr = eng as *mut engine::Engine;
+        eng.script.with_context(ptr, |lua| {
+            run_callback(lua,
+                         "outpost_callback_interact",
+                         (userdata::world::Client { id: cid },
+                          args.map(|a| userdata::extra_arg::ExtraArg::new(a))))
+        })
+    }
+
     pub fn cb_use_item(eng: &mut engine::Engine,
                        cid: ClientId,
-                       item_id: ItemId) -> StringResult<()> {
+                       item_id: ItemId,
+                       args: Option<msg::ExtraArg>) -> StringResult<()> {
         let ptr = eng as *mut engine::Engine;
         eng.script.with_context(ptr, |lua| {
             run_callback(lua,
                          "outpost_callback_use_item",
-                         (userdata::world::Client { id: cid }, item_id))
+                         (userdata::world::Client { id: cid },
+                          item_id,
+                          args.map(|a| userdata::extra_arg::ExtraArg::new(a))))
         })
     }
 
     pub fn cb_use_ability(eng: &mut engine::Engine,
                           cid: ClientId,
-                          item_id: ItemId) -> StringResult<()> {
+                          item_id: ItemId,
+                          args: Option<msg::ExtraArg>) -> StringResult<()> {
         let ptr = eng as *mut engine::Engine;
         eng.script.with_context(ptr, |lua| {
             run_callback(lua,
                          "outpost_callback_use_ability",
-                         (userdata::world::Client { id: cid }, item_id))
+                         (userdata::world::Client { id: cid },
+                          item_id,
+                          args.map(|a| userdata::extra_arg::ExtraArg::new(a))))
         })
     }
+
 
     pub fn cb_eval(eng: &mut engine::Engine,
                    code: &str) -> Result<String, String> {

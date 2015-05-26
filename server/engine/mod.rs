@@ -197,16 +197,16 @@ impl<'d> Engine<'d> {
                 logic::input::chat(self.as_ref(), cid, msg);
             },
 
-            Interact => {
-                logic::input::interact(self.as_ref(), cid);
+            Interact(args) => {
+                logic::input::interact(self.as_ref(), cid, args);
             },
 
-            UseItem(item_id) => {
-                logic::input::use_item(self.as_ref(), cid, item_id);
+            UseItem(item_id, args) => {
+                logic::input::use_item(self.as_ref(), cid, item_id, args);
             },
 
-            UseAbility(item_id) => {
-                logic::input::use_ability(self.as_ref(), cid, item_id);
+            UseAbility(item_id, args) => {
+                logic::input::use_ability(self.as_ref(), cid, item_id, args);
             },
 
             CheckView => {

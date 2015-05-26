@@ -10,7 +10,10 @@ use engine::glue::WorldFragment;
 use logic;
 use lua::LuaState;
 use messages::ClientResponse;
+use msg;
 use script::traits::Userdata;
+use script::userdata::TakeOptWrapper;
+use script::userdata::extra_arg::ExtraArg;
 use world;
 use world::Fragment;
 use world::object::*;
@@ -203,6 +206,41 @@ impl Userdata for Client {
                                 msg: String) -> StrResult<()> {
                 unwrap!(eng.world.get_client(c.id));
                 let resp = ClientResponse::ChatUpdate(msg);
+                eng.messages.send_client(c.id, resp);
+                Ok(())
+            }
+
+            fn get_interact_args(!full eng: &mut Engine,
+                                 c: Client,
+                                 dialog_id: u32,
+                                 parts: TakeOptWrapper<msg::ExtraArg>) -> StrResult<()> {
+                let parts = unwrap!(parts.0);
+                unwrap!(eng.world.get_client(c.id));
+                let resp = ClientResponse::GetInteractArgs(dialog_id, parts);
+                eng.messages.send_client(c.id, resp);
+                Ok(())
+            }
+
+            fn get_use_item_args(!full eng: &mut Engine,
+                                 c: Client,
+                                 item_id: ItemId,
+                                 dialog_id: u32,
+                                 parts: TakeOptWrapper<msg::ExtraArg>) -> StrResult<()> {
+                let parts = unwrap!(parts.0);
+                unwrap!(eng.world.get_client(c.id));
+                let resp = ClientResponse::GetUseItemArgs(item_id, dialog_id, parts);
+                eng.messages.send_client(c.id, resp);
+                Ok(())
+            }
+
+            fn get_use_ability_args(!full eng: &mut Engine,
+                                    c: Client,
+                                    dialog_id: u32,
+                                    item_id: ItemId,
+                                    parts: TakeOptWrapper<msg::ExtraArg>) -> StrResult<()> {
+                let parts = unwrap!(parts.0);
+                unwrap!(eng.world.get_client(c.id));
+                let resp = ClientResponse::GetUseAbilityArgs(item_id, dialog_id, parts);
                 eng.messages.send_client(c.id, resp);
                 Ok(())
             }

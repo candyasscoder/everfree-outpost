@@ -17,7 +17,7 @@ local function get_or_noop(t, k)
 end
 
 local structure_use_handlers = {}
-function outpost_ffi.callbacks.interact(client, arg)
+function outpost_ffi.callbacks.interact(client, args)
     local s = util.hit_structure(client:pawn())
     if s ~= nil then
         local handler = get_or_noop(structure_use_handlers, s:template())
@@ -26,8 +26,8 @@ function outpost_ffi.callbacks.interact(client, arg)
 end
 
 local item_use_handlers = {}
-function outpost_ffi.callbacks.use_item(c, arg)
-    local item_type = c:world():item_id_to_name(arg)
+function outpost_ffi.callbacks.use_item(c, item_id, args)
+    local item_type = c:world():item_id_to_name(item_id)
     if item_type == nil then
         return
     end
@@ -42,8 +42,8 @@ function outpost_ffi.callbacks.use_item(c, arg)
 end
 
 local ability_use_handlers = {}
-function outpost_ffi.callbacks.use_ability(c, arg)
-    local item_type = c:world():item_id_to_name(arg)
+function outpost_ffi.callbacks.use_ability(c, item_id, args)
+    local item_type = c:world():item_id_to_name(item_id)
     if item_type == nil then
         return
     end

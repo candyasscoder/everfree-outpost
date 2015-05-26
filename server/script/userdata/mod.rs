@@ -1,10 +1,11 @@
 use std::cell::RefCell;
+use libc::c_int;
 
 use util::StrResult;
 
 use lua::LuaState;
 use script::build_type_table;
-use script::traits::TypeName;
+use script::traits::{TypeName, FromLua, Userdata};
 
 
 macro_rules! insert_function {
@@ -193,5 +194,20 @@ impl<T> OptWrapper<T> {
         let mut b = self.x.borrow_mut();
         let x = unwrap!(b.as_mut());
         Ok(f(x))
+    }
+}
+
+
+pub struct TakeOptWrapper<T>(Option<T>);
+
+impl<'a, T: 'a> FromLua<'a> for TakeOptWrapper<T>
+        where OptWrapper<T>: Userdata{
+    unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
+        <&'a OptWrapper<T> as FromLua>::check(lua, index, func);
+    }
+
+    unsafe fn from_lua(lua: &'a LuaState, index: c_int) -> TakeOptWrapper<T> {
+        let ptr = <&'a OptWrapper<T> as FromLua>::from_lua(lua, index);
+        TakeOptWrapper(ptr.take())
     }
 }

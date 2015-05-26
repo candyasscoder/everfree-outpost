@@ -10,7 +10,7 @@ use physics::TILE_SIZE;
 use auth::Secret;
 use input::InputBits;
 use input::Action;
-use msg::{Request, Response, InitData};
+use msg::{Request, Response, InitData, ExtraArg};
 use timer::WakeQueue;
 use world::Motion;
 
@@ -34,12 +34,12 @@ pub enum Event {
     Other(OtherEvent),
 }
 
-#[derive(Copy)]
+#[derive(Clone)]
 pub enum WakeReason {
     DeferredInput(ClientId, InputBits),
-    DeferredInteract(ClientId),
-    DeferredUseItem(ClientId, ItemId),
-    DeferredUseAbility(ClientId, ItemId),
+    DeferredInteract(ClientId, Option<ExtraArg>),
+    DeferredUseItem(ClientId, ItemId, Option<ExtraArg>),
+    DeferredUseAbility(ClientId, ItemId, Option<ExtraArg>),
     PhysicsUpdate(EntityId),
     CheckView(ClientId),
 }
@@ -64,9 +64,11 @@ pub enum ClientEvent {
     MoveItem(InventoryId, InventoryId, ItemId, u16),
     CraftRecipe(StructureId, InventoryId, RecipeId, u16),
     Chat(String),
-    Interact,
-    UseItem(ItemId),
-    UseAbility(ItemId),
+
+    Interact(Option<ExtraArg>),
+    UseItem(ItemId, Option<ExtraArg>),
+    UseAbility(ItemId, Option<ExtraArg>),
+
     CheckView,
     BadRequest,
 }
@@ -107,6 +109,10 @@ pub enum ClientResponse {
     //InventoryGone(InventoryId),
     
     PlaneFlags(u32),
+
+    GetInteractArgs(u32, ExtraArg),
+    GetUseItemArgs(ItemId, u32, ExtraArg),
+    GetUseAbilityArgs(ItemId, u32, ExtraArg),
 
     OpenDialog(Dialog),
     MainInventory(InventoryId),
@@ -223,12 +229,12 @@ impl Messages {
         match reason {
             WakeReason::DeferredInput(cid, input) =>
                 Some(Event::Client(cid, ClientEvent::Input(input))),
-            WakeReason::DeferredInteract(cid) =>
-                Some(Event::Client(cid, ClientEvent::Interact)),
-            WakeReason::DeferredUseItem(cid, item_id) =>
-                Some(Event::Client(cid, ClientEvent::UseItem(item_id))),
-            WakeReason::DeferredUseAbility(cid, item_id) =>
-                Some(Event::Client(cid, ClientEvent::UseAbility(item_id))),
+            WakeReason::DeferredInteract(cid, args) =>
+                Some(Event::Client(cid, ClientEvent::Interact(args))),
+            WakeReason::DeferredUseItem(cid, item_id, args) =>
+                Some(Event::Client(cid, ClientEvent::UseItem(item_id, args))),
+            WakeReason::DeferredUseAbility(cid, item_id, args) =>
+                Some(Event::Client(cid, ClientEvent::UseAbility(item_id, args))),
             WakeReason::PhysicsUpdate(eid) =>
                 Some(Event::Other(OtherEvent::PhysicsUpdate(eid))),
             WakeReason::CheckView(cid) => {
@@ -340,23 +346,44 @@ impl Messages {
             Request::Chat(msg) =>
                 Ok(Some(ClientEvent::Chat(msg))),
 
+
             Request::Interact(time) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.push(time, WakeReason::DeferredInteract(cid));
+                self.wake.push(time, WakeReason::DeferredInteract(cid, None));
                 Ok(None)
             },
 
             Request::UseItem(time, item_id) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.push(time, WakeReason::DeferredUseItem(cid, item_id));
+                self.wake.push(time, WakeReason::DeferredUseItem(cid, item_id, None));
                 Ok(None)
             },
 
             Request::UseAbility(time, item_id) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.push(time, WakeReason::DeferredUseAbility(cid, item_id));
+                self.wake.push(time, WakeReason::DeferredUseAbility(cid, item_id, None));
                 Ok(None)
             },
+
+
+            Request::InteractWithArgs(time, args) => {
+                let time = cmp::max(time.to_global(now), now);
+                self.wake.push(time, WakeReason::DeferredInteract(cid, Some(args)));
+                Ok(None)
+            },
+
+            Request::UseItemWithArgs(time, item_id, args) => {
+                let time = cmp::max(time.to_global(now), now);
+                self.wake.push(time, WakeReason::DeferredUseItem(cid, item_id, Some(args)));
+                Ok(None)
+            },
+
+            Request::UseAbilityWithArgs(time, item_id, args) => {
+                let time = cmp::max(time.to_global(now), now);
+                self.wake.push(time, WakeReason::DeferredUseAbility(cid, item_id, Some(args)));
+                Ok(None)
+            },
+
 
             _ => fail!("bad request: {:?}", req),
         }
@@ -449,6 +476,16 @@ impl Messages {
 
             ClientResponse::PlaneFlags(flags) =>
                 self.send_raw(wire_id, Response::PlaneFlags(flags)),
+
+
+            ClientResponse::GetInteractArgs(dialog_id, parts) =>
+                self.send_raw(wire_id, Response::GetInteractArgs(dialog_id, parts)),
+
+            ClientResponse::GetUseItemArgs(item_id, dialog_id, parts) =>
+                self.send_raw(wire_id, Response::GetUseItemArgs(item_id, dialog_id, parts)),
+
+            ClientResponse::GetUseAbilityArgs(item_id, dialog_id, parts) =>
+                self.send_raw(wire_id, Response::GetUseAbilityArgs(item_id, dialog_id, parts)),
 
 
             ClientResponse::OpenDialog(dialog) => {

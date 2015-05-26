@@ -3,6 +3,7 @@ use types::*;
 use engine::split::{EngineRef, Open};
 use input::{Action, InputBits};
 use messages::ClientResponse;
+use msg::ExtraArg;
 use physics_;
 use script;
 use world::object::*;
@@ -24,16 +25,16 @@ pub fn input(mut eng: EngineRef, cid: ClientId, input: InputBits) {
     }
 }
 
-pub fn interact(eng: EngineRef, cid: ClientId) {
-    warn_on_err!(script::ScriptEngine::cb_interact(eng.unwrap(), cid));
+pub fn interact(eng: EngineRef, cid: ClientId, args: Option<ExtraArg>) {
+    warn_on_err!(script::ScriptEngine::cb_interact(eng.unwrap(), cid, args));
 }
 
-pub fn use_item(eng: EngineRef, cid: ClientId, item_id: ItemId) {
-    warn_on_err!(script::ScriptEngine::cb_use_item(eng.unwrap(), cid, item_id));
+pub fn use_item(eng: EngineRef, cid: ClientId, item_id: ItemId, args: Option<ExtraArg>) {
+    warn_on_err!(script::ScriptEngine::cb_use_item(eng.unwrap(), cid, item_id, args));
 }
 
-pub fn use_ability(eng: EngineRef, cid: ClientId, item_id: ItemId) {
-    warn_on_err!(script::ScriptEngine::cb_use_ability(eng.unwrap(), cid, item_id));
+pub fn use_ability(eng: EngineRef, cid: ClientId, item_id: ItemId, args: Option<ExtraArg>) {
+    warn_on_err!(script::ScriptEngine::cb_use_ability(eng.unwrap(), cid, item_id, args));
 }
 
 pub fn open_inventory(eng: EngineRef, cid: ClientId) {
