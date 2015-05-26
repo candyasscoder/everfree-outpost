@@ -45,6 +45,7 @@ var widget = require('ui/widget');
 var ErrorList = require('ui/errorlist').ErrorList;
 var InventoryUpdateList = require('ui/invupdate').InventoryUpdateList;
 var ActiveItems = require('ui/hotbar').ActiveItems;
+var DIALOG_TYPES = require('ui/dialogs').DIALOG_TYPES;
 
 var BlockDef = require('data/chunk').BlockDef;
 var ItemDef = require('data/items').ItemDef;
@@ -384,6 +385,9 @@ function openConn(info, next) {
     conn.onMainInventory = handleMainInventory;
     conn.onAbilityInventory = handleAbilityInventory;
     conn.onPlaneFlags = handlePlaneFlags;
+    conn.onGetInteractArgs = handleGetInteractArgs;
+    conn.onGetUseItemArgs = handleGetUseItemArgs;
+    conn.onGetUseAbilityArgs = handleGetUseAbilityArgs;
 }
 
 function maybeRegister(info, next) {
@@ -946,6 +950,33 @@ function handleAbilityInventory(iid) {
 
 function handlePlaneFlags(flags) {
     day_night.active = (flags == 0);
+}
+
+function handleGetInteractArgs(dialog_id, parts) {
+    handleGenericGetArgs(dialog_id, parts, function(time, args) {
+        conn.sendInteractWithArgs(time, args);
+    });
+}
+
+function handleGetUseItemArgs(item_id, dialog_id, parts) {
+    handleGenericGetArgs(dialog_id, parts, function(time, args) {
+        conn.sendUseItemWithArgs(time, item_id, args);
+    });
+}
+
+function handleGetUseAbilityArgs(item_id, dialog_id, parts) {
+    handleGenericGetArgs(dialog_id, parts, function(time, args) {
+        conn.sendUseAbilityWithArgs(time, item_id, args);
+    });
+}
+
+function handleGenericGetArgs(dialog_id, parts, cb) {
+    var d = new (DIALOG_TYPES[dialog_id])(parts);
+    d.onfinish = function(args) {
+        var time = timing.encodeSend(timing.nextArrival());
+        cb(time, args);
+    };
+    dialog.show(d);
 }
 
 

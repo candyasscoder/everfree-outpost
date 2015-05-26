@@ -21,7 +21,7 @@ function outpost_ffi.callbacks.interact(client, args)
     local s = util.hit_structure(client:pawn())
     if s ~= nil then
         local handler = get_or_noop(structure_use_handlers, s:template())
-        handler(client, s)
+        handler(client, s, args)
     end
 end
 
@@ -38,7 +38,7 @@ function outpost_ffi.callbacks.use_item(c, item_id, args)
     end
 
     local handler = get_or_noop(item_use_handlers, item_type)
-    handler(c, inv)
+    handler(c, inv, args)
 end
 
 local ability_use_handlers = {}
@@ -61,7 +61,7 @@ function outpost_ffi.callbacks.use_ability(c, item_id, args)
     name = item_type:sub(#prefix + 1)
 
     local handler = get_or_noop(ability_use_handlers, name)
-    handler(c, inv)
+    handler(c, inv, args)
 end
 
 local M = {

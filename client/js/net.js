@@ -130,6 +130,7 @@ Connection.prototype._handleMessage = function(evt) {
 
             case 2:
                 var len = get16();
+                console.log('reading array', len);
                 var arr = new Array(len);
                 for (var i = 0; i < len; ++i) {
                     arr[i] = getArg();
@@ -139,6 +140,7 @@ Connection.prototype._handleMessage = function(evt) {
             case 3:
                 var len = get16();
                 var map = new Object();
+                console.log('reading map', len);
                 for (var i = 0; i < len; ++i) {
                     var k = getArg();
                     var v = getArg();
@@ -349,25 +351,25 @@ Connection.prototype._handleMessage = function(evt) {
         case OP_GET_INTERACT_ARGS:
             if (this.onGetInteractArgs != null) {
                 var dialog_id = get32();
-                var args = getArgs();
+                var args = getArg();
                 this.onGetInteractArgs(dialog_id, args);
             }
             break;
 
         case OP_GET_USE_ITEM_ARGS:
             if (this.onGetUseItemArgs != null) {
-                var item_id = get32();
+                var item_id = get16();
                 var dialog_id = get32();
-                var args = getArgs();
+                var args = getArg();
                 this.onGetUseItemArgs(item_id, dialog_id, args);
             }
             break;
 
         case OP_GET_USE_ABILITY_ARGS:
             if (this.onGetUseItemArgs != null) {
-                var item_id = get32();
+                var item_id = get16();
                 var dialog_id = get32();
-                var args = getArgs();
+                var args = getArg();
                 this.onGetUseAbilityArgs(item_id, dialog_id, args);
             }
             break;
@@ -585,3 +587,30 @@ Connection.prototype.sendOpenInventory = function() {
     msg.put16(OP_OPEN_INVENTORY);
     this.socket.send(msg.done());
 };
+
+Connection.prototype.sendInteractWithArgs = function(time, args) {
+    var msg = MESSAGE_BUILDER.reset();
+    msg.put16(OP_INTERACT_WITH_ARGS);
+    msg.put16(time);
+    msg.putArg(args);
+    this.socket.send(msg.done());
+};
+
+Connection.prototype.sendUseItemWithArgs = function(time, item_id, args) {
+    var msg = MESSAGE_BUILDER.reset();
+    msg.put16(OP_USE_ITEM_WITH_ARGS);
+    msg.put16(time);
+    msg.put16(item_id);
+    msg.putArg(args);
+    this.socket.send(msg.done());
+};
+
+Connection.prototype.sendUseAbilityWithArgs = function(time, item_id, args) {
+    var msg = MESSAGE_BUILDER.reset();
+    msg.put16(OP_USE_ABILITY_WITH_ARGS);
+    msg.put16(time);
+    msg.put16(item_id);
+    msg.putArg(args);
+    this.socket.send(msg.done());
+};
+

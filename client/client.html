@@ -416,6 +416,32 @@
 
 
 
+            .button {
+                display: inline-block;
+                cursor: pointer;
+                padding: 0 0.125rem;
+            }
+
+            .dialog > div > .button.active,
+            .dialog > div > div.active > .button.active {
+                background-color: lightblue;
+            }
+
+
+            .text-box {
+                border: none;
+                font-size: 1rem;
+                max-width: 20rem;
+            }
+
+            .dialog > div > .text-box.active,
+            .dialog > div > div.active > .text-box.active {
+                background-color: lightblue;
+            }
+
+
+
+
             .error-list {
                 position: fixed;
                 top: 0;

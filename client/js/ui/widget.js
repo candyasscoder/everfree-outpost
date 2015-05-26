@@ -67,12 +67,14 @@ FocusTracker.prototype.handleKey = function(down, evt) {
         if (down) {
             this.setFocus(this.active - mag);
         }
+        return true;
     } else if (binding == this.key_names[1]) {
         if (down) {
             this.setFocus(this.active + mag);
         }
+        return true;
     } else if (this.items.length > 0) {
-        this.items[this.active].keys.handleKey(down, evt);
+        return this.items[this.active].keys.handleKey(down, evt);
     }
 };
 
