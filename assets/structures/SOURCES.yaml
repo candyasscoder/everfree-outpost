@@ -176,3 +176,9 @@ stone-wall.png: &stone-wall
 stone-wall.xcf: *stone-wall
 stone-wall-planemap.png: *stone-wall
 
+
+sign.png:
+    title: LPC Signpost
+    author: Nemisys
+    license: CC-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    url: http://opengameart.org/content/lpc-sign-post

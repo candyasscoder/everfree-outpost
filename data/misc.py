@@ -47,4 +47,8 @@ def init(asset_path):
     mk_item('hat', 'Hat', tiles('equip_hat_icon.png'))
 
 
+    sign = mk_solid_structure('sign', structures('sign.png'), (1, 1, 1))
+    mk_structure_item(sign, 'sign', 'Sign') \
+            .recipe('anvil', {'wood': 5})
+
 
