@@ -50,6 +50,8 @@ DiamondSquare = outpost_ffi.types.DiamondSquare.table
 
 IsoDiskSampler = outpost_ffi.types.IsoDiskSampler.table
 
+ExtraArg = outpost_ffi.types.ExtraArg.table
+
 
 require('outpost.userdata')
 require('outpost.extra')
@@ -68,6 +70,7 @@ require('ward_item')
 require('mallet')
 require('hat')
 require('teleporter')
+require('sign')
 
 require('terrain')
 local util = require('outpost.util')

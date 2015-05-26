@@ -99,6 +99,10 @@ impl Userdata for World {
                 w.data().item_data.get_name(id).map(|s| s.to_owned())
             }
 
+            fn item_name_to_id(!partial w: &world::World, _w: World, name: &str) -> _ {
+                w.data().item_data.find_id(name)
+            }
+
             fn get_client(!partial w: &world::World,
                           _w: World,
                           id: ClientId) -> Option<Client> {
@@ -235,8 +239,8 @@ impl Userdata for Client {
 
             fn get_use_ability_args(!full eng: &mut Engine,
                                     c: Client,
-                                    dialog_id: u32,
                                     item_id: ItemId,
+                                    dialog_id: u32,
                                     parts: TakeOptWrapper<msg::ExtraArg>) -> StrResult<()> {
                 let parts = unwrap!(parts.0);
                 unwrap!(eng.world.get_client(c.id));
