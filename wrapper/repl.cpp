@@ -48,12 +48,13 @@ void repl::handle_command(size_t id,
         vector<uint8_t>::const_iterator begin,
         vector<uint8_t>::const_iterator end) {
     vector<uint8_t> buf;
-    buf.reserve(end - begin + 4);
-    buf.resize(4);
+    buf.reserve(end - begin + 6);
+    buf.resize(6);
 
     uint16_t cookie = next_cookie++;
     *(uint16_t*)&buf[0] = opcode::OP_REPL_COMMAND;
     *(uint16_t*)&buf[2] = cookie;
+    *(uint16_t*)&buf[4] = end - begin;
     buf.insert(buf.end(), begin, end);
     owner.handle_repl_command(move(buf));
 
@@ -161,7 +162,10 @@ bool repl_client::operator <(const repl_client& other) const {
 void repl_client::handle_response(
         vector<uint8_t>::const_iterator begin,
         vector<uint8_t>::const_iterator end) {
-    auto msg_ptr = make_shared<vector<uint8_t>>(begin, end);
+    uint16_t len = *(const uint16_t*)&*begin;
+    assert(len <= end - begin - 2 &&
+            "not enough bytes in repl response");
+    auto msg_ptr = make_shared<vector<uint8_t>>(begin + 2, end);
 
     async_write(socket, buffer(*msg_ptr),
         [msg_ptr, this] (boost::system::error_code ec, size_t len) {
