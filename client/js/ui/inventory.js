@@ -1,6 +1,5 @@
 var Config = require('config').Config;
 var ItemDef = require('data/items').ItemDef;
-var SelectionList = require('ui/sortedlist').SelectionList;
 var fromTemplate = require('util/misc').fromTemplate;
 var InventoryTracker = require('inventory').InventoryTracker;
 var widget = require('ui/widget');

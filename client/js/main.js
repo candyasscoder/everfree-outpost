@@ -363,7 +363,9 @@ function openConn(info, next) {
     if (url == null) {
         var elt = util.element('div', []);
         elt.innerHTML = info['message'];
-        dialog.show(new widget.Template('server-offline', {'msg': elt}));
+        var w = new widget.TemplateForm('server-offline', {'msg': elt});
+        w.oncancel = function() {};
+        dialog.show(w);
         return;
     }
 
@@ -437,7 +439,8 @@ function maybeRegister(info, next) {
         }
     }
 
-    editor.onfinish = send_register;
+    editor.onsubmit = send_register;
+    editor.oncancel = function() {};
     dialog.show(editor);
 }
 
@@ -691,7 +694,8 @@ function setupKeyHandler() {
                         active.setItem(new_id);
                     });
 
-                    ui.onclose = function() {
+                    ui.oncancel = function() {
+                        dialog.hide();
                         inv.unsubscribe();
                     };
                     break;
@@ -708,7 +712,8 @@ function setupKeyHandler() {
                         active.setAbility(new_id);
                     });
 
-                    ui.onclose = function() {
+                    ui.oncancel = function() {
+                        dialog.hide();
                         inv.unsubscribe();
                     };
                     break;
@@ -779,18 +784,8 @@ function handleClose(evt, reason) {
         reason_elt.textContent = 'Reason: ' + reason;
     }
 
-    var w = new widget.Template('disconnected', {'reason': reason_elt});
-    w.keys = {
-        handleKey: function(down, evt) {
-            if (down && !evt.repeat) {
-                var binding = Config.keybindings.get()[evt.keyCode];
-                if (binding == 'show_menu') {
-                    // TODO: might want to show a more restricted menu
-                    dialog.show(main_menu);
-                }
-            }
-        },
-    };
+    var w = new widget.TemplateForm('disconnected', {'reason': reason_elt});
+    w.oncancel = function() {};
     dialog.show(w);
 }
 
@@ -867,7 +862,8 @@ function handleOpenDialog(idx, args) {
             conn.sendMoveItem(from_inventory, to_inventory, item_id, amount);
         };
 
-        ui.onclose = function() {
+        ui.oncancel = function() {
+            dialog.hide();
             inv1.unsubscribe();
             inv2.unsubscribe();
         };
@@ -884,7 +880,8 @@ function handleOpenCrafting(station_type, station_id, inventory_id) {
         conn.sendCraftRecipe(station_id, inventory_id, recipe_id, count);
     };
 
-    ui.onclose = function() {
+    ui.oncancel = function() {
+        dialog.hide();
         inv.unsubscribe();
     };
 }
@@ -972,7 +969,8 @@ function handleGetUseAbilityArgs(item_id, dialog_id, parts) {
 
 function handleGenericGetArgs(dialog_id, parts, cb) {
     var d = new (DIALOG_TYPES[dialog_id])(parts);
-    d.onfinish = function(args) {
+    d.onsubmit = function(args) {
+        dialog.hide();
         var time = timing.encodeSend(timing.nextArrival());
         cb(time, args);
     };

@@ -1,7 +1,6 @@
 var Config = require('config').Config;
 var ItemDef = require('data/items').ItemDef;
 var RecipeDef = require('data/recipes').RecipeDef;
-var SelectionList = require('ui/sortedlist').SelectionList;
 var ItemList = require('ui/inventory').ItemList;
 var InventoryTracker = require('inventory').InventoryTracker;
 var util = require('util/misc');

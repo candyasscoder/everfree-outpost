@@ -198,6 +198,13 @@ exports.Element = Element;
 Element.prototype.onkey = function(evt) {};
 
 
+function TemplateForm() {
+    var dom = util.fromTemplate.apply(null, arguments);
+    return new Form(dom, new Element(dom));
+}
+exports.TemplateForm = TemplateForm;
+
+
 
 function SimpleList(dom, items, key_names) {
     this.parent = null;
@@ -272,6 +279,7 @@ SimpleList.prototype._scrollToItem = function(sel) {
 
 SimpleList.prototype.setFocus = function(idx) {
     if (this.items.length == 0) {
+        this.active = -1;
         return;
     }
 
@@ -444,7 +452,13 @@ DynamicList.prototype.update = function(updates, callback) {
     }
 
     this.items = new_items;
-    this.setFocus(new_active_index);
+    this.active = new_active_index;
+    // Call `setFocus` to apply the `active` class.  Note that we already
+    // changed `this.active`, so the code doesn't actually know what the
+    // previously selected element was.  This is okay because either the
+    // previously selected element is the same as the newly selected element,
+    // or the previously selected element has been removed from the list.
+    this.setFocus(this.active);
 };
 
 DynamicList.prototype.indexOf = function(id) {
