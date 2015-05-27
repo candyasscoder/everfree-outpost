@@ -14,10 +14,11 @@ var TRACKS = [
 /** @constructor */
 function MusicTest() {
     this.dom = util.fromTemplate('music-test', {});
-    this.keys = widget.NULL_KEY_HANDLER;
     var select = this.dom.getElementsByClassName('music-select')[0];
     var file = this.dom.getElementsByClassName('music-file')[0];
     var player = this.dom.getElementsByClassName('music-player')[0];
+
+    this.oncancel = null;
 
     var objectUrl = null;
 
@@ -66,6 +67,12 @@ function MusicTest() {
     document.body.appendChild(this.player);
 }
 exports.MusicTest = MusicTest;
+
+MusicTest.prototype.onkey = function(evt) {
+    if (evt.down && evt.uiKeyName() == 'cancel' && this.oncancel != null) {
+        this.oncancel();
+    }
+};
 
 MusicTest.prototype.handleOpen = function(dialog) {
     this.player.controls = true;

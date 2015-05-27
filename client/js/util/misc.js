@@ -105,7 +105,7 @@ exports.buildArray = function(size, fn) {
 };
 
 
-exports.fromTemplate = function(id, parts) {
+function fromTemplate(id, parts) {
     var template = document.getElementById(id);
     console.assert(template != null, "no template with id", id);
 
@@ -119,13 +119,34 @@ exports.fromTemplate = function(id, parts) {
     // with 'replaceChild'.
     for (var i = holes.length - 1; i >= 0; --i) {
         var hole = holes[i];
-        var key = hole.dataset.key;
+        var key = hole.dataset['key'];
         var part = parts[key];
         console.assert(part != null, 'missing part for template hole', key);
         hole.parentNode.replaceChild(part, hole);
     }
 
     return copy;
+};
+exports.fromTemplate = fromTemplate;
+
+exports.templateParts = function(id, parts) {
+    var copy = fromTemplate(id, parts);
+
+    var result = {
+        'top': copy,
+    };
+    function walk(node) {
+        var part = node.dataset['part'];
+        if (part != null) {
+            result[part] = node;
+        }
+
+        for (var c = node.firstElementChild; c != null; c = c.nextElementSibling) {
+            walk(c);
+        }
+    }
+    walk(copy);
+    return result;
 };
 
 

@@ -3,9 +3,8 @@ var ItemDef = require('data/items').ItemDef;
 var RecipeDef = require('data/recipes').RecipeDef;
 var SelectionList = require('ui/sortedlist').SelectionList;
 var ItemList = require('ui/inventory').ItemList;
-var fromTemplate = require('util/misc').fromTemplate;
 var InventoryTracker = require('inventory').InventoryTracker;
-var chain = require('util/misc').chain;
+var util = require('util/misc');
 var widget = require('ui/widget');
 
 
@@ -15,29 +14,29 @@ function CraftingUI(station_type, station_id, inv) {
     this.item_list = new ItemList(inv);
     this.station_id = station_id;
 
-    this.dom = fromTemplate('crafting', {
+    var parts = util.templateParts('crafting', {
         'item_list': this.item_list.dom,
         'recipe_list': this.recipe_list.dom,
     });
 
-    var this_ = this;
-    this.focus = new widget.FocusTracker(
+    var list = new widget.SimpleList(
+            parts['container'],
             [this.recipe_list, this.item_list],
             ['move_left', 'move_right']);
-    this.keys = new widget.ActionKeyHandler(
-            'select',
-            function(evt) {
-                if (this_.focus.selectedIndex() == 0) {
-                    this_._craft(evt.shiftKey ? 10 : 1);
-                }
-            },
-            this.focus);
 
-    this.dialog = null;
+    widget.Form.call(this, parts['top'], list);
+
+    var this_ = this;
+    widget.hookKey(this.recipe_list, 'select', function(evt) {
+        if (evt.down) {
+            this_._craft(evt.shiftKey ? 10 : 1);
+        }
+    });
 
     this.onaction = null;
-    this.onclose = null;
 }
+CraftingUI.prototype = Object.create(widget.Form.prototype);
+CraftingUI.prototype.constructor = CraftingUI;
 exports.CraftingUI = CraftingUI;
 
 CraftingUI.prototype._craft = function(mag) {
@@ -50,49 +49,32 @@ CraftingUI.prototype._craft = function(mag) {
     }
 };
 
-CraftingUI.prototype.handleOpen = function(dialog) {
-    this.dialog = dialog;
-};
-
-CraftingUI.prototype.handleClose = function(dialog) {
-    if (this.onclose != null) {
-        this.onclose();
-    }
-};
-
 
 /** @constructor */
 function RecipeList(station_type, inv) {
+    var list_div = util.element('div', ['class=recipe-list']);
     var recipe_items = [];
     for (var i = 0; i < RecipeDef.by_id.length; ++i) {
         var recipe = RecipeDef.by_id[i];
         if (recipe != null && recipe.station == station_type) {
-            recipe_items.push(new RecipeRow(i, recipe.ui_name));
+            var row = new RecipeRow(i, recipe.ui_name);
+            recipe_items.push(row);
+            list_div.appendChild(row.dom);
         }
     }
-    this.items = recipe_items;
 
-    this.list = new widget.SimpleList('recipe-list', recipe_items);
-    this.dom = this.list.dom;
-    this.keys = this.list.keys;
+    widget.SimpleList.call(this, list_div, recipe_items);
 
     this.inv = inv;
 
-    var this_ = this;
-
-    this.onchange = null;
-    this.list.onchange = function(idx) {
-        if (this_.onchange != null) {
-            this_.onchange(idx);
-        }
-    };
-
     this._markCraftable();
+    var this_ = this;
     inv.onUpdate(function(updates) {
         this_._markCraftable();
     });
 }
-exports.RecipeList = RecipeList;
+RecipeList.prototype = Object.create(widget.SimpleList.prototype);
+RecipeList.prototype.constructor = RecipeList;
 
 RecipeList.prototype._markCraftable = function() {
     for (var i = 0; i < this.items.length; ++i) {
@@ -106,7 +88,7 @@ RecipeList.prototype._markCraftable = function() {
 };
 
 RecipeList.prototype.selectedRecipe = function() {
-    var sel = this.list.selection();
+    var sel = this.selection();
     if (sel == null) {
         return -1;
     } else {
@@ -129,14 +111,13 @@ function canCraft(recipe, inv) {
 
 /** @constructor */
 function RecipeRow(id, name) {
-    this.dom = document.createElement('div');
-    this.dom.classList.add('recipe');
-    this.keys = widget.NULL_KEY_HANDLER;
-
-    var nameDiv = document.createElement('div');
-    nameDiv.classList.add('recipe-name');
+    var recipeDiv = util.element('div', ['recipe']);
+    var nameDiv = util.element('div', ['recipe-name'], recipeDiv);
     nameDiv.textContent = name;
-    this.dom.appendChild(nameDiv);
+
+    widget.Element.call(this, recipeDiv);
 
     this.id = id;
 }
+RecipeRow.prototype = Object.create(widget.Element.prototype);
+RecipeRow.prototype.constructor = RecipeRow;
