@@ -40,4 +40,10 @@ Dialog.prototype.show = function(content) {
     if (this._content.oncancel == null) {
         this._content.oncancel = function() { this_.hide(); };
     }
+
+    setTimeout(function() {
+        if (this_._content.onfocus != null) {
+            this_._content.onfocus();
+        }
+    }, 0);
 };

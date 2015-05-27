@@ -161,6 +161,18 @@ Form.prototype.cancel = function() {
     }
 };
 
+Form.prototype.onfocus = function() {
+    if (this.body.onfocus != null) {
+        this.body.onfocus();
+    }
+};
+
+Form.prototype.onblur = function() {
+    if (this.body.onblur != null) {
+        this.body.onblur();
+    }
+};
+
 
 function Container(dom, body) {
     this.parent = null;
