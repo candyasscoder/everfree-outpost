@@ -3,7 +3,7 @@ var widget = require('ui/widget');
 
 function isMobile() {
     if (Config.debug_force_mobile_warning.get()) {
-        return false;
+        return true;
     }
     var ua = window.navigator.userAgent;
     return (ua.search(/mobi/i) != -1);
@@ -32,12 +32,18 @@ function checkBrowser(dialog, cb) {
         var div = document.getElementById('unsupported-mobile');
         var try_link = div.getElementsByClassName('unsupported-try')[0];
         try_link.addEventListener('click', handler);
-        dialog.show(new widget.Form(div, new widget.Element(div)));
+
+        var f = new widget.Form(new widget.Element(div));
+        f.oncancel = function() {};
+        dialog.show(f);
     } else if (!isSupported()) {
         var div = document.getElementById('unsupported-browser');
         var try_link = div.getElementsByClassName('unsupported-try')[0];
         try_link.addEventListener('click', handler);
-        dialog.show(new widget.Form(div, new widget.Element(div)));
+
+        var f = new widget.Form(new widget.Element(div));
+        f.oncancel = function() {};
+        dialog.show(f);
     } else {
         cb();
     }
