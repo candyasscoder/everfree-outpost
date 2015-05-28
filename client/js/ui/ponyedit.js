@@ -42,6 +42,7 @@ function PonyEditor(name, draw) {
         var items = new Array(parts.items.length);
         for (var i = 0; i < parts.items.length; ++i) {
             items[i] = new widget.Button(parts.items[i]);
+            items[i].onkey = function(evt) {};
             items[i].value = parts.values[i];
         }
         var row = new widget.SimpleList(parts.base, items, ['move_left', 'move_right']);
@@ -80,6 +81,11 @@ function PonyEditor(name, draw) {
     // Initial setup
 
     this.name.dom.value = name;
+    var name_dom = this.name.dom;
+    this.name.onfocus = util.chain(this.name.onfocus, function() {
+        var len = name_dom.value.length;
+        name_dom.setSelectionRange(len, len);
+    });
 
     // Disable drawing during initialization.
     this.draw = function() { };
