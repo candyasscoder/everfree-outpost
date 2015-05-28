@@ -15,6 +15,7 @@ function WidgetKeyEvent(down, raw) {
     this.raw = raw;
     this.down = down;
     this.shiftKey = raw.shiftKey;
+    this.useDefault = false;
 };
 exports.WidgetKeyEvent = WidgetKeyEvent;
 
@@ -28,6 +29,10 @@ WidgetKeyEvent.prototype.chatKeyName = function() {
 
 WidgetKeyEvent.prototype.uiKeyName = function() {
     return Config.ui_keybindings.get()[this.raw.keyCode];
+};
+
+WidgetKeyEvent.prototype.requestDefault = function() {
+    this.useDefault = true;
 };
 
 
@@ -119,9 +124,9 @@ TextField.prototype.onblur = function() {
 };
 
 
-function Form(dom, body) {
+function Form(body, dom) {
     this.parent = null;
-    this.dom = dom;
+    this.dom = dom || body.dom;
     this.body = body;
     body.parent = this;
 
@@ -210,11 +215,11 @@ exports.Element = Element;
 Element.prototype.onkey = function(evt) {};
 
 
-function TemplateForm() {
+function Template() {
     var dom = util.fromTemplate.apply(null, arguments);
-    return new Form(dom, new Element(dom));
+    return new Element(dom);
 }
-exports.TemplateForm = TemplateForm;
+exports.Template = Template;
 
 
 

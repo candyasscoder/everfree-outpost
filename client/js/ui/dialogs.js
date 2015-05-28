@@ -24,7 +24,7 @@ function SignTextDialog(parts) {
     this.input = new widget.TextField(dom_parts['input']);
 
     var main = new widget.SimpleList(dom_parts['top'], [this.input, buttons]);
-    widget.Form.call(this, dom_parts['top'], main);
+    widget.Form.call(this, main);
 }
 SignTextDialog.prototype = Object.create(widget.Form.prototype);
 SignTextDialog.prototype.constructor = SignTextDialog;

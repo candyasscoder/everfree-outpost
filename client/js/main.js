@@ -177,8 +177,6 @@ var dialog;
 var banner;
 var keyboard;
 var chat;
-var credits;
-var instructions;
 var error_list;
 var inv_update_list;
 var music_test;
@@ -246,8 +244,6 @@ function init() {
     keyboard = new Keyboard();
     dialog = new Dialog(keyboard);
     chat = new ChatWindow();
-    credits = new Iframe('credits.html');
-    instructions = new Iframe('instructions.html');
     inv_update_list = new InventoryUpdateList();
     music_test = new MusicTest();
     active = new ActiveItems();
@@ -363,9 +359,10 @@ function openConn(info, next) {
     if (url == null) {
         var elt = util.element('div', []);
         elt.innerHTML = info['message'];
-        var w = new widget.TemplateForm('server-offline', {'msg': elt});
-        w.oncancel = function() {};
-        dialog.show(w);
+        var w = new widget.Template('server-offline', {'msg': elt});
+        var f = new widget.Form(w);
+        f.oncancel = function() {};
+        dialog.show(f);
         return;
     }
 
@@ -485,9 +482,13 @@ function buildUI() {
 
 function initMenus() {
     main_menu = new Menu([
-            ['&Instructions', function() { dialog.show(instructions); }],
+            ['&Instructions', function() {
+                dialog.show(new widget.Form(new widget.Iframe('instructions.html', keyboard)));
+            }],
             ['&Debug Menu', function() { dialog.show(debug_menu); }],
-            ['&Credits', function() { dialog.show(credits); }],
+            ['&Credits', function() {
+                dialog.show(new widget.Form(new widget.Iframe('credits.html', keyboard)));
+            }],
     ]);
 
     debug_menu = new Menu([
@@ -646,14 +647,17 @@ function setupKeyHandler() {
             return true;
         }
 
+        var shouldStop = alwaysStop(evt);
+
         var binding = Config.keybindings.get()[evt.keyCode];
         if (binding == null) {
-            return false;
+            return shouldStop;
         }
 
         if (dirs_held.hasOwnProperty(binding)) {
             dirs_held[binding] = down;
             updateWalkDir();
+            return true;
         } else if (down) {
             var time = timing.encodeSend(timing.nextArrival());
             switch (binding) {
@@ -730,10 +734,11 @@ function setupKeyHandler() {
                     break;
 
                 default:
-                    return false;
+                    return shouldStop;
             }
+        } else {
+            return shouldStop;
         }
-        return true;
     });
 
     function updateWalkDir() {
@@ -773,6 +778,20 @@ function setupKeyHandler() {
             prediction.predict(arrival, pony, target_velocity);
         }
     }
+
+    function alwaysStop(evt) {
+        // Allow Ctrl + anything
+        if (evt.ctrlKey) {
+            return false;
+        }
+        // Allow F5-F12
+        if (evt.keyCode >= 111 + 5 && evt.keyCode <= 111 + 12) {
+            return false;
+        }
+
+        // Stop all other events.
+        return true;
+    }
 }
 
 
@@ -784,9 +803,10 @@ function handleClose(evt, reason) {
         reason_elt.textContent = 'Reason: ' + reason;
     }
 
-    var w = new widget.TemplateForm('disconnected', {'reason': reason_elt});
-    w.oncancel = function() {};
-    dialog.show(w);
+    var w = new widget.Template('disconnected', {'reason': reason_elt});
+    var f = new widget.Form(w);
+    f.oncancel = function() {};
+    dialog.show(f);
 }
 
 function handleInit(entity_id, now, cycle_base, cycle_ms) {

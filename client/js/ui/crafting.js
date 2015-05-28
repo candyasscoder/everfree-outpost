@@ -23,7 +23,7 @@ function CraftingUI(station_type, station_id, inv) {
             [this.recipe_list, this.item_list],
             ['move_left', 'move_right']);
 
-    widget.Form.call(this, parts['top'], list);
+    widget.Form.call(this, list, parts['top']);
 
     var this_ = this;
     widget.hookKey(this.recipe_list, 'select', function(evt) {

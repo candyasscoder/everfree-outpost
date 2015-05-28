@@ -16,7 +16,7 @@ function InventoryUI(inv, title) {
         dom.getElementsByClassName('title')[0].textContent = title;
     }
 
-    widget.Form.call(this, dom, this.list);
+    widget.Form.call(this, this.list, dom);
 }
 InventoryUI.prototype = Object.create(widget.Form.prototype);
 InventoryUI.prototype.constructor = InventoryUI;
@@ -51,7 +51,7 @@ function ContainerUI(inv1, inv2) {
     });
     var container = new widget.SimpleList(dom, this.lists, ['move_left', 'move_right']);
 
-    widget.Form.call(this, dom, container);
+    widget.Form.call(this, container);
 
     var this_ = this;
     widget.hookKey(this.lists[0], 'select', function(evt) { this_._transfer(evt, 0) });

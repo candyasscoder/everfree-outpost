@@ -41,7 +41,7 @@ function Menu(items) {
     }
 
     var list = new widget.SimpleList(dom, item_widgets);
-    widget.Form.call(this, dom, list);
+    widget.Form.call(this, list);
 };
 Menu.prototype = Object.create(widget.Form.prototype);
 Menu.prototype.constructor = Menu;

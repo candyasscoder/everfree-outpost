@@ -32,7 +32,7 @@ function Keyboard() {
             }
         }
 
-        if (this_._topHandler()(true, evt) || alwaysStop(evt)) {
+        if (this_._topHandler()(true, evt)) {
             evt.preventDefault();
             evt.stopPropagation();
         }
@@ -54,33 +54,13 @@ function Keyboard() {
             return;
         }
 
-        if (this_._topHandler()(false, evt) || alwaysStop(evt)) {
+        if (this_._topHandler()(false, evt)) {
             evt.preventDefault();
             evt.stopPropagation();
         }
     };
 }
 exports.Keyboard = Keyboard;
-
-function alwaysStop(evt) {
-    // Allow Ctrl + anything
-    if (evt.ctrlKey) {
-        return false;
-    }
-    // Allow F5-F12
-    if (evt.keyCode >= 111 + 5 && evt.keyCode <= 111 + 12) {
-        return false;
-    }
-
-    // Allow typing in text fields.
-    var focus_tag = document.activeElement.tagName.toLowerCase();
-    if (focus_tag == 'input' || focus_tag == 'textarea') {
-        return false;
-    }
-
-    // Stop all other events.
-    return true;
-}
 
 Keyboard.prototype.pushHandler = function(handler) {
     this._handler_stack.push(handler);

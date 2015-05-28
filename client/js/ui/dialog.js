@@ -17,6 +17,13 @@ function Dialog(keyboard) {
 exports.Dialog = Dialog;
 
 Dialog.prototype.hide = function() {
+    var old_content = this._content;
+    setTimeout(function() {
+        if (old_content.onblur != null) {
+            old_content.onblur();
+        }
+    }, 0);
+
     this._content = null;
     this.inner.removeChild(this.inner.firstChild);
     this.container.classList.add('hidden');
@@ -34,7 +41,9 @@ Dialog.prototype.show = function(content) {
 
     var this_ = this;
     this.keyboard.pushHandler(function(down, evt) {
-        return this_._content.onkey(new widget.WidgetKeyEvent(down, evt));
+        var widget_evt = new widget.WidgetKeyEvent(down, evt);
+        var handled = this_._content.onkey(widget_evt)
+        return handled && !widget_evt.useDefault;
     });
 
     if (this._content.oncancel == null) {

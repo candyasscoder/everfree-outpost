@@ -60,7 +60,7 @@ function PonyEditor(name, draw) {
     var list = new widget.SimpleList(parts['top'],
             [nameRow, this.tribe, this.red, this.green, this.blue, done]);
 
-    widget.Form.call(this, parts['top'], list);
+    widget.Form.call(this, list);
 
 
     // Canvas setup
