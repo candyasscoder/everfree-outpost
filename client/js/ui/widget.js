@@ -112,6 +112,11 @@ function TextField(dom) {
 exports.TextField = TextField;
 
 TextField.prototype.onkey = function(evt) {
+    var code = evt.raw.keyCode;
+    if (code == 0x20 || (code >= 0x40 + 1 && code <= 0x40 + 26)) {
+        evt.requestDefault();
+        return true;
+    }
     return false;
 };
 
