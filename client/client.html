@@ -29,24 +29,64 @@
                 left: 0;
             }
 
-            .debug-monitor {
-                font-size: 16px;
-                position: fixed;
-                bottom: 0;
-                right: 0;
-                background-color: rgba(255, 255, 255, 0.5);
-                /*transform: translateZ(0);*/
-                border-spacing: 0;
+            .title {
+                font-size: 1.3em;
+                text-align: center;
             }
 
-            .debug-monitor > tr {
-                vertical-align: top;
+            kbd {
+                font-size: 0.65em;
+                text-align: center;
+                vertical-align: middle;
+                display: inline-block;
+                border-style: outset;
+                border-width: .2em;
+                border-color: gray;
+                /* padding: .1em; */
+                min-width: 1.3em;
+                min-height: 1.3em;
             }
 
-            .debug-monitor > tr > td {
-                border: solid 1px black;
+            .hidden {
+                display: none !important;
             }
 
+            iframe {
+                width: 60vw;
+                height: 60vh;
+            }
+
+            .button {
+                display: inline-block;
+                cursor: pointer;
+                padding: 0 0.125rem;
+            }
+
+            .dialog > div > .button.active,
+            .dialog > div > div.active > .button.active {
+                background-color: lightblue;
+            }
+
+            .text-box {
+                border: none;
+                font-size: 1rem;
+                max-width: 20rem;
+            }
+
+            .dialog > div > .text-box.active,
+            .dialog > div > div.active > .text-box.active {
+                background-color: lightblue;
+            }
+
+            .vertical-rule {
+                width: 0.125rem;
+                margin: 0.5rem 0.125rem;
+                background-color: black;
+            }
+        </style>
+    </head>
+    <body>
+        <style>
             #banner-bg {
                 position: fixed;
                 top: 0;
@@ -78,7 +118,39 @@
                 height: 100%;
                 min-height: 100%;
             }
+        </style>
+        <div id="banner-bg">
+            <div id="banner">
+                <span id="banner-text">Loading...</span>
+                <div id="banner-bar"></div>
+            </div>
+        </div>
 
+        <script type='text/javascript' src='asmlibs.js'></script>
+        <script type='text/javascript' src='outpost.js'></script>
+
+        <!-- Styles for purely Javascript-generated elements -->
+        <style>
+            /* Debug panel */
+            .debug-monitor {
+                font-size: 16px;
+                position: fixed;
+                bottom: 0;
+                right: 0;
+                background-color: rgba(255, 255, 255, 0.5);
+                border-spacing: 0;
+            }
+
+            .debug-monitor > tr {
+                vertical-align: top;
+            }
+
+            .debug-monitor > tr > td {
+                border: solid 1px black;
+            }
+
+
+            /* Dialog */
             .dialog-container {
                 position: absolute;
                 width: 100%;
@@ -96,148 +168,14 @@
                 padding: 1rem;
             }
 
-            kbd {
-                font-size: 0.65em;
-                text-align: center;
-                vertical-align: middle;
-                display: inline-block;
-                border-style: outset;
-                border-width: .2em;
-                border-color: gray;
-                /* padding: .1em; */
-                min-width: 1.3em;
-                min-height: 1.3em;
-            }
-
-            #key-list {
-                position: fixed;
-                right: 0;
-                top: 0;
-            }
-
-            #key-list kbd {
-                font-size: 0.8em;
-            }
-
-            #key-list td {
-                vertical-align: middle;
-            }
-
-            #key-list td:first-child {
-                text-align: right;
-            }
-
-            #key-list kbd, #key-list td:nth-child(2), #key-display kbd {
-                background-color: rgba(255, 255, 255, 0.5);
-            }
-
-            #key-list td:nth-child(2) {
-                padding: 0 0.5em;
-            }
-
-
-            .hidden {
-                display: none !important;
-            }
-
-
-            .item {
+            .dialog-body {
+                height: 60vh;
                 display: flex;
-                align-items: center;
-            }
-
-            .item-list.active > .item.active {
-                background-color: lightblue;
-            }
-
-            .item.active {
-                background-color: lightgray;
-            }
-
-            .item-icon {
-                font-size: 0;
-                flex: 0;
-                width: 1rem;
-                height: 1rem;
-                min-width: 1rem;
-                min-height: 1rem;
-
-                /* background-image: url("assets/items.png"); */
-                background-size: 32rem auto;
-            }
-
-            .item-name {
-                padding-left: 0.25rem;
-                font-size: 1rem;
-                flex: 1;
-            }
-
-            .item-qty {
-                flex: 0;
-                min-width: 1.8rem;
-                font-size: 0.75rem;
-                padding-right: 0.125rem;
-                text-align: right;
-            }
-
-            .item-list {
-                width: 10rem;
-                overflow-x: hidden;
-                overflow-y: scroll;
+                align-items: stretch;
             }
 
 
-            .recipe-list {
-                width: 10rem;
-                overflow-x: hidden;
-                overflow-y: scroll;
-            }
-
-            .recipe {
-                padding: 0 0.25rem;
-            }
-
-            .recipe.active {
-                background-color: lightgray;
-            }
-
-            .recipe-list.active > .recipe.active {
-                background-color: lightblue;
-            }
-
-            .recipe.disabled {
-                color: darkgray;
-            }
-
-
-            .title {
-                font-size: 1.3em;
-                text-align: center;
-            }
-
-
-            .active-items {
-                position: absolute;
-                top: 0.25rem;
-                left: 0.25rem;
-            }
-
-            .active-items > .item-box {
-                display: inline-flex;
-            }
-
-            .item-box {
-                margin: 0.25rem;
-                padding: 0.25rem;
-                border-radius: 0.5rem;
-                background-color: rgba(255, 255, 255, 0.5);
-                border: solid 0.125rem black;
-
-                display: flex;
-                align-items: center;
-            }
-
-
+            /* Chat panel */
             .chat-container {
                 width: 20rem;
                 background-color: rgba(255, 255, 255, 0.5);
@@ -283,32 +221,8 @@
                 font-size: 0.7rem;
             }
 
-
-            .unsupported-option {
-                font-size: 1.1em;
-                text-align: center;
-            }
-
-            .unsupported-or {
-                text-align: center;
-            }
-
-
-            iframe {
-                width: 60vw;
-                height: 60vh;
-            }
-
-            #key-display {
-                position: fixed;
-                width: 100%;
-                left: 0;
-                bottom: 10%;
-                text-align: center;
-                font-size: 1.5rem;
-            }
-
-
+            
+            /* Menus */
             .menu-container {
                 width: 10rem;
             }
@@ -322,126 +236,7 @@
             }
 
 
-            .config-select, .music-select {
-                display: block;
-                width: 100%;
-            }
-
-            .config-input {
-                display: block;
-                width: 100%;
-            }
-
-            .config-select > option.active:after {
-                content: " *";
-                color: blue;
-            }
-
-
-            .pony-row.active,
-            .pony-done.active {
-                background-color: lightblue;
-            }
-
-            .pony-label {
-                /* Make it match the other option labels. */
-                width: 4rem;
-                padding: 0.125rem;
-                text-align: left;
-                flex-shrink: 0;
-            }
-            .pony-name {
-                border: none;
-                font-size: 1rem;
-                background-color: transparent;
-                flex-grow: 1;
-            }
-
-            .pony-option-cell {
-                padding: 0.125rem;
-                width: 1rem;
-                text-align: center;
-                cursor: pointer;
-            }
-            .pony-option-cell.active {
-                border: solid 0.125rem black;
-                padding: 0;
-            }
-
-            .pony-done {
-                padding: 0 0.125rem;
-            }
-
-            .pony-row,
-            .pony-editor-middle {
-                display: flex;
-            }
-
-            .pony-editor-middle {
-                justify-content: space-between;
-                align-items: center;
-            }
-
-            .pony-editor-middle > * {
-                flex-shrink: 0;
-            }
-
-            .pony-row {
-                margin: 0.125rem 0;
-            }
-
-            .pony-display {
-                margin-left: 1rem;
-            }
-
-            .pony-done {
-                margin: auto;
-                cursor: pointer;
-            }
-
-            .pony-message.error {
-                font-size: 0.75rem;
-                color: red;
-            }
-
-
-            .inv-update-list {
-                position: fixed;
-                bottom: 0;
-                right: 0;
-                padding-right: 0.25rem;
-
-                background-color: rgba(255, 255, 255, 0.5);
-            }
-
-
-
-            .button {
-                display: inline-block;
-                cursor: pointer;
-                padding: 0 0.125rem;
-            }
-
-            .dialog > div > .button.active,
-            .dialog > div > div.active > .button.active {
-                background-color: lightblue;
-            }
-
-
-            .text-box {
-                border: none;
-                font-size: 1rem;
-                max-width: 20rem;
-            }
-
-            .dialog > div > .text-box.active,
-            .dialog > div > div.active > .text-box.active {
-                background-color: lightblue;
-            }
-
-
-
-
+            /* Error list */
             .error-list {
                 position: fixed;
                 top: 0;
@@ -454,31 +249,119 @@
             }
 
 
-            .dialog-body {
-                height: 60vh;
-                display: flex;
-                align-items: stretch;
+            /* Inventory update list */
+            .inv-update-list {
+                position: fixed;
+                bottom: 0;
+                right: 0;
+                padding-right: 0.25rem;
+
+                background-color: rgba(255, 255, 255, 0.5);
             }
 
-            .vertical-rule {
-                width: 0.125rem;
-                margin: 0.5rem 0.125rem;
-                background-color: black;
+
+            /* Item icons */
+            .item-icon {
+                font-size: 0;
+                flex: 0;
+                width: 1rem;
+                height: 1rem;
+                min-width: 1rem;
+                min-height: 1rem;
+
+                /* background-image: url("assets/items.png"); */
+                /* The actual background-image property is filled in with a
+                   blob URL by a separate Javascript-generated stylesheet. */
+                background-size: 32rem auto;
+            }
+
+
+            /* Item lists */
+            .item-list.active > .item.active {
+                background-color: lightblue;
+            }
+
+            .item-list {
+                width: 10rem;
+                overflow-x: hidden;
+                overflow-y: scroll;
+            }
+
+            .item {
+                display: flex;
+                align-items: center;
+            }
+
+            .item.active {
+                background-color: lightgray;
+            }
+
+            .item-name {
+                padding-left: 0.25rem;
+                font-size: 1rem;
+                flex: 1;
+            }
+
+            .item-qty {
+                flex: 0;
+                min-width: 1.8rem;
+                font-size: 0.75rem;
+                padding-right: 0.125rem;
+                text-align: right;
+            }
+
+
+            /* Active item/ability display */
+            .active-items {
+                position: absolute;
+                top: 0.25rem;
+                left: 0.25rem;
+            }
+
+            .active-items > .item-box {
+                display: inline-flex;
+            }
+
+            .item-box {
+                margin: 0.25rem;
+                padding: 0.25rem;
+                border-radius: 0.5rem;
+                background-color: rgba(255, 255, 255, 0.5);
+                border: solid 0.125rem black;
+
+                display: flex;
+                align-items: center;
             }
         </style>
-    </head>
-    <body>
-        <div id="banner-bg">
-            <div id="banner">
-                <span id="banner-text">Loading...</span>
-                <div id="banner-bar"></div>
-            </div>
-        </div>
-
-        <script type='text/javascript' src='asmlibs.js'></script>
-        <script type='text/javascript' src='outpost.js'></script>
 
         <div style="display: none">
+            <style>
+                #key-list {
+                    position: fixed;
+                    right: 0;
+                    top: 0;
+                }
+
+                #key-list kbd {
+                    font-size: 0.8em;
+                }
+
+                #key-list td {
+                    vertical-align: middle;
+                }
+
+                #key-list td:first-child {
+                    text-align: right;
+                }
+
+                #key-list kbd, #key-list td:nth-child(2), #key-display kbd {
+                    background-color: rgba(255, 255, 255, 0.5);
+                }
+
+                #key-list td:nth-child(2) {
+                    padding: 0 0.5em;
+                }
+            </style>
             <div id="key-list">
                 <table>
                     <tr>
@@ -532,6 +415,29 @@
                 </div>
             </div>
 
+            <style>
+                .recipe-list {
+                    width: 10rem;
+                    overflow-x: hidden;
+                    overflow-y: scroll;
+                }
+
+                .recipe {
+                    padding: 0 0.25rem;
+                }
+
+                .recipe.active {
+                    background-color: lightgray;
+                }
+
+                .recipe-list.active > .recipe.active {
+                    background-color: lightblue;
+                }
+
+                .recipe.disabled {
+                    color: darkgray;
+                }
+            </style>
             <div id="crafting">
                 <div class="title">Crafting</div>
                 <div class="dialog-body" data-part="container">
@@ -550,6 +456,16 @@
                 </div>
             </div>
 
+            <style>
+                .unsupported-option {
+                    font-size: 1.1em;
+                    text-align: center;
+                }
+
+                .unsupported-or {
+                    text-align: center;
+                }
+            </style>
             <div id="unsupported-browser">
                 <div class="title">Browser Warning</div>
                 <p>This game has only been tested with Firefox and Chrome.</p>
@@ -562,7 +478,6 @@
                     <a href="#" class="unsupported-try">Try to play anyway</a>
                 </div>
             </div>
-
             <div id="unsupported-mobile">
                 <div class="title">Mobile Device Warning</div>
                 <p>This game has not been tested on mobile devices.</p>
@@ -586,8 +501,34 @@
                 <div class="hole" data-key="msg"></div>
             </div>
 
+            <style>
+                #key-display {
+                    position: fixed;
+                    width: 100%;
+                    left: 0;
+                    bottom: 10%;
+                    text-align: center;
+                    font-size: 1.5rem;
+                }
+            </style>
             <div id="key-display"></div>
 
+            <style>
+                .config-select {
+                    display: block;
+                    width: 100%;
+                }
+
+                .config-input {
+                    display: block;
+                    width: 100%;
+                }
+
+                .config-select > option.active:after {
+                    content: " *";
+                    color: blue;
+                }
+            </style>
             <div id="config-editor">
                 <h1>Config Editor</h1>
                 <select class="config-select" size="10"></select>
@@ -599,6 +540,73 @@
                 </div>
             </div>
 
+            <style>
+                .pony-row.active,
+                .pony-done.active {
+                    background-color: lightblue;
+                }
+
+                .pony-label {
+                    /* Make it match the other option labels. */
+                    width: 4rem;
+                    padding: 0.125rem;
+                    text-align: left;
+                    flex-shrink: 0;
+                }
+                .pony-name {
+                    border: none;
+                    font-size: 1rem;
+                    background-color: transparent;
+                    flex-grow: 1;
+                }
+
+                .pony-option-cell {
+                    padding: 0.125rem;
+                    width: 1rem;
+                    text-align: center;
+                    cursor: pointer;
+                }
+                .pony-option-cell.active {
+                    border: solid 0.125rem black;
+                    padding: 0;
+                }
+
+                .pony-done {
+                    padding: 0 0.125rem;
+                }
+
+                .pony-row,
+                .pony-editor-middle {
+                    display: flex;
+                }
+
+                .pony-editor-middle {
+                    justify-content: space-between;
+                    align-items: center;
+                }
+
+                .pony-editor-middle > * {
+                    flex-shrink: 0;
+                }
+
+                .pony-row {
+                    margin: 0.125rem 0;
+                }
+
+                .pony-display {
+                    margin-left: 1rem;
+                }
+
+                .pony-done {
+                    margin: auto;
+                    cursor: pointer;
+                }
+
+                .pony-message.error {
+                    font-size: 0.75rem;
+                    color: red;
+                }
+            </style>
             <div id="pony-editor">
                 <div class="pony-row" data-part="name-row">
                     <div class="pony-label">Name: </div>
@@ -614,6 +622,12 @@
                 <div class="pony-message" data-part="message"></div>
             </div>
 
+            <style>
+                .music-select {
+                    display: block;
+                    width: 100%;
+                }
+            </style>
             <div id="music-test">
                 <h1>Music Test</h1>
                 <select class="music-select" size="10"></select><br>
