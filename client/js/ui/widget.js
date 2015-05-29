@@ -188,6 +188,7 @@ function Container(dom, body) {
     this.parent = null;
     this.dom = dom;
     this.body = body;
+    this.body.parent = this;
 }
 exports.Container = Container;
 
@@ -196,12 +197,14 @@ Container.prototype.onkey = function(evt) {
 };
 
 Container.prototype.onfocus = function() {
+    this.body.dom.classList.add('active');
     if (this.body.onfocus != null) {
         this.body.onfocus();
     }
 };
 
 Container.prototype.onblur = function() {
+    this.body.dom.classList.remove('active');
     if (this.body.onblur != null) {
         this.body.onblur();
     }

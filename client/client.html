@@ -56,26 +56,36 @@
                 height: 60vh;
             }
 
-            .button {
+            button {
                 display: inline-block;
                 cursor: pointer;
                 padding: 0 0.125rem;
+                margin: 0.125rem;
+                border: outset 0.125rem lightgray;
+                background-color: lightgray;
+                font-size: inherit;
             }
 
-            .dialog > div > .button.active,
-            .dialog > div > div.active > .button.active {
+            .dialog > div > button.active,
+            .dialog > div > div.active > button.active {
                 background-color: lightblue;
+                border-color: lightblue;
             }
 
-            .text-box {
-                border: none;
-                font-size: 1rem;
+            input[type=text] {
+                display: inline-block;
+                padding: 0 0.125rem;
+                margin: 0.125rem;
+                border: inset 0.125rem lightgray;
+                background-color: lightgray;
+                font-size: inherit;
                 max-width: 20rem;
             }
 
-            .dialog > div > .text-box.active,
-            .dialog > div > div.active > .text-box.active {
+            .dialog > div > input[type=text].active,
+            .dialog > div > div.active > input[type=text].active {
                 background-color: lightblue;
+                border-color: lightblue;
             }
 
             .vertical-rule {
@@ -617,6 +627,7 @@
 
                 .pony-row {
                     margin: 0.125rem 0;
+                    align-items: center;
                 }
 
                 .pony-display {
@@ -643,7 +654,7 @@
                     <canvas class="pony-display" data-part="canvas"></canvas>
                 </div>
                 <div>
-                    <span class="pony-done" data-part="done">Done</span>
+                    <button class="pony-done" data-part="done">Done</span>
                 </div>
                 <div class="pony-message" data-part="message"></div>
             </div>
@@ -663,10 +674,10 @@
 
             <div id="sign-text">
                 <div class="title">Sign Text</div>
-                <div><input type="text" class="text-box" size="100" data-part="input"></div>
+                <input type="text" size="100" data-part="input">
                 <div data-part="buttons">
-                    <span class="button" data-part="submit">Done</span>
-                    <span class="button" data-part="cancel">Cancel</span>
+                    <button data-part="submit">Done</span>
+                    <button data-part="cancel">Cancel</span>
                 </div>
             </div>
 
