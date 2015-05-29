@@ -1,15 +1,12 @@
 var Config = require('config').Config;
+var util = require('util/misc');
 
 
 /** @constructor */
 function Dialog(keyboard) {
-    this.container = document.createElement('div');
-    this.container.classList.add('dialog-container');
-    this.container.classList.add('hidden');
-
-    this.inner = document.createElement('div');
-    this.inner.classList.add('dialog');
-    this.container.appendChild(this.inner);
+    var parts = util.templateParts('dialog-container');
+    this.container = parts['top'];
+    this.inner = parts['inner'];
 
     this.keyboard = keyboard;
     this._content = null;

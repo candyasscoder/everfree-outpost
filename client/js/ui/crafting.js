@@ -110,11 +110,10 @@ function canCraft(recipe, inv) {
 
 /** @constructor */
 function RecipeRow(id, name) {
-    var recipeDiv = util.element('div', ['recipe']);
-    var nameDiv = util.element('div', ['recipe-name'], recipeDiv);
-    nameDiv.textContent = name;
+    var parts = util.templateParts('recipe');
+    parts['name'].textContent = name;
 
-    widget.Element.call(this, recipeDiv);
+    widget.Element.call(this, parts['top']);
 
     this.id = id;
 }

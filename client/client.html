@@ -83,6 +83,12 @@
                 margin: 0.5rem 0.125rem;
                 background-color: black;
             }
+
+            .dialog-body {
+                height: 60vh;
+                display: flex;
+                align-items: stretch;
+            }
         </style>
     </head>
     <body>
@@ -147,31 +153,6 @@
 
             .debug-monitor > tr > td {
                 border: solid 1px black;
-            }
-
-
-            /* Dialog */
-            .dialog-container {
-                position: absolute;
-                width: 100%;
-                height: 100%;
-
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .dialog {
-                background-color: white;
-                border: solid 0.125rem black;
-                border-radius: 0.5rem;
-                padding: 1rem;
-            }
-
-            .dialog-body {
-                height: 60vh;
-                display: flex;
-                align-items: stretch;
             }
 
 
@@ -240,29 +221,6 @@
                 overflow-y: scroll;
             }
 
-            .item {
-                display: flex;
-                align-items: center;
-            }
-
-            .item.active {
-                background-color: lightgray;
-            }
-
-            .item-name {
-                padding-left: 0.25rem;
-                font-size: 1rem;
-                flex: 1;
-            }
-
-            .item-qty {
-                flex: 0;
-                min-width: 1.8rem;
-                font-size: 0.75rem;
-                padding-right: 0.125rem;
-                text-align: right;
-            }
-
 
             /* Active item/ability display */
             .active-items {
@@ -288,6 +246,29 @@
         </style>
 
         <div style="display: none">
+
+            <style>
+                .dialog-container {
+                    position: absolute;
+                    width: 100%;
+                    height: 100%;
+
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .dialog {
+                    background-color: white;
+                    border: solid 0.125rem black;
+                    border-radius: 0.5rem;
+                    padding: 1rem;
+                }
+            </style>
+            <div id="dialog-container" class="dialog-container hidden">
+                <div class="dialog" data-part="inner"></div>
+            </div>
+
             <style>
                 #key-list {
                     position: fixed;
@@ -395,6 +376,36 @@
                 <div class="chat-text" data-part="text"></div>
             </div>
 
+            <style>
+                .item {
+                    display: flex;
+                    align-items: center;
+                }
+
+                .item.active {
+                    background-color: lightgray;
+                }
+
+                .item-name {
+                    padding-left: 0.25rem;
+                    font-size: 1rem;
+                    flex: 1;
+                }
+
+                .item-qty {
+                    flex: 0;
+                    min-width: 1.8rem;
+                    font-size: 0.75rem;
+                    padding-right: 0.125rem;
+                    text-align: right;
+                }
+            </style>
+            <div id="item-row" class="item">
+                <div class="item-qty" data-part="qty"></div>
+                <div class="item-icon" data-part="icon"></div>
+                <div class="item-name" data-part="name"></div>
+            </div>
+
             <div id="inventory">
                 <div class="title">Inventory</div>
                 <div class="dialog-body">
@@ -426,12 +437,6 @@
             </div>
 
             <style>
-                .recipe-list {
-                    width: 10rem;
-                    overflow-x: hidden;
-                    overflow-y: scroll;
-                }
-
                 .recipe {
                     padding: 0 0.25rem;
                 }
@@ -440,12 +445,23 @@
                     background-color: lightgray;
                 }
 
-                .recipe-list.active > .recipe.active {
-                    background-color: lightblue;
-                }
-
                 .recipe.disabled {
                     color: darkgray;
+                }
+            </style>
+            <div id="recipe" class="recipe">
+                <div class="recipe-name" data-part="name"></div>
+            </div>
+
+            <style>
+                .recipe-list {
+                    width: 10rem;
+                    overflow-x: hidden;
+                    overflow-y: scroll;
+                }
+
+                .recipe-list.active > .recipe.active {
+                    background-color: lightblue;
                 }
             </style>
             <div id="crafting">

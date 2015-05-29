@@ -145,19 +145,16 @@ ItemList.prototype.updateItems = function(updates) {
 
 /** @constructor */
 function ItemRow(id, qty, name, icon_x, icon_y) {
-    var itemDiv = util.element('div', ['item']);
-    var qtyDiv = util.element('div', ['item-qty'], itemDiv);
-    qtyDiv.textContent = '' + qty;
-    var iconDiv = util.element('div', ['item-icon'], itemDiv);
-    iconDiv.style.backgroundPosition = '-' + icon_x + 'rem -' + icon_y + 'rem';
-    var nameDiv = util.element('div', ['item-name'], itemDiv);
-    nameDiv.textContent = name;
+    var parts = util.templateParts('item-row');
+    parts['qty'].textContent = '' + qty;
+    parts['icon'].style.backgroundPosition = '-' + icon_x + 'rem -' + icon_y + 'rem';
+    parts['name'].textContent = name;
 
-    widget.Element.call(this, itemDiv);
+    widget.Element.call(this, parts['top']);
 
     this.id = id;
     this.qty = qty;
-    this.quantityDiv = qtyDiv;
+    this.quantityDiv = parts['qty'];
 }
 ItemRow.prototype = Object.create(widget.Element.prototype);
 ItemRow.prototype.constructor = ItemRow;
