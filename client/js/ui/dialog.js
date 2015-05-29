@@ -17,9 +17,12 @@ function Dialog(keyboard) {
 exports.Dialog = Dialog;
 
 Dialog.prototype.hide = function() {
-    if (this._content.handleClose != null) {
-        this._content.handleClose(this);
-    }
+    var old_content = this._content;
+    setTimeout(function() {
+        if (old_content.onblur != null) {
+            old_content.onblur();
+        }
+    }, 0);
 
     this._content = null;
     this.inner.removeChild(this.inner.firstChild);
@@ -38,16 +41,18 @@ Dialog.prototype.show = function(content) {
 
     var this_ = this;
     this.keyboard.pushHandler(function(down, evt) {
-        if (Config.ui_keybindings.get()[evt.keyCode] == 'cancel') {
-            if (down && !evt.repeat) {
-                this_.hide();
-            }
-            return;
-        }
-        this_._content.keys.handleKey(down, evt);
+        var widget_evt = new widget.WidgetKeyEvent(down, evt);
+        var handled = this_._content.onkey(widget_evt)
+        return handled && !widget_evt.useDefault;
     });
 
-    if (this._content.handleOpen != null) {
-        this._content.handleOpen(this);
+    if (this._content.oncancel == null) {
+        this._content.oncancel = function() { this_.hide(); };
     }
+
+    setTimeout(function() {
+        if (this_._content.onfocus != null) {
+            this_._content.onfocus();
+        }
+    }, 0);
 };

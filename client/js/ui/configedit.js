@@ -5,11 +5,10 @@ var widget = require('ui/widget');
 /** @constructor */
 function ConfigEditor() {
     this.dom = util.fromTemplate('config-editor', {});
-    this.keys = widget.NULL_KEY_HANDLER;
     this.select = this.dom.getElementsByClassName('config-select')[0];
     this.input = this.dom.getElementsByClassName('config-input')[0];
 
-    this.dialog = null;
+    this.oncancel = null;
 
     var option_map = {}
     var fields = Object.getOwnPropertyNames(Config);
@@ -49,10 +48,16 @@ function ConfigEditor() {
         this_._doReset();
     };
     this.dom.getElementsByClassName('config-close')[0].onclick = function() {
-        this_.dialog.hide();
+        this_.oncancel();
     };
 }
 exports.ConfigEditor = ConfigEditor;
+
+ConfigEditor.prototype.onkey = function(evt) {
+    if (evt.down && evt.raw.keyCode == 27 && this.oncancel != null) {
+        this.oncancel();
+    }
+};
 
 ConfigEditor.prototype._handleChange = function() {
     var field = this.select.value;
@@ -102,22 +107,4 @@ ConfigEditor.prototype._refreshActive = function() {
     }
 
     this._handleChange();
-};
-
-ConfigEditor.prototype.handleOpen = function(dialog) {
-    this.dialog = dialog;
-    dialog.keyboard.pushHandler(function(d, e) {
-        // Close on Esc, ignore all other keys.  (In particular, don't close on
-        // Space.)
-        if (d && e.keyCode == 27) {
-            dialog.hide();
-            return true;
-        }
-        return false;
-    });
-};
-
-ConfigEditor.prototype.handleClose = function(dialog) {
-    this.dialog = null;
-    dialog.keyboard.popHandler();
 };
