@@ -175,53 +175,6 @@
             }
 
 
-            /* Chat panel */
-            .chat-container {
-                width: 20rem;
-                background-color: rgba(255, 255, 255, 0.5);
-
-                display: flex;
-                flex-flow: column;
-                align-items: stretch;
-
-                position: fixed;
-                left: 0;
-                bottom: 0;
-
-                font-size: 0.7rem;
-            }
-
-            .chat {
-                flex-grow: 1;
-                overflow-y: scroll;
-                height: 6.4rem;
-            }
-
-            .chat-line {
-                display: flex;
-            }
-
-            .chat-name {
-                flex-shrink: 0;
-                vertical-align: top;
-                margin-left: 0.125rem;
-                margin-right: 0.5rem;
-            }
-
-            .chat-text {
-                flex-grow: 1;
-            }
-
-            .server-message {
-                color: blue;
-            }
-
-            .chat-input {
-                flex-shrink: 0;
-                font-size: 0.7rem;
-            }
-
-            
             /* Menus */
             .menu-container {
                 width: 10rem;
@@ -383,6 +336,63 @@
                     <tr><td><kbd>F1</kbd></td><td>Hide/Show<br>Controls</td></tr>
                     <tr><td><kbd>F2</kbd></td><td>Menu</td></tr>
                 </table>
+            </div>
+
+            <style>
+                /* Chat panel */
+                .chat-container {
+                    width: 20rem;
+                    background-color: rgba(255, 255, 255, 0.5);
+
+                    display: flex;
+                    flex-flow: column;
+                    align-items: stretch;
+
+                    position: fixed;
+                    left: 0;
+                    bottom: 0;
+
+                    font-size: 0.7rem;
+                }
+
+                .chat {
+                    flex-grow: 1;
+                    overflow-y: scroll;
+                    height: 6.4rem;
+                }
+
+                .chat-line {
+                    display: flex;
+                }
+
+                .chat-name {
+                    flex-shrink: 0;
+                    vertical-align: top;
+                    margin-left: 0.125rem;
+                    margin-right: 0.5rem;
+                }
+
+                .chat-text {
+                    flex-grow: 1;
+                }
+
+                .server-message {
+                    color: blue;
+                }
+
+                .chat-input {
+                    flex-shrink: 0;
+                    font-size: 0.7rem;
+                }
+            </style>
+            <div id="chat-panel" class="chat-container">
+                <div class="chat" data-part="content"></div>
+                <input type="text" class="chat-input"
+                       maxlength="100" data-part="entry" disabled="true">
+            </div>
+            <div id="chat-line" class="chat-line">
+                <div class="chat-name" data-part="name"></div>
+                <div class="chat-text" data-part="text"></div>
             </div>
 
             <div id="inventory">

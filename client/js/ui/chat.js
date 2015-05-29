@@ -7,10 +7,11 @@ function ChatWindow() {
     // Font size is 0.7rem.  Add a little bit extra to cover line spacing.
     var height = (lines * 0.85) + 'rem';
 
-    this.container = util.element('div', ['chat-container']);
-    this._content = util.element('div', ['chat', 'style=height:' + height], this.container);
-    this._entry = util.element('input', ['chat-input', 'maxlength=100'], this.container);
-    this._entry.disabled = true;
+    var parts = util.templateParts('chat-panel');
+    this.container = parts['top'];
+    this._content = parts['content'];
+    this._content.style.heigh = height;
+    this._entry = parts['entry'];
 
     if (Config.chat_autohide.get()) {
         this.container.style.display = 'none';
@@ -33,15 +34,15 @@ ChatWindow.prototype.addMessage = function(msg) {
     }
     var text = msg.substring(idx + 1);
 
-    var lineDiv = util.element('div', ['chat-line'], this._content);
-    var nameDiv = util.element('div', ['chat-name'], lineDiv);
-    var textDiv = util.element('div', ['chat-text'], lineDiv);
-    nameDiv.textContent = name;
-    textDiv.textContent = text;
+    var parts = util.templateParts('chat-line');
+    parts['name'].textContent = name;
+    parts['text'].textContent = text;
 
     if (name == '***') {
-        lineDiv.classList.add('server-message');
+        parts['top'].classList.add('server-message');
     }
+
+    this._content.appendChild(parts['top']);
 
     var limit = Config.chat_scrollback.get();
     if (this.count < limit) {
