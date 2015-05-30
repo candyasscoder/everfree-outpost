@@ -10,7 +10,7 @@ function ChatWindow() {
     var parts = util.templateParts('chat-panel');
     this.container = parts['top'];
     this._content = parts['content'];
-    this._content.style.heigh = height;
+    this._content.style.height = height;
     this._entry = parts['entry'];
 
     if (Config.chat_autohide.get()) {
