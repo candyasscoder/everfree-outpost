@@ -3,7 +3,7 @@ use core::cmp;
 use v3::{V3, V2, Vn, Axis, scalar, Region};
 
 use super::{Shape, ShapeSource};
-use super::TILE_SIZE;
+use super::{TILE_SIZE, CHUNK_SIZE};
 use super::StepCallback;
 
 use self::collision::*;
@@ -133,6 +133,10 @@ impl GroundStep {
         let bounds_tiles = bounds.div_round(TILE_SIZE);
 
         let corner = pos + dir.is_positive() * (self.size - scalar(1));
+
+        if bounds.max.z > CHUNK_SIZE * TILE_SIZE {
+            return BLOCKED_Z;
+        }
 
         // Divide the space into sections, like this but in 3 dimensions:
         //
