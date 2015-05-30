@@ -11,7 +11,7 @@ use engine::glue::HiddenWorldFragment;
 use lua::{self, LuaState, ValueType, REGISTRY_INDEX};
 use util::Convert;
 use util::StrError;
-use world::{World, Client, TerrainChunk, Entity, Structure, Inventory};
+use world::{World, Client, Entity, Inventory, Plane, TerrainChunk, Structure};
 use world::object::*;
 use world::save::{self, Writer, Reader};
 
@@ -146,13 +146,6 @@ impl<'a, 'd> save::WriteHooks for WriteHooks<'a, 'd> {
         Ok(())
     }
 
-    fn post_write_terrain_chunk<W: Writer>(&mut self,
-                                           _writer: &mut W,
-                                           _t: &ObjectRef<TerrainChunk>) -> save::Result<()> {
-        // TODO: support terrain_chunk script data
-        Ok(())
-    }
-
     fn post_write_entity<W: Writer>(&mut self,
                                     writer: &mut W,
                                     e: &ObjectRef<Entity>) -> save::Result<()> {
@@ -162,20 +155,36 @@ impl<'a, 'd> save::WriteHooks for WriteHooks<'a, 'd> {
         Ok(())
     }
 
-    fn post_write_structure<W: Writer>(&mut self,
-                                       writer: &mut W,
-                                       s: &ObjectRef<Structure>) -> save::Result<()> {
-        try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
-            call_get_extra(lua, "outpost_callback_get_structure_extra", s.id().unwrap())
-        }));
-        Ok(())
-    }
-
     fn post_write_inventory<W: Writer>(&mut self,
                                        writer: &mut W,
                                        i: &ObjectRef<Inventory>) -> save::Result<()> {
         try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
             call_get_extra(lua, "outpost_callback_get_inventory_extra", i.id().unwrap())
+        }));
+        Ok(())
+    }
+
+    fn post_write_plane<W: Writer>(&mut self,
+                                   writer: &mut W,
+                                   p: &ObjectRef<Plane>) -> save::Result<()> {
+        try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
+            call_get_extra(lua, "outpost_callback_get_plane_extra", p.id().unwrap())
+        }));
+        Ok(())
+    }
+
+    fn post_write_terrain_chunk<W: Writer>(&mut self,
+                                           _writer: &mut W,
+                                           _t: &ObjectRef<TerrainChunk>) -> save::Result<()> {
+        // TODO: support terrain_chunk script data
+        Ok(())
+    }
+
+    fn post_write_structure<W: Writer>(&mut self,
+                                       writer: &mut W,
+                                       s: &ObjectRef<Structure>) -> save::Result<()> {
+        try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
+            call_get_extra(lua, "outpost_callback_get_structure_extra", s.id().unwrap())
         }));
         Ok(())
     }
@@ -393,9 +402,11 @@ impl<'a, 'd> save::ReadHooks for ReadHooks<'a, 'd> {
     }
 
     fn post_read_plane<R: Reader>(&mut self,
-                                  _reader: &mut R,
-                                  _pid: PlaneId) -> save::Result<()> {
-        // TODO: support plane script data
+                                  reader: &mut R,
+                                  pid: PlaneId) -> save::Result<()> {
+        try!(self.read_extra(reader, |lua| {
+            push_setter_and_id(lua, "outpost_callback_set_plane_extra", pid.unwrap())
+        }));
         Ok(())
     }
 
@@ -445,8 +456,10 @@ impl<'a, 'd> save::ReadHooks for ReadHooks<'a, 'd> {
         Ok(())
     }
 
-    fn cleanup_plane(&mut self, _pid: PlaneId) -> save::Result<()> {
-        // TODO: support plane script data
+    fn cleanup_plane(&mut self, pid: PlaneId) -> save::Result<()> {
+        try!(clear_extra(self.script_mut().owned_lua.get(), |lua| {
+            push_setter_and_id(lua, "outpost_callback_set_plane_extra", pid.unwrap())
+        }));
         Ok(())
     }
 
