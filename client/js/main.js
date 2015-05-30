@@ -483,11 +483,11 @@ function buildUI() {
 function initMenus() {
     main_menu = new Menu([
             ['&Instructions', function() {
-                dialog.show(new widget.Form(new widget.Iframe('instructions.html', keyboard)));
+                dialog.show(new widget.Form(new Iframe('instructions.html', keyboard)));
             }],
             ['&Debug Menu', function() { dialog.show(debug_menu); }],
             ['&Credits', function() {
-                dialog.show(new widget.Form(new widget.Iframe('credits.html', keyboard)));
+                dialog.show(new widget.Form(new Iframe('credits.html', keyboard)));
             }],
     ]);
 
