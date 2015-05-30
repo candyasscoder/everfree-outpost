@@ -1,5 +1,6 @@
 var Config = require('config').Config;
 var widget = require('ui/widget');
+var util = require('util/misc');
 
 /** @constructor */
 function Iframe(src, keyboard) {

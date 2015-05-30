@@ -11,6 +11,7 @@ var util = require('util/misc');
  */
 
 
+/** @constructor */
 function WidgetKeyEvent(down, raw) {
     this.raw = raw;
     this.down = down;
@@ -72,6 +73,7 @@ function requestFocus(widget) {
 }
 
 
+/** @constructor */
 function Button(dom, trigger_key) {
     this.parent = null;
     this.dom = dom;
@@ -102,6 +104,7 @@ Button.prototype.onkey = function(evt) {
 };
 
 
+/** @constructor */
 function TextField(dom) {
     this.parent = null;
     this.dom = dom;
@@ -129,6 +132,7 @@ TextField.prototype.onblur = function() {
 };
 
 
+/** @constructor */
 function Form(body, dom) {
     this.parent = null;
     this.dom = dom || body.dom;
@@ -184,6 +188,7 @@ Form.prototype.onblur = function() {
 };
 
 
+/** @constructor */
 function Container(dom, body) {
     this.parent = null;
     this.dom = dom;
@@ -211,6 +216,7 @@ Container.prototype.onblur = function() {
 };
 
 
+/** @constructor */
 function Element(dom) {
     this.parent = null;
     this.dom = dom;
@@ -223,6 +229,7 @@ exports.Element = Element;
 Element.prototype.onkey = function(evt) {};
 
 
+/** @constructor */
 function Template() {
     var dom = util.fromTemplate.apply(null, arguments);
     return new Element(dom);
@@ -231,6 +238,7 @@ exports.Template = Template;
 
 
 
+/** @constructor */
 function SimpleList(dom, items, key_names) {
     this.parent = null;
     this.dom = dom;
@@ -381,6 +389,7 @@ SimpleList.prototype.onblur = function() {
 //
 // NB: Unlike most widgets, which only attach behavior to existing DOM
 // elements, this widget actually does manipulate the DOM itself.
+/** @constructor */
 function DynamicList(dom, key_names) {
     SimpleList.call(this, dom, [], key_names);
 }
