@@ -681,6 +681,57 @@
                 </div>
             </div>
 
+            <style>
+                .labeled-row {
+                    display: flex;
+                    align-items: center;
+                }
+                .label {
+                    flex-shrink: 0;
+                    text-align: left;
+                    padding: 0.125rem;
+                }
+
+                .teleport-setup .label {
+                    width: 5rem;
+                }
+            </style>
+            <div id="teleport-setup" class="teleport-setup">
+                <div class="title">Teleporter Setup</div>
+                <div class="labeled-row" data-part="name-row">
+                    <div class="label">Name:</div>
+                    <input type="text" size="20" data-part="name">
+                </div>
+                <div class="labeled-row" data-part="network-row">
+                    <div class="label">Network:</div>
+                    <input type="text" size="20" data-part="network" value="main">
+                </div>
+                <div data-part="buttons">
+                    <button data-part="submit">Done</span>
+                    <button data-part="cancel">Cancel</span>
+                </div>
+            </div>
+
+            <style>
+                .list {
+                    width: 10rem;
+                    overflow-x: hidden;
+                    overflow-y: scroll;
+                }
+
+                .list-item.active {
+                    background-color: lightblue;
+                }
+
+                .teleport-dest .list {
+                    margin: auto;
+                }
+            </style>
+            <div id="teleport-dest" class="teleport-dest">
+                <div class="title">Choose Destination</div>
+                <div class="hole" data-key="list"></div>
+            </div>
+
         </div>
     </body>
 </html>
