@@ -2,15 +2,11 @@
 - hosts: outpost
   sudo: yes
   tasks:
-    - name: set up Debian Jessie repo
-      apt_repository: repo='deb http://ftp.us.debian.org/debian jessie main'
-
     - apt: name=liblua5.1-0 
     - apt: name=htop 
     - apt: name=rsync 
     - apt: name=socat 
     - apt: name=tmux 
-    - apt: name=locales
 
     - name: add user {{ daemon_user }}
       user: name={{ daemon_user }} shell=/bin/bash
