@@ -736,6 +736,8 @@ function setupKeyHandler() {
                 default:
                     return shouldStop;
             }
+
+            return true;
         } else {
             return shouldStop;
         }
