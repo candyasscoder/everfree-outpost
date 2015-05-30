@@ -50,7 +50,7 @@ Physics.prototype.removeStructure = function(structure) {
 Physics.prototype.computeForecast = function(now, entity, target_velocity) {
     var start_pos = entity.position(now);
     // TODO: hardcoded constant based on entity size
-    var size = new Vec(32, 32, 32);
+    var size = new Vec(32, 32, 64);
 
     var result = this._asm.collide(start_pos, size, target_velocity);
     var end_pos = new Vec(result.x, result.y, result.z);

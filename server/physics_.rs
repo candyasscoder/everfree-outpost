@@ -80,7 +80,7 @@ pub trait Fragment<'d> {
             // TODO: hardcoded constant based on entity size
             let start_pos = e.pos(now);
             let velocity = e.target_velocity();
-            let size = scalar(32);
+            let size = V3::new(32, 32, 64);
 
             let chunk_px = CHUNK_SIZE * TILE_SIZE;
             let base_chunk = start_pos.div_floor(scalar(chunk_px)) - scalar::<V2>(3).extend(0);
