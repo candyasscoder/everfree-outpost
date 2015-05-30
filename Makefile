@@ -319,6 +319,7 @@ $(eval $(call WWW_FILE, 	credits.html,		$(BUILD)/credits.html))
 $(eval $(call WWW_FILE, 	instructions.html,	$(SRC)/client/instructions.html))
 $(eval $(call WWW_FILE, 	server.json,		$(SRC)/build/server.json))
 $(eval $(call WWW_FILE, 	outpost.pack,		$(BUILD)/outpost.pack))
+$(eval $(call WWW_FILE, 	maresprite.png,		$(SRC)/assets/sprites/maresprite.png))
 
 ifeq ($(RELEASE),)
 $(eval $(call WWW_FILE, client.html, 		$(BUILD)/client.debug.html))

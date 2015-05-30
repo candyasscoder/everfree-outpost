@@ -83,7 +83,7 @@ var active_anim = new Animation();
 var move_speed_x = 0;
 var move_speed_y = 0;
 var sheet = new Image();
-sheet.src = 'assets/sprites/maresprite.png';
+sheet.src = 'maresprite.png';
 var sprite_base = null;
 var renderer = new simple.Simple2D();
 
