@@ -453,7 +453,7 @@ DynamicList.prototype.update = function(updates, callback) {
             ++j;
 
             if (old_item != null && new_item != null) {
-                this.dom.replaceChild(old_item.dom, new_item.dom);
+                this.dom.replaceChild(new_item.dom, old_item.dom);
                 last_dom = new_item.dom;
                 add(new_item);
             } else if (old_item != null /* && new_item == null */) {
