@@ -1,5 +1,6 @@
-local structure_items = require('lib.structure_items')
+local autorotate = require('lib.autorotate')
 local mallet = require('lib.mallet')
+local structure_items = require('lib.structure_items')
 
 local add_structure_item = structure_items.add_structure_item
 local add_attachment_item = structure_items.add_attachment_item
@@ -73,9 +74,9 @@ local terrain_cycle = {
     'corner/inner/nw', 'corner/inner/ne', 'corner/inner/se', 'corner/inner/sw',
 }
 
-add_structure_item('house_floor', 'wood_floor/center/v0')
+autorotate.add_floor_item('house_floor', 'wood_floor')
 mallet_cycle('wood_floor/', terrain_cycle)
-add_structure_item('road', 'road/center/v0')
+add_structure_item('road', 'road')
 mallet_cycle('road/', terrain_cycle)
 
 add_structure_item('stair', 'stair/n')

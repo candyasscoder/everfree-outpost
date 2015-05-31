@@ -74,6 +74,20 @@ impl Userdata for World {
                 best_id.map(|sid| Structure { id: sid })
             }
 
+            fn find_structure_at_point_layer(!partial w: &world::World,
+                                             _w: World,
+                                             plane: Plane,
+                                             pos: V3,
+                                             layer: u8) -> Option<Structure> {
+                let chunk = pos.reduce().div_floor(scalar(CHUNK_SIZE));
+                for s in w.chunk_structures(plane.id, chunk) {
+                    if s.bounds().contains(pos) && s.template().layer == layer {
+                        return Some(Structure { id: s.id() });
+                    }
+                };
+                None
+            }
+
             fn create_structure(!partial wf: WorldFragment,
                                 _w: World,
                                 plane: Plane,

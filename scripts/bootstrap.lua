@@ -53,6 +53,7 @@ IsoDiskSampler = outpost_ffi.types.IsoDiskSampler.table
 ExtraArg = outpost_ffi.types.ExtraArg.table
 
 
+require('outpost.luaext')
 require('outpost.userdata')
 require('outpost.extra')
 require('outpost.eval')
@@ -61,6 +62,7 @@ local command = require('outpost.command')
 local util = require('outpost.util')
 
 require('ext.inventory')
+require('ext.string')
 
 require('terrain')
 
