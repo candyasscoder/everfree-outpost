@@ -76,7 +76,7 @@ local terrain_cycle = {
 
 autorotate.add_floor_item('house_floor', 'wood_floor')
 mallet_cycle('wood_floor/', terrain_cycle)
-add_structure_item('road', 'road')
+autorotate.add_floor_item('road', 'road')
 mallet_cycle('road/', terrain_cycle)
 
 add_structure_item('stair', 'stair/n')
