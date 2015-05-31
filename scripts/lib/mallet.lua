@@ -1,10 +1,10 @@
 local action = require('outpost.action')
 local util = require('outpost.util')
-local ward = require('ward')
+local ward = require('lib.ward')
 
 local replacements = {}
 
-action.use_item.mallet = function(c, inv)
+local function use_mallet(c, inv)
     local s = util.hit_structure(c:pawn())
     if s == nil then
         return
@@ -20,6 +20,16 @@ action.use_item.mallet = function(c, inv)
     end
 end
 
+local function mallet_cycle(base, xs)
+    for i = 1, #xs - 1 do
+        replacements[base .. xs[i]] = base .. xs[i + 1]
+        action.use[base .. xs[i + 1]] = action.use[base .. xs[i]]
+    end
+    replacements[base .. xs[#xs]] = base .. xs[1]
+end
+
 return {
     replacements = replacements,
+    use_mallet = use_mallet,
+    mallet_cycle = mallet_cycle,
 }

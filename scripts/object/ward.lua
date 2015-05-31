@@ -1,8 +1,8 @@
 local action = require('outpost.action')
 local util = require('outpost.util')
-local structure_items = require('structure_items')
-local tools = require('tools')
-local ward = require('ward')
+local structure_items = require('lib.structure_items')
+local tools = require('lib.tools')
+local ward = require('lib.ward')
 
 
 function action.use.ward(c, s)

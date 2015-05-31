@@ -58,25 +58,27 @@ require('outpost.extra')
 require('outpost.eval')
 local action = require('outpost.action')
 local command = require('outpost.command')
-
-require('inventory')
-local tools = require('tools')
-require('structure_items')
-local ward = require('ward')
-
-require('chest')
-require('anvil')
-require('ward_item')
-require('mallet')
-require('hat')
-require('teleporter')
-require('sign')
-
-require('terrain')
 local util = require('outpost.util')
 
+require('ext.inventory')
+
+require('terrain')
+
+local tools = require('lib.tools')
+local ward = require('lib.ward')
+
+require('object.anvil')
+require('object.chest')
+require('object.hat')
+require('object.sign')
+require('object.structures')
+require('object.teleporter')
+require('object.tools')
+require('object.ward')
+
 -- No 'local' so it gets exposed to repl scripts
-trigger = require('trigger')
+trigger = require('object.trigger')
+
 
 
 function action.open_inventory(c)

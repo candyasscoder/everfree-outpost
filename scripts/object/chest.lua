@@ -1,7 +1,7 @@
 local action = require('outpost.action')
-local structure_items = require('structure_items')
-local tools = require('tools')
-local ward = require('ward')
+local structure_items = require('lib.structure_items')
+local tools = require('lib.tools')
+local ward = require('lib.ward')
 
 function action.use.chest(c, s)
     if not ward.check(c, s:pos()) then
@@ -32,6 +32,7 @@ function action.use.cabinets(c, s)
 end
 
 function action.use_item.cabinets(c, inv)
+    -- nB: `attachment_map[cabinets]` is set in `object.structures`.
     structure_items.use_attachment_item(c, inv, 'cabinets', 'cabinets')
 end
 
