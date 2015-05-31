@@ -79,15 +79,15 @@ mallet_cycle('wood_floor/', terrain_cycle)
 autorotate.add_floor_item('road', 'road')
 mallet_cycle('road/', terrain_cycle)
 
-add_structure_item('stair', 'stair/n')
+add_structure_item('statue', 'statue/e')
 mallet_cycle('statue/', { 'e', 's', 'w', 'n' })
 
 add_structure_item('bed')
 add_structure_item('table')
-add_structure_item('statue', 'statue/e')
 add_structure_item('trophy')
 add_structure_item('fountain')
 add_structure_item('torch')
+add_structure_item('stair', 'stair/n')
 
 
 
