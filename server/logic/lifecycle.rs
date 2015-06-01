@@ -7,7 +7,7 @@ use engine::split::EngineRef;
 use logic;
 use world::Fragment;
 use world::object::*;
-use world::save::{self, ObjectReader, ObjectWriter};
+use world::save::{ObjectReader, ObjectWriter};
 
 
 pub fn start_up(mut eng: EngineRef) {

@@ -290,11 +290,11 @@ impl<A: ReadFrom> ReadFrom for Vec<A> {
 
 impl<A: WriteTo> WriteTo for Vec<A> {
     fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
-        (*self).write_to(w)
+        (**self).write_to(w)
     }
 
     fn size(&self) -> usize {
-        (*self).size()
+        (**self).size()
     }
 
     fn size_is_fixed() -> bool { false }

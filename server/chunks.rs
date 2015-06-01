@@ -51,7 +51,7 @@ pub trait Fragment<'d> {
             return pid;
         }
 
-        self.with_provider(|sys, provider| {
+        self.with_provider(|_sys, provider| {
             warn_on_err!(provider.load_plane(stable_pid))
         });
         // Correctly implemented provider should create or load a Plane with the given StableId.

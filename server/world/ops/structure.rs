@@ -6,8 +6,7 @@ use util::{multimap_insert, multimap_remove};
 use util::stable_id_map::NO_STABLE_ID;
 
 use world::{Structure, StructureAttachment};
-use world::{World, Fragment, Hooks};
-use world::TerrainChunk;
+use world::{Fragment, Hooks};
 use world::ops::{self, OpResult};
 
 

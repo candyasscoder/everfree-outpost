@@ -1,4 +1,4 @@
-use rand::{Rng, XorShiftRng, SeedableRng};
+use rand::Rng;
 
 use types::*;
 
@@ -30,11 +30,6 @@ fn diamond_square<Check, Handle>(check: &Check,
         0,          0,          0,
         init[2],    0,          init[3],
     ];
-
-    let mut r: XorShiftRng = SeedableRng::from_seed([(seed >> 32) as u32,
-                                                     seed as u32 ^ level as u32,
-                                                     base.x as u32,
-                                                     base.y as u32]);
 
     for &(i, j) in [(0, 2), (0, 6), (2, 8), (6, 8)].iter() {
         let (i, j): (usize, usize) = (i, j);

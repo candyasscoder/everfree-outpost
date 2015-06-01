@@ -1,19 +1,15 @@
 #![crate_name = "backend"]
-#![feature(unboxed_closures)]
-#![feature(unsafe_destructor)]
-#![feature(unsafe_no_drop_flag)]
 #![allow(non_upper_case_globals)]
 #![allow(dead_code)]
 
-#![feature(io)]
-#![feature(libc)]
-#![feature(path)]
-#![feature(core)]
 #![feature(collections)]
-#![feature(hash)]
+#![feature(convert)]    // OsStr::to_cstring
+#![feature(core)]
+#![feature(libc)]
 #![feature(std_misc)]
 #![feature(trace_macros)]
-#![feature(convert)]    // OsStr::to_cstring
+#![feature(unboxed_closures)]
+#![feature(unsafe_no_drop_flag)]
 
 #[macro_use] extern crate bitflags;
 extern crate core;
@@ -72,7 +68,7 @@ fn main() {
     use std::sync::mpsc::channel;
     use std::thread;
 
-    env_logger::init();
+    env_logger::init().unwrap();
 
     let args = env::args().collect::<Vec<_>>();
     let storage = storage::Storage::new(&args[1]);

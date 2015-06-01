@@ -239,7 +239,7 @@ impl<W: io::Write, H: WriteHooks> ObjectWriter<W, H> {
     }
 
     fn write_world(&mut self, w: &World) -> Result<()> {
-        use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
+        use world::{EntityAttachment, InventoryAttachment};
 
         try!(self.w.write(w.clients.next_id()));
         try!(self.w.write(w.entities.next_id()));

@@ -9,7 +9,6 @@ use physics::TILE_SIZE;
 
 use auth::Secret;
 use input::InputBits;
-use input::Action;
 use msg::{Request, Response, InitData, ExtraArg};
 use timer::WakeQueue;
 use world::Motion;

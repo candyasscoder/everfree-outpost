@@ -13,7 +13,6 @@ use terrain_gen;
 use world::{self, Fragment};
 use world::object::*;
 use world::save::{self, ObjectReader, ObjectWriter};
-use vision;
 
 
 pub fn load_chunk(mut eng: EngineRef, pid: PlaneId, cpos: V2) {
@@ -23,7 +22,6 @@ pub fn load_chunk(mut eng: EngineRef, pid: PlaneId, cpos: V2) {
 
 pub fn unload_chunk(mut eng: EngineRef, pid: PlaneId, cpos: V2) {
     trace!("unload_chunk({:?}, {:?})", pid, cpos);
-    let tcid = eng.world().plane(pid).terrain_chunk(cpos).id();
     chunks::Fragment::unload(&mut eng.as_chunks_fragment(), pid, cpos);
 }
 
@@ -100,7 +98,7 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
                         let sid = {
                             let mut s = try!(world::Fragment::create_structure_unchecked(
                                     &mut hwf, pid, gs.pos + base, gs.template));
-                            s.set_attachment(world::StructureAttachment::Chunk);
+                            s.set_attachment(world::StructureAttachment::Chunk).unwrap();
                             s.id()
                         };
                         for (k, v) in gs.extra.iter() {

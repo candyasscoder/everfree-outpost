@@ -60,7 +60,7 @@ impl<T> WakeQueue<T> {
         Some((item.time, item.reason))
     }
 
-    pub fn wait_recv(&mut self, now: Time) -> Receiver<()> {
+    pub fn wait_recv(&mut self, _now: Time) -> Receiver<()> {
         unimplemented!();
     }
 }

@@ -130,7 +130,7 @@ impl<R: io::Read> Reader for ReaderWrapper<R> {
                 len: len + pad,
             })
         };
-        self.read_buf(buf);
+        try!(self.read_buf(buf));
         Ok(result.0)
     }
 }

@@ -1,8 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use types::*;
 use util::stable_id_map::NO_STABLE_ID;
-use util::{multimap_insert, multimap_remove};
 
 use world::Plane;
 use world::{Fragment, Hooks};

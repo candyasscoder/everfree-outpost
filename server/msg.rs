@@ -10,7 +10,7 @@ use self::op::Opcode;
 
 
 mod op {
-    use wire::{self, WireReader, WireWriter};
+    use wire::{self, WireWriter};
     use std::io::{self, Write};
 
     #[derive(Clone, Copy, PartialEq, Eq, Debug)]

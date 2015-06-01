@@ -3,7 +3,6 @@
 // rustc also complains about lua_SomeType typedefs.
 #![allow(non_camel_case_types)]
 
-use std::ffi::CString;
 use std::marker::{PhantomData, NoCopy};
 use std::mem;
 use std::path::Path;

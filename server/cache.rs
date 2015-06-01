@@ -42,7 +42,9 @@ impl TerrainCache {
     pub fn update_region(&mut self, w: &World, pid: PlaneId, bounds: Region) {
         for cpos in bounds.reduce().div_round_signed(CHUNK_SIZE).points() {
             if let Some(entry) = self.cache.get_mut(&(pid, cpos)) {
-                compute_shape(w, pid, cpos, bounds, entry);
+                // Fails only when the plane/terrain chunk does not exist.  Since the cache entry
+                // exists, the plane/chunk should also exist.
+                compute_shape(w, pid, cpos, bounds, entry).unwrap();
             }
         }
     }
