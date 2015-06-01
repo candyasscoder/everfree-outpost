@@ -165,7 +165,6 @@ impl<T: Eq+Hash> SmallSet<T> {
     }
 }
 
-#[unsafe_destructor]
 impl<T: Eq+Hash> Drop for SmallSet<T> {
     fn drop(&mut self) {
         if self.is_small() {

@@ -3,9 +3,9 @@
 // rustc also complains about lua_SomeType typedefs.
 #![allow(non_camel_case_types)]
 
-use std::ffi::CString;
 use std::marker::{PhantomData, NoCopy};
 use std::mem;
+use std::path::Path;
 use std::ptr;
 use std::slice;
 use std::str;
@@ -109,7 +109,7 @@ impl OwnedLuaState {
 
 impl Drop for OwnedLuaState {
     fn drop(&mut self) {
-        if self.L.is_null() {
+        if self.L as usize == mem::POST_DROP_USIZE {
             return;
         }
 
@@ -133,7 +133,7 @@ fn lua_alloc(_userdata: *mut c_void,
 }
 
 
-#[derive(Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ErrorType {
     Yield = 1,
     ErrRun = 2,
@@ -158,9 +158,9 @@ impl ErrorType {
     }
 }
 
-type Error<'a> = (ErrorType, &'a str);
+pub type Error<'a> = (ErrorType, &'a str);
 
-type LuaResult<'a, T> = Result<T, Error<'a>>;
+pub type LuaResult<'a, T> = Result<T, Error<'a>>;
 
 fn make_result<'a>(lua: &'a mut LuaState, code: c_int) -> LuaResult<'a, ()> {
     if code == 0 {
@@ -173,7 +173,7 @@ fn make_result<'a>(lua: &'a mut LuaState, code: c_int) -> LuaResult<'a, ()> {
 }
 
 
-#[derive(Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ValueType {
     Nil = 0,
     Boolean = 1,
@@ -337,7 +337,7 @@ impl<'a> LuaState<'a> {
             return None;
         }
 
-        let mut len = 0;
+        let mut len: size_t = 0;
         let ptr = unsafe { ffi::lua_tolstring(self.L, index, &mut len as *mut _) };
         if ptr.is_null() {
             None
@@ -481,9 +481,7 @@ impl<'a> LuaState<'a> {
     }
 
     pub fn load_file(&mut self, path: &Path) -> LuaResult<()> {
-        // This would panic if the path contained null characters, but that's impossible because
-        // Path checks for \0 and rejects the string if found.
-        let s = CString::new(path.as_vec()).unwrap();
+        let s = path.as_os_str().to_cstring().expect("found \\0 in path");
         let code = unsafe {
             ffi::luaL_loadfile(self.L, s.as_bytes_with_nul().as_ptr() as *const i8)
         };

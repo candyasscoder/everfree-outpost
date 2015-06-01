@@ -1,7 +1,6 @@
 use std::error;
 use std::fmt;
-use std::num::FromPrimitive;
-use std::old_io;
+use std::io;
 use std::result;
 use libc::c_int;
 
@@ -19,8 +18,9 @@ use super::traits::{ToLua, Userdata, metatable_key};
 use super::userdata;
 
 
+#[derive(Debug)]
 pub enum Error {
-    Io(old_io::IoError),
+    Io(io::Error),
     Str(StrError),
     Lua(String),
 }
@@ -53,20 +53,20 @@ impl error::Error for Error {
     }
 }
 
-impl error::FromError<old_io::IoError> for Error {
-    fn from_error(e: old_io::IoError) -> Error {
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Error {
         Error::Io(e)
     }
 }
 
-impl error::FromError<StrError> for Error {
-    fn from_error(e: StrError) -> Error {
+impl From<StrError> for Error {
+    fn from(e: StrError) -> Error {
         Error::Str(e)
     }
 }
 
-impl error::FromError<save::Error> for Error {
-    fn from_error(e: save::Error) -> Error {
+impl From<save::Error> for Error {
+    fn from(e: save::Error) -> Error {
         match e {
             save::Error::Io(e) => Error::Io(e),
             save::Error::Str(e) => Error::Str(e),
@@ -74,14 +74,14 @@ impl error::FromError<save::Error> for Error {
     }
 }
 
-impl<'a> error::FromError<(lua::ErrorType, &'a str)> for Error {
-    fn from_error((et, s): (lua::ErrorType, &'a str)) -> Error {
+impl<'a> From<(lua::ErrorType, &'a str)> for Error {
+    fn from((et, s): (lua::ErrorType, &'a str)) -> Error {
         Error::Lua(format!("{:?}: {}", et, s))
     }
 }
 
-impl<'a> error::FromError<Error> for save::Error {
-    fn from_error(e: Error) -> save::Error {
+impl<'a> From<Error> for save::Error {
+    fn from(e: Error) -> save::Error {
         match e {
             Error::Io(e) => save::Error::Io(e),
             Error::Str(e) => save::Error::Str(e),
@@ -96,30 +96,49 @@ pub type Result<T> = result::Result<T, Error>;
 
 
 
-#[derive(Copy, PartialEq, Eq, Debug, FromPrimitive)]
-enum Tag {
-    Nil,
-    Bool,
-    SmallInt,
-    LargeInt,
-    Float,
-    SmallString,
-    LargeString,
-    Table,
+macro_rules! primitive_enum {
+    (enum $name:ident: $prim:ty { $($variant:ident = $disr:expr,)* }) => {
+        #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+        enum $name {
+            $($variant = $disr,)*
+        }
 
-    World,
-    Client,
-    Entity,
-    Inventory,
-    Structure,
+        impl $name {
+            pub fn from_primitive(x: $prim) -> Option<$name> {
+                match x {
+                    $( $disr => Some($name::$variant), )*
+                    _ => None,
+                }
+            }
+        }
+    };
+}
 
-    StableClient,
-    StableEntity,
-    StableInventory,
-    StablePlane,
-    StableStructure,
+primitive_enum! {
+    enum Tag: u8 {
+        Nil =           0x00,
+        Bool =          0x01,
+        SmallInt =      0x02,
+        LargeInt =      0x03,
+        Float =         0x04,
+        SmallString =   0x05,
+        LargeString =   0x06,
+        Table =         0x07,
 
-    V3,
+        World =         0x10,
+        Client =        0x11,
+        Entity =        0x12,
+        Inventory =     0x13,
+        Structure =     0x14,
+
+        StableClient =      0x20,
+        StableEntity =      0x21,
+        StableInventory =   0x22,
+        StablePlane =       0x23,
+        StableStructure =   0x24,
+
+        V3 =            0x30,
+    }
 }
 
 
@@ -504,14 +523,14 @@ impl<'a, 'd> ReadHooks<'a, 'd> {
         self.with_lua(|lua| {
             let args = lua.top_index() - base - 1;
             lua.pcall(args, 0, 0)
-               .map_err(error::FromError::from_error)
+               .map_err(From::from)
         })
     }
 
     fn read_value<R: Reader>(&mut self,
                              r: &mut R) -> Result<()> {
         let (tag, a, b): (u8, u8, u16) = try!(r.read());
-        let tag = unwrap!(FromPrimitive::from_u8(tag));
+        let tag = unwrap!(Tag::from_primitive(tag));
         match tag {
             Tag::Nil => {
                 self.lua().push_nil();

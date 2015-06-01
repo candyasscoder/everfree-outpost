@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher, SipHasher};
-use std::num::Int;
 use rand::{Rng, XorShiftRng, SeedableRng};
 
 use types::*;

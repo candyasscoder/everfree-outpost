@@ -1,9 +1,9 @@
-use std::borrow::ToOwned;
-use std::error::{Error, FromError};
+use std::convert::From;
+use std::error::Error;
 use std::fmt;
 
 
-#[derive(Copy, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct StrError {
     pub msg: &'static str,
 }
@@ -20,8 +20,8 @@ impl fmt::Display for StrError {
     }
 }
 
-impl FromError<&'static str> for StrError {
-    fn from_error(s: &'static str) -> StrError {
+impl From<&'static str> for StrError {
+    fn from(s: &'static str) -> StrError {
         StrError {
             msg: s,
         }
@@ -47,14 +47,14 @@ impl fmt::Display for StringError {
     }
 }
 
-impl FromError<StrError> for StringError {
-    fn from_error(e: StrError) -> StringError {
-        FromError::from_error(e.description())
+impl From<StrError> for StringError {
+    fn from(e: StrError) -> StringError {
+        From::from(e.description())
     }
 }
 
-impl<'a> FromError<&'a str> for StringError {
-    fn from_error(s: &'a str) -> StringError {
+impl<'a> From<&'a str> for StringError {
+    fn from(s: &'a str) -> StringError {
         StringError {
             msg: s.to_owned(),
         }
@@ -67,12 +67,12 @@ pub type StringResult<T> = Result<T, StringError>;
 macro_rules! fail {
     ($msg:expr) => {{
             let error = $crate::util::StrError { msg: $msg };
-            return Err(::std::error::FromError::from_error(error));
+            return Err(::std::convert::From::from(error));
     }};
 
     ($msg:expr, $($args:tt)*) => {{
             let error = $crate::util::StringError { msg: format!($msg, $($args)*) };
-            return Err(::std::error::FromError::from_error(error));
+            return Err(::std::convert::From::from(error));
     }};
 }
 

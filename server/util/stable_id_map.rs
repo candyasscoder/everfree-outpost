@@ -15,7 +15,7 @@ pub struct StableIdMap<K, V> {
     _marker0: PhantomData<K>,
 }
 
-#[derive(Copy, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub struct Stable<Id> {
     pub val: StableId,
     pub _marker0: PhantomData<Id>,
@@ -211,16 +211,16 @@ impl<K, V> Index<K> for StableIdMap<K, V>
               V: IntrusiveStableId {
     type Output = V;
 
-    fn index(&self, index: &K) -> &V {
-        self.get(*index).expect("no entry found for key")
+    fn index(&self, index: K) -> &V {
+        self.get(index).expect("no entry found for key")
     }
 }
 
 impl<K, V> IndexMut<K> for StableIdMap<K, V>
         where K: Copy+ObjectId,
               V: IntrusiveStableId {
-    fn index_mut(&mut self, index: &K) -> &mut V {
-        self.get_mut(*index).expect("no entry found for key")
+    fn index_mut(&mut self, index: K) -> &mut V {
+        self.get_mut(index).expect("no entry found for key")
     }
 }
 

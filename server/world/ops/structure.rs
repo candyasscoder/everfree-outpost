@@ -6,8 +6,7 @@ use util::{multimap_insert, multimap_remove};
 use util::stable_id_map::NO_STABLE_ID;
 
 use world::{Structure, StructureAttachment};
-use world::{World, Fragment, Hooks};
-use world::TerrainChunk;
+use world::{Fragment, Hooks};
 use world::ops::{self, OpResult};
 
 
@@ -156,7 +155,7 @@ pub fn attach<'d, F>(f: &mut F,
             // If we're detaching from Chunk, we know the containing chunk is loaded because `c` is
             // loaded and has attachment Chunk.
             let p = &w.planes[s.plane];
-            let tcid = p.loaded_chunks[chunk_pos];
+            let tcid = p.loaded_chunks[&chunk_pos];
             let tc = &mut w.terrain_chunks[tcid];
             tc.child_structures.remove(&sid);
         },

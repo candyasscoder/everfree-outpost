@@ -51,7 +51,7 @@ impl Userdata for Rng {
             lua, -1,
 
             fn __gc(x: &Rng) -> () {
-                unsafe { ptr::read(x as *const _) };
+                unsafe { ptr::read(x as *const Rng) };
             }
         }
     }
@@ -60,7 +60,6 @@ impl Userdata for Rng {
 /// Perform reservoir sampling over a Lua iterator.  Returns all values produced for the chosen
 /// iteration.  (For example, `rng:choose(pairs(table))` returns the chosen key-value pair.)
 fn rng_choose(mut lua: LuaState) -> ::libc::c_int {
-    use std::iter::count;
     use std::mem;
     use libc::c_int;
     use lua::{self, ValueType};
@@ -90,7 +89,7 @@ fn rng_choose(mut lua: LuaState) -> ::libc::c_int {
         // From now on, we need to be careful not to accidentally pop the Rng userdata.
 
         // This loop emulates the behavior of the Lua `for` statement.
-        for i in count(1, 1) {
+        for i in 1 .. {
             lua.copy(F_IDX);
             lua.copy(S_IDX);
             lua.copy(VAR_IDX);
@@ -133,7 +132,7 @@ fn rng_choose(mut lua: LuaState) -> ::libc::c_int {
             if keep {
                 // Copy the new values over the top of the old values, then pop the extra `n`.
                 //   State: ... A1 A2 B1 B2 B3
-                for j in range(0, new_size) {
+                for j in 0 .. new_size {
                     let old_idx = VARS_BASE_IDX + j;
                     let new_idx = new_base + j;
                     lua.copy(new_idx);
@@ -158,7 +157,7 @@ fn rng_choose(mut lua: LuaState) -> ::libc::c_int {
         unsafe { lua.error() };
     }
 
-    for j in range(0, last_size) {
+    for j in 0 .. last_size {
         let old_idx = 1 + j;
         let new_idx = VARS_BASE_IDX + j;
         lua.copy(new_idx);
@@ -332,7 +331,7 @@ impl Userdata for GenChunk {
 
             fn __gc(x: &GenChunk) -> () {
                 // Run destructor on `x`.  After this, the memory will be freed by Lua.
-                unsafe { ptr::read(x as *const _) };
+                unsafe { ptr::read(x as *const GenChunk) };
             }
         }
     }
@@ -365,7 +364,7 @@ impl Userdata for Values {
 
             fn __gc(x: &Values) -> () {
                 // Run destructor on `x`.  After this, the memory will be freed by Lua.
-                unsafe { ptr::read(x as *const _) };
+                unsafe { ptr::read(x as *const Values) };
             }
         }
     }
@@ -397,7 +396,7 @@ impl Userdata for ValuesMut {
 
             fn __gc(x: &ValuesMut) -> () {
                 // Run destructor on `x`.  After this, the memory will be freed by Lua.
-                unsafe { ptr::read(x as *const _) };
+                unsafe { ptr::read(x as *const ValuesMut) };
             }
         }
     }
@@ -426,7 +425,7 @@ impl Userdata for Points {
 
             fn __gc(x: &Points) -> () {
                 // Run destructor on `x`.  After this, the memory will be freed by Lua.
-                unsafe { ptr::read(x as *const _) };
+                unsafe { ptr::read(x as *const Points) };
             }
         }
     }
@@ -480,7 +479,7 @@ impl Userdata for Field {
             lua, -1,
 
             fn __gc(x: &Field) -> () {
-                unsafe { ptr::read(x as *const _) };
+                unsafe { ptr::read(x as *const Field) };
             }
         }
     }
@@ -526,7 +525,7 @@ macro_rules! define_field {
                     lua, -1,
 
                     fn __gc(x: &$Field) -> () {
-                        unsafe { ptr::read(x as *const _) };
+                        unsafe { ptr::read(x as *const $Field) };
                     }
                 }
             }
@@ -613,7 +612,7 @@ impl Userdata for IsoDiskSampler {
             lua, -1,
 
             fn __gc(x: &IsoDiskSampler) -> () {
-                unsafe { ptr::read(x as *const _) };
+                unsafe { ptr::read(x as *const IsoDiskSampler) };
             }
         }
     }

@@ -1,7 +1,7 @@
 use types::*;
 
 use engine::split::{EngineRef, Open};
-use input::{Action, InputBits};
+use input::{InputBits};
 use messages::ClientResponse;
 use msg::ExtraArg;
 use physics_;

@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::old_io;
+use std::io;
 use std::mem;
 use std::slice;
 
@@ -18,7 +18,7 @@ use super::writer::{Writer, WriterWrapper};
 use super::CURRENT_VERSION;
 
 
-pub struct ObjectWriter<W: old_io::Writer, H: WriteHooks> {
+pub struct ObjectWriter<W: io::Write, H: WriteHooks> {
     w: WriterWrapper<W>,
     hooks: H,
     objects_written: HashSet<AnyId>,
@@ -51,7 +51,7 @@ pub trait WriteHooks {
                                        s: &ObjectRef<Structure>) -> Result<()> { Ok(()) }
 }
 
-impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
+impl<W: io::Write, H: WriteHooks> ObjectWriter<W, H> {
     pub fn new(writer: W, hooks: H) -> ObjectWriter<W, H> {
         ObjectWriter {
             w: WriterWrapper::new(writer),
@@ -239,7 +239,7 @@ impl<W: old_io::Writer, H: WriteHooks> ObjectWriter<W, H> {
     }
 
     fn write_world(&mut self, w: &World) -> Result<()> {
-        use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
+        use world::{EntityAttachment, InventoryAttachment};
 
         try!(self.w.write(w.clients.next_id()));
         try!(self.w.write(w.entities.next_id()));

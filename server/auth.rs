@@ -1,7 +1,7 @@
 use std::error;
 use std::fmt;
 use std::hash::{SipHasher, Hash, Hasher};
-use std::path::Path as NewPath;
+use std::path::Path;
 use std::result;
 use rand;
 
@@ -17,8 +17,8 @@ pub struct Auth {
 }
 
 impl Auth {
-    pub fn new(db_path: Path) -> Result<Auth> {
-        let conn = try!(SqliteConnection::open(&NewPath::new(&db_path)));
+    pub fn new<P: AsRef<Path>>(db_path: &P) -> Result<Auth> {
+        let conn = try!(SqliteConnection::open(db_path));
         try!(conn.execute("CREATE TABLE IF NOT EXISTS auth (
                            name      TEXT NOT NULL UNIQUE,
                            secret    TEXT NOT NULL
@@ -68,7 +68,7 @@ impl Auth {
 
 pub type Secret = [u32; 4];
 
-pub fn hash_secret(s: &Secret) -> String {
+fn hash_secret(s: &Secret) -> String {
     // TODO: use a better hash
 
     let salt0 = rand::random();
@@ -89,7 +89,7 @@ enum SecretMatch {
     YesNeedsRehash,
 }
 
-pub fn check_secret(s: &Secret, hash: &str) -> SecretMatch {
+fn check_secret(s: &Secret, hash: &str) -> SecretMatch {
     // TODO: use a better hash
 
     let idx = hash.find(';').unwrap();
@@ -150,14 +150,14 @@ impl error::Error for Error {
     }
 }
 
-impl error::FromError<StrError> for Error {
-    fn from_error(e: StrError) -> Error {
+impl From<StrError> for Error {
+    fn from(e: StrError) -> Error {
         Error::Str(e)
     }
 }
 
-impl error::FromError<SqliteError> for Error {
-    fn from_error(e: SqliteError) -> Error {
+impl From<SqliteError> for Error {
+    fn from(e: SqliteError) -> Error {
         Error::Sqlite(e)
     }
 }

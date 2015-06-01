@@ -5,7 +5,6 @@ use util::SmallSet;
 use physics::Shape;
 
 use cache::TerrainCache;
-use chunks;
 use data::StructureTemplate;
 use engine::glue::*;
 use engine::split::Open;
@@ -256,7 +255,7 @@ fn check_structure_placement(world: &World,
     true
 }
 
-fn check_shape_0(shape: Shape, is_bottom: bool, mask: u8) -> bool {
+fn check_shape_0(shape: Shape, is_bottom: bool, _mask: u8) -> bool {
     if is_bottom {
         shape == Shape::Floor || shape == Shape::Empty
     } else {

@@ -1,45 +1,47 @@
 use std::collections::HashMap;
-use std::old_io::{IoResult, IoError, IoErrorKind};
+use std::io::{self, Read, Write};
 
-use wire;
-use wire::{WireReader, WireWriter};
+use wire::{self, WireReader, WireWriter};
 use types::*;
 
 pub use self::Request::*;
 pub use self::Response::*;
+use self::op::Opcode;
 
 
-#[derive(Copy, PartialEq, Eq, Debug)]
-struct Opcode(u16);
+mod op {
+    use wire::{self, WireWriter};
+    use std::io::{self, Write};
 
-impl Opcode {
-    pub fn unwrap(self) -> u16 {
-        let Opcode(v) = self;
-        v
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub struct Opcode(pub u16);
+
+    impl Opcode {
+        pub fn unwrap(self) -> u16 {
+            let Opcode(v) = self;
+            v
+        }
     }
-}
 
-impl wire::WriteTo for Opcode {
-    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
-        self.unwrap().write_to(w)
+    impl wire::WriteTo for Opcode {
+        fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
+            self.unwrap().write_to(w)
+        }
+
+        fn size(&self) -> usize { self.unwrap().size() }
+
+        fn size_is_fixed() -> bool { true }
     }
 
-    fn size(&self) -> usize { self.unwrap().size() }
 
-    fn size_is_fixed() -> bool { true }
-}
-
-macro_rules! opcodes {
-    ($($name:ident = $value:expr,)*) => {
-        $(
-            #[allow(non_upper_case_globals, dead_code)]
-            pub const $name: Opcode = Opcode($value);
-        )*
+    macro_rules! opcodes {
+        ($($name:ident = $value:expr,)*) => {
+            $(
+                #[allow(non_upper_case_globals, dead_code)]
+                pub const $name: Opcode = Opcode($value);
+            )*
+        }
     }
-}
-
-pub mod op {
-    use super::Opcode;
 
     opcodes! {
         // Requests
@@ -136,7 +138,7 @@ pub enum Request {
 }
 
 impl Request {
-    pub fn read_from<R: Reader>(wr: &mut WireReader<R>) -> IoResult<(WireId, Request)> {
+    pub fn read_from<R: Read>(wr: &mut WireReader<R>) -> io::Result<(WireId, Request)> {
         let id = try!(wr.read_header());
         let opcode = Opcode(try!(wr.read()));
 
@@ -263,7 +265,7 @@ pub enum Response {
 }
 
 impl Response {
-    pub fn write_to<W: Writer>(&self, id: WireId, ww: &mut WireWriter<W>) -> IoResult<()> {
+    pub fn write_to<W: Write>(&self, id: WireId, ww: &mut WireWriter<W>) -> io::Result<()> {
         try!(match *self {
             TerrainChunk(idx, ref data) =>
                 ww.write_msg(id, (op::TerrainChunk, idx, data)),
@@ -344,7 +346,7 @@ pub struct Motion {
 }
 
 impl wire::ReadFrom for Motion {
-    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<Motion> {
+    fn read_from<R: Read>(r: &mut WireReader<R>) -> io::Result<Motion> {
         let (a, b, c, d): ((u16, u16, u16), LocalTime, (u16, u16, u16), LocalTime) =
                             try!(wire::ReadFrom::read_from(r));
         Ok(Motion {
@@ -357,7 +359,7 @@ impl wire::ReadFrom for Motion {
 }
 
 impl wire::WriteTo for Motion {
-    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+    fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
         try!(self.start_pos.write_to(w));
         try!(self.start_time.write_to(w));
         try!(self.end_pos.write_to(w));
@@ -410,7 +412,7 @@ impl ExtraArg {
 }
 
 
-#[derive(Debug, PartialEq, Eq, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum ArgTag {
     Int = 0,
     Str = 1,
@@ -419,25 +421,22 @@ enum ArgTag {
 }
 
 impl wire::ReadFrom for ArgTag {
-    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<ArgTag> {
+    fn read_from<R: Read>(r: &mut WireReader<R>) -> io::Result<ArgTag> {
         let tag = match try!(r.read::<u8>()) {
             // TODO: figure out how to use `ArgTag::Int as u8` constants
             0 => ArgTag::Int,
             1 => ArgTag::Str,
             2 => ArgTag::List,
             3 => ArgTag::Map,
-            x => return Err(IoError {
-                kind: IoErrorKind::OtherIoError,
-                desc: "bad ArgTag variant",
-                detail: Some(format!("tag = {}", x)),
-            }),
+            x => return Err(io::Error::new(io::ErrorKind::Other,
+                                           format!("bad ArgTag variant: {}", x))),
         };
         Ok(tag)
     }
 }
 
 impl wire::WriteTo for ArgTag {
-    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+    fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
         w.write(*self as u8)
     }
 
@@ -448,20 +447,17 @@ impl wire::WriteTo for ArgTag {
 
 
 impl wire::ReadFrom for SimpleArg {
-    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<SimpleArg> {
+    fn read_from<R: Read>(r: &mut WireReader<R>) -> io::Result<SimpleArg> {
         let arg = try!(r.read::<ExtraArg>());
         let simple = unwrap_or!(arg.into_simple_arg().ok(),
-                                return Err(IoError {
-                                    kind: IoErrorKind::OtherIoError,
-                                    desc: "non-simple SimpleArg",
-                                    detail: None,
-                                }));
+                                return Err(io::Error::new(io::ErrorKind::Other,
+                                                          "non-simple SimpleArg")));
         Ok(simple)
     }
 }
 
 impl wire::WriteTo for SimpleArg {
-    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+    fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
         use self::SimpleArg::*;
         match *self {
             Int(i) => w.write((ArgTag::Int, i)),
@@ -483,7 +479,7 @@ impl wire::WriteTo for SimpleArg {
 
 
 impl wire::ReadFrom for ExtraArg {
-    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<ExtraArg> {
+    fn read_from<R: Read>(r: &mut WireReader<R>) -> io::Result<ExtraArg> {
         use self::ExtraArg::*;
         let arg = match try!(r.read()) {
             ArgTag::Int => Int(try!(r.read())),
@@ -496,7 +492,7 @@ impl wire::ReadFrom for ExtraArg {
 }
 
 impl wire::WriteTo for ExtraArg {
-    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+    fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
         use self::ExtraArg::*;
         match *self {
             Int(i) => w.write((ArgTag::Int, i)),

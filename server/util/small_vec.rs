@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use std::mem;
+use std::ops::{Deref, DerefMut};
 use std::ptr;
 use std::slice;
 
@@ -91,6 +92,12 @@ impl<T> SmallVec<T> {
         }
     }
 
+    pub fn swap_remove(&mut self, idx: usize) -> T {
+        let len = self.len();
+        self.as_mut_slice().swap(idx, len - 1);
+        self.pop().unwrap()
+    }
+
     pub fn as_ptr(&self) -> *const T {
         unsafe { self.to_interp().ptr as *const T }
     }
@@ -143,7 +150,6 @@ impl<T> SmallVec<T> {
     }
 }
 
-#[unsafe_destructor]
 impl<T> Drop for SmallVec<T> {
     fn drop(&mut self) {
         let mut interp = unsafe { self.to_interp() };
@@ -206,5 +212,19 @@ impl<T> SmallVecInterp<T> {
         self.ptr = ptr;
         self.len = len;
         self.cap = cap;
+    }
+}
+
+
+impl<T> Deref for SmallVec<T> {
+    type Target = [T];
+    fn deref(&self) -> &[T] {
+        self.as_slice()
+    }
+}
+
+impl<T> DerefMut for SmallVec<T> {
+    fn deref_mut(&mut self) -> &mut [T] {
+        self.as_mut_slice()
     }
 }

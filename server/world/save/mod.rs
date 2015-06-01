@@ -18,7 +18,7 @@ mod object_reader;
 
 type SaveId = u32;
 
-#[derive(Copy, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum AnyId {
     Client(ClientId),
     Entity(EntityId),

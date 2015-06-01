@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::error;
-use std::old_io;
+use std::io;
 use std::mem;
 use std::raw;
 use std::result;
@@ -32,7 +32,7 @@ pub trait Fragment<'d> {
 }
 
 
-pub struct ObjectReader<R: old_io::Reader> {
+pub struct ObjectReader<R: io::Read> {
     r: ReaderWrapper<R>,
     template_map: HashMap<TemplateId, TemplateId>,
     item_map: HashMap<ItemId, ItemId>,
@@ -71,7 +71,7 @@ pub trait ReadHooks {
     fn cleanup_structure(&mut self, sid: StructureId) -> Result<()> { Ok(()) }
 }
 
-impl<R: old_io::Reader> ObjectReader<R> {
+impl<R: io::Read> ObjectReader<R> {
     pub fn new(reader: R) -> ObjectReader<R> {
         ObjectReader {
             r: ReaderWrapper::new(reader),

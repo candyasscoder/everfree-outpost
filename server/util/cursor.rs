@@ -80,7 +80,6 @@ pub struct ParentRef<'a, T, P, S>
     owner: &'a mut Cursor<T, P, S>,
 }
 
-#[unsafe_destructor]
 impl<'a, T, P, S> Drop for ParentRef<'a, T, P, S>
         where T: 'a,
               P: 'a+DerefMut,

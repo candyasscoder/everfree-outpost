@@ -1,11 +1,10 @@
 use core::prelude::*;
 use core::cmp::{min, max};
 use core::fmt;
-use core::num::{Int, SignedInt, UnsignedInt};
 use core::ops::{Add, Sub, Mul, Div, Rem, Neg, Shl, Shr, BitAnd, BitOr, BitXor, Not};
 
 
-#[derive(Copy, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Axis {
     X,
     Y,
@@ -27,7 +26,7 @@ pub const NegY: DirAxis = (Axis::Y, true);
 #[allow(non_snake_case, non_upper_case_globals)]
 pub const NegZ: DirAxis = (Axis::Z, true);
 
-#[derive(Copy, Eq, PartialEq, Clone)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(asmjs), derive(Hash))]
 pub struct V3 {
     pub x: i32,
@@ -90,13 +89,13 @@ impl Vn for V3 {
 }
 
 
-#[derive(Copy, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Axis2 {
     X,
     Y,
 }
 
-#[derive(Copy, Eq, PartialEq, Clone)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(asmjs), derive(Hash))]
 pub struct V2 {
     pub x: i32,
@@ -386,7 +385,7 @@ impl_Vn_ops!(V3);
 impl_Vn_ops!(V2);
 
 
-#[derive(Copy, Eq, PartialEq, Clone)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Region<V=V3> {
     pub min: V,
     pub max: V,
@@ -613,7 +612,7 @@ macro_rules! impl_Region_ops {
 impl_Region_ops!();
 
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct RegionPoints<V> {
     cur: V,
     min: V,

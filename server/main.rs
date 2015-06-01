@@ -1,20 +1,16 @@
 #![crate_name = "backend"]
-#![feature(unboxed_closures)]
-#![feature(unsafe_destructor)]
-#![feature(unsafe_no_drop_flag)]
 #![allow(non_upper_case_globals)]
 #![allow(dead_code)]
 
-#![feature(old_path)]
-#![feature(old_io)]
-#![feature(io)]
-#![feature(libc)]
-#![feature(path)]
-#![feature(core)]
 #![feature(collections)]
-#![feature(hash)]
+#![feature(convert)]    // OsStr::to_cstring
+#![feature(core)]
+#![feature(filling_drop)]
+#![feature(libc)]
 #![feature(std_misc)]
 #![feature(trace_macros)]
+#![feature(unboxed_closures)]
+#![feature(unsafe_no_drop_flag)]
 
 #[macro_use] extern crate bitflags;
 extern crate core;
@@ -22,16 +18,17 @@ extern crate env_logger;
 extern crate libc;
 #[macro_use] extern crate log;
 extern crate rand;
-extern crate "rustc-serialize" as rustc_serialize;
+extern crate rustc_serialize;
 extern crate time;
 
-extern crate collect;
+extern crate lru_cache;
 extern crate rusqlite;
-extern crate "libsqlite3-sys" as rusqlite_ffi;
+extern crate libsqlite3_sys as rusqlite_ffi;
 
 extern crate physics;
 
-use std::old_io::{self, File};
+use std::fs::File;
+use std::io::{self, Read};
 use rustc_serialize::json;
 
 
@@ -62,8 +59,9 @@ mod cache;
 
 
 fn read_json(mut file: File) -> json::Json {
-    let content = file.read_to_string().unwrap();
-    json::Json::from_str(&*content).unwrap()
+    let mut content = String::new();
+    file.read_to_string(&mut content).unwrap();
+    json::Json::from_str(&content).unwrap()
 }
 
 fn main() {
@@ -71,10 +69,10 @@ fn main() {
     use std::sync::mpsc::channel;
     use std::thread;
 
-    env_logger::init();
+    env_logger::init().unwrap();
 
     let args = env::args().collect::<Vec<_>>();
-    let storage = storage::Storage::new(Path::new(&args[1]));
+    let storage = storage::Storage::new(&args[1]);
 
     let block_json = read_json(storage.open_block_data());
     let item_json = read_json(storage.open_item_data());
@@ -89,12 +87,12 @@ fn main() {
     let (resp_send, resp_recv) = channel();
 
     thread::spawn(move || {
-        let reader = old_io::stdin();
+        let reader = io::stdin();
         tasks::run_input(reader, req_send).unwrap();
     });
 
     thread::spawn(move || {
-        let writer = old_io::BufferedWriter::new(old_io::stdout());
+        let writer = io::BufWriter::new(io::stdout());
         tasks::run_output(writer, resp_recv).unwrap();
     });
 

@@ -19,11 +19,12 @@ use world::Fragment;
 use world::object::*;
 
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct World;
 
 impl_type_name!(World);
 impl_metatable_key!(World);
+impl_fromlua_copy!(World);
 
 impl Userdata for World {
     fn populate_table(lua: &mut LuaState) {
@@ -97,11 +98,9 @@ impl Userdata for World {
                     unwrap!(wf.data().structure_templates.find_id(template_name),
                             "named structure template does not exist");
 
-                wf.create_structure(plane.id, pos, template_id)
-                  .map(|mut s| {
-                      s.set_attachment(world::StructureAttachment::Chunk);
-                      Structure { id: s.id() }
-                  })
+                let mut s = try!(wf.create_structure(plane.id, pos, template_id));
+                try!(s.set_attachment(world::StructureAttachment::Chunk));
+                Ok(Structure { id: s.id() })
             }}
 
             fn create_inventory(!partial wf: WorldFragment, _w: World) -> StrResult<Inventory> {
@@ -145,13 +144,14 @@ impl Userdata for World {
 }
 
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct Client {
     pub id: ClientId,
 }
 
 impl_type_name!(Client);
 impl_metatable_key!(Client);
+impl_fromlua_copy!(Client);
 
 impl Userdata for Client {
     fn populate_table(lua: &mut LuaState) {
@@ -268,13 +268,14 @@ impl Userdata for Client {
 
 
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct Entity {
     pub id: EntityId,
 }
 
 impl_type_name!(Entity);
 impl_metatable_key!(Entity);
+impl_fromlua_copy!(Entity);
 
 impl Userdata for Entity {
     fn populate_table(lua: &mut LuaState) {
@@ -380,13 +381,14 @@ impl Userdata for Entity {
 }
 
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct Inventory {
     pub id: InventoryId,
 }
 
 impl_type_name!(Inventory);
 impl_metatable_key!(Inventory);
+impl_fromlua_copy!(Inventory);
 
 impl Userdata for Inventory {
     fn populate_table(lua: &mut LuaState) {
@@ -455,13 +457,14 @@ impl Userdata for Inventory {
 }
 
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct Plane {
     pub id: PlaneId,
 }
 
 impl_type_name!(Plane);
 impl_metatable_key!(Plane);
+impl_fromlua_copy!(Plane);
 
 impl Userdata for Plane {
     fn populate_table(lua: &mut LuaState) {
@@ -485,13 +488,14 @@ impl Userdata for Plane {
 }
 
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct Structure {
     pub id: StructureId,
 }
 
 impl_type_name!(Structure);
 impl_metatable_key!(Structure);
+impl_fromlua_copy!(Structure);
 
 impl Userdata for Structure {
     fn populate_table(lua: &mut LuaState) {
@@ -575,13 +579,14 @@ impl Userdata for Structure {
 
 macro_rules! define_stable_wrapper {
     ($name:ident, $obj_ty:ident, $id_ty:ty, $transient_id:ident) => {
-        #[derive(Copy)]
+        #[derive(Clone, Copy)]
         pub struct $name {
             pub id: Stable<$id_ty>,
         }
 
         impl_type_name!($name);
         impl_metatable_key!($name);
+        impl_fromlua_copy!($name);
 
         impl Userdata for $name {
             fn populate_table(lua: &mut LuaState) {

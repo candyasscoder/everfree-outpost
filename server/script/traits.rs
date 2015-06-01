@@ -1,4 +1,3 @@
-use std::marker::MarkerTrait;
 use libc::c_int;
 
 use lua::LuaState;
@@ -12,7 +11,7 @@ use super::Nil;
 
 /// Trait for obtaining a string representation of the name of a type.  The Lua interface code uses
 /// this to provide appropriate error messages for invalid argument types.
-pub trait TypeName: MarkerTrait {
+pub trait TypeName {
     fn type_name() -> &'static str;
 }
 
@@ -49,7 +48,7 @@ impl_type_name!(i32);
 
 
 /// Trait for obtaining the registry key where a type's metatable is stored.
-pub trait MetatableKey: MarkerTrait {
+pub trait MetatableKey {
     fn metatable_key() -> &'static str;
 }
 
@@ -187,15 +186,19 @@ impl<'a, U: Userdata> FromLua<'a> for &'a U {
     }
 }
 
-impl<'a, U: Userdata+Copy+'a> FromLua<'a> for U {
-    unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
-        <&'a U as FromLua>::check(lua, index, func);
-    }
+macro_rules! impl_fromlua_copy {
+    ($U:ty) => {
+        impl<'a> $crate::script::traits::FromLua<'a> for $U {
+            unsafe fn check(lua: &mut $crate::lua::LuaState, index: ::libc::c_int, func: &'static str) {
+                <&'a $U as $crate::script::traits::FromLua>::check(lua, index, func);
+            }
 
-    unsafe fn from_lua(lua: &'a LuaState, index: c_int) -> U {
-        let ptr = <&'a U as FromLua>::from_lua(lua, index);
-        *ptr
-    }
+            unsafe fn from_lua(lua: &'a $crate::lua::LuaState, index: ::libc::c_int) -> $U {
+                let ptr = <&'a $U as $crate::script::traits::FromLua>::from_lua(lua, index);
+                *ptr
+            }
+        }
+    };
 }
 
 macro_rules! tuple_from_lua_impl {

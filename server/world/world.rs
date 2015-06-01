@@ -1,4 +1,4 @@
-use std::collections::{HashMap, hash_map, hash_set};
+use std::collections::{HashMap, hash_set};
 
 use types::*;
 
