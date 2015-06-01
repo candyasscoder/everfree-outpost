@@ -24,6 +24,7 @@ pub struct World;
 
 impl_type_name!(World);
 impl_metatable_key!(World);
+impl_fromlua_copy!(World);
 
 impl Userdata for World {
     fn populate_table(lua: &mut LuaState) {
@@ -152,6 +153,7 @@ pub struct Client {
 
 impl_type_name!(Client);
 impl_metatable_key!(Client);
+impl_fromlua_copy!(Client);
 
 impl Userdata for Client {
     fn populate_table(lua: &mut LuaState) {
@@ -275,6 +277,7 @@ pub struct Entity {
 
 impl_type_name!(Entity);
 impl_metatable_key!(Entity);
+impl_fromlua_copy!(Entity);
 
 impl Userdata for Entity {
     fn populate_table(lua: &mut LuaState) {
@@ -387,6 +390,7 @@ pub struct Inventory {
 
 impl_type_name!(Inventory);
 impl_metatable_key!(Inventory);
+impl_fromlua_copy!(Inventory);
 
 impl Userdata for Inventory {
     fn populate_table(lua: &mut LuaState) {
@@ -462,6 +466,7 @@ pub struct Plane {
 
 impl_type_name!(Plane);
 impl_metatable_key!(Plane);
+impl_fromlua_copy!(Plane);
 
 impl Userdata for Plane {
     fn populate_table(lua: &mut LuaState) {
@@ -492,6 +497,7 @@ pub struct Structure {
 
 impl_type_name!(Structure);
 impl_metatable_key!(Structure);
+impl_fromlua_copy!(Structure);
 
 impl Userdata for Structure {
     fn populate_table(lua: &mut LuaState) {
@@ -582,6 +588,7 @@ macro_rules! define_stable_wrapper {
 
         impl_type_name!($name);
         impl_metatable_key!($name);
+        impl_fromlua_copy!($name);
 
         impl Userdata for $name {
             fn populate_table(lua: &mut LuaState) {

@@ -173,7 +173,7 @@ fn try_open_file<P: AsRef<Path>+Debug>(path: P) -> Option<File> {
         Err(e) => {
             match e.kind() {
                 io::ErrorKind::NotFound => None,
-                _ => panic!("error opening {:?}: {}", path, e),
+                _ => panic!("error opening file: {}", e),
             }
         },
     }

@@ -51,7 +51,7 @@ impl Userdata for Rng {
             lua, -1,
 
             fn __gc(x: &Rng) -> () {
-                unsafe { ptr::read(x as *const _) };
+                unsafe { ptr::read(x as *const Rng) };
             }
         }
     }
@@ -331,7 +331,7 @@ impl Userdata for GenChunk {
 
             fn __gc(x: &GenChunk) -> () {
                 // Run destructor on `x`.  After this, the memory will be freed by Lua.
-                unsafe { ptr::read(x as *const _) };
+                unsafe { ptr::read(x as *const GenChunk) };
             }
         }
     }
@@ -364,7 +364,7 @@ impl Userdata for Values {
 
             fn __gc(x: &Values) -> () {
                 // Run destructor on `x`.  After this, the memory will be freed by Lua.
-                unsafe { ptr::read(x as *const _) };
+                unsafe { ptr::read(x as *const Values) };
             }
         }
     }
@@ -396,7 +396,7 @@ impl Userdata for ValuesMut {
 
             fn __gc(x: &ValuesMut) -> () {
                 // Run destructor on `x`.  After this, the memory will be freed by Lua.
-                unsafe { ptr::read(x as *const _) };
+                unsafe { ptr::read(x as *const ValuesMut) };
             }
         }
     }
@@ -425,7 +425,7 @@ impl Userdata for Points {
 
             fn __gc(x: &Points) -> () {
                 // Run destructor on `x`.  After this, the memory will be freed by Lua.
-                unsafe { ptr::read(x as *const _) };
+                unsafe { ptr::read(x as *const Points) };
             }
         }
     }
@@ -479,7 +479,7 @@ impl Userdata for Field {
             lua, -1,
 
             fn __gc(x: &Field) -> () {
-                unsafe { ptr::read(x as *const _) };
+                unsafe { ptr::read(x as *const Field) };
             }
         }
     }
@@ -525,7 +525,7 @@ macro_rules! define_field {
                     lua, -1,
 
                     fn __gc(x: &$Field) -> () {
-                        unsafe { ptr::read(x as *const _) };
+                        unsafe { ptr::read(x as *const $Field) };
                     }
                 }
             }
@@ -612,7 +612,7 @@ impl Userdata for IsoDiskSampler {
             lua, -1,
 
             fn __gc(x: &IsoDiskSampler) -> () {
-                unsafe { ptr::read(x as *const _) };
+                unsafe { ptr::read(x as *const IsoDiskSampler) };
             }
         }
     }

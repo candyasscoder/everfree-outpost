@@ -159,9 +159,9 @@ impl ErrorType {
     }
 }
 
-type Error<'a> = (ErrorType, &'a str);
+pub type Error<'a> = (ErrorType, &'a str);
 
-type LuaResult<'a, T> = Result<T, Error<'a>>;
+pub type LuaResult<'a, T> = Result<T, Error<'a>>;
 
 fn make_result<'a>(lua: &'a mut LuaState, code: c_int) -> LuaResult<'a, ()> {
     if code == 0 {

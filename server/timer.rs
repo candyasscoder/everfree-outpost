@@ -1,7 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::sync::mpsc::Receiver;
-use std::time::Duration;
 
 use types::Time;
 

@@ -1,4 +1,3 @@
-use std::borrow::IntoCow;
 use std::error::Error;
 use std::sync::mpsc::{Sender, Receiver};
 
@@ -242,17 +241,17 @@ impl<'d> Engine<'d> {
         }
     }
 
-    pub fn kick_client<'a, S: IntoCow<'a, str>>(&mut self, cid: ClientId, msg: S) {
+    pub fn kick_client<'a, S: Into<String>>(&mut self, cid: ClientId, msg: S) {
         let wire_id = self.messages.client_to_wire(cid)
                 .expect("missing WireId for existing client");
 
-        self.messages.send_client(cid, ClientResponse::KickReason(msg.into_cow().into_owned()));
+        self.messages.send_client(cid, ClientResponse::KickReason(msg.into()));
         self.cleanup_client(cid);
         self.messages.send_control(ControlResponse::WireClosed(wire_id));
     }
 
-    pub fn kick_wire<'a, S: IntoCow<'a, str>>(&mut self, wire_id: WireId, msg: S) {
-        self.messages.send_wire(wire_id, WireResponse::KickReason(msg.into_cow().into_owned()));
+    pub fn kick_wire<'a, S: Into<String>>(&mut self, wire_id: WireId, msg: S) {
+        self.messages.send_wire(wire_id, WireResponse::KickReason(msg.into()));
         self.cleanup_wire(wire_id);
         self.messages.send_control(ControlResponse::WireClosed(wire_id));
     }

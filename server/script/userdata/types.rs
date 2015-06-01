@@ -8,6 +8,7 @@ use script::traits::Userdata;
 
 impl_type_name!(V3);
 impl_metatable_key!(V3);
+impl_fromlua_copy!(V3);
 
 impl Userdata for V3 {
     fn populate_table(lua: &mut LuaState) {
@@ -53,6 +54,7 @@ impl Userdata for V3 {
 
 impl_type_name!(V2);
 impl_metatable_key!(V2);
+impl_fromlua_copy!(V2);
 
 impl Userdata for V2 {
     fn populate_table(lua: &mut LuaState) {

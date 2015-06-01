@@ -46,11 +46,6 @@ impl super::Client {
     pub fn set_current_input(&mut self, new: InputBits) {
         self.current_input = new;
     }
-
-    #[deprecated]
-    pub fn chunk_offset(&self) -> (u8, u8) {
-        (0, 0)
-    }
 }
 
 impl super::Entity {

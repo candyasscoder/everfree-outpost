@@ -1,45 +1,47 @@
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
 
-use wire;
-use wire::{WireReader, WireWriter};
+use wire::{self, WireReader, WireWriter};
 use types::*;
 
 pub use self::Request::*;
 pub use self::Response::*;
+use self::op::Opcode;
 
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-struct Opcode(u16);
+mod op {
+    use wire::{self, WireReader, WireWriter};
+    use std::io::{self, Write};
 
-impl Opcode {
-    pub fn unwrap(self) -> u16 {
-        let Opcode(v) = self;
-        v
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub struct Opcode(pub u16);
+
+    impl Opcode {
+        pub fn unwrap(self) -> u16 {
+            let Opcode(v) = self;
+            v
+        }
     }
-}
 
-impl wire::WriteTo for Opcode {
-    fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
-        self.unwrap().write_to(w)
+    impl wire::WriteTo for Opcode {
+        fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
+            self.unwrap().write_to(w)
+        }
+
+        fn size(&self) -> usize { self.unwrap().size() }
+
+        fn size_is_fixed() -> bool { true }
     }
 
-    fn size(&self) -> usize { self.unwrap().size() }
 
-    fn size_is_fixed() -> bool { true }
-}
-
-macro_rules! opcodes {
-    ($($name:ident = $value:expr,)*) => {
-        $(
-            #[allow(non_upper_case_globals, dead_code)]
-            pub const $name: Opcode = Opcode($value);
-        )*
+    macro_rules! opcodes {
+        ($($name:ident = $value:expr,)*) => {
+            $(
+                #[allow(non_upper_case_globals, dead_code)]
+                pub const $name: Opcode = Opcode($value);
+            )*
+        }
     }
-}
-
-pub mod op {
-    use super::Opcode;
 
     opcodes! {
         // Requests

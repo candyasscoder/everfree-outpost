@@ -41,11 +41,11 @@ impl<R: Read> WireReader<R> {
             return Err(io::Error::new(io::ErrorKind::Other, msg));
         }
 
-        let mut buf = dest;
-        while buf.len() > 0 {
-            let n = try!(self.r.read(buf));
-            assert!(n > 0);
-            buf = &mut buf[n..];
+        let mut base = 0;
+        while base < dest.len() {
+            let n = try!(self.r.read(&mut dest[base..]));
+            assert!(n > 0 && base + n <= dest.len());
+            base += n;
         }
 
         self.msg_left -= dest.len();
@@ -290,11 +290,11 @@ impl<A: ReadFrom> ReadFrom for Vec<A> {
 
 impl<A: WriteTo> WriteTo for Vec<A> {
     fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
-        self.as_slice().write_to(w)
+        (*self).write_to(w)
     }
 
     fn size(&self) -> usize {
-        self.as_slice().size()
+        (*self).size()
     }
 
     fn size_is_fixed() -> bool { false }

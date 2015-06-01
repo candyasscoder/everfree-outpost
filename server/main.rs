@@ -13,6 +13,7 @@
 #![feature(hash)]
 #![feature(std_misc)]
 #![feature(trace_macros)]
+#![feature(convert)]    // OsStr::to_cstring
 
 #[macro_use] extern crate bitflags;
 extern crate core;

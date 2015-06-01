@@ -68,7 +68,7 @@ impl Auth {
 
 pub type Secret = [u32; 4];
 
-pub fn hash_secret(s: &Secret) -> String {
+fn hash_secret(s: &Secret) -> String {
     // TODO: use a better hash
 
     let salt0 = rand::random();
@@ -89,7 +89,7 @@ enum SecretMatch {
     YesNeedsRehash,
 }
 
-pub fn check_secret(s: &Secret, hash: &str) -> SecretMatch {
+fn check_secret(s: &Secret, hash: &str) -> SecretMatch {
     // TODO: use a better hash
 
     let idx = hash.find(';').unwrap();

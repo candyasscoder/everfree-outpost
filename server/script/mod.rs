@@ -226,7 +226,7 @@ impl ScriptEngine {
                              plane_rng: XorShiftRng,
                              chunk_rng: XorShiftRng) -> StringResult<terrain_gen::GenChunk> {
         use script::userdata::terrain_gen::GenChunk;
-        self.with_context(ctx as *mut _, |lua| {
+        self.with_context(ctx as *mut terrain_gen::TerrainGen, |lua| {
             let gc = terrain_gen::GenChunk::new();
             let gc_wrap = userdata::terrain_gen::GenChunk::new(gc);
             gc_wrap.to_lua(lua);

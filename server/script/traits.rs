@@ -186,18 +186,20 @@ impl<'a, U: Userdata> FromLua<'a> for &'a U {
     }
 }
 
-/*
-impl<'a, U: Copy+Sized+Userdata+'a> FromLua<'a> for U {
-    unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
-        <&'a U as FromLua>::check(lua, index, func);
-    }
+macro_rules! impl_fromlua_copy {
+    ($U:ty) => {
+        impl<'a> $crate::script::traits::FromLua<'a> for $U {
+            unsafe fn check(lua: &mut $crate::lua::LuaState, index: ::libc::c_int, func: &'static str) {
+                <&'a $U as $crate::script::traits::FromLua>::check(lua, index, func);
+            }
 
-    unsafe fn from_lua(lua: &'a LuaState, index: c_int) -> U {
-        let ptr = <&'a U as FromLua>::from_lua(lua, index);
-        *ptr
-    }
+            unsafe fn from_lua(lua: &'a $crate::lua::LuaState, index: ::libc::c_int) -> $U {
+                let ptr = <&'a $U as $crate::script::traits::FromLua>::from_lua(lua, index);
+                *ptr
+            }
+        }
+    };
 }
-*/
 
 macro_rules! tuple_from_lua_impl {
     ($count:expr, $($ty:ident)*) => {

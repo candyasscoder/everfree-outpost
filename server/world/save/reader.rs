@@ -109,11 +109,11 @@ impl<R: io::Read> Reader for ReaderWrapper<R> {
     }
 
     fn read_buf(&mut self, buf: &mut [u8]) -> Result<()> {
-        let mut buf = buf;
-        while buf.len() > 0 {
-            let n = try!(self.reader.read(buf));
-            assert!(n > 0);
-            buf = &mut buf[n..];
+        let mut base = 0;
+        while base < buf.len() {
+            let n = try!(self.reader.read(&mut buf[base..]));
+            assert!(n > 0 && base + n <= buf.len());
+            base += n;
         }
         Ok(())
     }
