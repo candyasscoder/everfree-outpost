@@ -45,7 +45,7 @@ pub struct Engine<'d> {
 }
 
 #[must_use]
-#[derive(Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum HandlerResult {
     Continue,
     Shutdown,
@@ -68,7 +68,7 @@ impl<'d> Engine<'d> {
             messages: Messages::new(receiver, sender),
             physics: Physics::new(data),
             vision: Vision::new(),
-            auth: Auth::new(storage.auth_db_path()).unwrap(),
+            auth: Auth::new(&storage.auth_db_path()).unwrap(),
             chunks: Chunks::new(storage),
             cache: TerrainCache::new(),
             terrain_gen: TerrainGen::new(data),

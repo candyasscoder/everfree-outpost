@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
-use std::old_io;
+use std::io;
+use std::iter;
 use std::mem;
 use std::raw;
 
@@ -35,13 +36,13 @@ pub trait Reader {
     }
 }
 
-pub struct ReaderWrapper<R: old_io::Reader> {
+pub struct ReaderWrapper<R: io::Read> {
     reader: R,
     id_map: HashMap<SaveId, AnyId>,
     created_objs: HashSet<AnyId>,
 }
 
-impl<R: old_io::Reader> ReaderWrapper<R> {
+impl<R: io::Read> ReaderWrapper<R> {
     pub fn new(reader: R) -> ReaderWrapper<R> {
         ReaderWrapper {
             reader: reader,
@@ -78,15 +79,15 @@ impl<R: old_io::Reader> ReaderWrapper<R> {
     }
 }
 
-impl<R: old_io::Reader> Reader for ReaderWrapper<R> {
+impl<R: io::Read> Reader for ReaderWrapper<R> {
     fn read_id<'d, T: ReadId, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<T> {
-        let save_id = try!(self.reader.read_le_u32());
+        let save_id = try!(self.read::<u32>());
         self.read_id_helper(f, save_id)
     }
 
     fn read_opt_id<'d, T: ReadId, F: Fragment<'d>>(&mut self, f: &mut F) -> Result<Option<T>> {
-        let save_id = try!(self.reader.read_le_u32());
-        if save_id == -1 as SaveId {
+        let save_id = try!(self.read::<u32>());
+        if save_id == -1_i32 as SaveId {
             Ok(None)
         } else {
             let id = try!(self.read_id_helper(f, save_id));
@@ -95,19 +96,25 @@ impl<R: old_io::Reader> Reader for ReaderWrapper<R> {
     }
 
     fn read_count(&mut self) -> Result<usize> {
-        let count = try!(self.reader.read_le_u32());
+        let count = try!(self.read::<u32>());
         Ok(unwrap!(count.to_usize()))
     }
 
     fn read_bytes(&mut self, len: usize) -> Result<Vec<u8>> {
         let pad = padding(len);
-        let mut vec = try!(self.reader.read_exact(len + pad));
+        let mut vec = iter::repeat(0_u8).take(len + pad).collect::<Vec<_>>();
+        try!(self.read_buf(&mut vec));
         vec.truncate(len);
         Ok(vec)
     }
 
     fn read_buf(&mut self, buf: &mut [u8]) -> Result<()> {
-        try!(self.reader.read_at_least(buf.len(), buf));
+        let mut buf = buf;
+        while buf.len() > 0 {
+            let n = try!(self.reader.read(buf));
+            assert!(n > 0);
+            buf = &mut buf[n..];
+        }
         Ok(())
     }
 
@@ -123,7 +130,7 @@ impl<R: old_io::Reader> Reader for ReaderWrapper<R> {
                 len: len + pad,
             })
         };
-        try!(self.reader.read_at_least(len + pad, buf));
+        self.read_buf(buf);
         Ok(result.0)
     }
 }

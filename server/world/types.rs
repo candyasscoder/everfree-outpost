@@ -8,20 +8,20 @@ pub use super::World;
 pub use super::{Client, Entity, Inventory, Plane, TerrainChunk, Structure};
 
 
-#[derive(Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum EntityAttachment {
     World,
     Chunk,
     Client(ClientId),
 }
 
-#[derive(Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum StructureAttachment {
     Plane,
     Chunk,
 }
 
-#[derive(Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum InventoryAttachment {
     World,
     Client(ClientId),
@@ -201,7 +201,7 @@ impl Motion {
     pub fn stationary(pos: V3, now: Time) -> Motion {
         Motion {
             start_time: now,
-            duration: -1 as Duration,
+            duration: -1_i64 as Duration,
             start_pos: pos,
             end_pos: pos,
         }

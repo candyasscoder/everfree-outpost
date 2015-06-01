@@ -1,4 +1,4 @@
-use std::marker::{PhantomData, PhantomFn};
+use std::marker::PhantomData;
 use std::mem;
 
 use types::*;
@@ -157,14 +157,14 @@ EnginePart_decl! {
 }
 
 
-unsafe trait Subpart<E>: PhantomFn<(Self, E), (Self, E)> {}
+unsafe trait Subpart<E> {}
 
-unsafe trait Subitem<A>: PhantomFn<(Self, A), (Self, A)> {}
+unsafe trait Subitem<A> {}
 unsafe impl Subitem<()> for () {}
 
-unsafe trait Subpart2<E>: PhantomFn<(Self, E), (Self, E)> {}
+unsafe trait Subpart2<E> {}
 
-unsafe trait Subitem2<A>: PhantomFn<(Self, A), (Self, A)> {}
+unsafe trait Subitem2<A> {}
 unsafe impl Subitem2<()> for ((), ()) {}
 
 

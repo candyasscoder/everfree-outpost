@@ -19,7 +19,7 @@ use world::Fragment;
 use world::object::*;
 
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct World;
 
 impl_type_name!(World);
@@ -145,7 +145,7 @@ impl Userdata for World {
 }
 
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct Client {
     pub id: ClientId,
 }
@@ -268,7 +268,7 @@ impl Userdata for Client {
 
 
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct Entity {
     pub id: EntityId,
 }
@@ -380,7 +380,7 @@ impl Userdata for Entity {
 }
 
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct Inventory {
     pub id: InventoryId,
 }
@@ -455,7 +455,7 @@ impl Userdata for Inventory {
 }
 
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct Plane {
     pub id: PlaneId,
 }
@@ -485,7 +485,7 @@ impl Userdata for Plane {
 }
 
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct Structure {
     pub id: StructureId,
 }
@@ -575,7 +575,7 @@ impl Userdata for Structure {
 
 macro_rules! define_stable_wrapper {
     ($name:ident, $obj_ty:ident, $id_ty:ty, $transient_id:ident) => {
-        #[derive(Copy)]
+        #[derive(Clone, Copy)]
         pub struct $name {
             pub id: Stable<$id_ty>,
         }

@@ -1,7 +1,7 @@
 use std::cmp;
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::old_io::{self, IoError, IoResult};
+use std::io::{self, Read, Write};
 use std::mem;
 use std::slice;
 use std::u16;
@@ -14,7 +14,7 @@ pub struct WireReader<R> {
     msg_left: usize,
 }
 
-impl<R: Reader> WireReader<R> {
+impl<R: Read> WireReader<R> {
     pub fn new(r: R) -> WireReader<R> {
         WireReader {
             r: r,
@@ -22,7 +22,7 @@ impl<R: Reader> WireReader<R> {
         }
     }
 
-    pub fn read_header(&mut self) -> IoResult<WireId> {
+    pub fn read_header(&mut self) -> io::Result<WireId> {
         if !self.done() {
             try!(self.skip_remaining());
         }
@@ -34,23 +34,25 @@ impl<R: Reader> WireReader<R> {
         Ok(id)
     }
 
-    fn read_raw(&mut self, dest: &mut [u8]) -> IoResult<()> {
+    fn read_raw(&mut self, dest: &mut [u8]) -> io::Result<()> {
         if dest.len() > self.msg_left {
-            return Err(IoError {
-                kind: old_io::IoErrorKind::OtherIoError,
-                desc: "not enough bytes in message",
-                detail: Some(format!("expected at least {} bytes, but only {} remain",
-                                     dest.len(),
-                                     self.msg_left)),
-            });
+            let msg = format!("not enough bytes in message: expected {}, but only {} remain",
+                              dest.len(), self.msg_left);
+            return Err(io::Error::new(io::ErrorKind::Other, msg));
         }
 
-        try!(self.r.read_at_least(dest.len(), dest));
+        let mut buf = dest;
+        while buf.len() > 0 {
+            let n = try!(self.r.read(buf));
+            assert!(n > 0);
+            buf = &mut buf[n..];
+        }
+
         self.msg_left -= dest.len();
         Ok(())
     }
 
-    pub fn read<A: ReadFrom>(&mut self) -> IoResult<A> {
+    pub fn read<A: ReadFrom>(&mut self) -> io::Result<A> {
         ReadFrom::read_from(self)
     }
 
@@ -58,12 +60,13 @@ impl<R: Reader> WireReader<R> {
         self.msg_left == 0
     }
 
-    pub fn skip_remaining(&mut self) -> IoResult<()> {
+    pub fn skip_remaining(&mut self) -> io::Result<()> {
         let mut buf = [0; 1024];
         while self.msg_left > 0 {
             let count = cmp::min(buf.len(), self.msg_left);
-            try!(self.r.read_at_least(count, buf.as_mut_slice()));
-            self.msg_left -= count;
+            let n = try!(self.r.read(&mut buf[..count]));
+            assert!(n > 0);
+            self.msg_left -= n;
         }
         Ok(())
     }
@@ -75,7 +78,7 @@ pub struct WireWriter<W> {
     msg_left: usize,
 }
 
-impl<W: Writer> WireWriter<W> {
+impl<W: Write> WireWriter<W> {
     pub fn new(w: W) -> WireWriter<W> {
         WireWriter {
             w: w,
@@ -83,7 +86,7 @@ impl<W: Writer> WireWriter<W> {
         }
     }
 
-    pub fn write_msg<A: WriteTo>(&mut self, id: WireId, msg: A) -> IoResult<()> {
+    pub fn write_msg<A: WriteTo>(&mut self, id: WireId, msg: A) -> io::Result<()> {
         // In case an error occurred while writing the previous message, pad it out to the expected
         // length to avoid confusing the destination.  (The message will contain garbage, but at
         // least it will be the right size.)
@@ -97,26 +100,22 @@ impl<W: Writer> WireWriter<W> {
         Ok(())
     }
 
-    pub fn write<A: WriteTo>(&mut self, msg: A) -> IoResult<()> {
+    pub fn write<A: WriteTo>(&mut self, msg: A) -> io::Result<()> {
         msg.write_to(self)
     }
 
-    fn write_raw(&mut self, src: &[u8]) -> IoResult<()> {
+    fn write_raw(&mut self, src: &[u8]) -> io::Result<()> {
         if src.len() > self.msg_left {
-            return Err(IoError {
-                kind: old_io::IoErrorKind::OtherIoError,
-                desc: "too many bytes in message",
-                detail: Some(format!("expected at most {} bytes, but tried to write {}",
-                                     self.msg_left,
-                                     src.len())),
-            });
+            let msg = format!("too many bytes in message: expected {}, but tried to write {}",
+                              self.msg_left, src.len());
+            return Err(io::Error::new(io::ErrorKind::Other, msg));
         }
         try!(self.w.write_all(src));
         self.msg_left -= src.len();
         Ok(())
     }
 
-    fn zero_remaining(&mut self) -> IoResult<()> {
+    fn zero_remaining(&mut self) -> io::Result<()> {
         let buf = [0; 1024];
         while self.msg_left > 0 {
             let count = cmp::min(buf.len(), self.msg_left);
@@ -126,7 +125,7 @@ impl<W: Writer> WireWriter<W> {
         Ok(())
     }
 
-    pub fn flush(&mut self) -> IoResult<()> {
+    pub fn flush(&mut self) -> io::Result<()> {
         self.w.flush()
     }
 }
@@ -134,11 +133,11 @@ impl<W: Writer> WireWriter<W> {
 
 
 pub trait ReadFrom {
-    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<Self>;
+    fn read_from<R: Read>(r: &mut WireReader<R>) -> io::Result<Self>;
 }
 
 pub trait WriteTo {
-    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()>;
+    fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()>;
     fn size(&self) -> usize;
     fn size_is_fixed() -> bool;
 }
@@ -148,7 +147,7 @@ macro_rules! prim_impl {
     ( $ty:ty, $read_fn:ident, $write_fn:ident ) => {
         impl ReadFrom for $ty {
             #[inline]
-            fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<$ty> {
+            fn read_from<R: Read>(r: &mut WireReader<R>) -> io::Result<$ty> {
                 let mut val: $ty = 0;
                 {
                     let buf = unsafe {
@@ -163,7 +162,7 @@ macro_rules! prim_impl {
 
         impl WriteTo for $ty {
             #[inline]
-            fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+            fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
                 let buf = unsafe {
                     slice::from_raw_parts(self as *const $ty as *const u8,
                                           mem::size_of::<$ty>())
@@ -193,14 +192,14 @@ prim_impl!(i64, read_le_i64, write_le_i64);
 
 impl ReadFrom for () {
     #[inline]
-    fn read_from<R: Reader>(_: &mut WireReader<R>) -> IoResult<()> {
+    fn read_from<R: Read>(_: &mut WireReader<R>) -> io::Result<()> {
         Ok(())
     }
 }
 
 impl WriteTo for () {
     #[inline]
-    fn write_to<W: Writer>(&self, _: &mut WireWriter<W>) -> IoResult<()> {
+    fn write_to<W: Write>(&self, _: &mut WireWriter<W>) -> io::Result<()> {
         Ok(())
     }
 
@@ -215,14 +214,14 @@ impl WriteTo for () {
 macro_rules! tuple_impl {
     ( $($name:ident : $ty:ident),+ ) => {
         impl<$($ty: ReadFrom),+> ReadFrom for ($($ty),+) {
-            fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<($($ty),+)> {
+            fn read_from<R: Read>(r: &mut WireReader<R>) -> io::Result<($($ty),+)> {
                 $( let $name: $ty = try!(ReadFrom::read_from(r)); )+
                 Ok(($($name),+))
             }
         }
 
         impl<$($ty: WriteTo),+> WriteTo for ($($ty),+) {
-            fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+            fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
                 let ($(ref $name),+) = *self;
                 $( try!($name.write_to(w)); )*
                 Ok(())
@@ -251,7 +250,7 @@ macro_rules! id_newtype_impl {
     ($name:ident : $inner:ident) => {
         impl ReadFrom for $name {
             #[inline]
-            fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<$name> {
+            fn read_from<R: Read>(r: &mut WireReader<R>) -> io::Result<$name> {
                 <$inner as ReadFrom>::read_from(r)
                     .map(|x| $name(x))
             }
@@ -259,7 +258,7 @@ macro_rules! id_newtype_impl {
 
         impl WriteTo for $name {
             #[inline]
-            fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+            fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
                 self.unwrap().write_to(w)
             }
 
@@ -279,7 +278,7 @@ id_newtype_impl!(InventoryId: u32);
 
 
 impl<A: ReadFrom> ReadFrom for Vec<A> {
-    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<Vec<A>> {
+    fn read_from<R: Read>(r: &mut WireReader<R>) -> io::Result<Vec<A>> {
         let count = try!(r.read::<u16>()) as usize;
         let mut result = Vec::with_capacity(count);
         for _ in 0..count {
@@ -290,7 +289,7 @@ impl<A: ReadFrom> ReadFrom for Vec<A> {
 }
 
 impl<A: WriteTo> WriteTo for Vec<A> {
-    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+    fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
         self.as_slice().write_to(w)
     }
 
@@ -303,7 +302,7 @@ impl<A: WriteTo> WriteTo for Vec<A> {
 
 
 impl<A: WriteTo> WriteTo for [A] {
-    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+    fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
         assert!(self.len() <= u16::MAX as usize);
         try!(w.write(self.len() as u16));
         for x in self.iter() {
@@ -331,7 +330,7 @@ impl<A: WriteTo> WriteTo for [A] {
 
 
 impl<'a, A: WriteTo> WriteTo for &'a A {
-    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+    fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
         (*self).write_to(w)
     }
 
@@ -342,14 +341,14 @@ impl<'a, A: WriteTo> WriteTo for &'a A {
 
 
 impl ReadFrom for String {
-    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<String> {
+    fn read_from<R: Read>(r: &mut WireReader<R>) -> io::Result<String> {
         let bytes: Vec<u8> = try!(ReadFrom::read_from(r));
         Ok(String::from_utf8_lossy(&*bytes).into_owned())
     }
 }
 
 impl WriteTo for String {
-    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+    fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
         self.as_bytes().write_to(w)
     }
 
@@ -363,7 +362,7 @@ impl WriteTo for String {
 
 impl ReadFrom for [u32; 4] {
     #[inline]
-    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<[u32; 4]> {
+    fn read_from<R: Read>(r: &mut WireReader<R>) -> io::Result<[u32; 4]> {
         let (a, b, c, d) = try!(r.read());
         Ok([a, b, c, d])
     }
@@ -371,7 +370,7 @@ impl ReadFrom for [u32; 4] {
 
 impl WriteTo for [u32; 4] {
     #[inline]
-    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+    fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
         w.write((self[0], self[1], self[2], self[3]))
     }
 
@@ -385,7 +384,7 @@ impl WriteTo for [u32; 4] {
 
 impl<K: ReadFrom+Eq+Hash, V: ReadFrom> ReadFrom for HashMap<K, V> {
     #[inline]
-    fn read_from<R: Reader>(r: &mut WireReader<R>) -> IoResult<HashMap<K, V>> {
+    fn read_from<R: Read>(r: &mut WireReader<R>) -> io::Result<HashMap<K, V>> {
         let count = try!(r.read::<u16>()) as usize;
         let mut result = HashMap::with_capacity(count);
         for _ in 0..count {
@@ -399,7 +398,7 @@ impl<K: ReadFrom+Eq+Hash, V: ReadFrom> ReadFrom for HashMap<K, V> {
 
 impl<K: WriteTo+Eq+Hash, V: WriteTo> WriteTo for HashMap<K, V> {
     #[inline]
-    fn write_to<W: Writer>(&self, w: &mut WireWriter<W>) -> IoResult<()> {
+    fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
         assert!(self.len() <= u16::MAX as usize);
         try!(w.write(self.len() as u16));
         for (k, v) in self.iter() {

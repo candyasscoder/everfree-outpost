@@ -1,6 +1,5 @@
-use std::borrow::ToOwned;
-use std::marker::MarkerTrait;
 use std::mem;
+use std::path::Path;
 use libc::c_int;
 use rand::XorShiftRng;
 
@@ -35,7 +34,7 @@ const FFI_LIB_NAME: &'static str = "outpost_ffi";
 const BOOTSTRAP_FILE: &'static str = "bootstrap.lua";
 
 
-#[derive(Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Nil;
 
 pub struct ScriptEngine {
@@ -62,7 +61,8 @@ impl ScriptEngine {
             // Set package.path to the script directory.
             lua.get_field(GLOBALS_INDEX, "package");
             lua.push_string("path");
-            lua.push_string(&*format!("{}/?.lua", script_dir.as_str().unwrap()));
+            lua.push_string(&*format!("{}/?.lua",
+                                      script_dir.to_str().expect("invalid utf-8 in path")));
             lua.set_table(-3);
             lua.pop(1);
 
@@ -344,7 +344,7 @@ fn callbacks_table_index(mut lua: LuaState) -> c_int {
 }
 
 
-trait BaseContext: MarkerTrait {
+trait BaseContext {
     fn registry_key() -> &'static str;
 }
 

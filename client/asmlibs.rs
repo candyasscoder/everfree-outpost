@@ -105,14 +105,14 @@ impl<'a> ShapeSource for AsmJsShapeSource<'a> {
 }
 
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct CollideArgs {
     pub pos: V3,
     pub size: V3,
     pub velocity: V3,
 }
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct CollideResult {
     pub pos: V3,
     pub time: i32,
@@ -328,7 +328,7 @@ pub extern fn generate_light_geometry(light_state: &mut LightGeometryState,
 // SIZEOF
 
 #[repr(C)]
-#[derive(Copy, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Sizes {
     shape_chunk: usize,
     shape_layers: usize,

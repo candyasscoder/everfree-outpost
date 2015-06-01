@@ -13,7 +13,6 @@ extern crate physics;
 
 use core::prelude::*;
 use core::ptr;
-use core::num::wrapping::WrappingOps;
 
 use physics::{TILE_BITS, CHUNK_BITS};
 use physics::v3::{V3, V2, scalar, Region};
@@ -37,7 +36,7 @@ const LOCAL_SIZE: u16 = 1 << LOCAL_BITS;
 
 
 /// Tile numbers used to display a particular block.
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct BlockDisplay {
     pub front: u16,
     pub back: u16,
@@ -91,7 +90,7 @@ pub fn get_chunk<'a>(local: &'a LocalChunks, cpos: V2) -> &'a BlockChunk {
 
 /// Vertex attributes for terrain.
 #[allow(dead_code)]
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct TerrainVertex {
     x: u8,
     y: u8,
@@ -194,9 +193,9 @@ pub fn generate_geometry<F>(local: &LocalChunks,
     }
 
     let chunk0 = &local[(cy0 * LOCAL_SIZE + cx) as usize];
-    for z in range(0, CHUNK_SIZE as i32) {
-        for y in range(z, CHUNK_SIZE as i32) {
-            for x in range(0, CHUNK_SIZE as i32) {
+    for z in 0 .. CHUNK_SIZE as i32 {
+        for y in z .. CHUNK_SIZE as i32 {
+            for x in 0 .. CHUNK_SIZE as i32 {
                 let block_id = chunk0[bounds.index(V3::new(x, y, z))];
                 let data = &block_data[block_id as usize];
 
@@ -204,7 +203,7 @@ pub fn generate_geometry<F>(local: &LocalChunks,
                     continue;
                 }
 
-                for side in range(0, 4) {
+                for side in 0 .. 4 {
                     let tile_id = data.tile(side);
                     if tile_id == 0 {
                         continue;
@@ -216,9 +215,9 @@ pub fn generate_geometry<F>(local: &LocalChunks,
     }
 
     let chunk1 = &local[(cy1 * LOCAL_SIZE + cx) as usize];
-    for z in range(0, CHUNK_SIZE as i32) {
-        for y in range(0, z + 1) {  // NB: 0..z+1 instead of z..SIZE
-            for x in range(0, CHUNK_SIZE as i32) {
+    for z in 0 .. CHUNK_SIZE as i32 {
+        for y in 0 .. z + 1 {   // NB: 0..z+1 instead of z..SIZE
+            for x in 0 .. CHUNK_SIZE as i32 {
                 let block_id = chunk1[bounds.index(V3::new(x, y, z))];
                 let data = &block_data[block_id as usize];
 
@@ -226,7 +225,7 @@ pub fn generate_geometry<F>(local: &LocalChunks,
                     continue;
                 }
 
-                for side in range(0, 4) {
+                for side in 0 .. 4 {
                     let tile_id = data.tile(side);
                     if tile_id == 0 {
                         continue;
@@ -384,7 +383,7 @@ impl<'a> StructureBuffer<'a> {
         let range_x = CHUNK_SIZE_U8 * 2;
         let range_y = CHUNK_SIZE_U8 * 3;
 
-        for idx in range(self.next_index, self.last_used + 1) {
+        for idx in self.next_index .. self.last_used + 1 {
             let s = &self.structures[idx];
             if !s.live {
                 continue;
@@ -456,7 +455,7 @@ impl<'a> StructureBuffer<'a> {
                          cx: u8,
                          cy: u8) -> (usize, u8) {
         let mut sheet = 0;
-        for i in range(0, 32) {
+        for i in 0 .. 32 {
             if self.index_sheets & (1 << i) != 0 {
                 sheet = i;
                 break;
@@ -520,7 +519,7 @@ impl<'a> StructureBuffer<'a> {
         // Walk through self.indexes, looking for structures whose template is on the correct
         // sheet.  Structures on other sheets get moved to the front of the list (over the top of
         // the matching structures, which need no futher processing).
-        for in_idx in range(0, self.num_indexes) {
+        for in_idx in 0 .. self.num_indexes {
             let s = &self.structures[self.indexes[in_idx] as usize];
             let t = &self.templates[s.template_id as usize];
 
@@ -628,10 +627,10 @@ impl<'a> LightGeometryState<'a> {
                              structs: &[Structure]) -> (usize, bool) {
         let mut geom_idx = 0;
 
-        for chunk_idx in range(self.chunk_idx, self.chunk_region.volume() as usize) {
+        for chunk_idx in self.chunk_idx .. self.chunk_region.volume() as usize {
             let cpos = self.chunk_region.from_index(chunk_idx);
             let chunk = get_chunk(local, cpos);
-            for block_idx in range(self.block_idx, CHUNK_BOUNDS.volume() as usize) {
+            for block_idx in self.block_idx .. CHUNK_BOUNDS.volume() as usize {
                 let block_id = chunk[block_idx];
                 let block = &self.block_data[block_id as usize];
                 if block.light_radius == 0 {
@@ -656,7 +655,7 @@ impl<'a> LightGeometryState<'a> {
         // Remember that we finished all the blocks.
         self.chunk_idx = self.chunk_region.volume() as usize;
 
-        for struct_idx in range(self.struct_idx, structs.len()) {
+        for struct_idx in self.struct_idx .. structs.len() {
             let s = &structs[struct_idx];
             if !s.live {
                 continue;

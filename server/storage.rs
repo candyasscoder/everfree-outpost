@@ -1,7 +1,8 @@
 use std::borrow::Cow;
-use std::old_io::{self, IoErrorKind};
-use std::old_io::fs;
-use std::old_io::fs::File;
+use std::fmt::Debug;
+use std::fs::{self, File};
+use std::io;
+use std::path::{Path, PathBuf};
 
 use types::*;
 
@@ -23,117 +24,105 @@ const WORLD_FILE_NAME: &'static str = "world.dat";
 const AUTH_DB_FILE_NAME: &'static str = "auth.sqlite";
 
 pub struct Storage {
-    base: Path,
+    base: PathBuf,
 }
 
 impl Storage {
-    pub fn new(base: Path) -> Storage {
-        fs::mkdir_recursive(&base.join_many(&[SAVE_DIR, CLIENT_DIR]),
-                            old_io::ALL_PERMISSIONS).unwrap();
-        fs::mkdir_recursive(&base.join_many(&[SAVE_DIR, PLANE_DIR]), 
-                            old_io::ALL_PERMISSIONS).unwrap();
-        fs::mkdir_recursive(&base.join_many(&[SAVE_DIR, TERRAIN_CHUNK_DIR]), 
-                            old_io::ALL_PERMISSIONS).unwrap();
+    pub fn new<P: AsRef<Path>>(base: &P) -> Storage {
+        let base = base.as_ref().to_owned();
+        fs::create_dir_all(base.join(SAVE_DIR).join(CLIENT_DIR)).unwrap();
+        fs::create_dir_all(base.join(SAVE_DIR).join(PLANE_DIR)).unwrap();
+        fs::create_dir_all(base.join(SAVE_DIR).join(TERRAIN_CHUNK_DIR)).unwrap();
 
         Storage {
             base: base,
         }
     }
 
-    pub fn data_path(&self, file: &str) -> Path {
-        self.base.join_many(&[DATA_DIR, file])
+    pub fn data_path(&self, file: &str) -> PathBuf {
+        self.base.join(DATA_DIR).join(file)
     }
 
     pub fn open_block_data(&self) -> File {
-        File::open(&self.data_path(BLOCK_DATA_FILE)).unwrap()
+        File::open(self.data_path(BLOCK_DATA_FILE)).unwrap()
     }
 
     pub fn open_item_data(&self) -> File {
-        File::open(&self.data_path(ITEM_DATA_FILE)).unwrap()
+        File::open(self.data_path(ITEM_DATA_FILE)).unwrap()
     }
 
     pub fn open_recipe_data(&self) -> File {
-        File::open(&self.data_path(RECIPE_DATA_FILE)).unwrap()
+        File::open(self.data_path(RECIPE_DATA_FILE)).unwrap()
     }
 
     pub fn open_old_template_data(&self) -> File {
-        File::open(&self.data_path(OLD_TEMPLATE_DATA_FILE)).unwrap()
+        File::open(self.data_path(OLD_TEMPLATE_DATA_FILE)).unwrap()
     }
 
     pub fn open_template_data(&self) -> File {
-        File::open(&self.data_path(TEMPLATE_DATA_FILE)).unwrap()
+        File::open(self.data_path(TEMPLATE_DATA_FILE)).unwrap()
     }
 
-    pub fn script_dir(&self) -> Path {
-        self.base.join_many(&[SCRIPT_DIR])
+    pub fn script_dir(&self) -> PathBuf {
+        self.base.join(SCRIPT_DIR)
     }
 
-    pub fn world_path(&self) -> Path {
-        let mut path = self.base.clone();
-        path.push_many(&[SAVE_DIR, WORLD_FILE_NAME]);
-        path
+    pub fn world_path(&self) -> PathBuf {
+        self.base.join(SAVE_DIR).join(WORLD_FILE_NAME)
     }
 
-    pub fn auth_db_path(&self) -> Path {
-        let mut path = self.base.clone();
-        path.push_many(&[SAVE_DIR, AUTH_DB_FILE_NAME]);
-        path
+    pub fn auth_db_path(&self) -> PathBuf {
+        self.base.join(SAVE_DIR).join(AUTH_DB_FILE_NAME)
     }
 
-    pub fn client_path(&self, name: &str) -> Path {
-        let name = sanitize(name);
-        let mut path = self.base.clone();
-        path.push_many(&[SAVE_DIR, CLIENT_DIR, &*name]);
-        path.set_extension("client");
-        path
+    pub fn client_path(&self, name: &str) -> PathBuf {
+        self.base.join(SAVE_DIR).join(CLIENT_DIR)
+            .join(&*sanitize(name))
+            .with_extension("client")
     }
 
-    pub fn plane_path(&self, stable_pid: Stable<PlaneId>) -> Path {
-        let name = format!("{:x}", stable_pid.unwrap());
-        let mut path = self.base.clone();
-        path.push_many(&[SAVE_DIR, PLANE_DIR, &*name]);
-        path.set_extension("plane");
-        path
+    pub fn plane_path(&self, stable_pid: Stable<PlaneId>) -> PathBuf {
+        self.base.join(SAVE_DIR).join(PLANE_DIR)
+            .join(format!("{:x}", stable_pid.unwrap()))
+            .with_extension("plane")
     }
 
-    pub fn terrain_chunk_path(&self, stable_tcid: Stable<TerrainChunkId>) -> Path {
-        let name = format!("{:x}", stable_tcid.unwrap());
-        let mut path = self.base.clone();
-        path.push_many(&[SAVE_DIR, TERRAIN_CHUNK_DIR, &*name]);
-        path.set_extension("terrain_chunk");
-        path
+    pub fn terrain_chunk_path(&self, stable_tcid: Stable<TerrainChunkId>) -> PathBuf {
+        self.base.join(SAVE_DIR).join(TERRAIN_CHUNK_DIR)
+            .join(format!("{:x}", stable_tcid.unwrap()))
+            .with_extension("terrain_chunk")
     }
 
     pub fn open_world_file(&self) -> Option<File> {
-        try_open_file(&self.world_path())
+        try_open_file(self.world_path())
     }
 
     pub fn open_client_file(&self, name: &str) -> Option<File> {
-        try_open_file(&self.client_path(name))
+        try_open_file(self.client_path(name))
     }
 
     pub fn open_plane_file(&self, stable_pid: Stable<PlaneId>) -> Option<File> {
-        try_open_file(&self.plane_path(stable_pid))
+        try_open_file(self.plane_path(stable_pid))
     }
 
     pub fn open_terrain_chunk_file(&self, stable_tcid: Stable<TerrainChunkId>) -> Option<File> {
-        try_open_file(&self.terrain_chunk_path(stable_tcid))
+        try_open_file(self.terrain_chunk_path(stable_tcid))
     }
 
     pub fn create_world_file(&self) -> File {
-        File::create(&self.world_path()).unwrap()
+        File::create(self.world_path()).unwrap()
     }
 
     pub fn create_client_file(&self, name: &str) -> File {
-        File::create(&self.client_path(name)).unwrap()
+        File::create(self.client_path(name)).unwrap()
     }
 
     pub fn create_plane_file(&self, stable_pid: Stable<PlaneId>) -> File {
-        File::create(&self.plane_path(stable_pid)).unwrap()
+        File::create(self.plane_path(stable_pid)).unwrap()
     }
 
     pub fn create_terrain_chunk_file(&self, stable_tcid: Stable<TerrainChunkId>) -> File {
-        File::create(&self.terrain_chunk_path(stable_tcid)).unwrap()
+        File::create(self.terrain_chunk_path(stable_tcid)).unwrap()
     }
 }
 
@@ -178,12 +167,12 @@ fn sanitize(s: &str) -> Cow<str> {
     }
 }
 
-fn try_open_file(path: &Path) -> Option<File> {
+fn try_open_file<P: AsRef<Path>+Debug>(path: P) -> Option<File> {
     match File::open(path) {
         Ok(f) => Some(f),
         Err(e) => {
-            match e.kind {
-                IoErrorKind::FileNotFound => None,
+            match e.kind() {
+                io::ErrorKind::NotFound => None,
                 _ => panic!("error opening {:?}: {}", path, e),
             }
         },

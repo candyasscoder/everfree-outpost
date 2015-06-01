@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
-use std::old_io::timer::Timer;
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
 
@@ -33,14 +32,14 @@ impl<T> PartialOrd for WakeItem<T> {
 
 pub struct WakeQueue<T> {
     items: BinaryHeap<WakeItem<T>>,
-    timer: Timer,
+    //timer: Timer,
 }
 
 impl<T> WakeQueue<T> {
     pub fn new() -> WakeQueue<T> {
         WakeQueue {
             items: BinaryHeap::new(),
-            timer: Timer::new().unwrap(),
+            //timer: Timer::new().unwrap(),
         }
     }
 
@@ -63,10 +62,6 @@ impl<T> WakeQueue<T> {
     }
 
     pub fn wait_recv(&mut self, now: Time) -> Receiver<()> {
-        let dur = match self.items.peek() {
-            None => Duration::max_value(),
-            Some(item) => Duration::milliseconds(item.time - now),
-        };
-        self.timer.oneshot(dur)
+        unimplemented!();
     }
 }

@@ -83,14 +83,14 @@ impl<V> IdMap<V> {
 impl<V> Index<usize> for IdMap<V> {
     type Output = V;
 
-    fn index(&self, index: &usize) -> &V {
-        self.get(*index).expect("no entry found for key")
+    fn index(&self, index: usize) -> &V {
+        self.get(index).expect("no entry found for key")
     }
 }
 
 impl<V> IndexMut<usize> for IdMap<V> {
-    fn index_mut(&mut self, index: &usize) -> &mut V {
-        self.get_mut(*index).expect("no entry found for key")
+    fn index_mut(&mut self, index: usize) -> &mut V {
+        self.get_mut(index).expect("no entry found for key")
     }
 }
 

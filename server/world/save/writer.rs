@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::old_io;
+use std::io;
 use std::mem;
 use std::slice;
 
@@ -28,13 +28,13 @@ pub trait Writer {
     }
 }
 
-pub struct WriterWrapper<W: old_io::Writer> {
+pub struct WriterWrapper<W: io::Write> {
     writer: W,
     id_map: HashMap<AnyId, SaveId>,
     next_id: SaveId,
 }
 
-impl<W: old_io::Writer> WriterWrapper<W> {
+impl<W: io::Write> WriterWrapper<W> {
     pub fn new(writer: W) -> WriterWrapper<W> {
         WriterWrapper {
             writer: writer,
@@ -56,8 +56,7 @@ impl<W: old_io::Writer> WriterWrapper<W> {
     }
 }
 
-impl<W: old_io::Writer> Writer for WriterWrapper<W> {
-
+impl<W: io::Write> Writer for WriterWrapper<W> {
     fn write_id<T: ToAnyId>(&mut self, id: T) -> Result<()> {
         use std::collections::hash_map::Entry::{Occupied, Vacant};
         let id = id.to_any_id();
@@ -69,20 +68,20 @@ impl<W: old_io::Writer> Writer for WriterWrapper<W> {
                 *sid
             },
         };
-        try!(self.writer.write_le_u32(save_id));
+        try!(self.write::<u32>(save_id));
         Ok(())
     }
 
     fn write_opt_id<T: ToAnyId>(&mut self, opt_id: Option<T>) -> Result<()> {
         match opt_id {
             Some(id) => try!(self.write_id(id)),
-            None => try!(self.writer.write_le_u32(-1 as SaveId)),
+            None => try!(self.write::<u32>(-1_i32 as SaveId)),
         }
         Ok(())
     }
 
     fn write_count(&mut self, count: usize) -> Result<()> {
-        try!(self.writer.write_le_u32(unwrap!(count.to_u32())));
+        try!(self.write::<u32>(unwrap!(count.to_u32())));
         Ok(())
     }
 

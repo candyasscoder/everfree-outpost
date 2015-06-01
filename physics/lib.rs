@@ -12,7 +12,6 @@
 #[cfg(not(asmjs))] #[macro_use] extern crate log;
 
 use core::prelude::*;
-use core::num::SignedInt;
 
 use v3::{Vn, V3, scalar};
 
@@ -41,7 +40,7 @@ pub const CHUNK_MASK: i32 = CHUNK_SIZE - 1;
 static CHUNK_SIZE_BITS: bool = CHUNK_SIZE == 1 << CHUNK_BITS as usize;
 
 
-#[derive(Copy, Eq, PartialEq, Debug, Clone)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u8)]
 pub enum Shape {
     Empty = 0,

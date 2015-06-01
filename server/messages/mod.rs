@@ -427,7 +427,7 @@ impl Messages {
         match resp {
             ClientResponse::Init(opt_eid, time, cycle_base, cycle_ms) => {
                 let data = InitData {
-                    entity_id: opt_eid.unwrap_or(EntityId(-1 as u32)),
+                    entity_id: opt_eid.unwrap_or(EntityId(-1_i32 as u32)),
                     now: time.to_local(),
                     cycle_base: cycle_base,
                     cycle_ms: cycle_ms,

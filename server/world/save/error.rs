@@ -1,13 +1,13 @@
 use std::error;
 use std::fmt;
-use std::old_io;
+use std::io;
 use std::result;
 
 use util::{StrError, StringError};
 
 #[derive(Debug)]
 pub enum Error {
-    Io(old_io::IoError),
+    Io(io::Error),
     Str(StrError),
 }
 
@@ -36,21 +36,21 @@ impl error::Error for Error {
     }
 }
 
-impl error::FromError<old_io::IoError> for Error {
-    fn from_error(e: old_io::IoError) -> Error {
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Error {
         Error::Io(e)
     }
 }
 
-impl error::FromError<StrError> for Error {
-    fn from_error(e: StrError) -> Error {
+impl From<StrError> for Error {
+    fn from(e: StrError) -> Error {
         Error::Str(e)
     }
 }
 
-impl error::FromError<Error> for StringError {
-    fn from_error(e: Error) -> StringError {
-        error::FromError::from_error(error::Error::description(&e))
+impl From<Error> for StringError {
+    fn from(e: Error) -> StringError {
+        From::from(error::Error::description(&e))
     }
 }
 

@@ -143,7 +143,6 @@ impl<T> SmallVec<T> {
     }
 }
 
-#[unsafe_destructor]
 impl<T> Drop for SmallVec<T> {
     fn drop(&mut self) {
         let mut interp = unsafe { self.to_interp() };

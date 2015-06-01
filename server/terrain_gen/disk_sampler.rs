@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::iter::repeat;
-use collect::lru_cache::LruCache;
+use lru_cache::LruCache;
 use rand::{Rng, XorShiftRng, SeedableRng};
 
 use types::*;
@@ -277,7 +277,7 @@ impl<GS: Field> PointSource for IsoDiskSampler<GS> {
 // horizontal edges connected to those corners.  Finally, centers depend on the four adjacent edges
 // and four adjacent corners.
 
-#[derive(Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 enum Section {
     Corner,
     Top,

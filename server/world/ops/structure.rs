@@ -156,7 +156,7 @@ pub fn attach<'d, F>(f: &mut F,
             // If we're detaching from Chunk, we know the containing chunk is loaded because `c` is
             // loaded and has attachment Chunk.
             let p = &w.planes[s.plane];
-            let tcid = p.loaded_chunks[chunk_pos];
+            let tcid = p.loaded_chunks[&chunk_pos];
             let tc = &mut w.terrain_chunks[tcid];
             tc.child_structures.remove(&sid);
         },
