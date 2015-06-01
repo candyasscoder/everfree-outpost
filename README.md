@@ -2,21 +2,21 @@
 
 Dependencies:
 
- - rust-lang/rust 1.0.0-alpha.2-623-gbdf6e4f
+ - rust-lang/rust 1.2.0-dev-g60926b8
  - kripken/emscripten-fastcomp 1.29.0-0-g49ddcf5  (Other Emscripten components
    are not required)
  - epdtry/rust-emscripten-passes eea6274
- - rust-lang/bitflags 63be765
- - Gankro/collect-rs 17365fa
- - rust-lang/log e78b736
- - rust-lang/rand 9561a6a
- - jgallagher/rusqlite 0.0.10-0-g9db251e
- - rust-lang/rustc-serialize 392b17b
- - reem/rust-traverse 69135dd
- - rust-lang/time dc3f310
+ - rust-lang/bitflags ec6b3b5
+ - rust-lang/rand 916642f
+ - rust-lang/regex 0.1.28-36-g7a72b1f
+ - rust-lang/log 07fbe6b
+ - rust-lang/rustc-serialize 7900641
+ - rust-lang/time c3b0bb3
+ - jgallagher/rusqlite 0.0.17-29-g255e5f0
+ - contain-rs/linked-hash-map eb4a8cc
+ - contain-rs/lru-cache a0dcc31
  - python3
  - python3-pillow
- - python3-tornado
  - python3-yaml
  - liblua5.1
 
