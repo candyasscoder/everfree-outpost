@@ -1,16 +1,16 @@
 use std::cmp;
 use std::error::Error;
 use std::sync::mpsc::{Sender, Receiver, Select};
-use time;
 
 use types::*;
 use util::StringResult;
+use util::now;
 use physics::TILE_SIZE;
 
 use auth::Secret;
 use input::InputBits;
 use msg::{Request, Response, InitData, ExtraArg};
-use timer::WakeQueue;
+use timer::{self, WakeQueue};
 use world::Motion;
 
 use self::clients::Clients;
@@ -172,17 +172,17 @@ impl Messages {
     pub fn next_event(&mut self) -> (Event, Time) {
         loop {
             enum Msg {
-                Wake(()),
+                Wake(timer::Cookie),
                 Req((WireId, Request)),
             }
 
 
             let msg = {
-                let wake_recv = self.wake.wait_recv(now());
+                let wake_recv = self.wake.receiver();
                 // select! can't handle 'self.recv' as a channel name.  Sigh...
                 let select = Select::new();
 
-                let mut wake_handle = select.handle(&wake_recv);
+                let mut wake_handle = select.handle(wake_recv);
                 let mut req_handle = select.handle(&self.recv);
 
 
@@ -208,11 +208,10 @@ impl Messages {
 
             let now = now();
             match msg {
-                Msg::Wake(()) => {
-                    while let Some((time, reason)) = self.wake.pop(now) {
-                        if let Some(evt) = self.handle_wake(time, reason) {
-                            return (evt, now);
-                        }
+                Msg::Wake(cookie) => {
+                    let (time, reason) = self.wake.retrieve(cookie);
+                    if let Some(evt) = self.handle_wake(time, reason) {
+                        return (evt, now);
                     }
                 },
                 Msg::Req((wire_id, req)) => {
@@ -329,7 +328,7 @@ impl Messages {
             Request::Input(time, input) => {
                 let time = cmp::max(time.to_global(now), now);
                 let input = unwrap!(InputBits::from_bits(input));
-                self.wake.push(time, WakeReason::DeferredInput(cid, input));
+                self.wake.schedule(time, WakeReason::DeferredInput(cid, input));
                 Ok(None)
             },
 
@@ -348,38 +347,38 @@ impl Messages {
 
             Request::Interact(time) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.push(time, WakeReason::DeferredInteract(cid, None));
+                self.wake.schedule(time, WakeReason::DeferredInteract(cid, None));
                 Ok(None)
             },
 
             Request::UseItem(time, item_id) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.push(time, WakeReason::DeferredUseItem(cid, item_id, None));
+                self.wake.schedule(time, WakeReason::DeferredUseItem(cid, item_id, None));
                 Ok(None)
             },
 
             Request::UseAbility(time, item_id) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.push(time, WakeReason::DeferredUseAbility(cid, item_id, None));
+                self.wake.schedule(time, WakeReason::DeferredUseAbility(cid, item_id, None));
                 Ok(None)
             },
 
 
             Request::InteractWithArgs(time, args) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.push(time, WakeReason::DeferredInteract(cid, Some(args)));
+                self.wake.schedule(time, WakeReason::DeferredInteract(cid, Some(args)));
                 Ok(None)
             },
 
             Request::UseItemWithArgs(time, item_id, args) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.push(time, WakeReason::DeferredUseItem(cid, item_id, Some(args)));
+                self.wake.schedule(time, WakeReason::DeferredUseItem(cid, item_id, Some(args)));
                 Ok(None)
             },
 
             Request::UseAbilityWithArgs(time, item_id, args) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.push(time, WakeReason::DeferredUseAbility(cid, item_id, Some(args)));
+                self.wake.schedule(time, WakeReason::DeferredUseAbility(cid, item_id, Some(args)));
                 Ok(None)
             },
 
@@ -522,16 +521,10 @@ impl Messages {
 
     // Scheduling timed updates
     pub fn schedule_check_view(&mut self, cid: ClientId, when: Time) {
-        self.wake.push(when, WakeReason::CheckView(cid));
+        self.wake.schedule(when, WakeReason::CheckView(cid));
     }
 
     pub fn schedule_physics_update(&mut self, eid: EntityId, when: Time) {
-        self.wake.push(when, WakeReason::PhysicsUpdate(eid));
+        self.wake.schedule(when, WakeReason::PhysicsUpdate(eid));
     }
-}
-
-
-fn now() -> Time {
-    let timespec = time::get_time();
-    (timespec.sec as Time * 1000) + (timespec.nsec / 1000000) as Time
 }

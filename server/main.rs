@@ -5,6 +5,7 @@
 #![feature(collections)]
 #![feature(convert)]    // OsStr::to_cstring
 #![feature(core)]
+#![feature(filling_drop)]
 #![feature(libc)]
 #![feature(std_misc)]
 #![feature(trace_macros)]

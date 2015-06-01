@@ -109,7 +109,7 @@ impl OwnedLuaState {
 
 impl Drop for OwnedLuaState {
     fn drop(&mut self) {
-        if self.L.is_null() {
+        if self.L as usize == mem::POST_DROP_USIZE {
             return;
         }
 

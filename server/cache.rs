@@ -42,9 +42,14 @@ impl TerrainCache {
     pub fn update_region(&mut self, w: &World, pid: PlaneId, bounds: Region) {
         for cpos in bounds.reduce().div_round_signed(CHUNK_SIZE).points() {
             if let Some(entry) = self.cache.get_mut(&(pid, cpos)) {
-                // Fails only when the plane/terrain chunk does not exist.  Since the cache entry
-                // exists, the plane/chunk should also exist.
-                compute_shape(w, pid, cpos, bounds, entry).unwrap();
+                // NB: Surprisingly, this can fail.  Chunk unloading proceeds in this order:
+                //  1) Remove terrain chunk
+                //  2) Remove structures
+                //  3) Run structure hooks
+                //  4) Run terrain chunk hooks
+                // During (3), the hook tries to update the cache.  The cache entry still exists
+                // (because (4) hasn't happened yet), but the chunk is gone.
+                let _ = compute_shape(w, pid, cpos, bounds, entry);
             }
         }
     }

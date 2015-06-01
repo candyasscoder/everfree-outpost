@@ -1,5 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
+use time;
+
+use types::Time;
 
 pub use self::bytes::Bytes;
 pub use self::convert::Convert;
@@ -116,4 +119,10 @@ pub fn encode_rle16<I: Iterator<Item=u16>>(iter: I) -> Vec<u16> {
     }
 
     result
+}
+
+
+pub fn now() -> Time {
+    let timespec = time::get_time();
+    (timespec.sec as Time * 1000) + (timespec.nsec / 1000000) as Time
 }
