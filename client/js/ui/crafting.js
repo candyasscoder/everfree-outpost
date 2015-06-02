@@ -2,6 +2,7 @@ var Config = require('config').Config;
 var ItemDef = require('data/items').ItemDef;
 var RecipeDef = require('data/recipes').RecipeDef;
 var ItemList = require('ui/inventory').ItemList;
+var ItemRow = require('ui/inventory').ItemRow;
 var InventoryTracker = require('inventory').InventoryTracker;
 var util = require('util/misc');
 var widget = require('ui/widget');
@@ -12,11 +13,26 @@ function CraftingUI(station_type, station_id, inv) {
     this.recipe_list = new RecipeList(station_type, inv);
     this.item_list = new ItemList(inv);
     this.station_id = station_id;
+    this.inv = inv;
+
+    this.input_div = util.element('div', ['recipe-item-list']);
+    this.output_div = util.element('div', ['recipe-item-list']);
+    this.arrow_div = util.element('div', ['recipe-item-arrow']);
+    this.arrow_div.innerHTML = '&dArr;';
 
     var parts = util.templateParts('crafting', {
         'item_list': this.item_list.dom,
         'recipe_list': this.recipe_list.dom,
+        'input_list': this.input_div,
+        'output_list': this.output_div,
+        'arrow': this.arrow_div,
     });
+
+    var this_ = this;
+    this.recipe_list.onchange = function() {
+        this_._updateRecipeDisplay();
+    };
+    this_._updateRecipeDisplay();
 
     var list = new widget.SimpleList(
             parts['container'],
@@ -25,7 +41,6 @@ function CraftingUI(station_type, station_id, inv) {
 
     widget.Form.call(this, list, parts['top']);
 
-    var this_ = this;
     widget.hookKey(this.recipe_list, 'select', function(evt) {
         if (evt.down) {
             this_._craft(evt.shiftKey ? 10 : 1);
@@ -45,6 +60,47 @@ CraftingUI.prototype._craft = function(mag) {
             var inventory_id = this.item_list.inventory_id;
             this.onaction(this.station_id, inventory_id, recipe_id, mag);
         }
+    }
+};
+
+CraftingUI.prototype._updateRecipeDisplay = function() {
+    while (this.input_div.firstChild) {
+        this.input_div.removeChild(this.input_div.firstChild);
+    }
+    while (this.output_div.firstChild) {
+        this.output_div.removeChild(this.output_div.firstChild);
+    }
+
+    var recipe = RecipeDef.by_id[this.recipe_list.selectedRecipe()];
+    var craftable = true;
+
+    for (var i = 0; i < recipe.inputs.length; ++i) {
+        var item_id = recipe.inputs[i][0];
+        var count = recipe.inputs[i][1];
+        var item = ItemDef.by_id[item_id];
+        var row = new ItemRow(item_id, count, item.ui_name, item.tile_x, item.tile_y);
+        if (this.inv.count(item_id) < count) {
+            row.dom.classList.add('disabled');
+            craftable = false;
+        }
+        this.input_div.appendChild(row.dom);
+    }
+
+    for (var i = 0; i < recipe.outputs.length; ++i) {
+        var item_id = recipe.outputs[i][0];
+        var count = recipe.outputs[i][1];
+        var item = ItemDef.by_id[item_id];
+        var row = new ItemRow(item_id, count, item.ui_name, item.tile_x, item.tile_y);
+        if (!craftable) {
+            row.dom.classList.add('disabled');
+        }
+        this.output_div.appendChild(row.dom);
+    }
+
+    if (!craftable) {
+        this.arrow_div.classList.add('disabled');
+    } else {
+        this.arrow_div.classList.remove('disabled');
     }
 };
 

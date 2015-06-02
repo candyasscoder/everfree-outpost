@@ -94,10 +94,26 @@
                 background-color: black;
             }
 
+            .horizontal-rule {
+                height: 0.125rem;
+                margin: 0.125rem 0.5rem;
+                background-color: black;
+            }
+
             .dialog-body {
                 height: 60vh;
+            }
+
+            .dialog-body, .container-horiz {
                 display: flex;
                 align-items: stretch;
+                flex-direction: row;
+            }
+
+            .container-vert {
+                display: flex;
+                align-items: stretch;
+                flex-direction: column;
             }
         </style>
     </head>
@@ -473,22 +489,43 @@
                 .recipe-list.active > .recipe.active {
                     background-color: lightblue;
                 }
+
+                .crafting .item-list {
+                    flex: 1 0 auto;
+                }
+
+                .recipe-item-list {
+                    flex: 0 0 auto;
+                    width: 10rem;
+                    overflow-x: hidden;
+                }
+
+                .recipe-item-list > .item.disabled {
+                    color: darkgray;
+                }
+
+                .recipe-item-arrow {
+                    text-align: center;
+                    flex: 0 0 auto;
+                }
+
+                .recipe-item-arrow.disabled {
+                    color: darkgray;
+                }
+
             </style>
-            <div id="crafting">
+            <div id="crafting" class="crafting">
                 <div class="title">Crafting</div>
                 <div class="dialog-body" data-part="container">
                     <div class="hole" data-key="recipe_list"></div>
                     <div class="vertical-rule"></div>
-                    <div class="hole" data-key="item_list"></div>
-                </div>
-                <div class="dialog-keys">
-                    <kbd>&larr;</kbd>
-                    <kbd>&darr;</kbd>
-                    <kbd>&uarr;</kbd>
-                    <kbd>&rarr;</kbd>
-                    &ndash; Navigate;
-                    <kbd>A</kbd>
-                    &ndash; Craft
+                    <div class="container-vert">
+                        <div class="hole" data-key="item_list"></div>
+                        <div class="horizontal-rule"></div>
+                        <div class="hole" data-key="input_list"></div>
+                        <div class="hole" data-key="arrow"></div>
+                        <div class="hole" data-key="output_list"></div>
+                    </div>
                 </div>
             </div>
 
