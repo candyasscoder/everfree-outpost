@@ -438,8 +438,9 @@ impl<'a> StructureBuffer<'a> {
 
             // The structure is definitely within the chunk.
             if self.num_indexes == self.indexes.len() {
+                // Ran out of space in the index buffer, so return early.
                 self.next_index = idx;
-                break;
+                return;
             } else {
                 self.indexes[self.num_indexes] = idx as u16;
                 self.num_indexes += 1;
