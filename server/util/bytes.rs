@@ -1,4 +1,10 @@
+use std::io;
+use std::mem;
+use std::raw;
+
 use physics::v3::{V3, V2};
+
+use util::ReadExact;
 
 
 /// Marker trait for types that can be safely manipulated as a string of bytes.  This means a type
@@ -56,3 +62,38 @@ bytes_tuple_impl!(A B C D E F G H I J K L);
 
 unsafe impl Bytes for V2 { }
 unsafe impl Bytes for V3 { }
+
+
+pub trait WriteBytes {
+    fn write_bytes<T: Bytes>(&mut self, x: T) -> io::Result<()>;
+}
+
+impl<W: io::Write> WriteBytes for W {
+    fn write_bytes<T: Bytes>(&mut self, x: T) -> io::Result<()> {
+        let slice = unsafe {
+            mem::transmute(raw::Slice {
+                data: &x as *const T as *const u8,
+                len: mem::size_of::<T>(),
+            })
+        };
+        self.write_all(slice)
+    }
+}
+
+pub trait ReadBytes {
+    fn read_bytes<T: Bytes>(&mut self) -> io::Result<T>;
+}
+
+impl<R: io::Read> ReadBytes for R {
+    fn read_bytes<T: Bytes>(&mut self) -> io::Result<T> {
+        let mut x = unsafe { mem::zeroed() };
+        let slice = unsafe {
+            mem::transmute(raw::Slice {
+                data: &mut x as *mut T as *mut u8,
+                len: mem::size_of::<T>(),
+            })
+        };
+        try!(self.read_exact(slice));
+        Ok(x)
+    }
+}

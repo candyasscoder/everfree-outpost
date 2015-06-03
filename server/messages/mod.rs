@@ -24,6 +24,7 @@ pub struct Messages {
     recv: Receiver<(WireId, Request)>,
     wake: WakeQueue<WakeReason>,
     clients: Clients,
+    time_base: Time,
 }
 
 pub enum Event {
@@ -136,7 +137,33 @@ impl Messages {
             recv: recv,
             wake: WakeQueue::new(),
             clients: Clients::new(),
+            time_base: 0,
         }
+    }
+
+
+    // Time adjustment
+
+    // Regarding timestamps: All Time values within this module, as well as all Times passed
+    // to/from the Engine or transmitted to/from clients, are "world times" (that is, adjusted
+    // using `time_base`).  The only raw Unix timestamps are those passed to/from the WakeQueue,
+    // which uses plain Unix time internally and can't be easily adjusted.
+
+    fn world_time(&self, unix_time: Time) -> Time {
+        unix_time - self.time_base
+    }
+
+    fn world_now(&self) -> Time {
+        self.world_time(now())
+    }
+
+    pub fn set_world_time(&mut self, world_time: Time) {
+        self.time_base = now() - world_time;
+        debug!("new time_base: {:x} (world_time {:x})", self.time_base, world_time);
+    }
+
+    fn from_world_time(&self, world_time: Time) -> Time {
+        world_time + self.time_base
     }
 
 
@@ -206,12 +233,13 @@ impl Messages {
                 }
             };
 
-            let now = now();
+            let now = self.world_now();
             match msg {
                 Msg::Wake(cookie) => {
                     let (time, reason) = self.wake.retrieve(cookie);
+                    let time = self.world_time(time);
                     if let Some(evt) = self.handle_wake(time, reason) {
-                        return (evt, now);
+                        return (evt, time);
                     }
                 },
                 Msg::Req((wire_id, req)) => {
@@ -328,7 +356,7 @@ impl Messages {
             Request::Input(time, input) => {
                 let time = cmp::max(time.to_global(now), now);
                 let input = unwrap!(InputBits::from_bits(input));
-                self.wake.schedule(time, WakeReason::DeferredInput(cid, input));
+                self.schedule(time, WakeReason::DeferredInput(cid, input));
                 Ok(None)
             },
 
@@ -347,38 +375,38 @@ impl Messages {
 
             Request::Interact(time) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.schedule(time, WakeReason::DeferredInteract(cid, None));
+                self.schedule(time, WakeReason::DeferredInteract(cid, None));
                 Ok(None)
             },
 
             Request::UseItem(time, item_id) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.schedule(time, WakeReason::DeferredUseItem(cid, item_id, None));
+                self.schedule(time, WakeReason::DeferredUseItem(cid, item_id, None));
                 Ok(None)
             },
 
             Request::UseAbility(time, item_id) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.schedule(time, WakeReason::DeferredUseAbility(cid, item_id, None));
+                self.schedule(time, WakeReason::DeferredUseAbility(cid, item_id, None));
                 Ok(None)
             },
 
 
             Request::InteractWithArgs(time, args) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.schedule(time, WakeReason::DeferredInteract(cid, Some(args)));
+                self.schedule(time, WakeReason::DeferredInteract(cid, Some(args)));
                 Ok(None)
             },
 
             Request::UseItemWithArgs(time, item_id, args) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.schedule(time, WakeReason::DeferredUseItem(cid, item_id, Some(args)));
+                self.schedule(time, WakeReason::DeferredUseItem(cid, item_id, Some(args)));
                 Ok(None)
             },
 
             Request::UseAbilityWithArgs(time, item_id, args) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.wake.schedule(time, WakeReason::DeferredUseAbility(cid, item_id, Some(args)));
+                self.schedule(time, WakeReason::DeferredUseAbility(cid, item_id, Some(args)));
                 Ok(None)
             },
 
@@ -520,11 +548,20 @@ impl Messages {
 
 
     // Scheduling timed updates
+
+    /// Main entry point for scheduling wakeups.  This performs the timestamp adjustment required
+    /// by the WakeQueue.  (The other half of the adjustment happens in the Wake case of
+    /// next_event.)
+    fn schedule(&mut self, when: Time, reason: WakeReason) {
+        let when = self.from_world_time(when);
+        self.wake.schedule(when, reason);
+    }
+
     pub fn schedule_check_view(&mut self, cid: ClientId, when: Time) {
-        self.wake.schedule(when, WakeReason::CheckView(cid));
+        self.schedule(when, WakeReason::CheckView(cid));
     }
 
     pub fn schedule_physics_update(&mut self, eid: EntityId, when: Time) {
-        self.wake.schedule(when, WakeReason::PhysicsUpdate(eid));
+        self.schedule(when, WakeReason::PhysicsUpdate(eid));
     }
 }

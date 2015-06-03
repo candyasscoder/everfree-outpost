@@ -1,6 +1,7 @@
 use std::borrow::ToOwned;
 
 use types::*;
+use util::bytes::{ReadBytes, WriteBytes};
 
 use engine::glue::*;
 use engine::split::EngineRef;
@@ -11,6 +12,13 @@ use world::save::{ObjectReader, ObjectWriter};
 
 
 pub fn start_up(mut eng: EngineRef) {
+    if let Some(mut file) = eng.storage().open_misc_file() {
+        let world_time = file.read_bytes().unwrap();
+        eng.messages_mut().set_world_time(world_time);
+    } else {
+        eng.messages_mut().set_world_time(0);
+    }
+
     if let Some(file) = eng.storage().open_world_file() {
         let mut sr = ObjectReader::new(file);
         sr.load_world(&mut eng.as_save_read_fragment()).unwrap();
@@ -56,5 +64,10 @@ pub fn shut_down(mut eng: EngineRef) {
         let file = eng.storage().create_world_file();
         let mut sw = ObjectWriter::new(file, h);
         warn_on_err!(sw.save_world(eng.world()));
+    }
+
+    {
+        let mut file = eng.storage().create_misc_file();
+        warn_on_err!(file.write_bytes(eng.now()));
     }
 }

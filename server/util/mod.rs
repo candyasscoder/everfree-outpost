@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
+use std::io;
 use time;
 
 use types::Time;
@@ -125,4 +126,21 @@ pub fn encode_rle16<I: Iterator<Item=u16>>(iter: I) -> Vec<u16> {
 pub fn now() -> Time {
     let timespec = time::get_time();
     (timespec.sec as Time * 1000) + (timespec.nsec / 1000000) as Time
+}
+
+
+pub trait ReadExact {
+    fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()>;
+}
+
+impl<R: io::Read> ReadExact for R {
+    fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
+        let mut base = 0;
+        while base < buf.len() {
+            let n = try!(self.read(&mut buf[base..]));
+            assert!(n > 0 && base + n <= buf.len());
+            base += n;
+        }
+        Ok(())
+    }
 }
