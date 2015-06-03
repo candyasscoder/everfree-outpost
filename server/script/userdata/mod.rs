@@ -104,6 +104,7 @@ macro_rules! lua_table_fns2 {
 
 pub mod extra_arg;
 pub mod terrain_gen;
+pub mod timer;
 pub mod types;
 pub mod world;
 
@@ -152,6 +153,9 @@ mk_build_types_table!(
     self::terrain_gen::IsoDiskSampler,
 
     self::extra_arg::ExtraArg,
+
+    self::timer::TimeU,
+    self::timer::Timer,
 );
 
 

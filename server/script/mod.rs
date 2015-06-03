@@ -8,6 +8,7 @@ use util::{StringError, StringResult};
 
 use engine;
 use engine::glue::WorldFragment;
+use messages;
 use msg;
 use terrain_gen;
 use world;
@@ -178,6 +179,17 @@ impl ScriptEngine {
                          (userdata::world::Client { id: cid },
                           item_id,
                           args.map(|a| userdata::extra_arg::ExtraArg::new(a))))
+        })
+    }
+
+
+    pub fn cb_timeout(eng: &mut engine::Engine,
+                      x: u32) -> StringResult<()> {
+        let ptr = eng as *mut engine::Engine;
+        eng.script.with_context(ptr, |lua| {
+            run_callback(lua,
+                         "outpost_callback_timeout",
+                         x)
         })
     }
 
@@ -400,6 +412,13 @@ unsafe impl<'a, 'd: 'a> FullContext<'a> for &'a mut engine::Engine<'d> {
     }
 }
 
+unsafe impl<'a, 'd: 'a> PartialContext for &'a engine::Engine<'d> {
+    unsafe fn from_lua(lua: &mut LuaState) -> &'a engine::Engine<'d> {
+        let ptr = get_ctx::<engine::Engine>(lua);
+        &*ptr
+    }
+}
+
 unsafe impl<'a, 'd: 'a> PartialContext for WorldFragment<'a, 'd> {
     unsafe fn from_lua(lua: &mut LuaState) -> WorldFragment<'a, 'd> {
         let ptr = get_ctx::<engine::Engine>(lua);
@@ -422,6 +441,14 @@ unsafe impl<'a, 'd: 'a> PartialContext for &'a world::World<'d> {
         mem::transmute(ptr)
     }
 }
+unsafe impl<'a> PartialContext for &'a mut messages::Messages {
+    unsafe fn from_lua(lua: &mut LuaState) -> &'a mut messages::Messages {
+        let mut frag = WorldFragment::from_lua(lua);
+        let ptr: &mut messages::Messages = frag.messages_mut();
+        mem::transmute(ptr)
+    }
+}
+
 
 
 impl<'d> BaseContext for terrain_gen::TerrainGen<'d> {

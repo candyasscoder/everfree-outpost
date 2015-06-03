@@ -169,14 +169,17 @@ impl<'a> FromLua<'a> for String {
     }
 }
 
+pub fn is_userdata<U: Userdata>(lua: &mut LuaState, index: c_int) -> bool {
+    lua.get_metatable(index);
+    lua.get_field(REGISTRY_INDEX, metatable_key::<U>());
+    let ok = lua.raw_equal(-1, -2);
+    lua.pop(2);
+    ok
+}
+
 impl<'a, U: Userdata> FromLua<'a> for &'a U {
     unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
-        lua.get_metatable(index);
-        lua.get_field(REGISTRY_INDEX, metatable_key::<U>());
-        let ok = lua.raw_equal(-1, -2);
-        lua.pop(2);
-
-        if !ok {
+        if !is_userdata::<U>(lua, index) {
             type_error!(lua, index, func, type_name::<U>());
         }
     }

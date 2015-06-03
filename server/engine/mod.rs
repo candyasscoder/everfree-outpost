@@ -226,6 +226,10 @@ impl<'d> Engine<'d> {
             PhysicsUpdate(eid) => {
                 logic::input::physics_update(self.as_ref(), eid);
             },
+
+            ScriptTimeout(x) => {
+                warn_on_err!(ScriptEngine::cb_timeout(self, x));
+            },
         }
         HandlerResult::Continue
     }
@@ -294,6 +298,10 @@ impl<'d> Engine<'d> {
                 (2, String::from_str("An internal error occurred."))
             }
         }
+    }
+
+    pub fn now(&self) -> Time {
+        self.now
     }
 }
 

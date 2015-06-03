@@ -42,6 +42,7 @@ pub enum WakeReason {
     DeferredUseAbility(ClientId, ItemId, Option<ExtraArg>),
     PhysicsUpdate(EntityId),
     CheckView(ClientId),
+    ScriptTimeout(u32),
 }
 
 
@@ -75,6 +76,7 @@ pub enum ClientEvent {
 
 pub enum OtherEvent {
     PhysicsUpdate(EntityId),
+    ScriptTimeout(u32),
 }
 
 
@@ -157,6 +159,8 @@ impl Messages {
         self.world_time(now())
     }
 
+    // NB: This is designed to be called only once, near the beginning of server startup.  Calling
+    // it while the server is running may have strange effects.
     pub fn set_world_time(&mut self, world_time: Time) {
         self.time_base = now() - world_time;
         debug!("new time_base: {:x} (world_time {:x})", self.time_base, world_time);
@@ -274,6 +278,8 @@ impl Messages {
                     None
                 }
             },
+            WakeReason::ScriptTimeout(x) =>
+                Some(Event::Other(OtherEvent::ScriptTimeout(x))),
         }
     }
 
@@ -552,16 +558,25 @@ impl Messages {
     /// Main entry point for scheduling wakeups.  This performs the timestamp adjustment required
     /// by the WakeQueue.  (The other half of the adjustment happens in the Wake case of
     /// next_event.)
-    fn schedule(&mut self, when: Time, reason: WakeReason) {
+    fn schedule(&mut self, when: Time, reason: WakeReason) -> timer::Cookie {
         let when = self.from_world_time(when);
-        self.wake.schedule(when, reason);
+        self.wake.schedule(when, reason)
     }
 
+    // TODO: swap the arguments on these ones too.
     pub fn schedule_check_view(&mut self, cid: ClientId, when: Time) {
         self.schedule(when, WakeReason::CheckView(cid));
     }
 
     pub fn schedule_physics_update(&mut self, eid: EntityId, when: Time) {
         self.schedule(when, WakeReason::PhysicsUpdate(eid));
+    }
+
+    pub fn schedule_script_timeout(&mut self, when: Time, x: u32) -> timer::Cookie {
+        self.schedule(when, WakeReason::ScriptTimeout(x))
+    }
+
+    pub fn cancel(&mut self, cookie: timer::Cookie) {
+        self.wake.cancel(cookie);
     }
 }
