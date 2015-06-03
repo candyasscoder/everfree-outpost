@@ -2,13 +2,13 @@ from outpost_data.builder import *
 import outpost_data.images as I
 from outpost_data import depthmap
 from outpost_data.structure import Shape
-from outpost_data.util import loader, extract
+from outpost_data.util import loader, extract, stack
 
 from lib.items import *
 from lib.structures import *
 
 
-def do_wall_parts(basename, image, plane_image, mk_door=False):
+def do_wall_parts(basename, image, plane_image, door_image=None):
     parts = (
             'corner/nw',
             'edge/horiz',
@@ -31,21 +31,29 @@ def do_wall_parts(basename, image, plane_image, mk_door=False):
         name = basename + '/' + part_name
         b.merge(mk_solid_structure(name, image, (1, 1, 2), base=(j, 0), plane_image=plane_image))
 
-    if mk_door:
-        door_shape_arr = [
+    if door_image is not None:
+        open_door_shape_arr = [
                 'solid', 'floor', 'solid',
                 'solid', 'empty', 'solid',
                 ]
-        door_shape = Shape(3, 1, 2, door_shape_arr)
+        open_door_shape = Shape(3, 1, 2, open_door_shape_arr)
+
+        closed_door_shape_arr = [
+                'solid', 'solid', 'solid',
+                'solid', 'solid', 'solid',
+                ]
+        closed_door_shape = Shape(3, 1, 2, closed_door_shape_arr)
 
         w = 3 * TILE_SIZE
         h = 3 * TILE_SIZE
 
         x = len(parts) * TILE_SIZE
         y = 0
-        door_img = image.crop((x, y, x + w, y + h))
+        open_door_img = image.crop((x, y, x + w, y + h))
+        closed_door_img = stack(open_door_img, door_image)
         door_depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
-        b.create(basename + '/door', door_img, door_depth, door_shape, 1)
+        b.create(basename + '/door/closed', closed_door_img, door_depth, closed_door_shape, 1)
+        b.create(basename + '/door/open', open_door_img, door_depth, open_door_shape, 1)
 
     return b
 
@@ -54,7 +62,7 @@ def init(asset_path):
 
     wall = do_wall_parts('wood_wall',
             structures('wood_wall.png'), structures('wood_wall-planemap.png'),
-            mk_door=True)
+            door_image=structures('door.png'))
 
     i = item_builder()
     i.merge(mk_structure_item(wall['wood_wall/edge/horiz'],
@@ -67,7 +75,7 @@ def init(asset_path):
         'wood_wall/cross', 'Wooden Cross', (0, 0)))
     i.recipe('anvil', {'wood': 5})
 
-    mk_structure_item(wall['wood_wall/door'], 'wood_door', 'Wooden Door') \
+    mk_structure_item(wall['wood_wall/door/closed'], 'wood_door', 'Wooden Door') \
             .recipe('anvil', {'wood': 15})
 
 
@@ -76,7 +84,7 @@ def init(asset_path):
     planemap = structures('stone-wall-planemap.png')
     wall = do_wall_parts('stone_wall',
             structures('stone-wall.png'), structures('stone-wall-planemap.png'),
-            mk_door=True)
+            door_image=structures('door.png'))
     mk_solid_structure('stone_wall/window/v0', image, (1, 1, 2), base=(15, 0),
             plane_image=planemap)
     mk_solid_structure('stone_wall/window/v1', image, (1, 1, 2), base=(16, 0),
@@ -93,5 +101,5 @@ def init(asset_path):
         'stone_wall/cross', 'Stone Cross', (0, 0)))
     i.recipe('anvil', {'stone': 5})
 
-    mk_structure_item(wall['stone_wall/door'], 'stone_door', 'Stone Door') \
+    mk_structure_item(wall['stone_wall/door/closed'], 'stone_door', 'Stone Door') \
             .recipe('anvil', {'stone': 15})

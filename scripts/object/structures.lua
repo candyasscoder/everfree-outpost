@@ -1,6 +1,7 @@
 local autorotate = require('lib.autorotate')
 local mallet = require('lib.mallet')
 local structure_items = require('lib.structure_items')
+local door = require('lib.door')
 
 local add_structure_item = structure_items.add_structure_item
 local add_attachment_item = structure_items.add_attachment_item
@@ -25,7 +26,10 @@ add_structure_item('house_wall/side', 'house_wall/edge/horiz/in')
 add_structure_item('house_wall/corner', 'house_wall/corner/nw/in')
 add_structure_item('house_wall/tee', 'house_wall/tee/n/in')
 add_structure_item('house_wall/cross', 'house_wall/cross/in_in')
-add_structure_item('house_door', 'house_wall/door/in')
+-- Add `out` followed by `in` so action.use_item.house_door creates the `in`
+-- variant.
+door.add_door('house_door', 'house_wall/door/out', 'axe')
+door.add_door('house_door', 'house_wall/door/in', 'axe')
 
 mallet_cycle('house_wall/edge/', { 'horiz/in', 'horiz/out', 'vert' })
 mallet_cycle('house_wall/corner/', {
@@ -42,7 +46,7 @@ mallet_cycle('house_wall/cross/', {
     'in_in', 'in_out', 'out_out', 'out_in',
 })
 
-mallet_cycle('house_wall/door/', { 'in', 'out' })
+mallet_cycle('house_wall/door/', { 'in/closed', 'out/closed' })
 
 
 add_structure_item('wood_wall/side', 'wood_wall/edge/horiz')

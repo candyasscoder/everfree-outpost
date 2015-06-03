@@ -2,13 +2,13 @@ from outpost_data.builder import *
 import outpost_data.images as I
 from outpost_data import depthmap
 from outpost_data.structure import Shape
-from outpost_data.util import loader, extract
+from outpost_data.util import loader, extract, stack
 
 from lib.items import *
 from lib.structures import *
 
 
-def do_house_parts(basename, image, plane_image):
+def do_house_parts(basename, image, plane_image, door_image):
     house_parts = (
             (
                 'corner/nw/in',
@@ -50,26 +50,36 @@ def do_house_parts(basename, image, plane_image):
             b.merge(mk_solid_structure(
                 name, image, (1, 1, 2), base=(j, i * 3), plane_image=plane_image))
 
-    door_shape_arr = [
+    open_door_shape_arr = [
             'solid', 'floor', 'solid',
             'solid', 'empty', 'solid',
             ]
-    door_shape = Shape(3, 1, 2, door_shape_arr)
+    open_door_shape = Shape(3, 1, 2, open_door_shape_arr)
+
+    closed_door_shape_arr = [
+            'solid', 'solid', 'solid',
+            'solid', 'solid', 'solid',
+            ]
+    closed_door_shape = Shape(3, 1, 2, closed_door_shape_arr)
 
     w = 3 * TILE_SIZE
     h = 3 * TILE_SIZE
 
     x = 10 * TILE_SIZE
     y = 0
-    door_img = image.crop((x, y, x + w, y + h))
+    open_door_img = image.crop((x, y, x + w, y + h))
+    closed_door_img = stack(open_door_img, door_image)
     door_depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
-    b.create(basename + '/door/in', door_img, door_depth, door_shape, 1)
+    b.create(basename + '/door/in/closed', closed_door_img, door_depth, closed_door_shape, 1)
+    b.create(basename + '/door/in/open', open_door_img, door_depth, open_door_shape, 1)
 
     x = 13 * TILE_SIZE
     y = 0
-    door_img = image.crop((x, y, x + w, y + h))
+    open_door_img = image.crop((x, y, x + w, y + h))
+    closed_door_img = stack(open_door_img, door_image)
     door_depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
-    b.create(basename + '/door/out', door_img, door_depth, door_shape, 1)
+    b.create(basename + '/door/out/closed', closed_door_img, door_depth, closed_door_shape, 1)
+    b.create(basename + '/door/out/open', open_door_img, door_depth, open_door_shape, 1)
 
     return b
 
@@ -77,7 +87,8 @@ def init(asset_path):
     structures = loader(asset_path, 'structures')
 
     house = do_house_parts('house_wall',
-            structures('house.png'), structures('house-planemap.png'))
+            structures('house.png'), structures('house-planemap.png'),
+            structures('door.png'))
 
     i = item_builder()
     i.merge(mk_structure_item(house['house_wall/edge/horiz/in'],
@@ -90,7 +101,7 @@ def init(asset_path):
         'house_wall/cross', 'House Cross', (0, 0)))
     i.recipe('anvil', {'wood': 5})
 
-    mk_structure_item(house['house_wall/door/in'], 'house_door', 'House Door') \
+    mk_structure_item(house['house_wall/door/in/closed'], 'house_door', 'House Door') \
             .recipe('anvil', {'wood': 15})
 
     floor = mk_terrain_structures('wood_floor', structures('wood-floor.png'))

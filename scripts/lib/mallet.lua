@@ -22,8 +22,12 @@ end
 
 local function mallet_cycle(base, xs)
     for i = 1, #xs - 1 do
-        replacements[base .. xs[i]] = base .. xs[i + 1]
-        action.use[base .. xs[i + 1]] = action.use[base .. xs[i]]
+        local t_cur = base .. xs[i]
+        local t_next = base .. xs[i + 1]
+        replacements[t_cur] = t_next
+        if action.use[t_next] == nil then
+            action.use[t_next] = action.use[t_cur]
+        end
     end
     replacements[base .. xs[#xs]] = base .. xs[1]
 end

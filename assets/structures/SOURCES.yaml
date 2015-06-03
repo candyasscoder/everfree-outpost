@@ -182,3 +182,9 @@ sign.png:
     author: Nemisys
     license: CC-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
     url: http://opengameart.org/content/lpc-sign-post
+
+door.png:
+    title: LPC Door
+    author: Lanea Zimmerman (AKA Sharm)
+    license: CC-BY-SA 3.0 / GPL 3.0
+    derived-from: ../tiles/lpc-base-tiles/house.png
