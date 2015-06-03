@@ -1,10 +1,11 @@
+use std::iter;
 use physics::{CHUNK_SIZE, TILE_SIZE};
 
 use types::*;
 use util::SmallSet;
+use util::StrResult;
 use physics::Shape;
 
-use cache::TerrainCache;
 use data::StructureTemplate;
 use engine::glue::*;
 use engine::split::Open;
@@ -118,7 +119,31 @@ impl<'a, 'd> world::Hooks for $WorldHooks<'a, 'd> {
                                  template: &StructureTemplate,
                                  pid: PlaneId,
                                  pos: V3) -> bool {
-        check_structure_placement(self.world(), self.cache(), template, pid, pos)
+        let cache = self.cache();
+        let chunk_bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
+        check_structure_placement(self.world(), template, pid, pos, |pos| {
+            let cpos = pos.reduce().div_floor(scalar(CHUNK_SIZE));
+            let entry = unwrap_or!(cache.get(pid, cpos), return None);
+            let cur_chunk_bounds = chunk_bounds + cpos.extend(0) * scalar(CHUNK_SIZE);
+            let mask = entry.layer_mask[cur_chunk_bounds.index(pos)];
+            Some(mask)
+        })
+    }
+
+    fn check_structure_replacement(&self,
+                                   sid: StructureId,
+                                   new_template: &StructureTemplate,
+                                   pid: PlaneId,
+                                   pos: V3) -> bool {
+        let bounds = Region::new(pos, pos + new_template.size);
+        let mask = unwrap_or!(compute_layer_mask_excluding(self.world(), pid, bounds, sid).ok(),
+                              return false);
+        check_structure_placement(self.world(), new_template, pid, pos, |pos| {
+            if !bounds.contains(pos) {
+                return None;
+            }
+            Some(mask[bounds.index(pos)])
+        })
     }
 
 
@@ -213,11 +238,12 @@ const PLACEMENT_MASK: [u8; 3] = [
     0x4,    // Layer 2 can be placed over Layer 0 and 1.
 ];
 
-fn check_structure_placement(world: &World,
-                             cache: &TerrainCache,
-                             template: &StructureTemplate,
-                             pid: PlaneId,
-                             base_pos: V3) -> bool {
+fn check_structure_placement<F>(world: &World,
+                                template: &StructureTemplate,
+                                pid: PlaneId,
+                                base_pos: V3,
+                                mut get_mask: F) -> bool
+        where F: FnMut(V3) -> Option<u8> {
     let data = world.data();
     let bounds = Region::new(scalar(0), template.size) + base_pos;
 
@@ -228,8 +254,7 @@ fn check_structure_placement(world: &World,
         let tc = unwrap_or!(p.get_terrain_chunk(cpos), return false);
         let shape = data.block_data.shape(tc.block(tc.bounds().index(pos)));
 
-        let entry = unwrap_or!(cache.get(pid, cpos), return false);
-        let mask = entry.layer_mask[tc.bounds().index(pos)];
+        let mask = unwrap_or!(get_mask(pos), return false);
 
         let shape_ok = match template.layer {
             0 => check_shape_0(shape, pos.z == base_pos.z, mask),
@@ -277,4 +302,27 @@ fn check_shape_2(shape: Shape, is_bottom: bool, mask: u8) -> bool {
     } else {
         check_shape_1(shape, is_bottom, mask)
     }
+}
+
+
+fn compute_layer_mask_excluding(w: &World,
+                                pid: PlaneId,
+                                bounds: Region,
+                                exclude_sid: StructureId) -> StrResult<Vec<u8>> {
+    let mut result = iter::repeat(0_u8).take(bounds.volume() as usize).collect::<Vec<_>>();
+
+    for cpos in bounds.reduce().div_round_signed(CHUNK_SIZE).points() {
+        for s in w.chunk_structures(pid, cpos) {
+            if s.id() == exclude_sid {
+                continue;
+            }
+
+            for p in s.bounds().intersect(bounds).points() {
+                let template = s.template();
+                result[bounds.index(p)] |= 1 << (template.layer as usize);
+            }
+        }
+    }
+
+    Ok(result)
 }

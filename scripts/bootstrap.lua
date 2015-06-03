@@ -97,11 +97,7 @@ function tools.handler.axe.tree(c, s, inv)
         return
     end
 
-    local plane = s:plane()
-    local pos = s:pos()
-    local w = s:world()
-    s:destroy()
-    s:world():create_structure(plane, pos, 'stump')
+    s:replace('stump')
     inv:update('wood', 15)
 end
 
@@ -127,9 +123,8 @@ function tools.handler.pick.rock(c, s, inv)
 
     s:destroy()
     inv:update('stone', 20)
-    print(math.random())
     if math.random() < 0.2 then
-        print(inv:update('crystal', 1))
+        inv:update('crystal', 1)
     end
 end
 

@@ -41,5 +41,11 @@ pub trait Hooks {
                                  plane_id: PlaneId,
                                  pos: V3) -> bool;
 
+    fn check_structure_replacement(&self,
+                                   sid: StructureId,
+                                   new_template: &StructureTemplate,
+                                   plane_id: PlaneId,
+                                   pos: V3) -> bool;
+
     fn on_chunk_invalidate(&mut self, pos: V2) {}
 }

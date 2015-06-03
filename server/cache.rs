@@ -87,10 +87,6 @@ fn compute_shape(w: &World,
     }
 
     for s in w.chunk_structures(pid, cpos) {
-        if !s.bounds().overlaps(bounds) {
-            continue;
-        }
-
         for p in s.bounds().intersect(bounds).points() {
             let template = s.template();
             let s_idx = s.bounds().index(p);

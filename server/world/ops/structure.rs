@@ -169,25 +169,37 @@ pub fn replace<'d, F>(f: &mut F,
                       sid: StructureId,
                       new_tid: TemplateId) -> OpResult<()>
         where F: Fragment<'d> {
-    let (pid, bounds) = {
-        let w = f.world_mut();
-        let s = unwrap!(w.structures.get_mut(sid));
-
+    let (pid, pos, old_t, new_t) = {
+        let w = f.world();
+        let s = unwrap!(w.structures.get(sid));
         let old_t = unwrap!(w.data.structure_templates.get_template(s.template));
         let new_t = unwrap!(w.data.structure_templates.get_template(new_tid));
-
-        if old_t.size != new_t.size ||
-           old_t.shape != new_t.shape ||
-           old_t.layer != new_t.layer {
-            fail!("replacement structure template differs in shape");
-        }
-
-        s.template = new_tid;
-
-        (s.plane, Region::new(s.pos, s.pos + old_t.size))
+        (s.plane, s.pos, old_t, new_t)
     };
 
-    f.with_hooks(|h| h.on_structure_replace(sid, pid, bounds));
+    let old_bounds = Region::new(pos, pos + old_t.size);
+    let new_bounds = Region::new(pos, pos + new_t.size);
+
+    if old_t.size != new_t.size ||
+       old_t.shape != new_t.shape ||
+       old_t.layer != new_t.layer {
+        // If the templates aren't identical, we need to do some extra checks.
+        if new_bounds.min.z < 0 || new_bounds.max.z > CHUNK_SIZE {
+            fail!("structure replacement blocked by map bounds");
+        }
+
+        if !f.with_hooks(|h| h.check_structure_replacement(sid, new_t, pid, pos)) {
+            fail!("structure replacement blocked by terrain or other structure");
+        }
+    }
+
+    {
+        let w = f.world_mut();
+        let s = &mut w.structures[sid];
+        s.template = new_tid;
+    }
+
+    f.with_hooks(|h| h.on_structure_replace(sid, pid, old_bounds));
     Ok(())
 }
 
