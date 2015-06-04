@@ -52,16 +52,21 @@ IsoDiskSampler = outpost_ffi.types.IsoDiskSampler.table
 
 ExtraArg = outpost_ffi.types.ExtraArg.table
 
+Time = outpost_ffi.types.Time.table
+Timer = outpost_ffi.types.Timer.table
+
 
 require('outpost.userdata')
 require('outpost.extra')
 require('outpost.eval')
+require('outpost.timer')
 local action = require('outpost.action')
 local command = require('outpost.command')
 local util = require('outpost.util')
 
 require('ext.inventory')
 require('ext.string')
+require('ext.timer')
 
 require('terrain')
 

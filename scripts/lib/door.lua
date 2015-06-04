@@ -1,6 +1,7 @@
 local action = require('outpost.action')
 local tools = require('lib.tools')
 local structure_items = require('lib.structure_items')
+local timer = require('ext.timer')
 
 function add_door(item, base, tool)
     local t_open = base .. '/open'
@@ -12,7 +13,7 @@ function add_door(item, base, tool)
 
     action.use[t_closed] = function(c, s)
         s:replace(t_open)
-        -- TODO: timer to reset to t_closed
+        s:set_timer(3000)
     end
 
     local function take(c, s, inv)
@@ -20,6 +21,10 @@ function add_door(item, base, tool)
     end
     tools.handler[tool][t_open] = take
     tools.handler[tool][t_closed] = take
+
+    timer.handler[t_open] = function(s)
+        s:replace(t_closed)
+    end
 end
 
 return {
