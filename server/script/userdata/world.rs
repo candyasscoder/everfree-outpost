@@ -487,9 +487,17 @@ impl Userdata for Plane {
             fn set_interior(!partial wf: WorldFragment,
                             plane: Plane,
                             pos: V3,
-                            base: String,
-                            inside: i32) -> StrResult<()> {
-                logic::misc::set_block_interior(&mut wf, plane.id, pos, &base, inside != 0)
+                            base: &str) -> StrResult<()> {
+                logic::misc::set_block_interior(&mut wf, plane.id, pos, base)
+            }
+
+            fn clear_interior(!partial wf: WorldFragment,
+                              plane: Plane,
+                              pos: V3,
+                              base: &str,
+                              new_center: &str) -> StrResult<()> {
+                let new_center_id = unwrap!(wf.data().block_data.find_id(new_center));
+                logic::misc::clear_block_interior(&mut wf, plane.id, pos, base, new_center_id)
             }
 
             fn get_block(!partial w: &world::World,

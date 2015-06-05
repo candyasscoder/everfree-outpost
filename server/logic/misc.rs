@@ -9,8 +9,51 @@ use world::object::*;
 pub fn set_block_interior<'d, F>(wf: &mut F,
                                  pid: PlaneId,
                                  center: V3,
-                                 base: &str,
-                                 inside: bool) -> world::OpResult<()>
+                                 base: &str) -> world::OpResult<()>
+        where F: world::Fragment<'d> {
+    try!(update_block_interior(wf, pid, center, base, true));
+
+    let update_region = Region::new(center - V3::new(1, 1, 0),
+                                    center + V3::new(2, 2, 1));
+    for cpos in update_region.reduce().div_round_signed(CHUNK_SIZE).points() {
+        let tcid = wf.world().plane(pid).terrain_chunk(cpos).id();
+        wf.with_hooks(|h| h.on_terrain_chunk_update(tcid));
+    }
+
+    Ok(())
+}
+
+pub fn clear_block_interior<'d, F>(wf: &mut F,
+                                   pid: PlaneId,
+                                   center: V3,
+                                   base: &str,
+                                   new_center: BlockId) -> world::OpResult<()>
+        where F: world::Fragment<'d> {
+    try!(update_block_interior(wf, pid, center, base, false));
+
+    {
+        let mut p = wf.plane_mut(pid);
+        let cpos = center.reduce().div_floor(scalar(CHUNK_SIZE));
+        let mut tc = p.terrain_chunk_mut(cpos);
+        let idx = tc.bounds().index(center);
+        tc.blocks_mut()[idx] = new_center;
+    }
+
+    let update_region = Region::new(center - V3::new(1, 1, 0),
+                                    center + V3::new(2, 2, 1));
+    for cpos in update_region.reduce().div_round_signed(CHUNK_SIZE).points() {
+        let tcid = wf.world().plane(pid).terrain_chunk(cpos).id();
+        wf.with_hooks(|h| h.on_terrain_chunk_update(tcid));
+    }
+
+    Ok(())
+}
+
+fn update_block_interior<'d, F>(wf: &mut F,
+                                pid: PlaneId,
+                                center: V3,
+                                base: &str,
+                                inside: bool) -> world::OpResult<()>
         where F: world::Fragment<'d> {
     let prefix = format!("{}/", base);
 
@@ -106,11 +149,6 @@ pub fn set_block_interior<'d, F>(wf: &mut F,
                 tc.blocks_mut()[tc.bounds().index(pos)] = block_id;
             }
         }
-    }
-
-    for cpos in update_region.reduce().div_round_signed(CHUNK_SIZE).points() {
-        let tcid = wf.world().plane(pid).terrain_chunk(cpos).id();
-        wf.with_hooks(|h| h.on_terrain_chunk_update(tcid));
     }
 
     Ok(())
