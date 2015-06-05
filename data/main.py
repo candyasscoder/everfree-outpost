@@ -12,6 +12,7 @@ import outpost_data.recipe as R
 import abilities
 import base
 import cave
+import crops
 import dungeon
 import fence
 import forest
@@ -80,6 +81,7 @@ def main(asset_dir, output_dir):
     abilities.init(asset_dir)
     base.init(asset_dir)
     cave.init(asset_dir)
+    crops.init(asset_dir)
     dungeon.init(asset_dir)
     fence.init(asset_dir)
     forest.init(asset_dir)
