@@ -390,6 +390,10 @@ pub trait TerrainChunkRef<'d>: ObjectRefBase<'d, TerrainChunk> {
         Region::new(pos, pos + scalar(CHUNK_SIZE))
     }
 
+    fn blocks(&self) -> &BlockChunk {
+        &*self.obj().blocks
+    }
+
     fn block_at(&self, pos: V3) -> BlockId {
         self.obj().block(block_pos_to_idx(self, pos))
     }
@@ -414,6 +418,10 @@ pub trait TerrainChunkRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, TerrainC
     fn stable_id(&mut self) -> Stable<TerrainChunkId> {
         let tcid = self.id();
         self.world_mut().terrain_chunks.pin(tcid)
+    }
+
+    fn blocks_mut(&mut self) -> &mut BlockChunk {
+        &mut *self.obj_mut().blocks
     }
 }
 impl<'a, 'd, F: Fragment<'d>> TerrainChunkRefMut<'d, F> for ObjectRefMut<'a, 'd, TerrainChunk, F> { }

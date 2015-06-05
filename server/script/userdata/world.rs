@@ -483,6 +483,25 @@ impl Userdata for Plane {
                 w.get_plane(p.id)
                  .map(|p| p.name().to_owned())
             }
+
+            fn set_interior(!partial wf: WorldFragment,
+                            plane: Plane,
+                            pos: V3,
+                            base: String,
+                            inside: i32) -> StrResult<()> {
+                logic::misc::set_block_interior(&mut wf, plane.id, pos, &base, inside != 0)
+            }
+
+            fn get_block(!partial w: &world::World,
+                         plane: Plane,
+                         pos: V3) -> Option<String> {
+                let p = unwrap_or!(w.get_plane(plane.id), return None);
+                let cpos = pos.reduce().div_floor(scalar(CHUNK_SIZE));
+                let tc = unwrap_or!(p.get_terrain_chunk(cpos), return None);
+                let idx = tc.bounds().index(pos);
+                let block_id = tc.blocks()[idx];
+                Some(w.data().block_data.name(block_id).to_owned())
+            }
         }
     }
 }

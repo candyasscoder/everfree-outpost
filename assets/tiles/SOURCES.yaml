@@ -420,3 +420,14 @@ candle32.png:
     title: Candle Icon
     author: Stuart Pernsteiner
     license: CC-BY-SA 4.0
+
+farmland-interior-parts.png:
+    title: LPC Farmland - Interior Tiles
+    author: Daniel Eddeland (daneeklu), Stuart Pernsteiner
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution: >
+        The plowed soil tiles from daneeklu's farming tileset, with major
+        edits to produce a set of 16x16 subtiles for building interior region
+        tiles.
+    derived-from: daneeklu_farming_tilesets/plowed_soil.png
+

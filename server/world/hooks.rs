@@ -31,6 +31,7 @@ pub trait Hooks {
 
     fn on_terrain_chunk_create(&mut self, tcid: TerrainChunkId) {}
     fn on_terrain_chunk_destroy(&mut self, tcid: TerrainChunkId, plane_id: PlaneId, cpos: V2) {}
+    fn on_terrain_chunk_update(&mut self, tcid: TerrainChunkId) {}
 
     fn on_structure_create(&mut self, sid: StructureId) {}
     fn on_structure_destroy(&mut self, sid: StructureId, plane_id: PlaneId, old_bounds: Region) {}
@@ -46,6 +47,4 @@ pub trait Hooks {
                                    new_template: &StructureTemplate,
                                    plane_id: PlaneId,
                                    pos: V3) -> bool;
-
-    fn on_chunk_invalidate(&mut self, pos: V2) {}
 }

@@ -61,6 +61,18 @@ impl<'a, 'd> world::Hooks for $WorldHooks<'a, 'd> {
         self.cache_mut().remove_chunk(pid, cpos);
     }
 
+    fn on_terrain_chunk_update(&mut self, tcid: TerrainChunkId) {
+        // TODO: need a system to avoid resending the entire chunk every time.
+        let (pid, bounds) = {
+            let tc = self.world().terrain_chunk(tcid);
+            (tc.plane_id(), tc.bounds())
+        };
+        vision::Fragment::update_terrain_chunk(&mut self.$as_vision_fragment(), tcid);
+
+        let Open { world, cache, .. } = (**self).open();
+        cache.update_region(world, pid, bounds);
+    }
+
 
     fn on_entity_create(&mut self, eid: EntityId) {
         let (plane, area) = {

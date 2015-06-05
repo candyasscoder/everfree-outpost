@@ -60,3 +60,6 @@ def init(asset_path):
 
     mk_item('wood', 'Wood', extract(daneeklu('farming_fishing.png'), (5, 1)))
     mk_item('stone', 'Stone', extract(lpc('rock.png'), (0, 0)))
+
+
+    mk_terrain_interior(tiles('farmland-interior-parts.png'), 'farmland', shape='floor')

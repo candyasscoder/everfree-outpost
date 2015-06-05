@@ -49,24 +49,26 @@ def err(s):
     sys.stderr.write('error: ' + s + '\n')
 
 
-def chop_image_named(img, table):
+def chop_image_named(img, table, size=TILE_SIZE):
     result = {}
     for i, row in enumerate(table):
         for j, part_name in enumerate(row):
-            x = j * TILE_SIZE
-            y = i * TILE_SIZE
-            tile = img.crop((x, y, x + TILE_SIZE, y + TILE_SIZE))
+            if part_name is None:
+                continue
+            x = j * size
+            y = i * size
+            tile = img.crop((x, y, x + size, y + size))
             result[part_name] = tile
     return result
 
 def chop_terrain(img):
-    return chop_image_named(img, TERRAIN_PARTS)
+    return chop_image_named(img, TERRAIN_PARTS, TILE_SIZE)
 
-def chop_image(img):
+def chop_image(img, size=TILE_SIZE):
     w, h = img.size
-    tw = (w + TILE_SIZE - 1) // TILE_SIZE
-    th = (h + TILE_SIZE - 1) // TILE_SIZE
-    return chop_image_named(img, [[(i, j) for i in range(tw)] for j in range(th)])
+    tw = (w + size - 1) // size
+    th = (h + size - 1) // size
+    return chop_image_named(img, [[(i, j) for i in range(tw)] for j in range(th)], size)
 
 def stack(base, *args):
     img = base.copy()

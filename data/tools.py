@@ -17,3 +17,5 @@ def init(asset_path):
             .recipe('anvil', {'wood': 10, 'stone': 10})
     mk_item('mallet', 'Mallet', gervais('AngbandTk_mallet.png')) \
             .recipe('anvil', {'wood': 20})
+    mk_item('shovel', 'Shovel', gervais('AngbandTk_shovel.png')) \
+            .recipe('anvil', {'wood': 10, 'stone': 10})
