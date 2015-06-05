@@ -356,6 +356,8 @@ Renderer.prototype.loadChunk = function(i, j, chunk) {
     this._asm.loadChunk(j, i);
 
     this.terrain_cache.invalidate(i * LOCAL_SIZE + j);
+    this.sliced_cache.invalidate(i * LOCAL_SIZE + j);
+
     var above = (i - 1) & (LOCAL_SIZE - 1);
     this.terrain_cache.invalidate(above * LOCAL_SIZE + j);
     this.sliced_cache.invalidate(above * LOCAL_SIZE + j);
