@@ -44,7 +44,7 @@ var PonyEditor = require('ui/ponyedit').PonyEditor;
 var widget = require('ui/widget');
 var ErrorList = require('ui/errorlist').ErrorList;
 var InventoryUpdateList = require('ui/invupdate').InventoryUpdateList;
-var ActiveItems = require('ui/hotbar').ActiveItems;
+var Hotbar = require('ui/hotbar').Hotbar;
 var DIALOG_TYPES = require('ui/dialogs').DIALOG_TYPES;
 
 var BlockDef = require('data/chunk').BlockDef;
@@ -180,7 +180,7 @@ var chat;
 var error_list;
 var inv_update_list;
 var music_test;
-var active;
+var hotbar;
 
 var main_menu;
 var debug_menu;
@@ -246,7 +246,7 @@ function init() {
     chat = new ChatWindow();
     inv_update_list = new InventoryUpdateList();
     music_test = new MusicTest();
-    active = new ActiveItems();
+    hotbar = new Hotbar();
 
     canvas.canvas.addEventListener('webglcontextlost', function(evt) {
         throw 'context lost!';
@@ -290,6 +290,8 @@ function init() {
 
             cursor = new Cursor(canvas.ctx, assets, TILE_SIZE / 2 + 1);
             day_night = new DayNight(assets);
+
+            hotbar.init();
 
             var info = assets['server_info'];
             openConn(info, function() {
@@ -450,7 +452,7 @@ function buildUI() {
 
     document.body.appendChild(canvas.canvas);
     document.body.appendChild($('key-list'));
-    document.body.appendChild(active.dom);
+    document.body.appendChild(hotbar.dom);
     document.body.appendChild(chat.container);
     document.body.appendChild(inv_update_list.container);
     document.body.appendChild(banner.container);
@@ -660,6 +662,7 @@ function setupKeyHandler() {
             return true;
         } else if (down) {
             var time = timing.encodeSend(timing.nextArrival());
+
             switch (binding) {
                 // UI actions
                 case 'show_controls':
@@ -694,8 +697,8 @@ function setupKeyHandler() {
                     var ui = new InventoryUI(inv);
                     dialog.show(ui);
 
-                    ui.enableSelect(active.getItem(), function(new_id) {
-                        active.setItem(new_id);
+                    ui.enableSelect(hotbar.getItem(), function(idx, new_id) {
+                        hotbar.setSlot(idx, new_id, true);
                     });
 
                     ui.oncancel = function() {
@@ -712,8 +715,8 @@ function setupKeyHandler() {
                     var ui = new InventoryUI(inv, 'Abilities');
                     dialog.show(ui);
 
-                    ui.enableSelect(active.getAbility(), function(new_id) {
-                        active.setAbility(new_id);
+                    ui.enableSelect(hotbar.getAbility(), function(idx, new_id) {
+                        hotbar.setSlot(idx, new_id,  false);
                     });
 
                     ui.oncancel = function() {
@@ -727,14 +730,21 @@ function setupKeyHandler() {
                     conn.sendInteract(time);
                     break;
                 case 'use_item':
-                    conn.sendUseItem(time, active.getItem());
+                    console.log('use', hotbar.getItem());
+                    conn.sendUseItem(time, hotbar.getItem());
                     break;
                 case 'use_ability':
-                    conn.sendUseAbility(time, active.getAbility());
+                    conn.sendUseAbility(time, hotbar.getAbility());
                     break;
 
                 default:
-                    return shouldStop;
+                    if (binding != null && binding.startsWith('hotbar_')) {
+                        var idx = +binding.substring(7) - 1;
+                        hotbar.selectSlot(idx);
+                        break;
+                    } else {
+                        return shouldStop;
+                    }
             }
 
             return true;
@@ -953,7 +963,7 @@ function handleMainInventory(iid) {
         item_inv.unsubscribe();
     }
     item_inv = inv_tracker.subscribe(iid);
-    active.attachItems(item_inv.clone());
+    hotbar.attachItems(item_inv.clone());
     if (Config.show_inventory_updates.get()) {
         inv_update_list.attach(item_inv.clone());
     }
@@ -964,7 +974,7 @@ function handleAbilityInventory(iid) {
         ability_inv.unsubscribe();
     }
     ability_inv = inv_tracker.subscribe(iid);
-    active.attachAbilities(ability_inv.clone());
+    hotbar.attachAbilities(ability_inv.clone());
 }
 
 function handlePlaneFlags(flags) {

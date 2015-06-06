@@ -15,6 +15,12 @@ var DEFAULT_CONFIG = {
     'input_delay': 10,
     'debounce_time': 0,
 
+    'hotbar': {
+        // 9 slots in each array
+        'names': [-1, -1, -1, -1, -1, -1, -1, -1, -1],
+        'is_item': [false, false, false, false, false, false, false, false, false],
+    },
+
     'login_name': null,
     'login_secret': null,
     'world_version': null,
@@ -43,6 +49,16 @@ var DEFAULT_CONFIG = {
         32: 'cancel',       // Space
         13: 'chat',         // Enter
         191: 'chat_command', // '/'
+
+        49: 'hotbar_1',
+        50: 'hotbar_2',
+        51: 'hotbar_3',
+        52: 'hotbar_4',
+        53: 'hotbar_5',
+        54: 'hotbar_6',
+        55: 'hotbar_7',
+        56: 'hotbar_8',
+        57: 'hotbar_9',
     },
 
     'chat_keybindings': {
@@ -59,6 +75,16 @@ var DEFAULT_CONFIG = {
         32: 'cancel',       // Space
         13: 'select',       // Enter
         65: 'select',       // A
+
+        49: 'set_hotbar_1',
+        50: 'set_hotbar_2',
+        51: 'set_hotbar_3',
+        52: 'set_hotbar_4',
+        53: 'set_hotbar_5',
+        54: 'set_hotbar_6',
+        55: 'set_hotbar_7',
+        56: 'set_hotbar_8',
+        57: 'set_hotbar_9',
     },
 
     'show_key_display': false,
@@ -89,6 +115,8 @@ exports.Config = {
     motion_prediction: new ConfigItem('motion_prediction'),
     input_delay: new ConfigItem('input_delay'),
     debounce_time: new ConfigItem('debounce_time'),
+
+    hotbar: new ConfigItem('hotbar'),
 
     login_name: new ConfigItem('login_name'),
     login_secret: new ConfigItem('login_secret'),

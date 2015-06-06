@@ -12,6 +12,7 @@ class ItemDef(object):
 def build_client_json(items):
     def convert(i):
         return {
+                'name': i.name,
                 'ui_name': i.ui_name,
                 }
     return list(convert(i) for i in items)

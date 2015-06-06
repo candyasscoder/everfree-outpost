@@ -17,28 +17,32 @@ function InventoryUI(inv, title) {
     }
 
     widget.Form.call(this, this.list, dom);
+    this.onselect = null;
 }
 InventoryUI.prototype = Object.create(widget.Form.prototype);
 InventoryUI.prototype.constructor = InventoryUI;
 exports.InventoryUI = InventoryUI;
 
-InventoryUI.prototype.enableSelect = function(last_selection, onchange) {
-    var this_ = this;
-    this.list.onchange = function(idx) {
-        var sel = this_.list.selection();
-        if (sel != null) {
-            onchange(sel.id);
-        } else {
-            onchange(-1);
-        }
+InventoryUI.prototype.onkey = function(evt) {
+    if (Form.prototype.onkey.call(this, evt)) {
+        return true;
     }
 
-    this.list.select(last_selection);
+    var binding = evt.uiKeyName();
+    if (binding != null && binding.startsWith('set_hotbar_')) {
+        var sel = this.list.selection();
+        if (sel != null && this.onselect != null) {
+            var idx = +binding.substring(11) - 1;
+            this.onselect(idx, sel.id);
+        }
+        return true;
+    }
 };
 
-InventoryUI.prototype.disableSelect = function() {
-    this.list.onchange = null;
-}
+InventoryUI.prototype.enableSelect = function(last_selection, onselect) {
+    this.onselect = onselect;
+    this.list.select(last_selection);
+};
 
 
 /** @constructor */

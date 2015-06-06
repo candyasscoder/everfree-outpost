@@ -246,29 +246,6 @@
                 overflow-x: hidden;
                 overflow-y: scroll;
             }
-
-
-            /* Active item/ability display */
-            .active-items {
-                position: absolute;
-                top: 0.25rem;
-                left: 0.25rem;
-            }
-
-            .active-items > .item-box {
-                display: inline-flex;
-            }
-
-            .item-box {
-                margin: 0.25rem;
-                padding: 0.25rem;
-                border-radius: 0.5rem;
-                background-color: rgba(255, 255, 255, 0.5);
-                border: solid 0.125rem black;
-
-                display: flex;
-                align-items: center;
-            }
         </style>
 
         <div style="display: none">
@@ -403,6 +380,65 @@
             </div>
 
             <style>
+                .item-box > .item-qty {
+                    font-size: 0.6rem;
+                    min-width: 2.0em;
+                    padding-left: 0.125rem;
+                    text-align: right;
+                    flex: 0 0 auto;
+                }
+
+                .item-box > .item-icon {
+                    flex: 0 0 auto;
+                }
+
+                .item-box {
+                    display: flex;
+                    align-items: center;
+                    justify-content: flex-start;
+                }
+
+
+                .hotbar {
+                    position: absolute;
+                    top: 0.25rem;
+                    left: 0.25rem;
+
+                    margin: 0.25rem;
+                    padding: 0.125rem 0.125rem;
+                    border-radius: 0.5rem;
+                    background-color: rgba(255, 255, 255, 0.5);
+                    border: solid 0.125rem black;
+
+                    display: inline-flex;
+                    flex-direction: column;
+                }
+
+                .hotbar > .item-box {
+                    flex: 0 0 auto;
+                }
+                .hotbar > .item-box > .item-icon {
+                    background-color: darkgray;
+                    margin: 0.125rem;
+                    border-radius: 0.125rem;
+                }
+                .hotbar > .item-box.active-item > .item-icon {
+                    margin: 0;
+                    border: 0.125rem solid limegreen;
+                }
+                .hotbar > .item-box.active-ability > .item-icon {
+                    margin: 0;
+                    border: 0.125rem solid deepskyblue;
+                }
+            </style>
+            <div id="item-box" class="item-box">
+                <div class="item-icon" data-part="icon"></div>
+                <div class="item-qty" data-part="qty"></div>
+            </div>
+            <div id="hotbar" class="hotbar">
+            </div>
+
+            <style>
                 .item {
                     display: flex;
                     align-items: center;
@@ -418,7 +454,7 @@
                     flex: 1;
                 }
 
-                .item-qty {
+                .item > .item-qty {
                     flex: 0;
                     min-width: 1.8rem;
                     font-size: 0.75rem;
