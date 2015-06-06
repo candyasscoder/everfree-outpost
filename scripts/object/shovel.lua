@@ -1,5 +1,6 @@
 local action = require('outpost.action')
 local util = require('outpost.util')
+local ward = require('lib.ward')
 
 function action.use_item.shovel(c, s)
     local pawn = c:pawn()
