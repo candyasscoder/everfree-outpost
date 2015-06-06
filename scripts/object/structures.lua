@@ -22,14 +22,13 @@ mallet_cycle('fence/', { 'tee/e', 'tee/s', 'tee/w', 'tee/n', 'cross' })
 mallet_cycle('fence/end/fancy/', { 'e', 'w' })
 
 
-add_structure_item('house_wall/side', 'house_wall/edge/horiz/in')
-add_structure_item('house_wall/corner', 'house_wall/corner/nw/in')
-add_structure_item('house_wall/tee', 'house_wall/tee/n/in')
-add_structure_item('house_wall/cross', 'house_wall/cross/in_in')
--- Add `out` followed by `in` so action.use_item.house_door creates the `in`
--- variant.
-door.add_door('house_door', 'house_wall/door/out', 'axe')
-door.add_door('house_door', 'house_wall/door/in', 'axe')
+autorotate.add_house_wall_item('house_wall/side', 'house_wall', 'edge')
+autorotate.add_house_wall_item('house_wall/corner', 'house_wall', 'corner')
+autorotate.add_house_wall_item('house_wall/tee', 'house_wall', 'tee')
+autorotate.add_house_wall_item('house_wall/cross', 'house_wall', 'cross')
+autorotate.add_house_wall_item('house_door', 'house_wall', 'door')
+door.make_door('house_door', 'house_wall/door/out', 'axe')
+door.make_door('house_door', 'house_wall/door/in', 'axe')
 
 mallet_cycle('house_wall/edge/', { 'horiz/in', 'horiz/out', 'vert' })
 mallet_cycle('house_wall/corner/', {
