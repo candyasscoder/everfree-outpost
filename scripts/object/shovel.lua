@@ -7,6 +7,10 @@ function action.use_item.shovel(c, s)
     local pos = util.hit_tile(pawn)
     local b = plane:get_block(pos)
 
+    if not ward.check(c, pos) then
+        return
+    end
+
     if c:world():find_structure_at_point(plane, pos) ~= nil then
         -- Can't dig underneath structures.  In particular, this prevents the
         -- player from removing the farmland beneath a plant.
