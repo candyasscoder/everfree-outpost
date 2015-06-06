@@ -5,6 +5,7 @@ use input::InputBits;
 use types::*;
 use util::stable_id_map::StableIdMap;
 
+pub use self::flags::StructureFlags;
 pub use self::fragment::Fragment;
 pub use self::ops::OpResult;
 pub use self::hooks::Hooks;
@@ -40,6 +41,7 @@ pub mod save;
 pub mod hooks;
 mod types;
 pub mod fragment;
+pub mod flags;
 
 
 // Structs must be declared at top level so that the submodules can access their private fields.
@@ -138,6 +140,7 @@ pub struct Structure {
     template: TemplateId,
 
     stable_id: StableId,
+    flags: StructureFlags,
     attachment: StructureAttachment,
     child_inventories: HashSet<InventoryId>,
 }

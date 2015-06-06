@@ -10,7 +10,7 @@ use types::*;
 use world::World;
 use world::{Client, Entity, Inventory, Plane, TerrainChunk, Structure};
 use world::{EntitiesById, StructuresById, InventoriesById};
-use super::{EntityAttachment, StructureAttachment, InventoryAttachment};
+use super::{EntityAttachment, StructureAttachment, StructureFlags, InventoryAttachment};
 use world::Motion;
 use world::fragment::Fragment;
 use world::hooks::Hooks;
@@ -448,6 +448,10 @@ pub trait StructureRef<'d>: ObjectRefBase<'d, Structure> {
         Region::new(pos, pos + size)
     }
 
+    fn flags(&self) -> StructureFlags {
+        self.obj().flags
+    }
+
     fn child_inventories<'b>(&'b self)
             -> InventoriesById<'b, 'd, hash_set::Iter<'b, InventoryId>> {
         InventoriesById::new(self.world(), self.obj().child_inventories.iter())
@@ -465,6 +469,10 @@ pub trait StructureRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Structure, 
     fn set_template_id(&mut self, template: TemplateId) -> OpResult<()> {
         let sid = self.id();
         ops::structure::replace(self.fragment_mut(), sid, template)
+    }
+
+    fn set_flags(&mut self, flags: StructureFlags) {
+        self.obj_mut().flags = flags;
     }
 
     fn set_attachment(&mut self, attach: StructureAttachment) -> OpResult<StructureAttachment> {

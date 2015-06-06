@@ -227,6 +227,8 @@ impl<W: io::Write, H: WriteHooks> ObjectWriter<W, H> {
         try!(self.w.write(s.pos - base));
         try!(self.write_template_id(s.world().data(), s.template));
 
+        try!(self.w.write(s.flags.bits()));
+
         try!(self.hooks.post_write_structure(&mut self.w, s));
 
         // Children

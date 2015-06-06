@@ -11,7 +11,7 @@ use types::*;
 use data::Data;
 use util::Convert;
 use world;
-use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
+use world::{EntityAttachment, StructureAttachment, StructureFlags, InventoryAttachment};
 use world::object::*;
 use world::ops;
 
@@ -34,6 +34,7 @@ pub trait Fragment<'d> {
 
 pub struct ObjectReader<R: io::Read> {
     r: ReaderWrapper<R>,
+    file_version: u32,
     template_map: HashMap<TemplateId, TemplateId>,
     item_map: HashMap<ItemId, ItemId>,
     inited_objs: HashSet<AnyId>,
@@ -75,6 +76,7 @@ impl<R: io::Read> ObjectReader<R> {
     pub fn new(reader: R) -> ObjectReader<R> {
         ObjectReader {
             r: ReaderWrapper::new(reader),
+            file_version: 0,
             template_map: HashMap::new(),
             item_map: HashMap::new(),
             inited_objs: HashSet::new(),
@@ -83,9 +85,10 @@ impl<R: io::Read> ObjectReader<R> {
 
     fn read_file_header(&mut self) -> Result<()> {
         let version: u32 = try!(self.r.read());
-        if version != CURRENT_VERSION {
+        if version != CURRENT_VERSION && version != 3 {
             fail!("file version does not match current version");
         }
+        self.file_version = version;
         Ok(())
     }
 
@@ -362,6 +365,10 @@ impl<R: io::Read> ObjectReader<R> {
                 s.plane = plane;
                 s.pos = base + try!(self.r.read());
                 s.template = try!(self.read_template_id(w.data));
+
+                if self.file_version > 3 {
+                    s.flags = StructureFlags::from_bits_truncate(try!(self.r.read()));
+                }
             }
             try!(ops::structure::post_init(wf, sid));
             Ok(())

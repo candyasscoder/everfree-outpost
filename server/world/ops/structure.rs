@@ -5,7 +5,7 @@ use types::*;
 use util::{multimap_insert, multimap_remove};
 use util::stable_id_map::NO_STABLE_ID;
 
-use world::{Structure, StructureAttachment};
+use world::{Structure, StructureAttachment, StructureFlags};
 use world::{Fragment, Hooks};
 use world::ops::{self, OpResult};
 
@@ -32,6 +32,7 @@ pub fn create<'d, F>(f: &mut F,
         template: tid,
 
         stable_id: NO_STABLE_ID,
+        flags: StructureFlags::empty(),
         attachment: StructureAttachment::Plane,
         child_inventories: HashSet::new(),
     };
@@ -50,6 +51,7 @@ pub fn create_unchecked<'d, F>(f: &mut F) -> StructureId
         template: 0,
 
         stable_id: NO_STABLE_ID,
+        flags: StructureFlags::empty(),
         attachment: StructureAttachment::Plane,
         child_inventories: HashSet::new(),
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
