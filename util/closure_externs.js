@@ -20,3 +20,6 @@ Window.prototype.URL;
 /** @constructor @noalias */
 function WEBGL_draw_buffers() {}
 WEBGL_draw_buffers.prototype.drawBuffersWEBGL;
+
+
+String.prototype.startsWith;

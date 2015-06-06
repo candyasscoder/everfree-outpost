@@ -24,7 +24,7 @@ InventoryUI.prototype.constructor = InventoryUI;
 exports.InventoryUI = InventoryUI;
 
 InventoryUI.prototype.onkey = function(evt) {
-    if (Form.prototype.onkey.call(this, evt)) {
+    if (widget.Form.prototype.onkey.call(this, evt)) {
         return true;
     }
 
