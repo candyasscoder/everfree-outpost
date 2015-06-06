@@ -91,14 +91,10 @@ chest.png:
     derived-from: ../tiles/lpc-base-tiles/chests.png
 
 tree.png: &tree
-    title: LPC Trees
-    author: Lanea Zimmerman (AKA Sharm), Casper Nilsson, Stuart Pernsteiner
+    title: Large Trees
+    author: Anonymous, Lanea Zimmerman (AKA Sharm), Casper Nilsson, Stuart Pernsteiner
     license: CC-BY-SA 3.0 / GPL 3.0
     attribution:
-        Lanea Zimmerman's tree trunks and Casper Nilsson's tree stump, copied
-        from the LPC Tile Atlas and edited slightly (including 4x rescaling
-        using xBRZ).
-
         According to the readme from the .zip file at
         http://opengameart.org/content/lpc-cnilsson,
         C.Nilsson's art is CC-BY-SA 3.0 / GPL 3+ dual licensed (not GPL3+ only,
