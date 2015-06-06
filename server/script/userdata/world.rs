@@ -588,6 +588,19 @@ impl Userdata for Structure {
                 s.set_template_id(new_template_id)
             }
 
+            fn set_has_save_hooks(!partial wf: WorldFragment,
+                                  s: Structure,
+                                  set: bool) -> StrResult<()> {
+                let mut s = unwrap!(wf.get_structure_mut(s.id));
+                let flags = s.flags();
+                if set {
+                    s.set_flags(flags | world::flags::S_HAS_SAVE_HOOKS);
+                } else {
+                    s.set_flags(flags - world::flags::S_HAS_SAVE_HOOKS);
+                };
+                Ok(())
+            }
+
             fn attach_to_plane(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
                 let mut s = unwrap!(wf.get_structure_mut(s.id));
                 try!(s.set_attachment(StructureAttachment::Plane));

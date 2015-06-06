@@ -135,6 +135,18 @@ int_from_lua_impl!(i8);
 int_from_lua_impl!(i16);
 int_from_lua_impl!(i32);
 
+impl<'a> FromLua<'a> for bool {
+    unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
+        if lua.type_of(index) != ValueType::Boolean {
+            type_error!(lua, index, func, "boolean");
+        }
+    }
+
+    unsafe fn from_lua(lua: &LuaState, index: c_int) -> bool {
+        lua.to_boolean(index) as bool
+    }
+}
+
 impl<'a> FromLua<'a> for Nil {
     unsafe fn check(lua: &mut LuaState, index: c_int, func: &'static str) {
         if lua.type_of(index) != ValueType::Nil {
