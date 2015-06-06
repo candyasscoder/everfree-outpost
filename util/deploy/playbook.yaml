@@ -2,6 +2,7 @@
 - hosts: outpost
   sudo: yes
   tasks:
+    - apt: update_cache=true
     - apt: name=liblua5.1-0 
     - apt: name=htop 
     - apt: name=rsync 
