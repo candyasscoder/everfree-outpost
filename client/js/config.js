@@ -19,6 +19,8 @@ var DEFAULT_CONFIG = {
         // 9 slots in each array
         'names': [-1, -1, -1, -1, -1, -1, -1, -1, -1],
         'is_item': [false, false, false, false, false, false, false, false, false],
+        'active_item': -1,
+        'active_ability': -1,
     },
 
     'login_name': null,

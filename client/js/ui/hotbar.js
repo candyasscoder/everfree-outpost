@@ -42,72 +42,6 @@ ItemBox.prototype.setDisabled = function(disabled) {
 
 
 /** @constructor */
-function ActiveItems() {
-    this.ability = new ItemBox(false);
-    this.item = new ItemBox(true);
-    this.dom = util.fromTemplate('active-items', {
-        'ability': this.ability.dom,
-        'item': this.item.dom,
-    });
-
-    this._abilityId = -1;
-    this._itemId = -1;
-
-    this._itemInv = null;
-    this._abilityInv = null;
-}
-exports.ActiveItems = ActiveItems;
-
-ActiveItems.prototype.getAbility = function() {
-    return this._abilityId;
-};
-
-ActiveItems.prototype.getItem = function() {
-    return this._itemId;
-};
-
-ActiveItems.prototype.setAbility = function(id) {
-    this._abilityId = id;
-    this.ability.setItem(id);
-    this.ability.setDisabled(this._abilityInv != null && this._abilityInv.count(id) == 0);
-};
-
-ActiveItems.prototype.setItem = function(id) {
-    this._itemId = id;
-    this.item.setItem(id);
-    if (this._itemInv != null) {
-        this.item.setQuantity('' + this._itemInv.count(id));
-    } else {
-        this.item.setQuantity('');
-    }
-};
-
-ActiveItems.prototype.attachAbilities = function(inv) {
-    this._abilityInv = inv;
-
-    var this_ = this;
-    inv.onUpdate(function(updates) {
-        console.log('update abilities', this_._abilityId,
-                inv.count(this_._abilityId));
-        if (this_._abilityId != -1) {
-            this_.ability.setDisabled(inv.count(this_._abilityId) == 0);
-        }
-    });
-};
-
-ActiveItems.prototype.attachItems = function(inv) {
-    this._itemInv = inv;
-
-    var this_ = this;
-    inv.onUpdate(function(updates) {
-        if (this_._itemId != -1) {
-            this_.item.setQuantity('' + inv.count(this_._itemId));
-        }
-    });
-};
-
-
-/** @constructor */
 function Hotbar() {
     this.dom = util.fromTemplate('hotbar', {});
     this.boxes = new Array(9);
@@ -155,8 +89,8 @@ Hotbar.prototype._setSlotInfo = function(idx, item_id, is_item) {
 
 Hotbar.prototype.init = function() {
     var cfg = Config.hotbar.get();
-    var names = cfg['names'];
-    var is_item_arr = cfg['is_item'];
+    var names = cfg['names'] || [];
+    var is_item_arr = cfg['is_item'] || [];
 
     for (var i = 0; i < names.length && i < this.item_ids.length; ++i) {
         var item = ItemDef.by_name[names[i]];
@@ -165,6 +99,13 @@ Hotbar.prototype.init = function() {
         }
 
         this._setSlotInfo(i, item.id, is_item_arr[i]);
+    }
+
+    if (cfg['active_item'] != null) {
+        this._setActiveItem(cfg['active_item']);
+    }
+    if (cfg['active_ability'] != null) {
+        this._setActiveAbility(cfg['active_ability']);
     }
 };
 
@@ -190,10 +131,13 @@ Hotbar.prototype.selectSlot = function(idx) {
     }
 
     if (this.is_item[idx]) {
+        Config.hotbar.get()['active_item'] = idx;
         this._setActiveItem(idx);
     } else {
+        Config.hotbar.get()['active_ability'] = idx;
         this._setActiveAbility(idx);
     }
+    Config.hotbar.save();
 };
 
 Hotbar.prototype._setActiveAbility = function(idx) {
