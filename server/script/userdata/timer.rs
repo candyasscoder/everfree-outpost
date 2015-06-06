@@ -45,7 +45,7 @@ impl ToLua for TimeOrNumber {
 
 #[derive(Clone, Copy)]
 pub struct TimeU {
-    t: Time,
+    pub t: Time,
 }
 
 impl TypeName for TimeU {

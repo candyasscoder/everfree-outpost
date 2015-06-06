@@ -138,6 +138,7 @@ primitive_enum! {
         StableStructure =   0x24,
 
         V3 =            0x30,
+        TimeU =         0x31,
     }
 }
 
@@ -373,6 +374,11 @@ fn write_userdata<W: Writer>(lua: &mut LuaState, w: &mut W, index: c_int) -> Res
     if let Some(v) = get_userdata_opt::<V3>(lua, index) {
         try!(w.write(Tag::V3 as u8));
         try!(w.write((v.x, v.y, v.z)));
+        return Ok(());
+    }
+    if let Some(t) = get_userdata_opt::<userdata::timer::TimeU>(lua, index) {
+        try!(w.write(Tag::TimeU as u8));
+        try!(w.write(t.t));
         return Ok(());
     }
 
@@ -616,6 +622,11 @@ impl<'a, 'd> ReadHooks<'a, 'd> {
             Tag::V3 => {
                 let (x, y, z) = try!(r.read());
                 V3::new(x, y, z).to_lua(&mut self.lua());
+            },
+            Tag::TimeU => {
+                let t = try!(r.read());
+                let tu = userdata::timer::TimeU { t: t };
+                tu.to_lua(&mut self.lua());
             },
         }
         Ok(())
