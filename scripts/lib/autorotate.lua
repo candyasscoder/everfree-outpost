@@ -268,25 +268,6 @@ local HOUSE_WALL_INFO = {
 }
 
 
-local function calc_house_similarity(a, b)
-    local sim = 0
-    for i = 1, 4 do
-        if a[i] == b[i] then
-            -- Value matching up non-empty sides slightly more than matching up
-            -- empty sides.  This makes placing a floor on an inner corner
-            -- prefer the actual inner corner tile over an edge tile.
-            -- (Corner matches 3, 3, 1/2, and mismatches 0; edge matches 3, 0,
-            -- 1/2, and mismatches 3.)
-            if a[i] == 0 then
-                sim = sim + 10
-            else
-                sim = sim + 11
-            end
-        end
-    end
-    return sim
-end
-
 local function choose_house_wall_rotation(kind, variant_base, plane, pos)
     local info = INFO[kind]
 
@@ -382,8 +363,136 @@ local function add_house_wall_item(item_name, template_base, variant_base)
 end
 
 
+-- 0: nothing, 1: horizontal, 2: vertical
+-- Edge order is N, S, W, E
+local SIMPLE_WALL_EDGES = {
+    ['edge/horiz'] =    {0, 0, 1, 1},
+    ['edge/vert'] =     {2, 2, 0, 0},
+    ['corner/nw'] =     {0, 2, 0, 1},
+    ['corner/ne'] =     {0, 2, 1, 0},
+    ['corner/sw'] =     {2, 0, 0, 1},
+    ['corner/se'] =     {2, 0, 1, 0},
+    ['tee/n'] =         {2, 0, 1, 1},
+    ['tee/e'] =         {2, 2, 0, 1},
+    ['tee/s'] =         {0, 2, 1, 1},
+    ['tee/w'] =         {2, 2, 1, 0},
+    ['cross'] =         {2, 2, 1, 1},
+    ['door/closed'] =   {0, 0, 1, 1},
+}
+
+local SIMPLE_WALL_ORDER = {
+    'edge/horiz',
+    'edge/vert',
+    'corner/nw',
+    'corner/ne',
+    'corner/sw',
+    'corner/se',
+    'tee/n',
+    'tee/e',
+    'tee/s',
+    'tee/w',
+    'cross',
+    'door/closed',
+}
+
+local SIMPLE_WALL_INFO = {
+    edges = SIMPLE_WALL_EDGES,
+    order = SIMPLE_WALL_ORDER,
+    layer = 1,
+}
+
+
+local function choose_simple_wall_rotation(kind, filter, plane, pos)
+    local info = INFO[kind]
+
+
+    local s_floor = World.get():find_structure_at_point_layer(plane, pos, 0)
+    if s_floor ~= nil then
+        local floor_base = find_template_base(s_floor:template())
+        local floor_variant = s_floor:template():sub(#floor_base + 2)
+        if floor_variant ~= 'center/v0' then
+            local floor_edges = INFO[floor_base].edges[floor_variant]
+
+            local best = find_best_variant_filtered(info, floor_edges, filter, function(f, w)
+                local sim = 0
+                for i = 1, 4 do
+                    local ok = false
+                    if w[i] == 0 then
+                        ok = f[i] == 0 or f[i] == 3
+                    else
+                        ok = f[i] ~= 0
+                    end
+                    if ok then
+                        sim = sim + 1
+                    end
+                end
+                return sim
+            end)
+
+            if best ~= nil then
+                return kind .. '/' .. best
+            end
+        end
+    end
+
+
+    local edges = {
+        get_edge(kind, plane, pos, SIDE_N),
+        get_edge(kind, plane, pos, SIDE_S),
+        get_edge(kind, plane, pos, SIDE_W),
+        get_edge(kind, plane, pos, SIDE_E),
+    }
+
+    local variant = find_best_variant_filtered(info, edges, filter, function(a, b)
+        local sim = 0
+        for i = 1, 4 do
+            if a[i] == b[i] then
+                sim = sim + 1
+            end
+        end
+        return sim
+    end)
+    if variant == nil then
+        variant = info.order[1]
+    end
+    return kind .. '/' .. variant
+end
+
+local function add_simple_wall_item(item_name, template_base, is_door)
+    if template_base == nil then
+        template_base = item_name
+    end
+
+    local function filter(v)
+        return v:startswith('door') == is_door
+    end
+
+    INFO[template_base] = SIMPLE_WALL_INFO
+
+    action.use_item[item_name] = function(c, inv)
+        local pawn = c:pawn()
+        local plane = pawn:plane()
+        local pos = util.hit_tile(pawn)
+
+        local template = choose_simple_wall_rotation(template_base, filter, plane, pos)
+        structure_items.use_item(c, inv, item_name, template)
+    end
+
+    local function interact(c, s)
+        structure_items.use_structure(c, s, item_name)
+    end
+    for _, v in ipairs(INFO[template_base].order) do
+        if filter(v) then
+            action.use[template_base .. '/' .. v] = interact
+        end
+    end
+end
+
+
+
 
 return {
     add_floor_item = add_floor_item,
     add_house_wall_item = add_house_wall_item,
+    add_simple_wall_item = add_simple_wall_item,
 }

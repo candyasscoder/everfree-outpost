@@ -64,16 +64,8 @@ def init(asset_path):
             structures('wood_wall.png'), structures('wood_wall-planemap.png'),
             door_image=structures('door.png'))
 
-    i = item_builder()
-    i.merge(mk_structure_item(wall['wood_wall/edge/horiz'],
-        'wood_wall/side', 'Wooden Side', (0, 0)))
-    i.merge(mk_structure_item(wall['wood_wall/corner/nw'],
-        'wood_wall/corner', 'Wooden Corner', (0, 0)))
-    i.merge(mk_structure_item(wall['wood_wall/tee/e'],
-        'wood_wall/tee', 'Wooden Tee', (0, 0)))
-    i.merge(mk_structure_item(wall['wood_wall/cross'],
-        'wood_wall/cross', 'Wooden Cross', (0, 0)))
-    i.recipe('anvil', {'wood': 5})
+    mk_structure_item(wall['wood_wall/edge/horiz'], 'wood_wall', 'Wooden Wall', (0, 0)) \
+        .recipe('anvil', {'wood': 5})
 
     mk_structure_item(wall['wood_wall/door/closed'], 'wood_door', 'Wooden Door') \
             .recipe('anvil', {'wood': 15})
@@ -90,16 +82,8 @@ def init(asset_path):
     mk_solid_structure('stone_wall/window/v1', image, (1, 1, 2), base=(16, 0),
             plane_image=planemap)
 
-    i = item_builder()
-    i.merge(mk_structure_item(wall['stone_wall/edge/horiz'],
-        'stone_wall/side', 'Stone Side', (0, 0)))
-    i.merge(mk_structure_item(wall['stone_wall/corner/nw'],
-        'stone_wall/corner', 'Stone Corner', (0, 0)))
-    i.merge(mk_structure_item(wall['stone_wall/tee/e'],
-        'stone_wall/tee', 'Stone Tee', (0, 0)))
-    i.merge(mk_structure_item(wall['stone_wall/cross'],
-        'stone_wall/cross', 'Stone Cross', (0, 0)))
-    i.recipe('anvil', {'stone': 5})
+    mk_structure_item(wall['stone_wall/edge/horiz'], 'stone_wall', 'Stone Wall', (0, 0)) \
+        .recipe('anvil', {'stone': 5})
 
     mk_structure_item(wall['stone_wall/door/closed'], 'stone_door', 'Stone Door') \
             .recipe('anvil', {'stone': 15})

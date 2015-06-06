@@ -48,26 +48,25 @@ mallet_cycle('house_wall/cross/', {
 mallet_cycle('house_wall/door/', { 'in/closed', 'out/closed' })
 
 
-add_structure_item('wood_wall/side', 'wood_wall/edge/horiz')
-add_structure_item('wood_wall/corner', 'wood_wall/corner/nw')
-add_structure_item('wood_wall/tee', 'wood_wall/tee/n')
-add_structure_item('wood_wall/cross', 'wood_wall/cross')
-add_structure_item('wood_door', 'wood_wall/door')
+autorotate.add_simple_wall_item('wood_wall', 'wood_wall', false)
+autorotate.add_simple_wall_item('wood_door', 'wood_wall', true)
+door.make_door('wood_door', 'wood_wall/door', 'axe')
+mallet_cycle('wood_wall/', {
+    'edge/horiz', 'edge/vert',
+    'corner/nw', 'corner/ne', 'corner/se', 'corner/sw', 
+    'tee/n', 'tee/e', 'tee/s', 'tee/w',
+    'cross',
+})
 
-mallet_cycle('wood_wall/edge/', { 'horiz', 'vert' })
-mallet_cycle('wood_wall/corner/', { 'nw', 'ne', 'se', 'sw', })
-mallet_cycle('wood_wall/tee/', { 'n', 'e', 's', 'w', })
-
-
-add_structure_item('stone_wall/side', 'stone_wall/edge/horiz')
-add_structure_item('stone_wall/corner', 'stone_wall/corner/nw')
-add_structure_item('stone_wall/tee', 'stone_wall/tee/n')
-add_structure_item('stone_wall/cross', 'stone_wall/cross')
-add_structure_item('stone_door', 'stone_wall/door')
-
-mallet_cycle('stone_wall/', { 'edge/horiz', 'edge/vert', 'window/v0', 'window/v1' })
-mallet_cycle('stone_wall/corner/', { 'nw', 'ne', 'se', 'sw', })
-mallet_cycle('stone_wall/tee/', { 'n', 'e', 's', 'w', })
+autorotate.add_simple_wall_item('stone_wall', 'stone_wall', false)
+autorotate.add_simple_wall_item('stone_door', 'stone_wall', true)
+door.make_door('stone_door', 'stone_wall/door', 'pick')
+mallet_cycle('stone_wall/', {
+    'edge/horiz', 'window/v0', 'window/v1', 'edge/vert',
+    'corner/nw', 'corner/ne', 'corner/se', 'corner/sw', 
+    'tee/n', 'tee/e', 'tee/s', 'tee/w',
+    'cross',
+})
 
 
 local terrain_cycle = {
