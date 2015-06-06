@@ -131,16 +131,17 @@ Hotbar.prototype.selectSlot = function(idx) {
     }
 
     if (this.is_item[idx]) {
-        Config.hotbar.get()['active_item'] = idx;
         this._setActiveItem(idx);
     } else {
-        Config.hotbar.get()['active_ability'] = idx;
         this._setActiveAbility(idx);
     }
-    Config.hotbar.save();
 };
 
 Hotbar.prototype._setActiveAbility = function(idx) {
+    if (idx < 0 || idx >= this.item_ids.length || this.is_item[idx]) {
+        return;
+    }
+
     if (this.active_ability != -1) {
         this.boxes[this.active_ability].dom.classList.remove('active-ability');
     }
@@ -148,9 +149,16 @@ Hotbar.prototype._setActiveAbility = function(idx) {
     if (this.active_ability != -1) {
         this.boxes[this.active_ability].dom.classList.add('active-ability');
     }
+
+    Config.hotbar.get()['active_ability'] = idx;
+    Config.hotbar.save();
 };
 
 Hotbar.prototype._setActiveItem = function(idx) {
+    if (idx < 0 || idx >= this.item_ids.length || !this.is_item[idx]) {
+        return;
+    }
+
     if (this.active_item != -1) {
         this.boxes[this.active_item].dom.classList.remove('active-item');
     }
@@ -158,6 +166,9 @@ Hotbar.prototype._setActiveItem = function(idx) {
     if (this.active_item != -1) {
         this.boxes[this.active_item].dom.classList.add('active-item');
     }
+
+    Config.hotbar.get()['active_item'] = idx;
+    Config.hotbar.save();
 };
 
 Hotbar.prototype.getAbility = function() {
