@@ -87,3 +87,20 @@ def init(asset_path):
 
     mk_structure_item(wall['stone_wall/door/closed'], 'stone_door', 'Stone Door') \
             .recipe('anvil', {'stone': 15})
+
+
+
+    image = structures('cottage-wall.png')
+    planemap = structures('cottage-wall-planemap.png')
+    wall = do_wall_parts('cottage_wall',
+            structures('cottage-wall.png'), structures('cottage-wall-planemap.png'),
+            door_image=structures('door.png'))
+    for i in range(6):
+        mk_solid_structure('cottage_wall/variant/v%d' % i, image, (1, 1, 2), base=(15 + i, 0),
+                plane_image=planemap)
+
+    mk_structure_item(wall['cottage_wall/edge/horiz'], 'cottage_wall', 'cottage Wall', (0, 0)) \
+        .recipe('anvil', {'wood': 5})
+
+    mk_structure_item(wall['cottage_wall/door/closed'], 'cottage_door', 'cottage Door') \
+            .recipe('anvil', {'wood': 15})

@@ -68,6 +68,18 @@ mallet_cycle('stone_wall/', {
     'cross',
 })
 
+autorotate.add_simple_wall_item('cottage_wall', 'cottage_wall', false)
+autorotate.add_simple_wall_item('cottage_door', 'cottage_wall', true)
+door.make_door('cottage_door', 'cottage_wall/door', 'pick')
+mallet_cycle('cottage_wall/', {
+    'edge/horiz',
+    'variant/v0', 'variant/v1', 'variant/v2', 'variant/v3', 'variant/v4', 'variant/v5',
+    'edge/vert',
+    'corner/nw', 'corner/ne', 'corner/se', 'corner/sw', 
+    'tee/n', 'tee/e', 'tee/s', 'tee/w',
+    'cross',
+})
+
 
 local terrain_cycle = {
     'center/v0',

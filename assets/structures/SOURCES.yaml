@@ -172,6 +172,12 @@ stone-wall.png: &stone-wall
 stone-wall.xcf: *stone-wall
 stone-wall-planemap.png: *stone-wall
 
+cottage-wall.png: &cottage-wall
+    title: Cottage Wall
+    author: Nonnykins
+    license: CC-BY-SA 3.0 / GPL 3.0
+cottage-wall-planemap.png: *cottage-wall
+
 
 sign.png:
     title: LPC Signpost
