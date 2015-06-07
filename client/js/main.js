@@ -699,6 +699,7 @@ function setupKeyHandler() {
 
                     ui.enableSelect(hotbar.getItem(), function(idx, new_id) {
                         hotbar.setSlot(idx, new_id, true);
+                        hotbar.selectSlot(idx);
                     });
 
                     ui.oncancel = function() {
@@ -717,6 +718,7 @@ function setupKeyHandler() {
 
                     ui.enableSelect(hotbar.getAbility(), function(idx, new_id) {
                         hotbar.setSlot(idx, new_id,  false);
+                        hotbar.selectSlot(idx);
                     });
 
                     ui.oncancel = function() {
