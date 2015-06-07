@@ -75,6 +75,7 @@ local ward = require('lib.ward')
 
 require('object.anvil')
 require('object.chest')
+require('object.crops')
 require('object.hat')
 require('object.shovel')
 require('object.sign')
