@@ -10,6 +10,7 @@ typedef struct {
     size_t len;
     PyObject* object_id_table;
     PyObject* item_name_table;
+    PyObject* template_name_table;
 } Reader;
 
 static inline int read_bytes(Reader* r, void* buf, size_t len) {
@@ -29,6 +30,7 @@ static inline int read_bytes(Reader* r, void* buf, size_t len) {
 
 int reader_init(Reader* r, PyObject* bytes);
 PyObject* read_decode_item_name(Reader* r, uint16_t old_id, size_t name_len);
+PyObject* read_decode_template_name(Reader* r);
 PyObject* read_string(Reader* r, size_t len);
 int read_register_object(Reader* r, uint32_t save_id, PyObject* obj);
 PyObject* read_find_object(Reader* r, uint32_t save_id);
