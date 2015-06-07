@@ -586,7 +586,7 @@ impl<'a, 'd> ReadHooks<'a, 'd> {
                 self.lua().push_boolean(a != 0);
             },
             Tag::SmallInt => {
-                self.lua().push_integer(b as isize);
+                self.lua().push_integer(b as i16 as isize);
             },
             Tag::LargeInt => {
                 let i: i32 = try!(r.read());
