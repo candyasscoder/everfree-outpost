@@ -31,7 +31,11 @@ local function mk_callback(sid)
 end
 
 function outpost_ffi.types.Structure.table.set_timer(s, delay)
-    s:extra().pending_timer = timer.set_timer(delay, mk_callback(s:id()))
+    s:set_timer_at(Time.now() + delay)
+end
+
+function outpost_ffi.types.Structure.table.set_timer_at(s, when)
+    s:extra().pending_timer = timer.set_timer_at(when, mk_callback(s:id()))
     s:set_has_save_hooks(true)
 end
 

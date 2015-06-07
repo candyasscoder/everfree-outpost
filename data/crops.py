@@ -16,8 +16,6 @@ def mk_crop(basename, sheet, base_y, count=5, size=(1, 1, 1)):
 def init(asset_path):
     tiles = loader(asset_path, 'tiles')
     structures = loader(asset_path, 'structures')
-    daneeklu = loader(asset_path, 'tiles/daneeklu_farming_tilesets')
-    lpc = loader(asset_path, 'tiles/lpc-base-tiles')
 
     img = structures('crops.png')
 
@@ -28,3 +26,12 @@ def init(asset_path):
     mk_crop('pepper', img, 8)
     mk_crop('cucumber', img, 10)
     mk_crop('corn', img, 12, size=(1, 1, 2))
+
+    img = tiles('daneeklu_farming_tilesets/plants.png')
+    mk_item('tomato', 'Tomato', extract(img, (0, 11)))
+    mk_item('potato', 'Potato', extract(img, (1, 11)))
+    mk_item('carrot', 'Carrot', extract(img, (2, 11)))
+    mk_item('artichoke', 'Artichoke', extract(img, (3, 11)))
+    mk_item('pepper', 'Pepper', extract(img, (4, 11)))
+    mk_item('cucumber', 'Cucumber', extract(img, (5, 11)))
+    mk_item('corn', 'Corn', extract(img, (6, 11)))

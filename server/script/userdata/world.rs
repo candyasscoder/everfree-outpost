@@ -318,6 +318,13 @@ impl Userdata for Entity {
                  .map(|e| e.appearance())
             }
 
+            fn get_appearance_bits(!partial w: &world::World,
+                                   e: Entity,
+                                   mask: u32) -> Option<u32> {
+                w.get_entity(e.id)
+                 .map(|e| e.appearance() & mask)
+            }
+
             fn update_appearance(!partial wf: WorldFragment,
                                  e: Entity,
                                  mask: u32,
