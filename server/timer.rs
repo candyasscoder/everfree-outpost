@@ -97,7 +97,7 @@ impl Wheel {
     pub fn schedule(&mut self, wake: Wake) {
         let Wake { when, cookie } = wake;
         let when = if when < self.now { self.now } else { when };
-        if self.now - when >= WHEEL_MS as Time {
+        if when - self.now >= WHEEL_MS as Time {
             self.later.push(Wake::new(when, cookie));
         } else {
             let bucket_idx = (when as u32 & (WHEEL_MS - 1)) as usize >> BUCKET_BITS;
