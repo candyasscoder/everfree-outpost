@@ -1,11 +1,13 @@
 use std::error;
 use std::fmt;
 use std::io;
+use std::mem;
 use std::result;
 use libc::c_int;
 
 use types::*;
 
+use engine;
 use engine::glue::HiddenWorldFragment;
 use lua::{self, LuaState, ValueType, REGISTRY_INDEX};
 use util::Convert;
@@ -207,21 +209,29 @@ impl<'a, 'd> save::WriteHooks for WriteHooks<'a, 'd> {
     fn post_write_structure<W: Writer>(&mut self,
                                        writer: &mut W,
                                        s: &ObjectRef<Structure>) -> save::Result<()> {
+        if s.flags().contains(world::flags::S_HAS_SAVE_HOOKS) {
+            try!(self.call_unload_hook("outpost_callback_structure_unload",
+                                       s.id().unwrap()));
+        }
         try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
-            if s.flags().contains(world::flags::S_HAS_SAVE_HOOKS) {
-                try!(call_save_hook(lua, "outpost_callback_structure_unload", s.id().unwrap()));
-            }
             call_get_extra(lua, "outpost_callback_get_structure_extra", s.id().unwrap())
         }));
         Ok(())
     }
 }
 
-fn call_save_hook<T: ToLua>(lua: &mut LuaState, func: &str, id: T) -> Result<()> {
-    lua.get_field(REGISTRY_INDEX, func);
-    id.to_lua(lua);
-    try!(lua.pcall(1, 0, 0));
-    Ok(())
+impl<'a, 'd> WriteHooks<'a, 'd> {
+    fn call_unload_hook<T: ToLua>(&mut self, func: &str, id: T) -> Result<()> {
+        // FIXME: SUPER UNSAFE!!!  This allows scripts to access engine parts they shouldn't have
+        // access to in this context.
+        let ptr: *mut engine::Engine = unsafe { mem::transmute_copy(self) };
+        self.script_mut().with_context(ptr, |lua| -> Result<()> {
+            lua.get_field(REGISTRY_INDEX, func);
+            id.to_lua(lua);
+            try!(lua.pcall(1, 0, 0));
+            Ok(())
+        })
+    }
 }
 
 fn call_get_extra<T: ToLua>(lua: &mut LuaState, func: &str, id: T) -> Result<()> {
@@ -464,9 +474,8 @@ impl<'a, 'd> save::ReadHooks for ReadHooks<'a, 'd> {
             push_setter_and_id(lua, "outpost_callback_set_structure_extra", sid.unwrap())
         }));
         if flags.contains(world::flags::S_HAS_SAVE_HOOKS) {
-            try!(call_save_hook(&mut self.lua(),
-                                "outpost_callback_structure_load",
-                                sid.unwrap()));
+            try!(self.call_load_hook("outpost_callback_structure_load",
+                                     sid.unwrap()));
         }
         Ok(())
     }
@@ -534,6 +543,18 @@ impl<'a, 'd> ReadHooks<'a, 'd> {
 
     fn wf<'b>(&'b mut self) -> HiddenWorldFragment<'b, 'd> {
         self.as_hidden_world_fragment()
+    }
+
+    fn call_load_hook<T: ToLua>(&mut self, func: &str, id: T) -> Result<()> {
+        // FIXME: SUPER UNSAFE!!!  This allows scripts to access engine parts they shouldn't have
+        // access to in this context.
+        let ptr: *mut engine::Engine = unsafe { mem::transmute_copy(self) };
+        self.script_mut().with_context(ptr, |lua| -> Result<()> {
+            lua.get_field(REGISTRY_INDEX, func);
+            id.to_lua(lua);
+            try!(lua.pcall(1, 0, 0));
+            Ok(())
+        })
     }
 
     fn read_extra<R: Reader, F>(&mut self,

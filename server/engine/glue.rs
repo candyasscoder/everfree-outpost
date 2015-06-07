@@ -64,10 +64,10 @@ macro_rules! part2 {
         part2!(HiddenWorldFragment, SaveReadHooks, $($x)*);
     };
     (SaveReadHooks, $($x:tt)*) => {
-        part2!(script, HiddenWorldFragment, $($x)*);
+        part2!(script, messages, HiddenWorldFragment, $($x)*);
     };
     (SaveWriteHooks, $($x:tt)*) => {
-        part2!(script, $($x)*);
+        part2!(script, messages, $($x)*);
     };
 
 
