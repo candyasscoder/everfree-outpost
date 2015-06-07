@@ -3,6 +3,7 @@ local structure_items = require('lib.structure_items')
 local timer = require('ext.timer')
 local tools = require('lib.tools')
 local util = require('outpost.util')
+local ward = require('lib.ward')
 
 local TRIBE_TABLE = {
     [0x00] = 'E',
