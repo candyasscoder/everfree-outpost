@@ -38,9 +38,9 @@
             } \
         } else if (PyObject_TypeCheck(obj, &Vn##Type)) { \
             Vn* other = (Vn*)obj; \
-                result = PyObject_CallFunction((PyObject*)&Vn##Type, \
-                        Vn##_REP("i"), \
-                        Vn##_DO_OP(OP, SELF_ARROW, OTHER_ARROW)); \
+            result = PyObject_CallFunction((PyObject*)&Vn##Type, \
+                    Vn##_REP("i"), \
+                    Vn##_DO_OP(OP, SELF_ARROW, OTHER_ARROW)); \
         } \
         /* Leave `result` as NULL if the type is wrong. */ \
         \
@@ -64,6 +64,59 @@
         long hash = 0x6af5cd4dU; \
         Vn##_DO_HASH; \
         return hash; \
+    }
+
+#define V2_DO_COMP(OP, LHS, RHS) \
+    ((LHS(x) OP RHS(x)) && \
+     (LHS(y) OP RHS(y)))
+#define V3_DO_COMP(OP, LHS, RHS) \
+    ((LHS(x) OP RHS(x)) && \
+     (LHS(y) OP RHS(y)) && \
+     (LHS(z) OP RHS(z)))
+
+#define V2_DO(m)        m(x) m(y)
+#define V3_DO(m)        m(x) m(y) m(z)
+
+#define DECL_OTHER_TEMP(X)              int32_t other_##X = 0;
+#define INIT_OTHER_TEMP_Vn(X)           other_##X = other->X;
+#define INIT_OTHER_TEMP_CONST(X)        other_##X = c;
+
+#define OTHER_TEMP(X)       other_##X
+
+#define GEN_COMP(Vn) \
+    static PyObject* Vn##_richcompare(PyObject* obj1, PyObject* obj2, int op) { \
+        /* Get `self` */ \
+        if (!PyObject_TypeCheck(obj1, &Vn##Type)) { \
+            return NULL; \
+        } \
+        Vn* self = (Vn*)obj1; \
+        \
+        /* Get `other`.  Use temporaries other_x, other_y, other_z so we can
+         * allow `other` to be either a vector or a number. */ \
+        Vn##_DO(DECL_OTHER_TEMP) \
+        if (PyObject_TypeCheck(obj2, &Vn##Type)) { \
+            Vn* other = (Vn*)obj2; \
+            Vn##_DO(INIT_OTHER_TEMP_Vn); \
+        } else if (PyLong_Check(obj2)) { \
+            int overflow = 0; \
+            int32_t c = PyLong_AsLongAndOverflow(obj2, &overflow); \
+            if (overflow) { \
+                return NULL; \
+            } \
+            Vn##_DO(INIT_OTHER_TEMP_CONST); \
+        } else { \
+            return NULL; \
+        } \
+        \
+        switch (op) { \
+            case Py_EQ: \
+                return PyBool_FromLong(Vn##_DO_COMP(==, SELF_ARROW, OTHER_TEMP)); \
+            case Py_NE: \
+                return PyBool_FromLong(!Vn##_DO_COMP(==, SELF_ARROW, OTHER_TEMP)); \
+            default: \
+                Py_INCREF(Py_NotImplemented); \
+                return Py_NotImplemented; \
+        } \
     }
 
 
@@ -91,6 +144,7 @@ GEN_OP(V3, div, DIV_OP)
 GEN_OP(V3, mod, MOD_OP)
 
 GEN_HASH(V3)
+GEN_COMP(V3)
 
 static PyMethodDef V3_methods[] = {
     {"__add__", (PyCFunction)V3_add, METH_VARARGS, NULL},
@@ -115,6 +169,7 @@ PyObject* v3_get_type() {
     V3Type.tp_members = V3_members;
     V3Type.tp_methods = V3_methods;
     V3Type.tp_hash = (hashfunc)V3_hash;
+    V3Type.tp_richcompare = (richcmpfunc)V3_richcompare;
 
     if (PyType_Ready(&V3Type) < 0) {
         return NULL;
@@ -162,6 +217,7 @@ GEN_OP(V2, div, DIV_OP)
 GEN_OP(V2, mod, MOD_OP)
 
 GEN_HASH(V2)
+GEN_COMP(V2)
 
 static PyMethodDef V2_methods[] = {
     {"__add__", (PyCFunction)V2_add, METH_VARARGS, NULL},
@@ -185,6 +241,7 @@ PyObject* v2_get_type() {
     V2Type.tp_members = V2_members;
     V2Type.tp_methods = V2_methods;
     V2Type.tp_hash = (hashfunc)V2_hash;
+    V2Type.tp_richcompare = (richcmpfunc)V2_richcompare;
 
     if (PyType_Ready(&V2Type) < 0) {
         return NULL;
