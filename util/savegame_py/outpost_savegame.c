@@ -7,6 +7,7 @@
 #include "client.h"
 #include "entity.h"
 #include "inventory.h"
+#include "plane.h"
 
 
 static PyObject* py_load_client(PyObject* self, PyObject* args) {
@@ -33,8 +34,33 @@ fail:
 }
 
 
+static PyObject* py_load_plane(PyObject* self, PyObject* args) {
+    PyObject* bytes = NULL;
+
+    FAIL_IF(!PyArg_ParseTuple(args, "O", &bytes));
+
+    Reader rs = {0};
+    FAIL_IF(reader_init(&rs, bytes) < 0);
+    Reader* r = &rs;
+
+    uint32_t version;
+    READ(version);
+    Plane* result = plane_read(r, version);
+    FAIL_IF(result == NULL);
+    FAIL_IF(plane_read_post(r, result, version));
+
+    Py_DECREF(bytes);
+    return (PyObject*)result;
+
+fail:
+    Py_XDECREF(bytes);
+    return NULL;
+}
+
+
 static struct PyMethodDef methods[] = {
     {"load_client", py_load_client, METH_VARARGS, NULL},
+    {"load_plane", py_load_plane, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}
 };
 
@@ -62,6 +88,7 @@ PyMODINIT_FUNC PyInit_outpost_savegame() {
     ADD("Client", client_get_type());
     ADD("Entity", entity_get_type());
     ADD("Inventory", inventory_get_type());
+    ADD("Plane", plane_get_type());
 
     ADD("Motion", motion_get_type());
 
@@ -73,6 +100,7 @@ PyMODINIT_FUNC PyInit_outpost_savegame() {
 
     ADD("World", world_get_type());
     ADD("V3", v3_get_type());
+    ADD("V2", v2_get_type());
 
     return m;
 }

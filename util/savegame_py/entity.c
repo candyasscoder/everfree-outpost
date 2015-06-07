@@ -142,7 +142,6 @@ PyObject* motion_get_type() {
 
 
 Entity* entity_read(Reader* r, int version) {
-    printf("begin reading entity\n");
     Entity* e = (Entity*)PyObject_CallObject((PyObject*)&EntityType, NULL);
     FAIL_IF(e == NULL);
 
@@ -207,7 +206,6 @@ Entity* entity_read(Reader* r, int version) {
     uint32_t count;
 
     READ(count);
-    printf("  read %d inventories for entity\n", count);
     for (uint32_t i = 0; i < count; ++i) {
         Inventory* obj = inventory_read(r, version);
         FAIL_IF(obj == NULL);

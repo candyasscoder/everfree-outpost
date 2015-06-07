@@ -97,7 +97,6 @@ PyObject* client_get_type() {
 
 
 Client* client_read(Reader* r, int version) {
-    printf("begin reading client\n");
     Client* c = (Client*)PyObject_CallObject((PyObject*)&ClientType, NULL);
     FAIL_IF(c == NULL);
 
@@ -116,7 +115,6 @@ Client* client_read(Reader* r, int version) {
     uint32_t count;
 
     READ(count);
-    printf("  read %d entities for client\n", count);
     for (uint32_t i = 0; i < count; ++i) {
         Entity* obj = entity_read(r, version);
         FAIL_IF(obj == NULL);
@@ -124,7 +122,6 @@ Client* client_read(Reader* r, int version) {
     }
 
     READ(count);
-    printf("  read %d inventories for client\n", count);
     for (uint32_t i = 0; i < count; ++i) {
         Inventory* obj = inventory_read(r, version);
         FAIL_IF(obj == NULL);

@@ -38,14 +38,12 @@ enum Tag {
 PyObject* read_table(Reader* r, int version);
 
 PyObject* extra_read(Reader* r, int version) {
-    printf("begin reading extra\n");
     struct {
         uint8_t tag;
         uint8_t a;
         uint16_t b;
     } x;
     READ(x);
-    printf("  tag = %x\n", x.tag);
     PyObject* result = NULL;
 
     // NB: Most of the simple cases omit `result == NULL` checks.  If `result`
@@ -142,13 +140,7 @@ PyObject* extra_read(Reader* r, int version) {
 
 
         case T_V3: {
-            struct {
-                int32_t x;
-                int32_t y;
-                int32_t z;
-            } val;
-            READ(val);
-            result = PyObject_CallFunction((PyObject*)&V3Type, "iii", val.x, val.y, val.z);
+            result = (PyObject*)v3_read(r);
             break;
         }
 

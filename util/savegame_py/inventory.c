@@ -79,7 +79,6 @@ PyObject* inventory_get_type() {
 
 
 Inventory* inventory_read(Reader* r, int version) {
-    printf("begin reading inventory\n");
     Inventory* i = (Inventory*)PyObject_CallObject((PyObject*)&InventoryType, NULL);
     FAIL_IF(i == NULL);
 
