@@ -13,6 +13,8 @@ PYTHON3 ?= python3
 CLOSURE_COMPILER ?= closure-compiler
 YUI_COMPRESSOR ?= yui-compressor
 
+PYTHON3_INC ?= /usr/include/python3.4
+
 HOST = x86_64-unknown-linux-gnu
 TARGET = i686-unknown-linux-gnu
 
@@ -73,16 +75,20 @@ DEPS_backend = physics
 # Rules for building Rust libraries
 
 ifeq ($(RELEASE),)
-	RELEASE_CXXFLAGS_opt =
+	RELEASE_CFLAGS_opt = -ggdb
+	RELEASE_CXXFLAGS_opt = -ggdb
 	RELEASE_RUSTFLAGS_opt =
 	RELEASE_RUSTFLAGS_lto =
 	BUILD_NATIVE = $(BUILD_NATIVE_DEBUG)
 else
+	RELEASE_CFLAGS_opt = -O3
 	RELEASE_CXXFLAGS_opt = -O3
 	RELEASE_RUSTFLAGS_opt = -C opt-level=3
 	RELEASE_RUSTFLAGS_lto = -C lto
 	BUILD_NATIVE = $(BUILD_NATIVE_RELEASE)
 endif
+
+$(shell mkdir -p $(BUILD_NATIVE)/savegame_py)
 
 # FIXME: For asmjs, we force opt-level=3 to eliminate some constructs that
 # emscripten-fastcomp doesn't like.
@@ -235,6 +241,19 @@ WRAPPER_OBJS = $(patsubst $(SRC)/wrapper/%.cpp,$(BUILD_NATIVE)/%.o,$(WRAPPER_SRC
 
 $(BUILD_NATIVE)/wrapper: $(WRAPPER_OBJS)
 	$(CXX) $^ -o $@ -std=c++14 $(WRAPPER_CXXFLAGS) $(LDFLAGS) -lboost_system -lpthread -static
+
+
+# Rules for building outpost_savegame python module
+
+$(BUILD_NATIVE)/savegame_py/%.o: $(SRC)/util/savegame_py/%.c \
+	$(wildcard $(SRC)/util/savegame_py/*.h)
+	$(CC) -c $< -o $@ -std=c99 -fPIC -I$(PYTHON3_INC) $(RELEASE_CFLAGS_opt)
+
+SAVEGAME_SRCS = $(wildcard $(SRC)/util/savegame_py/*.c)
+SAVEGAME_OBJS = $(patsubst $(SRC)/util/savegame_py/%.c,$(BUILD_NATIVE)/savegame_py/%.o,$(SAVEGAME_SRCS))
+
+$(BUILD_NATIVE)/outpost_savegame.so: $(SAVEGAME_OBJS)
+	$(CC) $^ -o $@ -shared $(LDFLAGS)
 
 
 # Rules for misc files
