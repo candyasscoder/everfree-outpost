@@ -30,7 +30,7 @@ local timer_metatable = {
 }
 
 
-local function set_timer(delay, cb)
+local function set_timer_at(time, cb)
     local slot
     if #free_slots == 0 then
         slot = #timers + 1
@@ -40,7 +40,8 @@ local function set_timer(delay, cb)
     end
 
     local t = {
-        timer = Timer.schedule(Time.now() + delay, slot),
+        timer = Timer.schedule(time, slot),
+        when = time,
         callback = cb,
         slot = slot,
     }
@@ -48,6 +49,10 @@ local function set_timer(delay, cb)
     timers[slot] = t
 
     return t
+end
+
+local function set_timer(delay, cb)
+    return set_timer_at(Time.now() + delay, cb)
 end
 
 function outpost_ffi.callbacks.timeout(slot)
@@ -62,4 +67,5 @@ end
 
 return {
     set_timer = set_timer,
+    set_timer_at = set_timer_at,
 }
