@@ -100,3 +100,35 @@ end
 function outpost_ffi.types.Structure.table.extra(self)
     return get_or_create(structure_extra, self:id())
 end
+
+
+-- Callbacks used when structures are loaded/unloaded
+
+local structure_hooks = {}
+
+local function register_structure_hooks(hooks)
+    structure_hooks[#structure_hooks + 1] = hooks
+end
+
+function outpost_ffi.callbacks.structure_load(id)
+    print('load', id)
+    for _, hooks in ipairs(structure_hooks) do
+        if hooks.load ~= nil then
+            hooks.load(get_or_create(structure_extra, id))
+        end
+    end
+end
+
+function outpost_ffi.callbacks.structure_unload(id)
+    print('unload', id)
+    for _, hooks in ipairs(structure_hooks) do
+        if hooks.unload ~= nil then
+            hooks.unload(get_or_create(structure_extra, id))
+        end
+    end
+end
+
+
+return {
+    register_structure_hooks = register_structure_hooks,
+}

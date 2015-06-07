@@ -325,4 +325,10 @@ function action.use_ability.light(c, inv)
 end
 
 
+require('outpost.extra').register_structure_hooks({
+    load = function(e) print('load!!', 123, e, e.magic) end,
+    unload = function(e) print('unload!!', 123, e, e.magic) end,
+})
+
+
 print('\n\nup and running')

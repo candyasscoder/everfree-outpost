@@ -61,7 +61,8 @@ pub trait ReadHooks {
                                           tcid: TerrainChunkId) -> Result<()> { Ok(()) }
     fn post_read_structure<R: Reader>(&mut self,
                                       reader: &mut R,
-                                      sid: StructureId) -> Result<()> { Ok(()) }
+                                      sid: StructureId,
+                                      flags: StructureFlags) -> Result<()> { Ok(()) }
 
     fn cleanup_world(&mut self) -> Result<()> { Ok(()) }
     fn cleanup_client(&mut self, cid: ClientId) -> Result<()> { Ok(()) }
@@ -355,8 +356,8 @@ impl<R: io::Read> ObjectReader<R> {
                                            -> Result<StructureId> {
         let (sid, stable_id) = try!(self.read_object_header(f));
 
-        try!(f.with_world(|wf| -> Result<_> {
-            {
+        let flags = try!(f.with_world(|wf| -> Result<_> {
+            let flags = {
                 let w = world::Fragment::world_mut(wf);
                 try!(w.structures.set_stable_id(sid, stable_id));
 
@@ -369,12 +370,14 @@ impl<R: io::Read> ObjectReader<R> {
                 if self.file_version > 3 {
                     s.flags = StructureFlags::from_bits_truncate(try!(self.r.read()));
                 }
-            }
+
+                s.flags
+            };
             try!(ops::structure::post_init(wf, sid));
-            Ok(())
+            Ok(flags)
         }));
 
-        try!(f.with_hooks(|h| h.post_read_structure(&mut self.r, sid)));
+        try!(f.with_hooks(|h| h.post_read_structure(&mut self.r, sid, flags)));
 
         let child_inventory_count = try!(self.r.read_count());
         for _ in 0..child_inventory_count {

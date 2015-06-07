@@ -10,7 +10,8 @@ use engine::glue::HiddenWorldFragment;
 use lua::{self, LuaState, ValueType, REGISTRY_INDEX};
 use util::Convert;
 use util::StrError;
-use world::{World, Client, Entity, Inventory, Plane, TerrainChunk, Structure};
+use world::{self, World, Client, Entity, Inventory, Plane, TerrainChunk, Structure};
+use world::StructureFlags;
 use world::object::*;
 use world::save::{self, Writer, Reader};
 
@@ -85,9 +86,12 @@ impl<'a> From<Error> for save::Error {
         match e {
             Error::Io(e) => save::Error::Io(e),
             Error::Str(e) => save::Error::Str(e),
-            Error::Lua(_) => save::Error::Str(StrError {
-                msg: "error while running lua callback",
-            }),
+            Error::Lua(msg) => {
+                warn!("lua error: {}", msg);
+                save::Error::Str(StrError {
+                    msg: "error while running lua callback",
+                })
+            },
         }
     }
 }
@@ -204,10 +208,20 @@ impl<'a, 'd> save::WriteHooks for WriteHooks<'a, 'd> {
                                        writer: &mut W,
                                        s: &ObjectRef<Structure>) -> save::Result<()> {
         try!(write_extra(self.script_mut().owned_lua.get(), writer, |lua| {
+            if s.flags().contains(world::flags::S_HAS_SAVE_HOOKS) {
+                try!(call_save_hook(lua, "outpost_callback_structure_unload", s.id().unwrap()));
+            }
             call_get_extra(lua, "outpost_callback_get_structure_extra", s.id().unwrap())
         }));
         Ok(())
     }
+}
+
+fn call_save_hook<T: ToLua>(lua: &mut LuaState, func: &str, id: T) -> Result<()> {
+    lua.get_field(REGISTRY_INDEX, func);
+    id.to_lua(lua);
+    try!(lua.pcall(1, 0, 0));
+    Ok(())
 }
 
 fn call_get_extra<T: ToLua>(lua: &mut LuaState, func: &str, id: T) -> Result<()> {
@@ -444,10 +458,16 @@ impl<'a, 'd> save::ReadHooks for ReadHooks<'a, 'd> {
 
     fn post_read_structure<R: Reader>(&mut self,
                                       reader: &mut R,
-                                      sid: StructureId) -> save::Result<()> {
+                                      sid: StructureId,
+                                      flags: StructureFlags) -> save::Result<()> {
         try!(self.read_extra(reader, |lua| {
             push_setter_and_id(lua, "outpost_callback_set_structure_extra", sid.unwrap())
         }));
+        if flags.contains(world::flags::S_HAS_SAVE_HOOKS) {
+            try!(call_save_hook(&mut self.lua(),
+                                "outpost_callback_structure_load",
+                                sid.unwrap()));
+        }
         Ok(())
     }
 
