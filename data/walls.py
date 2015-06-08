@@ -95,8 +95,11 @@ def init(asset_path):
     wall = do_wall_parts('cottage_wall',
             structures('cottage-wall.png'), structures('cottage-wall-planemap.png'),
             door_image=structures('door.png'))
-    for i in range(6):
-        mk_solid_structure('cottage_wall/variant/v%d' % i, image, (1, 1, 2), base=(15 + i, 0),
+    for i in range(2):
+        mk_solid_structure('cottage_wall/window/v%d' % i, image, (1, 1, 2), base=(15 + i, 0),
+                plane_image=planemap)
+    for i in range(3):
+        mk_solid_structure('cottage_wall/variant/v%d' % i, image, (1, 1, 2), base=(17 + i, 0),
                 plane_image=planemap)
 
     mk_structure_item(wall['cottage_wall/edge/horiz'], 'cottage_wall', 'Cottage Wall', (0, 0)) \

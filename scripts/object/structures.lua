@@ -73,7 +73,8 @@ autorotate.add_simple_wall_item('cottage_door', 'cottage_wall', true)
 door.make_door('cottage_door', 'cottage_wall/door', 'pick')
 mallet_cycle('cottage_wall/', {
     'edge/horiz',
-    'variant/v0', 'variant/v1', 'variant/v2', 'variant/v3', 'variant/v4', 'variant/v5',
+    'variant/v0', 'variant/v1', 'variant/v2',
+    'window/v0', 'window/v1',
     'edge/vert',
     'corner/nw', 'corner/ne', 'corner/se', 'corner/sw', 
     'tee/n', 'tee/e', 'tee/s', 'tee/w',
@@ -114,6 +115,11 @@ local horiz_walls = {
     ['wood_wall/tee/n'] = true,
     ['stone_wall/edge/horiz'] = true,
     ['stone_wall/tee/n'] = true,
+    ['cottage_wall/edge/horiz'] = true,
+    ['cottage_wall/variant/v0'] = true,
+    ['cottage_wall/variant/v1'] = true,
+    ['cottage_wall/variant/v2'] = true,
+    ['cottage_wall/tee/n'] = true,
 }
 
 -- NB: Other `cabinets` setup is in `object.chest`.
