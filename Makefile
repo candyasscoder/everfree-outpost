@@ -31,10 +31,11 @@ BUILD_MIN := $(BUILD)/min
 DIST_BIN = $(DIST)/bin
 DIST_DATA = $(DIST)/data
 DIST_WWW = $(DIST)/www
+DIST_UTIL = $(DIST)/util
 
 $(shell mkdir -p $(BUILD_ASMJS) $(BUILD_NATIVE_DEBUG) $(BUILD_NATIVE_RELEASE) \
 	$(BUILD_ASMLIBS) $(BUILD_MIN) \
-	$(DIST) $(DIST_BIN) $(DIST_DATA) $(DIST_WWW) $(DIST)/scripts)
+	$(DIST) $(DIST_BIN) $(DIST_DATA) $(DIST_WWW) $(DIST_UTIL) $(DIST)/scripts)
 
 
 JS_SRCS = $(shell find $(SRC)/client/js -name \*.js)
@@ -326,6 +327,7 @@ endef
 BIN_FILE = $(call DIST_FILE_,BIN,$(strip $(1)),$(strip $(2)))
 WWW_FILE = $(call DIST_FILE_,WWW,$(strip $(1)),$(strip $(2)))
 DATA_FILE = $(call DIST_FILE_,DATA,$(strip $(1)),$(strip $(2)))
+UTIL_FILE = $(call DIST_FILE_,UTIL,$(strip $(1)),$(strip $(2)))
 
 $(eval $(call BIN_FILE,		run_server.sh,		$(SRC)/util/run_server.sh))
 $(eval $(call BIN_FILE,		wrapper.py,			$(SRC)/server/wrapper.py))
@@ -339,6 +341,9 @@ $(eval $(call WWW_FILE, 	instructions.html,	$(SRC)/client/instructions.html))
 $(eval $(call WWW_FILE, 	server.json,		$(SRC)/build/server.json))
 $(eval $(call WWW_FILE, 	outpost.pack,		$(BUILD)/outpost.pack))
 $(eval $(call WWW_FILE, 	maresprite.png,		$(SRC)/assets/sprites/maresprite.png))
+$(eval $(call UTIL_FILE,	outpost_savegame.so,	$(BUILD_NATIVE)/outpost_savegame.so))
+$(eval $(call UTIL_FILE,	render_map.py, 		$(SRC)/util/render_map.py))
+$(eval $(call UTIL_FILE,	map.tmpl.html, 		$(SRC)/util/map.tmpl.html))
 
 ifeq ($(RELEASE),)
 $(eval $(call WWW_FILE, client.html, 		$(BUILD)/client.debug.html))
