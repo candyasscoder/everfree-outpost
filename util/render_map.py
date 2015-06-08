@@ -1,9 +1,12 @@
 from collections import namedtuple
+from functools import lru_cache
 import io
 import json
+import math
 import os
 import struct
 import sys
+import time
 
 from outpost_savegame import *
 
@@ -224,7 +227,7 @@ def read_obj(filename, load_func):
         return load_func(f.read())
 
 DIRS = (
-        V2(-1, -1),
+        V2( 1, -1),
         V2( 0, -1),
         V2(-1, -1),
         V2(-1,  0),
@@ -275,12 +278,8 @@ class SliceCache(object):
         self.plane = plane
         self.cache = {}
 
+    @lru_cache(maxsize=128)
     def get_slices(self, cpos):
-        if cpos not in self.cache:
-            self.cache[cpos] = self._slice(cpos)
-        return self.cache[cpos]
-
-    def _slice(self, cpos):
         chunk_id = self.plane.saved_chunks.get(cpos, None)
         if chunk_id is None:
             return []
@@ -313,7 +312,46 @@ def render_chunk(slice_cache, cpos):
         render_slices(img, slices, (ox, oy))
     return img
 
-def main(dist_dir, save_dir):
+def render_map(slice_cache, layers, map_dir):
+    total_tiles = sum(len(l) for l in layers)
+    rendered_tiles = 0
+    def count():
+        nonlocal rendered_tiles
+        rendered_tiles += 1
+        if rendered_tiles % 10 == 0:
+            print('  %4d / %4d' % (rendered_tiles, total_tiles))
+
+    max_z = len(layers) - 1
+    radius2 = 1 << (max_z - 1)
+    def render_tile(x, y, z):
+        if (x,y) not in layers[z]:
+            return None
+
+        if z == max_z:
+            img = render_chunk(slice_cache, V2(x, y) - radius2)
+            img = img.resize((256, 256), Image.BILINEAR)
+        else:
+            a = render_tile(x * 2 + 0, y * 2 + 0, z + 1)
+            b = render_tile(x * 2 + 1, y * 2 + 0, z + 1)
+            c = render_tile(x * 2 + 0, y * 2 + 1, z + 1)
+            d = render_tile(x * 2 + 1, y * 2 + 1, z + 1)
+            img = Image.new('RGBA', (512, 512))
+            if a is not None:
+                img.paste(a, (0, 0))
+            if b is not None:
+                img.paste(b, (256, 0))
+            if c is not None:
+                img.paste(c, (0, 256))
+            if d is not None:
+                img.paste(d, (256, 256))
+            img = img.resize((256, 256), Image.BILINEAR)
+
+        img.save(os.path.join(map_dir, 'tiles/z%d/%d,%d.png' % (z, x, y)))
+        count()
+        return img
+    render_tile(0, 0, 0)
+
+def main(dist_dir, save_dir, map_dir):
     data = load_data(dist_dir)
 
     plane = read_obj(os.path.join(save_dir, 'planes/2.plane'), load_plane)
@@ -327,18 +365,39 @@ def main(dist_dir, save_dir):
     expanded_chunks = expand_chunks(player_chunks)
     print('expanded to %d chunks' % len(expanded_chunks))
 
-    i = 0
-    count = len(expanded_chunks)
-    print('rendering %d chunks' % count)
-    slice_cache = SliceCache(data, save_dir, plane)
-    for cpos in expanded_chunks:
-        img = render_chunk(slice_cache, cpos)
-        img.save('%d,%d.png' % (cpos.x, cpos.y))
-        i += 1
-        if i % 10 == 0:
-            print('  %4d / %4d' % (i, count))
 
+    radius = max(c + 1 if c >= 0 else -c
+            for cpos in expanded_chunks
+            for c in (cpos.x, cpos.y))
+    rlog2 = math.ceil(math.log2(radius))
+    radius2 = 1 << rlog2
+    num_layers = 2 + rlog2
+
+    print('computing %d layers' % num_layers)
+    layers = [set((cpos.x + radius2, cpos.y + radius2) for cpos in expanded_chunks)]
+    for _ in range(num_layers - 1):
+        new_layer = set((x // 2, y // 2) for x,y in layers[-1])
+        layers.append(new_layer)
+    layers.reverse()
+
+    print('rendering %d tiles' % sum(len(l) for l in layers))
+    for i in range(num_layers):
+        os.makedirs(os.path.join(map_dir, 'tiles/z%d' % i), exist_ok=True)
+
+    slice_cache = SliceCache(data, save_dir, plane)
+    render_map(slice_cache, layers, map_dir)
+
+
+    print('generating map.html')
+    with open(os.path.join(os.path.dirname(sys.argv[0]), 'map.tmpl.html'), 'r') as f:
+        html = f.read()
+    html = html \
+            .replace('%DATE%', time.strftime('%Y-%m-%d')) \
+            .replace('%MAX_ZOOM%', str(len(layers) - 1)) \
+            .replace('%DEFAULT_ZOOM%', str(len(layers) - 3))
+    with open(os.path.join(map_dir, 'map.html'), 'w') as f:
+        f.write(html)
 
 if __name__ == '__main__':
-    dist_dir, save_dir = sys.argv[1:]
-    main(dist_dir, save_dir)
+    dist_dir, save_dir, map_dir = sys.argv[1:]
+    main(dist_dir, save_dir, map_dir)

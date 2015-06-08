@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" href="http://openlayers.org/en/v3.2.1/css/ol.css" type="text/css">
+    <style>
+      .map {
+        height: 1000px;
+        width: 100%;
+      }
+    </style>
+    <script src="http://openlayers.org/en/v3.2.1/build/ol.js" type="text/javascript"></script>
+    <title>Everfree Outpost Map - %DATE%</title>
+  </head>
+  <body>
+    <h2>Everfree Outpost Map - %DATE%</h2>
+    <div id="map" class="map"></div>
+    <script type="text/javascript">
+      var map = new ol.Map({
+        target: 'map',
+        layers: [
+          new ol.layer.Tile({
+            source: new ol.source.XYZ({url: 'tiles/z{z}/{x},{y}.png'}),
+            maxZoom: %MAX_ZOOM%
+          })
+        ],
+        view: new ol.View({
+          center: [0, 0],
+          zoom: %DEFAULT_ZOOM%
+        })
+      });
+    </script>
+  </body>
+</html>
