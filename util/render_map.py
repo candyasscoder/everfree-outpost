@@ -351,8 +351,9 @@ def render_map(slice_cache, layers, map_dir):
         return img
     render_tile(0, 0, 0)
 
-def main(dist_dir, save_dir, map_dir):
+def main(dist_dir, map_dir):
     data = load_data(dist_dir)
+    save_dir = os.path.join(dist_dir, 'save')
 
     plane = read_obj(os.path.join(save_dir, 'planes/2.plane'), load_plane)
     assert plane.name == 'Everfree Forest', \
@@ -399,5 +400,5 @@ def main(dist_dir, save_dir, map_dir):
         f.write(html)
 
 if __name__ == '__main__':
-    dist_dir, save_dir, map_dir = sys.argv[1:]
-    main(dist_dir, save_dir, map_dir)
+    dist_dir, map_dir = sys.argv[1:]
+    main(dist_dir, map_dir)
