@@ -80,6 +80,7 @@ static int Entity_init(Entity* self, PyObject* args, PyObject* kwds) {
     return 0;
 
 fail:
+    SET_EXC();
     Py_XDECREF(self->child_inventories);
     return -1;
 }
@@ -215,6 +216,7 @@ Entity* entity_read(Reader* r, int version) {
     return e;
 
 fail:
+    SET_EXC();
     Py_XDECREF(e);
     return NULL;
 }
@@ -239,5 +241,6 @@ int entity_read_post(Reader* r, Entity* e, int version) {
     return 0;
 
 fail:
+    SET_EXC();
     return -1;
 }

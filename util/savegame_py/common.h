@@ -13,6 +13,13 @@
         } \
     } while(0)
 
+#define SET_EXC() \
+    do { \
+        if (PyErr_Occurred() == NULL) { \
+            PyErr_SetString(PyExc_RuntimeError, __func__); \
+        } \
+    } while(0)
+
 
 typedef struct _V3 {
     PyObject_HEAD

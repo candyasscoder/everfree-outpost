@@ -83,6 +83,7 @@ static int TerrainChunk_init(TerrainChunk* self, PyObject* args, PyObject* kwds)
     return 0;
 
 fail:
+    SET_EXC();
     Py_XDECREF(self->blocks);
     Py_XDECREF(self->child_structures);
     return -1;
@@ -109,7 +110,6 @@ PyObject* read_block_type_table(Reader* r) {
 
     uint32_t block_type_count;
     READ(block_type_count);
-    printf("blocks: %d\n", block_type_count);
     for (uint32_t i = 0; i < block_type_count; ++i) {
         struct {
             uint16_t old_id;
@@ -117,7 +117,6 @@ PyObject* read_block_type_table(Reader* r) {
             uint8_t name_len;
         } x;
         READ(x);
-        printf("  %d: info %d, %d, %d\n", i, x.old_id, x.shape, x.name_len);
         PyObject* name = read_string(r, x.name_len);
         FAIL_IF(name == NULL);
 
@@ -140,6 +139,7 @@ PyObject* read_block_type_table(Reader* r) {
     return block_type_table;
 
 fail:
+    SET_EXC();
     Py_XDECREF(block_type_table);
     return NULL;
 }
@@ -205,6 +205,7 @@ TerrainChunk* terrain_chunk_read(Reader* r, int version) {
     return tc;
 
 fail:
+    SET_EXC();
     Py_XDECREF(tc);
     Py_XDECREF(block_type_table);
     return NULL;
@@ -230,5 +231,6 @@ int terrain_chunk_read_post(Reader* r, TerrainChunk* tc, int version) {
     return 0;
 
 fail:
+    SET_EXC();
     return -1;
 }

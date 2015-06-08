@@ -59,6 +59,7 @@ static int Inventory_init(Inventory* self, PyObject* args, PyObject* kwds) {
     return 0;
 
 fail:
+    SET_EXC();
     Py_XDECREF(self->contents);
     return -1;
 }
@@ -118,6 +119,7 @@ Inventory* inventory_read(Reader* r, int version) {
     return i;
 
 fail:
+    SET_EXC();
     Py_XDECREF(i);
     return NULL;
 }
@@ -134,5 +136,6 @@ int inventory_read_post(Reader* r, Inventory* i, int version) {
     return 0;
 
 fail:
+    SET_EXC();
     return -1;
 }

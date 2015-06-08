@@ -23,6 +23,7 @@ int reader_init(Reader* r, PyObject* bytes) {
     return 0;
 
 fail:
+    SET_EXC();
     Py_XDECREF(r->object_id_table);
     Py_XDECREF(r->item_name_table);
     Py_XDECREF(r->template_name_table);
@@ -50,6 +51,7 @@ PyObject* read_decode_item_name(Reader* r, uint16_t old_id, size_t name_len) {
     }
 
 fail:
+    SET_EXC();
     Py_XDECREF(key);
     Py_XDECREF(value);
     return NULL;
@@ -89,6 +91,7 @@ PyObject* read_decode_template_name(Reader* r) {
     }
 
 fail:
+    SET_EXC();
     Py_XDECREF(key);
     Py_XDECREF(value);
     return NULL;
@@ -110,6 +113,7 @@ PyObject* read_string(Reader* r, size_t len) {
     return str;
 
 fail:
+    SET_EXC();
     Py_XDECREF(bytes);
     Py_XDECREF(str);
     return NULL;
@@ -125,6 +129,7 @@ int read_register_object(Reader* r, uint32_t save_id, PyObject* obj) {
     return 0;
 
 fail:
+    SET_EXC();
     Py_XDECREF(key);
     return -1;
 }
@@ -141,6 +146,7 @@ PyObject* read_find_object(Reader* r, uint32_t save_id) {
     return result;
 
 fail:
+    SET_EXC();
     Py_XDECREF(key);
     return NULL;
 }

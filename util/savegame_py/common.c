@@ -20,37 +20,81 @@
 #define V3_REP(s)       s s s
 
 #define GEN_OP(Vn, name, OP) \
-    static PyObject* Vn##_##name(Vn* self, PyObject* args) { \
-        PyObject* obj = NULL; \
-        if (!PyArg_ParseTuple(args, "O", &obj)) { \
+    static PyObject* Vn##_##name(PyObject* obj1, PyObject* obj2) { \
+        if (!PyObject_TypeCheck(obj1, &Vn##Type)) { \
             return NULL; \
         } \
+        Vn* self = (Vn*)obj1; \
         \
         PyObject* result = NULL; \
         \
-        if (PyLong_Check(obj)) { \
+        if (PyLong_Check(obj2)) { \
             int overflow = 0; \
-            int32_t c = PyLong_AsLongAndOverflow(obj, &overflow); \
+            int32_t c = PyLong_AsLongAndOverflow(obj2, &overflow); \
             if (!overflow) { \
                 result = PyObject_CallFunction((PyObject*)&Vn##Type, \
                         Vn##_REP("i"), \
                         Vn##_DO_OP(OP, SELF_ARROW, JUST_C)); \
             } \
-        } else if (PyObject_TypeCheck(obj, &Vn##Type)) { \
-            Vn* other = (Vn*)obj; \
+        } else if (PyObject_TypeCheck(obj2, &Vn##Type)) { \
+            Vn* other = (Vn*)obj2; \
             result = PyObject_CallFunction((PyObject*)&Vn##Type, \
                     Vn##_REP("i"), \
                     Vn##_DO_OP(OP, SELF_ARROW, OTHER_ARROW)); \
         } \
         /* Leave `result` as NULL if the type is wrong. */ \
         \
-        Py_XDECREF(obj); \
         return result; \
     }
 
 #define ADD_OP(a, b) (a + b)
 #define SUB_OP(a, b) (a - b)
 #define MUL_OP(a, b) (a * b)
+
+#define GEN_DIVMOD(Vn) \
+    static PyObject* Vn##_divmod(PyObject* obj1, PyObject* obj2) { \
+        if (!PyObject_TypeCheck(obj1, &Vn##Type)) { \
+            return NULL; \
+        } \
+        Vn* self = (Vn*)obj1; \
+        \
+        PyObject* div = NULL; \
+        PyObject* mod = NULL; \
+        \
+        if (PyLong_Check(obj2)) { \
+            int overflow = 0; \
+            int32_t c = PyLong_AsLongAndOverflow(obj2, &overflow); \
+            if (overflow) { \
+                return NULL; \
+            } \
+            div = PyObject_CallFunction((PyObject*)&Vn##Type, \
+                    Vn##_REP("i"), \
+                    Vn##_DO_OP(DIV_OP, SELF_ARROW, JUST_C)); \
+            if (div != NULL) { \
+                mod = PyObject_CallFunction((PyObject*)&Vn##Type, \
+                        Vn##_REP("i"), \
+                        Vn##_DO_OP(MOD_OP, SELF_ARROW, JUST_C)); \
+            } \
+        } else if (PyObject_TypeCheck(obj2, &Vn##Type)) { \
+            Vn* other = (Vn*)obj2; \
+            div = PyObject_CallFunction((PyObject*)&Vn##Type, \
+                    Vn##_REP("i"), \
+                    Vn##_DO_OP(DIV_OP, SELF_ARROW, OTHER_ARROW)); \
+            if (div != NULL) { \
+                mod = PyObject_CallFunction((PyObject*)&Vn##Type, \
+                        Vn##_REP("i"), \
+                        Vn##_DO_OP(MOD_OP, SELF_ARROW, OTHER_ARROW)); \
+            } \
+        } \
+        if (div != NULL && mod != NULL) { \
+            return Py_BuildValue("OO", div, mod); \
+        } else { \
+            Py_XDECREF(div); \
+            Py_XDECREF(mod); \
+            return NULL; \
+        } \
+    }
+
 #define DIV_OP(a, b) (a < 0 ? (a - (b - 1)) / b : a / b)
 #define MOD_OP(a, b) (a < 0 ? (a - (b - 1)) % b : a % b)
 
@@ -140,21 +184,16 @@ static int V3_init(V3* self, PyObject* args, PyObject* kwds) {
 GEN_OP(V3, add, ADD_OP)
 GEN_OP(V3, sub, SUB_OP)
 GEN_OP(V3, mul, MUL_OP)
-GEN_OP(V3, div, DIV_OP)
-GEN_OP(V3, mod, MOD_OP)
+GEN_DIVMOD(V3)
 
 GEN_HASH(V3)
 GEN_COMP(V3)
 
 static PyMethodDef V3_methods[] = {
-    {"__add__", (PyCFunction)V3_add, METH_VARARGS, NULL},
-    {"__sub__", (PyCFunction)V3_sub, METH_VARARGS, NULL},
-    {"__mul__", (PyCFunction)V3_mul, METH_VARARGS, NULL},
-    {"__div__", (PyCFunction)V3_div, METH_VARARGS, NULL},
-    {"__mod__", (PyCFunction)V3_mod, METH_VARARGS, NULL},
-    {"__hash__", (PyCFunction)V3_hash, METH_VARARGS, NULL},
     {NULL}
 };
+
+static PyNumberMethods V3_number_methods = {0};
 
 PyTypeObject V3Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -170,6 +209,12 @@ PyObject* v3_get_type() {
     V3Type.tp_methods = V3_methods;
     V3Type.tp_hash = (hashfunc)V3_hash;
     V3Type.tp_richcompare = (richcmpfunc)V3_richcompare;
+    V3Type.tp_as_number = &V3_number_methods;
+
+    V3_number_methods.nb_add = (binaryfunc)V3_add;
+    V3_number_methods.nb_subtract = (binaryfunc)V3_sub;
+    V3_number_methods.nb_multiply = (binaryfunc)V3_mul;
+    V3_number_methods.nb_divmod = V3_divmod;
 
     if (PyType_Ready(&V3Type) < 0) {
         return NULL;
@@ -190,6 +235,7 @@ V3* v3_read(Reader* r) {
             val.x, val.y, val.z);
 
 fail:
+    SET_EXC();
     return NULL;
 }
 
@@ -213,20 +259,16 @@ static int V2_init(V2* self, PyObject* args, PyObject* kwds) {
 GEN_OP(V2, add, ADD_OP)
 GEN_OP(V2, sub, SUB_OP)
 GEN_OP(V2, mul, MUL_OP)
-GEN_OP(V2, div, DIV_OP)
-GEN_OP(V2, mod, MOD_OP)
+GEN_DIVMOD(V2)
 
 GEN_HASH(V2)
 GEN_COMP(V2)
 
 static PyMethodDef V2_methods[] = {
-    {"__add__", (PyCFunction)V2_add, METH_VARARGS, NULL},
-    {"__sub__", (PyCFunction)V2_sub, METH_VARARGS, NULL},
-    {"__mul__", (PyCFunction)V2_mul, METH_VARARGS, NULL},
-    {"__div__", (PyCFunction)V2_div, METH_VARARGS, NULL},
-    {"__mod__", (PyCFunction)V2_mod, METH_VARARGS, NULL},
     {NULL}
 };
+
+PyNumberMethods V2_number_methods = {0};
 
 PyTypeObject V2Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -242,6 +284,12 @@ PyObject* v2_get_type() {
     V2Type.tp_methods = V2_methods;
     V2Type.tp_hash = (hashfunc)V2_hash;
     V2Type.tp_richcompare = (richcmpfunc)V2_richcompare;
+    V2Type.tp_as_number = &V2_number_methods;
+
+    V2_number_methods.nb_add = (binaryfunc)V2_add;
+    V2_number_methods.nb_subtract = (binaryfunc)V2_sub;
+    V2_number_methods.nb_multiply = (binaryfunc)V2_mul;
+    V2_number_methods.nb_divmod = V2_divmod;
 
     if (PyType_Ready(&V2Type) < 0) {
         return NULL;
@@ -261,5 +309,6 @@ V2* v2_read(Reader* r) {
             val.x, val.y);
 
 fail:
+    SET_EXC();
     return NULL;
 }

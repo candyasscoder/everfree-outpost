@@ -151,11 +151,15 @@ PyObject* extra_read(Reader* r, int version) {
             break;
         }
 
+        default:
+            PyErr_SetString(PyExc_RuntimeError, "bad tag in script extras");
+            goto fail;
     }
 
     return result;
 
 fail:
+    SET_EXC();
     Py_XDECREF(result);
     return NULL;
 }
@@ -194,6 +198,7 @@ PyObject* read_table(Reader* r, int version) {
     return dct;
 
 fail:
+    SET_EXC();
     Py_XDECREF(dct);
     return NULL;
 }
@@ -281,6 +286,7 @@ PyObject* extra_read_post(Reader* r, PyObject* extra, int version) {
     return result;
 
 fail:
+    SET_EXC();
     Py_XDECREF(result);
     return NULL;
 }

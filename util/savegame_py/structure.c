@@ -72,6 +72,7 @@ static int Structure_init(Structure* self, PyObject* args, PyObject* kwds) {
     return 0;
 
 fail:
+    SET_EXC();
     Py_XDECREF(self->child_inventories);
     return -1;
 }
@@ -129,6 +130,7 @@ Structure* structure_read(Reader* r, int version) {
     return s;
 
 fail:
+    SET_EXC();
     Py_XDECREF(s);
     return NULL;
 }
@@ -153,5 +155,6 @@ int structure_read_post(Reader* r, Structure* s, int version) {
     return 0;
 
 fail:
+    SET_EXC();
     return -1;
 }

@@ -14,6 +14,7 @@
 
 static PyObject* py_load_client(PyObject* self, PyObject* args) {
     PyObject* bytes = NULL;
+    Client* result = NULL;
 
     FAIL_IF(!PyArg_ParseTuple(args, "O", &bytes));
 
@@ -23,21 +24,22 @@ static PyObject* py_load_client(PyObject* self, PyObject* args) {
 
     uint32_t version;
     READ(version);
-    Client* result = client_read(r, version);
+    result = client_read(r, version);
     FAIL_IF(result == NULL);
     FAIL_IF(client_read_post(r, result, version));
 
-    Py_DECREF(bytes);
     return (PyObject*)result;
 
 fail:
-    Py_XDECREF(bytes);
+    SET_EXC();
+    Py_XDECREF(result);
     return NULL;
 }
 
 
 static PyObject* py_load_plane(PyObject* self, PyObject* args) {
     PyObject* bytes = NULL;
+    Plane* result;
 
     FAIL_IF(!PyArg_ParseTuple(args, "O", &bytes));
 
@@ -47,21 +49,22 @@ static PyObject* py_load_plane(PyObject* self, PyObject* args) {
 
     uint32_t version;
     READ(version);
-    Plane* result = plane_read(r, version);
+    result = plane_read(r, version);
     FAIL_IF(result == NULL);
     FAIL_IF(plane_read_post(r, result, version));
 
-    Py_DECREF(bytes);
     return (PyObject*)result;
 
 fail:
-    Py_XDECREF(bytes);
+    SET_EXC();
+    Py_XDECREF(result);
     return NULL;
 }
 
 
 static PyObject* py_load_terrain_chunk(PyObject* self, PyObject* args) {
     PyObject* bytes = NULL;
+    TerrainChunk* result;
 
     FAIL_IF(!PyArg_ParseTuple(args, "O", &bytes));
 
@@ -71,15 +74,15 @@ static PyObject* py_load_terrain_chunk(PyObject* self, PyObject* args) {
 
     uint32_t version;
     READ(version);
-    TerrainChunk* result = terrain_chunk_read(r, version);
+    result = terrain_chunk_read(r, version);
     FAIL_IF(result == NULL);
     FAIL_IF(terrain_chunk_read_post(r, result, version));
 
-    Py_DECREF(bytes);
     return (PyObject*)result;
 
 fail:
-    Py_XDECREF(bytes);
+    SET_EXC();
+    Py_XDECREF(result);
     return NULL;
 }
 

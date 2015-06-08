@@ -76,6 +76,7 @@ static int Client_init(Client* self, PyObject* args, PyObject* kwds) {
     return 0;
 
 fail:
+    SET_EXC();
     Py_XDECREF(self->child_entities);
     Py_XDECREF(self->child_inventories);
     return -1;
@@ -131,6 +132,7 @@ Client* client_read(Reader* r, int version) {
     return c;
 
 fail:
+    SET_EXC();
     Py_XDECREF(c);
     return NULL;
 }
@@ -168,5 +170,6 @@ int client_read_post(Reader* r, Client* c, int version) {
     return 0;
 
 fail:
+    SET_EXC();
     return -1;
 }

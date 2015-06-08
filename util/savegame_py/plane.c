@@ -65,6 +65,7 @@ static int Plane_init(Plane* self, PyObject* args, PyObject* kwds) {
     return 0;
 
 fail:
+    SET_EXC();
     Py_XDECREF(self->saved_chunks);
     return -1;
 }
@@ -130,6 +131,7 @@ Plane* plane_read(Reader* r, int version) {
     return p;
 
 fail:
+    SET_EXC();
     Py_XDECREF(p);
     return NULL;
 }
@@ -145,5 +147,6 @@ int plane_read_post(Reader* r, Plane* p, int version) {
     return 0;
 
 fail:
+    SET_EXC();
     return -1;
 }
