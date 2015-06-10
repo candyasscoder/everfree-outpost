@@ -28,6 +28,9 @@ ChatWindow.prototype.addMessage = function(msg) {
         return;
     }
 
+    var was_at_bottom =
+        (this._content.scrollTop + this._content.clientHeight >= this._content.scrollHeight);
+
     var name = msg.substring(0, idx);
     if (Config.ignores.get()[name]) {
         return;
@@ -48,10 +51,20 @@ ChatWindow.prototype.addMessage = function(msg) {
     if (this.count < limit) {
         this.count += 1;
     } else {
+        // Remove the first line of the chat, but adjust the scrolling so the
+        // view stays at the same spot.
+        var old_h = this._content.scrollHeight;
         this._content.removeChild(this._content.firstChild);
+        var new_h = this._content.scrollHeight;
+        this._content.scrollTop -= new_h - old_h;
     }
 
-    this._content.scrollTop = this._content.scrollHeight;
+    // If the chat box was scrolled to the bottom, automatically scroll with
+    // new lines.  Otherwise, don't scroll, so the player can read the old
+    // messages unhindered.
+    if (was_at_bottom) {
+        this._content.scrollTop = this._content.scrollHeight;
+    }
 };
 
 ChatWindow.prototype.addIgnore = function(name) {
