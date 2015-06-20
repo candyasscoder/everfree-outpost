@@ -521,7 +521,7 @@ function makeSecret() {
         console.log("warning: window.crypto.getRandomValues is not available.  " +
                 "Login secret will be weak!");
         for (var i = 0; i < 4; ++i) {
-            secret_buf[i] = Math.random() * 0xffffffff;
+            secret_buf[i] = Math.floor(Math.random() * 0xffffffff);
         }
     }
     return secret_buf;
