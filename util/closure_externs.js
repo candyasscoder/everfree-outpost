@@ -16,6 +16,9 @@ CanvasRenderingContext2D.prototype.webkitImageSmoothingEnabled;
  */
 Window.prototype.URL;
 
+Window.prototype.crypto;
+Window.prototype.crypto.getRandomValues;
+
 
 /** @constructor @noalias */
 function WEBGL_draw_buffers() {}
