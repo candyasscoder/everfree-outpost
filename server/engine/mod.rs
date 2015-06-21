@@ -16,6 +16,7 @@ use physics_::Physics;
 use script::ScriptEngine;
 use storage::Storage;
 use terrain_gen::TerrainGen;
+use timer::Timer;
 use vision::Vision;
 use world::World;
 
@@ -35,6 +36,7 @@ pub struct Engine<'d> {
     pub script: ScriptEngine,
 
     pub messages: Messages,
+    pub timer: Timer,
     pub physics: Physics<'d>,
     pub vision: Vision,
     pub auth: Auth,
@@ -65,6 +67,7 @@ impl<'d> Engine<'d> {
             script: ScriptEngine::new(&storage.script_dir()),
 
             messages: Messages::new(receiver, sender),
+            timer: Timer::new(),
             physics: Physics::new(data),
             vision: Vision::new(),
             auth: Auth::new(&storage.auth_db_path()).unwrap(),

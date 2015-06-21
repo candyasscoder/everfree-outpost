@@ -148,6 +148,7 @@ EnginePart_decl! {
     Wr Wr2 Wr3 (world, world_mut, ::world::World<'d>),
     Sc Sc2 Sc3 (script, script_mut, ::script::ScriptEngine),
     Ms Ms2 Ms3 (messages, messages_mut, ::messages::Messages),
+    Ti Ti2 Ti3 (timer, timer_mut, ::timer::Timer),
     Ph Ph2 Ph3 (physics, physics_mut, ::physics_::Physics<'d>),
     Vi Vi2 Vi3 (vision, vision_mut, ::vision::Vision),
     Au Au2 Au3 (auth, auth_mut, ::auth::Auth),
@@ -178,101 +179,108 @@ impl<'a> SplitOffRHS<'a, ()> for () {
 
 
 macro_rules! engine_part_typedef_helper {
-    ($wr:ty, $sc:ty, $ms:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
+    ($wr:ty, $sc:ty, $ms:ty, $ti:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
      world, $($x:ident,)*) => {
         engine_part_typedef_helper!(
-            ::world::World<'d>, $sc, $ms, $ph, $vi, $au, $ch, $ca, $tg,
+            ::world::World<'d>, $sc, $ms, $ti, $ph, $vi, $au, $ch, $ca, $tg,
             / $m $name / $($x,)*);
     };
 
-    ($wr:ty, $sc:ty, $ms:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
+    ($wr:ty, $sc:ty, $ms:ty, $ti:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
      script, $($x:ident,)*) => {
         engine_part_typedef_helper!(
-            $wr, ::script::ScriptEngine, $ms, $ph, $vi, $au, $ch, $ca, $tg,
+            $wr, ::script::ScriptEngine, $ms, $ti, $ph, $vi, $au, $ch, $ca, $tg,
             / $m $name / $($x,)*);
     };
 
-    ($wr:ty, $sc:ty, $ms:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
+    ($wr:ty, $sc:ty, $ms:ty, $ti:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
      messages, $($x:ident,)*) => {
         engine_part_typedef_helper!(
-            $wr, $sc, ::messages::Messages, $ph, $vi, $au, $ch, $ca, $tg,
+            $wr, $sc, ::messages::Messages, $ti, $ph, $vi, $au, $ch, $ca, $tg,
             / $m $name / $($x,)*);
     };
 
-    ($wr:ty, $sc:ty, $ms:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
+    ($wr:ty, $sc:ty, $ms:ty, $ti:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
+     timer, $($x:ident,)*) => {
+        engine_part_typedef_helper!(
+            $wr, $sc, $ms, ::timer::Timer, $ph, $vi, $au, $ch, $ca, $tg,
+            / $m $name / $($x,)*);
+    };
+
+    ($wr:ty, $sc:ty, $ms:ty, $ti:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
      physics, $($x:ident,)*) => {
         engine_part_typedef_helper!(
-            $wr, $sc, $ms, ::physics_::Physics<'d>, $vi, $au, $ch, $ca, $tg,
+            $wr, $sc, $ms, $ti, ::physics_::Physics<'d>, $vi, $au, $ch, $ca, $tg,
             / $m $name / $($x,)*);
     };
 
-    ($wr:ty, $sc:ty, $ms:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
+    ($wr:ty, $sc:ty, $ms:ty, $ti:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
      vision, $($x:ident,)*) => {
         engine_part_typedef_helper!(
-            $wr, $sc, $ms, $ph, ::vision::Vision, $au, $ch, $ca, $tg,
+            $wr, $sc, $ms, $ti, $ph, ::vision::Vision, $au, $ch, $ca, $tg,
             / $m $name / $($x,)*);
     };
 
-    ($wr:ty, $sc:ty, $ms:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
+    ($wr:ty, $sc:ty, $ms:ty, $ti:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
      auth, $($x:ident,)*) => {
         engine_part_typedef_helper!(
-            $wr, $sc, $ms, $ph, $vi, ::auth::Auth, $ch, $ca, $tg,
+            $wr, $sc, $ms, $ti, $ph, $vi, ::auth::Auth, $ch, $ca, $tg,
             / $m $name / $($x,)*);
     };
 
-    ($wr:ty, $sc:ty, $ms:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
+    ($wr:ty, $sc:ty, $ms:ty, $ti:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
      chunks, $($x:ident,)*) => {
         engine_part_typedef_helper!(
-            $wr, $sc, $ms, $ph, $vi, $au, ::chunks::Chunks<'d>, $ca, $tg,
+            $wr, $sc, $ms, $ti, $ph, $vi, $au, ::chunks::Chunks<'d>, $ca, $tg,
             / $m $name / $($x,)*);
     };
 
-    ($wr:ty, $sc:ty, $ms:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
+    ($wr:ty, $sc:ty, $ms:ty, $ti:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
      cache, $($x:ident,)*) => {
         engine_part_typedef_helper!(
-            $wr, $sc, $ms, $ph, $vi, $au, $ch, ::cache::TerrainCache, $tg,
+            $wr, $sc, $ms, $ti, $ph, $vi, $au, $ch, ::cache::TerrainCache, $tg,
             / $m $name / $($x,)*);
     };
 
-    ($wr:ty, $sc:ty, $ms:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
+    ($wr:ty, $sc:ty, $ms:ty, $ti:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /
      terrain_gen, $($x:ident,)*) => {
         engine_part_typedef_helper!(
-            $wr, $sc, $ms, $ph, $vi, $au, $ch, $ca, ::terrain_gen::TerrainGen<'d>,
+            $wr, $sc, $ms, $ti, $ph, $vi, $au, $ch, $ca, ::terrain_gen::TerrainGen<'d>,
             / $m $name / $($x,)*);
     };
 
-    ($wr:ty, $sc:ty, $ms:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /) => {
-        $m!($name, $wr, $sc, $ms, $ph, $vi, $au, $ch, $ca, $tg);
+    ($wr:ty, $sc:ty, $ms:ty, $ti:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty, / $m:ident $name:ident /) => {
+        $m!($name, $wr, $sc, $ms, $ti, $ph, $vi, $au, $ch, $ca, $tg);
     };
 }
 
 macro_rules! engine_part_typedef_pub {
-    ($name:ident, $wr:ty, $sc:ty, $ms:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty) => {
-        pub struct $name<'a, 'd: 'a>(pub ::engine::split::EnginePart<'a, 'd, $wr, $sc, $ms, $ph, $vi, $au, $ch, $ca, $tg>);
-        engine_part_typedef_impls!($name, $wr, $sc, $ms, $ph, $vi, $au, $ch, $ca, $tg);
+    ($name:ident, $wr:ty, $sc:ty, $ms:ty, $ti:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty) => {
+        pub struct $name<'a, 'd: 'a>(pub ::engine::split::EnginePart<'a, 'd, $wr, $sc, $ms, $ti, $ph, $vi, $au, $ch, $ca, $tg>);
+        engine_part_typedef_impls!($name, $wr, $sc, $ms, $ti, $ph, $vi, $au, $ch, $ca, $tg);
     };
 }
 
 macro_rules! engine_part_typedef_priv {
-    ($name:ident, $wr:ty, $sc:ty, $ms:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty) => {
-        struct $name<'a, 'd: 'a>(pub ::engine::split::EnginePart<'a, 'd, $wr, $sc, $ms, $ph, $vi, $au, $ch, $ca, $tg>);
-        engine_part_typedef_impls!($name, $wr, $sc, $ms, $ph, $vi, $au, $ch, $ca, $tg);
+    ($name:ident, $wr:ty, $sc:ty, $ms:ty, $ti:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty) => {
+        struct $name<'a, 'd: 'a>(pub ::engine::split::EnginePart<'a, 'd, $wr, $sc, $ms, $ti, $ph, $vi, $au, $ch, $ca, $tg>);
+        engine_part_typedef_impls!($name, $wr, $sc, $ms, $ti, $ph, $vi, $au, $ch, $ca, $tg);
     };
 }
 
 macro_rules! engine_part_typedef_impls {
-    ($name:ident, $wr:ty, $sc:ty, $ms:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty) => {
+    ($name:ident, $wr:ty, $sc:ty, $ms:ty, $ti:ty, $ph:ty, $vi:ty, $au:ty, $ch:ty, $ca:ty, $tg:ty) => {
         impl<'a, 'd: 'a> $crate::engine::split::Part for $name<'a, 'd> {
             type P = $crate::engine::split::EnginePart<
-                'a, 'd, $wr, $sc, $ms, $ph, $vi, $au, $ch, $ca, $tg>;
+                'a, 'd, $wr, $sc, $ms, $ti, $ph, $vi, $au, $ch, $ca, $tg>;
 
             fn from_part(part: $crate::engine::split::EnginePart<
-                             'a, 'd, $wr, $sc, $ms, $ph, $vi, $au, $ch, $ca, $tg>) -> $name<'a, 'd> {
+                             'a, 'd, $wr, $sc, $ms, $ti, $ph, $vi, $au, $ch, $ca, $tg>) -> $name<'a, 'd> {
                 $name(part)
             }
 
             fn to_part(self) -> $crate::engine::split::EnginePart<
-                    'a, 'd, $wr, $sc, $ms, $ph, $vi, $au, $ch, $ca, $tg> {
+                    'a, 'd, $wr, $sc, $ms, $ti, $ph, $vi, $au, $ch, $ca, $tg> {
                 self.0
             }
         }
@@ -289,7 +297,7 @@ macro_rules! engine_part_typedef_impls {
 
         impl<'a, 'd: 'a> ::std::ops::Deref for $name<'a, 'd> {
             type Target = $crate::engine::split::EnginePart<
-                 'a, 'd, $wr, $sc, $ms, $ph, $vi, $au, $ch, $ca, $tg>;
+                 'a, 'd, $wr, $sc, $ms, $ti, $ph, $vi, $au, $ch, $ca, $tg>;
 
             fn deref(&self) -> &<Self as ::std::ops::Deref>::Target {
                 &self.0
@@ -309,19 +317,19 @@ macro_rules! engine_part_typedef_impls {
 macro_rules! engine_part_typedef {
     (pub $name:ident($($part:ident),*)) => {
         engine_part_typedef_helper!(
-            (), (), (), (), (), (), (), (), (),
+            (), (), (), (), (), (), (), (), (), (),
             / engine_part_typedef_pub $name / $($part,)*);
     };
 
     ($name:ident($($part:ident),*)) => {
         engine_part_typedef_helper!(
-            (), (), (), (), (), (), (), (), (),
+            (), (), (), (), (), (), (), (), (), (),
             / engine_part_typedef_priv $name / $($part,)*);
     };
 }
 
 engine_part_typedef!(pub EngineRef(
-        world, script, messages, physics, vision, auth, cache, chunks, terrain_gen));
+        world, script, messages, timer, physics, vision, auth, cache, chunks, terrain_gen));
 
 impl<'a, 'd> EngineRef<'a, 'd> {
     pub fn new(e: &'a mut Engine<'d>) -> Self {
