@@ -1,6 +1,7 @@
 use std::cmp;
 use std::error::Error;
-use std::sync::mpsc::{Sender, Receiver, Select};
+use std::mem;
+use std::sync::mpsc::{Sender, Receiver};
 
 use types::*;
 use util::StringResult;
@@ -10,7 +11,6 @@ use physics::TILE_SIZE;
 use auth::Secret;
 use input::InputBits;
 use msg::{Request, Response, InitData, ExtraArg};
-use timer::{self, WakeQueue};
 use world::Motion;
 
 use self::clients::Clients;
@@ -22,7 +22,6 @@ mod clients;
 pub struct Messages {
     send: Sender<(WireId, Response)>,
     recv: Receiver<(WireId, Request)>,
-    wake: WakeQueue<WakeReason>,
     clients: Clients,
     time_base: Time,
 }
@@ -31,18 +30,6 @@ pub enum Event {
     Control(ControlEvent),
     Wire(WireId, WireEvent),
     Client(ClientId, ClientEvent),
-    Other(OtherEvent),
-}
-
-#[derive(Clone)]
-pub enum WakeReason {
-    DeferredInput(ClientId, InputBits),
-    DeferredInteract(ClientId, Option<ExtraArg>),
-    DeferredUseItem(ClientId, ItemId, Option<ExtraArg>),
-    DeferredUseAbility(ClientId, ItemId, Option<ExtraArg>),
-    PhysicsUpdate(EntityId),
-    CheckView(ClientId),
-    ScriptTimeout(u32),
 }
 
 
@@ -60,23 +47,17 @@ pub enum WireEvent {
 }
 
 pub enum ClientEvent {
-    Input(InputBits),
+    Input(Time, InputBits),
     UnsubscribeInventory(InventoryId),
     MoveItem(InventoryId, InventoryId, ItemId, u16),
     CraftRecipe(StructureId, InventoryId, RecipeId, u16),
     Chat(String),
 
-    Interact(Option<ExtraArg>),
-    UseItem(ItemId, Option<ExtraArg>),
-    UseAbility(ItemId, Option<ExtraArg>),
+    Interact(Time, Option<ExtraArg>),
+    UseItem(Time, ItemId, Option<ExtraArg>),
+    UseAbility(Time, ItemId, Option<ExtraArg>),
 
-    CheckView,
     BadRequest,
-}
-
-pub enum OtherEvent {
-    PhysicsUpdate(EntityId),
-    ScriptTimeout(u32),
 }
 
 
@@ -131,13 +112,20 @@ pub enum Dialog {
 }
 
 
+/// Opaque wrapper around the low-level event type.
+pub struct MessageEvent((WireId, Request));
+
+fn cast_receiver(recv: &Receiver<(WireId, Request)>) -> &Receiver<MessageEvent> {
+    unsafe { mem::transmute(recv) }
+}
+
+
 impl Messages {
     pub fn new(recv: Receiver<(WireId, Request)>,
                send: Sender<(WireId, Response)>) -> Messages {
         Messages {
             send: send,
             recv: recv,
-            wake: WakeQueue::new(),
             clients: Clients::new(),
             time_base: 0,
         }
@@ -148,8 +136,7 @@ impl Messages {
 
     // Regarding timestamps: All Time values within this module, as well as all Times passed
     // to/from the Engine or transmitted to/from clients, are "world times" (that is, adjusted
-    // using `time_base`).  The only raw Unix timestamps are those passed to/from the WakeQueue,
-    // which uses plain Unix time internally and can't be easily adjusted.
+    // using `time_base`).
 
     fn world_time(&self, unix_time: Time) -> Time {
         unix_time - self.time_base
@@ -161,8 +148,8 @@ impl Messages {
 
     // NB: This is designed to be called only once, near the beginning of server startup.  Calling
     // it while the server is running may have strange effects.
-    pub fn set_world_time(&mut self, world_time: Time) {
-        self.time_base = now() - world_time;
+    pub fn set_world_time(&mut self, unix_time: Time, world_time: Time) {
+        self.time_base = unix_time - world_time;
         debug!("new time_base: {:x} (world_time {:x})", self.time_base, world_time);
     }
 
@@ -200,87 +187,15 @@ impl Messages {
 
     // Event processing
 
-    pub fn next_event(&mut self) -> (Event, Time) {
-        loop {
-            enum Msg {
-                Wake(timer::Cookie),
-                Req((WireId, Request)),
-            }
-
-
-            let msg = {
-                let wake_recv = self.wake.receiver();
-                // select! can't handle 'self.recv' as a channel name.  Sigh...
-                let select = Select::new();
-
-                let mut wake_handle = select.handle(wake_recv);
-                let mut req_handle = select.handle(&self.recv);
-
-
-                unsafe {
-                    wake_handle.add();
-                    req_handle.add();
-                }
-
-                let ready_id = select.wait();
-
-                unsafe {
-                    wake_handle.remove();
-                    req_handle.remove();
-                }
-
-
-                if ready_id == wake_handle.id() {
-                    Msg::Wake(wake_handle.recv().unwrap())
-                } else {
-                    Msg::Req(req_handle.recv().unwrap())
-                }
-            };
-
-            let now = self.world_now();
-            match msg {
-                Msg::Wake(cookie) => {
-                    let (time, reason) = self.wake.retrieve(cookie);
-                    let time = self.world_time(time);
-                    if let Some(evt) = self.handle_wake(time, reason) {
-                        return (evt, time);
-                    }
-                },
-                Msg::Req((wire_id, req)) => {
-                    if let Some(evt) = self.handle_req(now, wire_id, req) {
-                        return (evt, now);
-                    }
-                },
-            }
-        }
+    pub fn receiver(&self) -> &Receiver<MessageEvent> {
+        cast_receiver(&self.recv)
     }
 
-    fn handle_wake(&mut self, now: Time, reason: WakeReason) -> Option<Event> {
-        match reason {
-            WakeReason::DeferredInput(cid, input) =>
-                Some(Event::Client(cid, ClientEvent::Input(input))),
-            WakeReason::DeferredInteract(cid, args) =>
-                Some(Event::Client(cid, ClientEvent::Interact(args))),
-            WakeReason::DeferredUseItem(cid, item_id, args) =>
-                Some(Event::Client(cid, ClientEvent::UseItem(item_id, args))),
-            WakeReason::DeferredUseAbility(cid, item_id, args) =>
-                Some(Event::Client(cid, ClientEvent::UseAbility(item_id, args))),
-            WakeReason::PhysicsUpdate(eid) =>
-                Some(Event::Other(OtherEvent::PhysicsUpdate(eid))),
-            WakeReason::CheckView(cid) => {
-                if let Some(info) = self.clients.get_mut(cid) {
-                    if info.maybe_check(now) {
-                        Some(Event::Client(cid, ClientEvent::CheckView))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            },
-            WakeReason::ScriptTimeout(x) =>
-                Some(Event::Other(OtherEvent::ScriptTimeout(x))),
-        }
+    pub fn process(&mut self, evt: MessageEvent) -> Option<(Event, Time)> {
+        let (wire_id, req) = evt.0;
+        let now = self.world_now();
+        self.handle_req(now, wire_id, req)
+            .map(|evt| (evt, now))
     }
 
     fn handle_req(&mut self, now: Time, wire_id: WireId, req: Request) -> Option<Event> {
@@ -339,7 +254,7 @@ impl Messages {
                          wire_id: WireId,
                          cid: ClientId,
                          req: Request) -> Option<Event> {
-        match self.try_handle_client_req(now, wire_id, cid, req) {
+        match self.try_handle_client_req(now, wire_id, req) {
             Ok(evt) => evt.map(|e| Event::Client(cid, e)),
             Err(e) => {
                 warn!("bad request from {:?}: {}", cid, e.description());
@@ -351,7 +266,6 @@ impl Messages {
     fn try_handle_client_req(&mut self,
                              now: Time,
                              wire_id: WireId,
-                             cid: ClientId,
                              req: Request) -> StringResult<Option<ClientEvent>> {
         match req {
             Request::Ping(cookie) => {
@@ -362,8 +276,7 @@ impl Messages {
             Request::Input(time, input) => {
                 let time = cmp::max(time.to_global(now), now);
                 let input = unwrap!(InputBits::from_bits(input));
-                self.schedule(time, WakeReason::DeferredInput(cid, input));
-                Ok(None)
+                Ok(Some(ClientEvent::Input(time, input)))
             },
 
             Request::UnsubscribeInventory(iid) =>
@@ -381,39 +294,33 @@ impl Messages {
 
             Request::Interact(time) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.schedule(time, WakeReason::DeferredInteract(cid, None));
-                Ok(None)
+                Ok(Some(ClientEvent::Interact(time, None)))
             },
 
             Request::UseItem(time, item_id) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.schedule(time, WakeReason::DeferredUseItem(cid, item_id, None));
-                Ok(None)
+                Ok(Some(ClientEvent::UseItem(time, item_id, None)))
             },
 
             Request::UseAbility(time, item_id) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.schedule(time, WakeReason::DeferredUseAbility(cid, item_id, None));
-                Ok(None)
+                Ok(Some(ClientEvent::UseAbility(time, item_id, None)))
             },
 
 
             Request::InteractWithArgs(time, args) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.schedule(time, WakeReason::DeferredInteract(cid, Some(args)));
-                Ok(None)
+                Ok(Some(ClientEvent::Interact(time, Some(args))))
             },
 
             Request::UseItemWithArgs(time, item_id, args) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.schedule(time, WakeReason::DeferredUseItem(cid, item_id, Some(args)));
-                Ok(None)
+                Ok(Some(ClientEvent::UseItem(time, item_id, Some(args))))
             },
 
             Request::UseAbilityWithArgs(time, item_id, args) => {
                 let time = cmp::max(time.to_global(now), now);
-                self.schedule(time, WakeReason::DeferredUseAbility(cid, item_id, Some(args)));
-                Ok(None)
+                Ok(Some(ClientEvent::UseAbility(time, item_id, Some(args))))
             },
 
 
@@ -550,33 +457,5 @@ impl Messages {
         for (&cid, _) in self.clients.iter() {
             self.send_client(cid, resp.clone());
         }
-    }
-
-
-    // Scheduling timed updates
-
-    /// Main entry point for scheduling wakeups.  This performs the timestamp adjustment required
-    /// by the WakeQueue.  (The other half of the adjustment happens in the Wake case of
-    /// next_event.)
-    fn schedule(&mut self, when: Time, reason: WakeReason) -> timer::Cookie {
-        let when = self.from_world_time(when);
-        self.wake.schedule(when, reason)
-    }
-
-    // TODO: swap the arguments on these ones too.
-    pub fn schedule_check_view(&mut self, cid: ClientId, when: Time) {
-        self.schedule(when, WakeReason::CheckView(cid));
-    }
-
-    pub fn schedule_physics_update(&mut self, eid: EntityId, when: Time) {
-        self.schedule(when, WakeReason::PhysicsUpdate(eid));
-    }
-
-    pub fn schedule_script_timeout(&mut self, when: Time, x: u32) -> timer::Cookie {
-        self.schedule(when, WakeReason::ScriptTimeout(x))
-    }
-
-    pub fn cancel(&mut self, cookie: timer::Cookie) {
-        self.wake.cancel(cookie);
     }
 }

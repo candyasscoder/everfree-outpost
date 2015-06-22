@@ -17,10 +17,11 @@ pub fn input(mut eng: EngineRef, cid: ClientId, input: InputBits) {
     if let Some(eid) = eng.world().get_client(cid).and_then(|c| c.pawn_id()) {
         warn_on_err!(physics_::Fragment::set_velocity(
                 &mut eng.as_physics_fragment(), now, eid, target_velocity));
-        let Open { world, messages, .. } = eng.open();
+        let Open { world, timer, .. } = eng.open();
         let e = world.entity(eid);
         if e.motion().end_pos != e.motion().start_pos {
-            messages.schedule_physics_update(eid, e.motion().end_time());
+            timer.schedule(e.motion().end_time(),
+                           move |eng| physics_update(eng, eid));
         }
     }
 }
@@ -61,10 +62,11 @@ pub fn physics_update(mut eng: EngineRef, eid: EntityId) {
     if really_update {
         warn_on_err!(physics_::Fragment::update(&mut eng.as_physics_fragment(), now, eid));
 
-        let Open { world, messages, .. } = eng.open();
+        let Open { world, timer, .. } = eng.open();
         let e = world.entity(eid);
         if e.motion().end_pos != e.motion().start_pos {
-            messages.schedule_physics_update(eid, e.motion().end_time());
+            timer.schedule(e.motion().end_time(),
+                           move |eng| physics_update(eng, eid));
         }
     }
 }

@@ -102,7 +102,7 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
     info!("{:?}: logged in as {} ({:?})",
           wire_id, name, cid);
     eng.messages_mut().add_client(cid, wire_id, name);
-    eng.messages_mut().schedule_check_view(cid, now + 1000);
+    eng.timer_mut().schedule(now + 1000, move |eng| update_view(eng, cid));
 
     // Send the client's startup messages.
     let opt_eid = eng.world().client(cid).pawn_id();
@@ -143,7 +143,7 @@ pub fn logout(mut eng: EngineRef, cid: ClientId) -> save::Result<()> {
     Ok(())
 }
 
-pub fn update_view(mut eng: EngineRef, cid: ClientId) {
+fn update_view(mut eng: EngineRef, cid: ClientId) {
     let now = eng.now();
 
     let old_region = unwrap_or!(eng.vision().client_view_area(cid));
@@ -175,5 +175,5 @@ pub fn update_view(mut eng: EngineRef, cid: ClientId) {
         logic::chunks::unload_chunk(eng.borrow(), old_pid, cpos);
     }
 
-    eng.messages_mut().schedule_check_view(cid, now + 1000);
+    eng.timer_mut().schedule(now + 1000, move |eng| update_view(eng, cid));
 }

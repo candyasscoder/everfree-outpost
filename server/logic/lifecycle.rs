@@ -2,6 +2,7 @@ use std::borrow::ToOwned;
 
 use types::*;
 use util::bytes::{ReadBytes, WriteBytes};
+use util::now;
 
 use engine::glue::*;
 use engine::split::EngineRef;
@@ -14,9 +15,13 @@ use world::save::{ObjectReader, ObjectWriter};
 pub fn start_up(mut eng: EngineRef) {
     if let Some(mut file) = eng.storage().open_misc_file() {
         let world_time = file.read_bytes().unwrap();
-        eng.messages_mut().set_world_time(world_time);
+        let unix_time = now();
+        eng.messages_mut().set_world_time(unix_time, world_time);
+        eng.timer_mut().set_world_time(unix_time, world_time);
     } else {
-        eng.messages_mut().set_world_time(0);
+        let unix_time = now();
+        eng.messages_mut().set_world_time(unix_time, 0);
+        eng.timer_mut().set_world_time(unix_time, 0);
     }
 
     if let Some(file) = eng.storage().open_world_file() {

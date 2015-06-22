@@ -8,15 +8,15 @@ use cache::TerrainCache;
 use chunks::Chunks;
 use data::Data;
 use logic;
-use messages::{Messages};
-use messages::{Event, ControlEvent, WireEvent, ClientEvent, OtherEvent};
+use messages::{Messages, MessageEvent};
+use messages::{Event, ControlEvent, WireEvent, ClientEvent};
 use messages::{ControlResponse, WireResponse, ClientResponse};
 use msg::{Request, Response};
 use physics_::Physics;
 use script::ScriptEngine;
 use storage::Storage;
 use terrain_gen::TerrainGen;
-use timer::Timer;
+use timer::{Timer, TimerEvent};
 use vision::Vision;
 use world::World;
 
@@ -81,10 +81,31 @@ impl<'d> Engine<'d> {
         use self::HandlerResult::*;
         logic::lifecycle::start_up(self.as_ref());
         loop {
-            let (evt, now) = self.messages.next_event();
-            match self.handle(now, evt) {
-                Continue => {},
-                Shutdown => break,
+            enum Event {
+                FromTimer(TimerEvent),
+                FromMessage(MessageEvent),
+            }
+
+            let evt = {
+                let recv_timer = self.timer.receiver();
+                let recv_message = self.messages.receiver();
+                select! {
+                    evt = recv_timer.recv() => Event::FromTimer(evt.unwrap()),
+                    evt = recv_message.recv() => Event::FromMessage(evt.unwrap())
+                }
+            };
+
+            match evt {
+                Event::FromTimer(evt) => {
+                    Timer::process(self, evt);
+                },
+                Event::FromMessage(evt) => {
+                    let (evt, now) = unwrap_or!(self.messages.process(evt), continue);
+                    match self.handle(now, evt) {
+                        Continue => {},
+                        Shutdown => break,
+                    }
+                },
             }
         }
         logic::lifecycle::shut_down(self.as_ref());
@@ -100,7 +121,6 @@ impl<'d> Engine<'d> {
             Control(e) => self.handle_control(e),
             Wire(wire_id, e) => self.handle_wire(wire_id, e),
             Client(cid, e) => self.handle_client(cid, e),
-            Other(e) => self.handle_other(e),
         }
     }
 
@@ -177,8 +197,9 @@ impl<'d> Engine<'d> {
                      evt: ClientEvent) -> HandlerResult {
         use messages::ClientEvent::*;
         match evt {
-            Input(input) => {
-                logic::input::input(self.as_ref(), cid, input);
+            Input(time, input) => {
+                self.timer.schedule(time,
+                                    move |eng| logic::input::input(eng, cid, input));
             },
 
             UnsubscribeInventory(iid) => {
@@ -199,39 +220,29 @@ impl<'d> Engine<'d> {
                 logic::input::chat(self.as_ref(), cid, msg);
             },
 
-            Interact(args) => {
-                logic::input::interact(self.as_ref(), cid, args);
+            Interact(time, args) => {
+                self.timer.schedule(time,
+                                    move |eng| logic::input::interact(eng, cid, args));
             },
 
-            UseItem(item_id, args) => {
-                logic::input::use_item(self.as_ref(), cid, item_id, args);
+            UseItem(time, item_id, args) => {
+                self.timer.schedule(time,
+                                    move |eng| logic::input::use_item(eng, cid, item_id, args));
             },
 
-            UseAbility(item_id, args) => {
-                logic::input::use_ability(self.as_ref(), cid, item_id, args);
+            UseAbility(time, item_id, args) => {
+                self.timer.schedule(time,
+                                    move |eng| logic::input::use_ability(eng, cid, item_id, args));
             },
 
+            /*
             CheckView => {
                 logic::client::update_view(self.as_ref(), cid);
             },
+            */
 
             BadRequest => {
                 self.kick_client(cid, "bad request");
-            },
-        }
-        HandlerResult::Continue
-    }
-
-    fn handle_other(&mut self,
-                    evt: OtherEvent) -> HandlerResult {
-        use messages::OtherEvent::*;
-        match evt {
-            PhysicsUpdate(eid) => {
-                logic::input::physics_update(self.as_ref(), eid);
-            },
-
-            ScriptTimeout(x) => {
-                warn_on_err!(ScriptEngine::cb_timeout(self, x));
             },
         }
         HandlerResult::Continue

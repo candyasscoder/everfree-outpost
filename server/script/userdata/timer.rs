@@ -6,7 +6,7 @@ use util::StrResult;
 
 use engine;
 use lua::{LuaState, ValueType};
-use messages;
+use script::ScriptEngine;
 use script::traits::{TypeName, MetatableKey, FromLua, ToLua, Userdata, is_userdata};
 use script::userdata::OptWrapper;
 use timer;
@@ -117,13 +117,15 @@ impl Userdata for Timer {
         lua_table_fns2! {
             lua, -1,
 
-            fn schedule(!partial ctx: &mut messages::Messages,
+            fn schedule(!partial ctx: &mut timer::Timer,
                         when: TimeU,
                         id: u32) -> Timer {
-                Timer::new(ctx.schedule_script_timeout(when.t, id))
+                Timer::new(ctx.schedule(when.t, move |eng| {
+                    warn_on_err!(ScriptEngine::cb_timeout(eng.unwrap(), id));
+                }))
             }
 
-            fn cancel(!partial ctx: &mut messages::Messages,
+            fn cancel(!partial ctx: &mut timer::Timer,
                       this: &Timer) -> StrResult<()> {
                 let cookie = unwrap!(this.take());
                 ctx.cancel(cookie);

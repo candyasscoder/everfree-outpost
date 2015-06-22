@@ -11,6 +11,7 @@ use engine::glue::WorldFragment;
 use messages;
 use msg;
 use terrain_gen;
+use timer;
 use world;
 use world::object::*;
 
@@ -441,8 +442,17 @@ unsafe impl<'a, 'd: 'a> PartialContext for &'a world::World<'d> {
         mem::transmute(ptr)
     }
 }
+
 unsafe impl<'a> PartialContext for &'a mut messages::Messages {
     unsafe fn from_lua(lua: &mut LuaState) -> &'a mut messages::Messages {
+        let mut frag = WorldFragment::from_lua(lua);
+        let ptr: &mut messages::Messages = frag.messages_mut();
+        mem::transmute(ptr)
+    }
+}
+
+unsafe impl<'a> PartialContext for &'a mut timer::Timer {
+    unsafe fn from_lua(lua: &mut LuaState) -> &'a mut timer::Timer {
         let mut frag = WorldFragment::from_lua(lua);
         let ptr: &mut messages::Messages = frag.messages_mut();
         mem::transmute(ptr)
