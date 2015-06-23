@@ -1,3 +1,4 @@
+use std::boxed::FnBox;
 use std::error::Error;
 use std::sync::mpsc::{Sender, Receiver};
 
@@ -97,7 +98,9 @@ impl<'d> Engine<'d> {
 
             match evt {
                 Event::FromTimer(evt) => {
-                    Timer::process(self, evt);
+                    let (cb, now) = self.timer.process(evt);
+                    self.now = now;
+                    cb.call_box((self.as_ref(),));
                 },
                 Event::FromMessage(evt) => {
                     let (evt, now) = unwrap_or!(self.messages.process(evt), continue);

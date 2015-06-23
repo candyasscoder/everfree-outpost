@@ -4,7 +4,6 @@ use std::sync::mpsc::Receiver;
 
 use types::*;
 
-use engine::Engine;
 use engine::split::EngineRef;
 
 pub use self::queue::Cookie;
@@ -67,11 +66,9 @@ impl Timer {
         cast_receiver(self.queue.receiver())
     }
 
-    pub fn process(eng: &mut Engine, evt: TimerEvent) {
-        let (unix_when, cb) = eng.timer.queue.retrieve(evt.0);
-        let when = eng.timer.world_time(unix_when);
-        eng.now = when;
-        // `cb(eng, when)` does not compile, see rust-lang/rust #25647
-        cb.call_box((EngineRef::new(eng),));
+    pub fn process(&mut self, evt: TimerEvent) -> (Box<FnBox(EngineRef)+'static>, Time) {
+        let (unix_when, cb) = self.queue.retrieve(evt.0);
+        let when = self.world_time(unix_when);
+        (cb, when)
     }
 }
