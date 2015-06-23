@@ -360,6 +360,14 @@ fn compute_layer_mask_excluding(w: &World,
 
 fn update_physics(mut eng: EngineRef, eid: EntityId) {
     let now = eng.now();
+    // If a new motion has been set to override the one we were scheduled for, then do nothing.
+    // This can happen if user input occurs in the same timer tick as the timer wakeup, so that the
+    // input gets processed (resetting the motion) after the wakeup notification has already been
+    // queued in the timer->engine channel.  Processing of the wakeup will fail this check,
+    // avoiding duplicate work.
+    if now != unwrap_or!(eng.world().get_entity(eid)).motion().end_time() {
+        return;
+    }
     warn_on_err!(physics_::Fragment::update(&mut eng.as_physics_fragment(), now, eid));
     // When `update` changes the entity's motion, the hook will schedule the next update.
 }
