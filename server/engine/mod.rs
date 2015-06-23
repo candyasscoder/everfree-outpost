@@ -9,6 +9,7 @@ use cache::TerrainCache;
 use chunks::Chunks;
 use data::Data;
 use logic;
+use logic::extra::Extra;
 use messages::{Messages, MessageEvent};
 use messages::{Event, ControlEvent, WireEvent, ClientEvent};
 use messages::{ControlResponse, WireResponse, ClientResponse};
@@ -36,6 +37,7 @@ pub struct Engine<'d> {
     pub world: World<'d>,
     pub script: ScriptEngine,
 
+    pub extra: Extra,
     pub messages: Messages,
     pub timer: Timer,
     pub physics: Physics<'d>,
@@ -67,6 +69,7 @@ impl<'d> Engine<'d> {
             world: World::new(data),
             script: ScriptEngine::new(&storage.script_dir()),
 
+            extra: Extra::new(),
             messages: Messages::new(receiver, sender),
             timer: Timer::new(),
             physics: Physics::new(data),
