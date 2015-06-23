@@ -243,6 +243,9 @@ fn timer_worker(recv: Receiver<Command>, send: Sender<Cookie>) {
 
 
 
+/// Wrapper struct for timer cookies.  This is non-Copy to prevent obviously wrong behavior, but
+/// it's still possible to get two copies of the same Cookie (one from `schedule` and one from the
+/// `receiver()`).
 #[derive(Debug)]
 pub struct Cookie(u32);
 
@@ -284,9 +287,11 @@ impl<T> WakeQueue<T> {
     }
 
     pub fn cancel(&mut self, cookie: Cookie) {
-        // The cookie wasn't consumed yet, so the item has not been removed.
-        let item = self.items.remove(cookie.0 as usize).unwrap();
-        self.send.send(Command::Cancel(Wake::new(item.time, cookie.0))).unwrap();
+        // Might have already been retrieved, since it's possible to get two duplicate Cookie
+        // values.
+        if let Some(item) = self.items.remove(cookie.0 as usize) {
+            self.send.send(Command::Cancel(Wake::new(item.time, cookie.0))).unwrap();
+        }
     }
 
     pub fn receiver(&self) -> &Receiver<Cookie> {
@@ -294,7 +299,9 @@ impl<T> WakeQueue<T> {
     }
 
     pub fn retrieve(&mut self, cookie: Cookie) -> (Time, T) {
-        // The cookie wasn't consumed yet, so the item has not been removed.
+        // Assume here that the `cookie` is an element received from the `receiver()`.  This means
+        // the cookie is still valid.  (We assume the user doesn't cancel using the other copy of
+        // the cookie between the `recv` and the `retrieve`.)
         let item = self.items.remove(cookie.0 as usize).unwrap();
         (item.time, item.reason)
     }

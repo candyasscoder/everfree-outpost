@@ -1,6 +1,6 @@
 use types::*;
 
-use engine::split::{EngineRef, Open};
+use engine::split::EngineRef;
 use input::{InputBits};
 use messages::ClientResponse;
 use msg::ExtraArg;
@@ -17,12 +17,6 @@ pub fn input(mut eng: EngineRef, cid: ClientId, input: InputBits) {
     if let Some(eid) = eng.world().get_client(cid).and_then(|c| c.pawn_id()) {
         warn_on_err!(physics_::Fragment::set_velocity(
                 &mut eng.as_physics_fragment(), now, eid, target_velocity));
-        let Open { world, timer, .. } = eng.open();
-        let e = world.entity(eid);
-        if e.motion().end_pos != e.motion().start_pos {
-            timer.schedule(e.motion().end_time(),
-                           move |eng| physics_update(eng, eid));
-        }
     }
 }
 
@@ -47,29 +41,6 @@ pub fn unsubscribe_inventory(mut eng: EngineRef, cid: ClientId, iid: InventoryId
     vision::Fragment::unsubscribe_inventory(&mut eng.as_vision_fragment(), cid, iid);
 }
 
-
-
-pub fn physics_update(mut eng: EngineRef, eid: EntityId) {
-    let now = eng.now();
-
-    let really_update =
-        if let Some(e) = eng.world().get_entity(eid) {
-            e.motion().end_time() <= now
-        } else {
-            false
-        };
-
-    if really_update {
-        warn_on_err!(physics_::Fragment::update(&mut eng.as_physics_fragment(), now, eid));
-
-        let Open { world, timer, .. } = eng.open();
-        let e = world.entity(eid);
-        if e.motion().end_pos != e.motion().start_pos {
-            timer.schedule(e.motion().end_time(),
-                           move |eng| physics_update(eng, eid));
-        }
-    }
-}
 
 
 pub fn chat(mut eng: EngineRef, cid: ClientId, msg: String) {

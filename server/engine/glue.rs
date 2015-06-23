@@ -17,7 +17,7 @@ macro_rules! part2 {
         part2!(world, WorldHooks, $($x)*);
     };
     (WorldHooks, $($x:tt)*) => {
-        part2!(script, vision, cache, VisionFragment, $($x)*);
+        part2!(world, script, timer, extra, vision, cache, VisionFragment, $($x)*);
     };
     (VisionFragment, $($x:tt)*) => {
         part2!(vision, VisionHooks, $($x)*);
@@ -32,7 +32,7 @@ macro_rules! part2 {
         part2!(world, HiddenWorldHooks, $($x)*);
     };
     (HiddenWorldHooks, $($x:tt)*) => {
-        part2!(world, script, cache, HiddenVisionFragment, $($x)*);
+        part2!(world, script, timer, extra, cache, HiddenVisionFragment, $($x)*);
     };
     (HiddenVisionFragment, $($x:tt)*) => {
         part2!(vision, $($x)*);
@@ -51,7 +51,7 @@ macro_rules! part2 {
         part2!(chunks, world, ChunkProvider, $($x)*);
     };
     (ChunkProvider, $($x:tt)*) => {
-        part2!(HiddenWorldFragment, SaveReadFragment, TerrainGenFragment, $($x)*);
+        part2!(/*HiddenWorldFragment,*/ SaveReadFragment, TerrainGenFragment, $($x)*);
     };
 
     (PhysicsFragment, $($x:tt)*) => {
@@ -61,7 +61,7 @@ macro_rules! part2 {
     // Save read/write handling operates on HiddenWorldFragment for simplicity.  Higher-level code
     // can explicitly propagate create/destroy events to clients, 
     (SaveReadFragment, $($x:tt)*) => {
-        part2!(HiddenWorldFragment, SaveReadHooks, $($x)*);
+        part2!(/*HiddenWorldFragment,*/ SaveReadHooks, $($x)*);
     };
     (SaveReadHooks, $($x:tt)*) => {
         part2!(script, messages, HiddenWorldFragment, $($x)*);

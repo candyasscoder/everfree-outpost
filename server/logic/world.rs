@@ -8,7 +8,8 @@ use physics::Shape;
 
 use data::StructureTemplate;
 use engine::glue::*;
-use engine::split::Open;
+use engine::split::{Open, EngineRef};
+use physics_;
 use world::{self, World, Entity, Structure};
 use world::object::*;
 use vision::{self, vision_region};
@@ -75,12 +76,16 @@ impl<'a, 'd> world::Hooks for $WorldHooks<'a, 'd> {
 
 
     fn on_entity_create(&mut self, eid: EntityId) {
-        let (plane, area) = {
+        let (plane, area, end_time) = {
             let e = self.world().entity(eid);
-            (e.plane_id(), entity_area(self.world().entity(eid)))
+            (e.plane_id(),
+             entity_area(self.world().entity(eid)),
+             e.motion().end_time())
         };
         trace!("entity {:?} created at {:?}", eid, plane);
+        // TODO: use a default plane/area for add_entity, then just call on_motion_change
         vision::Fragment::add_entity(&mut self.$as_vision_fragment(), eid, plane, area);
+        self.schedule_physics_update(eid, end_time);
     }
 
     fn on_entity_destroy(&mut self, eid: EntityId) {
@@ -89,12 +94,15 @@ impl<'a, 'd> world::Hooks for $WorldHooks<'a, 'd> {
     }
 
     fn on_entity_motion_change(&mut self, eid: EntityId) {
-        let (plane, area) = {
+        let (plane, area, end_time) = {
             let e = self.world().entity(eid);
-            (e.plane_id(), entity_area(self.world().entity(eid)))
+            (e.plane_id(),
+             entity_area(self.world().entity(eid)),
+             e.motion().end_time())
         };
         trace!("entity {:?} motion changed to {:?}", eid, plane);
         vision::Fragment::set_entity_area(&mut self.$as_vision_fragment(), eid, plane, area);
+        self.schedule_physics_update(eid, end_time);
     }
 
     fn on_entity_appearance_change(&mut self, eid: EntityId) {
@@ -173,6 +181,16 @@ impl<'a, 'd> world::Hooks for $WorldHooks<'a, 'd> {
                            new_count: u8) {
         vision::Fragment::update_inventory(&mut self.$as_vision_fragment(),
                                            iid, item_id, old_count, new_count);
+    }
+}
+
+impl<'a, 'd> $WorldHooks<'a, 'd> {
+    fn schedule_physics_update(&mut self, eid: EntityId, when: Time) {
+        if let Some(cookie) = self.extra_mut().entity_physics_update_timer.remove(&eid) {
+            self.timer_mut().cancel(cookie);
+        }
+        let cookie = self.timer_mut().schedule(when, move |eng| update_physics(eng, eid));
+        self.extra_mut().entity_physics_update_timer.insert(eid, cookie);
     }
 }
 
@@ -337,4 +355,11 @@ fn compute_layer_mask_excluding(w: &World,
     }
 
     Ok(result)
+}
+
+
+fn update_physics(mut eng: EngineRef, eid: EntityId) {
+    let now = eng.now();
+    warn_on_err!(physics_::Fragment::update(&mut eng.as_physics_fragment(), now, eid));
+    // When `update` changes the entity's motion, the hook will schedule the next update.
 }
