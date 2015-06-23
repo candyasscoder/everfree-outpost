@@ -102,7 +102,6 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
     info!("{:?}: logged in as {} ({:?})",
           wire_id, name, cid);
     eng.messages_mut().add_client(cid, wire_id, name);
-    eng.timer_mut().schedule(now + 1000, move |eng| update_view(eng, cid));
 
     // Send the client's startup messages.
     let opt_eid = eng.world().client(cid).pawn_id();
@@ -143,20 +142,22 @@ pub fn logout(mut eng: EngineRef, cid: ClientId) -> save::Result<()> {
     Ok(())
 }
 
-fn update_view(mut eng: EngineRef, cid: ClientId) {
+pub fn update_view(mut eng: EngineRef, cid: ClientId) {
     let now = eng.now();
 
     let old_region = unwrap_or!(eng.vision().client_view_area(cid));
     let old_pid = unwrap_or!(eng.vision().client_view_plane(cid));
 
-    let (new_stable_pid, new_region) = {
+    let (new_stable_pid, new_region, pawn_id) = {
         // TODO: warn on None? - may indicate inconsistency between World and Vision
         let client = unwrap_or!(eng.world().get_client(cid));
 
         // TODO: make sure return is the right thing to do on None
         let pawn = unwrap_or!(client.pawn());
 
-        (pawn.stable_plane_id(), vision::vision_region(pawn.pos(now)))
+        (pawn.stable_plane_id(),
+         vision::vision_region(pawn.pos(now)),
+         pawn.id())
     };
     let new_pid = chunks::Fragment::get_plane_id(&mut eng.as_chunks_fragment(), new_stable_pid);
 
@@ -175,5 +176,9 @@ fn update_view(mut eng: EngineRef, cid: ClientId) {
         logic::chunks::unload_chunk(eng.borrow(), old_pid, cpos);
     }
 
-    eng.timer_mut().schedule(now + 1000, move |eng| update_view(eng, cid));
+    // TODO: using `with_hooks` here is gross, move schedule_view_update somewhere better
+    {
+        use world::fragment::Fragment;
+        eng.as_world_fragment().with_hooks(|h| h.schedule_view_update(pawn_id));
+    }
 }

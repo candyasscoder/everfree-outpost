@@ -9,6 +9,7 @@ use physics::Shape;
 use data::StructureTemplate;
 use engine::glue::*;
 use engine::split::{Open, EngineRef};
+use logic;
 use physics_;
 use world::{self, World, Entity, Structure};
 use world::object::*;
@@ -31,17 +32,12 @@ impl<'a, 'd> world::Hooks for $WorldHooks<'a, 'd> {
     }
 
     fn on_client_change_pawn(&mut self,
-                             cid: ClientId,
+                             _cid: ClientId,
                              _old_pawn: Option<EntityId>,
-                             _new_pawn: Option<EntityId>) {
-        let now = self.now();
-        let (plane, center) = match self.world().client(cid).pawn() {
-            Some(e) => (e.plane_id(), e.pos(now)),
-            None => (PLANE_LIMBO, scalar(0)),
-        };
-
-        let region = vision_region(center);
-        vision::Fragment::set_client_view(&mut self.$as_vision_fragment(), cid, plane, region);
+                             new_pawn: Option<EntityId>) {
+        if let Some(eid) = new_pawn {
+            self.schedule_view_update(eid);
+        }
     }
 
 
@@ -86,6 +82,8 @@ impl<'a, 'd> world::Hooks for $WorldHooks<'a, 'd> {
         // TODO: use a default plane/area for add_entity, then just call on_motion_change
         vision::Fragment::add_entity(&mut self.$as_vision_fragment(), eid, plane, area);
         self.schedule_physics_update(eid, end_time);
+        // Might have an owner pre-set, if it's been loaded instead of newly created.
+        self.schedule_view_update(eid);
     }
 
     fn on_entity_destroy(&mut self, eid: EntityId) {
@@ -103,6 +101,7 @@ impl<'a, 'd> world::Hooks for $WorldHooks<'a, 'd> {
         trace!("entity {:?} motion changed to {:?}", eid, plane);
         vision::Fragment::set_entity_area(&mut self.$as_vision_fragment(), eid, plane, area);
         self.schedule_physics_update(eid, end_time);
+        self.schedule_view_update(eid);
     }
 
     fn on_entity_appearance_change(&mut self, eid: EntityId) {
@@ -191,6 +190,60 @@ impl<'a, 'd> $WorldHooks<'a, 'd> {
         }
         let cookie = self.timer_mut().schedule(when, move |eng| update_physics(eng, eid));
         self.extra_mut().entity_physics_update_timer.insert(eid, cookie);
+    }
+
+    pub fn schedule_view_update(&mut self, eid: EntityId) {
+        let now = self.now();
+        let cid;
+        let when = {
+            let e = unwrap_or!(self.world().get_entity(eid));
+            let c = unwrap_or!(e.pawn_owner());
+            cid = c.id();
+
+            // If the client is not registered with the vision system, do nothing.
+            let old_area = unwrap_or!(self.vision().client_view_area(c.id()));
+            let new_area = vision_region(e.pos(now));
+
+            if old_area != new_area {
+                // Simple case: If the vision area needs to change immediately, schedule the update
+                // to happen as soon as possible.
+                Some(now)
+            } else {
+                // Complex case: Figure out when the pawn will move into a new chunk, and schedule
+                // the update to happen at that time.
+                let m = e.motion();
+                let start = m.pos(now);
+                let delta = m.end_pos - start;
+                let dur = (m.end_time() - now) as i32;
+                const CHUNK_PX: i32 = CHUNK_SIZE * TILE_SIZE;
+
+                let hit_time = start.zip(delta, |x, dx| {
+                    use std::i32;
+                    if dx == 0 {
+                        return i32::MAX;
+                    }
+                    let target = (x & !(CHUNK_PX - 1)) + if dx < 0 { -1 } else { CHUNK_PX };
+                    // i32 math is okay here because `dir` maxes out at 2^16 and `target` at 2^9.
+                    (dur * (target - x) + dx - 1) / dx
+                }).min();
+                if hit_time > dur {
+                    // Won't hit a chunk boundary before the motion ends.
+                    None
+                } else {
+                    Some(now + hit_time as Time)
+                }
+            }
+        };
+
+        if let Some(cookie) = self.extra_mut().client_view_update_timer.remove(&cid) {
+            self.timer_mut().cancel(cookie);
+        }
+        if let Some(when) = when {
+            let cookie = self.timer_mut().schedule(when, move |eng| {
+                logic::client::update_view(eng, cid);
+            });
+            self.extra_mut().client_view_update_timer.insert(cid, cookie);
+        }
     }
 }
 

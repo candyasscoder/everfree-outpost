@@ -66,9 +66,8 @@ impl Timer {
         cast_receiver(self.queue.receiver())
     }
 
-    pub fn process(&mut self, evt: TimerEvent) -> (Box<FnBox(EngineRef)+'static>, Time) {
-        let (unix_when, cb) = self.queue.retrieve(evt.0);
-        let when = self.world_time(unix_when);
-        (cb, when)
+    pub fn process(&mut self, evt: TimerEvent) -> Option<(Box<FnBox(EngineRef)+'static>, Time)> {
+        self.queue.retrieve(evt.0)
+            .map(|(unix_when, cb)| (cb, self.world_time(unix_when)))
     }
 }

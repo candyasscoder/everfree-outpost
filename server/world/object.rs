@@ -257,6 +257,17 @@ pub trait EntityRef<'d>: ObjectRefBase<'d, Entity> {
             -> InventoriesById<'b, 'd, hash_set::Iter<'b, InventoryId>> {
         InventoriesById::new(self.world(), self.obj().child_inventories.iter())
     }
+
+    fn pawn_owner<'b>(&'b self) -> Option<ObjectRef<'b, 'd, Client>> {
+        let eid = self.id();
+        if let EntityAttachment::Client(cid) = self.obj().attachment {
+            let c = unwrap_or!(self.world().get_client(cid), return None);
+            if c.pawn_id() == Some(eid) {
+                return Some(c)
+            }
+        }
+        None
+    }
 }
 impl<'a, 'd> EntityRef<'d> for ObjectRef<'a, 'd, Entity> { }
 impl<'a, 'd, F: Fragment<'d>> EntityRef<'d> for ObjectRefMut<'a, 'd, Entity, F> { }
@@ -293,6 +304,17 @@ pub trait EntityRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Entity, F> {
     fn set_attachment(&mut self, attach: EntityAttachment) -> OpResult<EntityAttachment> {
         let eid = self.id();
         ops::entity::attach(self.fragment_mut(), eid, attach)
+    }
+
+    fn pawn_owner_mut<'a>(&'a mut self) -> Option<ObjectRefMut<'a, 'd, Client, F>> {
+        let eid = self.id();
+        if let EntityAttachment::Client(cid) = self.obj().attachment {
+            let c = unwrap_or!(self.fragment_mut().get_client_mut(cid), return None);
+            if c.pawn_id() == Some(eid) {
+                return Some(c)
+            }
+        }
+        None
     }
 }
 impl<'a, 'd, F: Fragment<'d>> EntityRefMut<'d, F> for ObjectRefMut<'a, 'd, Entity, F> { }

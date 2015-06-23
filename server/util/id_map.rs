@@ -42,6 +42,9 @@ impl<V> IdMap<V> {
     }
 
     pub fn remove(&mut self, k: usize) -> Option<V> {
+        if k >= self.map.len() {
+            return None;
+        }
         let result = self.map[k].take();
         if result.is_some() {
             if k == self.map.len() - 1 {

@@ -298,11 +298,11 @@ impl<T> WakeQueue<T> {
         &self.recv
     }
 
-    pub fn retrieve(&mut self, cookie: Cookie) -> (Time, T) {
-        // Assume here that the `cookie` is an element received from the `receiver()`.  This means
-        // the cookie is still valid.  (We assume the user doesn't cancel using the other copy of
-        // the cookie between the `recv` and the `retrieve`.)
-        let item = self.items.remove(cookie.0 as usize).unwrap();
-        (item.time, item.reason)
+    /// Retrieve the data associated with a fired event cookie.  Returns `None` if the timer has
+    /// already been cancelled, for example, if the timer was cancelled while its Cookie was
+    /// already waiting in the Receiver queue.
+    pub fn retrieve(&mut self, cookie: Cookie) -> Option<(Time, T)> {
+        self.items.remove(cookie.0 as usize)
+            .map(|item| (item.time, item.reason))
     }
 }

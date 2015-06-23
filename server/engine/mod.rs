@@ -101,7 +101,7 @@ impl<'d> Engine<'d> {
 
             match evt {
                 Event::FromTimer(evt) => {
-                    let (cb, now) = self.timer.process(evt);
+                    let (cb, now) = unwrap_or!(self.timer.process(evt), continue);
                     self.now = now;
                     cb.call_box((self.as_ref(),));
                 },
@@ -240,12 +240,6 @@ impl<'d> Engine<'d> {
                 self.timer.schedule(time,
                                     move |eng| logic::input::use_ability(eng, cid, item_id, args));
             },
-
-            /*
-            CheckView => {
-                logic::client::update_view(self.as_ref(), cid);
-            },
-            */
 
             BadRequest => {
                 self.kick_client(cid, "bad request");
