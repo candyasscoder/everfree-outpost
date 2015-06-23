@@ -89,7 +89,10 @@ else
 	BUILD_NATIVE = $(BUILD_NATIVE_RELEASE)
 endif
 
-$(shell mkdir -p $(BUILD_NATIVE)/savegame_py)
+$(shell mkdir -p \
+	$(BUILD_NATIVE)/savegame_py \
+	$(BUILD_NATIVE)/wrapper_objs \
+)
 
 # FIXME: For asmjs, we force opt-level=3 to eliminate some constructs that
 # emscripten-fastcomp doesn't like.
@@ -234,11 +237,11 @@ $(BUILD_NATIVE)/backend: $(SRC)/server/main.rs \
 # Running without this option seems to cause segfaults.
 WRAPPER_CXXFLAGS = -DWEBSOCKETPP_STRICT_MASKING $(CXXFLAGS)
 
-$(BUILD_NATIVE)/%.o: $(SRC)/wrapper/%.cpp $(wildcard $(SRC)/wrapper/*.hpp)
+$(BUILD_NATIVE)/wrapper_objs/%.o: $(SRC)/wrapper/%.cpp $(wildcard $(SRC)/wrapper/*.hpp)
 	$(CXX) -c $< -o $@ -std=c++14 $(WRAPPER_CXXFLAGS) $(RELEASE_CXXFLAGS_opt)
 
 WRAPPER_SRCS = $(wildcard $(SRC)/wrapper/*.cpp)
-WRAPPER_OBJS = $(patsubst $(SRC)/wrapper/%.cpp,$(BUILD_NATIVE)/%.o,$(WRAPPER_SRCS))
+WRAPPER_OBJS = $(patsubst $(SRC)/wrapper/%.cpp,$(BUILD_NATIVE)/wrapper_objs/%.o,$(WRAPPER_SRCS))
 
 $(BUILD_NATIVE)/wrapper: $(WRAPPER_OBJS)
 	$(CXX) $^ -o $@ -std=c++14 $(WRAPPER_CXXFLAGS) $(LDFLAGS) -lboost_system -lpthread -static
