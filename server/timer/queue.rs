@@ -106,11 +106,11 @@ impl Wheel {
         }
     }
 
-    pub fn cancel(&mut self, wake: Wake) {
+    pub fn cancel(&mut self, wake: Wake) -> bool {
         let Wake { when, cookie } = wake;
         if when < self.now {
             // Too late - it already fired.
-            return;
+            return false;
         }
 
         // Check the normal bucket first.
@@ -122,7 +122,7 @@ impl Wheel {
             for i in 0 .. bucket.len() {
                 if bucket[i] == wake {
                     bucket.swap_remove(i);
-                    return;
+                    return true;
                 }
             }
         }
@@ -132,12 +132,13 @@ impl Wheel {
             for i in 0 .. self.later.len() {
                 if self.later[i] == wake {
                     self.later.swap_remove(i);
-                    return;
+                    return true;
                 }
             }
         }
 
         // Wasn't found at all.  Oh well.
+        return false;
     }
 
     pub fn advance(&mut self) -> SmallVec<WakeSoon> {
@@ -224,7 +225,11 @@ fn timer_worker(recv: Receiver<Command>, send: Sender<Cookie>) {
         loop {
             match recv.try_recv() {
                 Ok(Command::Schedule(wake)) => wheel.schedule(wake),
-                Ok(Command::Cancel(wake)) => wheel.cancel(wake),
+                Ok(Command::Cancel(wake)) => {
+                    if wheel.cancel(wake) {
+                        send.send(Cookie(wake.cookie())).unwrap();
+                    }
+                },
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
                     warn!("timer_worker: recv disconnected; exiting...");
@@ -253,7 +258,18 @@ pub struct Cookie(u32);
 #[derive(Debug)]
 struct WakeItem<T> {
     time: Time,
+    cancelled: bool,
     reason: T,
+}
+
+impl<T> WakeItem<T> {
+    fn new(time: Time, reason: T) -> WakeItem<T> {
+        WakeItem {
+            time: time,
+            cancelled: false,
+            reason: reason,
+        }
+    }
 }
 
 
@@ -280,7 +296,7 @@ impl<T> WakeQueue<T> {
     }
 
     pub fn schedule(&mut self, when: Time, reason: T) -> Cookie {
-        let raw_cookie = self.items.insert(WakeItem { time: when, reason: reason });
+        let raw_cookie = self.items.insert(WakeItem::new(when, reason));
         assert!(raw_cookie < (1 << COOKIE_BITS));
         self.send.send(Command::Schedule(Wake::new(when, raw_cookie as u32))).unwrap();
         Cookie(raw_cookie as u32)
@@ -289,8 +305,9 @@ impl<T> WakeQueue<T> {
     pub fn cancel(&mut self, cookie: Cookie) {
         // Might have already been retrieved, since it's possible to get two duplicate Cookie
         // values.
-        if let Some(item) = self.items.remove(cookie.0 as usize) {
+        if let Some(item) = self.items.get_mut(cookie.0 as usize) {
             self.send.send(Command::Cancel(Wake::new(item.time, cookie.0))).unwrap();
+            item.cancelled = true;
         }
     }
 
@@ -302,7 +319,11 @@ impl<T> WakeQueue<T> {
     /// already been cancelled, for example, if the timer was cancelled while its Cookie was
     /// already waiting in the Receiver queue.
     pub fn retrieve(&mut self, cookie: Cookie) -> Option<(Time, T)> {
-        self.items.remove(cookie.0 as usize)
-            .map(|item| (item.time, item.reason))
+        if let Some(item) = self.items.remove(cookie.0 as usize) {
+            if !item.cancelled {
+                return Some((item.time, item.reason));
+            }
+        }
+        None
     }
 }
