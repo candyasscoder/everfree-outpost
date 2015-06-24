@@ -92,6 +92,7 @@ pub enum ClientResponse {
     //InventoryGone(InventoryId),
     
     PlaneFlags(u32),
+    SyncStatus(bool),
 
     GetInteractArgs(u32, ExtraArg),
     GetUseItemArgs(ItemId, u32, ExtraArg),
@@ -415,6 +416,9 @@ impl Messages {
 
             ClientResponse::PlaneFlags(flags) =>
                 self.send_raw(wire_id, Response::PlaneFlags(flags)),
+
+            ClientResponse::SyncStatus(synced) =>
+                self.send_raw(wire_id, Response::SyncStatus(synced)),
 
 
             ClientResponse::GetInteractArgs(dialog_id, parts) =>

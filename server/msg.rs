@@ -88,6 +88,7 @@ mod op {
         GetInteractArgs = 0x8014,
         GetUseItemArgs = 0x8015,
         GetUseAbilityArgs = 0x8016,
+        SyncStatus = 0x8017,
 
         // Deprecated responses
         PlayerMotion = 0x8002,
@@ -259,6 +260,7 @@ pub enum Response {
     GetInteractArgs(u32, ExtraArg),
     GetUseItemArgs(ItemId, u32, ExtraArg),
     GetUseAbilityArgs(ItemId, u32, ExtraArg),
+    SyncStatus(bool),
 
     ClientRemoved(WireId),
     ReplResult(u16, String),
@@ -311,6 +313,8 @@ impl Response {
                 ww.write_msg(id, (op::GetUseItemArgs, item_id, dialog_id, args)),
             GetUseAbilityArgs(item_id, dialog_id, ref args) =>
                 ww.write_msg(id, (op::GetUseAbilityArgs, item_id, dialog_id, args)),
+            SyncStatus(synced) =>
+                ww.write_msg(id, (op::SyncStatus, synced)),
 
             ClientRemoved(wire_id) =>
                 ww.write_msg(id, (op::ClientRemoved, wire_id)),

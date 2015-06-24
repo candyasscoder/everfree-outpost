@@ -176,6 +176,8 @@ pub fn update_view(mut eng: EngineRef, cid: ClientId) {
         logic::chunks::unload_chunk(eng.borrow(), old_pid, cpos);
     }
 
+    eng.messages().send_client(cid, ClientResponse::SyncStatus(true));
+
     // TODO: using `with_hooks` here is gross, move schedule_view_update somewhere better
     {
         use world::fragment::Fragment;

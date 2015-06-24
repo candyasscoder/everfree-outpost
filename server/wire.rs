@@ -144,7 +144,7 @@ pub trait WriteTo {
 
 
 macro_rules! prim_impl {
-    ( $ty:ty, $read_fn:ident, $write_fn:ident ) => {
+    ( $ty:ty ) => {
         impl ReadFrom for $ty {
             #[inline]
             fn read_from<R: Read>(r: &mut WireReader<R>) -> io::Result<$ty> {
@@ -180,14 +180,35 @@ macro_rules! prim_impl {
     }
 }
 
-prim_impl!(u8, read_u8, write_u8);
-prim_impl!(i8, read_i8, write_i8);
-prim_impl!(u16, read_le_u16, write_le_u16);
-prim_impl!(i16, read_le_i16, write_le_i16);
-prim_impl!(u32, read_le_u32, write_le_u32);
-prim_impl!(i32, read_le_i32, write_le_i32);
-prim_impl!(u64, read_le_u64, write_le_u64);
-prim_impl!(i64, read_le_i64, write_le_i64);
+prim_impl!(u8);
+prim_impl!(i8);
+prim_impl!(u16);
+prim_impl!(i16);
+prim_impl!(u32);
+prim_impl!(i32);
+prim_impl!(u64);
+prim_impl!(i64);
+
+impl ReadFrom for bool {
+    #[inline]
+    fn read_from<R: Read>(r: &mut WireReader<R>) -> io::Result<bool> {
+        <u8 as ReadFrom>::read_from(r)
+            .map(|x| x != 0)
+    }
+}
+
+impl WriteTo for bool {
+    #[inline]
+    fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
+        (*self as u8).write_to(w)
+    }
+
+    #[inline]
+    fn size(&self) -> usize { (*self as u8).size() }
+
+    #[inline]
+    fn size_is_fixed() -> bool { <u8 as WriteTo>::size_is_fixed() }
+}
 
 
 impl ReadFrom for () {

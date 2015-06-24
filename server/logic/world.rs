@@ -10,6 +10,7 @@ use data::StructureTemplate;
 use engine::glue::*;
 use engine::split::{Open, EngineRef};
 use logic;
+use messages::ClientResponse;
 use physics_;
 use world::{self, World, Entity, Structure};
 use world::object::*;
@@ -36,6 +37,7 @@ impl<'a, 'd> world::Hooks for $WorldHooks<'a, 'd> {
                              _old_pawn: Option<EntityId>,
                              new_pawn: Option<EntityId>) {
         if let Some(eid) = new_pawn {
+            // TODO: handle this properly.  needs to send a fresh Init message to the client
             self.schedule_view_update(eid);
         }
     }
@@ -416,4 +418,24 @@ fn update_physics(mut eng: EngineRef, eid: EntityId) {
     warn_on_err!(physics_::Fragment::update(&mut eng.as_physics_fragment(), now, eid));
     // When `update` changes the entity's motion, the hook will schedule the next update,
     // cancelling any currently pending update.
+}
+
+pub fn teleport_entity(mut wf: WorldFragment,
+                       eid: EntityId,
+                       pid: Option<PlaneId>,
+                       pos: V3) -> StrResult<()> {
+    use world::Fragment;
+
+    let cid = unwrap!(wf.world().get_entity(eid)).pawn_owner().map(|c| c.id());
+    if let Some(cid) = cid {
+        wf.messages().send_client(cid, ClientResponse::SyncStatus(false));
+    }
+
+    let now = wf.now();
+    let mut e = unwrap!(wf.get_entity_mut(eid));
+    if let Some(pid) = pid {
+        try!(e.set_plane_id(pid));
+    }
+    e.set_motion(world::Motion::stationary(pos, now));
+    Ok(())
 }

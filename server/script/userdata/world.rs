@@ -339,21 +339,14 @@ impl Userdata for Entity {
             fn teleport(!partial wf: WorldFragment,
                         e: Entity,
                         pos: V3) -> StrResult<()> {
-                let now = wf.now();
-                let mut e = unwrap!(wf.get_entity_mut(e.id));
-                e.set_motion(world::Motion::stationary(pos, now));
-                Ok(())
+                logic::world::teleport_entity(wf, e.id, None, pos)
             }
 
             fn teleport_plane(!partial wf: WorldFragment,
                               e: Entity,
                               p: Plane,
                               pos: V3) -> StrResult<()> {
-                let now = wf.now();
-                let mut e = unwrap!(wf.get_entity_mut(e.id));
-                try!(e.set_plane_id(p.id));
-                e.set_motion(world::Motion::stationary(pos, now));
-                Ok(())
+                logic::world::teleport_entity(wf, e.id, Some(p.id), pos)
             }
 
             fn teleport_stable_plane(!partial wf: WorldFragment,
