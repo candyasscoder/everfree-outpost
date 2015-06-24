@@ -339,25 +339,21 @@ impl Userdata for Entity {
             fn teleport(!partial wf: WorldFragment,
                         e: Entity,
                         pos: V3) -> StrResult<()> {
-                logic::world::teleport_entity(wf, e.id, None, pos)
+                logic::world::teleport_entity(wf, e.id, pos)
             }
 
             fn teleport_plane(!partial wf: WorldFragment,
                               e: Entity,
                               p: Plane,
                               pos: V3) -> StrResult<()> {
-                logic::world::teleport_entity(wf, e.id, Some(p.id), pos)
+                logic::world::teleport_entity_plane(wf, e.id, p.id, pos)
             }
 
             fn teleport_stable_plane(!partial wf: WorldFragment,
                                      e: Entity,
                                      p: StablePlane,
                                      pos: V3) -> StrResult<()> {
-                let now = wf.now();
-                let mut e = unwrap!(wf.get_entity_mut(e.id));
-                try!(e.set_stable_plane_id(p.id));
-                e.set_motion(world::Motion::stationary(pos, now));
-                Ok(())
+                logic::world::teleport_entity_stable_plane(wf, e.id, p.id, pos)
             }
 
             // TODO: come up with a lua representation of attachment so we can unify these methods

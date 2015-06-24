@@ -108,69 +108,6 @@ for (var i = 0; i < anim_dirs.length; ++i) {
 }
 
 
-/** @constructor */
-function LoadCounter(banner, keyboard) {
-    this.banner = banner;
-    this.keyboard = keyboard;
-
-    this.chunks = 0;
-    this.entities = 0;
-    this.total_chunks = 0;
-    this.total_entities = 0;
-    this.loading = false;
-}
-
-function load_cost(chunks, entities) {
-    return 2 * chunks + 1 * entities;
-}
-
-LoadCounter.prototype._current = function() {
-    return load_cost(this.chunks, this.entities);
-}
-
-LoadCounter.prototype._total = function() {
-    return load_cost(this.total_chunks, this.total_entities);
-}
-
-LoadCounter.prototype._buildMessage = function() {
-    return 'Loading World... (' + this.chunks + '/' + this.total_chunks  +
-                ' + ' + this.entities + '/' + this.total_entities + ')';
-};
-
-LoadCounter.prototype.begin = function(chunks, entities) {
-    if (chunks == 0 && entities == 0) {
-        return;
-    }
-
-    this.chunks = 0;
-    this.entities = 0;
-    this.total_chunks = chunks;
-    this.total_entities = entities;
-    this.loading = true;
-
-    this.banner.show(this._buildMessage(), 0, this.keyboard, function() { return false; });
-};
-
-LoadCounter.prototype.update = function(chunks, entities) {
-    if (!this.loading) {
-        return;
-    }
-    this.chunks += chunks;
-    this.entities += entities;
-
-    if (this.chunks >= this.total_chunks && this.entities >= this.total_entities) {
-        this.reset();
-    } else {
-        this.banner.update(this._buildMessage(), this._current() / this._total());
-    }
-};
-
-LoadCounter.prototype.reset = function() {
-    this.loading = false;
-    this.banner.hide();
-};
-
-
 var canvas;
 var debug;
 var dialog;
@@ -204,10 +141,10 @@ var cursor;
 var show_cursor = false;
 var slice_radius;
 var day_night;
+var synced = false;
 
 var conn;
 var timing;
-var load_counter;
 var inv_tracker;
 
 var item_inv;
@@ -275,7 +212,6 @@ function init() {
 
     conn = null;    // Initialized after assets are loaded.
     timing = null;  // Initialized after connection is opened.
-    load_counter = new LoadCounter(banner, keyboard);
 
     item_inv = null;
     ability_inv = null;
@@ -302,7 +238,8 @@ function init() {
                 maybeRegister(info, function() {
                     conn.sendLogin(Config.login_name.get(), Config.login_secret.get());
 
-                    banner.hide();
+                    // Show "Loading World..." banner.
+                    handleSyncStatus(false);
                     canvas.start();
                 });
             });
@@ -389,6 +326,7 @@ function openConn(info, next) {
     conn.onGetInteractArgs = handleGetInteractArgs;
     conn.onGetUseItemArgs = handleGetUseItemArgs;
     conn.onGetUseAbilityArgs = handleGetUseAbilityArgs;
+    conn.onSyncStatus = handleSyncStatus;
 }
 
 function maybeRegister(info, next) {
@@ -732,7 +670,6 @@ function setupKeyHandler() {
                     conn.sendInteract(time);
                     break;
                 case 'use_item':
-                    console.log('use', hotbar.getItem());
                     conn.sendUseItem(time, hotbar.getItem());
                     break;
                 case 'use_ability':
@@ -825,7 +762,6 @@ function handleClose(evt, reason) {
 
 function handleInit(entity_id, now, cycle_base, cycle_ms) {
     player_entity = entity_id;
-    //load_counter.begin(chunks, entities);
     var pst_now = timing.decodeRecv(now);
     day_night.base_time = pst_now - cycle_base;
     day_night.cycle_ms = cycle_ms;
@@ -846,7 +782,6 @@ function handleTerrainChunk(i, data) {
     });
 
     chunkLoaded[i] = true;
-    load_counter.update(1, 0);
 }
 
 function handleEntityUpdate(id, motion, anim) {
@@ -874,8 +809,6 @@ function handleEntityUpdate(id, motion, anim) {
     } else {
         prediction.receivedMotion(m, entities[id]);
     }
-
-    load_counter.update(0, 1);
 }
 
 function handleUnloadChunk(idx) {
@@ -1011,6 +944,15 @@ function handleGenericGetArgs(dialog_id, parts, cb) {
     dialog.show(d);
 }
 
+function handleSyncStatus(new_synced) {
+    synced = new_synced;
+    if (!synced) {
+        banner.show('Loading World...', 0, keyboard, function() { return false; });
+    } else {
+        banner.hide();
+    }
+}
+
 
 // Rendering
 
@@ -1097,6 +1039,10 @@ var FACINGS = [
 ];
 
 function frame(ac, client_now) {
+    if (!synced) {
+        return;
+    }
+
     var now = timing.visibleNow();
 
     // Here's the math on client-side motion prediction.

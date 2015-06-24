@@ -19,7 +19,9 @@ Banner.prototype.hide = function() {
 
 Banner.prototype.show = function(text, fill_amount, keyboard, handler) {
     if (keyboard != null) {
-        console.assert(this._keyboard == null);
+        if (this._keyboard != null) {
+            this._keyboard.popHandler();
+        }
         keyboard.pushHandler(handler);
         this._keyboard = keyboard;
     }

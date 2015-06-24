@@ -420,22 +420,59 @@ fn update_physics(mut eng: EngineRef, eid: EntityId) {
     // cancelling any currently pending update.
 }
 
-pub fn teleport_entity(mut wf: WorldFragment,
-                       eid: EntityId,
-                       pid: Option<PlaneId>,
-                       pos: V3) -> StrResult<()> {
+fn teleport_entity_internal(mut wf: WorldFragment,
+                            eid: EntityId,
+                            pid: Option<PlaneId>,
+                            stable_pid: Option<Stable<PlaneId>>,
+                            pos: V3) -> StrResult<()> {
     use world::Fragment;
+    let now = wf.now();
 
-    let cid = unwrap!(wf.world().get_entity(eid)).pawn_owner().map(|c| c.id());
-    if let Some(cid) = cid {
-        wf.messages().send_client(cid, ClientResponse::SyncStatus(false));
+    {
+        let e = unwrap!(wf.world().get_entity(eid));
+        let cid = e.pawn_owner().map(|c| c.id());
+        if let Some(cid) = cid {
+            // Only send desync message for long-range teleports.
+            let dist = (e.pos(now) - pos).reduce().abs().max();
+            let change_plane = (pid.is_some() && pid.unwrap() != e.plane_id()) ||
+                (stable_pid.is_some() && stable_pid.unwrap() != e.stable_plane_id());
+
+            // NB: Teleporting to another point within the current chunk will not cause a view
+            // update to be scheduled, so there will never be a resync message.  That's why we set
+            // the limit to CHUNK_SIZE * TILE_SIZE: traveling that distance along either the X or Y
+            // axis will definitely move the entity into a different chunk.
+            if dist >= CHUNK_SIZE * TILE_SIZE || change_plane {
+                wf.messages().send_client(cid, ClientResponse::SyncStatus(false));
+            }
+        }
     }
 
-    let now = wf.now();
-    let mut e = unwrap!(wf.get_entity_mut(eid));
-    if let Some(pid) = pid {
+    let mut e = wf.entity_mut(eid);
+    if let Some(stable_pid) = stable_pid {
+        try!(e.set_stable_plane_id(stable_pid));
+    } else if let Some(pid) = pid {
         try!(e.set_plane_id(pid));
     }
     e.set_motion(world::Motion::stationary(pos, now));
     Ok(())
+}
+
+pub fn teleport_entity(wf: WorldFragment,
+                       eid: EntityId,
+                       pos: V3) -> StrResult<()> {
+    teleport_entity_internal(wf, eid, None, None, pos)
+}
+
+pub fn teleport_entity_plane(wf: WorldFragment,
+                             eid: EntityId,
+                             pid: PlaneId,
+                             pos: V3) -> StrResult<()> {
+    teleport_entity_internal(wf, eid, Some(pid), None, pos)
+}
+
+pub fn teleport_entity_stable_plane(wf: WorldFragment,
+                                    eid: EntityId,
+                                    stable_pid: Stable<PlaneId>,
+                                    pos: V3) -> StrResult<()> {
+    teleport_entity_internal(wf, eid, None, Some(stable_pid), pos)
 }

@@ -112,8 +112,8 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
                                                              DAY_NIGHT_CYCLE_MS));
 
     vision::Fragment::add_client(&mut eng.as_vision_fragment(), cid, pawn_pid, region);
-
-    warn_on_err!(script::ScriptEngine::cb_login(eng.unwrap(), cid));
+    warn_on_err!(script::ScriptEngine::cb_login(eng.borrow().unwrap(), cid));
+    eng.messages().send_client(cid, ClientResponse::SyncStatus(true));
 
     Ok(())
 }

@@ -42,6 +42,7 @@ var OP_PLANE_FLAGS =            0x8013;
 var OP_GET_INTERACT_ARGS =      0x8014;
 var OP_GET_USE_ITEM_ARGS =      0x8015;
 var OP_GET_USE_ABILITY_ARGS =   0x8016;
+var OP_SYNC_STATUS =            0x8017;
 
 /** @constructor */
 function Connection(url) {
@@ -78,6 +79,7 @@ function Connection(url) {
     this.onGetInteractArgs = null;
     this.onGetUseItemArgs = null;
     this.onGetUseAbilityArgs = null;
+    this.onSyncStatus = null;
 }
 exports.Connection = Connection;
 
@@ -371,6 +373,13 @@ Connection.prototype._handleMessage = function(evt) {
                 var dialog_id = get32();
                 var args = getArg();
                 this.onGetUseAbilityArgs(item_id, dialog_id, args);
+            }
+            break;
+
+        case OP_SYNC_STATUS:
+            if (this.onSyncStatus != null) {
+                var synced = get8() != 0;
+                this.onSyncStatus(synced);
             }
             break;
 
