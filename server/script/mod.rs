@@ -454,7 +454,7 @@ unsafe impl<'a> PartialContext for &'a mut messages::Messages {
 unsafe impl<'a> PartialContext for &'a mut timer::Timer {
     unsafe fn from_lua(lua: &mut LuaState) -> &'a mut timer::Timer {
         let mut frag = WorldFragment::from_lua(lua);
-        let ptr: &mut messages::Messages = frag.messages_mut();
+        let ptr: &mut timer::Timer = frag.timer_mut();
         mem::transmute(ptr)
     }
 }
