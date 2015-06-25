@@ -21,14 +21,23 @@ function WidgetKeyEvent(down, raw) {
 exports.WidgetKeyEvent = WidgetKeyEvent;
 
 WidgetKeyEvent.prototype.keyName = function() {
+    if (this.raw.ctrlKey || this.raw.altKey || this.raw.metaKey) {
+        return null;
+    }
     return Config.keybindings.get()[this.raw.keyCode];
 };
 
 WidgetKeyEvent.prototype.chatKeyName = function() {
+    if (this.raw.ctrlKey || this.raw.altKey || this.raw.metaKey) {
+        return null;
+    }
     return Config.chat_keybindings.get()[this.raw.keyCode];
 };
 
 WidgetKeyEvent.prototype.uiKeyName = function() {
+    if (this.raw.ctrlKey || this.raw.altKey || this.raw.metaKey) {
+        return null;
+    }
     return Config.ui_keybindings.get()[this.raw.keyCode];
 };
 

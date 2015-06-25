@@ -590,7 +590,7 @@ function setupKeyHandler() {
         var shouldStop = alwaysStop(evt);
 
         var binding = Config.keybindings.get()[evt.keyCode];
-        if (binding == null) {
+        if (binding == null || evt.ctrlKey || evt.altKey || evt.metaKey) {
             return shouldStop;
         }
 
