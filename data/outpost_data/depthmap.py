@@ -42,7 +42,7 @@ def solid(w, h1, h2):
     adjust = 0
     for y in reversed(range(h1 + h2)):
         depthmap.paste(adjust, (0, y, w, y + 1))
-        if y < h1:
+        if y < h1 + 1:
             adjust += 1
 
     return depthmap

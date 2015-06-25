@@ -95,11 +95,11 @@ pub struct TerrainVertex {
     x: u8,
     y: u8,
     z: u8,
-    _pad0: u8,
+    side: u8,
     s: u8,
     t: u8,
+    _pad0: u8,
     _pad1: u8,
-    _pad2: u8,
 }
 
 /// Maximum number of blocks that could be present in the output of generate_geometry.  The +1 is
@@ -181,11 +181,11 @@ pub fn generate_geometry<F>(local: &LocalChunks,
                 x: bx as u8 + corner_u,
                 y: by as u8 + base_y + (step_y & corner_v),
                 z: bz as u8 + base_z - (step_z & corner_v),
-                _pad0: 0,
+                side: side as u8,
                 s: tile_s + corner_u,
                 t: tile_t + corner_v,
+                _pad0: 0,
                 _pad1: 0,
-                _pad2: 0,
             };
             buf[*base_idx] = vert;
             *base_idx += 1;
@@ -246,10 +246,10 @@ pub struct StructureTemplate {
     pub display_size: (u16, u16),
     pub display_offset: (u16, u16),
 
+    pub layer: u8,
     pub light_pos: (u8, u8, u8),
-    pub _pad1: u8,
     pub light_color: (u8, u8, u8),
-    pub _pad2: u8,
+    pub _pad1: u8,
     pub light_radius: u16,
 }
 
@@ -471,7 +471,8 @@ impl<'a> StructureBuffer<'a> {
                 idx: &mut usize,
                 pos: (i16, i16, i16),
                 base_z: i16,
-                tex_coord: (u16, u16)) {
+                tex_coord: (u16, u16),
+                layer: u8) {
             let (x, y, z) = pos;
             buf[*idx].x = x;
             buf[*idx].y = y;
@@ -480,6 +481,7 @@ impl<'a> StructureBuffer<'a> {
             let (s, t) = tex_coord;
             buf[*idx].s = s;
             buf[*idx].t = t;
+            buf[*idx].layer = layer as u16;
             *idx += 1;
         }
 
@@ -553,7 +555,8 @@ impl<'a> StructureBuffer<'a> {
                       px_z + off_z),
                      px_z,
                      (base_s + off_s,
-                      base_t + off_t));
+                      base_t + off_t),
+                     t.layer);
             }
         }
 
@@ -572,8 +575,8 @@ pub struct StructureVertex {
     base_z: i16,
     s: u16,
     t: u16,
-    _pad1: u16,
-    _pad2: u16,
+    layer: u16,
+    _pad0: u16,
 }
 
 /// Buffer for StructureVertex items.  The number of elements is set to 6 times the length of

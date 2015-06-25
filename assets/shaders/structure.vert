@@ -24,12 +24,23 @@ uniform vec2 sheetSize;
 attribute vec3 position;
 attribute vec2 texCoord;
 attribute float baseZAttr;
+attribute float layer;
 
 varying vec2 normalizedTexCoord;
 varying float baseZ;
 
 void main(void) {
-    gl_Position = projection * vec4(position, 1.0);
+    // Structures are always rendered vertically, so apply an adjustment to
+    // each fragment depth.
+    float axisAdj = -0.5;
+
+    // Further adjust Z based on the structure's layer.
+    float layerAdj = layer + 1.0;
+
+    float adjZ = axisAdj / 512.0 + layerAdj / 16384.0;
+    vec4 adj = vec4(0.0, 0.0, adjZ, 0.0);
+
+    gl_Position = projection * vec4(position, 1.0) + adj;
     normalizedTexCoord = texCoord / sheetSize;
     baseZ = baseZAttr;
 }

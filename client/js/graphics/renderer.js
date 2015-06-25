@@ -98,6 +98,7 @@ function build_terrain_block(gl, assets, atlas_tex) {
 
     var attributes = {
         'position': attribute(null, 3, gl.UNSIGNED_BYTE, false, 8, 0),
+        'side': attribute(null, 1, gl.UNSIGNED_BYTE, false, 8, 3),
         'texCoord': attribute(null, 2, gl.UNSIGNED_BYTE, false, 8, 4),
     };
 
@@ -379,10 +380,11 @@ Renderer.prototype.loadTemplateData = function(templates) {
         out16[3] = template.display_size[1];
         out16[4] = template.display_offset[0];
         out16[5] = template.display_offset[1];
+        out8[12] = template.layer;
 
-        out8[12] = template.light_pos[0];
-        out8[13] = template.light_pos[1];
-        out8[14] = template.light_pos[2];
+        out8[13] = template.light_pos[0];
+        out8[14] = template.light_pos[1];
+        out8[15] = template.light_pos[2];
         out8[16] = template.light_color[0];
         out8[17] = template.light_color[1];
         out8[18] = template.light_color[2];
@@ -454,6 +456,7 @@ Renderer.prototype._renderTerrain = function(fb, cx, cy, max_z) {
 
         this_.terrain_block.draw(idx, 0, geom.length / 8, {}, {
             'position': buffer,
+            'side': buffer,
             'texCoord': buffer,
         }, {});
     });
