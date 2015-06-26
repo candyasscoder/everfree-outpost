@@ -65,10 +65,15 @@ Renderer.prototype.initGl = function(assets) {
     var blits = build_blits(gl, assets);
     this.blit = blits.normal;
     this.blit_sliced = blits.sliced;
-    this.output = blits.output;
+    this.blit_full = blits.full;
     this.post_filter = blits.post;
+    this.blit_depth = blits.depth;
+
     this.terrain_block = build_terrain_block(gl, assets, atlas_tex);
-    this.structure = build_structure(gl, assets, struct_sheet_tex, struct_depth_tex);
+
+    var structures = build_structures(gl, assets, struct_sheet_tex, struct_depth_tex);
+    this.structure = structures.normal;
+    this.structure_shadow = structures.shadow;
 
     var lights = build_lights(gl, assets);
     this.static_light = lights.static_;
@@ -83,7 +88,11 @@ Renderer.prototype.initGl = function(assets) {
 
     this.last_sw = -1;
     this.last_sh = -1;
-    this.fbs = [null, null];
+
+    // Temporary framebuffer for storing shadows and other translucent parts
+    // during structure rendering.  This doesn't depend on the screen size,
+    // which is why it's not in _initFramebuffers with the rest.
+    this.fb_shadow = new Framebuffer(this.gl, CHUNK_PX, CHUNK_PX, 1);
 };
 
 function build_terrain_block(gl, assets, atlas_tex) {
@@ -119,8 +128,11 @@ function build_blits(gl, assets) {
     var frag_sliced = assets['blit_sliced.frag'];
     var programs_sliced = buildPrograms(gl, vert, frag_sliced, 2);
 
-    var frag_output = assets['blit_output.frag'];
-    var programs_output = buildPrograms(gl, vert_fullscreen, frag_output, 1);
+    var frag_full = assets['blit_output.frag'];
+    var programs_full = buildPrograms(gl, vert_fullscreen, frag_full, 1);
+
+    var frag_depth = assets['blit_depth.frag'];
+    var programs_depth = buildPrograms(gl, vert_fullscreen, frag_depth, 1);
 
     var frag_post = assets['blit_post.frag'];
     var programs_post = buildPrograms(gl, vert_fullscreen, frag_post, 1);
@@ -191,7 +203,20 @@ function build_blits(gl, assets) {
         'imageTex': null,
     };
 
-    var output = new GlObject(gl, programs_output, uniforms, attributes, textures);
+    var full = new GlObject(gl, programs_full, uniforms, attributes, textures);
+
+
+    var uniforms = {};
+
+    var attributes = {
+        'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0),
+    };
+
+    var textures = {
+        'depthTex': null,
+    };
+
+    var depth = new GlObject(gl, programs_depth, uniforms, attributes, textures);
 
 
     var uniforms = {
@@ -212,7 +237,7 @@ function build_blits(gl, assets) {
     var post = new GlObject(gl, programs_post, uniforms, attributes, textures);
 
 
-    return { normal: normal, sliced: sliced, output: output, post: post };
+    return { normal: normal, sliced: sliced, full: full, depth: depth, post: post };
 }
 
 function build_lights(gl, assets) {
@@ -274,10 +299,12 @@ function build_lights(gl, assets) {
     };
 }
 
-function build_structure(gl, assets, sheet_tex, depth_tex) {
+function build_structures(gl, assets, sheet_tex, depth_tex) {
     var vert = assets['structure.vert'];
     var frag = assets['structure.frag'];
+    var shadow_frag = assets['structure_shadow.frag'];
     var programs = buildPrograms(gl, vert, frag, 2);
+    var shadow_programs = buildPrograms(gl, vert, shadow_frag, 2);
 
     var uniforms = {
         'sheetSize': uniform('vec2', [sheet_tex.width, sheet_tex.height]),
@@ -289,18 +316,37 @@ function build_structure(gl, assets, sheet_tex, depth_tex) {
         'texCoord': attribute(null, 2, gl.UNSIGNED_SHORT, false, 16, 8),
     };
 
+    var attributes_shadow = {
+        'position': attribute(null, 3, gl.SHORT, false, 16, 0),
+        'baseZAttr': attribute(null, 1, gl.SHORT, false, 16, 6),
+        'texCoord': attribute(null, 2, gl.UNSIGNED_SHORT, false, 16, 8),
+    };
+
     var textures = {
         'sheetTex': sheet_tex,
         'depthTex': depth_tex,
     };
 
-    return new GlObject(gl, programs, uniforms, attributes, textures);
+    return {
+        normal: new GlObject(gl, programs, uniforms, attributes, textures),
+        shadow: new GlObject(gl, shadow_programs, uniforms, attributes_shadow, textures),
+    };
 }
 
 Renderer.prototype._initFramebuffers = function(sw, sh) {
+    // Framebuffer containing image and metadata for the world (terrain +
+    // structures).
     this.fb_world = new Framebuffer(this.gl, sw, sh, 2);
+    // Framebuffer containing light intensity at every pixel.
     this.fb_light = new Framebuffer(this.gl, sw, sh, 1, false);
+    // Framebuffer containing postprocessed image data.  This is emitted
+    // directly to the screen.  (May require upscaling, which is why the
+    // postprocessing shader doesn't output to the screen immediately.)
     this.fb_post = new Framebuffer(this.gl, sw, sh, 1, false);
+
+    // this.fb_shadow does not depend on sw/sh, so it gets initialized
+    // elsewhere.
+
     this.last_sw = sw;
     this.last_sh = sh;
 };
@@ -467,7 +513,18 @@ Renderer.prototype._renderTerrain = function(fb, cx, cy, max_z) {
 Renderer.prototype._renderStructures = function(fb, cx, cy, max_z) {
     var gl = this.gl;
     gl.viewport(0, 0, fb.width, fb.height);
+
+    var this_ = this;
+
     gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.ALWAYS);
+
+    this.fb_shadow.use(function(idx) {
+        this_.blit_depth.draw(idx, 0, 6, {}, {}, {
+            'depthTex': fb.depth_texture,
+        });
+    });
+
     gl.depthFunc(gl.GEQUAL);
 
     this._asm.resetStructureGeometry();
@@ -481,7 +538,7 @@ Renderer.prototype._renderStructures = function(fb, cx, cy, max_z) {
         var buffer = new Buffer(gl);
         buffer.loadData(geom);
 
-        var this_ = this;
+        // Render images and metadata.
         fb.use(function(idx) {
             this_.structure.draw(idx, 0, geom.length / 8, {}, {
                 'position': buffer,
@@ -489,9 +546,31 @@ Renderer.prototype._renderStructures = function(fb, cx, cy, max_z) {
                 'texCoord': buffer,
             }, {});
         });
+
+        // Render shadows only.
+        this.fb_shadow.use(function(idx) {
+            this_.structure_shadow.draw(idx, 0, geom.length / 8, {}, {
+                'position': buffer,
+                'texCoord': buffer,
+            }, {});
+        });
     }
 
     gl.disable(gl.DEPTH_TEST);
+
+    // Composite shadows over the rest.
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    fb.use(function(idx) {
+        if (idx == 0) {
+            this_.blit_full.draw(0, 0, 6, {}, {}, {
+                'imageTex': this_.fb_shadow.textures[0],
+            });
+        }
+    });
+
+    gl.disable(gl.BLEND);
 };
 
 Renderer.prototype._renderStaticLights = function(fb, depth_tex, cx0, cy0, cx1, cy1, amb) {
@@ -578,7 +657,7 @@ Renderer.prototype.render = function(s, draw_extra) {
     this.static_light.setUniformValue('cameraSize', size);
     this.dynamic_light.setUniformValue('cameraPos', pos);
     this.dynamic_light.setUniformValue('cameraSize', size);
-    // this.output uses fixed camera
+    // this.blit_full uses fixed camera
 
     for (var k in this.sprite_classes) {
         var cls = this.sprite_classes[k];
@@ -717,7 +796,7 @@ Renderer.prototype.render = function(s, draw_extra) {
 
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-    this.output.draw(0, 0, 6, {}, {}, {
+    this.blit_full.draw(0, 0, 6, {}, {}, {
         'imageTex': this.fb_post.textures[0],
     });
 };

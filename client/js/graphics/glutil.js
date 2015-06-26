@@ -237,7 +237,7 @@ function GlObject(gl, programs, uniforms, attributes, textures) {
     this.programs = programs;
     this.base_uniforms = uniforms;
     this.base_attributes = attributes;
-    this.base_textures = textures;
+    this.base_textures = {};
 
     var texture_index = 0;
     for (var key in textures) {
