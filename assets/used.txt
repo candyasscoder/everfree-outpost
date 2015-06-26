@@ -24,8 +24,10 @@ shaders/blit.frag
 shaders/blit_sliced.frag
 shaders/blit_post.frag
 shaders/blit_output.frag
+shaders/blit_depth.frag
 shaders/structure.vert
 shaders/structure.frag
+shaders/structure_shadow.frag
 shaders/light.vert
 shaders/light.frag
 
