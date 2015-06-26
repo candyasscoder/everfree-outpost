@@ -16,8 +16,8 @@ var KEYBIND_NAMES = [
     ['Interact', 'interact'],
     ['Use Ability', 'use_ability'],
     ['Use Item', 'use_item'],
-    ['Open Inventory', 'inventory'],
     ['Open Abilities', 'abilities'],
+    ['Open Inventory', 'inventory'],
 
     ['Hotbar', null],
     ['Slot 1', 'hotbar_1'],
