@@ -41,6 +41,7 @@ var Menu = require('ui/menu').Menu;
 var ConfigEditor = require('ui/configedit').ConfigEditor;
 var MusicTest = require('ui/musictest').MusicTest;
 var PonyEditor = require('ui/ponyedit').PonyEditor;
+var KeybindingEditor = require('ui/keybinding').KeybindingEditor;
 var widget = require('ui/widget');
 var ErrorList = require('ui/errorlist').ErrorList;
 var InventoryUpdateList = require('ui/invupdate').InventoryUpdateList;
@@ -424,6 +425,9 @@ function initMenus() {
     main_menu = new Menu([
             ['&Instructions', function() {
                 dialog.show(new widget.Form(new Iframe('instructions.html', keyboard)));
+            }],
+            ['&Keyboard Controls', function() {
+                dialog.show(new KeybindingEditor(keyboard));
             }],
             ['&Debug Menu', function() { dialog.show(debug_menu); }],
             ['&Credits', function() {

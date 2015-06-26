@@ -1,24 +1,5 @@
 var util = require('util/misc');
-
-var key_map = {
-    37: '&larr;',
-    39: '&rarr;',
-    38: '&uarr;',
-    40: '&darr;',
-    16: 'Shift',
-    27: 'ESC',
-    32: 'Space',
-};
-
-function getKeyName(code) {
-    if (key_map[code] != null) {
-        return key_map[code];
-    }
-    if (code >= 'A'.charCodeAt(0) && code <= 'Z'.charCodeAt(0)) {
-        return String.fromCharCode(code);
-    }
-    return null;
-}
+var getKeyName = require('util/keynames').getKeyName;
 
 
 /** @constructor */

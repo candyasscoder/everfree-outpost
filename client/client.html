@@ -745,6 +745,44 @@
                 <audio loop="true" class="music-player"></audio>
             </div>
 
+            <style>
+                .keybinding-list {
+                    width: 15rem;
+                    height: 50vh;
+                    overflow-x: hidden;
+                    overflow-y: scroll;
+                }
+
+                .keybinding-item {
+                    display: flex;
+                }
+
+                .keybinding-item.active {
+                    background-color: lightblue;
+                }
+
+                .keybinding-name {
+                    flex: 1 0 auto;
+                }
+
+                .keybinding-key {
+                    flex: 0 0 auto;
+                }
+
+                .keybinding-header {
+                    font-weight: bold;
+                    text-align: center;
+                }
+            </style>
+            <div id="keybinding-item" class="keybinding-item">
+                <div class="keybinding-name" data-part="name"></div>
+                <kbd class="keybinding-key" data-part="key"></kbd>
+            </div>
+            <div id="keybinding-editor">
+                <div class="title">Controls</div>
+                <div class="hole" data-key="list"></div>
+            </div>
+
             <div id="sign-text">
                 <div class="title">Sign Text</div>
                 <input type="text" size="100" data-part="input">
