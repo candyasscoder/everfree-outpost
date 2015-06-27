@@ -117,7 +117,7 @@ KeybindingEditor.prototype.bindKey = function(binding, code) {
     this.inv_binding_map[binding] = code;
     binding_map[code] = binding;
 
-    if (old_binding != null) {
+    if (old_binding != null && old_binding != binding) {
         // A different action was bound to this key.  `binding_map` was already
         // updated.
         this.inv_binding_map[old_binding] = null;
@@ -127,7 +127,7 @@ KeybindingEditor.prototype.bindKey = function(binding, code) {
         }
     }
 
-    if (old_code != null) {
+    if (old_code != null && old_code != code) {
         // A different key was bound to this action.  `inv_binding_map` was
         // already updated.
         delete binding_map[old_code];
