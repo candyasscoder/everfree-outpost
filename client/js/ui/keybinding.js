@@ -84,7 +84,7 @@ function KeybindingEditor(keyboard) {
                 this_.keyboard.pushHandler(function(down, evt) {
                     if (down) {
                         this_.bindKey(binding_name, evt.keyCode);
-                        bound = true;
+                        this_.keyboard.popHandler();
                     }
                     return true;
                 });
