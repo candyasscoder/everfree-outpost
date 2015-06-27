@@ -2,7 +2,6 @@ use cache::TerrainCache;
 use chunks::{self, Chunks};
 use engine::split::{EngineRef, Open, Part};
 use physics_::{self, Physics};
-use script::ScriptEngine;
 use terrain_gen::{self, TerrainGen};
 use vision::{self, Vision};
 use world::{self, World};

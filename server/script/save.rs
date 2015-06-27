@@ -1,13 +1,11 @@
 use std::error;
 use std::fmt;
 use std::io;
-use std::mem;
 use std::result;
 use libc::c_int;
 
 use types::*;
 
-use engine;
 use engine::glue::HiddenWorldFragment;
 use lua::{self, LuaState, ValueType, REGISTRY_INDEX};
 use util::Convert;

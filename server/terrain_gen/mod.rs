@@ -6,7 +6,6 @@ use types::*;
 use util::StringResult;
 
 use data::Data;
-use script::ScriptEngine;
 
 pub use self::disk_sampler::IsoDiskSampler;
 pub use self::diamond_square::DiamondSquare;
@@ -77,9 +76,9 @@ pub trait Fragment<'d> {
     fn terrain_gen_mut(&mut self) -> &mut TerrainGen<'d>;
 
     fn generate(&mut self,
-                pid: Stable<PlaneId>,
-                plane_name: &str,
-                cpos: V2) -> StringResult<GenChunk> {
+                _pid: Stable<PlaneId>,
+                _plane_name: &str,
+                _cpos: V2) -> StringResult<GenChunk> {
         unimplemented!()
     }
 }

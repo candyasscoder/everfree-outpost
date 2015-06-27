@@ -4,7 +4,6 @@ use libc::c_int;
 use types::*;
 use util::StrResult;
 
-use engine;
 use lua::{LuaState, ValueType};
 use script::ScriptEngine;
 use script::traits::{TypeName, MetatableKey, FromLua, ToLua, Userdata, is_userdata};
