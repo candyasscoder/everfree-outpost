@@ -8,7 +8,7 @@ use util::StringResult;
 use chunks;
 use engine::glue::*;
 use engine::split::EngineRef;
-use script;
+use script::{self, ScriptEngine};
 use terrain_gen;
 use world::{self, Fragment};
 use world::object::*;
@@ -73,10 +73,16 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
             let gen_chunk = {
                 let stable_pid = self.as_hidden_world_fragment().plane_mut(pid).stable_id();
                 let (tgf, eng) = self.borrow().0.split_off();
-                let result = terrain_gen::Fragment::generate(&mut TerrainGenFragment(tgf),
-                                                             stable_pid,
+                let mut tgf = TerrainGenFragment(tgf);
+
+                let plane_rng = tgf.terrain_gen_mut().plane_rng(stable_pid, 0);
+                let chunk_rng = tgf.terrain_gen_mut().chunk_rng(stable_pid, cpos, 0);
+                let result = ScriptEngine::cb_generate_chunk(&mut tgf,
                                                              eng.world().plane(pid).name(),
-                                                             cpos);
+                                                             cpos,
+                                                             plane_rng,
+                                                             chunk_rng);
+
                 match result {
                     Ok(gc) => gc,
                     Err(e) => {

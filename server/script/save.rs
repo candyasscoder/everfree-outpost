@@ -222,9 +222,7 @@ impl<'a, 'd> save::WriteHooks for WriteHooks<'a, 'd> {
 
 impl<'a, 'd> WriteHooks<'a, 'd> {
     fn call_unload_hook<T: ToLua>(&mut self, func: &str, id: T) -> Result<()> {
-        // FIXME: SUPER UNSAFE!!!  This allows scripts to access engine parts they shouldn't have
-        // access to in this context.
-        let ptr: *mut engine::Engine = unsafe { mem::transmute_copy(self) };
+        let ptr: *mut _ = self;
         self.script_mut().with_context(ptr, |lua| -> Result<()> {
             lua.get_field(REGISTRY_INDEX, func);
             id.to_lua(lua);
@@ -546,9 +544,7 @@ impl<'a, 'd> ReadHooks<'a, 'd> {
     }
 
     fn call_load_hook<T: ToLua>(&mut self, func: &str, id: T) -> Result<()> {
-        // FIXME: SUPER UNSAFE!!!  This allows scripts to access engine parts they shouldn't have
-        // access to in this context.
-        let ptr: *mut engine::Engine = unsafe { mem::transmute_copy(self) };
+        let ptr: *mut _ = self;
         self.script_mut().with_context(ptr, |lua| -> Result<()> {
             lua.get_field(REGISTRY_INDEX, func);
             id.to_lua(lua);

@@ -35,7 +35,7 @@ impl Userdata for World {
                 World
             }
 
-            fn create_entity(!partial wf: WorldFragment,
+            fn create_entity(!full wf: WorldFragment,
                              _w: World,
                              plane: Plane,
                              pos: V3,
@@ -46,10 +46,10 @@ impl Userdata for World {
                   .map(|e| Entity { id: e.id() })
             }
 
-            fn create_plane(!partial wf: WorldFragment,
+            fn create_plane(!full wf: WorldFragment,
                             _w: World,
-                            name: &str) -> StrResult<Plane> {
-                wf.create_plane(name.to_owned())
+                            name: String) -> StrResult<Plane> {
+                wf.create_plane(name)
                   .map(|p| Plane { id: p.id() })
             }
 
@@ -89,13 +89,13 @@ impl Userdata for World {
                 None
             }
 
-            fn create_structure(!partial wf: WorldFragment,
+            fn create_structure(!full wf: WorldFragment,
                                 _w: World,
                                 plane: Plane,
                                 pos: V3,
-                                template_name: &str) -> StrResult<Structure> {{
+                                template_name: String) -> StrResult<Structure> {{
                 let template_id =
-                    unwrap!(wf.data().structure_templates.find_id(template_name),
+                    unwrap!(wf.data().structure_templates.find_id(&template_name),
                             "named structure template does not exist");
 
                 let mut s = try!(wf.create_structure(plane.id, pos, template_id));
@@ -103,7 +103,7 @@ impl Userdata for World {
                 Ok(Structure { id: s.id() })
             }}
 
-            fn create_inventory(!partial wf: WorldFragment, _w: World) -> StrResult<Inventory> {
+            fn create_inventory(!full wf: WorldFragment, _w: World) -> StrResult<Inventory> {
                 wf.create_inventory()
                   .map(|i| Inventory { id: i.id() })
             }
@@ -161,7 +161,7 @@ impl Userdata for Client {
             fn world(_c: Client) -> World { World }
             fn id(c: Client) -> u16 { c.id.unwrap() }
 
-            fn stable_id(!partial wf: WorldFragment, c: Client) -> Option<StableClient> {
+            fn stable_id(!full wf: WorldFragment, c: Client) -> Option<StableClient> {
                 wf.get_client_mut(c.id)
                   .map(|mut c| StableClient { id: c.stable_id() })
             }
@@ -177,13 +177,13 @@ impl Userdata for Client {
                  .map(|eid| Entity { id: eid })
             }
 
-            fn set_pawn(!partial wf: WorldFragment, c: Client, e: Entity) -> StrResult<()> {
+            fn set_pawn(!full wf: WorldFragment, c: Client, e: Entity) -> StrResult<()> {
                 let mut c = unwrap!(wf.get_client_mut(c.id));
                 try!(c.set_pawn(Some(e.id)));
                 Ok(())
             }
 
-            fn clear_pawn(!partial wf: WorldFragment, c: Client) -> StrResult<()> {
+            fn clear_pawn(!full wf: WorldFragment, c: Client) -> StrResult<()> {
                 let mut c = unwrap!(wf.get_client_mut(c.id));
                 try!(c.set_pawn(None));
                 Ok(())
@@ -287,13 +287,13 @@ impl Userdata for Entity {
             fn world(_e: Entity) -> World { World }
             fn id(e: Entity) -> u32 { e.id.unwrap() }
 
-            fn stable_id(!partial wf: WorldFragment,
+            fn stable_id(!full wf: WorldFragment,
                          e: Entity) -> Option<StableEntity> {
                 wf.get_entity_mut(e.id)
                   .map(|mut e| StableEntity { id: e.stable_id() })
             }
 
-            fn destroy(!partial wf: WorldFragment,
+            fn destroy(!full wf: WorldFragment,
                        e: Entity) -> StrResult<()> {
                 wf.destroy_entity(e.id)
             }
@@ -303,7 +303,7 @@ impl Userdata for Entity {
                  .map(|e| Plane { id: e.plane_id() })
             }
 
-            fn pos(!partial wf: WorldFragment, e: Entity) -> Option<V3> {
+            fn pos(!full wf: WorldFragment, e: Entity) -> Option<V3> {
                 let now = wf.now();
                 wf.world().get_entity(e.id).map(|e| e.pos(now))
             }
@@ -325,7 +325,7 @@ impl Userdata for Entity {
                  .map(|e| e.appearance() & mask)
             }
 
-            fn update_appearance(!partial wf: WorldFragment,
+            fn update_appearance(!full wf: WorldFragment,
                                  e: Entity,
                                  mask: u32,
                                  bits: u32) -> StrResult<()> {
@@ -336,20 +336,20 @@ impl Userdata for Entity {
             }
 
 
-            fn teleport(!partial wf: WorldFragment,
+            fn teleport(!full wf: WorldFragment,
                         e: Entity,
                         pos: V3) -> StrResult<()> {
                 logic::world::teleport_entity(wf, e.id, pos)
             }
 
-            fn teleport_plane(!partial wf: WorldFragment,
+            fn teleport_plane(!full wf: WorldFragment,
                               e: Entity,
                               p: Plane,
                               pos: V3) -> StrResult<()> {
                 logic::world::teleport_entity_plane(wf, e.id, p.id, pos)
             }
 
-            fn teleport_stable_plane(!partial wf: WorldFragment,
+            fn teleport_stable_plane(!full wf: WorldFragment,
                                      e: Entity,
                                      p: StablePlane,
                                      pos: V3) -> StrResult<()> {
@@ -358,14 +358,14 @@ impl Userdata for Entity {
 
             // TODO: come up with a lua representation of attachment so we can unify these methods
             // and also return the previous attachment (like the underlying op does)
-            fn attach_to_world(!partial wf: WorldFragment,
+            fn attach_to_world(!full wf: WorldFragment,
                                e: Entity) -> StrResult<()> {
                 let mut e = unwrap!(wf.get_entity_mut(e.id));
                 try!(e.set_attachment(EntityAttachment::World));
                 Ok(())
             }
 
-            fn attach_to_client(!partial wf: WorldFragment,
+            fn attach_to_client(!full wf: WorldFragment,
                                 e: Entity,
                                 c: Client) -> StrResult<()> {
                 let mut e = unwrap!(wf.get_entity_mut(e.id));
@@ -396,12 +396,12 @@ impl Userdata for Inventory {
             fn world(_i: Inventory) -> World { World }
             fn id(i: Inventory) -> u32 { i.id.unwrap() }
 
-            fn stable_id(!partial wf: WorldFragment, i: Inventory) -> Option<StableInventory> {
+            fn stable_id(!full wf: WorldFragment, i: Inventory) -> Option<StableInventory> {
                 wf.get_inventory_mut(i.id)
                   .map(|mut i| StableInventory { id: i.stable_id() })
             }
 
-            fn destroy(!partial wf: WorldFragment, i: Inventory) -> StrResult<()> {
+            fn destroy(!full wf: WorldFragment, i: Inventory) -> StrResult<()> {
                 wf.destroy_inventory(i.id)
             }
 
@@ -410,22 +410,22 @@ impl Userdata for Inventory {
                 i.count_by_name(name)
             }
 
-            fn update(!partial wf: WorldFragment,
+            fn update(!full wf: WorldFragment,
                       i: Inventory,
-                      name: &str,
+                      name: String,
                       adjust: i16) -> StrResult<u8> {
                 let mut i = unwrap!(wf.get_inventory_mut(i.id));
-                i.update_by_name(name, adjust)
+                i.update_by_name(&name, adjust)
             }
 
-            fn attach_to_world(!partial wf: WorldFragment,
+            fn attach_to_world(!full wf: WorldFragment,
                                i: Inventory) -> StrResult<()> {
                 let mut i = unwrap!(wf.get_inventory_mut(i.id));
                 try!(i.set_attachment(InventoryAttachment::World));
                 Ok(())
             }
 
-            fn attach_to_client(!partial wf: WorldFragment,
+            fn attach_to_client(!full wf: WorldFragment,
                                 i: Inventory,
                                 c: Client) -> StrResult<()> {
                 let mut i = unwrap!(wf.get_inventory_mut(i.id));
@@ -433,7 +433,7 @@ impl Userdata for Inventory {
                 Ok(())
             }
 
-            fn attach_to_entity(!partial wf: WorldFragment,
+            fn attach_to_entity(!full wf: WorldFragment,
                                 i: Inventory,
                                 e: Entity) -> StrResult<()> {
                 let mut i = unwrap!(wf.get_inventory_mut(i.id));
@@ -441,7 +441,7 @@ impl Userdata for Inventory {
                 Ok(())
             }
 
-            fn attach_to_structure(!partial wf: WorldFragment,
+            fn attach_to_structure(!full wf: WorldFragment,
                                    i: Inventory,
                                    s: Structure) -> StrResult<()> {
                 let mut i = unwrap!(wf.get_inventory_mut(i.id));
@@ -470,7 +470,7 @@ impl Userdata for Plane {
             fn world(_p: Plane) -> World { World }
             fn id(p: Plane) -> u32 { p.id.unwrap() }
 
-            fn stable_id(!partial wf: WorldFragment, p: Plane) -> Option<StablePlane> {
+            fn stable_id(!full wf: WorldFragment, p: Plane) -> Option<StablePlane> {
                 wf.get_plane_mut(p.id)
                   .map(|mut p| StablePlane { id: p.stable_id() })
             }
@@ -480,20 +480,20 @@ impl Userdata for Plane {
                  .map(|p| p.name().to_owned())
             }
 
-            fn set_interior(!partial wf: WorldFragment,
+            fn set_interior(!full wf: WorldFragment,
                             plane: Plane,
                             pos: V3,
-                            base: &str) -> StrResult<()> {
-                logic::misc::set_block_interior(&mut wf, plane.id, pos, base)
+                            base: String) -> StrResult<()> {
+                logic::misc::set_block_interior(&mut wf, plane.id, pos, &base)
             }
 
-            fn clear_interior(!partial wf: WorldFragment,
+            fn clear_interior(!full wf: WorldFragment,
                               plane: Plane,
                               pos: V3,
-                              base: &str,
-                              new_center: &str) -> StrResult<()> {
-                let new_center_id = unwrap!(wf.data().block_data.find_id(new_center));
-                logic::misc::clear_block_interior(&mut wf, plane.id, pos, base, new_center_id)
+                              base: String,
+                              new_center: String) -> StrResult<()> {
+                let new_center_id = unwrap!(wf.data().block_data.find_id(&new_center));
+                logic::misc::clear_block_interior(&mut wf, plane.id, pos, &base, new_center_id)
             }
 
             fn get_block(!partial w: &world::World,
@@ -530,12 +530,12 @@ impl Userdata for Structure {
             fn world(_s: Structure) -> World { World }
             fn id(s: Structure) -> u32 { s.id.unwrap() }
 
-            fn stable_id(!partial wf: WorldFragment, s: Structure) -> Option<StableStructure> {
+            fn stable_id(!full wf: WorldFragment, s: Structure) -> Option<StableStructure> {
                 wf.get_structure_mut(s.id)
                   .map(|mut s| StableStructure { id: s.stable_id() })
             }
 
-            fn destroy(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
+            fn destroy(!full wf: WorldFragment, s: Structure) -> StrResult<()> {
                 wf.destroy_structure(s.id)
             }
 
@@ -573,18 +573,18 @@ impl Userdata for Structure {
                  .map(|t| t.layer)
             }
 
-            fn replace(!partial wf: WorldFragment,
+            fn replace(!full wf: WorldFragment,
                        s: Structure,
-                       new_template_name: &str) -> StrResult<()> {
+                       new_template_name: String) -> StrResult<()> {
                 let new_template_id =
-                    unwrap!(wf.data().structure_templates.find_id(new_template_name),
+                    unwrap!(wf.data().structure_templates.find_id(&new_template_name),
                             "named structure template does not exist");
 
                 let mut s = unwrap!(wf.get_structure_mut(s.id));
                 s.set_template_id(new_template_id)
             }
 
-            fn set_has_save_hooks(!partial wf: WorldFragment,
+            fn set_has_save_hooks(!full wf: WorldFragment,
                                   s: Structure,
                                   set: bool) -> StrResult<()> {
                 let mut s = unwrap!(wf.get_structure_mut(s.id));
@@ -597,13 +597,13 @@ impl Userdata for Structure {
                 Ok(())
             }
 
-            fn attach_to_plane(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
+            fn attach_to_plane(!full wf: WorldFragment, s: Structure) -> StrResult<()> {
                 let mut s = unwrap!(wf.get_structure_mut(s.id));
                 try!(s.set_attachment(StructureAttachment::Plane));
                 Ok(())
             }
 
-            fn attach_to_chunk(!partial wf: WorldFragment, s: Structure) -> StrResult<()> {
+            fn attach_to_chunk(!full wf: WorldFragment, s: Structure) -> StrResult<()> {
                 let mut s = unwrap!(wf.get_structure_mut(s.id));
                 try!(s.set_attachment(StructureAttachment::Chunk));
                 Ok(())

@@ -114,6 +114,17 @@ macro_rules! EnginePart_decl {
                 for (EnginePart<'a, 'd, $($tv2),*>, EnginePart<'a, 'd, $($tv3),*>)
                 where $(($tv2, $tv3): Subitem2<$tv>),* {}
 
+        unsafe impl<'a, 'd, $($tv: ItemFlags,)*> PartFlags for EnginePart<'a, 'd, $($tv),*> {
+            fn flags() -> usize {
+                let mut x = 0;
+                $(
+                    x <<= 1;
+                    x |= <$tv as ItemFlags>::present() as usize;
+                )*
+                x
+            }
+        }
+
         $( subitem_impls!($fty); )*
 
 
@@ -121,6 +132,7 @@ macro_rules! EnginePart_decl {
             type P: Sized;
             fn from_part(part: Self::P) -> Self;
             fn to_part(self) -> Self::P;
+            unsafe fn from_ptr(ptr: *mut Engine) -> Self;
         }
     };
 }
@@ -133,6 +145,10 @@ macro_rules! subitem_impls {
         unsafe impl<'d> Subitem2<$t> for ($t, ()) {}
         unsafe impl<'d> Subitem2<$t> for ((), $t) {}
         unsafe impl<'d> Subitem2<$t> for ((), ()) {}
+
+        unsafe impl<'d> ItemFlags for $t {
+            fn present() -> bool { true }
+        }
 
         impl<'a, 'd: 'a> SplitOffRHS<'a, ()> for $t {
             type RHS = $t;
@@ -168,6 +184,18 @@ unsafe trait Subpart2<E> {}
 
 unsafe trait Subitem2<A> {}
 unsafe impl Subitem2<()> for ((), ()) {}
+
+pub unsafe trait PartFlags {
+    fn flags() -> usize;
+}
+
+pub unsafe trait ItemFlags {
+    fn present() -> bool;
+}
+
+unsafe impl ItemFlags for () {
+    fn present() -> bool { false }
+}
 
 
 trait SplitOffRHS<'a, LHS> {
@@ -303,6 +331,10 @@ macro_rules! engine_part_typedef_impls {
                     'a, 'd, $wr, $sc, $ex, $ms, $ti, $ph, $vi, $au, $ch, $ca, $tg> {
                 self.0
             }
+
+            unsafe fn from_ptr(ptr: *mut $crate::engine::Engine) -> $name<'a, 'd> {
+                ::std::mem::transmute(ptr)
+            }
         }
 
         impl<'a, 'd: 'a> $name<'a, 'd> {
@@ -327,6 +359,15 @@ macro_rules! engine_part_typedef_impls {
         impl<'a, 'd: 'a> ::std::ops::DerefMut for $name<'a, 'd> {
             fn deref_mut(&mut self) -> &mut <Self as ::std::ops::Deref>::Target {
                 &mut self.0
+            }
+        }
+
+        unsafe impl<'a, 'd: 'a> $crate::engine::split::PartFlags for $name<'a, 'd> {
+            fn flags() -> usize {
+                <$crate::engine::split::EnginePart<
+                        'a, 'd, $wr, $sc, $ex, $ms, $ti, $ph, $vi, $au, $ch, $ca, $tg>
+                    as $crate::engine::split::PartFlags>::flags()
+
             }
         }
     };

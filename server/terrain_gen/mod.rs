@@ -74,18 +74,13 @@ impl<'d> TerrainGen<'d> {
 }
 
 pub trait Fragment<'d> {
-    fn open<F, R>(&mut self, f: F) -> R
-        where F: FnOnce(&mut TerrainGen<'d>, &mut ScriptEngine) -> R;
+    fn terrain_gen_mut(&mut self) -> &mut TerrainGen<'d>;
 
     fn generate(&mut self,
                 pid: Stable<PlaneId>,
                 plane_name: &str,
                 cpos: V2) -> StringResult<GenChunk> {
-        self.open(|tg, script| {
-            let plane_rng = tg.plane_rng(pid, 0);
-            let chunk_rng = tg.chunk_rng(pid, cpos, 0);
-            script.cb_generate_chunk(tg, plane_name, cpos, plane_rng, chunk_rng)
-        })
+        unimplemented!()
     }
 }
 

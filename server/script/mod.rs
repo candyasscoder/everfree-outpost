@@ -1,5 +1,6 @@
 use std::mem;
 use std::path::Path;
+use std::ptr;
 use libc::c_int;
 use rand::XorShiftRng;
 
@@ -8,6 +9,7 @@ use util::{StringError, StringResult};
 
 use engine;
 use engine::glue::WorldFragment;
+use engine::split::EngineRef;
 use messages;
 use msg;
 use terrain_gen;
@@ -92,16 +94,20 @@ impl ScriptEngine {
         }
     }
 
-    fn with_context<F, R, C>(&mut self,
-                             ptr: *mut C,
+    fn with_context<F, R, E>(&mut self,
+                             ptr: *mut E,
                              f: F) -> R
             where F: FnOnce(&mut LuaState) -> R,
-                  C: BaseContext {
+                  E: engine::split::PartFlags {
 
         let mut lua = self.owned_lua.get();
 
-        let old_ptr: *mut C = unsafe { get_ctx_raw(&mut lua) };
-        unsafe { set_ctx(&mut lua, ptr) };
+        // `ptr` points to an engine part.  An engine part is a wrapper around `&mut Engine`.
+        let data = (unsafe { ptr::read(ptr as *mut *mut engine::Engine) },
+                    <E as engine::split::PartFlags>::flags());
+
+        let old_ptr = unsafe { get_ctx_raw(&mut lua) };
+        unsafe { set_ctx(&mut lua, &data) };
 
         // Clear the stack, then run the function.
         let count = lua.top_index();
@@ -113,11 +119,17 @@ impl ScriptEngine {
         x
     }
 
+    fn with_engine<F, R>(eng: &mut engine::Engine,
+                         f: F) -> R
+            where F: FnOnce(&mut LuaState) -> R {
+        let ptr: *mut EngineRef = unsafe { mem::transmute(&eng) };
+        eng.script.with_context(ptr, f)
+    }
+
     pub fn cb_chat_command(eng: &mut engine::Engine,
                            cid: ClientId,
                            msg: &str) -> StringResult<()> {
-        let ptr = eng as *mut engine::Engine;
-        eng.script.with_context(ptr, |lua| {
+        ScriptEngine::with_engine(eng, |lua| {
             run_callback(lua,
                          "outpost_callback_command",
                          (userdata::world::Client { id: cid }, msg))
@@ -125,8 +137,7 @@ impl ScriptEngine {
     }
 
     pub fn cb_login(eng: &mut engine::Engine, cid: ClientId) -> StringResult<()> {
-        let ptr = eng as *mut engine::Engine;
-        eng.script.with_context(ptr, |lua| {
+        ScriptEngine::with_engine(eng, |lua| {
             run_callback(lua,
                          "outpost_callback_login",
                          (userdata::world::Client { id: cid }))
@@ -134,8 +145,7 @@ impl ScriptEngine {
     }
 
     pub fn cb_open_inventory(eng: &mut engine::Engine, cid: ClientId) -> StringResult<()> {
-        let ptr = eng as *mut engine::Engine;
-        eng.script.with_context(ptr, |lua| {
+        ScriptEngine::with_engine(eng, |lua| {
             run_callback(lua,
                          "outpost_callback_open_inventory",
                          (userdata::world::Client { id: cid }))
@@ -146,8 +156,7 @@ impl ScriptEngine {
     pub fn cb_interact(eng: &mut engine::Engine,
                        cid: ClientId,
                        args: Option<msg::ExtraArg>) -> StringResult<()> {
-        let ptr = eng as *mut engine::Engine;
-        eng.script.with_context(ptr, |lua| {
+        ScriptEngine::with_engine(eng, |lua| {
             run_callback(lua,
                          "outpost_callback_interact",
                          (userdata::world::Client { id: cid },
@@ -159,8 +168,7 @@ impl ScriptEngine {
                        cid: ClientId,
                        item_id: ItemId,
                        args: Option<msg::ExtraArg>) -> StringResult<()> {
-        let ptr = eng as *mut engine::Engine;
-        eng.script.with_context(ptr, |lua| {
+        ScriptEngine::with_engine(eng, |lua| {
             run_callback(lua,
                          "outpost_callback_use_item",
                          (userdata::world::Client { id: cid },
@@ -173,8 +181,7 @@ impl ScriptEngine {
                           cid: ClientId,
                           item_id: ItemId,
                           args: Option<msg::ExtraArg>) -> StringResult<()> {
-        let ptr = eng as *mut engine::Engine;
-        eng.script.with_context(ptr, |lua| {
+        ScriptEngine::with_engine(eng, |lua| {
             run_callback(lua,
                          "outpost_callback_use_ability",
                          (userdata::world::Client { id: cid },
@@ -186,8 +193,7 @@ impl ScriptEngine {
 
     pub fn cb_timeout(eng: &mut engine::Engine,
                       x: u32) -> StringResult<()> {
-        let ptr = eng as *mut engine::Engine;
-        eng.script.with_context(ptr, |lua| {
+        ScriptEngine::with_engine(eng, |lua| {
             run_callback(lua,
                          "outpost_callback_timeout",
                          x)
@@ -197,8 +203,7 @@ impl ScriptEngine {
 
     pub fn cb_eval(eng: &mut engine::Engine,
                    code: &str) -> Result<String, String> {
-        let ptr = eng as *mut engine::Engine;
-        eng.script.with_context(ptr, |lua| {
+        ScriptEngine::with_engine(eng, |lua| {
             lua.get_field(REGISTRY_INDEX, "outpost_callback_eval");
             userdata::world::World.to_lua(lua);
             code.to_lua(lua);
@@ -232,14 +237,14 @@ impl ScriptEngine {
                                   (iid.unwrap(), Nil)));
     }
 
-    pub fn cb_generate_chunk(&mut self,
-                             ctx: &mut terrain_gen::TerrainGen,
+    pub fn cb_generate_chunk(tgf: &mut engine::glue::TerrainGenFragment,
                              plane_name: &str,
                              cpos: V2,
                              plane_rng: XorShiftRng,
                              chunk_rng: XorShiftRng) -> StringResult<terrain_gen::GenChunk> {
         use script::userdata::terrain_gen::GenChunk;
-        self.with_context(ctx as *mut terrain_gen::TerrainGen, |lua| {
+        let ptr: *mut _ = tgf;
+        tgf.script_mut().with_context(ptr, |lua| {
             let gc = terrain_gen::GenChunk::new();
             let gc_wrap = userdata::terrain_gen::GenChunk::new(gc);
             gc_wrap.to_lua(lua);
@@ -267,8 +272,7 @@ impl ScriptEngine {
                                     sid: StructureId,
                                     key: &str,
                                     value: &str) -> StringResult<()> {
-        let ptr = eng as *mut engine::Engine;
-        eng.script.with_context(ptr, |lua| {
+        ScriptEngine::with_engine(eng, |lua| {
             run_callback(lua,
                          "outpost_callback_apply_structure_extra",
                          (userdata::world::Structure { id: sid }, key, value))
@@ -357,33 +361,28 @@ fn callbacks_table_index(mut lua: LuaState) -> c_int {
 }
 
 
-trait BaseContext {
-    fn registry_key() -> &'static str;
-}
-
-unsafe fn get_ctx_raw<C: BaseContext>(lua: &mut LuaState) -> *mut C {
-    lua.get_field(REGISTRY_INDEX, C::registry_key());
+unsafe fn get_ctx_raw(lua: &mut LuaState) -> *const (*mut engine::Engine<'static>, usize) {
+    lua.get_field(REGISTRY_INDEX, "outpost_engine");
     let ptr = lua.to_userdata_raw(-1);
     lua.pop(1);
 
     ptr
 }
 
-unsafe fn get_ctx<C: BaseContext>(lua: &mut LuaState) -> *mut C {
-    let ptr = get_ctx_raw::<C>(lua);
+unsafe fn get_ctx(lua: &mut LuaState) -> *const (*mut engine::Engine<'static>, usize) {
+    let ptr = get_ctx_raw(lua);
 
     if ptr.is_null() {
-        lua.push_string(&*format!("required context {:?} is not available",
-                                  C::registry_key()));
+        lua.push_string("required context outpost_engine is not available");
         lua.error();
     }
 
     ptr
 }
 
-unsafe fn set_ctx<C: BaseContext>(lua: &mut LuaState, ptr: *mut C) {
-    lua.push_light_userdata(ptr);
-    lua.set_field(REGISTRY_INDEX, C::registry_key());
+unsafe fn set_ctx(lua: &mut LuaState, ptr: *const (*mut engine::Engine, usize)) {
+    lua.push_light_userdata(ptr as *mut (*mut engine::Engine, usize));
+    lua.set_field(REGISTRY_INDEX, "outpost_engine");
 }
 
 unsafe trait FullContext<'a> {
@@ -395,79 +394,100 @@ unsafe trait PartialContext {
     unsafe fn from_lua(lua: &mut LuaState) -> Self;
 }
 
+unsafe fn check_ctx_flags<E>(lua: &mut LuaState,
+                             ptr: *const (*mut engine::Engine, usize))
+        where E: engine::split::PartFlags {
+    let need_flags = <E as engine::split::PartFlags>::flags();
+    if (*ptr).1 & need_flags != need_flags {
+        lua.push_string("outpost_engine context is missing flags");
+        lua.error();
+    }
+}
 
-impl<'d> BaseContext for engine::Engine<'d> {
-    fn registry_key() -> &'static str { "outpost_engine" }
+unsafe fn cast_ctx<E>(ptr: *const (*mut engine::Engine, usize)) -> E
+        where E: engine::split::PartFlags + engine::split::Part {
+    let need_flags = <E as engine::split::PartFlags>::flags();
+    assert!((*ptr).1 & need_flags == need_flags);
+    <E as engine::split::Part>::from_ptr((*ptr).0)
+}
+
+unsafe fn get_cast_ctx<E>(lua: &mut LuaState) -> E
+        where E: engine::split::PartFlags + engine::split::Part {
+    let ptr = get_ctx(lua);
+    check_ctx_flags::<E>(lua, ptr);
+    <E as engine::split::Part>::from_ptr((*ptr).0)
+}
+
+unsafe impl<'a, 'd: 'a> FullContext<'a> for EngineRef<'a, 'd> {
+    unsafe fn check(lua: &'a mut LuaState) {
+        // Run get_ctx to check that the context is available.
+        let ptr = get_ctx(lua);
+        check_ctx_flags::<Self>(lua, ptr);
+    }
+
+    unsafe fn from_lua(lua: &'a mut LuaState) -> EngineRef<'a, 'd> {
+        let ptr = get_ctx_raw(lua);
+        assert!(!ptr.is_null());
+        cast_ctx(ptr)
+    }
 }
 
 unsafe impl<'a, 'd: 'a> FullContext<'a> for &'a mut engine::Engine<'d> {
-    unsafe fn check(lua: &mut LuaState) {
+    unsafe fn check(lua: &'a mut LuaState) {
+        <EngineRef<'a, 'd> as FullContext>::check(lua)
+    }
+
+    unsafe fn from_lua(lua: &'a mut LuaState) -> &'a mut engine::Engine<'d> {
+        <EngineRef<'a, 'd> as FullContext>::from_lua(lua).unwrap()
+    }
+}
+
+unsafe impl<'a, 'd: 'a> FullContext<'a> for WorldFragment<'a, 'd> {
+    unsafe fn check(lua: &'a mut LuaState) {
         // Run get_ctx to check that the context is available.
-        get_ctx::<engine::Engine>(lua);
+        let ptr = get_ctx(lua);
+        check_ctx_flags::<Self>(lua, ptr);
     }
 
-    unsafe fn from_lua(lua: &mut LuaState) -> &'a mut engine::Engine<'d> {
-        let ptr = get_ctx_raw::<engine::Engine>(lua);
+    unsafe fn from_lua(lua: &'a mut LuaState) -> WorldFragment<'a, 'd> {
+        let ptr = get_ctx_raw(lua);
         assert!(!ptr.is_null());
-        mem::transmute(ptr)
+        cast_ctx(ptr)
     }
 }
 
-unsafe impl<'a, 'd: 'a> PartialContext for &'a engine::Engine<'d> {
-    unsafe fn from_lua(lua: &mut LuaState) -> &'a engine::Engine<'d> {
-        let ptr = get_ctx::<engine::Engine>(lua);
-        &*ptr
-    }
-}
-
-unsafe impl<'a, 'd: 'a> PartialContext for WorldFragment<'a, 'd> {
-    unsafe fn from_lua(lua: &mut LuaState) -> WorldFragment<'a, 'd> {
-        let ptr = get_ctx::<engine::Engine>(lua);
-        mem::transmute(ptr)
-    }
-}
-
-unsafe impl<'a, 'd: 'a> PartialContext for &'a mut world::World<'d> {
-    unsafe fn from_lua(lua: &mut LuaState) -> &'a mut world::World<'d> {
-        let mut frag = WorldFragment::from_lua(lua);
-        let ptr: &mut world::World = frag.world_mut();
-        mem::transmute(ptr)
-    }
-}
-
+engine_part_typedef!(OnlyWorld(world));
 unsafe impl<'a, 'd: 'a> PartialContext for &'a world::World<'d> {
     unsafe fn from_lua(lua: &mut LuaState) -> &'a world::World<'d> {
-        let frag = WorldFragment::from_lua(lua);
-        let ptr: &world::World = frag.world();
-        mem::transmute(ptr)
+        // Transmute away the lifetime errors
+        mem::transmute(get_cast_ctx::<OnlyWorld>(lua).world())
     }
 }
 
+engine_part_typedef!(OnlyMessages(messages));
 unsafe impl<'a> PartialContext for &'a mut messages::Messages {
     unsafe fn from_lua(lua: &mut LuaState) -> &'a mut messages::Messages {
-        let mut frag = WorldFragment::from_lua(lua);
-        let ptr: &mut messages::Messages = frag.messages_mut();
-        mem::transmute(ptr)
+        mem::transmute(get_cast_ctx::<OnlyMessages>(lua).messages_mut())
     }
 }
 
+engine_part_typedef!(OnlyTimer(timer));
 unsafe impl<'a> PartialContext for &'a mut timer::Timer {
     unsafe fn from_lua(lua: &mut LuaState) -> &'a mut timer::Timer {
-        let mut frag = WorldFragment::from_lua(lua);
-        let ptr: &mut timer::Timer = frag.timer_mut();
-        mem::transmute(ptr)
+        mem::transmute(get_cast_ctx::<OnlyTimer>(lua).timer_mut())
     }
 }
 
-
-
-impl<'d> BaseContext for terrain_gen::TerrainGen<'d> {
-    fn registry_key() -> &'static str { "outpost_terrain_gen" }
-}
-
+engine_part_typedef!(OnlyTerrainGen(terrain_gen));
 unsafe impl<'a, 'd: 'a> PartialContext for &'a terrain_gen::TerrainGen<'d> {
     unsafe fn from_lua(lua: &mut LuaState) -> &'a terrain_gen::TerrainGen<'d> {
-        let ptr = get_ctx::<terrain_gen::TerrainGen>(lua);
-        mem::transmute(ptr)
+        mem::transmute(get_cast_ctx::<OnlyTerrainGen>(lua).terrain_gen())
+    }
+}
+
+engine_part_typedef!(EmptyPart());
+unsafe impl<'a, 'd: 'a> PartialContext for Time {
+    unsafe fn from_lua(lua: &mut LuaState) -> Time {
+        get_cast_ctx::<EmptyPart>(lua).now()
     }
 }

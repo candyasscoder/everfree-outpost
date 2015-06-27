@@ -63,8 +63,8 @@ impl Userdata for TimeU {
         lua_table_fns2! {
             lua, -1,
 
-            fn now(!partial ctx: &engine::Engine, _x: ()) -> TimeU {
-                TimeU { t: ctx.now() }
+            fn now(!partial now: Time, _x: ()) -> TimeU {
+                TimeU { t: now }
             }
         }
     }

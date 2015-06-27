@@ -64,10 +64,10 @@ macro_rules! part2 {
         part2!(/*HiddenWorldFragment,*/ SaveReadHooks, $($x)*);
     };
     (SaveReadHooks, $($x:tt)*) => {
-        part2!(script, messages, HiddenWorldFragment, $($x)*);
+        part2!(script, timer, messages, HiddenWorldFragment, $($x)*);
     };
     (SaveWriteHooks, $($x:tt)*) => {
-        part2!(script, messages, $($x)*);
+        part2!(script, timer, messages, $($x)*);
     };
 
 
@@ -179,10 +179,8 @@ impl_slice! {
 parts!(TerrainGenFragment);
 
 impl<'a, 'd> terrain_gen::Fragment<'d> for TerrainGenFragment<'a, 'd> {
-    fn open<F, R>(&mut self, f: F) -> R
-            where F: FnOnce(&mut TerrainGen<'d>, &mut ScriptEngine) -> R {
-        let Open { terrain_gen, script, .. } = (**self).open();
-        f(terrain_gen, script)
+    fn terrain_gen_mut(&mut self) -> &mut terrain_gen::TerrainGen<'d> {
+        (**self).terrain_gen_mut()
     }
 }
 
