@@ -144,7 +144,8 @@ def emit_header(i):
             em_pass_remove_assume='RemoveAssume.so',
             )
 
-def emit_native(i):
+
+def mk_native_rules(i):
     cmd_base = join('$rustc $in',
             '--out-dir $b_native',
             '--emit link,dep-info',
@@ -154,27 +155,41 @@ def emit_native(i):
             maybe('--extern log=%s/liblog.rlib', i.rust_extra_libdir),
             maybe('--extern rand=%s/librand.rlib', i.rust_extra_libdir),
             )
+    rules = []
+    def add_rule(*args, **kwargs):
+        rules.append(mk_rule(*args, **kwargs))
 
-    emit_rule('rustc_native_bin',
+    add_rule('rustc_native_bin',
         command=join(cmd_base, '--crate-type=bin', cond(i.debug, '', '-C lto')),
         description='RUSTC (native) $crate_name',
         depfile='$b_native/$crate_name.d',
         )
 
-    emit_rule('rustc_native_lib',
+    add_rule('rustc_native_lib',
         command=join(cmd_base, '--crate-type=lib'),
         description='RUSTC (native) $crate_name',
         depfile='$b_native/$crate_name.d',
         )
 
-    emit_build('$b_native/backend', 'rustc_native_bin', '$src/server/main.rs',
-            ['$b_native/libphysics.rlib'],
-            crate_name='backend')
+    return '\n'.join(rules)
 
-    emit_build('$b_native/libphysics.rlib', 'rustc_native_lib', '$src/physics/lib.rs',
-            crate_name='physics')
+def mk_native_build(crate_name, crate_type, deps, src_file=None):
+    if crate_type == 'bin':
+        output_name = crate_name
+        src_file = src_file or '$src/%s/main.rs' % crate_name
+    elif crate_type == 'lib':
+        output_name = 'lib%s.rlib' % crate_name
+        src_file = src_file or '$src/%s/lib.rs' % crate_name
 
-def emit_asmjs(i):
+    return mk_build(
+            '$b_native/%s' % output_name,
+            'rustc_native_%s' % crate_type,
+            src_file,
+            ('$b_native/lib%s.rlib' % d for d in deps),
+            crate_name=crate_name)
+
+
+def mk_asmjs_rules(i):
     compile_base = join('$rustc $in',
             '--out-dir $b_asmjs',
             '--cfg asmjs',
@@ -187,60 +202,34 @@ def emit_asmjs(i):
             '-Z no-landing-pads -C no-stack-check',
             '-C no-vectorize-loops -C no-vectorize-slp')
 
-    emit_rule('asm_compile_rlib',
-        command=join(compile_base, '--emit=link,dep-info', '--crate-type=rlib'),
-        description='RUSTC (asmjs) $crate_name',
-        depfile='$b_asmjs/$crate_name.d',
-        )
+    rules = []
+    def add_rule(*args, **kwargs):
+        rules.append(mk_rule(*args, **kwargs))
 
-    emit_rule('asm_compile_ir',
+    add_rule('asm_compile_rlib',
+        command=join(compile_base, '--emit=link,dep-info', '--crate-type=rlib'),
+        depfile='$b_asmjs/$crate_name.d',
+        description='RUSTC (asmjs) $crate_name')
+
+    add_rule('asm_compile_ir',
         # Like opt-level=3 above, lto is mandatory to prevent emscripten-fastcomp errors.
         command=join(compile_base, '--emit=llvm-ir,dep-info', '--crate-type=staticlib', '-C lto'),
-        description='RUSTC (asmjs IR) $crate_name',
         depfile='$b_asmjs/$crate_name.d',
-        )
+        description='RUSTC (asmjs IR) $crate_name')
 
-    emit_rule('fix_bitflags_src',
-        command=
-            "$\n  echo '#![feature(no_std)]' >$out && "
-            "$\n  echo '#![no_std]' >>$out && "
-            "$\n  cat $in >>$out",
-        description='PATCH bitflags.rs',
-            )
-
-    def rlib(crate_name, src_file, deps):
-        emit_build('$b_asmjs/lib%s.rlib' % crate_name, 'asm_compile_rlib',
-            src_file,
-            ('$b_asmjs/lib%s.rlib' % x for x in deps),
-            crate_name=crate_name)
-
-    rlib('core', '$rust_home/src/libcore/lib.rs', ())
-    rlib('bitflags', '$b_asmjs/bitflags.rs', ())
-    emit_build('$b_asmjs/bitflags.rs', 'fix_bitflags_src',
-        '$bitflags_home/src/lib.rs')
-
-    local_rlib = lambda cn, deps: rlib(cn, '$src/%s/lib.rs' % cn, deps)
-
-    local_rlib('asmrt', ('core',))
-    local_rlib('physics', ('core', 'bitflags', 'asmrt'))
-    local_rlib('graphics', ('core', 'asmrt', 'physics'))
-
-
-    emit_rule('asm_clean_ir',
+    add_rule('asm_clean_ir',
         command=join("sed <$in >$out",
             r"-e 's/\<dereferenceable([0-9]*)//g'",
             r"-e '/^!/s/\(.\)!/\1metadata !/g'",
             r"-e '/^!/s/distinct //g'",
             ),
-        description='ASMJS CLEAN $out',
-        )
+        description='ASMJS CLEAN $out')
 
-    emit_rule('asm_assemble_bc',
+    add_rule('asm_assemble_bc',
         command='$em_llvm_as $in -o $out',
-        description='ASMJS AS $out',
-        )
+        description='ASMJS AS $out')
 
-    emit_rule('asm_optimize_bc',
+    add_rule('asm_optimize_bc',
         command=join('$em_opt $in',
             '-load=$em_pass_remove_overflow_checks',
             '-load=$em_pass_remove_assume',
@@ -252,14 +241,13 @@ def emit_asmjs(i):
             '-pnacl-abi-simplify-preopt -pnacl-abi-simplify-postopt',
             '-enable-emscripten-cxx-exceptions',
             '-o $out'),
-        description='ASMJS OPT $out',
-    )
+        description='ASMJS OPT $out')
 
-    emit_rule('asm_convert_exports',
+    add_rule('asm_convert_exports',
         command=r"tr '\n' ',' <$in >$out",
         description='ASMJS CONVERT_EXPORTS $out')
 
-    emit_rule('asm_generate_js',
+    add_rule('asm_generate_js',
         command=join('$em_llc $in',
             '-march=js -filetype=asm',
             '-emscripten-assertions=1',
@@ -269,29 +257,63 @@ def emit_asmjs(i):
             '-o $out'),
         description='ASMJS LLC $out')
 
-    emit_rule('asm_add_function_tables',
+    add_rule('asm_add_function_tables',
         command='$python3 $src/util/asmjs_function_tables.py <$in >$out',
         description='ASMJS TABLES $out')
 
-    emit_rule('asm_insert_functions',
+    add_rule('asm_insert_functions',
         command='awk -f $src/util/asmjs_insert_functions.awk <$in >$out',
         description='ASMJS AWK $out')
 
-    emit_build('$b_asmjs/asmlibs.ll', 'asm_compile_ir', '$src/client/asmlibs.rs',
-        ('$b_asmjs/lib%s.rlib' % x for x in ('core', 'asmrt', 'physics', 'graphics')),
-        crate_name='asmlibs')
-    emit_build('$b_asmjs/asmlibs.clean.ll', 'asm_clean_ir', '$b_asmjs/asmlibs.ll')
-    emit_build('$b_asmjs/asmlibs.bc', 'asm_assemble_bc', '$b_asmjs/asmlibs.clean.ll')
-    emit_build('$b_asmjs/asmlibs.exports.txt', 'asm_convert_exports',
-        '$src/client/asmlibs_exports.txt')
-    emit_build('$b_asmjs/asmlibs.opt.bc', 'asm_optimize_bc', '$b_asmjs/asmlibs.bc',
-            ('$b_asmjs/asmlibs.exports.txt',),
-            exports_file='$b_asmjs/asmlibs.exports.txt')
-    emit_build('$b_asmjs/asmlibs.0.js', 'asm_generate_js', '$b_asmjs/asmlibs.opt.bc')
-    emit_build('$b_asmjs/asmlibs.1.js', 'asm_add_function_tables', '$b_asmjs/asmlibs.0.js',
+    return '\n'.join(rules)
+
+
+
+def mk_asmjs_rlib(crate_name, deps, src_file=None):
+    src_file = src_file or '$src/%s/lib.rs' % crate_name
+
+    return mk_build(
+            '$b_asmjs/lib%s.rlib' % crate_name, 
+            'asm_compile_rlib',
+            src_file,
+            ('$b_asmjs/lib%s.rlib' % d for d in deps),
+            crate_name=crate_name)
+
+def mk_asmjs_asmlibs(name, rust_src, rust_deps, exports_file, template_file):
+    f = lambda ext: '$b_asmjs/%s.%s' % (name, ext)
+
+    builds = []
+    def add_build(*args, **kwargs):
+        builds.append(mk_build(*args, **kwargs))
+
+    add_build(f('ll'), 'asm_compile_ir', rust_src,
+            ('$b_asmjs/lib%s.rlib' % d for d in rust_deps),
+            crate_name=name)
+    add_build(f('clean.ll'), 'asm_clean_ir', f('ll'))
+    add_build(f('bc'), 'asm_assemble_bc', f('clean.ll'))
+    add_build(f('exports.txt'), 'asm_convert_exports', exports_file)
+    add_build(f('opt.bc'), 'asm_optimize_bc', f('bc'),
+            (f('exports.txt'),),
+            exports_file=f('exports.txt'))
+    add_build(f('0.js'), 'asm_generate_js', f('opt.bc'))
+    add_build(f('1.js'), 'asm_add_function_tables', f('0.js'),
             ('$src/util/asmjs_function_tables.py',))
-    emit_build('$b_asmjs/asmlibs.js', 'asm_insert_functions', '$src/client/asmlibs.tmpl.js',
-            ('$b_asmjs/asmlibs.1.js', '$src/util/asmjs_insert_functions.awk'))
+    add_build(f('js'), 'asm_insert_functions', template_file,
+            (f('1.js'), '$src/util/asmjs_insert_functions.awk'))
+
+    return '\n'.join(builds)
+
+def mk_bitflags_fix(src_in, src_out):
+    rule = mk_rule('fix_bitflags_src',
+            command=
+                "$\n  echo '#![feature(no_std)]' >$out && "
+                "$\n  echo '#![no_std]' >>$out && "
+                "$\n  cat $in >>$out",
+            description='FIX bitflags.rs')
+
+    build = mk_build(src_out, 'fix_bitflags_src', src_in)
+
+    return rule + '\n' + build
 
 if __name__ == '__main__':
     parser = build_parser()
@@ -299,7 +321,26 @@ if __name__ == '__main__':
     i = Info(args)
 
     emit_header(i)
+
     print('\n# Native Rust compilation')
-    emit_native(i)
+    print(mk_native_rules(i))
+
     print('\n# Asm.js Rust compilation')
-    emit_asmjs(i)
+    print(mk_asmjs_rules(i))
+
+    print('\n# Native Rust compilation')
+    print(mk_native_build('physics', 'lib', ()))
+    print(mk_native_build('backend', 'bin', ('physics',), '$src/server/main.rs'))
+
+    print('\n# Asm.js Rust compilation')
+    print(mk_asmjs_rlib('core', (), '$rust_home/src/libcore/lib.rs'))
+    print(mk_bitflags_fix('$bitflags_home/src/lib.rs', '$b_asmjs/bitflags.rs'))
+    print(mk_asmjs_rlib('bitflags', (), '$b_asmjs/bitflags.rs'))
+    print(mk_asmjs_rlib('asmrt', ('core',)))
+    print(mk_asmjs_rlib('physics', ('core', 'bitflags', 'asmrt')))
+    print(mk_asmjs_rlib('graphics', ('core', 'asmrt', 'physics')))
+    print(mk_asmjs_asmlibs('asmlibs',
+        '$src/client/asmlibs.rs',
+        ('core', 'asmrt', 'physics', 'graphics'),
+        '$src/client/asmlibs_exports.txt',
+        '$src/client/asmlibs.tmpl.js'))
