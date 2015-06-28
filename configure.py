@@ -1,5 +1,6 @@
 import argparse
 import os
+import subprocess
 import sys
 import textwrap
 
@@ -116,6 +117,8 @@ def emit_header(i):
 
         rustc=i.rustc,
         python3='python3',
+        cc='gcc',
+        cxx='g++',
         )
 
     if i.emscripten_fastcomp_prefix is not None:
@@ -171,9 +174,29 @@ def mk_native_rules(i):
         depfile='$b_native/$crate_name.d',
         )
 
+    add_rule('c_obj',
+        command=join('$cc -c $in -o $out -std=c99 -MMD -MF $out.d $picflag $cflags',
+            cond(i.debug, '-ggdb', '-O3')),
+        depfile='$out.d',
+        description='CXX $out')
+
+    add_rule('cxx_obj',
+        command=join('$cxx -c $in -o $out -std=c++14 -MMD -MF $out.d $picflag $cxxflags',
+            cond(i.debug, '-ggdb', '-O3')),
+        depfile='$out.d',
+        description='CXX $out')
+
+    add_rule('link_bin',
+        command=join('$cxx $in -o $out $ldflags $libs'),
+        description='LD $out')
+
+    add_rule('link_shlib',
+        command=join('$cxx -shared $in -o $out $ldflags $libs'),
+        description='LD $out')
+
     return '\n'.join(rules)
 
-def mk_native_build(crate_name, crate_type, deps, src_file=None):
+def mk_rustc_build(crate_name, crate_type, deps, src_file=None):
     if crate_type == 'bin':
         output_name = crate_name
         src_file = src_file or '$src/%s/main.rs' % crate_name
@@ -187,6 +210,27 @@ def mk_native_build(crate_name, crate_type, deps, src_file=None):
             src_file,
             ('$b_native/lib%s.rlib' % d for d in deps),
             crate_name=crate_name)
+
+def mk_cxx_build(out_file, out_type, build_dir, src_files, **kwargs):
+    builds = []
+    def add_build(*args, **kwargs):
+        builds.append(mk_build(*args, **kwargs))
+
+    pic_flag = '' if out_type == 'bin' else '-fPIC'
+
+    deps = []
+    for f in src_files:
+        obj_file = '%s/%s.o' % (build_dir, os.path.basename(f))
+        if f.endswith('.c'):
+            build_type = 'c_obj'
+        else:
+            build_type = 'cxx_obj'
+        add_build(obj_file, build_type, f, picflag=pic_flag, **kwargs)
+        deps.append(obj_file)
+
+    add_build(out_file, 'link_%s' % out_type, deps, **kwargs)
+
+    return '\n'.join(builds)
 
 
 def mk_asmjs_rules(i):
@@ -267,8 +311,6 @@ def mk_asmjs_rules(i):
 
     return '\n'.join(rules)
 
-
-
 def mk_asmjs_rlib(crate_name, deps, src_file=None):
     src_file = src_file or '$src/%s/lib.rs' % crate_name
 
@@ -303,6 +345,7 @@ def mk_asmjs_asmlibs(name, rust_src, rust_deps, exports_file, template_file):
 
     return '\n'.join(builds)
 
+
 def mk_bitflags_fix(src_in, src_out):
     rule = mk_rule('fix_bitflags_src',
             command=
@@ -314,6 +357,7 @@ def mk_bitflags_fix(src_in, src_out):
     build = mk_build(src_out, 'fix_bitflags_src', src_in)
 
     return rule + '\n' + build
+
 
 if __name__ == '__main__':
     parser = build_parser()
@@ -329,8 +373,8 @@ if __name__ == '__main__':
     print(mk_asmjs_rules(i))
 
     print('\n# Native Rust compilation')
-    print(mk_native_build('physics', 'lib', ()))
-    print(mk_native_build('backend', 'bin', ('physics',), '$src/server/main.rs'))
+    print(mk_rustc_build('physics', 'lib', ()))
+    print(mk_rustc_build('backend', 'bin', ('physics',), '$src/server/main.rs'))
 
     print('\n# Asm.js Rust compilation')
     print(mk_asmjs_rlib('core', (), '$rust_home/src/libcore/lib.rs'))
@@ -340,7 +384,24 @@ if __name__ == '__main__':
     print(mk_asmjs_rlib('physics', ('core', 'bitflags', 'asmrt')))
     print(mk_asmjs_rlib('graphics', ('core', 'asmrt', 'physics')))
     print(mk_asmjs_asmlibs('asmlibs',
-        '$src/client/asmlibs.rs',
-        ('core', 'asmrt', 'physics', 'graphics'),
-        '$src/client/asmlibs_exports.txt',
-        '$src/client/asmlibs.tmpl.js'))
+        '$src/client/asmlibs.rs', ('core', 'asmrt', 'physics', 'graphics'),
+        '$src/client/asmlibs_exports.txt', '$src/client/asmlibs.tmpl.js'))
+
+    print('\n# C/C++ compilation')
+    print(mk_cxx_build('$b_native/wrapper', 'bin', '$b_native/wrapper_objs',
+        ('$src/wrapper/%s' % f for f in os.listdir(os.path.join(i.src_dir, 'wrapper'))
+            if f.endswith('.cpp')),
+        cxxflags='-DWEBSOCKETPP_STRICT_MASKING',
+        ldflags='-static',
+        libs='-lboost_system -lpthread'))
+
+    py_includes = subprocess.check_output(('python3-config', '--includes')).decode().strip()
+    py_ldflags = subprocess.check_output(('python3-config', '--ldflags')).decode().strip()
+    print(mk_cxx_build('$b_native/outpost_savegame.so', 'shlib',
+        '$b_native/outpost_savegame_objs',
+        ('$src/util/savegame_py/%s' % f
+            for f in os.listdir(os.path.join(i.src_dir, 'util/savegame_py'))
+            if f.endswith('.c')),
+        cflags=py_includes,
+        ldflags=py_ldflags,
+        ))
