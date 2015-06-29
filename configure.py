@@ -165,13 +165,13 @@ def mk_native_rules(i):
 
     add_rule('rustc_native_bin',
         command=join(cmd_base, '--crate-type=bin', cond(i.debug, '', '-C lto')),
-        description='RUSTC (native) $crate_name',
+        description='RUSTC $out',
         depfile='$b_native/$crate_name.d',
         )
 
     add_rule('rustc_native_lib',
         command=join(cmd_base, '--crate-type=lib'),
-        description='RUSTC (native) $crate_name',
+        description='RUSTC $out',
         depfile='$b_native/$crate_name.d',
         )
 
@@ -179,7 +179,7 @@ def mk_native_rules(i):
         command=join('$cc -c $in -o $out -std=c99 -MMD -MF $out.d $picflag $cflags',
             cond(i.debug, '-ggdb', '-O3')),
         depfile='$out.d',
-        description='CXX $out')
+        description='CC $out')
 
     add_rule('cxx_obj',
         command=join('$cxx -c $in -o $out -std=c++14 -MMD -MF $out.d $picflag $cxxflags',
@@ -254,13 +254,13 @@ def mk_asmjs_rules(i):
     add_rule('asm_compile_rlib',
         command=join(compile_base, '--emit=link,dep-info', '--crate-type=rlib'),
         depfile='$b_asmjs/$crate_name.d',
-        description='RUSTC (asmjs) $crate_name')
+        description='RUSTC $out')
 
     add_rule('asm_compile_ir',
         # Like opt-level=3 above, lto is mandatory to prevent emscripten-fastcomp errors.
         command=join(compile_base, '--emit=llvm-ir,dep-info', '--crate-type=staticlib', '-C lto'),
         depfile='$b_asmjs/$crate_name.d',
-        description='RUSTC (asmjs IR) $crate_name')
+        description='RUSTC $out')
 
     add_rule('asm_clean_ir',
         command=join("sed <$in >$out",
@@ -268,11 +268,11 @@ def mk_asmjs_rules(i):
             r"-e '/^!/s/\(.\)!/\1metadata !/g'",
             r"-e '/^!/s/distinct //g'",
             ),
-        description='ASMJS CLEAN $out')
+        description='ASMJS $out')
 
     add_rule('asm_assemble_bc',
         command='$em_llvm_as $in -o $out',
-        description='ASMJS AS $out')
+        description='ASMJS $out')
 
     add_rule('asm_optimize_bc',
         command=join('$em_opt $in',
@@ -286,11 +286,11 @@ def mk_asmjs_rules(i):
             '-pnacl-abi-simplify-preopt -pnacl-abi-simplify-postopt',
             '-enable-emscripten-cxx-exceptions',
             '-o $out'),
-        description='ASMJS OPT $out')
+        description='ASMJS $out')
 
     add_rule('asm_convert_exports',
         command=r"tr '\n' ',' <$in >$out",
-        description='ASMJS CONVERT_EXPORTS $out')
+        description='ASMJS $out')
 
     add_rule('asm_generate_js',
         command=join('$em_llc $in',
@@ -300,15 +300,15 @@ def mk_asmjs_rules(i):
             '-emscripten-max-setjmps=20',
             '-O3',
             '-o $out'),
-        description='ASMJS LLC $out')
+        description='ASMJS $out')
 
     add_rule('asm_add_function_tables',
         command='$python3 $src/util/asmjs_function_tables.py <$in >$out',
-        description='ASMJS TABLES $out')
+        description='ASMJS $out')
 
     add_rule('asm_insert_functions',
         command='awk -f $src/util/asmjs_insert_functions.awk <$in >$out',
-        description='ASMJS AWK $out')
+        description='ASMJS $out')
 
     return '\n'.join(rules)
 
@@ -353,7 +353,7 @@ def mk_bitflags_fix(src_in, src_out):
                 "$\n  echo '#![feature(no_std)]' >$out && "
                 "$\n  echo '#![no_std]' >>$out && "
                 "$\n  cat $in >>$out",
-            description='FIX bitflags.rs')
+            description='PATCH bitflags.rs')
 
     build = mk_build(src_out, 'fix_bitflags_src', src_in)
 
