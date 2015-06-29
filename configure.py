@@ -1,5 +1,7 @@
 import argparse
+import builtins
 import os
+import re
 import subprocess
 import sys
 import textwrap
@@ -55,8 +57,133 @@ class Info(object):
         return getattr(self._args, k)
 
 
+BLOCK_FOR = re.compile(r'^[ \t]*%(for [^%]*)$', re.MULTILINE)
+BLOCK_IF = re.compile(r'^[ \t]*%(if [^%]*)$', re.MULTILINE)
+BLOCK_ELIF = re.compile(r'^[ \t]*%(elif [^%]*)$', re.MULTILINE)
+BLOCK_ELSE = re.compile(r'^[ \t]*%(else)[ \t]*$', re.MULTILINE)
+BLOCK_END = re.compile(r'^[ \t]*%(end)[ \t]*$', re.MULTILINE)
+
+FOR_PARTS = re.compile(r'for ([a-zA-Z0-9_]*(?: *, *[a-zA-Z0-9_]*)*) in (.*)$')
+
+PLACEHOLDER = re.compile(r'%([a-zA-Z0-9_]+)\b')
+
+def lines(s):
+    i = 0
+    while i < len(s):
+        end = s.find('\n', i)
+        if end == -1:
+            end = len(s)
+        else:
+            end += 1
+
+        yield i, end
+        i = end
+
+class TemplateRender(object):
+    def __init__(self, s, kwargs):
+        self.s = s
+        self.args = kwargs
+
+    def render(self):
+        out = ''
+        depth = 0
+        header = None
+        header_line = 0
+        blocks = []
+        for line_num, (start, end) in enumerate(lines(self.s)):
+            m = None
+            def match(r):
+                nonlocal m
+                m = r.match(self.s, start)
+                return m
+
+            if match(BLOCK_FOR) or match(BLOCK_IF):
+                if depth == 0:
+                    header = m
+                    header_line = line_num
+                    blocks = []
+                depth += 1
+            elif match(BLOCK_ELSE) or match(BLOCK_ELIF):
+                if depth == 0:
+                    raise ValueError('bad syntax: stray %r on line %d' % (m.group(1), line_num))
+                elif depth == 1:
+                    blocks.append((header, header.end() + 1, m.start()))
+                    header_line = line_num
+                    header = m
+            elif match(BLOCK_END):
+                if depth == 0:
+                    raise ValueError('bad syntax: stray %r on line %d' % (m.group(1), line_num))
+                elif depth == 1:
+                    blocks.append((header, header_line, header.end() + 1, m.start()))
+                    out += self._do_block(blocks)
+                    plain_start = m.end() + 1
+                depth -= 1
+            else:
+                if depth == 0:
+                    out += self._do_plain(start, end)
+        return out
+
+    def _do_block(self, parts):
+        h, h_line, start, end = parts[0]
+        if h.group(1).startswith('for'):
+            if len(parts) != 1:
+                raise ValueError('bad syntax: unclosed %%for on line %d' % h_line)
+            m = FOR_PARTS.match(h.group(1))
+            if not m:
+                raise ValueError('bad syntax: invalid %%for on line %d' % h_line)
+
+            var_names = [v.strip() for v in m.group(1).split(',')]
+            collection = eval(m.group(2), {'__builtins__': builtins}, self.args)
+            dct = self.args.copy()
+            out = ''
+            for x in collection:
+                if len(var_names) == 1:
+                    dct[var_names[0]] = x
+                else:
+                    if len(var_names) != len(x):
+                        raise ValueError('line %d: wrong number of values to unpack' % h_line)
+                    for name, val in zip(var_names, x):
+                        dct[name] = val
+                out += TemplateRender(self.s[start:end], dct).render()
+            return out
+        else:   # `%if`
+            for i, (h, h_line, start, end) in enumerate(parts):
+                if h.group(1) == 'else' and i != len(parts) - 1:
+                    raise ValueError('bad syntax: more cases after %%else on line %d' % h_line)
+            for h, h_line, start, end in parts:
+                if h.group(1) == 'else':
+                    go = True
+                else:
+                    cond = h.group(1).partition(' ')[2]
+                    go = eval(cond, {'__builtins__': builtins}, self.args)
+                if go:
+                    return TemplateRender(self.s[start:end], self.args).render()
+            return ''
+
+    def _do_plain(self, start, end):
+        def repl(m):
+            return str(self.args[m.group(1)])
+        line = self.s[start:end]
+        if line.endswith('%\n'):
+            line = line[:-2]
+        return PLACEHOLDER.sub(repl, line)
+
+PREP_RE = re.compile(r'%(for|if|elif|else|end)\b[^%\n]*%')
+def template(s, **kwargs):
+    s = textwrap.dedent(s).strip('\n')
+    # Turn inline %if/%for into multiline ones
+    def repl(m):
+        return '%\n' + m.group(0)[:-1] + '\n'
+    s = PREP_RE.sub(repl, s)
+    return TemplateRender(s, kwargs).render()
+
+
 def mk_bindings(**kwargs):
-    return '\n'.join('%s = %s' % (k, v) for k, v in sorted(kwargs.items()))
+    return template('''
+        %for k,v in sorted(args.items())
+        %k = %v
+        %end
+    ''', args=kwargs)
 
 def mk_rule(name, **kwargs):
     bindings_str = mk_bindings(**kwargs)
@@ -159,43 +286,42 @@ def mk_native_rules(i):
             maybe('--extern log=%s/liblog.rlib', i.rust_extra_libdir),
             maybe('--extern rand=%s/librand.rlib', i.rust_extra_libdir),
             )
-    rules = []
-    def add_rule(*args, **kwargs):
-        rules.append(mk_rule(*args, **kwargs))
 
-    add_rule('rustc_native_bin',
-        command=join(cmd_base, '--crate-type=bin', cond(i.debug, '', '-C lto')),
-        description='RUSTC $out',
-        depfile='$b_native/$crate_name.d',
-        )
+    common_cflags = join(
+            '-MMD -MF $out.d',
+            '$picflag',
+            cond(i.debug, '-ggdb', '-O3'),
+            )
 
-    add_rule('rustc_native_lib',
-        command=join(cmd_base, '--crate-type=lib'),
-        description='RUSTC $out',
-        depfile='$b_native/$crate_name.d',
-        )
+    return template('''
+        rule rustc_native_bin
+            command = %cmd_base --crate-type=bin  %if i.debug% -C lto %end%
+            depfile = $b_native/$crate_name.d
+            description = RUSTC $out
 
-    add_rule('c_obj',
-        command=join('$cc -c $in -o $out -std=c99 -MMD -MF $out.d $picflag $cflags',
-            cond(i.debug, '-ggdb', '-O3')),
-        depfile='$out.d',
-        description='CC $out')
+        rule rustc_native_lib
+            command = %cmd_base --crate-type=lib
+            depfile = $b_native/$crate_name.d
+            description = RUSTC $out
 
-    add_rule('cxx_obj',
-        command=join('$cxx -c $in -o $out -std=c++14 -MMD -MF $out.d $picflag $cxxflags',
-            cond(i.debug, '-ggdb', '-O3')),
-        depfile='$out.d',
-        description='CXX $out')
+        rule c_obj
+            command = $cc -c $in -o $out -std=c99 %common_cflags $cflags
+            depfile = $out.d
+            description = CC $out
 
-    add_rule('link_bin',
-        command=join('$cxx $in -o $out $ldflags $libs'),
-        description='LD $out')
+        rule cxx_obj
+            command = $cxx -c $in -o $out -std=c++14 %common_cflags $cflags
+            depfile = $out.d
+            description = CXX $out
 
-    add_rule('link_shlib',
-        command=join('$cxx -shared $in -o $out $ldflags $libs'),
-        description='LD $out')
+        rule link_bin
+            command = $cxx $in -o $out $ldflags $libs
+            description = LD $out
 
-    return '\n'.join(rules)
+        rule link_shlib
+            command = $cxx -shared $in -o $out $ldflags $libs
+            description = LD $out
+    ''', **locals())
 
 def mk_rustc_build(crate_name, crate_type, deps, src_file=None):
     if crate_type == 'bin':
@@ -247,70 +373,66 @@ def mk_asmjs_rules(i):
             '-Z no-landing-pads -C no-stack-check',
             '-C no-vectorize-loops -C no-vectorize-slp')
 
-    rules = []
-    def add_rule(*args, **kwargs):
-        rules.append(mk_rule(*args, **kwargs))
+    return template(r'''
+        rule asm_compile_rlib
+            command = %compile_base --emit=link,dep-info --crate-type=rlib
+            depfile = $b_asmjs/$crate_name.d
+            description = RUSTC $out
 
-    add_rule('asm_compile_rlib',
-        command=join(compile_base, '--emit=link,dep-info', '--crate-type=rlib'),
-        depfile='$b_asmjs/$crate_name.d',
-        description='RUSTC $out')
+        rule asm_compile_ir
+            # Like opt-level=3 above, lto is mandatory to prevent emscripten-fastcomp errors.
+            command = %compile_base --emit=llvm-ir,dep-info --crate-type=staticlib -C lto
+            depfile = $b_asmjs/$crate_name.d
+            description = RUSTC $out
 
-    add_rule('asm_compile_ir',
-        # Like opt-level=3 above, lto is mandatory to prevent emscripten-fastcomp errors.
-        command=join(compile_base, '--emit=llvm-ir,dep-info', '--crate-type=staticlib', '-C lto'),
-        depfile='$b_asmjs/$crate_name.d',
-        description='RUSTC $out')
+        rule asm_clean_ir
+            command = sed <$in >$out $
+                -e 's/\<dereferenceable([0-9]*)//g' $
+                -e '/^!/s/\(.\)!/\1metadata !/g' $
+                -e '/^!/s/distinct //g'
+            description = ASMJS $out
 
-    add_rule('asm_clean_ir',
-        command=join("sed <$in >$out",
-            r"-e 's/\<dereferenceable([0-9]*)//g'",
-            r"-e '/^!/s/\(.\)!/\1metadata !/g'",
-            r"-e '/^!/s/distinct //g'",
-            ),
-        description='ASMJS $out')
+        rule asm_assemble_bc
+            command = $em_llvm_as $in -o $out
+            description = ASMJS $out
 
-    add_rule('asm_assemble_bc',
-        command='$em_llvm_as $in -o $out',
-        description='ASMJS $out')
 
-    add_rule('asm_optimize_bc',
-        command=join('$em_opt $in',
-            '-load=$em_pass_remove_overflow_checks',
-            '-load=$em_pass_remove_assume',
-            '-strip-debug',
-            '-internalize -internalize-public-api-list="$$(cat $exports_file)"',
-            '-remove-overflow-checks',
-            '-remove-assume',
-            '-globaldce',
-            '-pnacl-abi-simplify-preopt -pnacl-abi-simplify-postopt',
-            '-enable-emscripten-cxx-exceptions',
-            '-o $out'),
-        description='ASMJS $out')
+        rule asm_optimize_bc
+            command = $em_opt $in $
+                -load=$em_pass_remove_overflow_checks $
+                -load=$em_pass_remove_assume $
+                -strip-debug $
+                -internalize -internalize-public-api-list="$$(cat $exports_file)" $
+                -remove-overflow-checks $
+                -remove-assume $
+                -globaldce $
+                -pnacl-abi-simplify-preopt -pnacl-abi-simplify-postopt $
+                -enable-emscripten-cxx-exceptions $
+                -o $out
+            description = ASMJS $out
 
-    add_rule('asm_convert_exports',
-        command=r"tr '\n' ',' <$in >$out",
-        description='ASMJS $out')
+        rule asm_convert_exports
+            command = tr '\n' ',' <$in >$out
+            description = ASMJS $out
 
-    add_rule('asm_generate_js',
-        command=join('$em_llc $in',
-            '-march=js -filetype=asm',
-            '-emscripten-assertions=1',
-            '-emscripten-no-aliasing-function-pointers',
-            '-emscripten-max-setjmps=20',
-            '-O3',
-            '-o $out'),
-        description='ASMJS $out')
+        rule asm_generate_js
+            command = $em_llc $in $
+                -march=js -filetype=asm $
+                -emscripten-assertions=1 $
+                -emscripten-no-aliasing-function-pointers $
+                -emscripten-max-setjmps=20 $
+                -O3 $
+                -o $out
+            description = ASMJS $out
 
-    add_rule('asm_add_function_tables',
-        command='$python3 $src/util/asmjs_function_tables.py <$in >$out',
-        description='ASMJS $out')
+        rule asm_add_function_tables
+            command = $python3 $src/util/asmjs_function_tables.py <$in >$out
+            description = ASMJS $out
 
-    add_rule('asm_insert_functions',
-        command='awk -f $src/util/asmjs_insert_functions.awk <$in >$out',
-        description='ASMJS $out')
-
-    return '\n'.join(rules)
+        rule asm_insert_functions
+            command = awk -f $src/util/asmjs_insert_functions.awk <$in >$out
+            description = ASMJS $out
+    ''', **locals())
 
 def mk_asmjs_rlib(crate_name, deps, src_file=None):
     src_file = src_file or '$src/%s/lib.rs' % crate_name
@@ -323,92 +445,77 @@ def mk_asmjs_rlib(crate_name, deps, src_file=None):
             crate_name=crate_name)
 
 def mk_asmjs_asmlibs(name, rust_src, rust_deps, exports_file, template_file):
-    f = lambda ext: '$b_asmjs/%s.%s' % (name, ext)
-
-    builds = []
-    def add_build(*args, **kwargs):
-        builds.append(mk_build(*args, **kwargs))
-
-    add_build(f('ll'), 'asm_compile_ir', rust_src,
-            ('$b_asmjs/lib%s.rlib' % d for d in rust_deps),
-            crate_name=name)
-    add_build(f('clean.ll'), 'asm_clean_ir', f('ll'))
-    add_build(f('bc'), 'asm_assemble_bc', f('clean.ll'))
-    add_build(f('exports.txt'), 'asm_convert_exports', exports_file)
-    add_build(f('opt.bc'), 'asm_optimize_bc', f('bc'),
-            (f('exports.txt'),),
-            exports_file=f('exports.txt'))
-    add_build(f('0.js'), 'asm_generate_js', f('opt.bc'))
-    add_build(f('1.js'), 'asm_add_function_tables', f('0.js'),
-            ('$src/util/asmjs_function_tables.py',))
-    add_build(f('js'), 'asm_insert_functions', template_file,
-            (f('1.js'), '$src/util/asmjs_insert_functions.awk'))
-
-    return '\n'.join(builds)
+    return template('''
+        build %base.ll: asm_compile_ir %rust_src $
+            | %for d in rust_deps% $b_asmjs/lib%d.rlib %end%
+            crate_name = %name
+        build %base.clean.ll: asm_clean_ir %base.ll
+        build %base.bc: asm_assemble_bc %base.clean.ll
+        build %base.exports.txt: asm_convert_exports %exports_file
+        build %base.opt.bc: asm_optimize_bc %base.bc | %base.exports.txt
+            exports_file = %base.exports.txt
+        build %base.0.js: asm_generate_js %base.opt.bc
+        build %base.1.js: asm_add_function_tables %base.0.js $
+            | $src/util/asmjs_function_tables.py
+        build %base.js: asm_insert_functions %template_file $
+            | %base.1.js $src/util/asmjs_insert_functions.awk
+    ''', base = '$b_asmjs/%s' % name, **locals())
 
 
 def mk_bitflags_fix(src_in, src_out):
-    rule = mk_rule('fix_bitflags_src',
-            command=
-                "$\n  echo '#![feature(no_std)]' >$out && "
-                "$\n  echo '#![no_std]' >>$out && "
-                "$\n  cat $in >>$out",
-            description='PATCH bitflags.rs')
+    return template('''
+        rule fix_bitflags_src
+            command = $
+                echo '#![feature(no_std)]' >$out && $
+                echo '#![no_std]' >>$out && $
+                cat $in >> $out
+            description = PATCH bitflags.rs
 
-    build = mk_build(src_out, 'fix_bitflags_src', src_in)
+        build %src_out: fix_bitflags_src %src_in
+    ''', **locals())
 
-    return rule + '\n' + build
 
+def mk_gen_rules(i):
+    return template('''
+        rule process_font
+            command = $python3 $src/util/process_font.py $
+                --font-image-in=$in $
+                --first-char=$first_char $
+                --font-image-out=$out_img $
+                --font-metrics-out=$out_metrics
+            description = GEN $out_img
 
-def mk_data_rules(i):
-    rules = []
-    def add_rule(*args, **kwargs):
-        rules.append(mk_rule(*args, **kwargs))
+        rule process_day_night
+            command = $python3 $src/util/gen_day_night.py $in >$out
+            description = GEN $out
 
-    add_rule('process_font',
-            command=join('$python3 $src/util/process_font.py',
-                '--font-image-in=$in',
-                '--first-char=$first_char',
-                '--font-image-out=$out_img',
-                '--font-metrics-out=$out_metrics'),
-            description='GEN $out_img')
-
-    add_rule('process_day_night',
-            command='$python3 $src/util/gen_day_night.py $in >$out',
-            description='GEN $out')
-
-    add_rule('gen_server_json',
-            command='$python3 $src/util/gen_server_json.py >$out',
-            description='GEN $out')
-
-    return '\n'.join(rules)
+        rule gen_server_json
+            command = $python3 $src/util/gen_server_json.py >$out
+            description = GEN $out
+    ''')
 
 def mk_font_build(src_img, out_base):
     out_img = out_base + '.png'
     out_metrics = out_base + '_metrics.json'
 
-    return mk_build(
-            (out_img, out_metrics),
-            'process_font',
-            src_img,
-            ('$src/util/process_font.py',),
-            first_char='0x21',
-            out_img=out_img,
-            out_metrics=out_metrics)
+    return template('''
+        build %out_img %out_metrics: process_font %src_img $
+            | $src/util/process_font.py
+            first_char = 0x21
+            out_img = %out_img
+            out_metrics = %out_metrics
+    ''', **locals())
 
 def mk_day_night_build(src_img, out_json):
-    return mk_build(
-            out_json,
-            'process_day_night',
-            src_img,
-            ('$src/util/gen_day_night.py',))
+    return template('''
+        build %out_json: process_day_night %src_img $
+            | $src/util/gen_day_night.py
+    ''', **locals())
 
 def mk_server_json_build(out_json):
-    return mk_build(
-            out_json,
-            'gen_server_json',
-            (),
-            ('$src/util/gen_server_json.py',))
+    return template('''
+        build %out_json: gen_server_json | $src/util/gen_server_json.py
+    ''', **locals())
 
 
 if __name__ == '__main__':
@@ -426,7 +533,7 @@ if __name__ == '__main__':
     print(mk_asmjs_rules(i))
 
     print('\n# Data processing rules')
-    print(mk_data_rules(i))
+    print(mk_gen_rules(i))
 
 
     print('\n# Asm.js Rust libraries')
