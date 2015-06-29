@@ -109,6 +109,7 @@ def emit_header(i):
     emit_bindings(
         b_native=b('native'),
         b_asmjs=b('asmjs'),
+        b_data=b('data'),
         )
 
     emit_bindings(
@@ -359,24 +360,76 @@ def mk_bitflags_fix(src_in, src_out):
     return rule + '\n' + build
 
 
+def mk_data_rules(i):
+    rules = []
+    def add_rule(*args, **kwargs):
+        rules.append(mk_rule(*args, **kwargs))
+
+    add_rule('process_font',
+            command=join('$python3 $src/util/process_font.py',
+                '--font-image-in=$in',
+                '--first-char=$first_char',
+                '--font-image-out=$out_img',
+                '--font-metrics-out=$out_metrics'),
+            description='GEN $out_img')
+
+    add_rule('process_day_night',
+            command='$python3 $src/util/gen_day_night.py $in >$out',
+            description='GEN $out')
+
+    add_rule('gen_server_json',
+            command='$python3 $src/util/gen_server_json.py >$out',
+            description='GEN $out')
+
+    return '\n'.join(rules)
+
+def mk_font_build(src_img, out_base):
+    out_img = out_base + '.png'
+    out_metrics = out_base + '_metrics.json'
+
+    return mk_build(
+            (out_img, out_metrics),
+            'process_font',
+            src_img,
+            ('$src/util/process_font.py',),
+            first_char='0x21',
+            out_img=out_img,
+            out_metrics=out_metrics)
+
+def mk_day_night_build(src_img, out_json):
+    return mk_build(
+            out_json,
+            'process_day_night',
+            src_img,
+            ('$src/util/gen_day_night.py',))
+
+def mk_server_json_build(out_json):
+    return mk_build(
+            out_json,
+            'gen_server_json',
+            (),
+            ('$src/util/gen_server_json.py',))
+
+
 if __name__ == '__main__':
     parser = build_parser()
     args = parser.parse_args(sys.argv[1:])
     i = Info(args)
 
+
     emit_header(i)
 
-    print('\n# Native Rust compilation')
+    print('\n# Native compilation rules')
     print(mk_native_rules(i))
 
-    print('\n# Asm.js Rust compilation')
+    print('\n# Asm.js compilation rules')
     print(mk_asmjs_rules(i))
 
-    print('\n# Native Rust compilation')
-    print(mk_rustc_build('physics', 'lib', ()))
-    print(mk_rustc_build('backend', 'bin', ('physics',), '$src/server/main.rs'))
+    print('\n# Data processing rules')
+    print(mk_data_rules(i))
 
-    print('\n# Asm.js Rust compilation')
+
+    print('\n# Asm.js Rust libraries')
     print(mk_asmjs_rlib('core', (), '$rust_home/src/libcore/lib.rs'))
     print(mk_bitflags_fix('$bitflags_home/src/lib.rs', '$b_asmjs/bitflags.rs'))
     print(mk_asmjs_rlib('bitflags', (), '$b_asmjs/bitflags.rs'))
@@ -387,7 +440,11 @@ if __name__ == '__main__':
         '$src/client/asmlibs.rs', ('core', 'asmrt', 'physics', 'graphics'),
         '$src/client/asmlibs_exports.txt', '$src/client/asmlibs.tmpl.js'))
 
-    print('\n# C/C++ compilation')
+    print('\n# Native Rust binaries')
+    print(mk_rustc_build('physics', 'lib', ()))
+    print(mk_rustc_build('backend', 'bin', ('physics',), '$src/server/main.rs'))
+
+    print('\n# C/C++ binaries')
     print(mk_cxx_build('$b_native/wrapper', 'bin', '$b_native/wrapper_objs',
         ('$src/wrapper/%s' % f for f in os.listdir(os.path.join(i.src_dir, 'wrapper'))
             if f.endswith('.cpp')),
@@ -405,3 +462,8 @@ if __name__ == '__main__':
         cflags=py_includes,
         ldflags=py_ldflags,
         ))
+
+    print('\n# Data processing')
+    print(mk_font_build('$src/assets/misc/NeoSans.png', '$b_data/font'))
+    print(mk_day_night_build('$src/assets/misc/day_night_pixels.png', '$b_data/day_night.json'))
+    print(mk_server_json_build('$b_data/server.json'))
