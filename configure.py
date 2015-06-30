@@ -65,7 +65,7 @@ BLOCK_END = re.compile(r'^[ \t]*%(end)[ \t]*$', re.MULTILINE)
 
 FOR_PARTS = re.compile(r'for ([a-zA-Z0-9_]*(?: *, *[a-zA-Z0-9_]*)*) in (.*)$')
 
-PLACEHOLDER = re.compile(r'%([a-zA-Z0-9_]+)\b')
+PLACEHOLDER = re.compile(r'(%([a-zA-Z0-9_]+)\b|%{([a-zA-Z0-9_]+)})')
 
 def lines(s):
     i = 0
@@ -162,7 +162,7 @@ class TemplateRender(object):
 
     def _do_plain(self, start, end):
         def repl(m):
-            return str(self.args[m.group(1)])
+            return str(self.args[m.group(2) or m.group(3)])
         line = self.s[start:end]
         if line.endswith('%\n'):
             line = line[:-2]
@@ -518,6 +518,37 @@ def mk_server_json_build(out_json):
     ''', **locals())
 
 
+def mk_data_processing():
+    return template('''
+        rule process_data
+            command = rm -f $b_data/structures*.png && $
+                $python3 $src/data/main.py $src/assets $b_data && $
+                touch $b_data/stamp
+            description = DATA
+            depfile = $b_data/data.d
+
+        build $b_data/stamp $
+            %for side in ('server', 'client')
+                %for file in ('structures', 'blocks', 'items', 'recipes')
+                    $b_data/%{file}_%{side}.json $
+                %end
+            %end
+            $b_data/tiles.png $b_data/items.png: $
+            process_data | $src/data/main.py
+    ''', **locals())
+
+def mk_pack():
+    return template('''
+        rule build_pack
+            command = $python3 $src/util/make_pack.py $src $b_data $b_data/outpost.pack
+            description = PACK
+            depfile = $b_data/outpost.pack.d
+
+        build $b_data/outpost.pack: build_pack $
+            || $b_data/stamp $b_data/font.png $b_data/day_night.json
+    ''', **locals())
+
+
 if __name__ == '__main__':
     parser = build_parser()
     args = parser.parse_args(sys.argv[1:])
@@ -574,3 +605,6 @@ if __name__ == '__main__':
     print(mk_font_build('$src/assets/misc/NeoSans.png', '$b_data/font'))
     print(mk_day_night_build('$src/assets/misc/day_night_pixels.png', '$b_data/day_night.json'))
     print(mk_server_json_build('$b_data/server.json'))
+
+    print(mk_data_processing())
+    print(mk_pack())
