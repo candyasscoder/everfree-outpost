@@ -14,7 +14,7 @@ def rules(i):
                     --js_output_file=$out $
                     --language_in=ECMASCRIPT5_STRICT $
                     --compilation_level=ADVANCED_OPTIMIZATIONS $
-                    --output_wrapper='(function(){%{}output%{}})' $
+                    --output_wrapper='(function(){%{}output%{}})();' $
                     --jscomp_error=undefinedNames $
                     --jscomp_error=undefinedVars $
                     --create_name_map_files $
