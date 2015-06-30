@@ -76,6 +76,7 @@ def cxx(out_name, out_type, src_files, **kwargs):
         builds.append(mk_build(*args, **kwargs))
 
     out_file = out_name if out_type == 'bin' else '%s.so' % out_name
+    out_path = '$b_native/%s' % out_file
     pic_flag = '' if out_type == 'bin' else '-fPIC'
 
     deps = []
@@ -88,6 +89,6 @@ def cxx(out_name, out_type, src_files, **kwargs):
         add_build(obj_file, build_type, f, picflag=pic_flag, **kwargs)
         deps.append(obj_file)
 
-    add_build(out_file, 'link_%s' % out_type, deps, **kwargs)
+    add_build(out_path, 'link_%s' % out_type, deps, **kwargs)
 
     return '\n'.join(builds)

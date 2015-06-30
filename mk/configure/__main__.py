@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 
-from configure.gen import native, asmjs, data, js
+from configure.gen import native, asmjs, data, js, dist
 from configure.template import template
 
 
@@ -112,6 +112,14 @@ if __name__ == '__main__':
     py_includes = subprocess.check_output(('python3-config', '--includes')).decode().strip()
     py_ldflags = subprocess.check_output(('python3-config', '--ldflags')).decode().strip()
 
+    if i.debug:
+        dist_manifest_base = 'debug.manifest'
+    else:
+        dist_manifest_base = 'release.manifest'
+
+    dist_manifest = os.path.join(i.src_dir, 'mk', dist_manifest_base)
+    common_manifest = os.path.join(i.src_dir, 'mk', 'common.manifest')
+
     print('\n\n'.join((
         header(i),
 
@@ -157,5 +165,9 @@ if __name__ == '__main__':
         js.rules(i),
         js.compile(i, '$b_js/outpost.js', '$src/client/js/main.js'),
         js.minify('$b_js/asmlibs.js', '$b_asmjs/asmlibs.js'),
+
+        '# Distribution',
+        dist.rules(i),
+        dist.from_manifest(common_manifest, dist_manifest),
 
         )))
