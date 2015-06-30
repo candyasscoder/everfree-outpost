@@ -57,15 +57,15 @@ class Info(object):
         return getattr(self._args, k)
 
 
-BLOCK_FOR = re.compile(r'^[ \t]*%(for [^%]*)$', re.MULTILINE)
-BLOCK_IF = re.compile(r'^[ \t]*%(if [^%]*)$', re.MULTILINE)
-BLOCK_ELIF = re.compile(r'^[ \t]*%(elif [^%]*)$', re.MULTILINE)
+BLOCK_FOR = re.compile(r'^[ \t]*%(for [^%\n]*)$', re.MULTILINE)
+BLOCK_IF = re.compile(r'^[ \t]*%(if [^%\n]*)$', re.MULTILINE)
+BLOCK_ELIF = re.compile(r'^[ \t]*%(elif [^%\n]*)$', re.MULTILINE)
 BLOCK_ELSE = re.compile(r'^[ \t]*%(else)[ \t]*$', re.MULTILINE)
 BLOCK_END = re.compile(r'^[ \t]*%(end)[ \t]*$', re.MULTILINE)
 
 FOR_PARTS = re.compile(r'for ([a-zA-Z0-9_]*(?: *, *[a-zA-Z0-9_]*)*) in (.*)$')
 
-PLACEHOLDER = re.compile(r'(%([a-zA-Z0-9_]+)\b|%{([a-zA-Z0-9_]+)})')
+PLACEHOLDER = re.compile(r'(%([a-zA-Z0-9_]+)\b|%{([a-zA-Z0-9_]*)})')
 
 def lines(s):
     i = 0
@@ -107,7 +107,7 @@ class TemplateRender(object):
                 if depth == 0:
                     raise ValueError('bad syntax: stray %r on line %d' % (m.group(1), line_num))
                 elif depth == 1:
-                    blocks.append((header, header.end() + 1, m.start()))
+                    blocks.append((header, header_line, header.end() + 1, m.start()))
                     header_line = line_num
                     header = m
             elif match(BLOCK_END):
@@ -162,7 +162,12 @@ class TemplateRender(object):
 
     def _do_plain(self, start, end):
         def repl(m):
-            return str(self.args[m.group(2) or m.group(3)])
+            name = m.group(2) or m.group(3)
+            if name:
+                return self.args[name]
+            else:
+                # Use '%{}' to produce a literal '%'
+                return '%'
         line = self.s[start:end]
         if line.endswith('%\n'):
             line = line[:-2]
@@ -237,6 +242,7 @@ def emit_header(i):
         b_native=b('native'),
         b_asmjs=b('asmjs'),
         b_data=b('data'),
+        b_www=b('www'),
         )
 
     emit_bindings(
@@ -247,6 +253,8 @@ def emit_header(i):
         python3='python3',
         cc='gcc',
         cxx='g++',
+        closure_compiler='closure-compiler',
+        yui_compressor='yui-compressor',
         )
 
     if i.emscripten_fastcomp_prefix is not None:
@@ -475,6 +483,70 @@ def mk_bitflags_fix(src_in, src_out):
     ''', **locals())
 
 
+def mk_js_opt_rules(i):
+    return template('''
+        rule js_compile_modules
+            command = $
+                %if not i.debug
+                $closure_compiler $
+                    $$($python3 $src/util/collect_js_deps.py $in $out $depfile) $
+                    --js_output_file=$out $
+                    --language_in=ECMASCRIPT5_STRICT $
+                    --compilation_level=ADVANCED_OPTIMIZATIONS $
+                    --output_wrapper='(function(){%{}output%{}})' $
+                    --jscomp_error=undefinedNames $
+                    --jscomp_error=undefinedVars $
+                    --create_name_map_files $
+                    --process_common_js_modules $
+                    --common_js_entry_module=$entry_module $
+                    --common_js_module_path_prefix=$module_dir $
+                    --externs=$src/util/closure_externs.js
+                %else
+                $python3 $src/util/gen_js_loader.py $
+                    $$($python3 $src/util/collect_js_deps.py $in $out $depfile) $
+                    >$out
+                %end
+            description = MIN $out
+            depfile = $out.d
+
+        rule js_minify_file
+            command = $
+                %if not i.debug
+                $yui_compressor --disable-optimizations --line-break 200 $
+                    $in $filter >$out
+                %else
+                cp $in $out
+                %end
+            description = MIN $out
+    ''', **locals())
+
+def mk_compile_modules(i, main_src, out_file=None):
+    main_dir, basename_ext = os.path.split(main_src)
+    module_name, _ = os.path.splitext(basename_ext)
+    if out_file is None:
+        out_file = '$b_www/%s.js' % module_name
+
+    return template('''
+        build %out_file: js_compile_modules %main_src $
+            | $src/util/collect_js_deps.py $
+              %if i.debug% $src/util/gen_js_loader.py %end%
+            entry_module = %module_name
+            module_dir = %main_dir
+    ''', **locals())
+
+def mk_minify_asm(js_src, out_file=None):
+    if out_file is None:
+        out_file = '$b_www/%s' % os.path.basename(js_src)
+
+    return template('''
+        build %out_file: js_minify_file %js_src
+            filter = | sed -e '1s/{/{"use asm";/'
+    ''', **locals())
+
+
+                
+
+
 def mk_gen_rules(i):
     return template('''
         rule process_font
@@ -608,3 +680,8 @@ if __name__ == '__main__':
 
     print(mk_data_processing())
     print(mk_pack())
+
+    print('\n# Javascript compilation')
+    print(mk_js_opt_rules(i))
+    print(mk_compile_modules(i, '$src/client/js/main.js', '$b_www/outpost.js'))
+    print(mk_minify_asm('$b_asmjs/asmlibs.js'))
