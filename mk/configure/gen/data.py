@@ -21,6 +21,10 @@ def rules(i):
         rule gen_server_json
             command = $python3 $src/util/gen_server_json.py >$out
             description = GEN $out
+
+        rule gen_credits
+            command = cat $dep_files | $python3 $src/util/gen_credits.py $src >$out
+            description = GEN $out
     ''', **locals())
 
 def font(out_base, src_img):
@@ -75,4 +79,12 @@ def pack():
         build $b_data/outpost.pack: build_pack $
             | $src/util/make_pack.py $
             || $b_data/stamp $b_data/font.png $b_data/day_night.json
+    ''', **locals())
+
+def credits(out_path):
+    return template('''
+        build %out_path: gen_credits $
+            | $b_data/stamp $b_data/outpost.pack $
+              $src/util/gen_credits.py
+            dep_files = $b_data/data.d $b_data/outpost.pack.d
     ''', **locals())

@@ -160,6 +160,7 @@ if __name__ == '__main__':
         data.server_json('$b_data/server.json'),
         data.process(),
         data.pack(),
+        data.credits('$b_data/credits.html'),
 
         '# Javascript',
         js.rules(i),

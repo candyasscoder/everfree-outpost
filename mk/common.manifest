@@ -8,6 +8,8 @@ data/recipes.json: $b_data/recipes_server.json
 data/structures.json: $b_data/structures_server.json
 
 www/client.html: $src/client/client.html
+www/instructions.html: $src/client/instructions.html
+www/credits.html: $b_data/credits.html
 www/outpost.js: $b_js/outpost.js
 www/asmlibs.js: $b_js/asmlibs.js
 www/outpost.pack: $b_data/outpost.pack
