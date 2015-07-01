@@ -120,7 +120,7 @@ if __name__ == '__main__':
     dist_manifest = os.path.join(i.src_dir, 'mk', dist_manifest_base)
     common_manifest = os.path.join(i.src_dir, 'mk', 'common.manifest')
 
-    print('\n\n'.join((
+    content ='\n\n'.join((
         header(i),
 
         '# Native',
@@ -173,4 +173,7 @@ if __name__ == '__main__':
         dist.rules(i),
         dist.from_manifest(common_manifest, dist_manifest),
 
-        )))
+        ))
+
+    with open('build.ninja', 'w') as f:
+        f.write(content)
