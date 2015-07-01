@@ -15,4 +15,9 @@ www/asmlibs.js: $b_js/asmlibs.js
 www/outpost.pack: $b_data/outpost.pack
 www/server.json: $b_data/server.json
 
+www/animtest.html: $src/client/animtest.html
+www/animtest.js: $b_js/animtest.js
+www/configedit.html: $src/client/configedit.html
+www/configedit.js: $b_js/configedit.js
+
 scripts/: $src/scripts/
