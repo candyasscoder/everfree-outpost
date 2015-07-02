@@ -10,9 +10,8 @@ def rules(i):
             '--emit link,dep-info',
             '-L $b_native',
             maybe('-L %s', i.rust_extra_libdir),
+            i.rust_lib_externs,
             cond(i.debug, '', '-C opt-level=3'),
-            maybe('--extern log=%s/liblog.rlib', i.rust_extra_libdir),
-            maybe('--extern rand=%s/librand.rlib', i.rust_extra_libdir),
             )
 
     common_cflags = join(
