@@ -27,6 +27,8 @@ def build_parser():
             help='path to rust-lang/bitflags checkout')
     args.add_argument('--rust-extra-libdir', default=None,
             help='additional search directory for Rust libraries')
+    args.add_argument('--rust-lib-externs', default='',
+            help='list of --extern flags for locating Rust libraries')
     args.add_argument('--emscripten-fastcomp-prefix', default=None,
             help='path to kripken/emscripten-fastcomp build/install directory')
     args.add_argument('--emscripten-passes-prefix', default=None,

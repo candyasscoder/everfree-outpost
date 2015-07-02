@@ -49,9 +49,13 @@ class Checker(object):
     def trace(self, msg):
         self.log(msg, level='TRC')
 
-    def out(self, msg):
-        self.log(msg)
+    def out(self, msg, level='MSG'):
+        self.log(msg, level=level)
         print(msg)
+
+    def out_skip(self, desc1, key2):
+        self.out(' * Skipping check for %s because %s was not found' %
+                (desc, self.desc_map[key]))
 
     def run(self, prog, args=[], expect_ret=0):
         if prog is None:
@@ -102,8 +106,7 @@ class Checker(object):
     def find_working(self, desc, arg_name, defaults, require=()):
         for key in require:
             if getattr(self.i, key) is None:
-                self.out(' * Skipping check for %s because %s was not found' %
-                        (desc, self.desc_map[key]))
+                self.out_skip(desc, key)
                 return None
 
         self.desc_map[arg_name] = desc
@@ -117,7 +120,8 @@ class Checker(object):
             if self.do_check(check_one, choice):
                 return choice
 
-        self.out(' * Cannot find working %s; set --%s' % (desc, arg_name.replace('_', '-')))
+        self.out(' * Cannot find working %s; set --%s' % (desc, arg_name.replace('_', '-')),
+                level='ERR')
         return None
 
         # Couldn't find the thing.  Print an appropriate error or warning.
@@ -135,7 +139,7 @@ class Checker(object):
             out('Cannot find working %s; set --%s' % (desc, flag))
             return None
 
-    # Checks
+    # Program checks
     def check_cc(self, cc):
         out = self.file('exe')
         src = self.write('c', 'int main() { return 37; }')
@@ -223,6 +227,59 @@ class Checker(object):
                 'yui_compressor',
                 ['yui-compressor'])
 
+        self.calc_rust_library_externs()
+
+
+    # Feature/library checks
+    def check_rust_library(self, lib, use_extern):
+        src_file = self.write('rs', 'extern crate %s; fn main() {}' % lib)
+        args = [src_file, '-o', '%s.exe' % src_file] + shlex.split(self.i.rust_lib_externs)
+        if self.i.rust_extra_libdir is not None:
+            args += ['-L', self.i.rust_extra_libdir]
+            if use_extern:
+                path = os.path.join(self.i.rust_extra_libdir, 'lib%s.rlib' % lib)
+                args += ['--extern', '%s=%s' % (lib, path)]
+        self.run(self.i.rustc, args)
+
+    def calc_rust_library_externs(self):
+        if self.i.rustc is None:
+            self.out_skip('Rust libraries', 'rustc')
+
+        libs = (
+                # Keep these in dependency order.  That way necessary --extern flags will already be
+                # set before they are needed for later checks.
+                'libc',
+                'bitflags',
+                'rand',
+                'regex_syntax',
+                'regex',
+                'log',
+                'env_logger',
+                'rustc_serialize',
+                'time',
+                'libsqlite3_sys',
+                'rusqlite',
+                'linked_hash_map',
+                'lru_cache',
+                )
+        saw_err = False
+        libdir = self.i.rust_extra_libdir
+        for lib in libs:
+            self.out('Checking Rust libraries: %s' % lib)
+            if self.do_check(self.check_rust_library, lib, False):
+                continue
+            if libdir is not None and self.do_check(self.check_rust_library, lib, True):
+                self.log('Adding --extern for library %s' % lib)
+                self.i.rust_lib_externs += ' --extern %s=%s' % \
+                        (lib, os.path.join(libdir, 'lib%s.rlib' % lib))
+                continue
+            self.out(' * Cannot find working %r library' % lib, level='ERR')
+            saw_err = True
+
+        if saw_err:
+            self.out(' * Some libraries were not found; '
+                    'set --rust-extra-libdir and/or --rust-lib-externs',
+                    level='ERR')
 
 
 def run(i):
