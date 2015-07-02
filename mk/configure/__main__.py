@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 
+from configure import checks
 from configure.gen import native, asmjs, data, js, dist
 from configure.template import template
 
@@ -31,8 +32,24 @@ def build_parser():
     args.add_argument('--emscripten-passes-prefix', default=None,
             help='path to epdtry/rust-emscripten-passes build directory')
 
-    args.add_argument('--rustc', default='rustc',
+    args.add_argument('--rustc',
             help='name of the Rust compiler binary')
+    args.add_argument('--cc',
+            help='name of the C compiler binary')
+    args.add_argument('--cxx',
+            help='name of the C++ compiler binary')
+    args.add_argument('--python3',
+            help='name of the Python 3 interpreter binary')
+    args.add_argument('--python3-config',
+            help='name of the Python 3 build configuration helper binary')
+    args.add_argument('--closure-compiler',
+            help='name of the Closure Compiler binary')
+    args.add_argument('--yui-compressor',
+            help='name of the YUI Compressor binary')
+
+    args.add_argument('--force', action='store_true',
+            help='proceed even if there are configuration errors')
+
 
     return args
 
@@ -83,9 +100,9 @@ def header(i):
         bitflags_home = %{i.bitflags_home}
 
         rustc = %{i.rustc}
-        cc = gcc
-        cxx = g++
-        python3 = python3
+        cc = %{i.cc}
+        cxx = %{i.cxx}
+        python3 = %{i.python3}
         closure_compiler = closure-compiler
         yui_compressor = yui-compressor
     ''', os=os, **locals())
@@ -108,6 +125,8 @@ if __name__ == '__main__':
     parser = build_parser()
     args = parser.parse_args(sys.argv[1:])
     i = Info(args)
+
+    checks.run(i)
 
     py_includes = subprocess.check_output(('python3-config', '--includes')).decode().strip()
     py_ldflags = subprocess.check_output(('python3-config', '--ldflags')).decode().strip()
