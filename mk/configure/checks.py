@@ -227,7 +227,8 @@ class Checker(object):
                 'yui_compressor',
                 ['yui-compressor'])
 
-        self.calc_rust_library_externs()
+        self.check_rust_libraries()
+        self.check_python_libraries()
 
 
     # Feature/library checks
@@ -241,9 +242,10 @@ class Checker(object):
                 args += ['--extern', '%s=%s' % (lib, path)]
         self.run(self.i.rustc, args)
 
-    def calc_rust_library_externs(self):
+    def check_rust_libraries(self):
         if self.i.rustc is None:
             self.out_skip('Rust libraries', 'rustc')
+            return
 
         libs = (
                 # Keep these in dependency order.  That way necessary --extern flags will already be
@@ -262,23 +264,65 @@ class Checker(object):
                 'linked_hash_map',
                 'lru_cache',
                 )
+
+        found_libs = set()
         saw_err = False
         libdir = self.i.rust_extra_libdir
         for lib in libs:
             self.out('Checking Rust libraries: %s' % lib)
+
             if self.do_check(self.check_rust_library, lib, False):
+                found_libs.add(lib)
                 continue
+
             if libdir is not None and self.do_check(self.check_rust_library, lib, True):
+                found_libs.add(lib)
                 self.log('Adding --extern for library %s' % lib)
                 self.i.rust_lib_externs += ' --extern %s=%s' % \
                         (lib, os.path.join(libdir, 'lib%s.rlib' % lib))
                 continue
+
             self.out(' * Cannot find working %r library' % lib, level='ERR')
             saw_err = True
 
+        self.i.found_rust_libs = found_libs
+
         if saw_err:
-            self.out(' * Some libraries were not found; '
+            self.out(' * Some Rust libraries were not found; '
                     'set --rust-extra-libdir and/or --rust-lib-externs',
+                    level='ERR')
+
+    def check_python_library(self, lib):
+        self.run(self.i.python3, ['-c', 'import %s' % lib])
+
+    def check_python_libraries(self):
+        if self.i.python3 is None:
+            self.out_skip('Python libraries', 'python3')
+            return
+
+        libs = (
+                'PIL.Image',
+                'yaml',
+                )
+
+        found_libs = set()
+        saw_err = False
+        libdir = self.i.rust_extra_libdir
+        for lib in libs:
+            self.out('Checking Python libraries: %s' % lib)
+
+            if self.do_check(self.check_python_library, lib):
+                found_libs.add(lib)
+                continue
+
+            self.out(' * Cannot find working %r library' % lib, level='ERR')
+            saw_err = True
+
+        self.i.found_python3_libs = found_libs
+
+        if saw_err:
+            self.out(' * Some Python libraries were not found; '
+                    'install them or adjust $PYTHONPATH',
                     level='ERR')
 
 
