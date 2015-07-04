@@ -23,18 +23,43 @@ def rules(i):
             depfile = $out.d
     ''', **locals())
 
-def from_manifest(common_path, extra_path):
+def read_manifest(path):
+    contents = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line == '' or line[0] == '#':
+                continue
+            dest, _, src = line.partition(': ')
+
+            contents.append((dest, src))
+    return contents
+
+def read_filter(path):
+    contents = set()
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line == '' or line[0] == '#':
+                continue
+            contents.add(line)
+    return contents
+
+def apply_filter(manifest, filter_):
+    for i in range(len(manifest)):
+        dest, src = manifest[i]
+        if dest not in filter_:
+            src = '$prebuilt/%s' % dest
+            manifest[i] = (dest, src)
+
+def from_manifest(common_path, extra_path, filter_path=None):
     contents = []
 
     for path in (common_path, extra_path):
-        with open(path) as f:
-            for line in f:
-                line = line.strip()
-                if line == '' or line[0] == '#':
-                    continue
-                dest, _, src = line.partition(': ')
+        contents.extend(read_manifest(path))
 
-                contents.append((dest, src))
+    if filter_path is not None:
+        apply_filter(contents, read_filter(filter_path))
 
 
     builds = []

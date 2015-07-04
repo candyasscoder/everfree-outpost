@@ -55,7 +55,7 @@ class Checker(object):
 
     def out_skip(self, desc1, key2):
         self.out(' * Skipping check for %s because %s was not found' %
-                (desc, self.desc_map[key]))
+                (desc1, self.desc_map[key2]))
 
     def run(self, prog, args=[], expect_ret=0):
         if prog is None:
@@ -104,12 +104,12 @@ class Checker(object):
         return ok
 
     def find_working(self, desc, arg_name, defaults, require=()):
+        self.desc_map[arg_name] = desc
+
         for key in require:
             if getattr(self.i, key) is None:
                 self.out_skip(desc, key)
                 return None
-
-        self.desc_map[arg_name] = desc
 
         user_choice = getattr(self.i, arg_name)
         choices = [user_choice] if user_choice else defaults
@@ -146,14 +146,26 @@ class Checker(object):
         self.run(cc, [src, '-o', out])
         self.run(out, expect_ret=37)
 
+    def detect_cc(self):
+        return self.find_working('C compiler', 'cc', ['cc', 'gcc', 'clang', 'icc'])
+
+
     def check_cxx(self, cxx):
         return self.check_cc(cxx)
+
+    def detect_cxx(self):
+        return self.find_working('C++ compiler', 'cxx', ['c++', 'g++', 'clang++', 'icpc'])
+
 
     def check_rustc(self, rustc):
         expect_version = '60926b8c5'
         output = self.run_output(rustc, ['--version'])
         if expect_version not in output:
             raise ConfigError('detected bad rust version: %r not in %r' % (expect_version, output))
+
+    def detect_rustc(self):
+        return self.find_working('Rust compiler', 'rustc', ['rustc'])
+
 
     def check_python3(self, python3):
         expect_version = (3, 4)
@@ -162,8 +174,19 @@ class Checker(object):
         if output.strip() != 'True':
             raise ConfigError('detected bad python version: not >= %r' % (expect_version,))
 
+    def detect_python3(self):
+        return self.find_working('Python 3 interpreter', 'python3',
+                [sys.executable, 'python3', 'python'])
+
+
     def check_python3_config(self, python3_config):
         self.run(python3_config, ['--help'])
+
+    def detect_python3_config(self):
+        return self.find_working('Python 3 configuration helper',
+                'python3_config', [(self.i.python3 or '') + '-config', 'python3-config'],
+                require=('python3',))
+
 
     def check_emscripten_fastcomp_prefix(self, prefix):
         if prefix == '':
@@ -172,6 +195,13 @@ class Checker(object):
             llc = os.path.join(prefix, 'bin', 'llc')
 
         self.run(llc, ['-march=js'])
+
+    def detect_emscripten_fastcomp_prefix(self):
+        return self.find_working(
+                'emscripten-fastcomp installation',
+                'emscripten_fastcomp_prefix',
+                ['', '/usr', '/usr/local'])
+
 
     def check_emscripten_passes_prefix(self, prefix):
         opt = os.path.join(self.i.emscripten_fastcomp_prefix, 'bin', 'opt')
@@ -186,49 +216,29 @@ class Checker(object):
         check('RemoveOverflowChecks.so', '-remove-overflow-checks')
         check('RemoveAssume.so', '-remove-assume')
 
+    def detect_emscripten_passes_prefix(self):
+        return self.find_working(
+                'rust-emscripten-passes build directory',
+                'emscripten_passes_prefix',
+                [''],
+                require=('emscripten_fastcomp_prefix',))
+
+
     def check_closure_compiler(self, prog):
         # For some reason `closure-compiler --help` returns 255.  I'm not sure how consistent this
         # is, so just ignore the return code.  (We'll still get an exception if the program is not
         # found.)
         self.run(prog, ['--help'], expect_ret=None)
 
+    def detect_closure_compiler(self):
+        return self.find_working('Closure Compiler', 'closure_compiler', ['closure-compiler'])
+
+
     def check_yui_compressor(self, prog):
         self.run(prog, ['--help'])
 
-    def do_all(self):
-        self.i.cc = self.find_working('C compiler', 'cc', ['cc', 'gcc', 'clang', 'icc'])
-        self.i.cxx = self.find_working('C++ compiler', 'cxx', ['c++', 'g++', 'clang++', 'icpc'])
-
-        self.i.rustc = self.find_working('Rust compiler', 'rustc', ['rustc'])
-
-        self.i.python3 = self.find_working('Python 3 interpreter', 'python3',
-                [sys.executable, 'python3', 'python'])
-        self.i.python3_config = self.find_working('Python 3 configuration helper',
-                'python3_config', [self.i.python3 + '-config', 'python3-config'],
-                require=('python3',))
-
-        self.i.emscripten_fastcomp_prefix = self.find_working(
-                'emscripten-fastcomp installation',
-                'emscripten_fastcomp_prefix',
-                ['', '/usr', '/usr/local'])
-        self.i.emscripten_passes_prefix = self.find_working(
-                'rust-emscripten-passes build directory',
-                'emscripten_passes_prefix',
-                [''],
-                require=('emscripten_fastcomp_prefix',))
-
-        self.i.closure_compiler = self.find_working(
-                'Closure Compiler',
-                'closure_compiler',
-                ['closure-compiler'])
-
-        self.i.yui_compressor = self.find_working(
-                'YUI Compressor',
-                'yui_compressor',
-                ['yui-compressor'])
-
-        self.check_rust_libraries()
-        self.check_python_libraries()
+    def detect_yui_compressor(self):
+        return self.find_working('YUI Compressor', 'yui_compressor', ['yui-compressor'])
 
 
     # Feature/library checks
@@ -242,31 +252,12 @@ class Checker(object):
                 args += ['--extern', '%s=%s' % (lib, path)]
         self.run(self.i.rustc, args)
 
-    def check_rust_libraries(self):
+    def detect_rust_libraries(self, libs):
         if self.i.rustc is None:
             self.out_skip('Rust libraries', 'rustc')
-            return
-
-        libs = (
-                # Keep these in dependency order.  That way necessary --extern flags will already be
-                # set before they are needed for later checks.
-                'libc',
-                'bitflags',
-                'rand',
-                'regex_syntax',
-                'regex',
-                'log',
-                'env_logger',
-                'rustc_serialize',
-                'time',
-                'libsqlite3_sys',
-                'rusqlite',
-                'linked_hash_map',
-                'lru_cache',
-                )
+            return set()
 
         found_libs = set()
-        saw_err = False
         libdir = self.i.rust_extra_libdir
         for lib in libs:
             self.out('Checking Rust libraries: %s' % lib)
@@ -283,31 +274,19 @@ class Checker(object):
                 continue
 
             self.out(' * Cannot find working %r library' % lib, level='ERR')
-            saw_err = True
 
         self.i.found_rust_libs = found_libs
-
-        if saw_err:
-            self.out(' * Some Rust libraries were not found; '
-                    'set --rust-extra-libdir and/or --rust-lib-externs',
-                    level='ERR')
+        return set(libs) - found_libs
 
     def check_python_library(self, lib):
         self.run(self.i.python3, ['-c', 'import %s' % lib])
 
-    def check_python_libraries(self):
+    def detect_python_libraries(self, libs):
         if self.i.python3 is None:
             self.out_skip('Python libraries', 'python3')
-            return
-
-        libs = (
-                'PIL.Image',
-                'yaml',
-                )
+            return set()
 
         found_libs = set()
-        saw_err = False
-        libdir = self.i.rust_extra_libdir
         for lib in libs:
             self.out('Checking Python libraries: %s' % lib)
 
@@ -316,18 +295,76 @@ class Checker(object):
                 continue
 
             self.out(' * Cannot find working %r library' % lib, level='ERR')
-            saw_err = True
 
         self.i.found_python3_libs = found_libs
+        return set(libs) - found_libs
 
-        if saw_err:
-            self.out(' * Some Python libraries were not found; '
-                    'install them or adjust $PYTHONPATH',
-                    level='ERR')
 
+    # Main entry point
+
+    def configure(self):
+        errs = []
+
+
+        if self.i.data_only and self.i.prebuilt_dir is None:
+            errs.append('--prebuilt-dir is required if --data-only is set')
+
+
+        def detect(key):
+            f = getattr(self, 'detect_' + key)
+            val = f()
+            if val is None:
+                errs.append('Cannot find working %s' % self.desc_map[key])
+            setattr(self.i, key, val)
+
+        def detect_all(*keys):
+            for k in keys:
+                detect(k)
+
+        detect('python3')
+
+        if not self.i.data_only:
+            detect_all('cc', 'cxx', 'rustc', 'python3_config',
+                    'emscripten_fastcomp_prefix', 'emscripten_passes_prefix',
+                    'closure_compiler', 'yui_compressor')
+
+
+        for missing_lib in self.detect_python_libraries(('PIL.Image', 'yaml')):
+            errs.append('Cannot find Python 3 library %s' % missing_lib)
+
+        if not self.i.data_only:
+            libs = (
+                    # Keep these in dependency order.  That way necessary --extern flags will already be
+                    # set before they are needed for later checks.
+                    'libc',
+                    'bitflags',
+                    'rand',
+                    'regex_syntax',
+                    'regex',
+                    'log',
+                    'env_logger',
+                    'rustc_serialize',
+                    'time',
+                    'libsqlite3_sys',
+                    'rusqlite',
+                    'linked_hash_map',
+                    'lru_cache',
+                    )
+            for missing_lib in self.detect_rust_libraries(libs):
+                errs.append('Cannot find Rust library %s' % missing_lib)
+
+
+        if len(errs) == 0:
+            self.out('\nConfiguration OK')
+        else:
+            self.out('\nDetected %d error%s:' % (len(errs), 's' if len(errs) != 1 else ''))
+            for e in errs:
+                self.out(' * %s' % e)
+        return len(errs) == 0
 
 def run(i):
     with tempfile.TemporaryDirectory() as temp_dir, \
             open('config.log', 'w') as log_file:
         c = Checker(i, temp_dir, log_file)
-        c.do_all()
+        return c.configure()
+

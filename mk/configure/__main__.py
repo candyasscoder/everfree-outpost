@@ -16,6 +16,11 @@ def build_parser():
     args.add_argument('--dist-dir', default=None,
             help='directory to store distribution image')
 
+    args.add_argument('--data-only', action='store_true', default=False,
+            help='generate data files only; don\'t compile any code')
+    args.add_argument('--prebuilt-dir', default=None,
+            help='directory containing a previously compiled version')
+
     args.add_argument('--debug', action='store_true',
             help='produce a debug build')
     args.add_argument('--release', action='store_false', dest='debug',
@@ -92,6 +97,7 @@ def header(i):
         # variable that determines where `.ninja_log` is stored.
         builddir = %{os.path.normpath(i.build_dir)}
         dist = %{os.path.normpath(i.dist_dir)}
+        prebuilt = %{os.path.normpath(i.prebuilt_dir or '')}
 
         b_native = %{b('native')}
         b_asmjs = %{b('asmjs')}
@@ -128,7 +134,8 @@ if __name__ == '__main__':
     args = parser.parse_args(sys.argv[1:])
     i = Info(args)
 
-    checks.run(i)
+    if not checks.run(i):
+        sys.exit(1)
 
     py_includes = subprocess.check_output(('python3-config', '--includes')).decode().strip()
     py_ldflags = subprocess.check_output(('python3-config', '--ldflags')).decode().strip()
@@ -140,6 +147,8 @@ if __name__ == '__main__':
 
     dist_manifest = os.path.join(i.src_dir, 'mk', dist_manifest_base)
     common_manifest = os.path.join(i.src_dir, 'mk', 'common.manifest')
+    maybe_data_filter = os.path.join(i.src_dir, 'mk', 'data_files.txt') \
+            if i.data_only else None
 
     content ='\n\n'.join((
         header(i),
@@ -192,9 +201,15 @@ if __name__ == '__main__':
 
         '# Distribution',
         dist.rules(i),
-        dist.from_manifest(common_manifest, dist_manifest),
+        dist.from_manifest(common_manifest, dist_manifest,
+                filter_path=maybe_data_filter),
 
+        'default $builddir/dist.stamp',
+        '', # ensure there's a newline after the last command
         ))
 
     with open('build.ninja', 'w') as f:
         f.write(content)
+
+    print('Generated build.ninja')
+    print('Run `ninja` to build')
