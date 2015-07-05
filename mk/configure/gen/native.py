@@ -21,10 +21,6 @@ def rules(i):
             )
 
     return template('''
-        rustc = %{i.rustc}
-        cc = gcc
-        cxx = g++
-
         rule rustc_native_bin
             command = %rustc_base --crate-type=bin  %if i.debug% -C lto %end%
             depfile = $b_native/$crate_name.d
