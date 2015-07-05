@@ -7,7 +7,7 @@ Dependencies:
    are not required)
  - epdtry/rust-emscripten-passes eea6274
  - rust-lang/bitflags ec6b3b5
- - rust-lang/rand 916642f
+ - rust-lang/rand 2a6773d
  - rust-lang/regex 0.1.28-36-g7a72b1f
  - rust-lang/log 07fbe6b
  - rust-lang/rustc-serialize 7900641
