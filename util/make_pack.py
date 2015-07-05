@@ -7,11 +7,12 @@ import sys
 def main(src_dir, build_dir, out_file):
     index = []
     paths = []
+    hidden_deps = set()
 
     src = lambda path: os.path.join(src_dir, path)
     build = lambda path: os.path.join(build_dir, path)
 
-    def add(ty, name, path):
+    def add(ty, name, path, hide_dep=False):
         size = os.stat(path).st_size
 
         index.append({
@@ -20,6 +21,9 @@ def main(src_dir, build_dir, out_file):
                 'type': ty,
                 })
         paths.append(path)
+
+        if hide_dep:
+            hidden_deps.add(path)
 
     add('image', 'pony_f_base',         src('assets/sprites/maresprite.png'))
     add('image', 'pony_f_eyes_blue',    src('assets/sprites/type1blue.png'))
@@ -31,13 +35,13 @@ def main(src_dir, build_dir, out_file):
     add('image', 'equip_f_hat',         src('assets/sprites/equip_f_hat.png'))
 
     add('image', 'font',    build('font.png'))
-    add('url',   'items',   build('data/items.png'))
+    add('url',   'items',   build('items.png'))
 
-    add('json', 'block_defs',       build('data/blocks_client.json'))
-    add('json', 'item_defs',        build('data/items_client.json'))
-    add('json', 'recipe_defs',      build('data/recipes_client.json'))
-    add('json', 'template_defs',    build('data/structures_client.json'))
-    add('json', 'font_metrics',     build('metrics.json'))
+    add('json', 'block_defs',       build('blocks_client.json'))
+    add('json', 'item_defs',        build('items_client.json'))
+    add('json', 'recipe_defs',      build('recipes_client.json'))
+    add('json', 'template_defs',    build('structures_client.json'))
+    add('json', 'font_metrics',     build('font_metrics.json'))
     add('json', 'day_night',        build('day_night.json'))
 
     add('text', 'terrain.frag',         src('assets/shaders/terrain.frag'))
@@ -65,14 +69,14 @@ def main(src_dir, build_dir, out_file):
     add('text', 'light.vert',           src('assets/shaders/light.vert'))
 
     for i in count(0):
-        path = build('data/structures%d.png' % i)
+        path = build('structures%d.png' % i)
         if os.path.isfile(path):
-            add('image', 'structures%d' % i, path)
-            add('image', 'structdepth%d' % i, build('data/structdepth%d.png' % i))
+            add('image', 'structures%d' % i, path, hide_dep=True)
+            add('image', 'structdepth%d' % i, build('structdepth%d.png' % i), hide_dep=True)
         else:
             break
 
-    add('image', 'tiles', build('data/tiles.png'))
+    add('image', 'tiles', build('tiles.png'))
 
 
     # Generate the pack containing the files added above.
@@ -102,6 +106,14 @@ def main(src_dir, build_dir, out_file):
 
             assert total_len == entry['length'], \
                     'file %r changed length during packing' % entry['name']
+
+    # Emit dependencies
+    with open(out_file + '.d', 'w') as f:
+        f.write('%s: \\\n' % out_file)
+        for path in paths:
+            if path in hidden_deps:
+                continue
+            f.write('    %s \\\n' % path)
 
 if __name__ == '__main__':
     src_dir, build_dir, out_file = sys.argv[1:]

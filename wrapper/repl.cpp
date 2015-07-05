@@ -21,9 +21,9 @@ void repl::accept() {
         });
 }
 
-repl::repl(server& owner, io_service& ios, const char* path)
+repl::repl(server& owner, io_service& ios, platform::local_stream::endpoint addr)
   : owner(owner),
-    acceptor(ios, local::stream_protocol::endpoint(path)),
+    acceptor(ios, addr),
     accepted_socket(ios),
     next_id(0),
     clients(),
@@ -148,7 +148,7 @@ void repl_client::close() {
     owner.closed(id);
 }
 
-repl_client::repl_client(repl& owner, size_t id, local::stream_protocol::socket socket)
+repl_client::repl_client(repl& owner, size_t id, platform::local_stream::socket socket)
   : owner(owner),
     id(id),
     socket(move(socket)) {

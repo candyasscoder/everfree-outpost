@@ -1,0 +1,10 @@
+data/blocks.json
+data/items.json
+data/recipes.json
+data/structures.json
+
+www/credits.html
+www/outpost.pack
+www/server.json
+
+scripts/

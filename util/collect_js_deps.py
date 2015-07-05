@@ -3,7 +3,6 @@ import re
 import sys
 
 
-JS_TAG_RE = re.compile(r'''src='([a-z]*\.js)''')
 REQUIRE_RE = re.compile(r'''require\(['"]([a-zA-Z0-9_/]+)['"]\)''')
 
 def collect_deps(path):
@@ -38,15 +37,22 @@ def collect_file_deps(root_path):
     root_name, _, _ = root_file.partition('.')
     walk(root_name)
 
-    for name in order:
-        print(name)
+    return order
 
-def main(html_path):
-    base, _, ext = os.path.basename(html_path).rpartition('.')
-    if base == 'client':
-        base = 'main'
-    collect_file_deps(os.path.join(os.path.dirname(html_path), 'js', '%s.js' % base))
+def main(js_src, out_file, dep_file):
+    modules = collect_file_deps(js_src)
+
+    base_dir = os.path.dirname(js_src)
+    deps = [os.path.join(base_dir, '%s.js' % m) for m in modules]
+
+    with open(dep_file, 'w') as f:
+        f.write('%s:\\\n' % out_file)
+        for d in deps:
+            f.write('    %s\\\n' % d)
+
+    for d in deps:
+        print(d)
 
 if __name__ == '__main__':
-    html_path, = sys.argv[1:]
-    main(html_path)
+    js_src, out_file, dep_file = sys.argv[1:]
+    main(js_src, out_file, dep_file)

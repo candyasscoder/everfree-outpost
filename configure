@@ -1,0 +1,56 @@
+#!/bin/sh
+
+try_python() {
+    # Versions prior to 3.4 might work, but I'm not sure.
+    output="$($1 -c 'import sys; print(sys.version_info >= (3, 4))')" &&
+    [ "$?" -eq 0 ] && [ "True" = "$output" ]
+}
+
+try_multi_pythons() {
+    for py in "$@"; do
+        if try_python "$py"; then
+            python="$py"
+            return 0
+        fi
+    done
+    echo "Error: couldn't find a Python >=3.4 interpreter (tried: $*)" 1>&2
+    exit 1
+}
+
+
+# Look for a --python3 flag.  If present, we should use that interpreter to run
+# configure.py.
+flag_python=
+saw_flag=0
+
+for arg in "$@"; do
+    if [ "$saw_flag" -eq 1 ]; then
+        flag_python=$arg
+        saw_flag=0
+        continue
+    fi
+
+    case "$arg" in
+        --python3) saw_flag=1 ;;
+        --python3=*) flag_python=${arg#--python3=}
+    esac
+done
+
+
+
+if [ -z "$python" ]; then
+    try_multi_pythons python3 python
+else
+    try_multi_pythons "$flag_python"
+fi
+
+# $python now refers to a working Python 3.4 interpreter.  
+
+
+dir="$(dirname "$0")"
+if [ -n "$PYTHONPATH" ]; then
+    export PYTHONPATH="$dir/mk:$PYTHONPATH"
+else
+    export PYTHONPATH="$dir/mk"
+fi
+$python -m configure "$@"

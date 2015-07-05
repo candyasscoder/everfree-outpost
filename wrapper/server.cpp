@@ -5,10 +5,15 @@ using namespace std;
 using namespace boost::asio;
 
 
-server::server(io_service& ios, int to_backend, int from_backend, uint16_t ws_port)
+server::server(io_service& ios,
+               platform::child_stream::native_handle_type to_backend,
+               platform::child_stream::native_handle_type from_backend,
+               platform::local_stream::endpoint control_addr,
+               platform::local_stream::endpoint repl_addr,
+               uint16_t ws_port)
     : backend_(new backend(*this, ios, to_backend, from_backend)),
-      control_(new control(*this, ios, "control")),
-      repl_(new repl(*this, ios, "repl")),
+      control_(new control(*this, ios, control_addr)),
+      repl_(new repl(*this, ios, repl_addr)),
       signals_(new signals(*this, ios)),
       websocket_(new websocket(*this, ios, ws_port)) {
 }

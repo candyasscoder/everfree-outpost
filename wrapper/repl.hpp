@@ -5,14 +5,16 @@
 #include <map>
 #include <vector>
 
+#include "config.hpp"
+
 
 class server;
 class repl_client;
 
 class repl {
     server& owner;
-    boost::asio::local::stream_protocol::acceptor acceptor;
-    boost::asio::local::stream_protocol::socket accepted_socket;
+    platform::local_stream::acceptor acceptor;
+    platform::local_stream::socket accepted_socket;
     size_t next_id;
     std::map<size_t, repl_client> clients;
     uint16_t next_cookie;
@@ -23,7 +25,7 @@ class repl {
     void handle_accept();
 
 public:
-    repl(server& owner, boost::asio::io_service& ios, const char* path);
+    repl(server& owner, boost::asio::io_service& ios, platform::local_stream::endpoint addr);
 
     void closed(size_t id);
 
@@ -38,7 +40,7 @@ public:
 class repl_client {
     repl& owner;
     size_t id;
-    boost::asio::local::stream_protocol::socket socket;
+    platform::local_stream::socket socket;
     std::vector<uint8_t> buf;
 
     void read();
@@ -46,7 +48,7 @@ class repl_client {
     void close();
 
 public:
-    repl_client(repl& owner, size_t id, boost::asio::local::stream_protocol::socket socket);
+    repl_client(repl& owner, size_t id, platform::local_stream::socket socket);
     repl_client(const repl_client&) = delete;
 
     bool operator <(const repl_client& other) const;

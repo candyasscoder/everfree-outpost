@@ -23,9 +23,9 @@ void control::accept() {
         });
 }
 
-control::control(server& owner, io_service& ios, const char* path)
+control::control(server& owner, io_service& ios, platform::local_stream::endpoint addr)
     : owner(owner),
-      acceptor(ios, local::stream_protocol::endpoint(path)),
+      acceptor(ios, addr),
       accepted_socket(ios),
       next_id(0),
       clients(),
@@ -98,7 +98,7 @@ void control_client::close() {
     owner.closed(id);
 }
 
-control_client::control_client(control& owner, size_t id, local::stream_protocol::socket socket)
+control_client::control_client(control& owner, size_t id, platform::local_stream::socket socket)
     : owner(owner),
       id(id),
       socket(move(socket)) {

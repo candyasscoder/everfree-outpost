@@ -35,7 +35,10 @@ void backend::handle_message() {
     owner.handle_backend_response(header_buf.client_id, move(msg_buf));
 }
 
-backend::backend(server& owner, io_service& ios, int fd_to, int fd_from)
+backend::backend(server& owner,
+                 io_service& ios,
+                 platform::child_stream::native_handle_type fd_to,
+                 platform::child_stream::native_handle_type fd_from)
   : owner(owner),
     pipe_to(ios, fd_to), pipe_from(ios, fd_from) {
     read_header();

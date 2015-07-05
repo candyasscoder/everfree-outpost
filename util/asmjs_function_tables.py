@@ -40,7 +40,7 @@ def make_abort_func(sig, name):
 abort_funcs_str = ''
 fn_tables_str = ''
 
-for k, v in metadata['tables'].iteritems():
+for k, v in metadata['tables'].items():
     start = v.index('[')
     end = v.index(']')
     funcs = v[start + 1 : end].split(',')

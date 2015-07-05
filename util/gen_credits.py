@@ -153,24 +153,35 @@ def collect_entries(ss, filenames):
 
     return result
 
-def main():
+def main(src_dir):
+    src_dir = os.path.normpath(src_dir) + os.sep
     ss = Sources()
 
+    content = sys.stdin.read()
+    # Support `\` for line continuations
+    content = content.replace('\\\n', ' ')
+
     filenames = []
-    for line in sys.stdin.readlines():
+    for line in content.splitlines():
         line = line.strip()
         if line.startswith('#'):
             continue
         if line == '':
             continue
 
-        path = os.path.normpath(line)
-        if not os.path.isfile(path):
-            try_path = os.path.join('assets', path)
-            if os.path.isfile(try_path):
-                path = try_path
+        for path in line.split():
+            if path.endswith(':'):
+                # It's actually the `out` part of `out: in1 in2 in3`.  Ignore.
+                continue
+            path = os.path.normpath(path)
+            _, ext = os.path.splitext(path)
 
-        filenames.append(path)
+            if ext in ('.py', '.vert', '.frag'):
+                # Ignore code files.
+                continue
+
+            if path.startswith(src_dir):
+                filenames.append(path)
 
     dct = collect_entries(ss, filenames)
     entries = merge_entries(dct)
@@ -192,4 +203,5 @@ def main():
         ''')
 
 if __name__ == '__main__':
-    main()
+    src_dir, = sys.argv[1:]
+    main(src_dir)

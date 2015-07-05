@@ -1,0 +1,23 @@
+bin/backend: $b_native/backend
+bin/wrapper: $b_native/wrapper
+bin/run_server.sh: $src/util/run_server.sh
+
+data/blocks.json: $b_data/blocks_server.json
+data/items.json: $b_data/items_server.json
+data/recipes.json: $b_data/recipes_server.json
+data/structures.json: $b_data/structures_server.json
+
+www/client.html: $src/client/client.html
+www/instructions.html: $src/client/instructions.html
+www/credits.html: $b_data/credits.html
+www/outpost.js: $b_js/outpost.js
+www/asmlibs.js: $b_js/asmlibs.js
+www/outpost.pack: $b_data/outpost.pack
+www/server.json: $b_data/server.json
+
+www/animtest.html: $src/client/animtest.html
+www/animtest.js: $b_js/animtest.js
+www/configedit.html: $src/client/configedit.html
+www/configedit.js: $b_js/configedit.js
+
+scripts/: $src/scripts/

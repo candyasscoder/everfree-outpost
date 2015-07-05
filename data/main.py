@@ -103,6 +103,20 @@ def main(asset_dir, output_dir):
     with open(os.path.join(output_dir, 'used_assets.txt'), 'w') as f:
         f.write(''.join(p + '\n' for p in images.get_loaded_paths()))
 
+    # Compute dependencies
+    with open(os.path.join(output_dir, 'data.d'), 'w') as f:
+        f.write('%s: \\\n' % os.path.join(output_dir, 'stamp'))
+        for p in images.get_loaded_paths():
+            f.write('    %s \\\n' % p)
+
+        def do_dir(d):
+            for fn in os.listdir(d):
+                if fn.endswith('.py'):
+                    f.write('    %s \\\n' % os.path.join(d, fn))
+        do_dir(os.path.join(asset_dir, '..', 'data'))
+        do_dir(os.path.join(asset_dir, '..', 'data', 'outpost_data'))
+        do_dir(os.path.join(asset_dir, '..', 'data', 'lib'))
+
     assert not util.SAW_ERROR
 
 if __name__ == '__main__':
