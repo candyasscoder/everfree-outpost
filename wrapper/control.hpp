@@ -5,14 +5,16 @@
 #include <map>
 #include <vector>
 
+#include "config.hpp"
+
 
 class server;
 class control_client;
 
 class control {
     server& owner;
-    boost::asio::local::stream_protocol::acceptor acceptor;
-    boost::asio::local::stream_protocol::socket accepted_socket;
+    platform::local_stream::acceptor acceptor;
+    platform::local_stream::socket accepted_socket;
     size_t next_id;
     std::map<size_t, control_client> clients;
     int errors;
@@ -21,7 +23,7 @@ class control {
     void handle_accept();
 
 public:
-    control(server& owner, boost::asio::io_service& ios, const char* path);
+    control(server& owner, boost::asio::io_service& ios, platform::local_stream::endpoint addr);
 
     void closed(size_t id);
 
@@ -33,7 +35,7 @@ public:
 class control_client {
     control& owner;
     size_t id;
-    boost::asio::local::stream_protocol::socket socket;
+    platform::local_stream::socket socket;
     std::vector<uint8_t> buf;
 
     void read();
@@ -41,7 +43,7 @@ class control_client {
     void close();
 
 public:
-    control_client(control& owner, size_t id, boost::asio::local::stream_protocol::socket socket);
+    control_client(control& owner, size_t id, platform::local_stream::socket socket);
     control_client(const control_client&) = delete;
 };
 

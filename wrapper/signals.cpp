@@ -1,6 +1,10 @@
-#include <signal.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+#ifndef _WIN32
+# include <signal.h>
+# include <sys/types.h>
+# include <sys/wait.h>
+#else
+// TODO
+#endif
 
 #include "server.hpp"
 #include "signals.hpp"
@@ -12,12 +16,17 @@ using namespace boost::asio;
 signals::signals(server& owner, io_service& ios)
     : owner(owner),
       sig_set(ios) {
+#ifndef _WIN32
     sig_set.add(SIGCHLD);
     /* TODO: catch these and do a clean shutdown
     sig_set.add(SIGTERM);
     sig_set.add(SIGINT);
     sig_set.add(SIGHUP);
     */
+#else
+    // TODO
+#endif
+
     wait();
 }
 
@@ -33,6 +42,7 @@ void signals::wait() {
         });
 }
 
+#ifndef _WIN32
 void signals::handle_signal(int sig_num) {
     if (sig_num == SIGCHLD) {
         int status;
@@ -40,3 +50,8 @@ void signals::handle_signal(int sig_num) {
         cerr << "child " << pid << " exited with status " << status << endl;
     }
 }
+#else
+void signals::handle_signal(int sig_num) {
+    // TODO
+}
+#endif

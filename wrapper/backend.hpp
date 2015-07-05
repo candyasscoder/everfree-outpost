@@ -4,13 +4,15 @@
 #include <boost/asio.hpp>
 #include <vector>
 
+#include "config.hpp"
+
 
 class server;
 
 class backend {
     server& owner;
-    boost::asio::posix::stream_descriptor pipe_to;
-    boost::asio::posix::stream_descriptor pipe_from;
+    platform::child_stream pipe_to;
+    platform::child_stream pipe_from;
 
     struct header {
         uint16_t client_id;
@@ -25,7 +27,10 @@ class backend {
     void handle_message();
 
 public:
-    backend(server& owner, boost::asio::io_service& ios, int fd_to, int fd_from);
+    backend(server& owner,
+            boost::asio::io_service& ios,
+            platform::child_stream::native_handle_type fd_to,
+            platform::child_stream::native_handle_type fd_from);
 
     void write(uint16_t client_id, std::vector<uint8_t> msg);
 };
