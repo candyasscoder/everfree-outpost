@@ -87,7 +87,7 @@ def rules(i):
             description = ASMJS $out
 
         rule asm_insert_functions
-            command = awk -f $src/util/asmjs_insert_functions.awk <$in >$out
+            command = $python3 $src/util/asmjs_insert_functions.py $in >$out
             description = ASMJS $out
     ''', **locals())
 
@@ -113,6 +113,6 @@ def asmlibs(name, rust_src, rust_deps, exports_file, template_file):
         build %base.0.js: asm_generate_js %base.opt.bc
         build %base.1.js: asm_add_function_tables %base.0.js $
             | $src/util/asmjs_function_tables.py
-        build %base.js: asm_insert_functions %template_file $
-            | %base.1.js $src/util/asmjs_insert_functions.awk
+        build %base.js: asm_insert_functions %template_file %base.1.js $
+            | $src/util/asmjs_insert_functions.py
     ''', base = '$b_asmjs/%s' % name, **locals())
