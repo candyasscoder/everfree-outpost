@@ -134,7 +134,10 @@ if __name__ == '__main__':
     args = parser.parse_args(sys.argv[1:])
     i = Info(args)
 
-    if not checks.run(i):
+    log = open('config.log', 'w')
+    log.write('Arguments: %r\n\n' % (sys.argv[1:],))
+
+    if not checks.run(i, log):
         sys.exit(1)
 
     py_includes = subprocess.check_output(('python3-config', '--includes')).decode().strip()

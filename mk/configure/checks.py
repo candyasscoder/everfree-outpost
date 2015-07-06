@@ -362,9 +362,8 @@ class Checker(object):
                 self.out(' * %s' % e)
         return len(errs) == 0
 
-def run(i):
-    with tempfile.TemporaryDirectory() as temp_dir, \
-            open('config.log', 'w') as log_file:
+def run(i, log_file):
+    with tempfile.TemporaryDirectory() as temp_dir:
         c = Checker(i, temp_dir, log_file)
         return c.configure()
 
