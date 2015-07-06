@@ -10,7 +10,7 @@ def rules(i):
             command = $
                 %if not i.debug
                 $closure_compiler $
-                    $$($python3 $src/util/collect_js_deps.py $in $out $depfile) $
+                    $$($python3 $src/mk/misc/collect_js_deps.py $in $out $depfile) $
                     --js_output_file=$out $
                     --language_in=ECMASCRIPT5_STRICT $
                     --compilation_level=ADVANCED_OPTIMIZATIONS $
@@ -21,10 +21,10 @@ def rules(i):
                     --process_common_js_modules $
                     --common_js_entry_module=$entry_module $
                     --common_js_module_path_prefix=$module_dir $
-                    --externs=$src/util/closure_externs.js
+                    --externs=$src/mk/misc/closure_externs.js
                 %else
-                $python3 $src/util/gen_js_loader.py $
-                    $$($python3 $src/util/collect_js_deps.py $in $out $depfile) $
+                $python3 $src/mk/misc/gen_js_loader.py $
+                    $$($python3 $src/mk/misc/collect_js_deps.py $in $out $depfile) $
                     >$out
                 %end
             description = MIN $out
@@ -47,8 +47,8 @@ def compile(i, out_file, main_src):
 
     return template('''
         build %out_file: js_compile_modules %main_src $
-            | $src/util/collect_js_deps.py $
-              %if i.debug% $src/util/gen_js_loader.py %end%
+            | $src/mk/misc/collect_js_deps.py $
+              %if i.debug% $src/mk/misc/gen_js_loader.py %end%
             entry_module = %module_name
             module_dir = %main_dir
     ''', **locals())

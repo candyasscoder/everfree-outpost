@@ -7,7 +7,7 @@ from configure.util import join, maybe
 def rules(i):
     return template('''
         rule process_font
-            command = $python3 $src/util/process_font.py $
+            command = $python3 $src/mk/misc/process_font.py $
                 --font-image-in=$in $
                 --first-char=$first_char $
                 --font-image-out=$out_img $
@@ -15,15 +15,15 @@ def rules(i):
             description = GEN $out_img
 
         rule process_day_night
-            command = $python3 $src/util/gen_day_night.py $in >$out
+            command = $python3 $src/mk/misc/gen_day_night.py $in >$out
             description = GEN $out
 
         rule gen_server_json
-            command = $python3 $src/util/gen_server_json.py >$out
+            command = $python3 $src/mk/misc/gen_server_json.py >$out
             description = GEN $out
 
         rule gen_credits
-            command = cat $dep_files | $python3 $src/util/gen_credits.py $src >$out
+            command = cat $dep_files | $python3 $src/mk/misc/gen_credits.py $src >$out
             description = GEN $out
     ''', **locals())
 
@@ -33,7 +33,7 @@ def font(out_base, src_img):
 
     return template('''
         build %out_img %out_metrics: process_font %src_img $
-            | $src/util/process_font.py
+            | $src/mk/misc/process_font.py
             first_char = 0x21
             out_img = %out_img
             out_metrics = %out_metrics
@@ -41,13 +41,13 @@ def font(out_base, src_img):
 
 def server_json(out_json):
     return template('''
-        build %out_json: gen_server_json | $src/util/gen_server_json.py
+        build %out_json: gen_server_json | $src/mk/misc/gen_server_json.py
     ''', **locals())
 
 def day_night(out_json, src_img):
     return template('''
         build %out_json: process_day_night %src_img $
-            | $src/util/gen_day_night.py
+            | $src/mk/misc/gen_day_night.py
     ''', **locals())
 
 def process():
@@ -72,12 +72,12 @@ def process():
 def pack():
     return template('''
         rule build_pack
-            command = $python3 $src/util/make_pack.py $src $b_data $b_data/outpost.pack
+            command = $python3 $src/mk/misc/make_pack.py $src $b_data $b_data/outpost.pack
             description = PACK
             depfile = $b_data/outpost.pack.d
 
         build $b_data/outpost.pack: build_pack $
-            | $src/util/make_pack.py $
+            | $src/mk/misc/make_pack.py $
             || $b_data/stamp $b_data/font.png $b_data/day_night.json
     ''', **locals())
 
@@ -85,6 +85,6 @@ def credits(out_path):
     return template('''
         build %out_path: gen_credits $
             | $b_data/stamp $b_data/outpost.pack $
-              $src/util/gen_credits.py
+              $src/mk/misc/gen_credits.py
             dep_files = $b_data/data.d $b_data/outpost.pack.d
     ''', **locals())
