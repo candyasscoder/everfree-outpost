@@ -183,8 +183,13 @@ class Checker(object):
         self.run(python3_config, ['--help'])
 
     def detect_python3_config(self):
+        candidates = []
+        if self.i.python3 is not None:
+            path, ext = os.path.splitext(self.i.python3)
+            candidates.append(path + '-config' + ext)
+        candidates.append('python3-config')
         return self.find_working('Python 3 configuration helper',
-                'python3_config', [(self.i.python3 or '') + '-config', 'python3-config'],
+                'python3_config', candidates,
                 require=('python3',))
 
 

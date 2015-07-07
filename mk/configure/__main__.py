@@ -145,8 +145,12 @@ if __name__ == '__main__':
         else:
             sys.exit(1)
 
-    py_includes = subprocess.check_output(('python3-config', '--includes')).decode().strip()
-    py_ldflags = subprocess.check_output(('python3-config', '--ldflags')).decode().strip()
+    if i.python3_config is not None:
+        py_includes = subprocess.check_output((i.python3_config, '--includes')).decode().strip()
+        py_ldflags = subprocess.check_output((i.python3_config, '--ldflags')).decode().strip()
+    else:
+        py_includes = None
+        py_ldflags = None
 
     if i.debug:
         dist_manifest_base = 'debug.manifest'
