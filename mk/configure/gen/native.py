@@ -32,28 +32,28 @@ def rules(i):
             description = RUSTC $out
 
         rule c_obj
-            command = $cc -c $in -o $out -std=c99 %common_cflags $cflags
+            command = $cc -c $in -o $out -std=c99 %common_cflags $cflags $user_cflags
             depfile = $out.d
             description = CC $out
 
         rule cxx_obj
-            command = $cxx -c $in -o $out -std=c++14 %common_cflags $cflags
+            command = $cxx -c $in -o $out -std=c++14 %common_cflags $cxxflags $user_cxxflags
             depfile = $out.d
             description = CXX $out
 
         rule link_bin
-            command = $cxx $in -o $out $ldflags $libs
+            command = $cxx $in -o $out $ldflags $user_ldflags $libs
             description = LD $out
 
         rule link_shlib
-            command = $cxx -shared $in -o $out $ldflags $libs
+            command = $cxx -shared $in -o $out $ldflags $user_ldflags $libs
             description = LD $out
     ''', **locals())
 
 
 def rust(crate_name, crate_type, deps, src_file=None):
     if crate_type == 'bin':
-        output_name = crate_name
+        output_name = '%s$_exe' % crate_name
         src_file = src_file or '$src/%s/main.rs' % crate_name
     elif crate_type == 'lib':
         output_name = 'lib%s.rlib' % crate_name
@@ -70,7 +70,7 @@ def cxx(out_name, out_type, src_files, **kwargs):
     def add_build(*args, **kwargs):
         builds.append(mk_build(*args, **kwargs))
 
-    out_file = out_name if out_type == 'bin' else '%s.so' % out_name
+    out_file = ('%s$_exe' if out_type == 'bin' else '%s$_so') % out_name
     out_path = '$b_native/%s' % out_file
     pic_flag = '' if out_type == 'bin' else '-fPIC'
 

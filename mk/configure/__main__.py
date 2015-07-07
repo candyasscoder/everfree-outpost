@@ -59,6 +59,13 @@ def build_parser():
     args.add_argument('--force', action='store_true',
             help='proceed even if there are configuration errors')
 
+    args.add_argument('--cflags',
+            help='extra flags for the C compiler')
+    args.add_argument('--cxxflags',
+            help='extra flags for the C++ compiler')
+    args.add_argument('--ldflags',
+            help='extra flags for the C/C++ linker')
+
 
     return args
 
@@ -101,6 +108,9 @@ def header(i):
         dist = %{os.path.normpath(i.dist_dir)}
         prebuilt = %{os.path.normpath(i.prebuilt_dir or '')}
 
+        _exe = %{'' if not i.win32 else '.exe'}
+        _so = %{'.so' if not i.win32 else '.dll'}
+
         b_native = %{b('native')}
         b_asmjs = %{b('asmjs')}
         b_data = %{b('data')}
@@ -115,6 +125,10 @@ def header(i):
         python3 = %{i.python3}
         closure_compiler = closure-compiler
         yui_compressor = yui-compressor
+
+        user_cflags = %{i.cflags or ''}
+        user_cxxflags = %{i.cxxflags or ''}
+        user_ldflags = %{i.ldflags or ''}
     ''', os=os, **locals())
 
 
@@ -174,7 +188,8 @@ if __name__ == '__main__':
                 if f.endswith('.cpp')),
             cxxflags='-DWEBSOCKETPP_STRICT_MASKING',
             ldflags='-static',
-            libs='-lboost_system -lpthread'),
+            libs='-lboost_system -lpthread' if not i.win32 else
+                '-lboost_system-mt -lpthread -lwsock32 -lws2_32'),
         native.cxx('outpost_savegame', 'shlib',
             ('$src/util/savegame_py/%s' % f
                 for f in os.listdir(os.path.join(i.src_dir, 'util/savegame_py'))

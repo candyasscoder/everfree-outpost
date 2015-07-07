@@ -1,5 +1,5 @@
-bin/backend: $b_native/backend
-bin/wrapper: $b_native/wrapper
+bin/backend$_exe: $b_native/backend$_exe
+bin/wrapper$_exe: $b_native/wrapper$_exe
 bin/run_server.sh: $src/util/run_server.sh
 
 data/blocks.json: $b_data/blocks_server.json

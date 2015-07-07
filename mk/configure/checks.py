@@ -1,4 +1,5 @@
 import os
+import platform
 import shlex
 import subprocess
 import sys
@@ -325,6 +326,10 @@ class Checker(object):
         def detect_all(*keys):
             for k in keys:
                 detect(k)
+
+        p = platform.system()
+        self.out('Checking platform: %s' % p)
+        self.i.win32 = (p == 'Windows')
 
         detect('python3')
 
