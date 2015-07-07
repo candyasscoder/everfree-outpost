@@ -138,7 +138,10 @@ if __name__ == '__main__':
     log.write('Arguments: %r\n\n' % (sys.argv[1:],))
 
     if not checks.run(i, log):
-        sys.exit(1)
+        if i.force:
+            print('Ignoring errors due to --force')
+        else:
+            sys.exit(1)
 
     py_includes = subprocess.check_output(('python3-config', '--includes')).decode().strip()
     py_ldflags = subprocess.check_output(('python3-config', '--ldflags')).decode().strip()
