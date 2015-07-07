@@ -11,7 +11,8 @@ def rules(i):
             description = STAMP $out
 
         rule copy_file
-            command = cp $in $out
+            # Use -f to avoid "text file busy" when copying binaries
+            command = cp -f $in $out
             description = COPY $out
 
         rule copy_dir_stamp
