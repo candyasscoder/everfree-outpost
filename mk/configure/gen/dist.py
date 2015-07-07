@@ -52,7 +52,14 @@ def apply_filter(manifest, filter_):
             src = '$prebuilt/%s' % dest
             manifest[i] = (dest, src)
 
-def from_manifest(common_path, extra_path, filter_path=None):
+def apply_exclude(manifest, names):
+    for i in range(len(manifest)):
+        dest, src = manifest[i]
+        if dest in names or any(dest.startswith(n + '/') for n in names):
+            src = '$prebuilt/%s' % dest
+            manifest[i] = (dest, src)
+
+def from_manifest(common_path, extra_path, filter_path=None, exclude_names=None):
     contents = []
 
     for path in (common_path, extra_path):
@@ -60,6 +67,9 @@ def from_manifest(common_path, extra_path, filter_path=None):
 
     if filter_path is not None:
         apply_filter(contents, read_filter(filter_path))
+
+    if exclude_names is not None:
+        apply_exclude(contents, set(n.strip() for n in exclude_names.split(',')))
 
 
     builds = []

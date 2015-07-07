@@ -18,6 +18,8 @@ def build_parser():
 
     args.add_argument('--data-only', action='store_true', default=False,
             help='generate data files only; don\'t compile any code')
+    args.add_argument('--use-prebuilt',
+            help='use prebuild versions of the named files/directories')
     args.add_argument('--prebuilt-dir', default=None,
             help='directory containing a previously compiled version')
 
@@ -208,7 +210,8 @@ if __name__ == '__main__':
         '# Distribution',
         dist.rules(i),
         dist.from_manifest(common_manifest, dist_manifest,
-                filter_path=maybe_data_filter),
+                filter_path=maybe_data_filter,
+                exclude_names=i.use_prebuilt),
 
         'default $builddir/dist.stamp',
         '', # ensure there's a newline after the last command
