@@ -136,6 +136,12 @@ local function generate_forest(c, cpos, r)
     }
     local p = sampler:get_points(min, max)
 
+    local origin = cpos:x() == 0 and cpos:y() == 0
+
+    if origin then
+        c:add_structure(V3.new(0, 0, 0), 'anvil')
+    end
+
     for i = 1, #p do
         local wb = water:get_region(p[i], p[i] + V2.new(4, 2))
         local cb = caves:get_region(p[i], p[i] + V2.new(4, 2))
@@ -146,13 +152,13 @@ local function generate_forest(c, cpos, r)
                 break
             end
         end
-        if ok then
-            c:add_structure((p[i] - min):extend(0), r:choose_weighted(pairs(structures)))
+        local offset = p[i] - min
+        if origin and offset:x() <= 1 and offset:y() <= 1 then
+            ok = false
         end
-    end
-
-    if cpos:x() == 0 and cpos:y() == 0 then
-        c:add_structure(V3.new(0, 0, 0), 'anvil')
+        if ok then
+            c:add_structure(offset:extend(0), r:choose_weighted(pairs(structures)))
+        end
     end
 end
 
