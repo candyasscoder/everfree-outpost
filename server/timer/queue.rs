@@ -2,7 +2,7 @@ use std::mem;
 use std::ptr;
 use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
 use std::thread;
-use std::usize;
+use std::u64;
 
 use types::Time;
 use util::now;
@@ -77,8 +77,8 @@ impl Wheel {
     pub fn new(now: Time) -> Wheel {
         // Can't set the size of the array using `size_of`, so hardcode the value and then check at
         // runtime that it's right.
-        assert!(mem::size_of::<SmallVec<WakeSoon>>() == 4 * usize::BYTES as usize);
-        let fake_smallvec = [0_usize; 4];
+        assert!(mem::size_of::<SmallVec<WakeSoon>>() == 4 * u64::BYTES as usize);
+        let fake_smallvec = [0_u64; 4];
         let mut soon = Box::new([fake_smallvec; WHEEL_BUCKETS]);
         unsafe {
             let soon_view: &mut [_; WHEEL_BUCKETS] = mem::transmute(&mut *soon);
