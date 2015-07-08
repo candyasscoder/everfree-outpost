@@ -1,15 +1,18 @@
+import sys
+py3 = sys.version_info >= (3,)
+
 import os
-import queue
 import subprocess
 import sys
 import threading
 
-try:
+if py3:
+    import queue
     import tkinter as tk
     import tkinter.ttk as ttk
     from tkinter.scrolledtext import ScrolledText
-except ImportError:
-    # For Python 2
+else:
+    import Queue as queue
     import Tkinter as tk
     import ttk
     from ScrolledText import ScrolledText
@@ -17,7 +20,9 @@ except ImportError:
 
 class ProcessMonitor(threading.Thread):
     def __init__(self, process, queue):
-        super(ProcessMonitor, self).__init__(daemon=True)
+        super(ProcessMonitor, self).__init__()
+        self.daemon = True
+
         self.queue = queue
         self.process = process
 
@@ -50,7 +55,8 @@ def append_text(widget, text):
 
 class Application(ttk.Frame):
     def __init__(self, master=None):
-        super(Application, self).__init__(master)
+        # ttk.Frame is an old-style class on 2.7
+        ttk.Frame.__init__(self, master)
         self._init_ui()
         self.pack()
 
@@ -157,7 +163,6 @@ class Application(ttk.Frame):
         env['RUST_LOG'] = 'info'
         try:
             self.wrapper_process = subprocess.Popen(('bin/wrapper',),
-                    stdin=subprocess.DEVNULL,
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                     env=env)
             ProcessMonitor(self.wrapper_process, self.wrapper_queue).start()
@@ -167,9 +172,9 @@ class Application(ttk.Frame):
             wrapper_ok = 'err'
 
         try:
+            module = 'http.server' if py3 else 'SimpleHTTPServer'
             self.http_process = subprocess.Popen(
-                    (sys.executable, '-m', 'http.server', '8892'),
-                    stdin=subprocess.DEVNULL,
+                    (sys.executable, '-m', module, '8892'),
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                     cwd=os.path.join(os.getcwd(), 'www'))
             ProcessMonitor(self.http_process, self.http_queue).start()
