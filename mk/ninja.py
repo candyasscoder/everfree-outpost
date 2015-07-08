@@ -12,7 +12,7 @@ Default = namedtuple('Default', ('targets',))
 
 
 
-LINE_CONT = re.compile(r'\$\n\s*')
+LINE_CONT = re.compile(r'\$\n[ \t]*')
 NON_SPACE = re.compile(r'\S')
 MULTI_NON_SPACE = re.compile(r'\S+')
 
@@ -50,7 +50,7 @@ def tokenize(s, keep_space=False):
                 raise ValueError('parse error: $ at end of input')
             next_char = s[m.start() + 1]
 
-            var_m = VAR.match(s, i)
+            var_m = VAR.match(s, m.start())
             if var_m is not None:
                 cur_tok += '${%s}' % (var_m.group(1) or var_m.group(2))
                 i = var_m.end()
@@ -164,9 +164,9 @@ class Parser(object):
                 parts['order_only'],
                 bindings)
 
-    def parse_defaults(self):
+    def parse_default(self):
         indent, tokens = tokenize(self.take())
-        return Defaults(tokens[1:])
+        return Default(tokens[1:])
 
     def parse_binding(self):
         indent, tokens = tokenize(self.take(), keep_space=True)
