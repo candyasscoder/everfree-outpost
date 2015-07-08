@@ -8,6 +8,9 @@ def main(files):
 
     print(textwrap.dedent('''
         (function() {
+            window.exports = {};
+            window.require = function() { return window.exports; };
+
             function load(f) {
                 document.write('<script src="' + f + '"></script>');
             }
