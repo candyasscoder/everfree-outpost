@@ -8,12 +8,12 @@ import sys
 import threading
 
 if py3:
-    import queue
+    from queue import Queue, Empty
     import tkinter as tk
     import tkinter.ttk as ttk
     from tkinter.scrolledtext import ScrolledText
 else:
-    import Queue as queue
+    from Queue import Queue, Empty
     import Tkinter as tk
     import ttk
     from ScrolledText import ScrolledText
@@ -22,14 +22,12 @@ import platform
 win32 = platform.system() == 'Windows'
 
 
-
 def dequeue_all(q):
     while True:
         try:
             yield q.get(block=False)
-        except queue.Empty:
+        except Empty:
             return
-
 
 
 class ProcessMonitorWorker(threading.Thread):
@@ -61,7 +59,7 @@ class ProcessMonitor(object):
         self.cmd = cmd
         self.kwargs = kwargs
         self.process = None
-        self.queue = queue.Queue()
+        self.queue = Queue()
         self.extra_pending = 0
         self.on_event = lambda k, d: None
 
@@ -137,7 +135,7 @@ class ReplConnectionWorker(threading.Thread):
 class ReplConnection(object):
     def __init__(self):
         self.sock = None
-        self.queue = queue
+        self.queue = Queue()
         self.on_event = lambda k, d: None
 
     def _ensure_open(self):
@@ -145,11 +143,14 @@ class ReplConnection(object):
             return
 
         if not win32:
-            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self.sock.connect('./repl')
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.connect('./repl')
         else:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.connect(('localhost', 8891))
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect(('localhost', 8891))
+        # Defer assignment to `self.sock` until the `conenct` has succeeded.
+        self.sock = s
+        ReplConnectionWorker(self.sock, self.queue).start()
 
     def send(self, msg):
         self._ensure_open()
@@ -244,7 +245,9 @@ class Application(ttk.Frame):
         self.repl_input = ScrolledText(frame, height=15, width=80)
         self.repl_input.insert(tk.END,
                 '-- REPL command input\n'
-                '-- Press Ctrl-Enter to run command\n')
+                '-- Press Ctrl-Enter to run command\n'
+                'client_by_name(\'OP\'):extra().superuser = true')
+        self.repl_input.bind('<Control-Return>', self._repl_send)
         self.repl_input.pack()
         self.repl_output = ScrolledText(frame, height=5, width=80)
         self.repl_output.pack()
@@ -271,8 +274,17 @@ class Application(ttk.Frame):
                 stat = 'err'
             self._update_status(http=stat)
 
+    def _repl_send(self, evt):
+        cmd = self.repl_input.get('1.0', tk.END)
+        cmd = '{\n%s\n}\n' % cmd
+        try:
+            self.repl.send(cmd)
+        except (IOError, OSError) as e:
+            append_text(self.repl_output, '\n\nError sending command: %s' % e)
+        return 'break'
+
     def _handle_repl_event(self, kind, data):
-        if kind == 'output':
+        if kind == 'recv':
             append_text(self.repl_output, data.decode('utf-8'))
 
     def _log_event(self, log, kind, data):
@@ -286,7 +298,7 @@ class Application(ttk.Frame):
     def _check_queues(self):
         self.wrapper.poll()
         self.http.poll()
-        #self.repl.poll()
+        self.repl.poll()
 
         self.after(100, self._check_queues)
 
