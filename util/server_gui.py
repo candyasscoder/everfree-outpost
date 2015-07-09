@@ -80,6 +80,8 @@ class Application(ttk.Frame):
         self.http_queue = queue.Queue()
         self.stopping = False
 
+        self.master.protocol('WM_DELETE_WINDOW', self._handle_close)
+
         self.after(100, self._check_queues)
 
     def _init_ui(self):
@@ -234,6 +236,10 @@ class Application(ttk.Frame):
                     text='Visit http://localhost:8889/client.html to play')
         else:
             self.status_extra.config(text='')
+
+    def _handle_close(self):
+        self._stop()
+        self.quit()
 
 
 def main():
