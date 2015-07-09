@@ -33,7 +33,7 @@ class ProcessMonitor(threading.Thread):
     def run(self):
         while True:
             try:
-                buf = self.process.stdout.read()
+                buf = self.process.stdout.raw.read(4096)
             except IOError as e:
                 self.queue.put(('error', str(e)))
                 return
@@ -188,7 +188,7 @@ class Application(ttk.Frame):
         try:
             module = 'http.server' if py3 else 'SimpleHTTPServer'
             self.http_process = subprocess.Popen(
-                    (sys.executable, '-m', module, '8892'),
+                    (sys.executable, '-u', '-m', module, '8892'),
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                     cwd=os.path.join(os.getcwd(), 'www'))
             ProcessMonitor(self.http_process, self.http_queue).start()
