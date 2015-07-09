@@ -22,9 +22,19 @@ import platform
 win32 = platform.system() == 'Windows'
 
 
-class ProcessMonitor(threading.Thread):
+
+def dequeue_all(q):
+    while True:
+        try:
+            yield q.get(block=False)
+        except queue.Empty:
+            return
+
+
+
+class ProcessMonitorWorker(threading.Thread):
     def __init__(self, process, queue):
-        super(ProcessMonitor, self).__init__()
+        super(ProcessMonitorWorker, self).__init__()
         self.daemon = True
 
         self.queue = queue
@@ -46,26 +56,121 @@ class ProcessMonitor(threading.Thread):
 
             self.queue.put(('output', buf))
 
-def dequeue_all(q):
-    while True:
-        try:
-            yield q.get(block=False)
-        except queue.Empty:
+class ProcessMonitor(object):
+    def __init__(self, cmd, **kwargs):
+        self.cmd = cmd
+        self.kwargs = kwargs
+        self.process = None
+        self.queue = queue.Queue()
+        self.extra_pending = 0
+        self.on_event = lambda k, d: None
+
+    def start(self):
+        if self.process is not None:
+            self.extra_pending += 1
+            self.stop()
+
+        self.process = subprocess.Popen(self.cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                **self.kwargs)
+        ProcessMonitorWorker(self.process, self.queue).start()
+
+    def stop(self):
+        if self.process is not None:
+            self.process.terminate()
+            self.process = None
+
+    def poll(self):
+        for kind, data in dequeue_all(self.queue):
+            if kind in ('error', 'result'):
+                if self.extra_pending == 0:
+                    self.process = None
+                else:
+                    self.extra_pending -= 1
+            self.on_event(kind, data)
+
+
+def send_control(msg):
+    if not win32:
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.connect('./control')
+    else:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect(('localhost', 8890))
+    s.send(msg.encode() + b'\n')
+    s.close()
+
+class WrapperProcessMonitor(ProcessMonitor):
+    def stop(self):
+        if self.process is not None:
+            try:
+                send_control('shutdown')
+            except (IOError, OSError) as e:
+                self.process.terminate()
+            self.process = None
+
+
+class ReplConnectionWorker(threading.Thread):
+    def __init__(self, sock, queue):
+        super(ReplConnectionWorker, self).__init__()
+        self.daemon = True
+
+        self.sock = sock
+        self.queue = queue
+
+    def run(self):
+        while True:
+            try:
+                buf = self.sock.recv(4096)
+            except IOError as e:
+                self.queue.put(('error', str(e)))
+                return
+
+            if len(buf) == 0:
+                # The process closed stdout/stderr.
+                self.queue.put(('closed', None))
+                return
+
+            self.queue.put(('recv', buf))
+
+class ReplConnection(object):
+    def __init__(self):
+        self.sock = None
+        self.queue = queue
+        self.on_event = lambda k, d: None
+
+    def _ensure_open(self):
+        if self.sock is not None:
             return
+
+        if not win32:
+            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            self.sock.connect('./repl')
+        else:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.sock.connect(('localhost', 8891))
+
+    def send(self, msg):
+        self._ensure_open()
+        self.sock.send(msg.encode('utf-8'))
+
+    def close(self):
+        if self.sock is not None:
+            self.sock.shutdown(socket.SHUT_RDWR)
+            self.sock.close()
+            self.sock = None
+
+    def poll(self):
+        for kind, data in dequeue_all(self.queue):
+            if kind in ('error', 'closed'):
+                self.close()
+            self.on_event(kind, data)
+
 
 def append_text(widget, text):
     widget.insert(tk.END, text)
     widget.see(tk.END)
-
-def send_control(msg):
-    if win32:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect(('localhost', 8890))
-    else:
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.connect('./control')
-    s.send(msg.encode() + b'\n')
-    s.close()
 
 class Application(ttk.Frame):
     def __init__(self, master=None):
@@ -74,14 +179,22 @@ class Application(ttk.Frame):
         self._init_ui()
         self.pack()
 
-        self.wrapper_process = None
-        self.wrapper_queue = queue.Queue()
-        self.http_process = None
-        self.http_queue = queue.Queue()
-        self.stopping = False
+        env = os.environ.copy()
+        env['RUST_LOG'] = 'info'
+        self.wrapper = WrapperProcessMonitor(('bin/wrapper',), env=env)
+        self.wrapper.on_event = self._handle_wrapper_event
+
+        module = 'http.server' if py3 else 'SimpleHTTPServer'
+        self.http = ProcessMonitor((sys.executable, '-u', '-m', module, '8892'),
+            cwd=os.path.join(os.getcwd(), 'www'))
+        self.http.on_event = self._handle_http_event
+
+        self.repl = ReplConnection()
+        self.repl.on_event = self._handle_repl_event
+
+        self.stopping = 0
 
         self.master.protocol('WM_DELETE_WINDOW', self._handle_close)
-
         self.after(100, self._check_queues)
 
     def _init_ui(self):
@@ -95,7 +208,7 @@ class Application(ttk.Frame):
         self.btn_stop.pack(side='right')
 
         notebook.add(self._init_status_frame(notebook), text='Status')
-        #notebook.add(self._init_repl_frame(notebook), text='REPL')
+        notebook.add(self._init_repl_frame(notebook), text='REPL')
 
         self.wrapper_log = ScrolledText(notebook, height=20, width=80)
         notebook.add(self.wrapper_log, text='Main Log')
@@ -138,33 +251,42 @@ class Application(ttk.Frame):
 
         return frame
 
-    def _check_one_queue(self, queue, log, on_exit):
-        for kind, data in dequeue_all(queue):
-            if kind == 'error':
-                append_text(log, '\n\nError reading output: %s' % data)
-            elif kind == 'result':
-                append_text(log, '\n\nProcess exited with code %d' % data)
-                on_exit(data)
-            elif kind == 'output':
-                append_text(log, data.decode())
+    def _handle_wrapper_event(self, kind, data):
+        self._log_event(self.wrapper_log, kind, data)
+        if kind in ('error', 'result'):
+            if self.stopping > 0:
+                self.stopping -= 1
+                stat = 'down'
+            else:
+                stat = 'err'
+            self._update_status(wrapper=stat)
+
+    def _handle_http_event(self, kind, data):
+        self._log_event(self.http_log, kind, data)
+        if kind in ('error', 'result'):
+            if self.stopping > 0:
+                self.stopping -= 1
+                stat = 'down'
+            else:
+                stat = 'err'
+            self._update_status(http=stat)
+
+    def _handle_repl_event(self, kind, data):
+        if kind == 'output':
+            append_text(self.repl_output, data.decode('utf-8'))
+
+    def _log_event(self, log, kind, data):
+        if kind == 'error':
+            append_text(log, '\n\nError reading output: %s' % data.decode())
+        elif kind == 'result':
+            append_text(log, '\n\nProcess exited with code %d' % data)
+        elif kind == 'output':
+            append_text(log, data.decode())
 
     def _check_queues(self):
-        def wrapper_exit(code):
-            if self.stopping > 0:
-                self._update_status(wrapper='down')
-                self.stopping -= 1
-            else:
-                self._update_status(wrapper='err')
-
-        def http_exit(code):
-            if self.stopping > 0:
-                self._update_status(http='down')
-                self.stopping -= 1
-            else:
-                self._update_status(http='err')
-
-        self._check_one_queue(self.wrapper_queue, self.wrapper_log, wrapper_exit)
-        self._check_one_queue(self.http_queue, self.http_log, http_exit)
+        self.wrapper.poll()
+        self.http.poll()
+        #self.repl.poll()
 
         self.after(100, self._check_queues)
 
@@ -175,25 +297,15 @@ class Application(ttk.Frame):
             if os.path.exists('repl'):
                 os.remove('repl')
 
-        env = os.environ.copy()
-        env['RUST_LOG'] = 'info'
         try:
-            self.wrapper_process = subprocess.Popen(('bin/wrapper',),
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    env=env)
-            ProcessMonitor(self.wrapper_process, self.wrapper_queue).start()
+            self.wrapper.start()
             wrapper_ok = 'up'
         except OSError as e:
             append_text(self.wrapper_log, '\n\nError starting main server: %s' % e)
             wrapper_ok = 'err'
 
         try:
-            module = 'http.server' if py3 else 'SimpleHTTPServer'
-            self.http_process = subprocess.Popen(
-                    (sys.executable, '-u', '-m', module, '8892'),
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    cwd=os.path.join(os.getcwd(), 'www'))
-            ProcessMonitor(self.http_process, self.http_queue).start()
+            self.http.start()
             http_ok = 'up'
         except OSError as e:
             append_text(self.http_log, '\n\nError starting HTTP server: %s' % e)
@@ -206,15 +318,9 @@ class Application(ttk.Frame):
     def _stop(self):
         self.stopping = 2
 
-        if self.wrapper_process is not None:
-            try:
-                send_control('shutdown')
-            except OSError as e:
-                append_text(self.wrapper_log, '\n\nError sending shutdown command: %s' % e)
-                self.wrapper_process.terminate()
-
-        if self.http_process is not None:
-            self.http_process.terminate()
+        self.wrapper.stop()
+        self.http.stop()
+        self.repl.close()
 
         self.btn_start.state(['!disabled'])
         self.btn_stop.state(['disabled'])
