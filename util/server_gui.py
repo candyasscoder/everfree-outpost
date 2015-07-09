@@ -2,6 +2,7 @@ import sys
 py3 = sys.version_info >= (3,)
 
 import os
+import socket
 import subprocess
 import sys
 import threading
@@ -16,6 +17,9 @@ else:
     import Tkinter as tk
     import ttk
     from ScrolledText import ScrolledText
+
+import platform
+win32 = platform.system() == 'Windows'
 
 
 class ProcessMonitor(threading.Thread):
@@ -52,6 +56,16 @@ def dequeue_all(q):
 def append_text(widget, text):
     widget.insert(tk.END, text)
     widget.see(tk.END)
+
+def send_control(msg):
+    if win32:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect(('localhost', 8890))
+    else:
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.connect('./control')
+    s.send(msg.encode() + b'\n')
+    s.close()
 
 class Application(ttk.Frame):
     def __init__(self, master=None):
@@ -191,7 +205,11 @@ class Application(ttk.Frame):
         self.stopping = 2
 
         if self.wrapper_process is not None:
-            self.wrapper_process.terminate()
+            try:
+                send_control('shutdown')
+            except OSError as e:
+                append_text(self.wrapper_log, '\n\nError sending shutdown command: %s' % e)
+                self.wrapper_process.terminate()
 
         if self.http_process is not None:
             self.http_process.terminate()
