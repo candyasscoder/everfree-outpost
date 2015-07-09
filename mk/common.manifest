@@ -7,6 +7,8 @@ data/items.json: $b_data/items_server.json
 data/recipes.json: $b_data/recipes_server.json
 data/structures.json: $b_data/structures_server.json
 
+scripts/: $src/scripts/
+
 www/client.html: $src/client/client.html
 www/instructions.html: $src/client/instructions.html
 www/credits.html: $b_data/credits.html
@@ -20,4 +22,7 @@ www/animtest.js: $b_js/animtest.js
 www/configedit.html: $src/client/configedit.html
 www/configedit.js: $b_js/configedit.js
 
-scripts/: $src/scripts/
+util/map.tmpl.html: $src/util/map.tmpl.html
+util/outpost_savegame$_so: $b_native/outpost_savegame$_so
+util/render_map.py: $src/util/render_map.py
+util/nginx.conf: $src/util/nginx.conf
