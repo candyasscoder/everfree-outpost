@@ -1,6 +1,6 @@
-from outpost_data.builder import *
-from outpost_data.consts import *
-from outpost_data.util import chop_terrain, chop_image_named
+from ...core.builder import *
+from ...core.consts import *
+from ...core.util import chop_terrain, chop_image_named
 
 from PIL import Image
 

@@ -173,6 +173,10 @@ def main(src_dir):
             if path.endswith(':'):
                 # It's actually the `out` part of `out: in1 in2 in3`.  Ignore.
                 continue
+
+            if os.path.isdir(path):
+                continue
+
             path = os.path.normpath(path)
             _, ext = os.path.splitext(path)
 

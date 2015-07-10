@@ -1,9 +1,9 @@
 from PIL import Image
 
-from outpost_data.builder import *
-from outpost_data.consts import *
-from outpost_data.structure import StructureDef
-from outpost_data.util import extract
+from ...core.builder import *
+from ...core.consts import *
+from ...core.structure import StructureDef
+from ...core.util import extract
 
 
 def mk_structure_item(s, name, ui_name, base=None):

@@ -54,7 +54,7 @@ def process():
     return template('''
         rule process_data
             command = rm -f $b_data/structures*.png && $
-                $python3 $src/data/main.py $src/assets $b_data && $
+                $python3 $src/gen/data_main.py --src-dir=$src --output-dir=$b_data && $
                 touch $b_data/stamp
             description = DATA
             depfile = $b_data/data.d
@@ -66,7 +66,7 @@ def process():
                 %end
             %end
             $b_data/tiles.png $b_data/items.png: $
-            process_data | $src/data/main.py
+            process_data | $src/gen/data_main.py
     ''', **locals())
 
 def pack():

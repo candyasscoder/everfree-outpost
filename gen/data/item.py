@@ -1,4 +1,4 @@
-from outpost_data.consts import *
+from .consts import *
 
 
 class ItemDef(object):

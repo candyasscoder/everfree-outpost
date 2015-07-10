@@ -1,15 +1,15 @@
-from outpost_data.builder import *
-import outpost_data.images as I
-from outpost_data import depthmap
-from outpost_data.structure import Shape
-from outpost_data.util import loader, extract
+from ..core.builder import *
+from ..core.images import loader
+from ..core import depthmap
+from ..core.structure import Shape
+from ..core.util import extract
 
-from lib.items import *
+from .lib.items import *
 
 
-def init(asset_path):
-    tiles = loader(asset_path, 'tiles')
-    gervais = loader(asset_path, 'tiles/gervais_roguelike')
+def init():
+    tiles = loader('tiles')
+    gervais = loader('tiles/gervais_roguelike')
 
     mk_item('pick', 'Pickaxe', gervais('AngbandTk_pick.png')) \
             .recipe('anvil', {'wood': 10, 'stone': 10})

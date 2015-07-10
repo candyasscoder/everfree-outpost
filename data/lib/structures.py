@@ -1,8 +1,8 @@
-from outpost_data.builder import *
-from outpost_data.consts import *
-from outpost_data import depthmap
-from outpost_data.structure import Shape, floor, solid
-from outpost_data.util import chop_terrain
+from ...core.builder import *
+from ...core.consts import *
+from ...core import depthmap
+from ...core.structure import Shape, floor, solid
+from ...core.util import chop_terrain
 
 
 def mk_terrain_structures(basename, image):

@@ -1,4 +1,4 @@
-from outpost_data import structure, tile, block, item, recipe
+from . import structure, tile, block, item, recipe
 
 
 class Objects(object):

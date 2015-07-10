@@ -1,7 +1,7 @@
 from PIL import Image
 
-from outpost_data.consts import *
-from outpost_data.util import err
+from .consts import *
+from .util import err
 
 
 class BlockDef(object):

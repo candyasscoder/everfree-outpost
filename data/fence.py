@@ -1,11 +1,11 @@
-from outpost_data.builder import *
-import outpost_data.images as I
-from outpost_data import depthmap
-from outpost_data.structure import Shape
-from outpost_data.util import loader, extract
+from ..core.builder import *
+from ..core.images import loader
+from ..core import depthmap
+from ..core.structure import Shape
+from ..core.util import extract
 
-from lib.items import *
-from lib.structures import *
+from .lib.items import *
+from .lib.structures import *
 
 
 def do_fence_parts(basename, image):
@@ -26,8 +26,8 @@ def do_fence_parts(basename, image):
 
     return b
 
-def init(asset_path):
-    structures = loader(asset_path, 'structures')
+def init():
+    structures = loader('structures')
 
     fence = do_fence_parts('fence', structures('fence.png'))
 

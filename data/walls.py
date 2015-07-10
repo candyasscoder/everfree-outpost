@@ -1,11 +1,11 @@
-from outpost_data.builder import *
-import outpost_data.images as I
-from outpost_data import depthmap
-from outpost_data.structure import Shape
-from outpost_data.util import loader, extract, stack
+from ..core.builder import *
+from ..core.images import loader
+from ..core import depthmap
+from ..core.structure import Shape
+from ..core.util import extract, stack
 
-from lib.items import *
-from lib.structures import *
+from .lib.items import *
+from .lib.structures import *
 
 
 def do_wall_parts(basename, image, plane_image, door_image=None):
@@ -57,8 +57,8 @@ def do_wall_parts(basename, image, plane_image, door_image=None):
 
     return b
 
-def init(asset_path):
-    structures = loader(asset_path, 'structures')
+def init():
+    structures = loader('structures')
 
     wall = do_wall_parts('wood_wall',
             structures('wood_wall.png'), structures('wood_wall-planemap.png'),

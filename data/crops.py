@@ -1,11 +1,11 @@
-from outpost_data.builder import *
-import outpost_data.images as I
-from outpost_data import depthmap
-from outpost_data.structure import Shape
-from outpost_data.util import loader, extract
+from ..core.builder import *
+from ..core import depthmap
+from ..core.images import loader
+from ..core.structure import Shape
+from ..core.util import extract
 
-from lib.structures import *
-from lib.terrain import *
+from .lib.structures import *
+from .lib.terrain import *
 
 
 def mk_crop(basename, sheet, base_y, count=5, size=(1, 1, 1)):
@@ -13,9 +13,9 @@ def mk_crop(basename, sheet, base_y, count=5, size=(1, 1, 1)):
         mk_solid_structure('%s/%d' % (basename, i), sheet, size, base=(i, base_y))
 
 
-def init(asset_path):
-    tiles = loader(asset_path, 'tiles')
-    structures = loader(asset_path, 'structures')
+def init():
+    tiles = loader('tiles')
+    structures = loader('structures')
 
     img = structures('crops.png')
 

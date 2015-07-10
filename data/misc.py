@@ -1,16 +1,16 @@
-from outpost_data.builder import *
-import outpost_data.images as I
-from outpost_data import depthmap
-from outpost_data.structure import Shape
-from outpost_data.util import loader, extract
+from ..core.builder import *
+from ..core.images import loader
+from ..core import depthmap
+from ..core.structure import Shape
+from ..core.util import extract
 
-from lib.items import *
-from lib.structures import *
+from .lib.items import *
+from .lib.structures import *
 
 
-def init(asset_path):
-    tiles = loader(asset_path, 'tiles')
-    structures = loader(asset_path, 'structures')
+def init():
+    tiles = loader('tiles')
+    structures = loader('structures')
 
     road = mk_terrain_structures('road', structures('road.png'))
     mk_structure_item(road['road/center/v0'], 'road', 'Road') \

@@ -1,6 +1,6 @@
 from PIL import Image
 
-from outpost_data.consts import *
+from .consts import *
 
 
 class Shape(object):

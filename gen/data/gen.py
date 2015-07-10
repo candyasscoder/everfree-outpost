@@ -1,26 +1,14 @@
 import json
 import os
-import sys
 
-from outpost_data import images, builder, util
-import outpost_data.structure as S
-import outpost_data.tile as T
-import outpost_data.block as B
-import outpost_data.item as I
-import outpost_data.recipe as R
 
-import abilities
-import base
-import cave
-import crops
-import dungeon
-import fence
-import forest
-import furniture
-import house
-import misc
-import tools
-import walls
+from . import builder, images, loader, util
+from . import structure as S
+from . import tile as T
+from . import block as B
+from . import item as I
+from . import recipe as R
+
 
 def postprocess(b):
     structure_id_map = util.assign_ids(b.structures)
@@ -77,20 +65,7 @@ def emit_recipes(output_dir, recipes):
     write_json(output_dir, 'recipes_client.json',
             R.build_client_json(recipes))
 
-def main(asset_dir, output_dir):
-    abilities.init(asset_dir)
-    base.init(asset_dir)
-    cave.init(asset_dir)
-    crops.init(asset_dir)
-    dungeon.init(asset_dir)
-    fence.init(asset_dir)
-    forest.init(asset_dir)
-    furniture.init(asset_dir)
-    house.init(asset_dir)
-    misc.init(asset_dir)
-    tools.init(asset_dir)
-    walls.init(asset_dir)
-
+def generate(output_dir):
     b = builder.INSTANCE
     postprocess(b)
 
@@ -101,24 +76,13 @@ def main(asset_dir, output_dir):
     emit_recipes(output_dir, b.recipes)
 
     with open(os.path.join(output_dir, 'used_assets.txt'), 'w') as f:
-        f.write(''.join(p + '\n' for p in images.get_loaded_paths()))
+        f.write(''.join(p + '\n' for p in images.DEPENDENCIES))
 
     # Compute dependencies
     with open(os.path.join(output_dir, 'data.d'), 'w') as f:
         f.write('%s: \\\n' % os.path.join(output_dir, 'stamp'))
-        for p in images.get_loaded_paths():
+        for p in images.get_dependencies() + loader.get_dependencies():
             f.write('    %s \\\n' % p)
-
-        def do_dir(d):
-            for fn in os.listdir(d):
-                if fn.endswith('.py'):
-                    f.write('    %s \\\n' % os.path.join(d, fn))
-        do_dir(os.path.join(asset_dir, '..', 'data'))
-        do_dir(os.path.join(asset_dir, '..', 'data', 'outpost_data'))
-        do_dir(os.path.join(asset_dir, '..', 'data', 'lib'))
 
     assert not util.SAW_ERROR
 
-if __name__ == '__main__':
-    asset_dir, output_dir = sys.argv[1:]
-    main(asset_dir, output_dir)

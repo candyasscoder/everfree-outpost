@@ -1,11 +1,11 @@
-from outpost_data.builder import *
-import outpost_data.images as I
-from outpost_data import depthmap
-from outpost_data.structure import Shape
-from outpost_data.util import loader, extract
+from ..core.builder import *
+from ..core.images import loader
+from ..core import depthmap
+from ..core.structure import Shape
+from ..core.util import extract
 
-from lib.structures import *
-from lib.terrain import *
+from .lib.structures import *
+from .lib.terrain import *
 
 
 def do_tree(image, plane_image):
@@ -44,11 +44,11 @@ def do_tree(image, plane_image):
     return b
 
 
-def init(asset_path):
-    tiles = loader(asset_path, 'tiles')
-    structures = loader(asset_path, 'structures')
-    daneeklu = loader(asset_path, 'tiles/daneeklu_farming_tilesets')
-    lpc = loader(asset_path, 'tiles/lpc-base-tiles')
+def init():
+    tiles = loader('tiles')
+    structures = loader('structures')
+    daneeklu = loader('tiles/daneeklu_farming_tilesets')
+    lpc = loader('tiles/lpc-base-tiles')
 
     mk_floor_blocks(tiles('lpc-base-tiles/grass.png'), 'grass', shape='floor')
     mk_floor_blocks(tiles('lpc-base-tiles/watergrass.png'), 'water_grass')

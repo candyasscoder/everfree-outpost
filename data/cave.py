@@ -1,10 +1,10 @@
-from outpost_data.builder import *
-import outpost_data.images as I
-from outpost_data import depthmap
-from outpost_data.structure import Shape
-from outpost_data.util import loader, chop_image, chop_terrain, stack
+from ..core.builder import *
+from ..core import depthmap
+from ..core.images import loader
+from ..core.structure import Shape
+from ..core.util import chop_image, chop_terrain, stack
 
-from lib.terrain import *
+from .lib.terrain import *
 
 
 def mk_cave_walls(img_grass, img_dirt, img_cave_walls, basename):
@@ -70,8 +70,8 @@ def mk_cave_entrance(img_grass, img_dirt, img_cave_walls, basename):
     return blks
 
 
-def init(asset_path):
-    tiles = loader(asset_path, 'tiles')
+def init():
+    tiles = loader('tiles')
 
     grass = tiles('lpc-base-tiles/grass.png')
     dirt = tiles('lpc-base-tiles/dirt2.png')

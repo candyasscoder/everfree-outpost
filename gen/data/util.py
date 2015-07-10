@@ -1,10 +1,11 @@
+import importlib
 import os
 import sys
 
 from PIL import Image
 
-from outpost_data.consts import *
-import outpost_data.images as I
+from .consts import *
+from . import images as I
 
 
 def assign_ids(objs, reserved=None):
@@ -110,8 +111,3 @@ def build_sheet(objs):
         sheet.paste(o.image, (x * obj_w, y * obj_h))
 
     return sheet
-
-
-def loader(asset_path, name):
-    path = os.path.join(asset_path, name)
-    return lambda name: I.load(os.path.join(path, name))
