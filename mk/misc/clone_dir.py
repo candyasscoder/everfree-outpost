@@ -54,6 +54,9 @@ def clean_dest(base, d, src_files, seen):
                 clean_dest(base, path, src_files, seen)
 
 def main(src, dest, stamp):
+    if not os.path.exists(dest):
+        os.makedirs(dest)
+
     # 1) Collect all files in the source directory and their mtimes.
     src_files = {}
     read_tree(src, '', src_files)

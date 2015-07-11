@@ -16,9 +16,9 @@ def rules(i):
             description = COPY $out
 
         rule copy_dir_stamp
-            command = $python3 $src/mk/misc/clone_dir.py $copy_src $copy_dest $out
-            description = COPY $copy_dest ($out)
-            depfile = $out.d
+            command = $python3 $src/mk/misc/clone_dir.py $copy_src $copy_dest $stamp
+            description = COPY $copy_dest ($stamp)
+            depfile = $stamp.d
     ''', **locals())
 
 def read_manifest(path):
@@ -80,9 +80,10 @@ def from_manifest(common_path, extra_path, filter_path=None, exclude_names=None)
         if dest.endswith('/'):
             stamp = '$builddir/dist_%s.stamp' % dest.strip('/').replace('/', '_')
             add_build('''
-                build %stamp: copy_dir_stamp | $src/mk/misc/clone_dir.py
+                build %stamp $dist/%dest: copy_dir_stamp | $src/mk/misc/clone_dir.py
                     copy_src = %src
                     copy_dest = $dist/%dest
+                    stamp = %stamp
             ''', **locals())
             dist_deps.append(stamp)
         else:
