@@ -1,6 +1,6 @@
-local action = require('outpost.action')
-local structure_items = require('lib.structure_items')
-local tools = require('lib.tools')
+local action = require('core.action')
+local structure_items = require('outpost.lib.structure_items')
+local tools = require('outpost.lib.tools')
 
 function action.use.anvil(c, s)
     c:open_crafting(s, c:pawn():inventory('main'))

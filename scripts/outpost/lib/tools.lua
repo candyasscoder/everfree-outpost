@@ -1,5 +1,5 @@
-local action = require('outpost.action')
-local util = require('outpost.util')
+local action = require('core.action')
+local util = require('core.util')
 
 local handlers = {
     ['axe'] = {},

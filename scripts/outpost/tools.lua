@@ -1,6 +1,6 @@
-local action = require('outpost.action')
-local mallet = require('lib.mallet')
-local tools = require('lib.tools')
+local action = require('core.action')
+local mallet = require('outpost.lib.mallet')
+local tools = require('outpost.lib.tools')
 
 action.use_item.mallet = mallet.use_mallet
 action.use_item.axe = tools.mk_use_tool('axe')

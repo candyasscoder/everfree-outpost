@@ -1,7 +1,7 @@
-local autorotate = require('lib.autorotate')
-local mallet = require('lib.mallet')
-local structure_items = require('lib.structure_items')
-local door = require('lib.door')
+local autorotate = require('outpost.lib.autorotate')
+local mallet = require('outpost.lib.mallet')
+local structure_items = require('outpost.lib.structure_items')
+local door = require('outpost.lib.door')
 
 local add_structure_item = structure_items.add_structure_item
 local add_attachment_item = structure_items.add_attachment_item

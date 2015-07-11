@@ -1,6 +1,6 @@
-local action = require('outpost.action')
-local util = require('outpost.util')
-local structure_items = require('lib.structure_items')
+local action = require('core.action')
+local util = require('core.util')
+local structure_items = require('outpost.lib.structure_items')
 
 
 -- 0: no floor, 1: floor on -x/-y half, 2: floor on +x/+y half, 3: both

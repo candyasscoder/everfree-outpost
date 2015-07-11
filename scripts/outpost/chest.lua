@@ -1,7 +1,7 @@
-local action = require('outpost.action')
-local structure_items = require('lib.structure_items')
-local tools = require('lib.tools')
-local ward = require('lib.ward')
+local action = require('core.action')
+local structure_items = require('outpost.lib.structure_items')
+local tools = require('outpost.lib.tools')
+local ward = require('outpost.lib.ward')
 
 function action.use.chest(c, s)
     if not ward.check(c, s:pos()) then

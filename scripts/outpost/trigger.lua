@@ -1,5 +1,5 @@
-local action = require('outpost.action')
-local tools = require('lib.tools')
+local action = require('core.action')
+local tools = require('outpost.lib.tools')
 
 
 local function run_handler(handlers, c, s)

@@ -1,6 +1,6 @@
-local action = require('outpost.action')
-local util = require('outpost.util')
-local ward = require('lib.ward')
+local action = require('core.action')
+local util = require('core.util')
+local ward = require('outpost.lib.ward')
 
 local replacements = {}
 

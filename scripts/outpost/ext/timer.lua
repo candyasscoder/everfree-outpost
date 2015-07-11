@@ -1,6 +1,6 @@
 local outpost_ffi = require('outpost_ffi')
-local extra = require('outpost.extra')
-local timer = require('outpost.timer')
+local extra = require('core.extra')
+local timer = require('core.timer')
 
 
 local handlers = {}

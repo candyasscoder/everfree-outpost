@@ -1,7 +1,7 @@
-local action = require('outpost.action')
-local tools = require('lib.tools')
-local structure_items = require('lib.structure_items')
-local timer = require('ext.timer')
+local action = require('core.action')
+local tools = require('outpost.lib.tools')
+local structure_items = require('outpost.lib.structure_items')
+local timer = require('outpost.ext.timer')
 
 function make_door(item, base, tool)
     local t_open = base .. '/open'

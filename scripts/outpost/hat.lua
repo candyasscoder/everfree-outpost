@@ -1,4 +1,4 @@
-local action = require('outpost.action')
+local action = require('core.action')
 
 function action.use_item.hat(c, inv)
     if c:pawn():inventory('ability'):count('ability/remove_hat') > 0 then

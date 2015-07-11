@@ -56,36 +56,36 @@ Time = outpost_ffi.types.Time.table
 Timer = outpost_ffi.types.Timer.table
 
 
-require('outpost.userdata')
-require('outpost.extra')
-require('outpost.eval')
-require('outpost.timer')
-local action = require('outpost.action')
-local command = require('outpost.command')
-local util = require('outpost.util')
+require('core.userdata')
+require('core.extra')
+require('core.eval')
+require('core.timer')
+local action = require('core.action')
+local command = require('core.command')
+local util = require('core.util')
 
-require('ext.inventory')
-require('ext.string')
-require('ext.timer')
+require('outpost.ext.inventory')
+require('outpost.ext.string')
+require('outpost.ext.timer')
 
-require('terrain')
+require('outpost.terrain')
 
-local tools = require('lib.tools')
-local ward = require('lib.ward')
+local tools = require('outpost.lib.tools')
+local ward = require('outpost.lib.ward')
 
-require('object.anvil')
-require('object.chest')
-require('object.crops')
-require('object.hat')
-require('object.shovel')
-require('object.sign')
-require('object.structures')
-require('object.teleporter')
-require('object.tools')
-require('object.ward')
+require('outpost.anvil')
+require('outpost.chest')
+require('outpost.crops')
+require('outpost.hat')
+require('outpost.shovel')
+require('outpost.sign')
+require('outpost.structures')
+require('outpost.teleporter')
+require('outpost.tools')
+require('outpost.ward')
 
 -- No 'local' so it gets exposed to repl scripts
-trigger = require('object.trigger')
+trigger = require('outpost.trigger')
 
 
 

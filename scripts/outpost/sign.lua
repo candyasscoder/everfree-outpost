@@ -1,6 +1,6 @@
-local action = require('outpost.action')
-local structure_items = require('lib.structure_items')
-local tools = require('lib.tools')
+local action = require('core.action')
+local structure_items = require('outpost.lib.structure_items')
+local tools = require('outpost.lib.tools')
 
 local SIGN_TEXT_DIALOG_ID = 0
 

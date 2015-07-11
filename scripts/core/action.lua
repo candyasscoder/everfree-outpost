@@ -1,5 +1,5 @@
 local outpost_ffi = require('outpost_ffi')
-local util = require('outpost.util')
+local util = require('core.util')
 local V3 = outpost_ffi.types.V3.table
 
 

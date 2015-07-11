@@ -1,9 +1,9 @@
-local action = require('outpost.action')
-local structure_items = require('lib.structure_items')
-local timer = require('ext.timer')
-local tools = require('lib.tools')
-local util = require('outpost.util')
-local ward = require('lib.ward')
+local action = require('core.action')
+local structure_items = require('outpost.lib.structure_items')
+local timer = require('outpost.ext.timer')
+local tools = require('outpost.lib.tools')
+local util = require('core.util')
+local ward = require('outpost.lib.ward')
 
 local TRIBE_TABLE = {
     [0x00] = 'E',

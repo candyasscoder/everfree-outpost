@@ -1,7 +1,7 @@
-local action = require('outpost.action')
-local util = require('outpost.util')
-local ward = require('lib.ward')
-local mallet = require('lib.mallet')
+local action = require('core.action')
+local util = require('core.util')
+local ward = require('outpost.lib.ward')
+local mallet = require('outpost.lib.mallet')
 
 local function place_structure(world, inv, plane, pos, item_name, template_name)
     if inv:count(item_name) == 0 then
