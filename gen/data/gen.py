@@ -76,7 +76,7 @@ def generate(output_dir):
     emit_recipes(output_dir, b.recipes)
 
     with open(os.path.join(output_dir, 'used_assets.txt'), 'w') as f:
-        f.write(''.join(p + '\n' for p in images.DEPENDENCIES))
+        f.write(''.join(p + '\n' for p in images.get_dependencies()))
 
     # Compute dependencies
     with open(os.path.join(output_dir, 'data.d'), 'w') as f:

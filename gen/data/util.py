@@ -1,11 +1,11 @@
 import importlib
+import inspect
 import os
 import sys
 
 from PIL import Image
 
 from .consts import *
-from . import images as I
 
 
 def assign_ids(objs, reserved=None):
@@ -111,3 +111,20 @@ def build_sheet(objs):
         sheet.paste(o.image, (x * obj_w, y * obj_h))
 
     return sheet
+
+
+def get_caller_mod_name():
+    stack = inspect.stack()
+    try:
+        for frame in stack[1:]:
+            module = inspect.getmodule(frame[0])
+            if module is None:
+                continue
+            if module.__name__.startswith('outpost_data.'):
+                parts = module.__name__.split('.')
+                if parts[1] == 'core':
+                    continue
+                return parts[1]
+        raise ValueError("couldn't detect calling module name")
+    finally:
+        del stack

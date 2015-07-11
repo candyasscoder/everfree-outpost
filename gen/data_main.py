@@ -102,19 +102,33 @@ def main(args):
     attach_to_package('outpost_data.core.loader')
 
 
+    from outpost_data.core import images
+
     # Load mods and set up asset search path.
-    mods = [load_mod('outpost', os.path.join(ns.src_dir, 'data'))]
-    asset_path = [os.path.join(ns.src_dir, 'assets')]
+    mods = []
+    seen_outpost = False
 
     if ns.mods is not None:
         for mod_name in ns.mods.split(','):
-            mods.append(load_mod(mod_name, os.path.join(ns.src_dir, 'mods', mod_name, 'data')))
-            asset_path.append(os.path.join(ns.src_dir, 'mods', mod_name, 'assets'))
+            if mod_name != 'outpost':
+                mod_dir = os.path.join(ns.src_dir, 'mods', mod_name)
+                data_dir = os.path.join(mod_dir, 'data')
+                asset_dir = os.path.join(mod_dir, 'assets')
+                override_dir = os.path.join(mod_dir, 'asset_overrides')
+                deps = ('outpost',) if seen_outpost else ()
+            else:
+                data_dir = os.path.join(ns.src_dir, 'data')
+                asset_dir = os.path.join(ns.src_dir, 'assets')
+                override_dir = None
+                deps = ()
+                seen_outpost = True
 
-    # Reverse so later mods can override earlier ones.
-    asset_path.reverse()
-    import outpost_data.core.images
-    outpost_data.core.images.SEARCH_PATH = asset_path
+            mods.append(load_mod(mod_name, data_dir))
+            images.register_mod(mod_name, asset_dir, override_dir, deps)
+
+    from outpost_data.core import util
+    if util.SAW_ERROR:
+        sys.exit(1)
 
     
     # Run `init()` for every mod.

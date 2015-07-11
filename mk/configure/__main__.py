@@ -22,6 +22,8 @@ def build_parser():
             help='use prebuild versions of the named files/directories')
     args.add_argument('--prebuilt-dir', default=None,
             help='directory containing a previously compiled version')
+    args.add_argument('--mods',
+            help='list of mods to include in the compiled game')
 
     args.add_argument('--debug', action='store_true',
             help='produce a debug build')
@@ -100,6 +102,8 @@ def header(i):
     def b(*args):
         return os.path.normpath(os.path.join(i.build_dir, *args))
 
+    mod_list = ['outpost'] + (i.mods.split(',') if i.mods else [])
+
     return template('''
         src = %{os.path.normpath(i.src_dir)}
         # Note: (1) `build` is a ninja keyword; (2) `builddir` is a special
@@ -115,6 +119,8 @@ def header(i):
         b_asmjs = %{b('asmjs')}
         b_data = %{b('data')}
         b_js = %{b('js')}
+
+        mods = %{','.join(mod_list)}
 
         rust_home = %{i.rust_home}
         bitflags_home = %{i.bitflags_home}
