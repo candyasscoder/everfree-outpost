@@ -140,38 +140,16 @@ class Application(ttk.Frame):
         self.after(100, self._check_queues)
 
     def _init_ui(self):
-        frame_mods = self._init_mod_frame(self)
-        frame_buttons = self._init_button_frame(self)
-        frame_output = self._init_output_frame(self)
+        wrapper = ttk.Frame(self)
+        frame_mods = self._init_mod_frame(wrapper)
+        frame_output = self._init_output_frame(wrapper)
 
-        frame_mods.pack()
-        frame_buttons.pack()
-        frame_output.pack()
-        return
-
-        frame_top = ttk.Frame(self)
-        notebook = ttk.Notebook(self)
-
-        self.btn_start = ttk.Button(frame_top, text='Start Server', command=self._start)
-        self.btn_stop = ttk.Button(frame_top, text='Stop Server', command=self._stop)
-        self.btn_stop.state(['disabled'])
-        self.btn_start.pack(side='left')
-        self.btn_stop.pack(side='right')
-
-        notebook.add(self._init_status_frame(notebook), text='Status')
-        notebook.add(self._init_repl_frame(notebook), text='REPL')
-
-        self.wrapper_log = ScrolledText(notebook, height=20, width=80)
-        notebook.add(self.wrapper_log, text='Main Log')
-
-        self.http_log = ScrolledText(notebook, height=20, width=80)
-        notebook.add(self.http_log, text='HTTP Log')
-
-        frame_top.pack()
-        notebook.pack()
+        frame_mods.pack(pady=3)
+        frame_output.pack(fill='x', pady=3)
+        wrapper.pack()
 
     def _init_mod_frame(self, master):
-        frame = ttk.Frame(master)
+        frame = ttk.LabelFrame(master, text='Mod Configuration')
 
         left = ttk.Frame(frame)
         middle = ttk.Frame(frame)
@@ -204,12 +182,11 @@ class Application(ttk.Frame):
         right.pack(side='right')
         return frame
 
-    def _init_button_frame(self, master):
-        frame = ttk.Frame(master)
-        return frame
-
     def _init_output_frame(self, master):
-        frame = ttk.Frame(master)
+        frame = ttk.LabelFrame(master, text='Build Output')
+        ttk.Button(frame, text='Start Build', command=self._start_build).pack()
+        self.text_output = ScrolledText(frame, height=10, width=60)
+        self.text_output.pack(fill='x')
         return frame
 
     def _update_lists(self):
@@ -293,6 +270,9 @@ class Application(ttk.Frame):
         idx = self.list_enabled.index(mod)
         self.list_enabled.move(mod, '', idx + 1)
         self._update_buttons()
+
+    def _start_build(self):
+        pass
 
     def _check_queues(self):
         pass
