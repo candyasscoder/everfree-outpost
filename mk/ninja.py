@@ -2,6 +2,8 @@ import builtins
 from collections import namedtuple
 import os
 import re
+import shlex
+import shutil
 import subprocess
 
 Binding = namedtuple('Binding', ('name', 'value'))
@@ -311,7 +313,48 @@ def build(target, builds, missing_ok=False):
             os.makedirs(os.path.dirname(target))
         except OSError:
             pass
-        subprocess.check_call(b.command, shell=True)
+        run(b.command)
+
+def run(command):
+    tokens = shlex.split(command)
+    if tokens[0] == 'cp':
+        do_cp(tokens[1:])
+    elif tokens[0] == 'touch':
+        do_touch(tokens[1:])
+    else:
+        subprocess.check_call(command, shell=True)
+
+def do_cp(args):
+    force = False
+    files = []
+    for a in args:
+        if a.startswith('-'):
+            if a == '-f':
+                force = True
+            else:
+                raise ValueError('unsupported option for `cp`: %r' % a)
+        else:
+            files.append(a)
+
+    assert len(files) == 2, 'wrong number of arguments for `cp`'
+    src, dest = files
+
+    if force:
+        try:
+            os.remove(dest)
+        except OSError:
+            pass
+    shutil.copy(src, dest)
+
+def do_touch(args):
+    assert len(args) == 1, 'wrong number of arguments for `touch`'
+    path = args[0]
+    assert not path.startswith('-'), 'unsupported option for `touch`: %r' % path
+    try:
+        os.utime(path)
+    except OSError:
+        with open(path, 'w') as f:
+            pass
 
 
 if __name__ == '__main__':
