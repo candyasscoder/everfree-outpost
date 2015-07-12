@@ -43,10 +43,10 @@ def clean_dest(base, d, src_files, seen):
 
         if rm:
             if not is_dir:
-                print('RM %s' % real_path)
+                #print('RM %s' % real_path)
                 os.remove(real_path)
             else:
-                print('RMTREE %s' % real_path)
+                #print('RMTREE %s' % real_path)
                 shutil.rmtree(real_path)
         else:
             seen.add(path)
@@ -70,13 +70,13 @@ def main(src, dest, stamp):
 
     for d in sorted(n for n in missing if src_files[n] is None):
         real_path = os.path.join(dest, d)
-        print('MKDIR %s' % real_path)
+        #print('MKDIR %s' % real_path)
         os.mkdir(real_path)
 
     for f in sorted(n for n in missing if src_files[n] is not None):
         real_src_path = os.path.join(src, f)
         real_dest_path = os.path.join(dest, f)
-        print('CP %s' % real_dest_path)
+        #print('CP %s' % real_dest_path)
         shutil.copy(real_src_path, real_dest_path)
 
     # 4) Create stamp and dependency files.
