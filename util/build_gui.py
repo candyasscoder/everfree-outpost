@@ -19,30 +19,6 @@ else:
     import ttk
     from ScrolledText import ScrolledText
 
-import platform
-win32 = platform.system() == 'Windows'
-
-
-def check_py3(exe):
-    try:
-        ret = subprocess.call([exe, '-c', 'import sys; assert sys.version_info >= (3, 4)'])
-        return ret == 0
-    except OSError:
-        return False
-
-def detect_py3():
-    if not win32:
-        candidates = [sys.executable, 'python3', 'python']
-    else:
-        # Try executables from %PATH%, plus the default install locations
-        candidates = [sys.executable, 'python3.exe', 'python.exe']
-        candidates.extend(sorted(glob.glob('c:\\python*\\python.exe'), reverse=True))
-
-    for exe in candidates:
-        if check_py3(exe):
-            return exe
-    return None
-
 
 def dequeue_all(q):
     while True:
@@ -85,12 +61,12 @@ class ProcessMonitor(object):
         self.extra_pending = 0
         self.on_event = lambda k, d: None
 
-    def start(self):
+    def start(self, extra_args=()):
         if self.process is not None:
             self.extra_pending += 1
             self.stop()
 
-        self.process = subprocess.Popen(self.cmd,
+        self.process = subprocess.Popen(tuple(self.cmd) + tuple(extra_args),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 **self.kwargs)
@@ -135,6 +111,9 @@ class Application(ttk.Frame):
         ttk.Frame.__init__(self, master)
         self._init_ui()
         self.pack()
+
+        self.build = ProcessMonitor((sys.executable, 'util/build_modpack.py'))
+        self.build.on_event = self._handle_build_event
 
         self.master.protocol('WM_DELETE_WINDOW', self._handle_close)
         self.after(100, self._check_queues)
@@ -272,10 +251,23 @@ class Application(ttk.Frame):
         self._update_buttons()
 
     def _start_build(self):
-        pass
+        self.text_output.delete('1.0', tk.END)
+        self.build.start((','.join(self.mods_enabled),))
 
     def _check_queues(self):
-        pass
+        self.build.poll()
+        self.after(100, self._check_queues)
+
+    def _handle_build_event(self, kind, data):
+        if kind == 'output':
+            append_text(self.text_output, data.decode())
+        elif kind == 'result':
+            if data == 0:
+                append_text(self.text_output,
+                        '\n\nBuild finished in %s' % (os.path.join(os.getcwd(), 'dist') + os.sep))
+        elif kind == 'error':
+            append_text(self.text_output, '\n\nError collecting build output: %s' % data)
+
 
     def _handle_close(self):
         self.quit()
