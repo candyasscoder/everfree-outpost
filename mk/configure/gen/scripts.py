@@ -67,7 +67,7 @@ def copy_mod_scripts(mods):
 
         build $b_scripts/gen/bootstrap.lua: copy_script $src/scripts/bootstrap.lua
 
-        build $b_scripts/stamp/_all: scripts_stamp | $
+        build $b_scripts/gen/: scripts_stamp | $
             %for mod in mods
             $b_scripts/stamp/%mod $
             %end
