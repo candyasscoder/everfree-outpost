@@ -26,6 +26,10 @@ def write_json(output_dir, basename, j):
         json.dump(j, f)
 
 def emit_structures(output_dir, structures):
+    for f in os.listdir(output_dir):
+        if (f.startswith('structures') or f.startswith('structdepth')) and f.endswith('.png'):
+            os.remove(os.path.join(output_dir, f))
+
     sheets = S.build_sheets(structures)
     for i, (image, depthmap) in enumerate(sheets):
         image.save(os.path.join(output_dir, 'structures%d.png' % i))
@@ -74,6 +78,9 @@ def generate(output_dir):
     emit_blocks(output_dir, b.blocks)
     emit_items(output_dir, b.items)
     emit_recipes(output_dir, b.recipes)
+
+    with open(os.path.join(output_dir, 'stamp'), 'w') as f:
+        pass
 
     with open(os.path.join(output_dir, 'used_assets.txt'), 'w') as f:
         f.write(''.join(p + '\n' for p in images.get_dependencies()))
