@@ -4,7 +4,7 @@ import subprocess
 import sys
 
 from configure import checks
-from configure.gen import native, asmjs, data, js, dist
+from configure.gen import native, asmjs, data, js, dist, scripts
 from configure.template import template
 
 
@@ -102,8 +102,6 @@ def header(i):
     def b(*args):
         return os.path.normpath(os.path.join(i.build_dir, *args))
 
-    mod_list = ['outpost'] + (i.mods.split(',') if i.mods else [])
-
     return template('''
         src = %{os.path.normpath(i.src_dir)}
         # Note: (1) `build` is a ninja keyword; (2) `builddir` is a special
@@ -119,8 +117,9 @@ def header(i):
         b_asmjs = %{b('asmjs')}
         b_data = %{b('data')}
         b_js = %{b('js')}
+        b_scripts = %{b('scripts')}
 
-        mods = %{','.join(mod_list)}
+        mods = %{','.join(i.mod_list)}
 
         rust_home = %{i.rust_home}
         bitflags_home = %{i.bitflags_home}
@@ -182,6 +181,8 @@ if __name__ == '__main__':
     maybe_data_filter = os.path.join(i.src_dir, 'mk', 'data_files.txt') \
             if i.data_only else None
 
+    i.mod_list = ['outpost'] + (i.mods.split(',') if i.mods else [])
+
     content ='\n\n'.join((
         header(i),
 
@@ -231,6 +232,10 @@ if __name__ == '__main__':
         js.minify('$b_js/asmlibs.js', '$b_asmjs/asmlibs.js'),
         js.compile(i, '$b_js/animtest.js', '$src/client/js/animtest.js'),
         js.compile(i, '$b_js/configedit.js', '$src/client/js/configedit.js'),
+
+        '# Server-side scripts',
+        scripts.rules(i),
+        scripts.copy_mod_scripts(i.mod_list),
 
         '# Distribution',
         dist.rules(i),
