@@ -64,25 +64,12 @@ local action = require('core.action')
 local command = require('core.command')
 local util = require('core.util')
 
-require('outpost.ext.inventory')
-require('outpost.ext.string')
-require('outpost.ext.timer')
+require('loader')
 
-require('outpost.terrain')
 
+-- TODO: move the rest of this stuff into outpost/ somewhere
 local tools = require('outpost.lib.tools')
 local ward = require('outpost.lib.ward')
-
-require('outpost.anvil')
-require('outpost.chest')
-require('outpost.crops')
-require('outpost.hat')
-require('outpost.shovel')
-require('outpost.sign')
-require('outpost.structures')
-require('outpost.teleporter')
-require('outpost.tools')
-require('outpost.ward')
 
 -- No 'local' so it gets exposed to repl scripts
 trigger = require('outpost.trigger')
