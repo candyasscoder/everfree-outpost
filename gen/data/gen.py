@@ -78,6 +78,19 @@ def emit_animations(output_dir, animations):
     write_json(output_dir, 'animations_client.json',
             A.build_client_json(animations))
 
+def emit_sprites(output_dir, sprites):
+    os.makedirs(os.path.join(output_dir, 'sprites'), exist_ok=True)
+
+    sprite_names = set()
+    for s in sprites:
+        if s.name in sprite_names:
+            util.err('duplicate sprite definition: %r' % s.name)
+        sprite_names.add(s.name)
+
+        for i, img in enumerate(s.images):
+            basename = '%s-%d.png' % (s.name.replace('/', '_'), i)
+            img.save(os.path.join(output_dir, 'sprites', basename))
+
 def generate(output_dir):
     b = builder.INSTANCE
     postprocess(b)
@@ -88,6 +101,7 @@ def generate(output_dir):
     emit_items(output_dir, b.items)
     emit_recipes(output_dir, b.recipes)
     emit_animations(output_dir, b.animations)
+    emit_sprites(output_dir, b.sprites)
 
     with open(os.path.join(output_dir, 'stamp'), 'w') as f:
         pass
