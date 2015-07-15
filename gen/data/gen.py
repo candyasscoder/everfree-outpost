@@ -8,6 +8,7 @@ from . import tile as T
 from . import block as B
 from . import item as I
 from . import recipe as R
+from . import animation as A
 
 
 def postprocess(b):
@@ -16,6 +17,7 @@ def postprocess(b):
     block_id_map = util.assign_ids(b.blocks, {'empty'})
     item_id_map = util.assign_ids(b.items, {'none'})
     recipe_id_map = util.assign_ids(b.recipes)
+    anim_id_map = util.assign_ids(b.animations)
 
     B.resolve_tile_ids(b.blocks, tile_id_map)
     R.resolve_item_ids(b.recipes, item_id_map)
@@ -69,6 +71,13 @@ def emit_recipes(output_dir, recipes):
     write_json(output_dir, 'recipes_client.json',
             R.build_client_json(recipes))
 
+def emit_animations(output_dir, animations):
+    write_json(output_dir, 'animations_server.json',
+            A.build_server_json(animations))
+
+    write_json(output_dir, 'animations_client.json',
+            A.build_client_json(animations))
+
 def generate(output_dir):
     b = builder.INSTANCE
     postprocess(b)
@@ -78,6 +87,7 @@ def generate(output_dir):
     emit_blocks(output_dir, b.blocks)
     emit_items(output_dir, b.items)
     emit_recipes(output_dir, b.recipes)
+    emit_animations(output_dir, b.animations)
 
     with open(os.path.join(output_dir, 'stamp'), 'w') as f:
         pass

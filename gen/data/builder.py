@@ -1,4 +1,4 @@
-from . import structure, tile, block, item, recipe
+from . import structure, tile, block, item, recipe, animation
 
 
 class Objects(object):
@@ -89,6 +89,32 @@ class Recipes(Objects):
         self.owner.recipes.append(r)
         return self
 
+class AnimGroups(Objects):
+    def create(self, name):
+        g = animation.AnimGroupDef(name)
+        self._add(g)
+        self.owner.anim_groups.append(g)
+        return self
+
+    def add_anim(self, name, length, framerate):
+        def go(g):
+            g.add_anim(name, length, framerate)
+        self._foreach(go)
+        return self
+
+    def add_anim_mirror(self, name, orig_name):
+        def go(g):
+            g.add_anim_mirror(name, orig_name)
+        self._foreach(go)
+        return self
+
+    def finish(self):
+        def go(g):
+            g.finish()
+            for a in g.anims.values():
+                self.owner.animations.append(a)
+        self._foreach(go)
+        return self
 
 class Builder(object):
     def __init__(self):
@@ -97,6 +123,8 @@ class Builder(object):
         self.blocks = []
         self.items = []
         self.recipes = []
+        self.anim_groups = []
+        self.animations = []
 
         self.gen_tile_cache = {}
 
@@ -150,15 +178,24 @@ class Builder(object):
         return self.recipe_builder().create(*args, **kwargs)
 
 
+    def anim_group_builder(self):
+        return AnimGroups(self)
+
+    def mk_anim_group(self, *args, **kwargs):
+        return self.anim_group_builder().create(*args, **kwargs)
+
+
 INSTANCE = Builder()
 mk_tile = INSTANCE.mk_tile
 mk_block = INSTANCE.mk_block
 mk_structure = INSTANCE.mk_structure
 mk_item = INSTANCE.mk_item
 mk_recipe = INSTANCE.mk_recipe
+mk_anim_group = INSTANCE.mk_anim_group
 
 tile_builder = INSTANCE.tile_builder
 block_builder = INSTANCE.block_builder
 structure_builder = INSTANCE.structure_builder
 item_builder = INSTANCE.item_builder
 recipe_builder = INSTANCE.recipe_builder
+anim_group_builder = INSTANCE.anim_group_builder
