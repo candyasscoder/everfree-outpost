@@ -19,6 +19,7 @@ var DayNight = require('graphics/daynight').DayNight;
 
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
+var Animation = require('entity').Animation;
 var Structure = require('structure').Structure;
 
 var InventoryTracker = require('inventory').InventoryTracker;
@@ -533,17 +534,16 @@ function calcAppearance(tribe, r, g, b) {
 }
 
 function drawPony(ctx, tribe, r, g, b) {
-    return; // TODO
-    var base = buildPonyAppearance(calcAppearance(tribe, r, g, b), '');
-    var sprite = base.sprite.instantiate();
-    sprite.ref_x = sprite.anchor_x;
-    sprite.ref_y = sprite.anchor_y;
-    // Make pony face to the left.
-    sprite.extra.updateIJ(sprite, 0, 2);
-    sprite.setFlip(true);
+    var bits = calcAppearance(tribe, r, g, b);
+    var app = new PonyAppearance(assets, bits, '');
+    // TODO: use animation name instead of magic number
+    var anim_def = AnimationDef.by_id[8 + 4];
+    var frame = new Animation(anim_def, 0).frameInfo(0);
+    var sprite = app.buildSprite(new Vec(0, 0, 0), frame);
+    sprite.setRefPosition(sprite.anchor_x, sprite.anchor_y, 0);
 
     ctx.clearRect(0, 0, 96, 96);
-    new Layered2D().drawInto(ctx, [0, 0], sprite);
+    app.draw2D(ctx, [0, 0], sprite);
 }
 
 function preloadTextures() {
@@ -1153,7 +1153,8 @@ function frame(ac, client_now) {
 
     function draw_extra(fb_idx, r) {
         if (player_sprite != null && Config.render_outline.get()) {
-            r.renderSpecial(fb_idx, player_sprite, 'pony_outline');
+            // TODO: make outlines work in new system
+            //r.renderSpecial(fb_idx, player_sprite, 'pony_outline');
         }
     }
 

@@ -799,10 +799,8 @@ Renderer.prototype.render = function(s, draw_extra) {
     });
 };
 
-Renderer.prototype.renderSpecial = function(fb_idx, sprite, cls_name) {
-    return; // TODO
-    var cls = this.sprite_classes[cls_name];
-    cls.draw(fb_idx, this, sprite, 0);
+Renderer.prototype.renderSpecial = function(fb_idx, sprite) {
+    sprite.appearance.draw3D(fb_idx, this_, sprite, 0);
 };
 
 

@@ -70,8 +70,10 @@ PonyAppearance.prototype.draw2D = function(ctx, view_base, sprite) {
         buf_x = -buf_x - w;
     }
 
-    var off_x = sprite.frame_j * width;
-    var off_y = sprite.frame_i * height;
+    var off_x = sprite.frame_j * w;
+    var off_y = sprite.frame_i * h;
+
+    // TODO: fix alpha
 
     buf.globalCompositeOperation = 'copy';
     buf.drawImage(this.base_img,
