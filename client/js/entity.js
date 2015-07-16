@@ -1,6 +1,6 @@
-var Animation = require('graphics/sheet').Animation;
 var Sprite = require('graphics/renderer').Sprite;
 var Deque = require('util/misc').Deque;
+var AnimationDef = require('data/animations').AnimationDef;
 
 
 /** @constructor */
@@ -33,39 +33,54 @@ Motion.prototype.translate = function(offset) {
     this.end_pos = this.end_pos.add(offset);
 };
 
+Motion.prototype.getAnimation = function() {
+    return new Animation(AnimationDef.by_id[this.anim_id], this.start_time);
+};
+
 
 /** @constructor */
-function Entity(sprite_base, anim_info, pos) {
-    this._sprite_base = sprite_base;
-    this._anim = new Animation();
-    this._anim_info = anim_info;
-    this._light_radius = 0;
-    this._light_color = null;
+function Animation(def, start_time) {
+    this.def = def;
+    this.start_time = start_time || 0;
+}
+exports.Animation = Animation;
+
+Animation.prototype.frameInfo = function(now) {
+    var delta = now - this.start_time;
+    var frame = Math.floor(delta * this.def.fps / 1000) % this.def.length;
+
+    return {
+        i: this.def.offset_y,
+        j: this.def.offset_x + frame,
+        sheet: this.def.sheet_idx,
+        flip: this.def.flip,
+    };
+};
+
+
+/** @constructor */
+function Entity(app, anim, pos) {
+    this._appearance = app;
+
+    this._cur_anim = anim;
+    this._anims = new Deque();
 
     this._cur_motion = new Motion(pos);
     this._motions = new Deque();
 
-    this._updateAnimation();
+    this._light_radius = 0;
+    this._light_color = null;
 }
 exports.Entity = Entity;
 
 Entity.prototype._dequeueUntil = function(now) {
-    var did_dequeue = false;
     while (this._motions.peek() != null && this._motions.peek().start_time <= now) {
         this._cur_motion = this._motions.dequeue();
-        did_dequeue = true;
     }
-    if (did_dequeue) {
-        this._updateAnimation();
+
+    while (this._anims.peek() != null && this._anims.peek().start_time <= now) {
+        this._cur_anim = this._anims.dequeue();
     }
-};
-
-Entity.prototype._updateAnimation = function() {
-    var m = this._cur_motion;
-    var info = this._anim_info[m.anim_id];
-    console.assert(info != null, 'no anim_info with id', m.anim_id);
-
-    this._anim.animate(info.i, info.j, info.len, info.fps, info.flip, m.start_time);
 };
 
 Entity.prototype.position = function(now) {
@@ -75,21 +90,18 @@ Entity.prototype.position = function(now) {
 
 Entity.prototype.getSprite = function(now) {
     this._dequeueUntil(now);
-    var sprite = this._sprite_base.instantiate();
-    this._anim.updateSprite(now, sprite);
-
     var pos = this._cur_motion.position(now);
-    sprite.setPos(pos);
-
-    return sprite;
-};
-
-Entity.prototype.setSpriteBase = function(new_base) {
-    this._sprite_base = new_base;
-};
+    var frame = this._cur_anim.frameInfo(now);
+    return this._appearance.buildSprite(pos, frame);
+}
 
 Entity.prototype.queueMotion = function(motion) {
     this._motions.enqueue(motion);
+    this.queueAnimation(motion.getAnimation());
+};
+
+Entity.prototype.queueAnimation = function(anim) {
+    this._anims.enqueue(anim);
 };
 
 Entity.prototype.translateMotion = function(offset) {
@@ -97,20 +109,17 @@ Entity.prototype.translateMotion = function(offset) {
     this._motions.forEach(function(m) { m.translate(offset); });
 };
 
-Entity.prototype.resetMotion = function(m) {
+Entity.prototype.reset = function(m, a) {
     this._cur_motion = m;
     this._motions = new Deque();
-    this._updateAnimation();
+
+    this._cur_anim = m.getAnimation();
+    this._anims = new Deque();
 };
 
 Entity.prototype.motionEndTime = function(now) {
     this._dequeueUntil(now);
     return this._cur_motion.end_time;
-};
-
-Entity.prototype.animId = function(now) {
-    this._dequeueUntil(now);
-    return this._cur_motion.anim_id;
 };
 
 Entity.prototype.setLight = function(radius, color) {
@@ -127,4 +136,13 @@ Entity.prototype.getLight = function() {
             radius: this._light_radius,
         };
     }
+};
+
+Entity.prototype.setAppearance = function(app) {
+    this._appearance = app;
+};
+
+Entity.prototype.animId = function(now) {
+    this._dequeueUntil(now);
+    return this._cur_motion.anim_id;
 };

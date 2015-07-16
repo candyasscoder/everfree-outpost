@@ -10,13 +10,8 @@ var TimeVarying = require('util/timevarying').TimeVarying;
 
 var AnimCanvas = require('graphics/canvas').AnimCanvas;
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
-var Animation = require('graphics/sheet').Animation;
-var SimpleExtra = require('graphics/draw/simple').SimpleExtra;
-var LayeredExtra = require('graphics/draw/layered').LayeredExtra;
-var NamedExtra = require('graphics/draw/named').NamedExtra;
-var SpriteBase = require('graphics/renderer').SpriteBase;
+var PonyAppearance = require('graphics/appearance/pony').PonyAppearance;    
 var Renderer = require('graphics/renderer').Renderer;
-var Layered2D = require('graphics/draw/layered').Layered2D;
 var Cursor = require('graphics/cursor').Cursor;
 var glutil = require('graphics/glutil');
 var Scene = require('graphics/scene').Scene;
@@ -128,7 +123,6 @@ var assets;
 
 
 var entities;
-var entity_appearance;
 var player_entity;
 var structures;
 
@@ -196,7 +190,6 @@ function init() {
     assets = null;
 
     entities = {};
-    entity_appearance = {};
     player_entity = -1;
     structures = {};
 
@@ -283,6 +276,11 @@ function loadAssets(next) {
                 TemplateDef.register(i, templates[i], assets);
             }
             renderer.loadTemplateData(TemplateDef.by_id);
+
+            var animations = assets['animation_defs'];
+            for (var i = 0; i < animations.length; ++i) {
+                AnimationDef.register(i, animations[i]);
+            }
 
             var css = '.item-icon {' +
                 'background-image: url("' + assets['items'] + '");' +
@@ -535,6 +533,7 @@ function calcAppearance(tribe, r, g, b) {
 }
 
 function drawPony(ctx, tribe, r, g, b) {
+    return; // TODO
     var base = buildPonyAppearance(calcAppearance(tribe, r, g, b), '');
     var sprite = base.sprite.instantiate();
     sprite.ref_x = sprite.anchor_x;
@@ -861,17 +860,26 @@ function handleChatUpdate(msg) {
     chat.addMessage(msg);
 }
 
-function handleEntityAppear(id, appearance, name) {
+function handleEntityAppear(id, appearance_bits, name) {
     if (id == player_entity) {
         name = '';
     }
-    var app = buildPonyAppearance(appearance, name);
+    var app = new PonyAppearance(assets, appearance_bits, name);
     if (entities[id] != null) {
-        entities[id].setSpriteBase(app.sprite);
+        entities[id].setAppearance(app);
     } else {
-        entities[id] = new Entity(app.sprite, pony_anims, new Vec(0, 0, 0));
+        entities[id] = new Entity(
+                app,
+                // TODO: principled way of getting default anim_id, not "8"
+                new Animation(AnimationDef.by_id[0], 8),
+                new Vec(0, 0, 0));
     }
-    entities[id].setLight(app.light_color == null ? 0 : 200, app.light_color);
+
+    if ((appearance_bits & (1 << 9)) != 0) {
+        entities[id].setLight(200, [100, 180, 255]);
+    } else {
+        entities[id].setLight(0, null);
+    }
 }
 
 function handleEntityGone(id, time) {

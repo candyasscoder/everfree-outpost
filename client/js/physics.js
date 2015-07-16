@@ -75,7 +75,9 @@ Physics.prototype.computeForecast = function(now, entity, target_velocity) {
     var facing = target_velocity.sign();
     var idx = (3 * (facing.x + 1) + (facing.y + 1));
     var anim_dir = [5, 4, 3, 6, entity.animId(now) % 8, 2, 7, 0, 1][idx];
-    motion.anim_id = anim_dir + speed * 8;
+    // TODO: reference anims by name
+    var SPEED_ADJ = [1, 2, -1, 0];
+    motion.anim_id = anim_dir + SPEED_ADJ[speed] * 8;
 
     return motion;
 };
@@ -126,7 +128,7 @@ Prediction.prototype.receivedMotion = function(m, entity) {
 
     // Motions are unequal.  Flush the entity's and the predictor's motion
     // queues, and replay from the inputs.
-    entity.resetMotion(m);
+    entity.reset(m);
     this.predicted = new Deque();
 
     var this_ = this;

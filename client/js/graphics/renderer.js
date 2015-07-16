@@ -16,10 +16,12 @@ var GlObject = require('graphics/glutil').GlObject;
 var uniform = require('graphics/glutil').uniform;
 var attribute = require('graphics/glutil').attribute;
 
-var Simple3D = require('graphics/draw/simple').Simple3D;
-var Layered3D = require('graphics/draw/layered').Layered3D;
-var Named3D = require('graphics/draw/named').Named3D;
-var PonyOutline3D = require('graphics/draw/ponyoutline').PonyOutline3D;
+//var Simple3D = require('graphics/draw/simple').Simple3D;
+//var Layered3D = require('graphics/draw/layered').Layered3D;
+//var Named3D = require('graphics/draw/named').Named3D;
+//var PonyOutline3D = require('graphics/draw/ponyoutline').PonyOutline3D;
+var PonyAppearanceClass = require('graphics/appearance/pony').PonyAppearanceClass;
+console.log('pac', PonyAppearanceClass);
 
 var Vec = require('util/vec').Vec;
 
@@ -79,11 +81,8 @@ Renderer.prototype.initGl = function(assets) {
     this.static_light = lights.static_;
     this.dynamic_light = lights.dynamic;
 
-    this.sprite_classes = {
-        'simple': new Simple3D(gl, assets),
-        'layered': new Layered3D(gl, assets),
-        'named': new Named3D(gl, assets),
-        'pony_outline': new PonyOutline3D(gl, assets),
+    this.classes = {
+        'pony': new PonyAppearanceClass(gl, assets),
     };
 
     this.last_sw = -1;
@@ -659,8 +658,8 @@ Renderer.prototype.render = function(s, draw_extra) {
     this.dynamic_light.setUniformValue('cameraSize', size);
     // this.blit_full uses fixed camera
 
-    for (var k in this.sprite_classes) {
-        var cls = this.sprite_classes[k];
+    for (var k in this.classes) {
+        var cls = this.classes[k];
         cls.setCamera(pos, size);
     }
 
@@ -754,11 +753,10 @@ Renderer.prototype.render = function(s, draw_extra) {
 
         for (var i = 0; i < s.sprites.length; ++i) {
             var sprite = s.sprites[i];
-            var cls = this_.sprite_classes[sprite.cls];
             if (sprite.ref_z < s.slice_z * TILE_SIZE) {
-                cls.draw(fb_idx, this_, sprite, 0);
+                sprite.appearance.draw3D(fb_idx, this_, sprite, 0);
             } else {
-                cls.draw(fb_idx, this_, sprite, s.slice_frac);
+                sprite.appearance.draw3D(fb_idx, this_, sprite, s.slice_frac);
             }
         }
     });
@@ -802,6 +800,7 @@ Renderer.prototype.render = function(s, draw_extra) {
 };
 
 Renderer.prototype.renderSpecial = function(fb_idx, sprite, cls_name) {
+    return; // TODO
     var cls = this.sprite_classes[cls_name];
     cls.draw(fb_idx, this, sprite, 0);
 };
@@ -912,59 +911,59 @@ RenderCache.prototype.reduce = function(len) {
 
 
 /** @constructor */
-function Sprite(width, height, anchor_x, anchor_y, cls, extra) {
-    this.width = width;
-    this.height = height;
+function Sprite(appearance) {
+    this.appearance = appearance;
+
+    this.width = 0;
+    this.height = 0;
 
     this.ref_x = 0;
     this.ref_y = 0;
     this.ref_z = 0;
-    this.anchor_x = anchor_x;
-    this.anchor_y = anchor_y;
+    this.anchor_x = 0;
+    this.anchor_y = 0;
+
+    this.frame_sheet = 0;
+    this.frame_i = 0;
+    this.frame_j = 0;
 
     this.flip = false;
-
-    this.cls = cls;
-    this.extra = extra;
 }
 exports.Sprite = Sprite;
 
-Sprite.prototype.refPosition = function() {
-    return new Vec(this.ref_x, this.ref_y, this.ref_z);
+// Lots of fields to set, so use this goofy builder pattern sort of thing.
+Sprite.prototype.setSize = function(w, h) {
+    this.width = w;
+    this.height = h;
+    return this;
 };
 
-Sprite.prototype.setClass = function(cls, extra) {
-    this.cls = cls;
-    this.extra = extra;
+Sprite.prototype.setRefPosition = function(x, y, z) {
+    this.ref_x = x;
+    this.ref_y = y;
+    this.ref_z = z;
+    return this;
+};
+
+Sprite.prototype.setAnchor = function(x, y) {
+    this.anchor_x = x;
+    this.anchor_y = y;
+    return this;
+};
+
+Sprite.prototype.setFrame = function(sheet, i, j) {
+    this.frame_sheet = sheet;
+    this.frame_i = i;
+    this.frame_j = j;
+    return this;
 };
 
 Sprite.prototype.setFlip = function(flip) {
     this.flip = flip;
-};
-
-Sprite.prototype.setPos = function(ref_pos) {
-    this.ref_x = ref_pos.x;
-    this.ref_y = ref_pos.y;
-    this.ref_z = ref_pos.z;
+    return this;
 };
 
 
-/** @constructor */
-function SpriteBase(width, height, anchor_x, anchor_y, extra) {
-    this.width = width;
-    this.height = height;
-    this.anchor_x = anchor_x;
-    this.anchor_y = anchor_y;
-    this.cls = extra.getClass();
-    this.extra = extra;
-}
-exports.SpriteBase = SpriteBase;
-
-SpriteBase.prototype.instantiate = function() {
-    return new Sprite(this.width,
-                      this.height,
-                      this.anchor_x,
-                      this.anchor_y,
-                      this.cls,
-                      this.extra);
+Sprite.prototype.refPosition = function() {
+    return new Vec(this.ref_x, this.ref_y, this.ref_z);
 };

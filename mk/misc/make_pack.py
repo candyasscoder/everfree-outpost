@@ -34,6 +34,12 @@ def main(src_dir, build_dir, out_file):
     add('image', 'pony_f_tail_1',       src('assets/sprites/maretail1.png'))
     add('image', 'equip_f_hat',         src('assets/sprites/equip_f_hat.png'))
 
+    # TODO: get this list from a generated file
+    add('image', 'pony_f_E-0',          build('sprites/pony_f_E-0.png'))
+    add('image', 'pony_f_P-0',          build('sprites/pony_f_P-0.png'))
+    add('image', 'pony_f_U-0',          build('sprites/pony_f_U-0.png'))
+    add('image', 'pony_f_A-0',          build('sprites/pony_f_A-0.png'))
+
     add('image', 'font',    build('font.png'))
     add('url',   'items',   build('items.png'))
 
@@ -41,6 +47,7 @@ def main(src_dir, build_dir, out_file):
     add('json', 'item_defs',        build('items_client.json'))
     add('json', 'recipe_defs',      build('recipes_client.json'))
     add('json', 'template_defs',    build('structures_client.json'))
+    add('json', 'animation_defs',   build('animations_client.json'))
     add('json', 'font_metrics',     build('font_metrics.json'))
     add('json', 'day_night',        build('day_night.json'))
 
