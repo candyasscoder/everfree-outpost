@@ -22,7 +22,7 @@ def sheets_from_parts(group, parts, size):
     for name, img in parts.items():
         anim = group.anims.get(name)
         if anim is None:
-            err('no animation %r in group %r' % (name, group.name))
+            util.err('no animation %r in group %r' % (name, group.name))
             continue
 
         cur_sheet = sheets[anim.sheet]
@@ -41,9 +41,9 @@ def mk_layer_sheets():
             img = mare('mare-%d-%s.png' % (i, l))
             take = lambda x, y, w: img.crop((x * 96, y * 96, (x + w) * 96, (y + 1) * 96))
 
-            parts['pony/stand-%d' % j] = take(0, 0, 1)
-            parts['pony/walk-%d' % j] = take(0, 1, 6)
-            parts['pony/run-%d' % j] = take(0, 3, 6)
+            parts['stand-%d' % j] = take(0, 0, 1)
+            parts['walk-%d' % j] = take(0, 1, 6)
+            parts['run-%d' % j] = take(0, 3, 6)
 
         sheets[l] = sheets_from_parts(pony_sprites.get_anim_group(), parts, (96, 96))
 

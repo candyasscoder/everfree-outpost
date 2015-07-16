@@ -30,9 +30,9 @@ def get_anim_group():
         for i, d in enumerate(DIRS):
             mirror = d.get('mirror')
             if mirror is None:
-                g.add_anim('pony/%s-%d' % (m['name'], i), m['len'], m['fps'])
+                g.add_anim('%s-%d' % (m['name'], i), m['len'], m['fps'])
             else:
-                g.add_anim_mirror('pony/%s-%d' % (m['name'], i),
-                        'pony/%s-%d' % (m['name'], mirror))
+                g.add_anim_mirror('%s-%d' % (m['name'], i),
+                        '%s-%d' % (m['name'], mirror))
     g.finish()
     return g.unwrap()

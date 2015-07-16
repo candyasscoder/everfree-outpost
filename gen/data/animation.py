@@ -87,6 +87,7 @@ class SpriteDef(object):
 def build_client_json(animations):
     def convert(a):
         return {
+                'name': '%s/%s' % (a.group.name, a.name),
                 'sheet': a.sheet,
                 'offset': a.offset,
                 'length': a.length,

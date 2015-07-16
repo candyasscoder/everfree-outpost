@@ -536,8 +536,7 @@ function calcAppearance(tribe, r, g, b) {
 function drawPony(ctx, tribe, r, g, b) {
     var bits = calcAppearance(tribe, r, g, b);
     var app = new PonyAppearance(assets, bits, '');
-    // TODO: use animation name instead of magic number
-    var anim_def = AnimationDef.by_id[8 + 4];
+    var anim_def = AnimationDef.by_name['pony/stand-4'];
     var frame = new Animation(anim_def, 0).frameInfo(0);
     var sprite = app.buildSprite(new Vec(0, 0, 0), frame);
     sprite.setRefPosition(sprite.anchor_x, sprite.anchor_y, 0);
@@ -870,8 +869,7 @@ function handleEntityAppear(id, appearance_bits, name) {
     } else {
         entities[id] = new Entity(
                 app,
-                // TODO: principled way of getting default anim_id, not "8"
-                new Animation(AnimationDef.by_id[0], 8),
+                new Animation(AnimationDef.by_name['pony/stand-0'], 0),
                 new Vec(0, 0, 0));
     }
 
