@@ -88,9 +88,33 @@ def mk_base_sheets():
     return base_sheets
 
 
+def mk_hair_sheets(ty, idx):
+    sprites = loader('sprites/%s/mare' % ty)
+    img = sprites('%d.png' % idx)
+    take = lambda x, y, w: img.crop((x * 96, y * 96, (x + w) * 96, (y + 1) * 96))
+
+    parts = {}
+    for i in range(5):
+        j = INV_DIRS[i]
+        parts['stand-%d' % j] = take(i, 0, 1)
+        parts['walk-%d' % j] = take(i * 6, 1, 6)
+        parts['run-%d' % j] = take(i * 6, 3, 6)
+
+    sheets = sheets_from_parts(pony_sprites.get_anim_group(), parts, (96, 96))
+    for s in sheets:
+        mask = s.split()[3]
+        mask = mask.point(lambda x: 120 if x == 255 else 0)
+        s.putalpha(mask)
+    return sheets
+
+
 def init():
     sheets = mk_base_sheets()
     group = pony_sprites.get_anim_group()
 
     for k in BASES.keys():
-        mk_sprite('pony/f/%s' % k, group, (96, 96), sheets[k])
+        mk_sprite('pony/base/f/%s' % k, group, (96, 96), sheets[k])
+
+    for i in (0,):
+        mk_sprite('pony/mane/f/%d' % i, group, (96, 96), mk_hair_sheets('mane', i))
+        mk_sprite('pony/tail/f/%d' % i, group, (96, 96), mk_hair_sheets('tail', i))
