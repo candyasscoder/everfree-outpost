@@ -1,4 +1,4 @@
-from . import structure, tile, block, item, recipe, animation, attachment
+from . import structure, tile, block, item, recipe, animation, attachment, extra
 
 
 class Objects(object):
@@ -138,6 +138,13 @@ class AttachSlots(Objects):
         self._foreach(go)
         return self
 
+class Extras(Objects):
+    def create(self, name, func):
+        e = extra.ExtraDef(name, func)
+        self._add(e)
+        self.owner.extras.append(e)
+        return self
+
 
 class Builder(object):
     def __init__(self):
@@ -150,6 +157,7 @@ class Builder(object):
         self.animations = []
         self.sprites = []
         self.attach_slots = []
+        self.extras = []
 
         self.gen_tile_cache = {}
 
@@ -224,6 +232,13 @@ class Builder(object):
         return self.attach_slot_builder().create(*args, **kwargs)
 
 
+    def extra_builder(self):
+        return Extras(self)
+
+    def mk_extra(self, *args, **kwargs):
+        return self.extra_builder().create(*args, **kwargs)
+
+
 INSTANCE = Builder()
 mk_tile = INSTANCE.mk_tile
 mk_block = INSTANCE.mk_block
@@ -233,6 +248,7 @@ mk_recipe = INSTANCE.mk_recipe
 mk_anim_group = INSTANCE.mk_anim_group
 mk_sprite = INSTANCE.mk_sprite
 mk_attach_slot = INSTANCE.mk_attach_slot
+mk_extra = INSTANCE.mk_extra
 
 tile_builder = INSTANCE.tile_builder
 block_builder = INSTANCE.block_builder
@@ -242,3 +258,4 @@ recipe_builder = INSTANCE.recipe_builder
 anim_group_builder = INSTANCE.anim_group_builder
 sprite_builder = INSTANCE.sprite_builder
 attach_slot_builder = INSTANCE.attach_slot_builder
+extra_builder = INSTANCE.extra_builder

@@ -53,7 +53,8 @@ class AnimGroupDef(object):
 
         for name, (sheet_idx, offset) in zip(anim_names, offsets):
             info = self.anim_info[name]
-            anims[name] = AnimationDef(self, name, sheet_idx, offset,
+            full_name = '%s/%s' % (self.name, name)
+            anims[name] = AnimationDef(self, full_name, sheet_idx, offset,
                     info['length'], info['framerate'], info['mirror'])
             sheet_w[sheet_idx] = max(sheet_w[sheet_idx], offset[0] + info['length'])
             sheet_h[sheet_idx] = max(sheet_h[sheet_idx], offset[1] + 1)
@@ -61,7 +62,8 @@ class AnimGroupDef(object):
         for name, orig_name in self.anim_mirrors.items():
             assert name not in anims
             orig = anims[orig_name]
-            anims[name] = AnimationDef(self, name, orig.sheet, orig.offset, orig.length,
+            full_name = '%s/%s' % (self.name, name)
+            anims[name] = AnimationDef(self, full_name, orig.sheet, orig.offset, orig.length,
                     orig.framerate, mirror=not orig.mirror)
 
         self.anims = anims
@@ -87,7 +89,7 @@ class SpriteDef(object):
 def build_client_json(animations):
     def convert(a):
         return {
-                'name': '%s/%s' % (a.group.name, a.name),
+                'name': a.name,
                 'sheet': a.sheet,
                 'offset': a.offset,
                 'length': a.length,
@@ -99,7 +101,7 @@ def build_client_json(animations):
 def build_server_json(animations):
     def convert(a):
         return {
-                'name': '%s/%s' % (a.group.name, a.name),
+                'name': a.name,
                 'length': a.length,
                 'framerate': a.framerate,
                 }

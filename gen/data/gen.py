@@ -1,25 +1,39 @@
+from collections import namedtuple
 import json
 import os
 
 
 from . import builder, images, loader, util
-from . import structure, tile, block, item, recipe, animation, attachment
+from . import structure, tile, block, item, recipe, animation, attachment, extra
 
+
+IdMaps = namedtuple('IdMaps', (
+    'structures',
+    'tiles',
+    'blocks',
+    'items',
+    'recipes',
+    'animations',
+    'attach_slots',
+    'attachments_by_slot',
+))
 
 def postprocess(b):
-    structure_id_map = util.assign_ids(b.structures)
-    tile_id_map = util.assign_ids(b.tiles, {'empty'})
-    block_id_map = util.assign_ids(b.blocks, {'empty'})
-    item_id_map = util.assign_ids(b.items, {'none'})
-    recipe_id_map = util.assign_ids(b.recipes)
-    anim_id_map = util.assign_ids(b.animations)
-    attach_slot_id_map = util.assign_ids(b.attach_slots)
-    for s in b.attach_slots:
-        util.assign_ids(s.variants)
+    id_maps = IdMaps(
+        util.assign_ids(b.structures),
+        util.assign_ids(b.tiles, {'empty'}),
+        util.assign_ids(b.blocks, {'empty'}),
+        util.assign_ids(b.items, {'none'}),
+        util.assign_ids(b.recipes),
+        util.assign_ids(b.animations),
+        util.assign_ids(b.attach_slots),
+        dict((s.name, util.assign_ids(s.variants)) for s in b.attach_slots),
+    )
 
-    block.resolve_tile_ids(b.blocks, tile_id_map)
-    recipe.resolve_item_ids(b.recipes, item_id_map)
-    recipe.resolve_structure_ids(b.recipes, structure_id_map)
+    block.resolve_tile_ids(b.blocks, id_maps.tiles)
+    recipe.resolve_item_ids(b.recipes, id_maps.items)
+    recipe.resolve_structure_ids(b.recipes, id_maps.structures)
+    extra.resolve_all(b.extras, b, id_maps)
 
 def write_json(output_dir, basename, j):
     with open(os.path.join(output_dir, basename), 'w') as f:
@@ -96,6 +110,10 @@ def emit_attach_slots(output_dir, attach_slots):
     write_json(output_dir, 'attach_slots_client.json',
             attachment.build_client_json(attach_slots))
 
+def emit_extras(output_dir, extras):
+    write_json(output_dir, 'extras_client.json',
+            extra.build_client_json(extras))
+
 def generate(output_dir):
     b = builder.INSTANCE
     postprocess(b)
@@ -108,6 +126,7 @@ def generate(output_dir):
     emit_animations(output_dir, b.animations)
     emit_sprites(output_dir, b.sprites)
     emit_attach_slots(output_dir, b.attach_slots)
+    emit_extras(output_dir, b.extras)
 
     with open(os.path.join(output_dir, 'stamp'), 'w') as f:
         pass

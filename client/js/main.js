@@ -50,6 +50,7 @@ var RecipeDef = require('data/recipes').RecipeDef;
 var TemplateDef = require('data/templates').TemplateDef;
 var AnimationDef = require('data/animations').AnimationDef;
 var AttachSlotDef = require('data/attachments').AttachSlotDef;
+var ExtraDefs = require('data/extras').ExtraDefs;
 
 var Chunk = require('data/chunk').Chunk;
 var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
@@ -289,6 +290,8 @@ function loadAssets(next) {
             for (var i = 0; i < attach_slots.length; ++i) {
                 AttachSlotDef.register(i, attach_slots[i]);
             }
+
+            ExtraDefs.init(assets['extra_defs']);
 
             var css = '.item-icon {' +
                 'background-image: url("' + assets['items'] + '");' +
