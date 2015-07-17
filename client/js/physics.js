@@ -80,7 +80,6 @@ Physics.prototype.computeForecast = function(now, entity, target_velocity) {
     var old_dir = +AnimationDef.by_id[entity.animId(now)].name.split('-')[1];
     var anim_dir = [5, 4, 3, 6, old_dir, 2, 7, 0, 1][idx];
     var SPEED_NAME = ['stand', 'walk', null, 'run'];
-    console.log(SPEED_NAME[speed] + '-' + anim_dir);
     var anim = AnimationDef.by_name['pony/' + SPEED_NAME[speed] + '-' + anim_dir];
     motion.anim_id = anim.id;
 

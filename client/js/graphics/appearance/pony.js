@@ -7,7 +7,7 @@ var COLOR_RAMP = [0x44, 0x88, 0xcc, 0xff];
 function PonyAppearance(assets, bits, name) {
     var tribe = (bits >> 6) & 3;
     // TODO: use a SpriteSheet object that contains all the sheet images
-    this.base_img = assets['pony_f_' + TRIBE_NAME[tribe] + '-0'];
+    this.base_img = assets['pony_base_f_' + TRIBE_NAME[tribe] + '-0'];
 
     var r = (bits >> 4) & 3;
     var g = (bits >> 2) & 3;
