@@ -50,6 +50,7 @@ def main(src_dir, build_dir, out_file):
     add('json', 'recipe_defs',      build('recipes_client.json'))
     add('json', 'template_defs',    build('structures_client.json'))
     add('json', 'animation_defs',   build('animations_client.json'))
+    add('json', 'attach_slot_defs', build('attach_slots_client.json'))
     add('json', 'font_metrics',     build('font_metrics.json'))
     add('json', 'day_night',        build('day_night.json'))
 
