@@ -8,12 +8,22 @@ function PonyAppearance(assets, bits, name) {
     var tribe = (bits >> 6) & 3;
     // TODO: use a SpriteSheet object that contains all the sheet images
     this.base_img = assets['pony_base_f_' + TRIBE_NAME[tribe] + '-0'];
+    this.mane_img = assets['pony_mane_f_0-0'];
+    this.tail_img = assets['pony_tail_f_0-0'];
 
     var r = (bits >> 4) & 3;
     var g = (bits >> 2) & 3;
     var b = (bits >> 0) & 3;
-    this.hair_color = [COLOR_RAMP[r + 1], COLOR_RAMP[g + 1], COLOR_RAMP[b + 1]];
-    this.body_color = [COLOR_RAMP[r], COLOR_RAMP[g], COLOR_RAMP[b]];
+    this.hair_color = [
+        COLOR_RAMP[r + 1] / 255.0,
+        COLOR_RAMP[g + 1] / 255.0,
+        COLOR_RAMP[b + 1] / 255.0,
+    ];
+    this.body_color = [
+        COLOR_RAMP[r] / 255.0,
+        COLOR_RAMP[g] / 255.0,
+        COLOR_RAMP[b] / 255.0,
+    ];
 }
 exports.PonyAppearance = PonyAppearance;
 
@@ -31,7 +41,15 @@ PonyAppearance.prototype.draw3D = function(fb_idx, r, sprite, slice_frac) {
     var base_tex = r.cacheTexture(this.base_img);
     var textures = {
         'sheetSampler[0]': base_tex,
+        'sheetSampler[1]': r.cacheTexture(this.mane_img),
+        'sheetSampler[2]': r.cacheTexture(this.tail_img),
     };
+
+    var colors = [
+        this.body_color[0], this.body_color[1], this.body_color[2], 1.0,
+        this.hair_color[0], this.hair_color[1], this.hair_color[2], 1.0,
+        this.hair_color[0], this.hair_color[1], this.hair_color[2], 1.0,
+        ];
 
     var offset_x = sprite.frame_j * sprite.width;
     var offset_y = sprite.frame_i * sprite.height;
@@ -45,10 +63,7 @@ PonyAppearance.prototype.draw3D = function(fb_idx, r, sprite, slice_frac) {
         'size': [(sprite.flip ? -sprite.width : sprite.width),
                  sprite.height],
         'anchor': [sprite.anchor_x, sprite.anchor_y],
-        'color': [this.body_color[0] / 255.0,
-                  this.body_color[1] / 255.0,
-                  this.body_color[2] / 255.0,
-                  1.0],
+        'color': colors,
     };
 
     var obj = r.classes.pony._obj;
@@ -74,22 +89,27 @@ PonyAppearance.prototype.draw2D = function(ctx, view_base, sprite) {
     var off_y = sprite.frame_i * h;
 
     // TODO: fix alpha
+    function draw_layer(img, color) {
+        buf.globalCompositeOperation = 'copy';
+        buf.drawImage(img,
+                off_x, off_y, w, h,
+                buf_x, buf_y, w, h);
 
-    buf.globalCompositeOperation = 'copy';
-    buf.drawImage(this.base_img,
-            off_x, off_y, w, h,
-            buf_x, buf_y, w, h);
+        buf.globalCompositeOperation = 'source-in';
+        buf.fillStyle = 'rgb(' + [color[0] * 255, color[1] * 255, color[2] * 255].join(',') + ')';
+        buf.fillRect(buf_x, buf_y, w, h);
 
-    buf.globalCompositeOperation = 'source-in';
-    buf.fillStyle = 'rgb(' + this.body_color.join(',') + ')';
-    buf.fillRect(buf_x, buf_y, w, h);
+        buf.globalCompositeOperation = 'multiply';
+        buf.drawImage(img,
+                off_x, off_y, w, h,
+                buf_x, buf_y, w, h);
 
-    buf.globalCompositeOperation = 'multiply';
-    buf.drawImage(this.base_img,
-            off_x, off_y, w, h,
-            buf_x, buf_y, w, h);
+        ctx.drawImage(buf.canvas, x, y);
+    }
 
-    ctx.drawImage(buf.canvas, x, y);
+    draw_layer(this.base_img, this.body_color);
+    draw_layer(this.mane_img, this.hair_color);
+    draw_layer(this.tail_img, this.hair_color);
 };
 
 
