@@ -115,6 +115,8 @@ def init():
     for k in BASES.keys():
         mk_sprite('pony/base/f/%s' % k, group, (96, 96), sheets[k])
 
-    for i in (0,):
-        mk_sprite('pony/mane/f/%d' % i, group, (96, 96), mk_hair_sheets('mane', i))
-        mk_sprite('pony/tail/f/%d' % i, group, (96, 96), mk_hair_sheets('tail', i))
+    mane = mk_sprite('pony/mane/f/0', group, (96, 96), mk_hair_sheets('mane', 0))
+    tail = mk_sprite('pony/tail/f/0', group, (96, 96), mk_hair_sheets('tail', 0))
+
+    mk_attach_slot('mane', group).add_variant('0', mane)
+    mk_attach_slot('tail', group).add_variant('0', tail)
