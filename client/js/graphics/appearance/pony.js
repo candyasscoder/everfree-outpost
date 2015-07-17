@@ -8,6 +8,7 @@ function PonyAppearance(assets, bits, name) {
     var tribe = (bits >> 6) & 3;
     // TODO: use a SpriteSheet object that contains all the sheet images
     this.base_img = assets['pony_base_f_' + TRIBE_NAME[tribe] + '-0'];
+    this.eyes_img = assets['pony_eyes_f_0-0'];
     this.mane_img = assets['pony_mane_f_0-0'];
     this.tail_img = assets['pony_tail_f_0-0'];
 
@@ -41,12 +42,14 @@ PonyAppearance.prototype.draw3D = function(fb_idx, r, sprite, slice_frac) {
     var base_tex = r.cacheTexture(this.base_img);
     var textures = {
         'sheetSampler[0]': base_tex,
-        'sheetSampler[1]': r.cacheTexture(this.mane_img),
-        'sheetSampler[2]': r.cacheTexture(this.tail_img),
+        'sheetSampler[1]': r.cacheTexture(this.eyes_img),
+        'sheetSampler[2]': r.cacheTexture(this.mane_img),
+        'sheetSampler[3]': r.cacheTexture(this.tail_img),
     };
 
     var colors = [
         this.body_color[0], this.body_color[1], this.body_color[2], 1.0,
+        255.0, 255.0, 255.0, 1.0,
         this.hair_color[0], this.hair_color[1], this.hair_color[2], 1.0,
         this.hair_color[0], this.hair_color[1], this.hair_color[2], 1.0,
         ];

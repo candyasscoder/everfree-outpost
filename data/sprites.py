@@ -88,9 +88,7 @@ def mk_base_sheets():
     return base_sheets
 
 
-def mk_hair_sheets(ty, idx):
-    sprites = loader('sprites/%s/mare' % ty)
-    img = sprites('%d.png' % idx)
+def mk_hair_sheets(img, depth):
     take = lambda x, y, w: img.crop((x * 96, y * 96, (x + w) * 96, (y + 1) * 96))
 
     parts = {}
@@ -103,20 +101,30 @@ def mk_hair_sheets(ty, idx):
     sheets = sheets_from_parts(pony_sprites.get_anim_group(), parts, (96, 96))
     for s in sheets:
         mask = s.split()[3]
-        mask = mask.point(lambda x: 120 if x == 255 else 0)
+        mask = mask.point(lambda x: depth if x == 255 else 0)
         s.putalpha(mask)
     return sheets
 
 
 def init():
+    sprites = loader('sprites')
+
     sheets = mk_base_sheets()
     group = pony_sprites.get_anim_group()
 
     for k in BASES.keys():
         mk_sprite('pony/base/f/%s' % k, group, (96, 96), sheets[k])
 
-    mane = mk_sprite('pony/mane/f/0', group, (96, 96), mk_hair_sheets('mane', 0))
-    tail = mk_sprite('pony/tail/f/0', group, (96, 96), mk_hair_sheets('tail', 0))
+    eyes = mk_sprite('pony/eyes/f/0', group, (96, 96),
+            mk_hair_sheets(sprites('type1blue.png'), 110))
+    mane = mk_sprite('pony/mane/f/0', group, (96, 96),
+            mk_hair_sheets(sprites('maremane1.png'), 120))
+    tail = mk_sprite('pony/tail/f/0', group, (96, 96),
+            mk_hair_sheets(sprites('maretail1.png'), 120))
+    hat = mk_sprite('pony/equip0/f/0', group, (96, 96),
+            mk_hair_sheets(sprites('equip_f_hat.png'), 130))
 
+    mk_attach_slot('eyes', group).add_variant('0', eyes)
     mk_attach_slot('mane', group).add_variant('0', mane)
     mk_attach_slot('tail', group).add_variant('0', tail)
+    mk_attach_slot('hat', group).add_variant('0', hat)

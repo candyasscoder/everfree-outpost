@@ -39,8 +39,10 @@ def main(src_dir, build_dir, out_file):
     add('image', 'pony_base_f_P-0',     build('sprites/pony_base_f_P-0.png'))
     add('image', 'pony_base_f_U-0',     build('sprites/pony_base_f_U-0.png'))
     add('image', 'pony_base_f_A-0',     build('sprites/pony_base_f_A-0.png'))
+    add('image', 'pony_eyes_f_0-0',     build('sprites/pony_eyes_f_0-0.png'))
     add('image', 'pony_mane_f_0-0',     build('sprites/pony_mane_f_0-0.png'))
     add('image', 'pony_tail_f_0-0',     build('sprites/pony_tail_f_0-0.png'))
+    add('image', 'pony_equip0_f_0-0',   build('sprites/pony_equip0_f_0-0.png'))
 
     add('image', 'font',    build('font.png'))
     add('url',   'items',   build('items.png'))
