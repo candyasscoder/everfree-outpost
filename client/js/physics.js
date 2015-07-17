@@ -3,7 +3,7 @@ var Vec = require('util/vec').Vec;
 var Asm = require('asmlibs').Asm;
 var getPhysicsHeapSize = require('asmlibs').getPhysicsHeapSize;
 var Motion = require('entity').Motion;
-var AnimationDef = require('data/animations').AnimationDef;
+var ExtraDefs = require('data/extras').ExtraDefs;
 var BlockDef = require('data/chunk').BlockDef;
 var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
 var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
@@ -75,13 +75,9 @@ Physics.prototype.computeForecast = function(now, entity, target_velocity) {
     var speed = target_velocity.abs().max() / 50;
     var facing = target_velocity.sign();
     var idx = (3 * (facing.x + 1) + (facing.y + 1));
-    // TODO: bit of a hack...  probably just ought to use 'target_velocity' or
-    // something here.
-    var old_dir = +AnimationDef.by_id[entity.animId(now)].name.split('-')[1];
+    var old_dir = ExtraDefs.anim_dir_table[entity.animId(now)];
     var anim_dir = [5, 4, 3, 6, old_dir, 2, 7, 0, 1][idx];
-    var SPEED_NAME = ['stand', 'walk', null, 'run'];
-    var anim = AnimationDef.by_name['pony/' + SPEED_NAME[speed] + '-' + anim_dir];
-    motion.anim_id = anim.id;
+    motion.anim_id = ExtraDefs.physics_anim_table[speed][anim_dir];
 
     return motion;
 };
