@@ -174,7 +174,7 @@ def main(src_dir):
                 # It's actually the `out` part of `out: in1 in2 in3`.  Ignore.
                 continue
 
-            if os.path.isdir(path):
+            if not os.path.isfile(path):
                 continue
 
             path = os.path.normpath(path)
