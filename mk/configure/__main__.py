@@ -68,6 +68,8 @@ def build_parser():
     args.add_argument('--ldflags',
             help='extra flags for the C/C++ linker')
 
+    args.add_argument('--with-server-gui', action='store_true',
+            help='include server_gui.py in the build')
 
     return args
 
@@ -181,6 +183,10 @@ if __name__ == '__main__':
     maybe_data_filter = os.path.join(i.src_dir, 'mk', 'data_files.txt') \
             if i.data_only else None
 
+    dist_extra = []
+    if i.with_server_gui:
+        dist_extra.append(('server_gui.py', '$src/util/server_gui.py'))
+
     i.mod_list = ['outpost'] + (i.mods.split(',') if i.mods else [])
 
     content = header(i)
@@ -246,7 +252,8 @@ if __name__ == '__main__':
         dist.rules(i),
         dist.from_manifest(common_manifest, dist_manifest,
                 filter_path=maybe_data_filter,
-                exclude_names=i.use_prebuilt),
+                exclude_names=i.use_prebuilt,
+                extra=dist_extra),
 
         'default $builddir/dist.stamp',
         '', # ensure there's a newline after the last command

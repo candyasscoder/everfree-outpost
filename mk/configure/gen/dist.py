@@ -57,8 +57,8 @@ def apply_exclude(manifest, names):
             src = '$prebuilt/%s' % dest
             manifest[i] = (dest, src)
 
-def from_manifest(common_path, extra_path, filter_path=None, exclude_names=None):
-    contents = []
+def from_manifest(common_path, extra_path, filter_path=None, exclude_names=None, extra=()):
+    contents = list(extra)
 
     for path in (common_path, extra_path):
         contents.extend(read_manifest(path))
