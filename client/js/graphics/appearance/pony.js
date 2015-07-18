@@ -15,13 +15,14 @@ function PonyAppearance(assets, bits, name) {
     this.mane_img = assets['pony_mane_f_0-0'];
     this.tail_img = assets['pony_tail_f_0-0'];
 
+    var hat = ((bits >> 8) & 1) != 0;
     this.equip_img = [
-        assets['pony_equip0_f_0-0'],
+        hat ? assets['pony_equip0_f_0-0'] : null,
         null,
         null,
     ];
     this.has_equip = [
-        true,
+        hat,
         false,
         false,
     ];
