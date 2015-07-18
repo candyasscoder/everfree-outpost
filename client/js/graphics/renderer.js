@@ -80,7 +80,7 @@ Renderer.prototype.initGl = function(assets) {
     this.dynamic_light = lights.dynamic;
 
     this.classes = {
-        'pony': new PonyAppearanceClass(gl, assets),
+        pony: new PonyAppearanceClass(gl, assets),
     };
 
     this.last_sw = -1;

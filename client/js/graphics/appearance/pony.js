@@ -1,6 +1,7 @@
 var Sprite = require('graphics/sprite').Sprite;
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
 var glutil = require('graphics/glutil');
+var named = require('graphics/draw/named');
 
 
 var TRIBE_NAME = ['E', 'P', 'U', 'A'];
@@ -40,6 +41,8 @@ function PonyAppearance(assets, bits, name) {
         COLOR_RAMP[g + 1] / 255.0,
         COLOR_RAMP[b + 1] / 255.0,
     ];
+
+    this.name = name;
 }
 exports.PonyAppearance = PonyAppearance;
 
@@ -86,8 +89,25 @@ PonyAppearance.prototype.draw3D = function(fb_idx, r, sprite, slice_frac) {
         'hasEquip': this.has_equip,
     };
 
-    var obj = r.classes.pony._obj;
+    var cls = r.classes.pony;
+    var obj = cls._obj;
     obj.draw(fb_idx, 0, 6, uniforms, {}, textures);
+
+
+    if (Config.render_names.get()) {
+        var off = cls.getNameOffset(this.name);
+
+        var uniforms = {
+            'sliceFrac': [slice_frac],
+            // TODO: hardcoded name positioning, should be computed somehow to
+            // center the name at a reasonable height.
+            'pos': [sprite.ref_x, sprite.ref_y, sprite.ref_z + 90 - 22],
+            'base': [off.x, off.y],
+            'size': [named.NAME_WIDTH, named.NAME_HEIGHT],
+            'anchor': [named.NAME_WIDTH / 2, named.NAME_HEIGHT],
+        };
+        cls._name_obj.draw(fb_idx, 0, 6, uniforms, {}, {});
+    }
 };
 
 PonyAppearance.prototype.draw2D = function(ctx, view_base, sprite) {
@@ -159,6 +179,32 @@ PonyAppearance.prototype.draw2D = function(ctx, view_base, sprite) {
 
 /** @constructor */
 function PonyAppearanceClass(gl, assets) {
+    this._obj = make_pony_obj(gl, assets);
+
+    this._name_tex = new glutil.Texture(gl);
+    this._name_obj = make_name_obj(gl, assets, this._name_tex);
+
+    this._name_buf = new named.NameBuffer(assets);
+}
+exports.PonyAppearanceClass = PonyAppearanceClass;
+
+PonyAppearanceClass.prototype.setCamera = function(pos, size) {
+    this._obj.setUniformValue('cameraPos', pos);
+    this._obj.setUniformValue('cameraSize', size);
+
+    this._name_obj.setUniformValue('cameraPos', pos);
+    this._name_obj.setUniformValue('cameraSize', size);
+};
+
+PonyAppearanceClass.prototype.getNameOffset = function(name) {
+    var off = this._name_buf.offset(name);
+    if (off.created) {
+        this._name_tex.loadImage(this._name_buf.image());
+    }
+    return off;
+};
+
+function make_pony_obj(gl, assets) {
     var vert = assets['sprite.vert'];
     var frag = assets['app_pony.frag'];
     var programs = glutil.buildPrograms(gl, vert, frag, 2);
@@ -204,11 +250,44 @@ function PonyAppearanceClass(gl, assets) {
         'sheetEquip[2]': null,
     };
 
-    this._obj = new glutil.GlObject(gl, programs, uniforms, attributes, textures);
+    return new glutil.GlObject(gl, programs, uniforms, attributes, textures);
 }
-exports.PonyAppearanceClass = PonyAppearanceClass;
 
-PonyAppearanceClass.prototype.setCamera = function(pos, size) {
-    this._obj.setUniformValue('cameraPos', pos);
-    this._obj.setUniformValue('cameraSize', size);
-};
+function make_name_obj(gl, assets, name_tex) {
+    var vert = assets['sprite.vert'];
+    var frag = assets['sprite.frag'];
+    var programs = glutil.buildPrograms(gl, vert, frag, 2);
+
+    var buffer = new glutil.Buffer(gl);
+    buffer.loadData(new Uint8Array([
+            0, 0,
+            0, 1,
+            1, 1,
+
+            0, 0,
+            1, 1,
+            1, 0,
+    ]));
+
+    var uniform = glutil.uniform;
+    var attribute = glutil.attribute;
+
+    var uniforms = {
+        'cameraPos': uniform('vec2', null),
+        'cameraSize': uniform('vec2', null),
+        'sheetSize': uniform('vec2', [named.NAME_BUFFER_WIDTH, named.NAME_BUFFER_HEIGHT]),
+        'sliceFrac': uniform('float', null),
+        'pos': uniform('vec3', null),
+        'base': uniform('vec2', null),
+        'size': uniform('vec2', null),
+        'anchor': uniform('vec2', null),
+    };
+    var attributes = {
+        'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0),
+    };
+    var textures = {
+        'sheetSampler': name_tex,
+    };
+
+    return new glutil.GlObject(gl, programs, uniforms, attributes, textures);
+}
