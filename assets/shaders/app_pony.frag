@@ -17,6 +17,8 @@ uniform sampler2D sheetBase;
 uniform sampler2D sheetMane;
 uniform sampler2D sheetTail;
 uniform sampler2D sheetEyes;
+uniform sampler2D sheetEquip[3];
+uniform bool hasEquip[3];
 
 uniform vec3 colorBody;
 uniform vec3 colorHair;
@@ -48,6 +50,11 @@ void main(void) {
     layer(result, sheetEyes);
     layerTinted(result, sheetMane, colorHair);
     layerTinted(result, sheetTail, colorHair);
+    for (int i = 0; i < 3; ++i) {
+        if (hasEquip[i]) {
+            layer(result, sheetEquip[i]);
+        }
+    }
 
     if (result.a == 0.0) {
         discard;

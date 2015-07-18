@@ -98,6 +98,7 @@ Program.prototype.setUniformNf = function(name, width, vs) {
 
 Program.prototype.setUniform = function(name, type, vs) {
     switch (type) {
+        case 'bool': this.setUniformNi(name, 1, vs); break;
         case 'int': this.setUniformNi(name, 1, vs); break;
         case 'float': this.setUniformNf(name, 1, vs); break;
         case 'vec2': this.setUniformNf(name, 2, vs); break;

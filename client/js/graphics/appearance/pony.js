@@ -12,6 +12,17 @@ function PonyAppearance(assets, bits, name) {
     this.mane_img = assets['pony_mane_f_0-0'];
     this.tail_img = assets['pony_tail_f_0-0'];
 
+    this.equip_img = [
+        assets['pony_equip0_f_0-0'],
+        null,
+        null,
+    ];
+    this.has_equip = [
+        true,
+        false,
+        false,
+    ];
+
     var r = (bits >> 4) & 3;
     var g = (bits >> 2) & 3;
     var b = (bits >> 0) & 3;
@@ -47,12 +58,11 @@ PonyAppearance.prototype.draw3D = function(fb_idx, r, sprite, slice_frac) {
         'sheetTail': r.cacheTexture(this.tail_img),
     };
 
-    var colors = [
-        this.body_color[0], this.body_color[1], this.body_color[2], 1.0,
-        255.0, 255.0, 255.0, 1.0,
-        this.hair_color[0], this.hair_color[1], this.hair_color[2], 1.0,
-        this.hair_color[0], this.hair_color[1], this.hair_color[2], 1.0,
-        ];
+    for (var i = 0; i < 3; ++i) {
+        if (this.equip_img[i] != null) {
+            textures['sheetEquip[' + i + ']'] = r.cacheTexture(this.equip_img[i]);
+        }
+    }
 
     var offset_x = sprite.frame_j * sprite.width;
     var offset_y = sprite.frame_i * sprite.height;
@@ -69,6 +79,7 @@ PonyAppearance.prototype.draw3D = function(fb_idx, r, sprite, slice_frac) {
 
         'colorBody': this.body_color,
         'colorHair': this.hair_color,
+        'hasEquip': this.has_equip,
     };
 
     var obj = r.classes.pony._obj;
@@ -147,6 +158,7 @@ function PonyAppearanceClass(gl, assets) {
 
         'colorBody': uniform('vec3', null),
         'colorHair': uniform('vec3', null),
+        'hasEquip': uniform('bool', null),
     };
     var attributes = {
         'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0),
@@ -156,6 +168,9 @@ function PonyAppearanceClass(gl, assets) {
         'sheetMane': null,
         'sheetTail': null,
         'sheetEyes': null,
+        'sheetEquip[0]': null,
+        'sheetEquip[1]': null,
+        'sheetEquip[2]': null,
     };
 
     this._obj = new GlObject(gl, programs, uniforms, attributes, textures);
