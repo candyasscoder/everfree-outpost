@@ -23,7 +23,7 @@ def rules(i):
             description = GEN $out
 
         rule gen_credits
-            command = cat $dep_files | $python3 $src/gen/gen_credits.py $src >$out
+            command = $python3 $src/gen/gen_credits.py $src $out $dep_files
             description = GEN $out
     ''', **locals())
 
@@ -51,6 +51,10 @@ def day_night(out_json, src_img):
     ''', **locals())
 
 def process():
+    data_files = ['%s_%s.json' % (f,s)
+            for s in ('server', 'client')
+            for f in ('structures', 'blocks', 'items', 'recipes', 'animations', 'attach_slots')]
+    data_files.append('extras_client.json')
     return template('''
         rule process_data
             command = $python3 $src/gen/data_main.py --mods=$mods $
@@ -59,10 +63,8 @@ def process():
             depfile = $b_data/data.d
 
         build $b_data/stamp $
-            %for side in ('server', 'client')
-                %for file in ('structures', 'blocks', 'items', 'recipes')
-                    $b_data/%{file}_%{side}.json $
-                %end
+            %for name in data_files
+                $b_data/%{name} $
             %end
             $b_data/tiles.png $b_data/items.png: $
             process_data | $src/gen/data_main.py

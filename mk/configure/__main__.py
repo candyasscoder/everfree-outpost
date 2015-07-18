@@ -183,40 +183,52 @@ if __name__ == '__main__':
 
     i.mod_list = ['outpost'] + (i.mods.split(',') if i.mods else [])
 
-    content ='\n\n'.join((
-        header(i),
+    content = header(i)
 
-        '# Native',
-        native.rules(i),
-        native.rust('physics', 'lib', ()),
-        native.rust('backend', 'bin', ('physics',), '$src/server/main.rs'),
-        native.cxx('wrapper', 'bin',
-            ('$src/wrapper/%s' % f for f in os.listdir(os.path.join(i.src_dir, 'wrapper'))
-                if f.endswith('.cpp')),
-            cxxflags='-DWEBSOCKETPP_STRICT_MASKING',
-            ldflags='-static',
-            libs='-lboost_system -lpthread' if not i.win32 else
-                '-lboost_system-mt -lpthread -lwsock32 -lws2_32'),
-        native.cxx('outpost_savegame', 'shlib',
-            ('$src/util/savegame_py/%s' % f
-                for f in os.listdir(os.path.join(i.src_dir, 'util/savegame_py'))
-                if f.endswith('.c')),
-            cflags=py_includes,
-            ldflags=py_ldflags,
-            ),
+    if not i.data_only:
+        content += '\n\n'.join((
+            '',
+            '# Native',
+            native.rules(i),
+            native.rust('physics', 'lib', ()),
+            native.rust('backend', 'bin', ('physics',), '$src/server/main.rs'),
+            native.cxx('wrapper', 'bin',
+                ('$src/wrapper/%s' % f for f in os.listdir(os.path.join(i.src_dir, 'wrapper'))
+                    if f.endswith('.cpp')),
+                cxxflags='-DWEBSOCKETPP_STRICT_MASKING',
+                ldflags='-static',
+                libs='-lboost_system -lpthread' if not i.win32 else
+                    '-lboost_system-mt -lpthread -lwsock32 -lws2_32'),
+            native.cxx('outpost_savegame', 'shlib',
+                ('$src/util/savegame_py/%s' % f
+                    for f in os.listdir(os.path.join(i.src_dir, 'util/savegame_py'))
+                    if f.endswith('.c')),
+                cflags=py_includes,
+                ldflags=py_ldflags,
+                ),
 
-        '# Asm.js',
-        asmjs.rules(i),
-        asmjs.rlib('core', (), '$rust_home/src/libcore/lib.rs'),
-        fix_bitflags('$b_asmjs/bitflags.rs', '$bitflags_home/src/lib.rs'),
-        asmjs.rlib('bitflags', (), '$b_asmjs/bitflags.rs'),
-        asmjs.rlib('asmrt', ('core',)),
-        asmjs.rlib('physics', ('core', 'bitflags', 'asmrt')),
-        asmjs.rlib('graphics', ('core', 'asmrt', 'physics')),
-        asmjs.asmlibs('asmlibs',
-            '$src/client/asmlibs.rs', ('core', 'asmrt', 'physics', 'graphics'),
-            '$src/client/asmlibs_exports.txt', '$src/client/asmlibs.tmpl.js'),
+            '# Asm.js',
+            asmjs.rules(i),
+            asmjs.rlib('core', (), '$rust_home/src/libcore/lib.rs'),
+            fix_bitflags('$b_asmjs/bitflags.rs', '$bitflags_home/src/lib.rs'),
+            asmjs.rlib('bitflags', (), '$b_asmjs/bitflags.rs'),
+            asmjs.rlib('asmrt', ('core',)),
+            asmjs.rlib('physics', ('core', 'bitflags', 'asmrt')),
+            asmjs.rlib('graphics', ('core', 'asmrt', 'physics')),
+            asmjs.asmlibs('asmlibs',
+                '$src/client/asmlibs.rs', ('core', 'asmrt', 'physics', 'graphics'),
+                '$src/client/asmlibs_exports.txt', '$src/client/asmlibs.tmpl.js'),
 
+            '# Javascript',
+            js.rules(i),
+            js.compile(i, '$b_js/outpost.js', '$src/client/js/main.js'),
+            js.minify('$b_js/asmlibs.js', '$b_asmjs/asmlibs.js'),
+            js.compile(i, '$b_js/animtest.js', '$src/client/js/animtest.js'),
+            js.compile(i, '$b_js/configedit.js', '$src/client/js/configedit.js'),
+            ))
+
+    content += '\n\n'.join((
+        '',
         '# Data',
         data.rules(i),
         data.font('$b_data/font', '$src/assets/misc/NeoSans.png'),
@@ -225,13 +237,6 @@ if __name__ == '__main__':
         data.process(),
         data.pack(),
         data.credits('$b_data/credits.html'),
-
-        '# Javascript',
-        js.rules(i),
-        js.compile(i, '$b_js/outpost.js', '$src/client/js/main.js'),
-        js.minify('$b_js/asmlibs.js', '$b_asmjs/asmlibs.js'),
-        js.compile(i, '$b_js/animtest.js', '$src/client/js/animtest.js'),
-        js.compile(i, '$b_js/configedit.js', '$src/client/js/configedit.js'),
 
         '# Server-side scripts',
         scripts.rules(i),

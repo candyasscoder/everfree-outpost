@@ -1,7 +1,6 @@
 import sys
 py3 = sys.version_info >= (3,)
 
-import glob
 import os
 import socket
 import subprocess
@@ -37,9 +36,14 @@ class ProcessMonitorWorker(threading.Thread):
         self.process = process
 
     def run(self):
+        if hasattr(self.process.stdout, 'raw'):
+            f = self.process.stdout.raw
+        else:
+            f = self.process.stdout
+
         while True:
             try:
-                buf = self.process.stdout.raw.read(4096)
+                buf = f.read(4096)
             except IOError as e:
                 self.queue.put(('error', str(e)))
                 return

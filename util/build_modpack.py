@@ -1,7 +1,16 @@
+import glob
 import os
 import platform
 import subprocess
 import sys
+
+try:
+    from shlex import quote
+except:
+    import re
+    def quote(path):
+        # No shlex.quote on python2, so we use this hack.
+        return re.sub(r'''['"\\ ]''', lambda m: '\\' + m.group(), path)
 
 
 def check_py3(exe):
@@ -24,12 +33,24 @@ def detect_py3():
             return exe
     return None
 
+def check_install(py3, py_mod, pip_pkg):
+    # This duplicates some logic from `configure.checks`, but it's better than
+    # adding code to let ./configure install things automatically.
+    ret = subprocess.call([py3, '-c', 'import %s' % py_mod])
+    if ret != 0:
+        print('Trying to install package %r...' % pip_pkg)
+        ret = subprocess.call([py3, '-c', 'import pip; pip.main(["install", %r])' % pip_pkg])
+        print('pip invocation exited with code %d' % ret)
+
 def main(mods):
     py3 = detect_py3()
     if py3 is None:
         print('Could not find Python 3.4 or greater.')
         print('See README.txt for more information.')
         sys.exit(1)
+
+    check_install(py3, 'yaml', 'PyYAML')
+    check_install(py3, 'PIL.Image', 'pillow')
 
 
     print(' === Configuration === ')
@@ -46,7 +67,7 @@ def main(mods):
             '--data-only',
             '--prebuilt-dir', 'prebuilt',
             '--release',
-            '--python3', py3,
+            '--python3', quote(py3),
     ]
     if mods != '':
         config_args.extend(['--mods', mods])

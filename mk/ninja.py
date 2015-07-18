@@ -1,10 +1,13 @@
 import builtins
 from collections import namedtuple
 import os
+import platform
 import re
 import shlex
 import shutil
 import subprocess
+
+win32 = platform.system() == 'Windows'
 
 Binding = namedtuple('Binding', ('name', 'value'))
 Rule = namedtuple('Rule', ('name', 'bindings'))
@@ -316,7 +319,7 @@ def build(target, builds, missing_ok=False):
         run(b.command)
 
 def run(command):
-    tokens = shlex.split(command)
+    tokens = shlex.split(command) if not win32 else command.split()
     if tokens[0] == 'cp':
         do_cp(tokens[1:])
     elif tokens[0] == 'touch':
