@@ -1,4 +1,7 @@
-console.log('going');
+var Sprite = require('graphics/sprite').Sprite;
+var OffscreenContext = require('graphics/canvas').OffscreenContext;
+var glutil = require('graphics/glutil');
+
 
 var TRIBE_NAME = ['E', 'P', 'U', 'A'];
 var COLOR_RAMP = [0x44, 0x88, 0xcc, 0xff];
@@ -133,9 +136,9 @@ PonyAppearance.prototype.draw2D = function(ctx, view_base, sprite) {
 function PonyAppearanceClass(gl, assets) {
     var vert = assets['sprite.vert'];
     var frag = assets['app_pony.frag'];
-    var programs = buildPrograms(gl, vert, frag, 2);
+    var programs = glutil.buildPrograms(gl, vert, frag, 2);
 
-    var buffer = new Buffer(gl);
+    var buffer = new glutil.Buffer(gl);
     buffer.loadData(new Uint8Array([
             0, 0,
             0, 1,
@@ -145,6 +148,9 @@ function PonyAppearanceClass(gl, assets) {
             1, 1,
             1, 0,
     ]));
+
+    var uniform = glutil.uniform;
+    var attribute = glutil.attribute;
 
     var uniforms = {
         'cameraPos': uniform('vec2', null),
@@ -173,10 +179,9 @@ function PonyAppearanceClass(gl, assets) {
         'sheetEquip[2]': null,
     };
 
-    this._obj = new GlObject(gl, programs, uniforms, attributes, textures);
+    this._obj = new glutil.GlObject(gl, programs, uniforms, attributes, textures);
 }
 exports.PonyAppearanceClass = PonyAppearanceClass;
-console.log('gone', exports.PonyAppearanceClass);
 
 PonyAppearanceClass.prototype.setCamera = function(pos, size) {
     this._obj.setUniformValue('cameraPos', pos);

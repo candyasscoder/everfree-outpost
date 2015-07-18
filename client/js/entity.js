@@ -1,4 +1,4 @@
-var Sprite = require('graphics/renderer').Sprite;
+var Sprite = require('graphics/sprite').Sprite;
 var Deque = require('util/misc').Deque;
 var AnimationDef = require('data/animations').AnimationDef;
 

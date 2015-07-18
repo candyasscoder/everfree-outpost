@@ -478,55 +478,6 @@ function makeSecret() {
     return secret_buf;
 }
 
-function buildPonyAppearance(appearance, name) {
-    var light = (appearance >> 9) & 1;
-    var hat = (appearance >> 8) & 1;
-    var horn = (appearance >> 7) & 1;
-    var wings = (appearance >> 6) & 1;
-    var r = (appearance >> 4) & 3;
-    var g = (appearance >> 2) & 3;
-    var b = (appearance >> 0) & 3;
-
-    var steps = [0x44, 0x88, 0xcc, 0xff];
-    var body = (steps[r + 1] << 16) |
-               (steps[g + 1] <<  8) |
-               (steps[b + 1]);
-    var mane = (steps[r] << 16) |
-               (steps[g] <<  8) |
-               (steps[b]);
-
-    function mk_layer(name, color, skip, outline_skip) {
-        return {
-            image: assets[name],
-            color: color,
-            skip: skip,
-            outline_skip: outline_skip,
-        };
-    }
-
-    var extra = new NamedExtra([
-            mk_layer('pony_f_wing_back',    body,       !wings,     false),
-            mk_layer('pony_f_base',         body,       false,      false),
-            mk_layer('pony_f_eyes_blue',    0xffffff,   false,      true),
-            mk_layer('pony_f_wing_front',   body,       !wings,     false),
-            mk_layer('pony_f_tail_1',       mane,       false,      false),
-            mk_layer('pony_f_mane_1',       mane,       false,      false),
-            mk_layer('equip_f_hat',         0xffffff,   !hat,       true),
-            mk_layer('pony_f_horn',         body,       !horn,      false),
-            ], name);
-
-    var light_color = null;
-    if (light) {
-        light_color = [100, 180, 255];
-    }
-
-    var sprite = new SpriteBase(96, 96, 48, 90, extra);
-    return {
-        sprite: sprite,
-        light_color: light_color,
-    };
-}
-
 function calcAppearance(tribe, r, g, b) {
     var appearance =
         ((r - 1) << 4) |
