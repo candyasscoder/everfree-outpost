@@ -16,14 +16,14 @@ function PonyAppearance(assets, bits, name) {
     var g = (bits >> 2) & 3;
     var b = (bits >> 0) & 3;
     this.hair_color = [
-        COLOR_RAMP[r + 1] / 255.0,
-        COLOR_RAMP[g + 1] / 255.0,
-        COLOR_RAMP[b + 1] / 255.0,
-    ];
-    this.body_color = [
         COLOR_RAMP[r] / 255.0,
         COLOR_RAMP[g] / 255.0,
         COLOR_RAMP[b] / 255.0,
+    ];
+    this.body_color = [
+        COLOR_RAMP[r + 1] / 255.0,
+        COLOR_RAMP[g + 1] / 255.0,
+        COLOR_RAMP[b + 1] / 255.0,
     ];
 }
 exports.PonyAppearance = PonyAppearance;
@@ -41,10 +41,10 @@ PonyAppearance.prototype.buildSprite = function(pos, frame) {
 PonyAppearance.prototype.draw3D = function(fb_idx, r, sprite, slice_frac) {
     var base_tex = r.cacheTexture(this.base_img);
     var textures = {
-        'sheetSampler[0]': base_tex,
-        'sheetSampler[1]': r.cacheTexture(this.eyes_img),
-        'sheetSampler[2]': r.cacheTexture(this.mane_img),
-        'sheetSampler[3]': r.cacheTexture(this.tail_img),
+        'sheetBase': base_tex,
+        'sheetEyes': r.cacheTexture(this.eyes_img),
+        'sheetMane': r.cacheTexture(this.mane_img),
+        'sheetTail': r.cacheTexture(this.tail_img),
     };
 
     var colors = [
@@ -66,7 +66,9 @@ PonyAppearance.prototype.draw3D = function(fb_idx, r, sprite, slice_frac) {
         'size': [(sprite.flip ? -sprite.width : sprite.width),
                  sprite.height],
         'anchor': [sprite.anchor_x, sprite.anchor_y],
-        'color': colors,
+
+        'colorBody': this.body_color,
+        'colorHair': this.hair_color,
     };
 
     var obj = r.classes.pony._obj;
@@ -119,7 +121,7 @@ PonyAppearance.prototype.draw2D = function(ctx, view_base, sprite) {
 /** @constructor */
 function PonyAppearanceClass(gl, assets) {
     var vert = assets['sprite.vert'];
-    var frag = assets['sprite_layered.frag'];
+    var frag = assets['app_pony.frag'];
     var programs = buildPrograms(gl, vert, frag, 2);
 
     var buffer = new Buffer(gl);
@@ -142,15 +144,19 @@ function PonyAppearanceClass(gl, assets) {
         'base': uniform('vec2', null),
         'size': uniform('vec2', null),
         'anchor': uniform('vec2', null),
-        'color': uniform('vec4', null),
+
+        'colorBody': uniform('vec3', null),
+        'colorHair': uniform('vec3', null),
     };
     var attributes = {
         'posOffset': attribute(buffer, 2, gl.UNSIGNED_BYTE, false, 0, 0),
     };
-    var textures = {};
-    for (var i = 0; i < 8; ++i) {
-        textures['sheetSampler[' + i + ']'] = null;
-    }
+    var textures = {
+        'sheetBase': null,
+        'sheetMane': null,
+        'sheetTail': null,
+        'sheetEyes': null,
+    };
 
     this._obj = new GlObject(gl, programs, uniforms, attributes, textures);
 }
