@@ -1,3 +1,4 @@
+var Config = require('config').Config;
 var Sprite = require('graphics/sprite').Sprite;
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
 var glutil = require('graphics/glutil');
