@@ -68,6 +68,7 @@ def main(mods):
             '--prebuilt-dir', 'prebuilt',
             '--release',
             '--python3', quote(py3),
+            '--with-server-gui',
     ]
     if mods != '':
         config_args.extend(['--mods', mods])

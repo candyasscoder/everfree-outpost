@@ -256,6 +256,7 @@ class Application(ttk.Frame):
 
     def _start_build(self):
         self.text_output.delete('1.0', tk.END)
+        append_text(self.text_output, 'Building...\n')
         self.build.start((','.join(self.mods_enabled),))
 
     def _check_queues(self):
