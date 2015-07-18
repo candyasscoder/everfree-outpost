@@ -1,6 +1,7 @@
 import glob
 import os
 import platform
+import shutil
 import subprocess
 import sys
 
@@ -90,6 +91,11 @@ def main(mods):
         sys.exit(1)
     print('\n')
     sys.stdout.flush()
+
+
+    # TODO: SUPER HACK
+    for f in glob.glob('prebuilt/bin/*.dll'):
+        shutil.copy(f, 'dist/bin')
 
 if __name__ == '__main__':
     mods, = sys.argv[1:]
