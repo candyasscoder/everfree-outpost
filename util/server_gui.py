@@ -191,7 +191,7 @@ class Application(ttk.Frame):
         self.wrapper.on_event = self._handle_wrapper_event
 
         module = 'http.server' if py3 else 'SimpleHTTPServer'
-        self.http = ProcessMonitor((sys.executable, '-u', '-m', module, '8892'),
+        self.http = ProcessMonitor((sys.executable, '-u', '-m', module, '8889'),
             cwd=os.path.join(os.getcwd(), 'www'))
         self.http.on_event = self._handle_http_event
 
