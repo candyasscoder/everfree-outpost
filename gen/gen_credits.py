@@ -163,7 +163,6 @@ def main(src_dir, dest_file, inputs):
 
     content = ''
     for name in inputs:
-        print(name)
         with open(name, 'r') as f:
             content += f.read()
     # Support `\` for line continuations
