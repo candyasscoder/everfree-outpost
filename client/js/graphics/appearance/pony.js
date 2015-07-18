@@ -109,27 +109,51 @@ PonyAppearance.prototype.draw2D = function(ctx, view_base, sprite) {
     var off_y = sprite.frame_i * h;
 
     // TODO: fix alpha
-    function draw_layer(img, color) {
+    function draw_layer(img) {
         buf.globalCompositeOperation = 'copy';
         buf.drawImage(img,
                 off_x, off_y, w, h,
                 buf_x, buf_y, w, h);
+        var img = buf.getImageData(0, 0, w, h);
 
-        buf.globalCompositeOperation = 'source-in';
-        buf.fillStyle = 'rgb(' + [color[0] * 255, color[1] * 255, color[2] * 255].join(',') + ')';
-        buf.fillRect(buf_x, buf_y, w, h);
-
-        buf.globalCompositeOperation = 'multiply';
-        buf.drawImage(img,
-                off_x, off_y, w, h,
-                buf_x, buf_y, w, h);
+        for (var i = 3; i < img.data.length; i += 4) {
+            if (img.data[i] != 0) {
+                img.data[i] = 255;
+            }
+        }
+        buf.putImageData(img, 0, 0);
 
         ctx.drawImage(buf.canvas, x, y);
     }
 
-    draw_layer(this.base_img, this.body_color);
-    draw_layer(this.mane_img, this.hair_color);
-    draw_layer(this.tail_img, this.hair_color);
+    function draw_layer_tinted(img, color) {
+        buf.globalCompositeOperation = 'copy';
+        buf.drawImage(img,
+                off_x, off_y, w, h,
+                buf_x, buf_y, w, h);
+        var orig = buf.getImageData(0, 0, w, h);
+
+        buf.globalCompositeOperation = 'multiply';
+        buf.fillStyle = 'rgb(' + [color[0] * 255, color[1] * 255, color[2] * 255].join(',') + ')';
+        buf.fillRect(buf_x, buf_y, w, h);
+        var img = buf.getImageData(0, 0, w, h);
+
+        for (var i = 3; i < img.data.length; i += 4) {
+            if (orig.data[i] == 0) {
+                img.data[i] = 0;
+            } else {
+                img.data[i] = 255;
+            }
+        }
+        buf.putImageData(img, 0, 0);
+
+        ctx.drawImage(buf.canvas, x, y);
+    }
+
+    draw_layer_tinted(this.base_img, this.body_color);
+    draw_layer(this.eyes_img);
+    draw_layer_tinted(this.mane_img, this.hair_color);
+    draw_layer_tinted(this.tail_img, this.hair_color);
 };
 
 
