@@ -1,10 +1,13 @@
 from fnmatch import fnmatch
 import os
+import platform
 from pprint import pprint
 import re
 import sys
 
 import yaml
+
+win32 = platform.system() == 'Windows'
 
 
 def merge_entries(dct):
@@ -33,6 +36,7 @@ class Sources(object):
                 dct = yaml.load(f)
 
             for k,v in dct.items():
+                k = k if not win32 else k.replace('/', '\\')
                 dirname, filename = os.path.split(os.path.join(path, k))
                 dct = self.info.setdefault(dirname, {})
                 assert filename not in dct, \
@@ -153,11 +157,14 @@ def collect_entries(ss, filenames):
 
     return result
 
-def main(src_dir):
+def main(src_dir, dest_file, inputs):
     src_dir = os.path.normpath(src_dir) + os.sep
     ss = Sources()
 
-    content = sys.stdin.read()
+    content = ''
+    for name in inputs:
+        with open(name, 'r') as f:
+            content += f.read()
     # Support `\` for line continuations
     content = content.replace('\\\n', ' ')
 
@@ -174,7 +181,7 @@ def main(src_dir):
                 # It's actually the `out` part of `out: in1 in2 in3`.  Ignore.
                 continue
 
-            if os.path.isdir(path):
+            if not os.path.isfile(path):
                 continue
 
             path = os.path.normpath(path)
@@ -190,22 +197,23 @@ def main(src_dir):
     dct = collect_entries(ss, filenames)
     entries = merge_entries(dct)
 
-    print('''
-        <html>
-            <head>
-                <title>Everfree Outpost - Credits</title>
-            </head>
-            <body>
-                <h1 class='top-title'>Everfree Outpost &ndash; Credits</h1>
-        ''')
-    for e in entries:
-        print('<hr>')
-        print(render_one(e, dct))
-    print('''
-            </body>
-        </html>
-        ''')
+    with open(dest_file, 'w') as f:
+        f.write('''
+            <html>
+                <head>
+                    <title>Everfree Outpost - Credits</title>
+                </head>
+                <body>
+                    <h1 class='top-title'>Everfree Outpost &ndash; Credits</h1>
+            ''')
+        for e in entries:
+            f.write('<hr>\n')
+            f.write(render_one(e, dct))
+        f.write('''
+                </body>
+            </html>
+            ''')
 
 if __name__ == '__main__':
-    src_dir, = sys.argv[1:]
-    main(src_dir)
+    src_dir, dest_file, *inputs = sys.argv[1:]
+    main(src_dir, dest_file, inputs)

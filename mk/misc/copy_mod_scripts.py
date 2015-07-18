@@ -51,7 +51,7 @@ def main(args):
         pass
 
     with open(ns.stamp + '.d', 'w') as f:
-        f.write('%s: \\\n' % ns.stamp)
+        f.write('%s: \\\n' % os.path.normpath(ns.stamp))
         for path in deps:
             f.write('    %s \\\n' % path)
 

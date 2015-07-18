@@ -10,13 +10,8 @@ var TimeVarying = require('util/timevarying').TimeVarying;
 
 var AnimCanvas = require('graphics/canvas').AnimCanvas;
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
-var Animation = require('graphics/sheet').Animation;
-var SimpleExtra = require('graphics/draw/simple').SimpleExtra;
-var LayeredExtra = require('graphics/draw/layered').LayeredExtra;
-var NamedExtra = require('graphics/draw/named').NamedExtra;
-var SpriteBase = require('graphics/renderer').SpriteBase;
+var PonyAppearance = require('graphics/appearance/pony').PonyAppearance;    
 var Renderer = require('graphics/renderer').Renderer;
-var Layered2D = require('graphics/draw/layered').Layered2D;
 var Cursor = require('graphics/cursor').Cursor;
 var glutil = require('graphics/glutil');
 var Scene = require('graphics/scene').Scene;
@@ -24,6 +19,7 @@ var DayNight = require('graphics/daynight').DayNight;
 
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
+var Animation = require('entity').Animation;
 var Structure = require('structure').Structure;
 
 var InventoryTracker = require('inventory').InventoryTracker;
@@ -52,6 +48,9 @@ var BlockDef = require('data/chunk').BlockDef;
 var ItemDef = require('data/items').ItemDef;
 var RecipeDef = require('data/recipes').RecipeDef;
 var TemplateDef = require('data/templates').TemplateDef;
+var AnimationDef = require('data/animations').AnimationDef;
+var AttachSlotDef = require('data/attachments').AttachSlotDef;
+var ExtraDefs = require('data/extras').ExtraDefs;
 
 var Chunk = require('data/chunk').Chunk;
 var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
@@ -128,7 +127,6 @@ var assets;
 
 
 var entities;
-var entity_appearance;
 var player_entity;
 var structures;
 
@@ -196,7 +194,6 @@ function init() {
     assets = null;
 
     entities = {};
-    entity_appearance = {};
     player_entity = -1;
     structures = {};
 
@@ -283,6 +280,18 @@ function loadAssets(next) {
                 TemplateDef.register(i, templates[i], assets);
             }
             renderer.loadTemplateData(TemplateDef.by_id);
+
+            var animations = assets['animation_defs'];
+            for (var i = 0; i < animations.length; ++i) {
+                AnimationDef.register(i, animations[i]);
+            }
+
+            var attach_slots = assets['attach_slot_defs'];
+            for (var i = 0; i < attach_slots.length; ++i) {
+                AttachSlotDef.register(i, attach_slots[i]);
+            }
+
+            ExtraDefs.init(assets['extra_defs']);
 
             var css = '.item-icon {' +
                 'background-image: url("' + assets['items'] + '");' +
@@ -469,55 +478,6 @@ function makeSecret() {
     return secret_buf;
 }
 
-function buildPonyAppearance(appearance, name) {
-    var light = (appearance >> 9) & 1;
-    var hat = (appearance >> 8) & 1;
-    var horn = (appearance >> 7) & 1;
-    var wings = (appearance >> 6) & 1;
-    var r = (appearance >> 4) & 3;
-    var g = (appearance >> 2) & 3;
-    var b = (appearance >> 0) & 3;
-
-    var steps = [0x44, 0x88, 0xcc, 0xff];
-    var body = (steps[r + 1] << 16) |
-               (steps[g + 1] <<  8) |
-               (steps[b + 1]);
-    var mane = (steps[r] << 16) |
-               (steps[g] <<  8) |
-               (steps[b]);
-
-    function mk_layer(name, color, skip, outline_skip) {
-        return {
-            image: assets[name],
-            color: color,
-            skip: skip,
-            outline_skip: outline_skip,
-        };
-    }
-
-    var extra = new NamedExtra([
-            mk_layer('pony_f_wing_back',    body,       !wings,     false),
-            mk_layer('pony_f_base',         body,       false,      false),
-            mk_layer('pony_f_eyes_blue',    0xffffff,   false,      true),
-            mk_layer('pony_f_wing_front',   body,       !wings,     false),
-            mk_layer('pony_f_tail_1',       mane,       false,      false),
-            mk_layer('pony_f_mane_1',       mane,       false,      false),
-            mk_layer('equip_f_hat',         0xffffff,   !hat,       true),
-            mk_layer('pony_f_horn',         body,       !horn,      false),
-            ], name);
-
-    var light_color = null;
-    if (light) {
-        light_color = [100, 180, 255];
-    }
-
-    var sprite = new SpriteBase(96, 96, 48, 90, extra);
-    return {
-        sprite: sprite,
-        light_color: light_color,
-    };
-}
-
 function calcAppearance(tribe, r, g, b) {
     var appearance =
         ((r - 1) << 4) |
@@ -535,16 +495,15 @@ function calcAppearance(tribe, r, g, b) {
 }
 
 function drawPony(ctx, tribe, r, g, b) {
-    var base = buildPonyAppearance(calcAppearance(tribe, r, g, b), '');
-    var sprite = base.sprite.instantiate();
-    sprite.ref_x = sprite.anchor_x;
-    sprite.ref_y = sprite.anchor_y;
-    // Make pony face to the left.
-    sprite.extra.updateIJ(sprite, 0, 2);
-    sprite.setFlip(true);
+    var bits = calcAppearance(tribe, r, g, b);
+    var app = new PonyAppearance(assets, bits, '');
+    var anim_def = AnimationDef.by_id[ExtraDefs.editor_anim];
+    var frame = new Animation(anim_def, 0).frameInfo(0);
+    var sprite = app.buildSprite(new Vec(0, 0, 0), frame);
+    sprite.setRefPosition(sprite.anchor_x, sprite.anchor_y, 0);
 
     ctx.clearRect(0, 0, 96, 96);
-    new Layered2D().drawInto(ctx, [0, 0], sprite);
+    app.draw2D(ctx, [0, 0], sprite);
 }
 
 function preloadTextures() {
@@ -861,17 +820,25 @@ function handleChatUpdate(msg) {
     chat.addMessage(msg);
 }
 
-function handleEntityAppear(id, appearance, name) {
+function handleEntityAppear(id, appearance_bits, name) {
     if (id == player_entity) {
         name = '';
     }
-    var app = buildPonyAppearance(appearance, name);
+    var app = new PonyAppearance(assets, appearance_bits, name);
     if (entities[id] != null) {
-        entities[id].setSpriteBase(app.sprite);
+        entities[id].setAppearance(app);
     } else {
-        entities[id] = new Entity(app.sprite, pony_anims, new Vec(0, 0, 0));
+        entities[id] = new Entity(
+                app,
+                new Animation(AnimationDef.by_id[ExtraDefs.default_anim], 0),
+                new Vec(0, 0, 0));
     }
-    entities[id].setLight(app.light_color == null ? 0 : 200, app.light_color);
+
+    if ((appearance_bits & (1 << 9)) != 0) {
+        entities[id].setLight(200, [100, 180, 255]);
+    } else {
+        entities[id].setLight(0, null);
+    }
 }
 
 function handleEntityGone(id, time) {
@@ -1145,7 +1112,8 @@ function frame(ac, client_now) {
 
     function draw_extra(fb_idx, r) {
         if (player_sprite != null && Config.render_outline.get()) {
-            r.renderSpecial(fb_idx, player_sprite, 'pony_outline');
+            // TODO: make outlines work in new system
+            //r.renderSpecial(fb_idx, player_sprite, 'pony_outline');
         }
     }
 

@@ -114,6 +114,7 @@ pub trait Fragment<'d> {
         }));
 
         self.with_world(|wf| {
+            let data = wf.world().data();
             let mut e = wf.entity_mut(eid);
 
             // Compute extra information for the entity.
@@ -130,9 +131,13 @@ pub trait Fragment<'d> {
                 };
 
             const ANIM_DIR_COUNT: AnimId = 8;
+            static SPEED_NAME_MAP: [&'static str; 4] = ["stand", "walk", "", "run"];
             let idx = (3 * (facing.x + 1) + (facing.y + 1)) as usize;
             let anim_dir = [5, 4, 3, 6, 0, 2, 7, 0, 1][idx];
-            let anim = anim_dir + speed as AnimId * ANIM_DIR_COUNT;
+            let anim_name = format!("pony/{}-{}",
+                                    SPEED_NAME_MAP[speed as usize],
+                                    anim_dir);
+            let anim = data.animations.get_id(&anim_name);
 
             e.set_anim(anim);
             e.set_facing(facing);

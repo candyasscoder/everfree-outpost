@@ -113,7 +113,15 @@ class Checker(object):
                 return None
 
         user_choice = getattr(self.i, arg_name)
-        choices = [user_choice] if user_choice else defaults
+        # The selected item will be passed unquoted to a shell (or
+        # shlex.split).  This allows the user to include extra args, such as
+        # "--cc='cc -m32'".  But it also means the autodetected choices need to
+        # be quoted in case they contain special characters.  (In particular,
+        # paths on win32 have an annoying tendency to contain backslashes.)
+        #
+        # Note that user-provided paths may need to be double-escaped, once to
+        # pass the value into ./configure, and again for actual execution.
+        choices = [user_choice] if user_choice else list(shlex.quote(d) for d in defaults)
         check_one = getattr(self, 'check_' + arg_name)
 
         for choice in choices:

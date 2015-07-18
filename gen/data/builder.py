@@ -1,4 +1,4 @@
-from . import structure, tile, block, item, recipe
+from . import structure, tile, block, item, recipe, animation, attachment, extra
 
 
 class Objects(object):
@@ -89,6 +89,62 @@ class Recipes(Objects):
         self.owner.recipes.append(r)
         return self
 
+class AnimGroups(Objects):
+    def create(self, name):
+        g = animation.AnimGroupDef(name)
+        self._add(g)
+        self.owner.anim_groups.append(g)
+        return self
+
+    def add_anim(self, name, length, framerate):
+        def go(g):
+            g.add_anim(name, length, framerate)
+        self._foreach(go)
+        return self
+
+    def add_anim_mirror(self, name, orig_name):
+        def go(g):
+            g.add_anim_mirror(name, orig_name)
+        self._foreach(go)
+        return self
+
+    def finish(self):
+        def go(g):
+            g.finish()
+            for a in g.anims.values():
+                self.owner.animations.append(a)
+        self._foreach(go)
+        return self
+
+class Sprites(Objects):
+    def create(self, name, group, size, images):
+        r = animation.SpriteDef(name, group, size, images)
+        self._add(r)
+        self.owner.sprites.append(r)
+        return self
+
+class AttachSlots(Objects):
+    def create(self, name, anim_group):
+        s = attachment.AttachSlotDef(name, anim_group)
+        self._add(s)
+        self.owner.attach_slots.append(s)
+        return self
+
+    def add_variant(self, name, sprite):
+        if isinstance(sprite, Objects):
+            sprite = sprite.unwrap()
+        def go(s):
+            s.add_variant(name, sprite)
+        self._foreach(go)
+        return self
+
+class Extras(Objects):
+    def create(self, name, func):
+        e = extra.ExtraDef(name, func)
+        self._add(e)
+        self.owner.extras.append(e)
+        return self
+
 
 class Builder(object):
     def __init__(self):
@@ -97,6 +153,11 @@ class Builder(object):
         self.blocks = []
         self.items = []
         self.recipes = []
+        self.anim_groups = []
+        self.animations = []
+        self.sprites = []
+        self.attach_slots = []
+        self.extras = []
 
         self.gen_tile_cache = {}
 
@@ -150,15 +211,51 @@ class Builder(object):
         return self.recipe_builder().create(*args, **kwargs)
 
 
+    def anim_group_builder(self):
+        return AnimGroups(self)
+
+    def mk_anim_group(self, *args, **kwargs):
+        return self.anim_group_builder().create(*args, **kwargs)
+
+
+    def sprite_builder(self):
+        return Sprites(self)
+
+    def mk_sprite(self, *args, **kwargs):
+        return self.sprite_builder().create(*args, **kwargs)
+
+
+    def attach_slot_builder(self):
+        return AttachSlots(self)
+
+    def mk_attach_slot(self, *args, **kwargs):
+        return self.attach_slot_builder().create(*args, **kwargs)
+
+
+    def extra_builder(self):
+        return Extras(self)
+
+    def mk_extra(self, *args, **kwargs):
+        return self.extra_builder().create(*args, **kwargs)
+
+
 INSTANCE = Builder()
 mk_tile = INSTANCE.mk_tile
 mk_block = INSTANCE.mk_block
 mk_structure = INSTANCE.mk_structure
 mk_item = INSTANCE.mk_item
 mk_recipe = INSTANCE.mk_recipe
+mk_anim_group = INSTANCE.mk_anim_group
+mk_sprite = INSTANCE.mk_sprite
+mk_attach_slot = INSTANCE.mk_attach_slot
+mk_extra = INSTANCE.mk_extra
 
 tile_builder = INSTANCE.tile_builder
 block_builder = INSTANCE.block_builder
 structure_builder = INSTANCE.structure_builder
 item_builder = INSTANCE.item_builder
 recipe_builder = INSTANCE.recipe_builder
+anim_group_builder = INSTANCE.anim_group_builder
+sprite_builder = INSTANCE.sprite_builder
+attach_slot_builder = INSTANCE.attach_slot_builder
+extra_builder = INSTANCE.extra_builder

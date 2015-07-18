@@ -3,6 +3,7 @@ var Vec = require('util/vec').Vec;
 var Asm = require('asmlibs').Asm;
 var getPhysicsHeapSize = require('asmlibs').getPhysicsHeapSize;
 var Motion = require('entity').Motion;
+var ExtraDefs = require('data/extras').ExtraDefs;
 var BlockDef = require('data/chunk').BlockDef;
 var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
 var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
@@ -74,8 +75,9 @@ Physics.prototype.computeForecast = function(now, entity, target_velocity) {
     var speed = target_velocity.abs().max() / 50;
     var facing = target_velocity.sign();
     var idx = (3 * (facing.x + 1) + (facing.y + 1));
-    var anim_dir = [5, 4, 3, 6, entity.animId(now) % 8, 2, 7, 0, 1][idx];
-    motion.anim_id = anim_dir + speed * 8;
+    var old_dir = ExtraDefs.anim_dir_table[entity.animId(now)];
+    var anim_dir = [5, 4, 3, 6, old_dir, 2, 7, 0, 1][idx];
+    motion.anim_id = ExtraDefs.physics_anim_table[speed][anim_dir];
 
     return motion;
 };
@@ -126,7 +128,7 @@ Prediction.prototype.receivedMotion = function(m, entity) {
 
     // Motions are unequal.  Flush the entity's and the predictor's motion
     // queues, and replay from the inputs.
-    entity.resetMotion(m);
+    entity.reset(m);
     this.predicted = new Deque();
 
     var this_ = this;

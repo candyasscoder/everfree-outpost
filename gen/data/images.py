@@ -42,6 +42,7 @@ DEPENDENCIES = set()
 def _load_image(path):
     if path not in LOAD_CACHE:
         LOAD_CACHE[path] = Image.open(path)
+        DEPENDENCIES.add(path)
     return LOAD_CACHE[path]
 
 def _find_image_in_dir(dir_path, path):

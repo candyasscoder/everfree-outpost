@@ -1,6 +1,7 @@
 from PIL import Image
 
 from .consts import *
+from .util import pack_boxes
 
 
 class Shape(object):
@@ -53,30 +54,15 @@ def build_sheets(structures):
     provided structures.  This also updates each structure's `sheet_idx` and
     `offset` field with its position in the generated sheet(s).
     '''
-    def key(s):
-        w, h = s.image.size
-        return (w * h, h, w)
-    structures = sorted(structures, key=key, reverse=True)
+    boxes = [s.get_display_size() for s in structures]
+    num_sheets, offsets = pack_boxes(SHEET_SIZE, boxes)
 
-    sheets = [SheetBuilder(0, *SHEET_SIZE)]
 
-    for s in structures:
+    images = [Image.new('RGBA', (SHEET_PX, SHEET_PX))]
+    depthmaps = [Image.new('RGBA', (SHEET_PX, SHEET_PX))]
+
+    for s, (j, offset) in zip(structures, offsets):
         size = s.get_display_size()
-
-        sheet, offset = (None, None)
-        for sh in sheets[-3:]:
-            offset = sh.place(*size)
-            if offset is not None:
-                sheet = sh
-                break
-
-        if offset is None:
-            sheet = SheetBuilder(len(sheets), *SHEET_SIZE)
-            sheets.append(sheet)
-            offset = sheet.place(*size)
-
-        assert offset is not None, \
-                'structure %s is too big for a sheet %s' % (s.name, size)
 
         x, y = offset
         x *= TILE_SIZE
@@ -86,42 +72,13 @@ def build_sheets(structures):
         if px_h % TILE_SIZE != 0:
             y += 32 - px_h % TILE_SIZE
 
-        sheet.image.paste(s.image, (x, y))
-        sheet.depthmap.paste(s.depthmap, (x, y))
+        images[j].paste(s.image, (x, y))
+        depthmaps[j].paste(s.depthmap, (x, y))
 
-        s.sheet_idx = sheet.idx
-        s.offset = (x, y)
+        s.sheet_idx = j
+        s.offset = offset
 
-    return [(s.image, s.depthmap) for s in sheets]
-
-class SheetBuilder(object):
-    def __init__(self, idx, w, h):
-        self.idx = idx
-        self.image = Image.new('RGBA', (w * TILE_SIZE, h * TILE_SIZE))
-        self.depthmap = Image.new('RGBA', (w * TILE_SIZE, h * TILE_SIZE))
-        self.in_use = 0
-        self.stride = h
-        self.area = w * h
-
-    def place(self, w, h):
-        base_mask = (1 << w) - 1
-        mask = 0
-        for i in range(h):
-            mask |= base_mask << (i * self.stride)
-
-        i = 0
-        in_use = self.in_use
-        while in_use != 0 and i < self.area:
-            if mask & in_use == 0:
-                break
-            i += 1
-            in_use >>= 1
-
-        if i < self.area:
-            self.in_use |= mask << i
-            return (i % self.stride, i // self.stride)
-        else:
-            return None
+    return zip(images, depthmaps)
 
 
 # JSON output
@@ -132,7 +89,7 @@ def build_client_json(structures):
                 'size': s.size,
                 'shape': [SHAPE_ID[x] for x in s.shape],
                 'sheet': s.sheet_idx,
-                'offset': s.offset,
+                'offset': [x * TILE_SIZE for x in s.offset],
                 'display_size': s.image.size,
                 'layer': s.layer,
                 }

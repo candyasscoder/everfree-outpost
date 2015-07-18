@@ -84,7 +84,7 @@ def main(src, dest, stamp):
         pass
 
     with open(stamp + '.d', 'w') as f:
-        f.write('%s: \\\n' % stamp)
+        f.write('%s: \\\n' % os.path.normpath(stamp))
         f.write('    %s \\\n' % src)
         for path in src_files:
             f.write('    %s \\\n' % os.path.join(src, path))

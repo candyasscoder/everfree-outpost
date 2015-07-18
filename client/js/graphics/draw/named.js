@@ -22,6 +22,11 @@ var NAME_BUFFER_COUNT_X = (NAME_BUFFER_WIDTH / NAME_WIDTH)|0;
 var NAME_BUFFER_COUNT_Y = (NAME_BUFFER_HEIGHT / NAME_HEIGHT)|0;
 var NAME_BUFFER_COUNT = NAME_BUFFER_COUNT_X * NAME_BUFFER_COUNT_Y;
 
+exports.NAME_WIDTH = NAME_WIDTH;
+exports.NAME_HEIGHT = NAME_HEIGHT;
+exports.NAME_BUFFER_WIDTH = NAME_BUFFER_WIDTH;
+exports.NAME_BUFFER_HEIGHT = NAME_BUFFER_HEIGHT;
+
 
 /** @constructor */
 function NameBuffer(assets) {
@@ -30,6 +35,7 @@ function NameBuffer(assets) {
 
     this.font = new Font(assets['font'], assets['font_metrics']);
 }
+exports.NameBuffer = NameBuffer;
 
 NameBuffer.prototype._draw = function(s, idx) {
     var x = NAME_WIDTH * (idx % NAME_BUFFER_COUNT_X);
