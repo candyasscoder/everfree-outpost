@@ -16,7 +16,10 @@ set -e
 # Layers are numbered from 0 starting at the bottom.
 
 img=$(basename "$1" .xcf)
-convert "$1" "${img}_split.png"
+# Use PNG32 prefix to force non-palettized PNG.  Pillow v2.6 (which seems to be
+# the newest available for Windows Python 3.4) has trouble with transparency in
+# palletized PNGs.
+convert "$1" PNG32:"${img}_split.png"
 mv "${img}_split-0.png" "${img}-backwing.png"
 mv "${img}_split-1.png" "${img}-base.png"
 mv "${img}_split-2.png" "${img}-horn.png"
