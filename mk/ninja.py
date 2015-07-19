@@ -3,7 +3,6 @@ from collections import namedtuple
 import os
 import platform
 import re
-import shlex
 import shutil
 import subprocess
 
@@ -319,7 +318,10 @@ def build(target, builds, missing_ok=False):
         run(b.command)
 
 def run(command):
-    tokens = shlex.split(command) if not win32 else command.split()
+    # TODO: proper command line parsing.  Note that shlex.parse doesn't do the
+    # right thing on windows, even with `posix=False` kwarg.  (With posix=False
+    # it returns quoted arguments with the quotes still attached, like '"cp"'.)
+    tokens = command.split()
     if tokens[0] == 'cp':
         do_cp(tokens[1:])
     elif tokens[0] == 'touch':

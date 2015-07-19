@@ -5,13 +5,20 @@ import shutil
 import subprocess
 import sys
 
-try:
-    from shlex import quote
-except:
-    import re
+win32 = platform.system() == 'Windows'
+
+if not win32:
+    try:
+        from shlex import quote
+    except:
+        import re
+        def quote(path):
+            # No shlex.quote on python2, so we use this hack.
+            return re.sub(r'''['"\\ ]''', lambda m: '\\' + m.group(), path)
+else:
+    # cmd.exe-style quoting
     def quote(path):
-        # No shlex.quote on python2, so we use this hack.
-        return re.sub(r'''['"\\ ]''', lambda m: '\\' + m.group(), path)
+        return '"%s"' % path.replace('"', '""')
 
 
 def check_py3(exe):
@@ -22,7 +29,7 @@ def check_py3(exe):
         return False
 
 def detect_py3():
-    if platform.system() != 'Windows':
+    if not win32:
         candidates = [sys.executable, 'python3', 'python']
     else:
         # Try executables from %PATH%, plus the default install locations

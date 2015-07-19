@@ -1,9 +1,16 @@
 import os
 import platform
-import shlex
 import subprocess
 import sys
 import tempfile
+
+win32 = platform.system() == 'Windows'
+
+if not win32:
+    from shlex import quote
+else:
+    def quote(path):
+        return '"%s"' % path.replace('"', '""')
 
 
 
@@ -62,34 +69,34 @@ class Checker(object):
         if prog is None:
             raise ConfigError('relies on a program that was not found')
 
-        full_args = shlex.split(prog) + args
-        self.log('Execute: %r' % full_args)
+        cmd = prog + ''.join(' ' + quote(a) for a in args)
+        self.log('Execute: %r' % cmd)
         self.log_file.flush()
-        ret = subprocess.call(full_args,
+        ret = subprocess.call(cmd, shell=True,
                 stdin=subprocess.DEVNULL, stdout=self.log_file, stderr=subprocess.STDOUT)
         self.log_file.flush()
         if expect_ret is None or ret == expect_ret:
-            self.log('Process %r returned %d (ok)' % (full_args[0], ret))
+            self.log('Process %r returned %d (ok)' % (prog, ret))
         else:
-            self.warn('Process %r returned %d (expected %d)' % (full_args[0], ret, expect_ret),)
+            self.warn('Process %r returned %d (expected %d)' % (prog, ret, expect_ret),)
             raise ConfigError('running %r failed: return code %d (expected %d)' %
-                    (full_args[0], ret, expect_ret))
+                    (prog, ret, expect_ret))
 
     def run_output(self, prog, args=[], expect_ret=0):
-        full_args = shlex.split(prog) + args
-        self.log('Execute: %r' % full_args)
-        p = subprocess.Popen(full_args,
+        cmd = prog + ''.join(' ' + quote(a) for a in args)
+        self.log('Execute: %r' % cmd)
+        p = subprocess.Popen(cmd, shell=True,
                 stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         output, _ = p.communicate()
 
         if expect_ret is not None and p.returncode != expect_ret:
             raise ConfigError('process %r returned %d (expected %d)' %
-                    (full_args[0], p.returncode, expect_ret))
+                    (prog, p.returncode, expect_ret))
 
         output = output.decode()
         self.log_file.write(output)
         # If it returns nonzero, we get an exception from check_output.
-        self.log('Process %r returned %d (ok)' % (full_args[0], p.returncode))
+        self.log('Process %r returned %d (ok)' % (prog, p.returncode))
         return output
 
     # Top-level wrappers for checks
@@ -113,15 +120,14 @@ class Checker(object):
                 return None
 
         user_choice = getattr(self.i, arg_name)
-        # The selected item will be passed unquoted to a shell (or
-        # shlex.split).  This allows the user to include extra args, such as
-        # "--cc='cc -m32'".  But it also means the autodetected choices need to
-        # be quoted in case they contain special characters.  (In particular,
-        # paths on win32 have an annoying tendency to contain backslashes.)
+        # The selected item will be passed unquoted to a shell.  This allows
+        # the user to include extra args, such as "--cc='cc -m32'".  But it
+        # also means the autodetected choices need to be quoted in case they
+        # contain special characters.
         #
         # Note that user-provided paths may need to be double-escaped, once to
         # pass the value into ./configure, and again for actual execution.
-        choices = [user_choice] if user_choice else list(shlex.quote(d) for d in defaults)
+        choices = [user_choice] if user_choice else list(quote(d) for d in defaults)
         check_one = getattr(self, 'check_' + arg_name)
 
         for choice in choices:
@@ -258,13 +264,13 @@ class Checker(object):
     # Feature/library checks
     def check_rust_library(self, lib, use_extern):
         src_file = self.write('rs', 'extern crate %s; fn main() {}' % lib)
-        args = [src_file, '-o', '%s.exe' % src_file] + shlex.split(self.i.rust_lib_externs)
+        args = [src_file, '-o', '%s.exe' % src_file]
         if self.i.rust_extra_libdir is not None:
             args += ['-L', self.i.rust_extra_libdir]
             if use_extern:
                 path = os.path.join(self.i.rust_extra_libdir, 'lib%s.rlib' % lib)
                 args += ['--extern', '%s=%s' % (lib, path)]
-        self.run(self.i.rustc, args)
+        self.run(self.i.rustc + ' ' + self.i.rust_lib_externs, args)
 
     def detect_rust_libraries(self, libs):
         if self.i.rustc is None:
