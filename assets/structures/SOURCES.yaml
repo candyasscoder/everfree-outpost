@@ -152,10 +152,10 @@ torch.*:
 
 wood_wall.png: &wood-wall
     title: Wooden Wall
-    author: Lanea Zimmerman (AKA Sharm), Nonnykins, Stuart Pernsteiner
+    author: Nemisys, Nonnykins
     license: CC-BY-SA 3.0 / GPL 3.0
-    attribution: Wall texture taken from Lanea Zimmerman's wooden table.
-    derived-from: furniture.png
+    attribution: Wood texture based on Nemisys's LPC Signpost
+    derived-from: sign.png
 wood_wall-planemap.png: *wood-wall
 
 stair.png: &stair
