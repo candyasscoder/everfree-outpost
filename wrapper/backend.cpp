@@ -11,8 +11,7 @@ void backend::read_header() {
             if (!ec) {
                 read_data();
             } else {
-                cerr << "error reading header from backend: " << ec << endl;
-                assert(0);
+                handle_shutdown();
             }
         });
 }
@@ -35,16 +34,29 @@ void backend::handle_message() {
     owner.handle_backend_response(header_buf.client_id, move(msg_buf));
 }
 
+void backend::handle_shutdown() {
+    owner.handle_backend_shutdown();
+}
+
 backend::backend(server& owner,
                  io_service& ios,
-                 platform::child_stream::native_handle_type fd_to,
-                 platform::child_stream::native_handle_type fd_from)
-  : owner(owner),
-    pipe_to(ios, fd_to), pipe_from(ios, fd_from) {
+                 const char* backend_path)
+  : owner(owner), backend_path(backend_path), pipe_from(ios), pipe_to(ios) {
+}
+
+void backend::start() {
+    auto fds = platform::spawn_backend(backend_path);
+    pipe_from = platform::child_stream(pipe_from.get_io_service(), fds.first);
+    pipe_to = platform::child_stream(pipe_to.get_io_service(), fds.second);
     read_header();
 }
 
 void backend::write(uint16_t client_id, vector<uint8_t> msg) {
+    if (suspended) {
+        pending_msgs.emplace_back(client_id, move(msg));
+        return;
+    }
+
     auto header_ptr = make_shared<header>();
     header_ptr->client_id = client_id;
     assert(msg.size() <= UINT16_MAX);
@@ -64,4 +76,16 @@ void backend::write(uint16_t client_id, vector<uint8_t> msg) {
                 assert(0);
             }
         });
+}
+
+void backend::suspend() {
+    suspended = true;
+}
+
+void backend::resume() {
+    suspended = false;
+    for (auto&& p : pending_msgs) {
+        write(p.first, move(p.second));
+    }
+    pending_msgs.clear();
 }

@@ -50,6 +50,8 @@ void control::handle_command(size_t id,
     string s(begin, end);
     if (s == "shutdown") {
         owner.handle_control_command(opcode::OP_SHUTDOWN);
+    } else if (s == "restart") {
+        owner.handle_control_command(opcode::OP_RESTART);
     } else {
         cerr << "unknown control command" << endl;
     }

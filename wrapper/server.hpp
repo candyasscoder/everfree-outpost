@@ -19,16 +19,17 @@ class server {
     std::unique_ptr<repl> repl_;
     std::unique_ptr<signals> signals_;
     std::unique_ptr<websocket> websocket_;
+    bool restarting;
 
 public:
     server(boost::asio::io_service& ios,
-           platform::child_stream::native_handle_type to_backend,
-           platform::child_stream::native_handle_type from_backend,
+           const char* backend_path,
            platform::local_stream::endpoint control_addr,
            platform::local_stream::endpoint repl_addr,
            uint16_t ws_port);
 
     void handle_backend_response(uint16_t client_id, std::vector<uint8_t> msg);
+    void handle_backend_shutdown();
     void handle_repl_command(std::vector<uint8_t> command);
     void handle_control_command(uint16_t opcode);
 

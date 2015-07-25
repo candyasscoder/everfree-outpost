@@ -5,7 +5,7 @@
 #include <map>
 #include <vector>
 
-#include "config.hpp"
+#include "platform.hpp"
 
 
 class server;
