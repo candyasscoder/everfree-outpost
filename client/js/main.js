@@ -723,6 +723,7 @@ function handleInit(entity_id, now, cycle_base, cycle_ms) {
 }
 
 function handleTerrainChunk(i, data) {
+    console.log('load chunk ', i);
     var chunk = chunks[i];
     var raw_length = rle16Decode(data, chunk._tiles);
 
@@ -909,12 +910,23 @@ function handleGenericGetArgs(dialog_id, parts, cb) {
 
 function handleSyncStatus(new_synced) {
     synced = new_synced;
-    console.log(synced);
+    console.log('sync', synced);
     if (synced != net.SYNC_OK) {
         var msg = synced == net.SYNC_LOADING ? 'Loading World...' : 'Server restarting...';
         banner.show(msg, 0, keyboard, function() { return false; });
 
         if (synced == net.SYNC_RESET) {
+            var now = timing.visibleNow();
+
+            if (dialog.isVisible()) {
+                dialog.hide();
+            }
+            Object.getOwnPropertyNames(entities).forEach(function(id) {
+                handleEntityGone(id, now);
+            });
+            Object.getOwnPropertyNames(structures).forEach(function(id) {
+                handleStructureGone(id, now);
+            });
         }
     } else {
         banner.hide();
@@ -1007,7 +1019,7 @@ var FACINGS = [
 ];
 
 function frame(ac, client_now) {
-    if (!synced) {
+    if (synced != net.SYNC_OK) {
         return;
     }
 

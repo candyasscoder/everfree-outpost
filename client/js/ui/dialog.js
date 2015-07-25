@@ -14,6 +14,10 @@ function Dialog(keyboard) {
 }
 exports.Dialog = Dialog;
 
+Dialog.prototype.isVisible = function() {
+    return (this._content != null);
+};
+
 Dialog.prototype.hide = function() {
     var old_content = this._content;
     setTimeout(function() {
