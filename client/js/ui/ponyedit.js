@@ -30,7 +30,7 @@ function PonyEditor(name, draw) {
         }
         return {base: base, items: items, values: choice_labels};
     }
-    var sexParts =   addRow('',      ['&#x2642;', '&#x2640;']);
+    var sexParts =   addRow('',      ['&#x2640;', '&#x2642;']);
     var tribeParts = addRow('Tribe', ['E', 'P', 'U']);
     var maneParts =  addRow('Mane',  ['A', 'B', 'C']);
     var tailParts =  addRow('Tail',  ['A', 'B', 'C']);
