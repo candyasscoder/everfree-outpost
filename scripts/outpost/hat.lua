@@ -7,11 +7,11 @@ function action.use_item.hat(c, inv)
 
     inv:update('hat', -1)
     c:pawn():inventory('ability'):update('ability/remove_hat', 1)
-    c:pawn():update_appearance(0x100, 0x100)
+    c:pawn():update_appearance(0x3c0000, 0x040000)
 end
 
 function action.use_ability.remove_hat(c, inv)
     c:pawn():inventory('ability'):update('ability/remove_hat', -1)
     c:pawn():inventory('main'):update('hat', 1)
-    c:pawn():update_appearance(0x100, 0)
+    c:pawn():update_appearance(0x3c0000, 0x000000)
 end
