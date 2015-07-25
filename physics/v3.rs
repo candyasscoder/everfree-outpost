@@ -425,6 +425,11 @@ impl<V: Vn> Region<V> {
     }
 
     #[inline]
+    pub fn points_inclusive(&self) -> RegionPoints<V> {
+        Region::new(self.min, self.max.map(|x| x + 1)).points()
+    }
+
+    #[inline]
     pub fn contains(&self, point: V) -> bool {
         <V as Vn>::fold_axes(true, |a, cur| {
             cur &&
