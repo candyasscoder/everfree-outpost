@@ -104,10 +104,15 @@ def init():
             cur_slots['base'].add_variant(k, base)
 
         # Add eyes, mane, tail variants
-        for part, depth in (('eyes', 110), ('mane', 120), ('tail', 120)):
-            sprite = mk_sprite('pony/%s/%s/0' % (sex, part), group, (96, 96),
-                    mk_hair_sheets(sprites('parts/%s/%s1.png' % (ms, part)), depth))
-            cur_slots[part].add_variant('0', sprite)
+        sprite = mk_sprite('pony/%s/eyes/0' % sex, group, (96, 96),
+                mk_hair_sheets(sprites('parts/%s/eyes1.png' % ms), 110))
+        cur_slots['eyes'].add_variant('0', sprite)
+
+        for i in range(3):
+            for part in ('mane', 'tail'):
+                sprite = mk_sprite('pony/%s/%s/%d' % (sex, part, i), group, (96, 96),
+                        mk_hair_sheets(sprites('parts/%s/%s%d.png' % (ms, part, i + 1)), 120))
+                cur_slots[part].add_variant(str(i), sprite)
 
         # Add `none` variant for equip slots
         for i in range(3):
