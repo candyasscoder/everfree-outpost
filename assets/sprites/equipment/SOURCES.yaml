@@ -1,4 +1,4 @@
-witch-hat.*:
+witch-hat-?.*:
     title: Witch's Hat
     author: Fernando Ariel dos Santos Alves
     license: CC-BY 4.0
