@@ -61,7 +61,7 @@ var Physics = require('physics').Physics;
 var Prediction = require('physics').Prediction;
 var DummyPrediction = require('physics').DummyPrediction;
 
-var Connection = require('net').Connection;
+var net = require('net');
 var Timing = require('time').Timing;
 
 var rle16Decode = require('util/misc').rle16Decode;
@@ -140,7 +140,7 @@ var cursor;
 var show_cursor = false;
 var slice_radius;
 var day_night;
-var synced = false;
+var synced = net.SYNC_LOADING;
 
 var conn;
 var timing;
@@ -237,7 +237,7 @@ function init() {
                     conn.sendLogin(Config.login_name.get(), Config.login_secret.get());
 
                     // Show "Loading World..." banner.
-                    handleSyncStatus(false);
+                    handleSyncStatus(net.SYNC_LOADING);
                     canvas.start();
                 });
             });
@@ -316,7 +316,7 @@ function openConn(info, next) {
     }
 
     banner.update('Connecting to server...', 0);
-    conn = new Connection(url);
+    conn = new net.Connection(url);
     conn.onOpen = next;
     conn.onClose = handleClose;
     conn.onInit = handleInit;
@@ -909,8 +909,13 @@ function handleGenericGetArgs(dialog_id, parts, cb) {
 
 function handleSyncStatus(new_synced) {
     synced = new_synced;
-    if (!synced) {
-        banner.show('Loading World...', 0, keyboard, function() { return false; });
+    console.log(synced);
+    if (synced != net.SYNC_OK) {
+        var msg = synced == net.SYNC_LOADING ? 'Loading World...' : 'Server restarting...';
+        banner.show(msg, 0, keyboard, function() { return false; });
+
+        if (synced == net.SYNC_RESET) {
+        }
     } else {
         banner.hide();
     }

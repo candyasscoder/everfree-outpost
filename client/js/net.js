@@ -44,6 +44,10 @@ var OP_GET_USE_ITEM_ARGS =      0x8015;
 var OP_GET_USE_ABILITY_ARGS =   0x8016;
 var OP_SYNC_STATUS =            0x8017;
 
+exports.SYNC_LOADING = 0;
+exports.SYNC_OK = 1;
+exports.SYNC_RESET = 2;
+
 /** @constructor */
 function Connection(url) {
     var this_ = this;
@@ -378,7 +382,7 @@ Connection.prototype._handleMessage = function(evt) {
 
         case OP_SYNC_STATUS:
             if (this.onSyncStatus != null) {
-                var synced = get8() != 0;
+                var synced = get8();
                 this.onSyncStatus(synced);
             }
             break;

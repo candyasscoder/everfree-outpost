@@ -24,7 +24,7 @@ const TERRAIN_CHUNK_DIR: &'static str = "terrain_chunks";
 const WORLD_FILE_NAME: &'static str = "world.dat";
 const MISC_FILE_NAME: &'static str = "misc.dat";
 const AUTH_DB_FILE_NAME: &'static str = "auth.sqlite";
-
+const RESTART_FILE_NAME: &'static str = "restart.dat";
 
 pub struct Storage {
     base: PathBuf,
@@ -104,6 +104,10 @@ impl Storage {
             .with_extension("terrain_chunk")
     }
 
+    pub fn restart_file_path(&self) -> PathBuf {
+        self.base.join(SAVE_DIR).join(RESTART_FILE_NAME)
+    }
+
     pub fn open_world_file(&self) -> Option<File> {
         try_open_file(self.world_path())
     }
@@ -124,6 +128,10 @@ impl Storage {
         try_open_file(self.terrain_chunk_path(stable_tcid))
     }
 
+    pub fn open_restart_file(&self) -> Option<File> {
+        try_open_file(self.restart_file_path())
+    }
+
     pub fn create_world_file(&self) -> File {
         File::create(self.world_path()).unwrap()
     }
@@ -142,6 +150,14 @@ impl Storage {
 
     pub fn create_terrain_chunk_file(&self, stable_tcid: Stable<TerrainChunkId>) -> File {
         File::create(self.terrain_chunk_path(stable_tcid)).unwrap()
+    }
+
+    pub fn create_restart_file(&self) -> File {
+        File::create(self.restart_file_path()).unwrap()
+    }
+
+    pub fn remove_restart_file(&self) {
+        fs::remove_file(self.restart_file_path()).unwrap()
     }
 }
 

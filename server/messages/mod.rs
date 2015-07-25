@@ -38,6 +38,7 @@ pub enum ControlEvent {
     CloseWire(WireId, Option<ClientId>),
     ReplCommand(u16, String),
     Shutdown,
+    Restart,
 }
 
 pub enum WireEvent {
@@ -74,6 +75,13 @@ pub enum WireResponse {
 }
 
 #[derive(Debug, Clone)]
+pub enum SyncKind {
+    Loading,
+    Ok,
+    Reset,
+}
+
+#[derive(Debug, Clone)]
 pub enum ClientResponse {
     Init(Option<EntityId>, Time, u32, u32),
 
@@ -92,7 +100,7 @@ pub enum ClientResponse {
     //InventoryGone(InventoryId),
     
     PlaneFlags(u32),
-    SyncStatus(bool),
+    SyncStatus(SyncKind),
 
     GetInteractArgs(u32, ExtraArg),
     GetUseItemArgs(ItemId, u32, ExtraArg),
@@ -225,6 +233,8 @@ impl Messages {
                 Some(Event::Control(ControlEvent::ReplCommand(cookie, cmd))),
             Request::Shutdown =>
                 Some(Event::Control(ControlEvent::Shutdown)),
+            Request::Restart =>
+                Some(Event::Control(ControlEvent::Restart)),
 
             _ => {
                 warn!("bad control request: {:?}", req);
@@ -417,8 +427,14 @@ impl Messages {
             ClientResponse::PlaneFlags(flags) =>
                 self.send_raw(wire_id, Response::PlaneFlags(flags)),
 
-            ClientResponse::SyncStatus(synced) =>
-                self.send_raw(wire_id, Response::SyncStatus(synced)),
+            ClientResponse::SyncStatus(kind) => {
+                let arg = match kind {
+                    SyncKind::Loading => 0,
+                    SyncKind::Ok => 1,
+                    SyncKind::Reset => 2,
+                };
+                self.send_raw(wire_id, Response::SyncStatus(arg))
+            },
 
 
             ClientResponse::GetInteractArgs(dialog_id, parts) =>

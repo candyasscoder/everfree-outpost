@@ -44,6 +44,9 @@ impl<R: Read> WireReader<R> {
         let mut base = 0;
         while base < dest.len() {
             let n = try!(self.r.read(&mut dest[base..]));
+            if n == 0 {
+                return Err(io::Error::new(io::ErrorKind::Other, "EOF while reading wire"));
+            }
             assert!(n > 0 && base + n <= dest.len());
             base += n;
         }
@@ -350,7 +353,7 @@ impl<A: WriteTo> WriteTo for [A] {
 }
 
 
-impl<'a, A: WriteTo> WriteTo for &'a A {
+impl<'a, A: WriteTo+?Sized> WriteTo for &'a A {
     fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
         (*self).write_to(w)
     }
@@ -369,6 +372,18 @@ impl ReadFrom for String {
 }
 
 impl WriteTo for String {
+    fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
+        self.as_bytes().write_to(w)
+    }
+
+    fn size(&self) -> usize {
+        self.as_bytes().size()
+    }
+
+    fn size_is_fixed() -> bool { false }
+}
+
+impl WriteTo for str {
     fn write_to<W: Write>(&self, w: &mut WireWriter<W>) -> io::Result<()> {
         self.as_bytes().write_to(w)
     }

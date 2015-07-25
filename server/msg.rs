@@ -133,6 +133,7 @@ pub enum Request {
     RemoveClient(WireId),
     ReplCommand(u16, String),
     Shutdown,
+    Restart,
 
     // Server-internal messages
     BadMessage(Opcode),
@@ -224,6 +225,9 @@ impl Request {
             op::Shutdown => {
                 Shutdown
             },
+            op::Restart => {
+                Restart
+            },
             _ => BadMessage(opcode),
         };
 
@@ -260,7 +264,7 @@ pub enum Response {
     GetInteractArgs(u32, ExtraArg),
     GetUseItemArgs(ItemId, u32, ExtraArg),
     GetUseAbilityArgs(ItemId, u32, ExtraArg),
-    SyncStatus(bool),
+    SyncStatus(u8),
 
     ClientRemoved(WireId),
     ReplResult(u16, String),
@@ -313,8 +317,8 @@ impl Response {
                 ww.write_msg(id, (op::GetUseItemArgs, item_id, dialog_id, args)),
             GetUseAbilityArgs(item_id, dialog_id, ref args) =>
                 ww.write_msg(id, (op::GetUseAbilityArgs, item_id, dialog_id, args)),
-            SyncStatus(synced) =>
-                ww.write_msg(id, (op::SyncStatus, synced)),
+            SyncStatus(kind) =>
+                ww.write_msg(id, (op::SyncStatus, kind)),
 
             ClientRemoved(wire_id) =>
                 ww.write_msg(id, (op::ClientRemoved, wire_id)),

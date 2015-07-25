@@ -10,7 +10,7 @@ use data::StructureTemplate;
 use engine::glue::*;
 use engine::split::{Open, EngineRef};
 use logic;
-use messages::ClientResponse;
+use messages::{ClientResponse, SyncKind};
 use physics_;
 use world::{self, World, Entity, Structure};
 use world::object::*;
@@ -442,7 +442,7 @@ fn teleport_entity_internal(mut wf: WorldFragment,
             // the limit to CHUNK_SIZE * TILE_SIZE: traveling that distance along either the X or Y
             // axis will definitely move the entity into a different chunk.
             if dist >= CHUNK_SIZE * TILE_SIZE || change_plane {
-                wf.messages().send_client(cid, ClientResponse::SyncStatus(false));
+                wf.messages().send_client(cid, ClientResponse::SyncStatus(SyncKind::Loading));
             }
         }
     }

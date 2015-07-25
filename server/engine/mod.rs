@@ -53,7 +53,7 @@ pub struct Engine<'d> {
 enum HandlerResult {
     Continue,
     Shutdown,
-    //Restart,
+    Restart,
 }
 
 impl<'d> Engine<'d> {
@@ -84,6 +84,11 @@ impl<'d> Engine<'d> {
     pub fn run(&mut self) {
         use self::HandlerResult::*;
         logic::lifecycle::start_up(self.as_ref());
+        if let Some(file) = self.storage.open_restart_file() {
+            logic::lifecycle::post_restart(self.as_ref(), file);
+            self.storage.remove_restart_file();
+        }
+
         loop {
             enum Event {
                 FromTimer(TimerEvent),
@@ -110,10 +115,15 @@ impl<'d> Engine<'d> {
                     match self.handle(now, evt) {
                         Continue => {},
                         Shutdown => break,
+                        Restart => {
+                            logic::lifecycle::pre_restart(self.as_ref());
+                            break;
+                        },
                     }
                 },
             }
         }
+
         logic::lifecycle::shut_down(self.as_ref());
     }
 
@@ -157,6 +167,10 @@ impl<'d> Engine<'d> {
 
             Shutdown => {
                 return HandlerResult::Shutdown;
+            },
+
+            Restart => {
+                return HandlerResult::Restart;
             },
         }
         HandlerResult::Continue

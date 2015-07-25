@@ -1,4 +1,4 @@
-use std::borrow::ToOwned;
+use std::fs::File;
 
 use types::*;
 use util::bytes::{ReadBytes, WriteBytes};
@@ -7,6 +7,8 @@ use util::now;
 use engine::glue::*;
 use engine::split::EngineRef;
 use logic;
+use messages::{ClientResponse, SyncKind};
+use wire::{WireWriter, WireReader};
 use world::Fragment;
 use world::object::*;
 use world::save::{ObjectReader, ObjectWriter};
@@ -75,4 +77,40 @@ pub fn shut_down(mut eng: EngineRef) {
         let mut file = eng.storage().create_misc_file();
         warn_on_err!(file.write_bytes(eng.now()));
     }
+}
+
+
+pub fn pre_restart(eng: EngineRef) {
+    let msg = ClientResponse::ChatUpdate("***\tServer restarting...".to_owned());
+    eng.messages().broadcast_clients(msg);
+    eng.messages().broadcast_clients(ClientResponse::SyncStatus(SyncKind::Reset));
+
+    {
+        info!("recording clients to file...");
+        let file = eng.storage().create_restart_file();
+        let mut ww = WireWriter::new(file);
+        for c in eng.world().clients() {
+            let wire_id = match eng.messages().client_to_wire(c.id()) {
+                Some(x) => x,
+                None => {
+                    warn!("no wire for client {:?}", c.id());
+                    continue;
+                },
+            };
+            ww.write_msg(wire_id, c.name()).unwrap();
+        }
+    }
+}
+
+pub fn post_restart(mut eng: EngineRef, file: File) {
+    info!("retrieving clients from file...");
+
+    let mut wr = WireReader::new(file);
+    while let Ok(wire_id) = wr.read_header() {
+        let name = wr.read::<String>().unwrap();
+        warn_on_err!(logic::client::login(eng.borrow(), wire_id, &name));
+    }
+
+    let msg = ClientResponse::ChatUpdate("***\tServer restarted".to_owned());
+    eng.messages().broadcast_clients(msg);
 }

@@ -7,7 +7,7 @@ use chunks;
 use engine::glue::*;
 use engine::split::EngineRef;
 use logic;
-use messages::ClientResponse;
+use messages::{ClientResponse, SyncKind};
 use script;
 use world;
 use world::object::*;
@@ -113,7 +113,7 @@ pub fn login(mut eng: EngineRef, wire_id: WireId, name: &str) -> save::Result<()
 
     vision::Fragment::add_client(&mut eng.as_vision_fragment(), cid, pawn_pid, region);
     warn_on_err!(script::ScriptEngine::cb_login(eng.borrow().unwrap(), cid));
-    eng.messages().send_client(cid, ClientResponse::SyncStatus(true));
+    eng.messages().send_client(cid, ClientResponse::SyncStatus(SyncKind::Ok));
 
     Ok(())
 }
@@ -176,7 +176,7 @@ pub fn update_view(mut eng: EngineRef, cid: ClientId) {
         logic::chunks::unload_chunk(eng.borrow(), old_pid, cpos);
     }
 
-    eng.messages().send_client(cid, ClientResponse::SyncStatus(true));
+    eng.messages().send_client(cid, ClientResponse::SyncStatus(SyncKind::Ok));
 
     // TODO: using `with_hooks` here is gross, move schedule_view_update somewhere better
     {
