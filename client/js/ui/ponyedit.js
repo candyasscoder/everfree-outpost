@@ -13,19 +13,27 @@ function PonyEditor(name, draw) {
     var parts = util.templateParts('pony-editor', {});
 
     var options = parts['options'];
-    function addRow(label, choices) {
+    function addRow(label, choices, choice_labels) {
         var base = util.element('div', ['pony-row'], options);
-        util.element('div', ['pony-label', 'text=' + label + ':'], base);
+        var label_text = label != '' ? label + ':' : '';
+        util.element('div', ['pony-label', 'text=' + label_text], base);
 
         var items = new Array(choices.length);
         for (var i = 0; i < choices.length; ++i) {
+            // Use `html=` instead of `text=` to allow for HTML entities.
             items[i] = util.element('div',
-                    ['pony-option-cell', 'text=' + choices[i]], base);
+                    ['pony-option-cell', 'html=' + choices[i]], base);
         }
 
-        return {base: base, items: items, values: choices};
+        if (choice_labels == null) {
+            choice_labels = items.map(function(x, idx, arr) { return idx; });
+        }
+        return {base: base, items: items, values: choice_labels};
     }
+    var sexParts =   addRow('',      ['&#x2642;', '&#x2640;']);
     var tribeParts = addRow('Tribe', ['E', 'P', 'U']);
+    var maneParts =  addRow('Mane',  ['A', 'B', 'C']);
+    var tailParts =  addRow('Tail',  ['A', 'B', 'C']);
     var redParts =   addRow('Red',   ['1', '2', '3']);
     var greenParts = addRow('Green', ['1', '2', '3']);
     var blueParts =  addRow('Blue',  ['1', '2', '3']);
@@ -50,7 +58,10 @@ function PonyEditor(name, draw) {
         return row;
     }
 
+    this.sex =   rowWidget(sexParts);
     this.tribe = rowWidget(tribeParts);
+    this.mane =  rowWidget(maneParts);
+    this.tail =  rowWidget(tailParts);
     this.red =   rowWidget(redParts);
     this.green = rowWidget(greenParts);
     this.blue =  rowWidget(blueParts);
@@ -59,7 +70,10 @@ function PonyEditor(name, draw) {
     done.onclick = function() { this_.submit(); };
 
     var list = new widget.SimpleList(parts['top'],
-            [nameRow, this.tribe, this.red, this.green, this.blue, done]);
+            [nameRow, this.sex, this.tribe,
+             this.mane, this.tail,
+             this.red, this.green, this.blue,
+             done]);
 
     widget.Form.call(this, list);
 
@@ -67,7 +81,7 @@ function PonyEditor(name, draw) {
     // Canvas setup
 
     var canvas = parts['canvas'];
-    var scale = document.body.dataset.scale;
+    var scale = document.body.dataset.scale * 2;
     canvas.width = 96 * scale;
     canvas.height = 96 * scale;
 
@@ -92,10 +106,10 @@ function PonyEditor(name, draw) {
 
     this.name.value = name;
 
-    function init(choice, saved) {
+    function oldInit(choice, saved) {
         if (saved != null) {
             for (var i = 0; i < choice.length(); ++i) {
-                if (choice.get(i).value == saved) {
+                if (choice.get(i).dom.textContent == saved) {
                     choice.setFocus(i);
                     break;
                 }
@@ -105,11 +119,32 @@ function PonyEditor(name, draw) {
         }
     }
 
+    function init(choice, saved) {
+        if (saved != null) {
+            choice.setFocus(saved);
+        } else {
+            choice.setFocus((Math.random() * choice.length())|0);
+        }
+    }
+
     var old_settings = Config.last_appearance.get() || {};
-    init(this.tribe, old_settings['tribe']);
-    init(this.red, old_settings['red']);
-    init(this.green, old_settings['green']);
-    init(this.blue, old_settings['blue']);
+    if ('mane' in old_settings) {
+        init(this.sex, old_settings['sex']);
+        init(this.tribe, old_settings['tribe']);
+        init(this.mane, old_settings['mane']);
+        init(this.tail, old_settings['tail']);
+        init(this.red, old_settings['red']);
+        init(this.green, old_settings['green']);
+        init(this.blue, old_settings['blue']);
+    } else {
+        oldInit(this.tribe, old_settings['tribe']);
+        oldInit(this.red, old_settings['red']);
+        oldInit(this.green, old_settings['green']);
+        oldInit(this.blue, old_settings['blue']);
+        this.sex.setFocus(0);
+        this.mane.setFocus(0);
+        this.tail.setFocus(0);
+    }
 
     // Now actually draw.
     this.draw = draw;
@@ -119,23 +154,29 @@ PonyEditor.prototype = Object.create(widget.Form.prototype);
 PonyEditor.prototype.constructor = PonyEditor;
 exports.PonyEditor = PonyEditor;
 
+PonyEditor.prototype._getAppearanceInfo = function() {
+    return {
+        sex: this.sex.selection().value,
+        tribe: this.tribe.selection().value,
+        mane: this.mane.selection().value,
+        tail: this.tail.selection().value,
+        red: this.red.selection().value,
+        green: this.green.selection().value,
+        blue: this.blue.selection().value,
+
+        eyes: 0,
+    };
+};
+
 PonyEditor.prototype._refresh = function() {
-    var tribe = this.tribe.selection().value;
-    var red = this.red.selection().value;
-    var green = this.green.selection().value;
-    var blue = this.blue.selection().value;
-    this.draw(this.ctx, tribe, red, green, blue);
+    this.draw(this.ctx, this._getAppearanceInfo());
 };
 
 PonyEditor.prototype.submit = function() {
     console.log('submit');
     if (this.onsubmit != null) {
         var name = this.name.dom.value;
-        var tribe = this.tribe.selection().value;
-        var red = this.red.selection().value;
-        var green = this.green.selection().value;
-        var blue = this.blue.selection().value;
-        this.onsubmit(name, tribe, red, green, blue);
+        this.onsubmit(name, this._getAppearanceInfo());
     }
 };
 

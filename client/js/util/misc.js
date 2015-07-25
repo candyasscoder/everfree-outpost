@@ -179,6 +179,8 @@ exports.element = function(tag, extra, parent) {
             var val = e.substr(eq_idx + 1);
             if (key == 'text') {
                 elt.textContent = val;
+            } else if (key == 'html') {
+                elt.innerHTML = val;
             } else {
                 elt.setAttribute(key, val);
             }

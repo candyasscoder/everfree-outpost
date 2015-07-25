@@ -354,18 +354,13 @@ function maybeRegister(info, next) {
 
     var last_name = null;
 
-    function send_register(name, tribe, r, g, b) {
+    function send_register(name, app_info) {
         editor.onfinish = null;
         editor.setMessage("Registering...");
         last_name = name;
 
-        var appearance = calcAppearance(tribe, r, g, b);
-        Config.last_appearance.set({
-            'tribe': tribe,
-            'red': r,
-            'green': g,
-            'blue': b,
-        });
+        var appearance = calcAppearance(app_info);
+        Config.last_appearance.set(app_info);
         conn.onRegisterResult = handle_result;
         conn.sendRegister(name,
                           secret,
@@ -478,24 +473,22 @@ function makeSecret() {
     return secret_buf;
 }
 
-function calcAppearance(tribe, r, g, b) {
+function calcAppearance(a) {
     var appearance =
-        ((r - 1) << 4) |
-        ((g - 1) << 2) |
-        (b - 1);
-
-    if (tribe == 'P') {
-        appearance |= 1 << 6;
-    }
-    if (tribe == 'U') {
-        appearance |= 1 << 7;
-    }
+        (a.eyes << 16) |
+        (a.tail << 13) |
+        (a.mane << 10) |
+        (a.sex << 8) |
+        (a.tribe << 6) |
+        (a.red << 4) |
+        (a.green << 2) |
+        (a.blue << 0);
 
     return appearance;
 }
 
-function drawPony(ctx, tribe, r, g, b) {
-    var bits = calcAppearance(tribe, r, g, b);
+function drawPony(ctx, app_info) {
+    var bits = calcAppearance(app_info);
     var app = new PonyAppearance(assets, bits, '');
     var anim_def = AnimationDef.by_id[ExtraDefs.editor_anim];
     var frame = new Animation(anim_def, 0).frameInfo(0);
