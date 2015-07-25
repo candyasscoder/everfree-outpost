@@ -33,7 +33,7 @@ def gen_pony_slot_table(b, maps):
     result = []
     for sex in ('f', 'm'):
         parts = {}
-        for part in ('base', 'mane', 'tail', 'eyes', 'equip0'):
+        for part in ('base', 'mane', 'tail', 'eyes', 'equip0', 'equip1', 'equip2'):
             # TODO: replace .get() with []
             parts[part] = maps.attach_slots.get('pony/%s/%s' % (sex, part))
         result.append(parts)

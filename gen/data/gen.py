@@ -27,7 +27,7 @@ def postprocess(b):
         util.assign_ids(b.recipes),
         util.assign_ids(b.animations),
         util.assign_ids(b.attach_slots),
-        dict((s.name, util.assign_ids(s.variants)) for s in b.attach_slots),
+        dict((s.name, util.assign_ids(s.variants, {'none'})) for s in b.attach_slots),
     )
 
     block.resolve_tile_ids(b.blocks, id_maps.tiles)

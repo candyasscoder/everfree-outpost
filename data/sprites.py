@@ -91,23 +91,38 @@ def init():
     slots = {}
 
     for sex, ms in (('f', 'mare'), ('m', 'stallion')):
+        # Define slots
         cur_slots = {}
-        for part in ('base', 'mane', 'tail', 'eyes', 'equip0'):
+        for part in ('base', 'mane', 'tail', 'eyes', 'equip0', 'equip1', 'equip2'):
             cur_slots[part] = mk_attach_slot('pony/%s/%s' % (sex, part), group)
         slots[sex] = cur_slots
 
+        # Add base variants
         sheets = mk_base_sheets(ms)
         for k in BASES.keys():
             base = mk_sprite('pony/%s/base/%s' % (sex, k), group, (96, 96), sheets[k])
             cur_slots['base'].add_variant(k, base)
 
+        # Add eyes, mane, tail variants
         for part, depth in (('eyes', 110), ('mane', 120), ('tail', 120)):
             sprite = mk_sprite('pony/%s/%s/0' % (sex, part), group, (96, 96),
                     mk_hair_sheets(sprites('parts/%s/%s1.png' % (ms, part)), depth))
             cur_slots[part].add_variant('0', sprite)
 
+        # Add `none` variant for equip slots
+        for i in range(3):
+            cur_slots['equip%d' % i].add_variant('none', None)
+
+
+    # Add hat variants to equip0 slot
     hat_base = sprites('equipment/witch-hat.png')
-    offsets = pony_sprites.get_hat_offsets()['mare']
+
+    offsets_f = pony_sprites.get_hat_offsets()['mare']
     hat_f = mk_sprite('pony/f/equip0/0', group, (96, 96),
-            pony_sprites.mk_hat_sheets(hat_base, group, offsets, 130))
+            pony_sprites.mk_hat_sheets(hat_base, group, offsets_f, 130))
     slots['f']['equip0'].add_variant('0', hat_f)
+
+    offsets_m = pony_sprites.get_hat_offsets()['stallion']
+    hat_m = mk_sprite('pony/m/equip0/0', group, (96, 96),
+            pony_sprites.mk_hat_sheets(hat_base, group, offsets_m, 130))
+    slots['m']['equip0'].add_variant('0', hat_m)

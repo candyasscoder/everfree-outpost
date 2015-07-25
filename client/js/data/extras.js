@@ -4,6 +4,8 @@ function ExtraDefsClass() {
     this.default_anim = null;
     this.editor_anim = null;
     this.physics_anim_table = null;
+    this.pony_slot_table = null;
+    this.pony_bases_table = null;
 }
 
 ExtraDefsClass.prototype.init = function(info) {
@@ -11,6 +13,8 @@ ExtraDefsClass.prototype.init = function(info) {
     this.default_anim = info['default_anim'];
     this.editor_anim = info['editor_anim'];
     this.physics_anim_table = info['physics_anim_table'];
+    this.pony_slot_table = info['pony_slot_table'];
+    this.pony_bases_table = info['pony_bases_table'];
 };
 
 var ExtraDefs = new ExtraDefsClass();

@@ -10,7 +10,6 @@ var AttachSlotDef = {};
 exports.AttachSlotDef = AttachSlotDef;
 
 AttachSlotDef.by_id = [];
-AttachSlotDef.by_name = {};
 
 AttachSlotDef.register = function(id, info) {
     if (info == null) {

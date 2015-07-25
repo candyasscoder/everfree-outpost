@@ -4,29 +4,48 @@ var OffscreenContext = require('graphics/canvas').OffscreenContext;
 var glutil = require('graphics/glutil');
 var named = require('graphics/draw/named');
 
+var AttachSlotDef = require('data/attachments').AttachSlotDef;
+var ExtraDefs = require('data/extras').ExtraDefs;
+
 
 var TRIBE_NAME = ['E', 'P', 'U', 'A'];
 var COLOR_RAMP = [0x44, 0x88, 0xcc, 0xff];
 
 /** @constructor */
 function PonyAppearance(assets, bits, name) {
-    var tribe = (bits >> 6) & 3;
-    // TODO: use a SpriteSheet object that contains all the sheet images
-    this.base_img = assets['pony_f_base_' + TRIBE_NAME[tribe] + '-0'];
-    this.eyes_img = assets['pony_f_eyes_0-0'];
-    this.mane_img = assets['pony_f_mane_0-0'];
-    this.tail_img = assets['pony_f_tail_0-0'];
+    var stallion = (bits >> 8) & 1;
+    var base = (bits >> 6) & 3;     // high bit overlaps with `stallion`
+    var mane = (bits >> 10) & 7;
+    var tail = (bits >> 13) & 7;
+    var eyes = (bits >> 16) & 3;
+    var equip0 = (bits >> 18) & 15;
+    var equip1 = (bits >> 22) & 15;
+    var equip2 = (bits >> 26) & 15;
 
-    var hat = ((bits >> 8) & 1) != 0;
+    // TODO: use a SpriteSheet object that contains all the sheet images
+    var base_idx = ExtraDefs.pony_bases_table[base];
+
+    function get_image(slot_key, attachment_id, sheet_index) {
+        var slot_idx = ExtraDefs.pony_slot_table[stallion][slot_key];
+        var slot = AttachSlotDef.by_id[slot_idx];
+        var file_name = slot.sprite_files[attachment_id];
+        return file_name ? assets[file_name + '-' + sheet_index] : null;
+    }
+
+    this.base_img = get_image('base', base_idx, 0);
+    this.eyes_img = get_image('eyes', eyes, 0);
+    this.mane_img = get_image('mane', mane, 0);
+    this.tail_img = get_image('tail', tail, 0);
+
     this.equip_img = [
-        hat ? assets['pony_f_equip0_0-0'] : null,
-        null,
-        null,
+        get_image('equip0', equip0, 0),
+        get_image('equip1', equip1, 0),
+        get_image('equip2', equip2, 0),
     ];
     this.has_equip = [
-        hat,
-        false,
-        false,
+        equip0 != 0,
+        equip1 != 0,
+        equip2 != 0,
     ];
 
     var r = (bits >> 4) & 3;
