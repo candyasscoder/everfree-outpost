@@ -508,13 +508,12 @@ function drawPony(ctx, tribe, r, g, b) {
 
 function preloadTextures() {
     var textures = ['tiles',
-                    'pony_f_wing_back',
-                    'pony_f_base',
-                    'pony_f_eyes_blue',
-                    'pony_f_wing_front',
-                    'pony_f_tail_1',
-                    'pony_f_mane_1',
-                    'pony_f_horn'];
+                    'pony_f_base_E-0',
+                    'pony_f_base_P-0',
+                    'pony_f_base_U-0',
+                    'pony_f_eyes_0-0',
+                    'pony_f_mane_0-0',
+                    'pony_f_tail_0-0'];
     for (var i = 0; i < textures.length; ++i) {
         (function(key) {
             runner.subjob(key, function() {

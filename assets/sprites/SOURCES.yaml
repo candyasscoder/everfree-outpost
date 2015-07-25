@@ -1,4 +1,4 @@
-maresprite.png: &mlponline
+base/mare/*.png: &mlponline
     title: MLPonline Sprite Sheets
     author: urimas
     license: Custom
@@ -7,15 +7,6 @@ maresprite.png: &mlponline
         "There are no restrictions on how these are used as long as i'm
         credited. and linked back here"
 
-backwingmare.png: *mlponline
-frontwingmare.png: *mlponline
-marehorn.png: *mlponline
-maremane1.png: *mlponline
-maretail1.png: *mlponline
-type1blue.png: *mlponline
-
-
-equip_f_hat.png:
-    title: Witch's Hat
-    author: Fernando Ariel dos Santos Alves
-    license: CC-BY 4.0
+base/stallion/*.png: *mlponline
+parts/mare/*.png: *mlponline
+parts/stallion/*.png: *mlponline

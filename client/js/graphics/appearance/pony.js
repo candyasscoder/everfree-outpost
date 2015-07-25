@@ -12,14 +12,14 @@ var COLOR_RAMP = [0x44, 0x88, 0xcc, 0xff];
 function PonyAppearance(assets, bits, name) {
     var tribe = (bits >> 6) & 3;
     // TODO: use a SpriteSheet object that contains all the sheet images
-    this.base_img = assets['pony_base_f_' + TRIBE_NAME[tribe] + '-0'];
-    this.eyes_img = assets['pony_eyes_f_0-0'];
-    this.mane_img = assets['pony_mane_f_0-0'];
-    this.tail_img = assets['pony_tail_f_0-0'];
+    this.base_img = assets['pony_f_base_' + TRIBE_NAME[tribe] + '-0'];
+    this.eyes_img = assets['pony_f_eyes_0-0'];
+    this.mane_img = assets['pony_f_mane_0-0'];
+    this.tail_img = assets['pony_f_tail_0-0'];
 
     var hat = ((bits >> 8) & 1) != 0;
     this.equip_img = [
-        hat ? assets['pony_equip0_f_0-0'] : null,
+        hat ? assets['pony_f_equip0_0-0'] : null,
         null,
         null,
     ];

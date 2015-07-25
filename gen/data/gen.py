@@ -44,8 +44,10 @@ def emit_structures(output_dir, structures):
         if (f.startswith('structures') or f.startswith('structdepth')) and f.endswith('.png'):
             os.remove(os.path.join(output_dir, f))
 
+    sheet_names = set()
     sheets = structure.build_sheets(structures)
     for i, (image, depthmap) in enumerate(sheets):
+        sheet_names.update(('structures%d' % i, 'structdepth%d' % i))
         image.save(os.path.join(output_dir, 'structures%d.png' % i))
         depthmap.save(os.path.join(output_dir, 'structdepth%d.png' % i))
 
@@ -54,6 +56,8 @@ def emit_structures(output_dir, structures):
 
     write_json(output_dir, 'structures_client.json',
             structure.build_client_json(structures))
+
+    write_json(output_dir, 'structures_list.json', sorted(sheet_names))
 
 def emit_tiles(output_dir, tiles):
     sheet = util.build_sheet(tiles)
@@ -97,11 +101,13 @@ def emit_sprites(output_dir, sprites):
     for s in sprites:
         if s.name in sprite_names:
             util.err('duplicate sprite definition: %r' % s.name)
-        sprite_names.add(s.name)
 
         for i, img in enumerate(s.images):
-            basename = '%s-%d.png' % (s.name.replace('/', '_'), i)
-            img.save(os.path.join(output_dir, 'sprites', basename))
+            basename = '%s-%d' % (s.name.replace('/', '_'), i)
+            sprite_names.add(basename)
+            img.save(os.path.join(output_dir, 'sprites', basename + '.png'))
+
+    write_json(output_dir, 'sprites_list.json', sorted(sprite_names))
 
 def emit_attach_slots(output_dir, attach_slots):
     write_json(output_dir, 'attach_slots_server.json',

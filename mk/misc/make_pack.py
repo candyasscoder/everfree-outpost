@@ -25,25 +25,6 @@ def main(src_dir, build_dir, out_file):
         if hide_dep:
             hidden_deps.add(path)
 
-    add('image', 'pony_f_base',         src('assets/sprites/maresprite.png'))
-    add('image', 'pony_f_eyes_blue',    src('assets/sprites/type1blue.png'))
-    add('image', 'pony_f_horn',         src('assets/sprites/marehorn.png'))
-    add('image', 'pony_f_wing_front',   src('assets/sprites/frontwingmare.png'))
-    add('image', 'pony_f_wing_back',    src('assets/sprites/backwingmare.png'))
-    add('image', 'pony_f_mane_1',       src('assets/sprites/maremane1.png'))
-    add('image', 'pony_f_tail_1',       src('assets/sprites/maretail1.png'))
-    add('image', 'equip_f_hat',         src('assets/sprites/equip_f_hat.png'))
-
-    # TODO: get this list from a generated file
-    add('image', 'pony_base_f_E-0',     build('sprites/pony_base_f_E-0.png'))
-    add('image', 'pony_base_f_P-0',     build('sprites/pony_base_f_P-0.png'))
-    add('image', 'pony_base_f_U-0',     build('sprites/pony_base_f_U-0.png'))
-    add('image', 'pony_base_f_A-0',     build('sprites/pony_base_f_A-0.png'))
-    add('image', 'pony_eyes_f_0-0',     build('sprites/pony_eyes_f_0-0.png'))
-    add('image', 'pony_mane_f_0-0',     build('sprites/pony_mane_f_0-0.png'))
-    add('image', 'pony_tail_f_0-0',     build('sprites/pony_tail_f_0-0.png'))
-    add('image', 'pony_equip0_f_0-0',   build('sprites/pony_equip0_f_0-0.png'))
-
     add('image', 'font',    build('font.png'))
     add('url',   'items',   build('items.png'))
 
@@ -82,15 +63,17 @@ def main(src_dir, build_dir, out_file):
     add('text', 'light.frag',           src('assets/shaders/light.frag'))
     add('text', 'light.vert',           src('assets/shaders/light.vert'))
 
-    for i in count(0):
-        path = build('structures%d.png' % i)
-        if os.path.isfile(path):
-            add('image', 'structures%d' % i, path, hide_dep=True)
-            add('image', 'structdepth%d' % i, build('structdepth%d.png' % i), hide_dep=True)
-        else:
-            break
-
     add('image', 'tiles', build('tiles.png'))
+
+    with open(build('structures_list.json')) as f:
+        sprites_list = json.load(f)
+    for s in sprites_list:
+        add('image', s, build(s + '.png'))
+
+    with open(build('sprites_list.json')) as f:
+        sprites_list = json.load(f)
+    for s in sprites_list:
+        add('image', s, build(os.path.join('sprites', s + '.png')))
 
 
     # Generate the pack containing the files added above.

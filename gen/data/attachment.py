@@ -27,11 +27,7 @@ class AttachSlotDef(object):
 def build_client_json(slots):
     def convert(s):
         return {
-                'name': '%s/%s' % (s.anim_group.name, s.name),
-                'variants': [{
-                    'name': a.name,
-                    'sprite_file': a.sprite.name.replace('/', '_'),
-                    } for a in s.variants],
+                'sprite_files': [a.sprite.name.replace('/', '_') for a in s.variants],
                 }
     return list(convert(s) for s in slots)
 

@@ -80,7 +80,7 @@ def from_manifest(common_path, extra_path, filter_path=None, exclude_names=None,
         if dest.endswith('/'):
             stamp = '$builddir/dist_%s.stamp' % dest.strip('/').replace('/', '_')
             add_build('''
-                build %stamp $dist/%dest: copy_dir_stamp | %src $src/mk/misc/clone_dir.py
+                build %stamp: copy_dir_stamp | %src $src/mk/misc/clone_dir.py
                     copy_src = %src
                     copy_dest = $dist/%dest
                     stamp = %stamp
