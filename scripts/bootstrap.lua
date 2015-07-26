@@ -272,6 +272,20 @@ function command.su_handler.place(client, args)
 end
 command.help.place = '/place <structure>: Place a structure at your current location'
 
+function command.su_handler.destroy(client, args)
+    local s = util.hit_structure(client:pawn())
+    if s == nil then
+        client:send_message('no structure at that location')
+        return
+    end
+
+    local err s:destroy()
+    if err ~= nil then
+        client:send_message(err)
+    end
+end
+command.help.destroy = '/destroy: Destroy a structure at your current location'
+
 function command.su_handler.tribe(client, args)
     local value = {
         E = 0x00,
