@@ -12,6 +12,7 @@ use logic;
 use logic::extra::Extra;
 use messages::{Messages, MessageEvent};
 use messages::{Event, ControlEvent, WireEvent, ClientEvent};
+use messages::SyncKind;
 use messages::{ControlResponse, WireResponse, ClientResponse};
 use msg::{Request, Response};
 use physics_::Physics;
@@ -169,8 +170,13 @@ impl<'d> Engine<'d> {
                 return HandlerResult::Shutdown;
             },
 
-            Restart => {
-                return HandlerResult::Restart;
+            Restart(server, client) => {
+                if client {
+                    self.messages.broadcast_clients(ClientResponse::SyncStatus(SyncKind::Refresh));
+                }
+                if server {
+                    return HandlerResult::Restart;
+                }
             },
         }
         HandlerResult::Continue

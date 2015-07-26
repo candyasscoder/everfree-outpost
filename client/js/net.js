@@ -47,6 +47,7 @@ var OP_SYNC_STATUS =            0x8017;
 exports.SYNC_LOADING = 0;
 exports.SYNC_OK = 1;
 exports.SYNC_RESET = 2;
+exports.SYNC_REFRESH = 3;
 
 /** @constructor */
 function Connection(url) {

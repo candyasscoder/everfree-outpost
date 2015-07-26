@@ -38,7 +38,7 @@ pub enum ControlEvent {
     CloseWire(WireId, Option<ClientId>),
     ReplCommand(u16, String),
     Shutdown,
-    Restart,
+    Restart(bool, bool),
 }
 
 pub enum WireEvent {
@@ -79,6 +79,7 @@ pub enum SyncKind {
     Loading,
     Ok,
     Reset,
+    Refresh,
 }
 
 #[derive(Debug, Clone)]
@@ -233,8 +234,8 @@ impl Messages {
                 Some(Event::Control(ControlEvent::ReplCommand(cookie, cmd))),
             Request::Shutdown =>
                 Some(Event::Control(ControlEvent::Shutdown)),
-            Request::Restart =>
-                Some(Event::Control(ControlEvent::Restart)),
+            Request::Restart(server, client) =>
+                Some(Event::Control(ControlEvent::Restart(server, client))),
 
             _ => {
                 warn!("bad control request: {:?}", req);
@@ -432,6 +433,7 @@ impl Messages {
                     SyncKind::Loading => 0,
                     SyncKind::Ok => 1,
                     SyncKind::Reset => 2,
+                    SyncKind::Refresh => 3,
                 };
                 self.send_raw(wire_id, Response::SyncStatus(arg))
             },

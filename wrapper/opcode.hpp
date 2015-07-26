@@ -8,7 +8,9 @@ enum opcode {
     OP_REPL_COMMAND =       0xff03,
     OP_REPL_RESULT =        0xff04,
     OP_SHUTDOWN =           0xff05,
-    OP_RESTART =            0xff06,
+    OP_RESTART_SERVER =     0xff06,
+    OP_RESTART_CLIENT =     0xff07,
+    OP_RESTART_BOTH =       0xff08,
 };
 
 #endif // OUTPOST_WRAPPER_OPCODES_HPP

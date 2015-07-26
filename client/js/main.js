@@ -909,9 +909,12 @@ function handleGenericGetArgs(dialog_id, parts, cb) {
 
 function handleSyncStatus(new_synced) {
     synced = new_synced;
-    if (synced != net.SYNC_OK) {
-        var msg = synced == net.SYNC_LOADING ? 'Loading World...' : 'Server restarting...';
-        banner.show(msg, 0, keyboard, function() { return false; });
+    if (synced == net.SYNC_REFRESH) {
+        window.location.reload(true);
+    } else if (synced == net.SYNC_LOADING) {
+        banner.show('Loading World...', 0, keyboard, function() { return false; });
+    } else if (synced == net.SYNC_RESET) {
+        banner.show('Server restarting...', 0, keyboard, function() { return false; });
 
         if (synced == net.SYNC_RESET) {
             var now = timing.visibleNow();

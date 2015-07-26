@@ -100,7 +100,9 @@ mod op {
         ReplCommand = 0xff03,
         ReplResult = 0xff04,
         Shutdown = 0xff05,
-        Restart = 0xff06,
+        RestartServer = 0xff06,
+        RestartClient = 0xff07,
+        RestartBoth = 0xff08,
     }
 }
 
@@ -133,7 +135,7 @@ pub enum Request {
     RemoveClient(WireId),
     ReplCommand(u16, String),
     Shutdown,
-    Restart,
+    Restart(bool, bool),
 
     // Server-internal messages
     BadMessage(Opcode),
@@ -225,8 +227,14 @@ impl Request {
             op::Shutdown => {
                 Shutdown
             },
-            op::Restart => {
-                Restart
+            op::RestartServer => {
+                Restart(true, false)
+            },
+            op::RestartClient => {
+                Restart(false, true)
+            },
+            op::RestartBoth => {
+                Restart(true, true)
             },
             _ => BadMessage(opcode),
         };

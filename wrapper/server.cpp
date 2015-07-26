@@ -56,7 +56,7 @@ void server::handle_control_command(uint16_t op) {
     *(uint16_t*)&command[0] = op;
     backend_->write(0, move(command));
 
-    if (op == opcode::OP_RESTART) {
+    if (op == opcode::OP_RESTART_SERVER || op == opcode::OP_RESTART_BOTH) {
         restarting = true;
         backend_->suspend();
     }
