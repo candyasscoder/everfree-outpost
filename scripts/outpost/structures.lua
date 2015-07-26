@@ -69,7 +69,7 @@ mallet_cycle('stone_wall/', {
 })
 
 autorotate.add_simple_wall_item('ruined_wall', 'ruined_wall', false)
-autorotate.add_simple_wall_item('ruined_door', 'ruined_wall', true)
+add_structure_item('ruined_door', 'ruined_wall/door/open')
 mallet_cycle('ruined_wall/', {
     'edge/horiz', 'window/v0', 'window/v1', 'edge/vert',
     'corner/nw', 'corner/ne', 'corner/se', 'corner/sw', 
