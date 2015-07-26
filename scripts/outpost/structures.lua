@@ -68,6 +68,15 @@ mallet_cycle('stone_wall/', {
     'cross',
 })
 
+autorotate.add_simple_wall_item('ruined_wall', 'ruined_wall', false)
+autorotate.add_simple_wall_item('ruined_door', 'ruined_wall', true)
+mallet_cycle('ruined_wall/', {
+    'edge/horiz', 'window/v0', 'window/v1', 'edge/vert',
+    'corner/nw', 'corner/ne', 'corner/se', 'corner/sw', 
+    'tee/n', 'tee/e', 'tee/s', 'tee/w',
+    'cross',
+})
+
 autorotate.add_simple_wall_item('cottage_wall', 'cottage_wall', false)
 autorotate.add_simple_wall_item('cottage_door', 'cottage_wall', true)
 door.make_door('cottage_door', 'cottage_wall/door', 'pick')

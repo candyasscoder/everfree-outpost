@@ -89,6 +89,21 @@ def init():
             .recipe('anvil', {'stone': 15})
 
 
+    image = structures('ruined-wall.png')
+    planemap = structures('stone-wall-planemap.png')
+    wall = do_wall_parts('ruined_wall', image, planemap,
+            door_image=structures('door.png'))
+    mk_solid_structure('ruined_wall/window/v0', image, (1, 1, 2), base=(15, 0),
+            plane_image=planemap)
+    mk_solid_structure('ruined_wall/window/v1', image, (1, 1, 2), base=(16, 0),
+            plane_image=planemap)
+
+    mk_structure_item(wall['ruined_wall/edge/horiz'], 'ruined_wall', 'Ruined Wall', (0, 0)) \
+        .recipe('anvil', {'stone': 5})
+
+    mk_structure_item(wall['ruined_wall/door/closed'], 'ruined_door', 'Ruined Door') \
+            .recipe('anvil', {'stone': 15})
+
 
     image = structures('cottage-wall.png')
     planemap = structures('cottage-wall-planemap.png')

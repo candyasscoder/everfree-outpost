@@ -172,6 +172,11 @@ stone-wall.png: &stone-wall
 stone-wall.xcf: *stone-wall
 stone-wall-planemap.png: *stone-wall
 
+ruined-wall.png:
+    title: Ruined Stone Brick Wall
+    author: Nonnykins
+    license: CC-BY-SA 3.0 / GPL 3.0
+
 cottage-wall.png: &cottage-wall
     title: Cottage Wall
     author: Nonnykins
