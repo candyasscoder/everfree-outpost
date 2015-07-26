@@ -13,6 +13,17 @@ function InventoryTracker(conn) {
 }
 exports.InventoryTracker = InventoryTracker;
 
+InventoryTracker.prototype.reset = function() {
+    // Try to break some cycles.
+    var ids = Object.getOwnPropertyNames(this.inventories);
+    for (var i = 0; i < ids.length; ++i) {
+        this.inventories[ids[i]]._handlers = null;
+    }
+
+    // Actually reset.
+    this.inventories = {};
+};
+
 InventoryTracker.prototype._handleUpdate = function(inventory_id, updates) {
     var inv = this.inventories[inventory_id];
     if (inv != null) {

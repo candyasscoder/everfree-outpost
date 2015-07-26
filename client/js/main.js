@@ -917,21 +917,33 @@ function handleSyncStatus(new_synced) {
         banner.show('Server restarting...', 0, keyboard, function() { return false; });
 
         if (synced == net.SYNC_RESET) {
-            var now = timing.visibleNow();
-
-            if (dialog.isVisible()) {
-                dialog.hide();
-            }
-            Object.getOwnPropertyNames(entities).forEach(function(id) {
-                handleEntityGone(id, now);
-            });
-            Object.getOwnPropertyNames(structures).forEach(function(id) {
-                handleStructureGone(id, now);
-            });
+            resetAll();
         }
     } else {
         banner.hide();
     }
+}
+
+// Reset (nearly) all client-side state to pre-login conditions.
+function resetAll() {
+    var now = timing.visibleNow();
+
+    inv_tracker.reset();
+    item_inv = null;
+    ability_inv = null;
+
+    if (dialog.isVisible()) {
+        dialog.hide();
+    }
+
+    Object.getOwnPropertyNames(entities).forEach(function(id) {
+        handleEntityGone(id, now);
+    });
+    player_entity = -1;
+
+    Object.getOwnPropertyNames(structures).forEach(function(id) {
+        handleStructureGone(id, now);
+    });
 }
 
 
