@@ -4,7 +4,7 @@ using namespace std;
 
 #ifndef _WIN32
 
-std::pair<int, int> platform::spawn_backend(const char* path) {
+pair<int, int> platform::spawn_backend(const char* path) {
     int from_backend[2];
     int to_backend[2];
 
@@ -32,9 +32,9 @@ std::pair<int, int> platform::spawn_backend(const char* path) {
 
 #include <windows.h>
 
-pair<HANDLE, HANDLE> create_overlapped_pipe(const char* name,
-                                            bool inherit_read,
-                                            bool inherit_write) {
+static pair<HANDLE, HANDLE> create_overlapped_pipe(const char* name,
+                                                   bool inherit_read,
+                                                   bool inherit_write) {
     SECURITY_ATTRIBUTES inherit_attrs;
     inherit_attrs.nLength = sizeof(SECURITY_ATTRIBUTES);
     inherit_attrs.bInheritHandle = true;
@@ -62,7 +62,7 @@ pair<HANDLE, HANDLE> create_overlapped_pipe(const char* name,
     return make_pair(read, write);
 }
 
-pair<HANDLE, HANDLE> spawn_backend(const char* path) {
+pair<HANDLE, HANDLE> platform::spawn_backend(const char* path) {
 
     char name_from[64] = {0};
     snprintf(name_from, sizeof(name_from),
