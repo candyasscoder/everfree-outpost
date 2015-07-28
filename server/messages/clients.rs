@@ -34,7 +34,7 @@ impl Clients {
     pub fn add(&mut self, cid: ClientId, wire_id: WireId, name: &str) {
         let old_client = self.clients.insert(cid, ClientInfo::new(wire_id, name));
         let old_wire = self.wire_map.insert(wire_id, cid);
-        let old_name = self.name_map.insert(String::from_str(name), cid);
+        let old_name = self.name_map.insert(String::from(name), cid);
         debug_assert!(old_client.is_none());
         debug_assert!(old_wire.is_none());
         debug_assert!(old_name.is_none());
@@ -82,7 +82,7 @@ impl ClientInfo {
         let offset_y = rng.gen_range(0, 8);
         ClientInfo {
             wire_id: wire_id,
-            name: String::from_str(name),
+            name: String::from(name),
             chunk_offset: (offset_x, offset_y),
             last_check: TIME_MIN,
         }

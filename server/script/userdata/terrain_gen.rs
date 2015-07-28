@@ -306,7 +306,7 @@ impl Userdata for GenChunk {
                                    value: &str) -> StrResult<()> {
                 try!(try!(gc.open(|gc| -> StrResult<_> {
                     let s = unwrap!(gc.structures.get_mut(index as usize));
-                    s.extra.insert(String::from_str(key), String::from_str(value));
+                    s.extra.insert(String::from(key), String::from(value));
                     Ok(())
                 })));
                 Ok(())
@@ -318,7 +318,7 @@ impl Userdata for GenChunk {
                 let value = try!(try!(gc.open(|gc| -> StrResult<_> {
                     let s = unwrap!(gc.structures.get(index as usize));
                     let value = unwrap!(s.extra.get(key));
-                    Ok(String::from_str(value))
+                    Ok(value.clone())
                 })));
                 Ok(value)
             }

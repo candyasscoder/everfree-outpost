@@ -2,20 +2,17 @@
 #![allow(non_upper_case_globals)]
 #![allow(dead_code)]
 
-#![feature(collections)]
-#![feature(convert)]    // OsStr::to_cstring
-#![feature(filling_drop)]
-#![feature(core)]
-#![feature(libc)]
-#![feature(std_misc)]
-#![feature(trace_macros)]
-#![feature(unboxed_closures)]
-#![feature(unsafe_no_drop_flag)]
 #![feature(
-    raw,
+    convert,    // OsStr::to_cstring
+    core,
+    filling_drop,
     fnbox,
     mpsc_select,
     num_bits_bytes,
+    raw,
+    trace_macros,
+    unboxed_closures,
+    unsafe_no_drop_flag,
     vec_push_all,
     vecmap,
 )]

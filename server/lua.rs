@@ -3,7 +3,7 @@
 // rustc also complains about lua_SomeType typedefs.
 #![allow(non_camel_case_types)]
 
-use std::marker::{PhantomData, NoCopy};
+use std::marker::PhantomData;
 use std::mem;
 use std::path::Path;
 use std::ptr;
@@ -20,11 +20,11 @@ mod ffi {
 
     pub type lua_State = c_void;
 
-    pub type lua_Alloc = fn(*mut c_void, *mut c_void, size_t, size_t) -> *mut c_void;
-    pub type lua_CFunction = fn(*mut lua_State) -> c_int;
+    pub type lua_Alloc = extern "C" fn(*mut c_void, *mut c_void, size_t, size_t) -> *mut c_void;
+    pub type lua_CFunction = extern "C" fn(*mut lua_State) -> c_int;
     pub type lua_Integer = ptrdiff_t;
     pub type lua_Number = c_double;
-    pub type lua_Reader = fn(*mut lua_State, data: *mut c_void, size: *mut size_t) -> *const c_char;
+    pub type lua_Reader = extern "C" fn(*mut lua_State, data: *mut c_void, size: *mut size_t) -> *const c_char;
 
     #[link(name = "lua5.1")]
     extern "C" {
@@ -217,7 +217,6 @@ pub type lua_RustFunction = fn(LuaState) -> c_int;
 pub struct LuaState<'a> {
     L: *mut lua_State,
     _marker0: PhantomData<&'a mut OwnedLuaState>,
-    _marker1: NoCopy,
 }
 
 unsafe fn _static_assertions() {
@@ -229,7 +228,6 @@ impl<'a> LuaState<'a> {
         LuaState {
             L: L,
             _marker0: PhantomData,
-            _marker1: NoCopy,
         }
     }
 

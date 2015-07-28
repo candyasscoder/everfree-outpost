@@ -160,7 +160,7 @@ impl<'d> Engine<'d> {
                     Ok(result) => self.messages.send_control(ReplResult(cookie, result)),
                     Err(e) => {
                         warn!("eval error: {}", e);
-                        let resp = ReplResult(cookie, String::from_str("eval error"));
+                        let resp = ReplResult(cookie, String::from("eval error"));
                         self.messages.send_control(resp);
                     },
                 }
@@ -306,7 +306,7 @@ impl<'d> Engine<'d> {
                    secret: Secret,
                    appearance: u32) -> (u32, String) {
         if let Err(msg) = name_valid(&*name) {
-            return (1, String::from_str(msg));
+            return (1, String::from(msg));
         }
 
         match self.auth.register(&*name, &secret) {
@@ -317,19 +317,19 @@ impl<'d> Engine<'d> {
                     Err(e) => {
                         warn!("{:?}: error registering as {}: {}",
                               wire_id, name, e.description());
-                        (2, String::from_str("An internal error occurred."))
+                        (2, String::from("An internal error occurred."))
                     }
                 }
             },
             Ok(false) => {
                 info!("{:?}: registration as {} failed: name is in use",
                       wire_id, name);
-                (1, String::from_str("That name is already in use."))
+                (1, String::from("That name is already in use."))
             },
             Err(e) => {
                 info!("{:?}: registration as {} failed: database error: {}",
                       wire_id, name, e.description());
-                (2, String::from_str("An internal error occurred."))
+                (2, String::from("An internal error occurred."))
             }
         }
     }

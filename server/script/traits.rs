@@ -177,7 +177,7 @@ impl<'a> FromLua<'a> for String {
     }
 
     unsafe fn from_lua(lua: &'a LuaState, index: c_int) -> String {
-        String::from_str(<&str as FromLua>::from_lua(lua, index))
+        String::from(<&str as FromLua>::from_lua(lua, index))
     }
 }
 

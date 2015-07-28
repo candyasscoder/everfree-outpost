@@ -4,8 +4,6 @@
 #![feature(no_std)]
 #![feature(core, core_prelude, core_slice_ext)]
 
-#![allow(negate_unsigned)]
-
 #[macro_use] extern crate core;
 #[cfg(asmjs)] #[macro_use] extern crate asmrt;
 #[cfg(not(asmjs))] #[macro_use] extern crate std;
