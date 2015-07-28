@@ -173,7 +173,7 @@ class Checker(object):
 
 
     def check_rustc(self, rustc):
-        expect_version = '60926b8c5'
+        expect_version = 'dc6e3bbb7'
         output = self.run_output(rustc, ['--version'])
         if expect_version not in output:
             raise ConfigError('detected bad rust version: %r not in %r' % (expect_version, output))

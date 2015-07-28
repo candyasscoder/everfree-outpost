@@ -4,13 +4,21 @@
 
 #![feature(collections)]
 #![feature(convert)]    // OsStr::to_cstring
-#![feature(core)]
 #![feature(filling_drop)]
+#![feature(core)]
 #![feature(libc)]
 #![feature(std_misc)]
 #![feature(trace_macros)]
 #![feature(unboxed_closures)]
 #![feature(unsafe_no_drop_flag)]
+#![feature(
+    raw,
+    fnbox,
+    mpsc_select,
+    num_bits_bytes,
+    vec_push_all,
+    vecmap,
+)]
 
 #[macro_use] extern crate bitflags;
 extern crate core;

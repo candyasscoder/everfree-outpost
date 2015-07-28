@@ -2,9 +2,9 @@
 #![no_std]
 
 #![feature(no_std)]
-#![feature(core)]
+#![feature(core, core_prelude, core_slice_ext)]
 
-#![allow(unsigned_negation)]
+#![allow(negate_unsigned)]
 
 #[macro_use] extern crate core;
 #[cfg(asmjs)] #[macro_use] extern crate asmrt;

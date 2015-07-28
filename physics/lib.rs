@@ -2,8 +2,7 @@
 #![no_std]
 
 #![feature(no_std)]
-#![feature(core)]
-#![feature(static_assert)]
+#![feature(core, core_prelude)]
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate bitflags;
@@ -27,17 +26,13 @@ mod std {
 }
 
 
-pub const TILE_SIZE: i32 = 32;
 pub const TILE_BITS: usize = 5;
+pub const TILE_SIZE: i32 = 1 << TILE_BITS;      // 32
 pub const TILE_MASK: i32 = TILE_SIZE - 1;
-#[allow(dead_code)] #[static_assert]
-static TILE_SIZE_BITS: bool = TILE_SIZE == 1 << TILE_BITS as usize;
 
-pub const CHUNK_SIZE: i32 = 16;
 pub const CHUNK_BITS: usize = 4;
+pub const CHUNK_SIZE: i32 = 1 << CHUNK_BITS;    // 16
 pub const CHUNK_MASK: i32 = CHUNK_SIZE - 1;
-#[allow(dead_code)] #[static_assert]
-static CHUNK_SIZE_BITS: bool = CHUNK_SIZE == 1 << CHUNK_BITS as usize;
 
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

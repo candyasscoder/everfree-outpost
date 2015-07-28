@@ -44,9 +44,7 @@ def rules(i):
 
         rule asm_clean_ir
             command = sed <$in >$out $
-                -e 's/\<dereferenceable([0-9]*)//g' $
-                -e '/^!/s/\(.\)!/\1metadata !/g' $
-                -e '/^!/s/distinct //g'
+                -e '/^target triple/s/i686-unknown-linux-gnu/asmjs-unknown-emscripten/'
             description = ASMJS $out
 
         rule asm_assemble_bc
@@ -77,7 +75,6 @@ def rules(i):
                 -march=js -filetype=asm $
                 -emscripten-assertions=1 $
                 -emscripten-no-aliasing-function-pointers $
-                -emscripten-max-setjmps=20 $
                 -O3 $
                 -o $out
             description = ASMJS $out

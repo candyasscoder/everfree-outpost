@@ -2,8 +2,8 @@
 #![no_std]
 
 #![feature(no_std)]
-#![feature(core)]
-#![feature(static_assert)]
+#![feature(core, core_prelude, core_slice_ext)]
+#![feature(raw)]
 
 extern crate core;
 extern crate physics;
@@ -28,17 +28,13 @@ mod std {
 }
 
 
-pub const LOCAL_SIZE: i32 = 8;
 pub const LOCAL_BITS: usize = 3;
+pub const LOCAL_SIZE: i32 = 1 << LOCAL_BITS;    // 8
 pub const LOCAL_MASK: i32 = LOCAL_SIZE - 1;
-#[allow(dead_code)] #[static_assert]
-static LOCAL_SIZE_BITS: bool = LOCAL_SIZE == 1 << LOCAL_BITS as usize;
 
-pub const REPEAT_SIZE: i32 = 2;
 pub const REPEAT_BITS: i32 = 1;
+pub const REPEAT_SIZE: i32 = 1 << REPEAT_BITS;  // 2
 pub const REPEAT_MASK: i32 = REPEAT_SIZE - 1;
-#[allow(dead_code)] #[static_assert]
-static REPEAT_SIZE_BITS: bool = REPEAT_SIZE == 1 << REPEAT_BITS as usize;
 
 pub const NUM_LAYERS: usize = 3;
 

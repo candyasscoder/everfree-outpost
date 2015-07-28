@@ -3,7 +3,7 @@
 #![no_std]
 
 #![feature(no_std)]
-#![feature(core)]
+#![feature(core, core_prelude, core_intrinsics, core_str_ext, core_slice_ext)]
 #![feature(lang_items)]
 
 #[macro_use] extern crate core;

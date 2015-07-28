@@ -180,10 +180,10 @@ impl<GS: Field> IsoDiskSampler<GS> {
         let key = (x, y, section);
         // Can't use Entry API here because we need to take a borrow on `self` to call
         // `generate_chunk`.
-        if cache.get(&key).is_none() {
+        if cache.get_mut(&key).is_none() {
             self.generate_chunk(cache, x, y, section);
         }
-        &*cache.get(&key).unwrap()
+        &*cache.get_mut(&key).unwrap()
     }
 
     fn generate_chunk(&self,
