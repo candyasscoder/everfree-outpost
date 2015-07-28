@@ -2,19 +2,21 @@
 
 Dependencies:
 
- - rust-lang/rust 1.2.0-dev-g60926b8
- - kripken/emscripten-fastcomp 1.29.0-0-g49ddcf5  (Other Emscripten components
+ - rust-lang/rust 1.3.0-dev-gdc6e3bb
+ - kripken/emscripten-fastcomp 1.34.0-0-gdccd651  (Other Emscripten components
    are not required)
  - epdtry/rust-emscripten-passes eea6274
- - rust-lang/bitflags ec6b3b5
- - rust-lang/rand 2a6773d
- - rust-lang/regex 0.1.28-36-g7a72b1f
- - rust-lang/log 07fbe6b
- - rust-lang/rustc-serialize 7900641
- - rust-lang/time c3b0bb3
- - jgallagher/rusqlite 0.0.17-29-g255e5f0
- - contain-rs/linked-hash-map eb4a8cc
- - contain-rs/lru-cache a0dcc31
+ - rust-lang/bitflags 274b488
+ - rust-lang/rand 164659b
+ - rust-lang/regex 0.1.28-82-g4165b3c
+ - rust-lang/log fb2d9aa
+ - rust-lang/rustc-serialize 376f43a
+ - rust-lang/time 79628fa
+ - BurntSushi/rust-memchr 0.1.3
+ - BurntSuschi/aho-corasick 0.3.0
+ - jgallagher/rusqlite e896738
+ - contain-rs/linked-hash-map 4f944c6
+ - contain-rs/lru-cache dc58d49
  - python3
  - python3-pillow
  - python3-yaml
