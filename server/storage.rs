@@ -20,6 +20,7 @@ const SCRIPT_DIR: &'static str = "scripts";
 const SAVE_DIR: &'static str = "save";
 const CLIENT_DIR: &'static str = "clients";
 const PLANE_DIR: &'static str = "planes";
+const SUMMARY_DIR: &'static str = "summary";
 const TERRAIN_CHUNK_DIR: &'static str = "terrain_chunks";
 const WORLD_FILE_NAME: &'static str = "world.dat";
 const MISC_FILE_NAME: &'static str = "misc.dat";
@@ -41,6 +42,7 @@ impl Storage {
             base: base,
         }
     }
+
 
     pub fn data_path(&self, file: &str) -> PathBuf {
         self.base.join(DATA_DIR).join(file)
@@ -69,6 +71,7 @@ impl Storage {
     pub fn open_animation_data(&self) -> File {
         File::open(self.data_path(ANIMATION_DATA_FILE)).unwrap()
     }
+
 
     pub fn script_dir(&self) -> PathBuf {
         self.base.join(SCRIPT_DIR)
@@ -108,6 +111,17 @@ impl Storage {
         self.base.join(SAVE_DIR).join(RESTART_FILE_NAME)
     }
 
+    pub fn summary_file_path(&self,
+                             name: &str,
+                             stable_pid: Stable<PlaneId>,
+                             cpos: V2) -> PathBuf {
+        self.base.join(SAVE_DIR).join(SUMMARY_DIR)
+            .join(format!("{:x}", stable_pid.unwrap()))
+            .join(name)
+            .join(format!("{},{}.dat", cpos.x, cpos.y))
+    }
+
+
     pub fn open_world_file(&self) -> Option<File> {
         try_open_file(self.world_path())
     }
@@ -131,6 +145,14 @@ impl Storage {
     pub fn open_restart_file(&self) -> Option<File> {
         try_open_file(self.restart_file_path())
     }
+
+    pub fn open_summary_file(&self,
+                             name: &str,
+                             stable_pid: Stable<PlaneId>,
+                             cpos: V2) -> Option<File> {
+        try_open_file(self.summary_file_path(name, stable_pid, cpos))
+    }
+
 
     pub fn create_world_file(&self) -> File {
         File::create(self.world_path()).unwrap()
@@ -158,6 +180,15 @@ impl Storage {
 
     pub fn remove_restart_file(&self) {
         fs::remove_file(self.restart_file_path()).unwrap()
+    }
+
+    pub fn create_summary_file(&self,
+                               name: &str,
+                               stable_pid: Stable<PlaneId>,
+                               cpos: V2) -> File {
+        let path = self.summary_file_path(name, stable_pid, cpos);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        File::create(path).unwrap()
     }
 }
 

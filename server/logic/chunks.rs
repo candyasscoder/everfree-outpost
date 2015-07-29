@@ -10,7 +10,9 @@ use engine::glue::*;
 use engine::split::EngineRef;
 use script::{self, ScriptEngine};
 use terrain_gen;
-use world::{self, Fragment};
+use terrain_gen::Fragment as TerrainGen_Fragment;
+use world;
+use world::Fragment as World_Fragment;
 use world::object::*;
 use world::save::{self, ObjectReader, ObjectWriter};
 
@@ -67,59 +69,11 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
         let opt_file = opt_tcid.and_then(|tcid| self.storage().open_terrain_chunk_file(tcid));
         if let Some(file) = opt_file {
             let mut sr = ObjectReader::new(file);
+            // TODO: do something intelligent if loading fails, so the whole server doesn't crash
             try!(sr.load_terrain_chunk(&mut self.as_save_read_fragment(), pid, cpos));
         } else {
             trace!("generating terrain for {:?} {:?}", pid, cpos);
-            let gen_chunk = {
-                let stable_pid = self.as_hidden_world_fragment().plane_mut(pid).stable_id();
-                let (tgf, eng) = self.borrow().0.split_off();
-                let mut tgf = TerrainGenFragment(tgf);
-
-                let plane_rng = tgf.terrain_gen_mut().plane_rng(stable_pid, 0);
-                let chunk_rng = tgf.terrain_gen_mut().chunk_rng(stable_pid, cpos, 0);
-                let result = ScriptEngine::cb_generate_chunk(&mut tgf,
-                                                             eng.world().plane(pid).name(),
-                                                             cpos,
-                                                             plane_rng,
-                                                             chunk_rng);
-
-                match result {
-                    Ok(gc) => gc,
-                    Err(e) => {
-                        warn!("terrain generation failed for {:?} {:?}: {}",
-                              pid, cpos, e.description());
-                        terrain_gen::GenChunk::new()
-                    },
-                }
-            };
-            {
-                let mut hwf = self.as_hidden_world_fragment();
-                try!(world::Fragment::create_terrain_chunk(&mut hwf,
-                                                           pid,
-                                                           cpos,
-                                                           gen_chunk.blocks));
-                let base = cpos.extend(0) * scalar(CHUNK_SIZE);
-                for gs in gen_chunk.structures.into_iter() {
-                    let result = (|| -> StringResult<_> {
-                        let sid = {
-                            let mut s = try!(world::Fragment::create_structure_unchecked(
-                                    &mut hwf, pid, gs.pos + base, gs.template));
-                            s.set_attachment(world::StructureAttachment::Chunk).unwrap();
-                            s.id()
-                        };
-                        for (k, v) in gs.extra.iter() {
-                            try!(script::ScriptEngine::cb_apply_structure_extra(
-                                // FIXME: SUPER UNSAFE!!!  This allows scripts to violate memory
-                                // safety, by mutating engine parts that are not available in the
-                                // ChunpProvider fragment!
-                                unsafe { ::std::mem::transmute_copy(&hwf) },
-                                sid, k, v));
-                        }
-                        Ok(())
-                    })();
-                    warn_on_err!(result);
-                }
-            }
+            try!(self.as_terrain_gen_fragment().generate(pid, cpos));
         }
         Ok(())
     }

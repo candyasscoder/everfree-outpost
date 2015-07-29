@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::io;
+use std::mem;
+use std::raw;
 use time;
 
 use types::Time;
@@ -143,4 +145,19 @@ impl<R: io::Read> ReadExact for R {
         }
         Ok(())
     }
+}
+
+
+pub unsafe fn transmute_slice<'a, T, U>(x: &'a [T]) -> &'a [U] {
+    mem::transmute(raw::Slice {
+        data: x.as_ptr() as *const U,
+        len: x.len() * mem::size_of::<T>() / mem::size_of::<U>(),
+    })
+}
+
+pub unsafe fn transmute_slice_mut<'a, T, U>(x: &'a mut [T]) -> &'a mut [U] {
+    mem::transmute(raw::Slice {
+        data: x.as_ptr() as *const U,
+        len: x.len() * mem::size_of::<T>() / mem::size_of::<U>(),
+    })
 }

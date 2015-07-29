@@ -73,7 +73,7 @@ def mk_cave_entrance(img_grass, img_dirt, img_cave_walls, basename):
 def init():
     tiles = loader('tiles')
 
-    grass = tiles('lpc-base-tiles/grass.png')
+    grass = tiles('lpc-base-tiles/dirt.png')
     dirt = tiles('lpc-base-tiles/dirt2.png')
     cave = tiles('lpc-cave-walls.png')
     mk_cave_walls(grass, dirt, cave, 'cave')

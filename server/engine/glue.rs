@@ -40,7 +40,7 @@ macro_rules! part2 {
     // Terrain generation produces a description of the chunk, but doesn't add it to the World
     // directly.
     (TerrainGenFragment, $($x:tt)*) => {
-        part2!(terrain_gen, script, $($x)*);
+        part2!(terrain_gen, script, HiddenWorldFragment, $($x)*);
     };
 
     // Chunk lifecycle events only occur on chunks that are not visible to clients, so it can use
@@ -180,6 +180,13 @@ parts!(TerrainGenFragment);
 impl<'a, 'd> terrain_gen::Fragment<'d> for TerrainGenFragment<'a, 'd> {
     fn terrain_gen_mut(&mut self) -> &mut terrain_gen::TerrainGen<'d> {
         (**self).terrain_gen_mut()
+    }
+
+    type WF = HiddenWorldFragment<'a, 'd>;
+    fn with_world<F, R>(&mut self, f: F) -> R
+            where F: FnOnce(&mut HiddenWorldFragment<'a, 'd>) -> R {
+        let e = unsafe { self.borrow().fiddle().to_part().slice() };
+        f(&mut Part::from_part(e))
     }
 }
 

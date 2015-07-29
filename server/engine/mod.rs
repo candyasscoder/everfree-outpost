@@ -78,7 +78,7 @@ impl<'d> Engine<'d> {
             auth: Auth::new(&storage.auth_db_path()).unwrap(),
             chunks: Chunks::new(storage),
             cache: TerrainCache::new(),
-            terrain_gen: TerrainGen::new(data),
+            terrain_gen: TerrainGen::new(data, storage),
         }
     }
 

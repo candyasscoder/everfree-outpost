@@ -10,6 +10,7 @@
     mpsc_select,
     num_bits_bytes,
     raw,
+    step_by,
     trace_macros,
     unboxed_closures,
     unsafe_no_drop_flag,
@@ -26,6 +27,7 @@ extern crate rand;
 extern crate rustc_serialize;
 extern crate time;
 
+extern crate linked_hash_map;
 extern crate lru_cache;
 extern crate rusqlite;
 extern crate libsqlite3_sys as rusqlite_ffi;
