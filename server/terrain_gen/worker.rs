@@ -43,12 +43,19 @@ impl<'d> Worker<'d> {
         let seed: (u32, u32, u32, u32) = self.rng.gen();
         let mut rng: XorShiftRng = SeedableRng::from_seed([seed.0, seed.1, seed.2, seed.3]);
 
+        let dist = cpos.abs().max();
+        // 0 <= power < 16
+        let power: u8 = power_from_dist(&mut rng, dist);
+        // `exp_power` grows exponentially with `power`.
+        //  0 -  7 => 0
+        //  8 - 11 => 1
+        // 12 - 13 => 2
+        // 14      => 3
+        // 15      => 4
+        let exp_power = (15 - power).leading_zeros() as u8 - (8 - 4);
+
         let mut grid = DscGrid::new(scalar(48), 4, |_pos, level, _phase| {
-            match level {
-                3 => 2,
-                2 => 1,
-                _ => 0,
-            }
+            if 3 - level <= exp_power { 1 } else { 0 }
         });
 
 
@@ -77,7 +84,7 @@ impl<'d> Worker<'d> {
             let pos = step * scalar(CHUNK_SIZE);
             match grid.get_value(pos) {
                 Some(val) => grid.set_range(pos, val, val),
-                None => grid.set_range(pos, 100, 105),
+                None => grid.set_range(pos, 100, 100 + power / 2),
             }
         }
 
@@ -142,6 +149,31 @@ impl<'d> Worker<'d> {
         }
 
         gc
+    }
+}
+
+fn div_rand_round<R: Rng>(r: &mut R, n: u32, d: u32) -> u32 {
+    (n + r.gen_range(0, d)) / d
+}
+
+fn power_from_dist<R: Rng>(r: &mut R, dist: i32) -> u8 {
+    fn ramp<R: Rng>(r: &mut R, x: u32, min_x: u32, max_x: u32, min_y: u32, max_y: u32) -> u32 {
+        let x_range = max_x - min_x;
+        let y_range = max_y - min_y;
+        let dx = x - min_x;
+        let dy = div_rand_round(r, dx * y_range, x_range);
+        min_y + dy
+    }
+
+    let dist = dist as u32;
+    if dist < 256 {
+        ramp(r, dist, 0, 256, 0, 1) as u8
+    } else if dist < 512 {
+        ramp(r, dist, 256, 512, 1, 4) as u8
+    } else if dist < 1024 {
+        ramp(r, dist, 512, 1024, 4, 15) as u8
+    } else {
+        15
     }
 }
 
