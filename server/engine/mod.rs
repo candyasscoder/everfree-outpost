@@ -18,7 +18,8 @@ use msg::{Request, Response};
 use physics_::Physics;
 use script::ScriptEngine;
 use storage::Storage;
-use terrain_gen::TerrainGen;
+use terrain_gen::{TerrainGen, TerrainGenEvent};
+use terrain_gen::Fragment as TerrainGen_Fragment;
 use timer::{Timer, TimerEvent};
 use vision::Vision;
 use world::World;
@@ -94,14 +95,17 @@ impl<'d> Engine<'d> {
             enum Event {
                 FromTimer(TimerEvent),
                 FromMessage(MessageEvent),
+                FromTerrainGen(TerrainGenEvent),
             }
 
             let evt = {
                 let recv_timer = self.timer.receiver();
                 let recv_message = self.messages.receiver();
+                let recv_terrain_gen = self.terrain_gen.receiver();
                 select! {
                     evt = recv_timer.recv() => Event::FromTimer(evt.unwrap()),
-                    evt = recv_message.recv() => Event::FromMessage(evt.unwrap())
+                    evt = recv_message.recv() => Event::FromMessage(evt.unwrap()),
+                    evt = recv_terrain_gen.recv() => Event::FromTerrainGen(evt.unwrap())
                 }
             };
 
@@ -121,6 +125,9 @@ impl<'d> Engine<'d> {
                             break;
                         },
                     }
+                },
+                Event::FromTerrainGen(evt) => {
+                    self.as_ref().as_terrain_gen_fragment().process(evt);
                 },
             }
         }

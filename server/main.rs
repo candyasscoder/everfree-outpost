@@ -10,6 +10,7 @@
     mpsc_select,
     num_bits_bytes,
     raw,
+    scoped,
     step_by,
     trace_macros,
     unboxed_closures,

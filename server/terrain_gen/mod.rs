@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher, SipHasher};
 use std::mem;
+use std::thread::{self, JoinGuard};
+use std::sync::mpsc::{self, Sender, Receiver};
 use rand::{Rng, XorShiftRng, SeedableRng};
 
 use physics::CHUNK_SIZE;
@@ -10,6 +12,8 @@ use util::StrResult;
 use data::Data;
 use storage::Storage;
 use world::Fragment as World_Fragment;
+use world::Hooks;
+use world::flags;
 use world::object::*;
 
 pub use self::disk_sampler::IsoDiskSampler;
@@ -24,187 +28,35 @@ mod disk_sampler;
 mod fields;
 mod summary;
 mod dsc;
+mod worker;
 
+
+pub type TerrainGenEvent = worker::Response;
 
 pub struct TerrainGen<'d> {
-    data: &'d Data,
-    world_seed: u64,
-    rng: XorShiftRng,
-    summary: Summary<'d>,
+    send: Sender<worker::Command>,
+    recv: Receiver<worker::Response>,
+    guard: JoinGuard<'d, ()>,
 }
-
-static DIRS: [V2; 8] = [
-    V2 { x:  1, y:  0 },
-    V2 { x:  1, y:  1 },
-    V2 { x:  0, y:  1 },
-    V2 { x: -1, y:  1 },
-    V2 { x: -1, y:  0 },
-    V2 { x: -1, y: -1 },
-    V2 { x:  0, y: -1 },
-    V2 { x:  1, y: -1 },
-];
 
 impl<'d> TerrainGen<'d> {
     pub fn new(data: &'d Data, storage: &'d Storage) -> TerrainGen<'d> {
-        TerrainGen {
-            data: data,
-            world_seed: 0xe0e0e0e0_00012345,
-            rng: SeedableRng::from_seed([0xe0e0e0e0,
-                                         0x00012345,
-                                         0xe0e0e0e0,
-                                         0x00012345]),
-            summary: Summary::new(storage),
-        }
-    }
-
-    pub fn data(&self) -> &'d Data {
-        self.data
-    }
-
-    pub fn plane_rng(&self, pid: Stable<PlaneId>, seed: u32) -> XorShiftRng {
-        let mut hasher = SipHasher::new_with_keys(self.world_seed, 0xac87_2554_6d5c_bc1f);
-        (pid.unwrap(), seed).hash(&mut hasher);
-        let seed0 = hasher.finish();
-
-        SeedableRng::from_seed([(seed0 >> 32) as u32,
-                                seed0 as u32,
-                                0xa21b_0552,
-                                0x204c_17f8])
-    }
-
-    pub fn chunk_rng(&self, pid: Stable<PlaneId>, cpos: V2, seed: u32) -> XorShiftRng {
-        // TODO: temporary hack to avoid regenerating terrain in PLANE_FOREST
-        if pid == STABLE_PLANE_FOREST {
-            SeedableRng::from_seed([self.world_seed as u32 ^ 0xfaa3e2a2,
-                                    cpos.x as u32,
-                                    cpos.y as u32,
-                                    seed])
-        } else {
-            let mut hasher = SipHasher::new_with_keys(self.world_seed, 0xb953_9155_1d94_626c);
-            (pid.unwrap(), cpos, seed).hash(&mut hasher);
-            let seed0 = hasher.finish();
-
-            SeedableRng::from_seed([(seed0 >> 32) as u32,
-                                    seed0 as u32,
-                                    0x7307_3120,
-                                    0x7f68_4998])
-        }
-    }
-
-    pub fn rng(&self, seed: u32) -> XorShiftRng {
-        // TODO: make this use all of world_seed
-        SeedableRng::from_seed([self.world_seed as u32 ^ 0x3ba6d154,
-                                0x34c9c7b1,
-                                0xf8499a88,
-                                seed])
-    }
-
-    pub fn generate_forest_chunk(&mut self, pid: Stable<PlaneId>, cpos: V2) -> GenChunk {
-        let mut rng = self.rng.gen::<XorShiftRng>();
-
-        let mut grid = DscGrid::new(scalar(48), 4, |_pos, level, _phase| {
-            match level {
-                3 => 2,
-                2 => 1,
-                _ => 0,
-            }
+        let (send_cmd, recv_cmd) = mpsc::channel();
+        let (send_result, recv_result) = mpsc::channel();
+        let guard = thread::scoped(move || {
+            worker::run(data, storage, recv_cmd, send_result);
         });
 
-        // Load values from adjacent pregenerated chunks.
-        for &dir in &DIRS {
-            match self.summary.load(pid, cpos + dir) {
-                Ok(_) => {},
-                Err(_) => continue,
-            };
-            let summ = self.summary.get(pid, cpos + dir);
-
-            let base = (dir + scalar(1)) * scalar(CHUNK_SIZE);
-            let bounds = Region::new(base, base + scalar(CHUNK_SIZE + 1));
-            for pos in bounds.points() {
-                let val = summ.ds_levels[bounds.index(pos)];
-                grid.set_value(pos, val);
-            }
+        TerrainGen {
+            send: send_cmd,
+            recv: recv_result,
+            guard: guard,
         }
-
-        // Set ranges for all seed points.
-        for step in Region::<V2>::new(scalar(0), scalar(4)).points() {
-            let pos = step * scalar(CHUNK_SIZE);
-            match grid.get_value(pos) {
-                Some(val) => grid.set_range(pos, val, val),
-                None => grid.set_range(pos, 100, 105),
-            }
-        }
-
-        // Apply constraints to edge points shared with pregenerated chunks.
-        for i in 0 .. CHUNK_SIZE + 1 {
-            for &(x, y) in &[(i, 0), (0, i), (i, CHUNK_SIZE), (CHUNK_SIZE, i)] {
-                let pos = V2::new(x, y) + scalar(CHUNK_SIZE);
-                if let Some(val) = grid.get_value(pos) {
-                    grid.set_constraint(pos, val, val);
-                }
-            }
-        }
-
-        // Go!
-        grid.fill(&mut rng);
-
-        // Save generated values to the summary.
-        {
-            let summ = self.summary.create(pid, cpos);
-
-            let bounds = Region::new(scalar(CHUNK_SIZE),
-                                     scalar(2 * CHUNK_SIZE + 1));
-            for pos in bounds.points() {
-                debug!("{:?}", pos);
-                let val = grid.get_value(pos).unwrap();
-                summ.ds_levels[bounds.index(pos)] = val;
-            }
-        }
-
-        // Generate blocks.
-        let mut gc = GenChunk::new();
-        let block_data = &self.data.block_data;
-
-        for pos in Region::<V2>::new(scalar(0), scalar(CHUNK_SIZE)).points() {
-            let name = format!("grass/center/v{}", rng.gen_range(0, 4));
-            gc.set_block(pos.extend(0), block_data.get_id(&name));
-        }
-
-        let base = scalar::<V2>(CHUNK_SIZE);
-        for pos in Region::<V2>::new(scalar(0), scalar(CHUNK_SIZE)).points() {
-            let nw = grid.get_value(base + pos + V2::new(0, 0)).unwrap() as i32 - 100;
-            let ne = grid.get_value(base + pos + V2::new(1, 0)).unwrap() as i32 - 100;
-            let se = grid.get_value(base + pos + V2::new(1, 1)).unwrap() as i32 - 100;
-            let sw = grid.get_value(base + pos + V2::new(0, 1)).unwrap() as i32 - 100;
-
-            for z in (0 .. CHUNK_SIZE).step_by(2) {
-                // Rotate 180 degrees.  If the two south points are within the raised region, then
-                // this is the *north* edge of the region.
-                let bits = collect_bits(se >= z, sw >= z, nw >= z, ne >= z);
-
-                if bits == 0 {
-                    break;
-                }
-
-                let variant = BORDER_TILE_NAMES[bits as usize];
-                let z0_id = block_data.get_id(&format!("cave/{}/z0", variant));
-                let z1_id = block_data.get_id(&format!("cave/{}/z1", variant));
-                let z2_id = block_data.get_id(&format!("cave_top/{}", variant));
-                gc.set_block(pos.extend(z + 0), z0_id);
-                gc.set_block(pos.extend(z + 1), z1_id);
-                gc.set_block(pos.extend(z + 2), z2_id);
-            }
-        }
-
-        gc
     }
-}
 
-fn collect_bits(x0: bool, x1: bool, x2: bool, x3: bool) -> u8 {
-    ((x0 as u8) << 0) |
-    ((x1 as u8) << 1) |
-    ((x2 as u8) << 2) |
-    ((x3 as u8) << 3)
+    pub fn receiver(&self) -> &Receiver<TerrainGenEvent> {
+        &self.recv
+    }
 }
 
 pub trait Fragment<'d> {
@@ -218,13 +70,25 @@ pub trait Fragment<'d> {
                 pid: PlaneId,
                 cpos: V2) -> StrResult<TerrainChunkId> {
         let stable_pid = self.with_world(|wf| wf.plane_mut(pid).stable_id());
-        let gc = self.terrain_gen_mut().generate_forest_chunk(stable_pid, cpos);
-        self.with_world(move |wf| {
-            let mut tc = try!(wf.create_terrain_chunk(pid, cpos));
-            *tc.blocks_mut() = *gc.blocks;
-            Ok(tc.id())
-        })
+        self.terrain_gen_mut().send.send(worker::Command::Generate(stable_pid, cpos)).unwrap();
+        self.with_world(move |wf| { wf.create_terrain_chunk(pid, cpos).map(|tc| tc.id()) })
     }
+
+    fn process(&mut self, evt: TerrainGenEvent) {
+        let (stable_pid, cpos, gc) = evt;
+        self.with_world(move |wf| {
+            let tcid = {
+                let pid = unwrap_or!(wf.world().transient_plane_id(stable_pid));
+                let mut p = wf.plane_mut(pid);
+                let mut tc = unwrap_or!(p.get_terrain_chunk_mut(cpos));
+                *tc.blocks_mut() = *gc.blocks;
+                tc.flags_mut().remove(flags::TC_GENERATION_PENDING);
+                tc.id()
+            };
+            wf.with_hooks(|h| h.on_terrain_chunk_update(tcid));
+        });
+    }
+
 }
 
 
@@ -321,24 +185,3 @@ impl Rng for PointRng {
         hasher.finish()
     }
 }
-
-
-// Generated 2015-07-29 07:41:18 by util/gen_border_shape_table.py
-const BORDER_TILE_NAMES: [&'static str; 16] = [
-    "outside",
-    "corner/outer/nw",
-    "corner/outer/ne",
-    "edge/n",
-    "corner/outer/se",
-    "cross/nw",
-    "edge/e",
-    "corner/inner/ne",
-    "corner/outer/sw",
-    "edge/w",
-    "cross/ne",
-    "corner/inner/nw",
-    "edge/s",
-    "corner/inner/sw",
-    "corner/inner/se",
-    "center",
-];
