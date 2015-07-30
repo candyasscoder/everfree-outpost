@@ -12,6 +12,7 @@ use script::{self, ScriptEngine};
 use terrain_gen;
 use terrain_gen::Fragment as TerrainGen_Fragment;
 use world;
+use world::flags;
 use world::Fragment as World_Fragment;
 use world::object::*;
 use world::save::{self, ObjectReader, ObjectWriter};
@@ -88,9 +89,14 @@ impl<'a, 'd> chunks::Provider for ChunkProvider<'a, 'd> {
             let p = eng.world().plane(pid);
             let tc = p.terrain_chunk(cpos);
 
-            let file = eng.storage().create_terrain_chunk_file(stable_tcid);
-            let mut sw = ObjectWriter::new(file, h);
-            try!(sw.save_terrain_chunk(&tc));
+            // Don't save chunks that are not fully generated, since they are filled with "empty'
+            // block instead of real data.  Instead, let the generated data be discarded, and let
+            // the chunk be regenerated the next time it is needed.
+            if !tc.flags().contains(flags::TC_GENERATION_PENDING) {
+                let file = eng.storage().create_terrain_chunk_file(stable_tcid);
+                let mut sw = ObjectWriter::new(file, h);
+                try!(sw.save_terrain_chunk(&tc));
+            }
 
             tc.id()
         };

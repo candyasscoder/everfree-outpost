@@ -60,7 +60,11 @@ pub const TIME_MIN: Time = i64::MIN;
 
 pub const CHUNK_TOTAL: usize = 1 << (3 * CHUNK_BITS);
 pub type BlockChunk = [BlockId; CHUNK_TOTAL];
+
+// 0 is always the BlockId of "empty" (no appearance; empty shape)
 pub static EMPTY_CHUNK: BlockChunk = [0; CHUNK_TOTAL];
+// 1 is always the BlockId of "placeholder" (no appearance; solid shape)
+pub static PLACEHOLDER_CHUNK: BlockChunk = [1; CHUNK_TOTAL];
 
 
 /// Trait for converting from local to global.

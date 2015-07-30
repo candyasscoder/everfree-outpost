@@ -196,6 +196,10 @@ pub struct DscGrid<F> {
     get_max_offset: F,
 }
 
+// TODO: There's a lot of potential for rounding errors in here.  I haven't really checked to make
+// sure everything lines up, so there may be situations where (e.g.) filling a grid, erasing some
+// values (leaving the rest as constraints), and regenerating may fail to produce a valid grid.
+
 impl<F> DscGrid<F>
         where F: FnMut(V2, u8, Phase) -> u8 {
     pub fn new(size: V2, seed_level: u8, get_max_offset: F) -> DscGrid<F> {
@@ -414,8 +418,8 @@ impl<F> DscGrid<F>
 
         let offset = Fixed::from_u8((self.get_max_offset)(pos, level, phase));
 
-        self.range[idx] = (min_sum / count - offset,
-                           max_sum / count + offset);
+        self.range[idx] = (Fixed(min_sum.unwrap() / count) - offset,
+                           Fixed((max_sum.unwrap() + count - 1) / count) - offset);
     }
 
 
@@ -669,7 +673,8 @@ impl<F> DscGrid<F>
 
         let max_offset = (self.get_max_offset)(pos, level, phase) as i32;
         let offset = rng.gen_range(-max_offset, max_offset + 1);
-        let raw_value = sum / count + offset;
+        // Divide with random rounding.
+        let raw_value = (sum + rng.gen_range(0, count)) / count + offset;
         let value =
             if raw_value < 0 { 0 }
             else if raw_value > u8::MAX as i32 { u8::MAX }

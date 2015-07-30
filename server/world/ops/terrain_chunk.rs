@@ -16,7 +16,7 @@ pub fn create<'d, F>(f: &mut F,
     let tc = TerrainChunk {
         plane: pid,
         cpos: cpos,
-        blocks: Box::new(EMPTY_CHUNK),
+        blocks: Box::new(PLACEHOLDER_CHUNK),
 
         stable_id: NO_STABLE_ID,
         flags: flags::TC_GENERATION_PENDING,

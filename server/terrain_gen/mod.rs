@@ -81,6 +81,18 @@ pub trait Fragment<'d> {
                 let pid = unwrap_or!(wf.world().transient_plane_id(stable_pid));
                 let mut p = wf.plane_mut(pid);
                 let mut tc = unwrap_or!(p.get_terrain_chunk_mut(cpos));
+ 
+                if !tc.flags().contains(flags::TC_GENERATION_PENDING) {
+                    // Prevent this:
+                    //  1) Load chunk, start generating
+                    //  2) Unload chunk (but keep generating from #1)
+                    //  3) Load chunk, start generating (queued, #1 is still going)
+                    //  4) Generation #1 finishes; chunk is loaded so set its contents
+                    //  5) Player modifies chunk
+                    //  6) Generation #3 finishes; RESET chunk contents (erasing modifications)
+                    return;
+                }
+
                 *tc.blocks_mut() = *gc.blocks;
                 tc.flags_mut().remove(flags::TC_GENERATION_PENDING);
                 tc.id()
