@@ -10,7 +10,8 @@ use types::*;
 use world::World;
 use world::{Client, Entity, Inventory, Plane, TerrainChunk, Structure};
 use world::{EntitiesById, StructuresById, InventoriesById};
-use super::{EntityAttachment, StructureAttachment, StructureFlags, InventoryAttachment};
+use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
+use world::{TerrainChunkFlags, StructureFlags};
 use world::Motion;
 use world::fragment::Fragment;
 use world::hooks::Hooks;
@@ -428,6 +429,10 @@ pub trait TerrainChunkRef<'d>: ObjectRefBase<'d, TerrainChunk> {
         self.shape(block_pos_to_idx(self, pos))
     }
 
+    fn flags(&self) -> TerrainChunkFlags {
+        self.obj().flags
+    }
+
     fn child_structures<'b>(&'b self)
             -> StructuresById<'b, 'd, hash_set::Iter<'b, StructureId>> {
         StructuresById::new(self.world(), self.obj().child_structures.iter())
@@ -444,6 +449,10 @@ pub trait TerrainChunkRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, TerrainC
 
     fn blocks_mut(&mut self) -> &mut BlockChunk {
         &mut *self.obj_mut().blocks
+    }
+
+    fn flags_mut(&mut self) -> &mut TerrainChunkFlags {
+        &mut self.obj_mut().flags
     }
 }
 impl<'a, 'd, F: Fragment<'d>> TerrainChunkRefMut<'d, F> for ObjectRefMut<'a, 'd, TerrainChunk, F> { }

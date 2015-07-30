@@ -161,7 +161,7 @@ macro_rules! process_objects {
                 id TerrainChunkId;
                 map terrain_chunks;
                 module terrain_chunk;
-                lifecycle (pid: PlaneId, cpos: V2, blocks: Box<BlockChunk>)
+                lifecycle (pid: PlaneId, cpos: V2)
                     create_terrain_chunk [id -> id],
                     destroy_terrain_chunk,
                 lookups [id -> id]

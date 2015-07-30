@@ -3,22 +3,23 @@ use std::collections::HashSet;
 use types::*;
 use util::stable_id_map::NO_STABLE_ID;
 
-use world::TerrainChunk;
+use world::{TerrainChunk, TerrainChunkFlags};
 use world::{Fragment, Hooks};
+use world::flags;
 use world::ops::{self, OpResult};
 
 
 pub fn create<'d, F>(f: &mut F,
                      pid: PlaneId,
-                     cpos: V2,
-                     blocks: Box<BlockChunk>) -> OpResult<TerrainChunkId>
+                     cpos: V2) -> OpResult<TerrainChunkId>
         where F: Fragment<'d> {
     let tc = TerrainChunk {
         plane: pid,
         cpos: cpos,
-        blocks: blocks,
+        blocks: Box::new(EMPTY_CHUNK),
 
         stable_id: NO_STABLE_ID,
+        flags: flags::TC_GENERATION_PENDING,
         child_structures: HashSet::new(),
     };
 
@@ -37,6 +38,7 @@ pub fn create_unchecked<'d, F>(f: &mut F) -> TerrainChunkId
         blocks: Box::new(EMPTY_CHUNK),
 
         stable_id: NO_STABLE_ID,
+        flags: TerrainChunkFlags::empty(),
         child_structures: HashSet::new(),
     }).unwrap();     // Shouldn't fail when stable_id == NO_STABLE_ID
     tcid

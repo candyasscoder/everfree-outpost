@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher, SipHasher};
+use std::mem;
 use rand::{Rng, XorShiftRng, SeedableRng};
 
 use physics::CHUNK_SIZE;
@@ -218,7 +219,11 @@ pub trait Fragment<'d> {
                 cpos: V2) -> StrResult<TerrainChunkId> {
         let stable_pid = self.with_world(|wf| wf.plane_mut(pid).stable_id());
         let gc = self.terrain_gen_mut().generate_forest_chunk(stable_pid, cpos);
-        self.with_world(move |wf| wf.create_terrain_chunk(pid, cpos, gc.blocks).map(|tc| tc.id()))
+        self.with_world(move |wf| {
+            let mut tc = try!(wf.create_terrain_chunk(pid, cpos));
+            *tc.blocks_mut() = *gc.blocks;
+            Ok(tc.id())
+        })
     }
 }
 

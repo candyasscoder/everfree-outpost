@@ -5,7 +5,7 @@ use input::InputBits;
 use types::*;
 use util::stable_id_map::StableIdMap;
 
-pub use self::flags::StructureFlags;
+pub use self::flags::{TerrainChunkFlags, StructureFlags};
 pub use self::fragment::Fragment;
 pub use self::ops::OpResult;
 pub use self::hooks::Hooks;
@@ -129,6 +129,7 @@ pub struct TerrainChunk {
     blocks: Box<BlockChunk>,
 
     stable_id: StableId,
+    flags: TerrainChunkFlags,
     child_structures: HashSet<StructureId>,
 }
 impl_IntrusiveStableId!(TerrainChunk, stable_id);
