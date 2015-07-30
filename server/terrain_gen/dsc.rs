@@ -251,9 +251,7 @@ impl<F> DscGrid<F>
 
     /// Set a cell value to a constant, and mark it as "preset".
     pub fn set_value(&mut self, pos: V2, value: u8) {
-        debug!("set {:?} = {}", pos, value);
         if !self.bounds().contains(pos) {
-            debug!("  out of bounds!");
             return;
         }
 

@@ -40,7 +40,8 @@ impl<'d> Worker<'d> {
     }
 
     pub fn generate_forest_chunk(&mut self, pid: Stable<PlaneId>, cpos: V2) -> GenChunk {
-        let mut rng = self.rng.gen::<XorShiftRng>();
+        let seed: (u32, u32, u32, u32) = self.rng.gen();
+        let mut rng: XorShiftRng = SeedableRng::from_seed([seed.0, seed.1, seed.2, seed.3]);
 
         let mut grid = DscGrid::new(scalar(48), 4, |_pos, level, _phase| {
             match level {
@@ -50,12 +51,15 @@ impl<'d> Worker<'d> {
             }
         });
 
+
+        let mut loaded_dirs = 0;
         // Load values from adjacent pregenerated chunks.
-        for &dir in &DIRS {
+        for (i, &dir) in DIRS.iter().enumerate() {
             match self.summary.load(pid, cpos + dir) {
                 Ok(_) => {},
                 Err(_) => continue,
             };
+            loaded_dirs |= 1 << i;
             let summ = self.summary.get(pid, cpos + dir);
 
             let base = (dir + scalar(1)) * scalar(CHUNK_SIZE);
@@ -65,6 +69,8 @@ impl<'d> Worker<'d> {
                 grid.set_value(pos, val);
             }
         }
+        debug!("generate {:x} {:?}: seed {:?}, loaded {:x}",
+               pid.unwrap(), cpos, seed, loaded_dirs);
 
         // Set ranges for all seed points.
         for step in Region::<V2>::new(scalar(0), scalar(4)).points() {
@@ -95,7 +101,6 @@ impl<'d> Worker<'d> {
             let bounds = Region::new(scalar(CHUNK_SIZE),
                                      scalar(2 * CHUNK_SIZE + 1));
             for pos in bounds.points() {
-                debug!("{:?}", pos);
                 let val = grid.get_value(pos).unwrap();
                 summ.ds_levels[bounds.index(pos)] = val;
             }
