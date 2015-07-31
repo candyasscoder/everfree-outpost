@@ -200,8 +200,7 @@ pub struct DscGrid<F> {
 // sure everything lines up, so there may be situations where (e.g.) filling a grid, erasing some
 // values (leaving the rest as constraints), and regenerating may fail to produce a valid grid.
 
-impl<F> DscGrid<F>
-        where F: FnMut(V2, u8, Phase) -> u8 {
+impl<F> DscGrid<F> {
     pub fn new(size: V2, seed_level: u8, get_max_offset: F) -> DscGrid<F> {
         let len = ((size.x + 1) * (size.y + 1)) as usize;
         let f0 = Fixed::from_u8(0);
@@ -297,7 +296,10 @@ impl<F> DscGrid<F>
 
         self.constrained_points.push(pos);
     }
+}
 
+impl<F> DscGrid<F>
+        where F: FnMut(V2, u8, Phase) -> u8 {
     fn calc_child_has_constraint(&mut self) {
         // Bottom-up traversal
         let bounds = self.bounds();
