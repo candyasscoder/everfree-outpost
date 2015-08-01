@@ -12,7 +12,7 @@ use std::u8;
 use std::u32;
 use rand::Rng;
 
-use physics::v3::{V2, scalar, Region};
+use types::*;
 
 pub use self::Phase::{Diamond, Square};
 

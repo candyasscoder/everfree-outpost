@@ -29,6 +29,7 @@ mod fields;
 mod summary;
 mod dsc;
 mod worker;
+mod cellular;
 
 
 pub type TerrainGenEvent = worker::Response;
