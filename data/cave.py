@@ -2,7 +2,7 @@ from ..core.builder import *
 from ..core import depthmap
 from ..core.images import loader
 from ..core.structure import Shape
-from ..core.util import chop_image, chop_terrain, stack
+from ..core.util import chop_image, chop_image_named, chop_terrain, stack, extract
 
 from .lib.terrain import *
 
@@ -46,6 +46,160 @@ def mk_cave_walls(img_grass, img_dirt, img_cave_walls, basename):
 
     return blks
 
+def pack4(x, base):
+    a, b, c, d = x
+    return a + base * (b + base * (c + base * (d)))
+
+def unpack4(n, base):
+    a = n % base; n //= base
+    b = n % base; n //= base
+    c = n % base; n //= base
+    d = n % base; n //= base
+    return (a, b, c, d)
+
+def mk_cave_walls2_top_parts(img):
+    tile = TILE_SIZE
+    half = TILE_SIZE // 2
+
+    outer = img.crop((0, 0, 3 * tile, 3 * tile))
+    outer.paste((0, 0, 0, 0), (half, half, 5 * half, 5 * half))
+    # Each port of the key is 1 or 0 indicating presence or absence in that
+    # slot.  Slots are ordered NW, NE, SE, SW.
+    OUTER_PARTS = (
+            ((1, 1, 0, 1), (1, 1, 0, 0), (1, 1, 1, 0)),
+            ((1, 0, 0, 1), None,         (0, 1, 1, 0)),
+            ((1, 0, 1, 1), (0, 0, 1, 1), (0, 1, 1, 1)),
+    )
+
+    inner = Image.new('RGBA', (3 * tile, 3 * tile))
+    crop = img.crop((half, half, 5 * half, 5 * half))
+    inner.paste(crop, (half, half))
+    INNER_PARTS = (
+            ((0, 0, 1, 0), None,         (0, 0, 0, 1)),
+            (None,         (0, 0, 0, 0), None),
+            ((0, 1, 0, 0), None,         (1, 0, 0, 0)),
+    )
+
+    dct = {}
+    dct.update((pack4(k, 2), v)
+            for k,v in chop_image_named(outer, OUTER_PARTS).items()
+            if k is not None)
+    dct.update((pack4(k, 2), v)
+            for k,v in chop_image_named(inner, INNER_PARTS).items()
+            if k is not None)
+
+    dct[1 | 4] = dct[1].copy()
+    dct[1 | 4].paste(dct[4], (0, 0), dct[4])
+    dct[2 | 8] = dct[2].copy()
+    dct[2 | 8].paste(dct[8], (0, 0), dct[8])
+
+    black = dct.pop(0).getpixel((0, 0))
+    black_dct = {}
+    for i in range(16):
+        black_img = Image.new('RGBA', (tile, tile))
+        for bit, (ox, oy) in zip(unpack4(i, 2), ((0, 0), (1, 0), (1, 1), (0, 1))):
+            if bit == 1:
+                x = ox * half
+                y = oy * half
+                black_img.paste(black, (x, y, x + half, y + half))
+        black_dct[i] = black_img
+
+    return (black_dct, dct, dct)
+
+CAVE_WALLS2_MAX = 3 * 3 * 3 * 3
+def mk_cave_walls2_tops(img):
+    a_dct, b_dct, c_dct = mk_cave_walls2_top_parts(img)
+
+    result = [None] * CAVE_WALLS2_MAX
+
+    out = Image.new('RGBA', (CAVE_WALLS2_MAX * TILE_SIZE, TILE_SIZE))
+
+    for i in range(CAVE_WALLS2_MAX):
+        idxs = unpack4(i, 3)
+        a = pack4(tuple(int(x == 0) for x in idxs), 2)
+        b = pack4(tuple(int(x == 1) for x in idxs), 2)
+        c = pack4(tuple(int(x == 2) for x in idxs), 2)
+
+        result[i] = Image.new('RGBA', (TILE_SIZE, TILE_SIZE))
+        def maybe_paste(x, x_dct):
+            if x in x_dct:
+                result[i].paste(x_dct[x], (0, 0), x_dct[x])
+        maybe_paste(a, a_dct)
+        maybe_paste(b, b_dct)
+        maybe_paste(c, c_dct)
+        out.paste(result[i], (i * TILE_SIZE, 0))
+
+    out.save('test.png')
+    return result
+
+def mk_cave_walls2(cave_img, grass_img, dirt_img, dirt2_img, basename):
+    tops = mk_cave_walls2_tops(cave_img)
+    grass = chop_terrain(grass_img)
+    dirt = chop_terrain(dirt_img)
+    dirt2 = chop_terrain(dirt2_img)
+
+    base_grass = dict((k, stack(grass['center/v0'], v)) for k,v in dirt2.items())
+    base_dirt = dict((k, stack(dirt['center/v0'], v)) for k,v in dirt2.items())
+
+    out = Image.new('RGBA', (CAVE_WALLS2_MAX * TILE_SIZE, 3 * TILE_SIZE))
+
+    fronts = {
+            'left': extract(cave_img, (0, 3), (1, 2)),
+            'center': extract(cave_img, (1, 3), (1, 2)),
+            'right': extract(cave_img, (2, 3), (1, 2)),
+            }
+    fronts['half_left'] = fronts['center'].copy()
+    fronts['half_left'].paste((0, 0, 0, 0), (TILE_SIZE // 2, 0, TILE_SIZE, TILE_SIZE * 2))
+    fronts['half_right'] = fronts['center'].copy()
+    fronts['half_right'].paste((0, 0, 0, 0), (0, 0, TILE_SIZE // 2, TILE_SIZE * 2))
+
+    front_parts = (
+            dict((k, v.crop((0, TILE_SIZE, TILE_SIZE, 2 * TILE_SIZE))) for k,v in fronts.items()),
+            dict((k, v.crop((0, 0, TILE_SIZE, TILE_SIZE))) for k,v in fronts.items()),
+            )
+
+    empty = Image.new('RGBA', (TILE_SIZE, TILE_SIZE))
+
+    blks = block_builder()
+
+    for i in range(CAVE_WALLS2_MAX):
+        idxs = unpack4(i, 3)
+        # Reverse so that the 0b____ constants have the bits in the usual order
+        # (NW on the left, SW on the right)
+        b = pack4(tuple(int(x == 1) for x in reversed(idxs)), 2)
+        c = pack4(tuple(int(x == 2) for x in reversed(idxs)), 2)
+
+        check = lambda x: b == x or c == x
+
+        front_key = None
+        if check(0b1011):
+            front_key = 'left'
+        elif check(0b0111):
+            front_key = 'right'
+        elif check(0b0011):
+            front_key = 'center'
+        else:
+            hl = check(0b0001) or check(0b0101)
+            hr = check(0b0010) or check(0b1010)
+            if hl and hr:
+                front_key = 'center'
+            elif hl:
+                front_key = 'half_left'
+            elif hr:
+                front_key = 'half_right'
+
+        shape0 = 'solid' if b != 0b1111 and c != 0b1111 else 'floor'
+        shape1 = 'solid' if b != 0b1111 and c != 0b1111 else 'empty'
+
+        blks.create('%s/%d/z1' % (basename, i), shape1,
+                dict(top=tops[i], front=front_parts[1].get(front_key, empty)))
+        blks.create('%s/%d/z0/dirt' % (basename, i), shape0,
+                dict(front=front_parts[1].get(front_key, empty), bottom=base_dirt['center/v0']))
+        blks.create('%s/%d/z0/grass' % (basename, i), shape0,
+                dict(front=front_parts[1].get(front_key, empty), bottom=base_grass['center/v0']))
+
+    return blks
+
 def mk_cave_entrance(img_grass, img_dirt, img_cave_walls, basename):
     grass = chop_terrain(img_grass)['center/v0']
     dirt = chop_terrain(img_dirt)
@@ -73,8 +227,14 @@ def mk_cave_entrance(img_grass, img_dirt, img_cave_walls, basename):
 def init():
     tiles = loader('tiles')
 
+    cave2 = tiles('lpc-cave-walls2.png')
+    cave2_tops = cave2.crop((0, 0, 3 * TILE_SIZE, 3 * TILE_SIZE))
+
     grass = tiles('lpc-base-tiles/dirt.png')
     dirt = tiles('lpc-base-tiles/dirt2.png')
+
+    top_parts = mk_cave_walls2(cave2, grass, grass, dirt, 'test')
+
     cave = tiles('lpc-cave-walls.png')
     mk_cave_walls(grass, dirt, cave, 'cave')
     mk_cave_entrance(grass, dirt, cave, 'cave_entrance')

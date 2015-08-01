@@ -329,6 +329,8 @@ lpc-cave-walls.xcf: *cave-walls
 lpc-cave-top.png: *cave-walls
 lpc-cave-top-cross.png: *cave-walls
 
+lpc-cave-walls2.png: *cave-walls
+
 lpc-cave-inside.png:
     title: LPC Cave Interior
     author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
