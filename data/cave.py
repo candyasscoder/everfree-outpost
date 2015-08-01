@@ -46,6 +46,29 @@ def mk_cave_walls(img_grass, img_dirt, img_cave_walls, basename):
 
     return blks
 
+def mk_cave_entrance(img_grass, img_dirt, img_cave_walls, basename):
+    grass = chop_terrain(img_grass)['center/v0']
+    dirt = chop_terrain(img_dirt)
+    walls = chop_image(img_cave_walls)
+    name = lambda x, z: '%s/x%d/z%d' % (basename, x, z)
+    w = lambda x, y: walls[(x, y)]
+
+    # TODO: should allow for entrances on the north side as well
+    bottom = stack(grass, dirt['edge/s'])
+    top = w(2, 1)
+
+    blks = block_builder()
+
+    parts = []
+    for x in range(3):
+        blks.create(name(x, 1), 'solid', {'top': top, 'front': w(3 + x, 2)})
+        blks.create(name(x, 0), 'solid', {'front': w(3 + x, 3), 'bottom': bottom})
+
+    blks[name(1, 1)].shape = 'empty'
+    blks[name(1, 0)].shape = 'floor'
+
+    return blks
+
 def pack4(x, base):
     a, b, c, d = x
     return a + base * (b + base * (c + base * (d)))
@@ -198,31 +221,31 @@ def mk_cave_walls2(cave_img, grass_img, dirt_img, dirt2_img, basename):
         blks.create('%s/%d/z0/grass' % (basename, i), shape0,
                 dict(front=front_parts[1].get(front_key, empty), bottom=base_grass['center/v0']))
 
+
+    entrance_flat = extract(cave_img, (0, 5), (3, 2))
+    entrance = entrance_flat.crop((TILE_SIZE // 2, 0, TILE_SIZE * 5 // 2, TILE_SIZE * 2))
+    entrance_corner = extract(cave_img, (0, 3), (3, 2))
+    entrance_corner.paste(entrance, (TILE_SIZE // 2, 0))
+
+    def entrance_part(idxs, side, base_key, img):
+        i = pack4(idxs, 3)
+        shape0 = 'solid' if side != 'center' else 'floor'
+        shape1 = 'solid' if side != 'center' else 'empty'
+        x = dict(left=0, center=1, right=2)[side]
+        blks.create('%s/entrance/%s/%d/z1' % (basename, side, i), shape1,
+                dict(top=tops[i], front=extract(img, (x, 0))))
+        blks.create('%s/entrance/%s/%d/z0/dirt' % (basename, side, i), shape1,
+                dict(front=extract(img, (x, 1)), bottom=base_dirt[base_key]))
+        blks.create('%s/entrance/%s/%d/z0/grass' % (basename, side, i), shape1,
+                dict(front=extract(img, (x, 1)), bottom=base_grass[base_key]))
+
+    entrance_part((1, 2, 1, 1), 'left', 'center/v0', entrance_corner)
+    entrance_part((2, 2, 1, 1), 'left', 'center/v0', entrance_flat)
+    entrance_part((2, 2, 1, 1), 'center', 'center/v0', entrance_flat)
+    entrance_part((2, 1, 1, 1), 'right', 'center/v0', entrance_corner)
+    entrance_part((2, 2, 1, 1), 'right', 'center/v0', entrance_flat)
+
     return blks
-
-def mk_cave_entrance(img_grass, img_dirt, img_cave_walls, basename):
-    grass = chop_terrain(img_grass)['center/v0']
-    dirt = chop_terrain(img_dirt)
-    walls = chop_image(img_cave_walls)
-    name = lambda x, z: '%s/x%d/z%d' % (basename, x, z)
-    w = lambda x, y: walls[(x, y)]
-
-    # TODO: should allow for entrances on the north side as well
-    bottom = stack(grass, dirt['edge/s'])
-    top = w(2, 1)
-
-    blks = block_builder()
-
-    parts = []
-    for x in range(3):
-        blks.create(name(x, 1), 'solid', {'top': top, 'front': w(3 + x, 2)})
-        blks.create(name(x, 0), 'solid', {'front': w(3 + x, 3), 'bottom': bottom})
-
-    blks[name(1, 1)].shape = 'empty'
-    blks[name(1, 0)].shape = 'floor'
-
-    return blks
-
 
 def init():
     tiles = loader('tiles')
