@@ -115,7 +115,8 @@ impl<'d> Worker<'d> {
         // Generate blocks.
         let summ = self.summary.get(pid, cpos);
         let bounds = Region::<V2>::new(scalar(0), scalar(CHUNK_SIZE));
-        let get_level = |pos| summ.ds_levels[bounds.index(pos)];
+        let bounds_inc = Region::<V2>::new(scalar(0), scalar(CHUNK_SIZE + 1));
+        let get_level = |pos| summ.ds_levels[bounds_inc.index(pos)];
 
         let mut gc = GenChunk::new();
         let block_data = &self.data.block_data;
