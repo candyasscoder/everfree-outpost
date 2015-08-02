@@ -14,6 +14,13 @@ use util::ReadExact;
 use util::{transmute_slice, transmute_slice_mut};
 
 
+pub trait Summary {
+    fn alloc() -> Box<Self>;
+    fn write_to(&self, f: File) -> io::Result<()>;
+    fn read_from(f: File) -> io::Result<Box<Self>>;
+}
+
+
 pub type EachEdge<T> = [T; 4];
 pub type EachCell1<T> = [T; CHUNK_SIZE as usize];
 pub type EachCell2<T> = [T; (CHUNK_SIZE * CHUNK_SIZE) as usize];
@@ -38,7 +45,7 @@ pub struct ChunkSummary {
     pub cave_connectivity: Vec<(u8, u8)>,
 }
 
-impl ChunkSummary {
+impl Summary for ChunkSummary {
     fn alloc() -> Box<ChunkSummary> {
         Box::new(ChunkSummary {
             ds_levels: unsafe { mem::zeroed() },
@@ -83,13 +90,43 @@ impl ChunkSummary {
 }
 
 
-pub struct CacheEntry {
-    data: Box<ChunkSummary>,
+pub const SUPERCHUNK_BITS: usize = 5;
+pub const SUPERCHUNK_SIZE: i32 = 1 << SUPERCHUNK_BITS;
+
+pub struct SuperchunkSummary {
+    pub ds_levels: [u8; ((SUPERCHUNK_SIZE + 1) * (SUPERCHUNK_SIZE + 1)) as usize],
+}
+
+impl Summary for SuperchunkSummary {
+    fn alloc() -> Box<SuperchunkSummary> {
+        Box::new(SuperchunkSummary {
+            ds_levels: unsafe { mem::zeroed() },
+        })
+    }
+
+    fn write_to(&self, mut f: File) -> io::Result<()> {
+        try!(f.write_all(&self.ds_levels));
+
+        Ok(())
+    }
+
+    fn read_from(mut f: File) -> io::Result<Box<SuperchunkSummary>> {
+        let mut summary = SuperchunkSummary::alloc();
+
+        try!(f.read_exact(&mut summary.ds_levels));
+
+        Ok(summary)
+    }
+}
+
+
+pub struct CacheEntry<T> {
+    data: Box<T>,
     dirty: bool,
 }
 
-impl CacheEntry {
-    fn new(data: Box<ChunkSummary>) -> CacheEntry {
+impl<T> CacheEntry<T> {
+    fn new(data: Box<T>) -> CacheEntry<T> {
         CacheEntry {
             data: data,
             dirty: false,
@@ -97,17 +134,19 @@ impl CacheEntry {
     }
 }
 
-pub struct Summary<'d> {
+pub struct Cache<'d, T: Summary> {
     storage: &'d Storage,
-    cache: LinkedHashMap<(Stable<PlaneId>, V2), CacheEntry>,
+    name: &'static str,
+    cache: LinkedHashMap<(Stable<PlaneId>, V2), CacheEntry<T>>,
 }
 
 const CACHE_LIMIT: usize = 1024;
 
-impl<'d> Summary<'d> {
-    pub fn new(storage: &'d Storage) -> Summary<'d> {
-        Summary {
+impl<'d, T: Summary> Cache<'d, T> {
+    pub fn new(storage: &'d Storage, name: &'static str) -> Cache<'d, T> {
+        Cache {
             storage: storage,
+            name: name,
             cache: LinkedHashMap::new(),
         }
     }
@@ -117,15 +156,15 @@ impl<'d> Summary<'d> {
         while self.cache.len() + extra > CACHE_LIMIT {
             let ((pid, cpos), entry) = self.cache.pop_front().unwrap();
             if entry.dirty {
-                let file = self.storage.create_summary_file("chunk", pid, cpos);
+                let file = self.storage.create_summary_file(self.name, pid, cpos);
                 warn_on_err!(entry.data.write_to(file));
             }
         }
     }
 
-    pub fn create(&mut self, pid: Stable<PlaneId>, cpos: V2) -> &mut ChunkSummary {
+    pub fn create(&mut self, pid: Stable<PlaneId>, cpos: V2) -> &mut T {
         self.make_space(1);
-        self.cache.insert((pid, cpos), CacheEntry::new(ChunkSummary::alloc()));
+        self.cache.insert((pid, cpos), CacheEntry::new(T::alloc()));
         self.get_mut(pid, cpos)
     }
 
@@ -135,9 +174,9 @@ impl<'d> Summary<'d> {
             Ok(())
         } else {
             self.make_space(1);
-            let path = self.storage.summary_file_path("chunk", pid, cpos);
+            let path = self.storage.summary_file_path(self.name, pid, cpos);
             let file = try!(File::open(path));
-            let summary = try!(ChunkSummary::read_from(file));
+            let summary = try!(T::read_from(file));
             self.cache.insert((pid, cpos), CacheEntry::new(summary));
             Ok(())
         }
@@ -145,18 +184,18 @@ impl<'d> Summary<'d> {
 
     // No explicit `unload` - data is unloaded automatically in LRU fashion.
 
-    pub fn get(&self, pid: Stable<PlaneId>, cpos: V2) -> &ChunkSummary {
+    pub fn get(&self, pid: Stable<PlaneId>, cpos: V2) -> &T {
         &self.cache[&(pid, cpos)].data
     }
 
-    pub fn get_mut(&mut self, pid: Stable<PlaneId>, cpos: V2) -> &mut ChunkSummary {
+    pub fn get_mut(&mut self, pid: Stable<PlaneId>, cpos: V2) -> &mut T {
         let entry = &mut self.cache[&(pid, cpos)];
         entry.dirty = true;
         &mut entry.data
     }
 }
 
-impl<'d> Drop for Summary<'d> {
+impl<'d, T: Summary> Drop for Cache<'d, T> {
     fn drop(&mut self) {
         // Evict everything.
         self.make_space(CACHE_LIMIT);

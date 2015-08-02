@@ -1,7 +1,7 @@
-use rand::{Rng, XorShiftRng, SeedableRng};
+use rand::{Rng, XorShiftRng, SeedableRng, Rand};
 use std::sync::mpsc::{Sender, Receiver};
 
-use physics::CHUNK_SIZE;
+use physics::{CHUNK_BITS, CHUNK_SIZE};
 use types::*;
 use util::StrResult;
 
@@ -9,8 +9,10 @@ use data::Data;
 use storage::Storage;
 use terrain_gen::GenChunk;
 use terrain_gen::cellular::CellularGrid;
-use terrain_gen::dsc::DscGrid;
-use terrain_gen::summary::Summary;
+use terrain_gen::dsc::{DscGrid, Phase};
+use terrain_gen::summary::Cache;
+use terrain_gen::summary::{ChunkSummary, SuperchunkSummary};
+use terrain_gen::summary::{SUPERCHUNK_BITS, SUPERCHUNK_SIZE};
 
 
 pub enum Command {
@@ -41,7 +43,8 @@ struct Worker<'d> {
     data: &'d Data,
     world_seed: u64,
     rng: XorShiftRng,
-    summary: Summary<'d>,
+    summary: Cache<'d, ChunkSummary>,
+    super_summary: Cache<'d, SuperchunkSummary>,
 }
 
 impl<'d> Worker<'d> {
@@ -53,8 +56,80 @@ impl<'d> Worker<'d> {
                                          0x00012345,
                                          0xe0e0e0e0,
                                          0x00012345]),
-            summary: Summary::new(storage),
+            summary: Cache::new(storage, "chunk"),
+            super_summary: Cache::new(storage, "superchunk"),
         }
+    }
+
+    fn generate_forest_super_ds_levels<R: Rng + Rand>(&mut self,
+                                                      rng: &mut R,
+                                                      pid: Stable<PlaneId>,
+                                                      scpos: V2) {
+        let mut rng2: R = rng.gen();
+        let mut rng3: R = rng.gen();
+        fn power<R: Rng>(rng: &mut R, cpos: V2) -> u8 {
+            power_from_dist(rng, cpos.abs().max())
+        }
+        fn exp_power<R: Rng>(rng: &mut R, cpos: V2) -> u8 {
+            (15 - power(rng, cpos)).leading_zeros() as u8 - (8 - 4)
+        }
+
+        let cpos = scpos * scalar(SUPERCHUNK_SIZE);
+        let base = scalar(SUPERCHUNK_SIZE);
+        let mut grid = DscGrid::new(scalar(SUPERCHUNK_SIZE * 3), SUPERCHUNK_BITS as u8, 
+                                    |offset, level, _phase| {
+                                        let ep = exp_power(&mut rng2, cpos + offset - base);
+                                        if 4 - level <= ep { 1 } else { 0 }
+                                    });
+        let loaded_dirs = init_grid(scalar(SUPERCHUNK_SIZE), scpos,
+                                    |scpos| self.load_super_ds_levels(pid, scpos),
+                                    |pos, val| grid.set_value(pos, val));
+        set_seed_ranges(&mut grid, scalar(SUPERCHUNK_SIZE),
+                        |offset| (98, 98 + power(&mut rng3, cpos + offset - base) / 2));
+        set_edge_constraints(&mut grid, scalar(SUPERCHUNK_SIZE));
+
+        debug!("generate(super) {:x} {:?}: loaded {:x}", pid.unwrap(), scpos, loaded_dirs);
+
+        grid.fill(rng);
+
+        // Save generated values to the summary.
+        {
+            let summ = self.super_summary.get_mut(pid, scpos);
+            let bounds = Region::new(scalar(SUPERCHUNK_SIZE),
+                                     scalar(2 * SUPERCHUNK_SIZE + 1));
+            for pos in bounds.points() {
+                let val = grid.get_value(pos).unwrap();
+                info!("{:?} -> {}", pos, val);
+                summ.ds_levels[bounds.index(pos)] = val;
+            }
+        }
+    }
+
+    fn load_super_ds_levels(&mut self, pid: Stable<PlaneId>, scpos: V2) -> Option<&[u8]> {
+        unwrap_or!(self.super_summary.load(pid, scpos).ok(), return None);
+        Some(&self.super_summary.get(pid, scpos).ds_levels as &[u8])
+    }
+
+    fn super_ds_levels(&mut self, pid: Stable<PlaneId>, scpos: V2) -> &[u8] {
+        info!("look up {} {:?}", pid.unwrap(), scpos);
+        if self.super_summary.load(pid, scpos).is_err() {
+            let seed: (u32, u32, u32, u32) = self.rng.gen();
+            let mut rng: XorShiftRng = SeedableRng::from_seed([seed.0, seed.1, seed.2, seed.3]);
+            debug!("generate(super) {:x} {:?}: seed {:?}", pid.unwrap(), scpos, seed);
+
+            self.super_summary.create(pid, scpos);
+            self.generate_forest_super_ds_levels(&mut rng, pid, scpos);
+        }
+        &self.super_summary.get(pid, scpos).ds_levels as &[u8]
+    }
+
+    fn chunk_super_ds_level(&mut self, pid: Stable<PlaneId>, cpos: V2) -> u8 {
+        let scpos = cpos.div_floor(scalar(SUPERCHUNK_SIZE));
+        let base = scpos * scalar(SUPERCHUNK_SIZE);
+        let bounds = Region::new(base, base + scalar(SUPERCHUNK_SIZE + 1));
+        let ds_levels = self.super_ds_levels(pid, scpos);
+        info!("referenced super {:?} for {:?}", scpos, cpos);
+        ds_levels[bounds.index(cpos)]
     }
 
     fn load_ds_levels(&mut self, pid: Stable<PlaneId>, cpos: V2) -> Option<&[u8]> {
@@ -77,21 +152,27 @@ impl<'d> Worker<'d> {
         // 15      => 4
         let exp_power = (15 - power).leading_zeros() as u8 - (8 - 4);
 
-        let mut grid = DscGrid::new(scalar(48), 4, |_pos, level, _phase| {
-            if 3 - level <= exp_power { 1 } else { 0 }
-        });
+        let mut grid = DscGrid::new(scalar(CHUNK_SIZE * 3), CHUNK_BITS as u8,
+                                    |_pos, level, phase| { 
+                                        if level == 3 && phase == Phase::Square { 1 } else { 0 }
+                                    });
 
 
         let loaded_dirs = init_grid(scalar(CHUNK_SIZE), cpos,
                                     |cpos| self.load_ds_levels(pid, cpos),
                                     |pos, val| grid.set_value(pos, val));
         set_seed_ranges(&mut grid, scalar(CHUNK_SIZE),
-                        |_pos| (100, 100 + power / 2));
+                        |offset| {
+                            let cpos = cpos - scalar(1) + offset.div_floor(scalar(CHUNK_SIZE));
+                            let level = self.chunk_super_ds_level(pid, cpos);
+                            (level - 1, level)
+                        });
         set_edge_constraints(&mut grid, scalar(CHUNK_SIZE));
 
         debug!("generate {:x} {:?}: loaded {:x}", pid.unwrap(), cpos, loaded_dirs);
 
         grid.fill(rng);
+        grid.debug();
 
         // Save generated values to the summary.
         {
@@ -134,6 +215,7 @@ impl<'d> Worker<'d> {
         }
         grid.init(|_pos| rng.gen_range(0, 3) < 1);
 
+        /*
         info!("original layer dump =====");
         for i in 0 .. CHUNK_SIZE + 1 {
             let mut s = String::new();
@@ -143,6 +225,7 @@ impl<'d> Worker<'d> {
             info!("> {}", s);
         }
         info!("===== end dump");
+        */
 
         for _ in 0 .. 3 {
             grid.step(|here, active, total| 2 * (here as u8 + active) > total);
@@ -160,6 +243,7 @@ impl<'d> Worker<'d> {
             }
         }
 
+        /*
         info!("layer dump =====");
         for i in 0 .. CHUNK_SIZE + 1 {
             let mut s = String::new();
@@ -169,6 +253,7 @@ impl<'d> Worker<'d> {
             info!("> {}", s);
         }
         info!("===== end dump");
+        */
 
         grid
     }

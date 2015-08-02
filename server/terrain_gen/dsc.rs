@@ -238,7 +238,7 @@ impl<F> DscGrid<F> {
 
         dump(self.size, |p| {
             let idx = self.bounds().index(p);
-            format!("{:x} ", self.flags[idx].bits())
+            format!("{:3} ", self.value[idx])
         });
     }
 
@@ -674,7 +674,8 @@ impl<F> DscGrid<F>
         let max_offset = (self.get_max_offset)(pos, level, phase) as i32;
         let offset = rng.gen_range(-max_offset, max_offset + 1);
         // Divide with random rounding.
-        let raw_value = (sum + rng.gen_range(0, count)) / count + offset;
+        //let raw_value = (sum + rng.gen_range(0, count)) / count + offset;
+        let raw_value = sum / count + offset;
         let value =
             if raw_value < 0 { 0 }
             else if raw_value > u8::MAX as i32 { u8::MAX }
