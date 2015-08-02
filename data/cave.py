@@ -217,9 +217,9 @@ def mk_cave_walls2(cave_img, grass_img, dirt_img, dirt2_img, basename):
         blks.create('%s/%d/z1' % (basename, i), shape1,
                 dict(top=tops[i], front=front_parts[1].get(front_key, empty)))
         blks.create('%s/%d/z0/dirt' % (basename, i), shape0,
-                dict(front=front_parts[1].get(front_key, empty), bottom=base_dirt['center/v0']))
+                dict(front=front_parts[0].get(front_key, empty), bottom=base_dirt['center/v0']))
         blks.create('%s/%d/z0/grass' % (basename, i), shape0,
-                dict(front=front_parts[1].get(front_key, empty), bottom=base_grass['center/v0']))
+                dict(front=front_parts[0].get(front_key, empty), bottom=base_grass['center/v0']))
 
 
     entrance_flat = extract(cave_img, (0, 5), (3, 2))
@@ -251,16 +251,8 @@ def init():
     tiles = loader('tiles')
 
     cave2 = tiles('lpc-cave-walls2.png')
-    cave2_tops = cave2.crop((0, 0, 3 * TILE_SIZE, 3 * TILE_SIZE))
+    grass = tiles('lpc-base-tiles/grass.png')
+    dirt = tiles('lpc-base-tiles/dirt.png')
+    dirt2 = tiles('lpc-base-tiles/dirt2.png')
 
-    grass = tiles('lpc-base-tiles/dirt.png')
-    dirt = tiles('lpc-base-tiles/dirt2.png')
-
-    top_parts = mk_cave_walls2(cave2, grass, grass, dirt, 'test')
-
-    cave = tiles('lpc-cave-walls.png')
-    mk_cave_walls(grass, dirt, cave, 'cave')
-    mk_cave_entrance(grass, dirt, cave, 'cave_entrance')
-
-    mk_floor_blocks(tiles('lpc-cave-top.png'), 'cave_top', shape='floor')
-    mk_floor_cross(tiles('lpc-cave-top-cross.png'), 'cave_top', shape='floor')
+    mk_cave_walls2(cave2, grass, dirt, dirt2, 'cave')

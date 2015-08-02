@@ -8,6 +8,7 @@ use util::StrResult;
 use data::Data;
 use storage::Storage;
 use terrain_gen::GenChunk;
+use terrain_gen::cellular::CellularGrid;
 use terrain_gen::dsc::DscGrid;
 use terrain_gen::summary::Summary;
 
@@ -104,6 +105,74 @@ impl<'d> Worker<'d> {
         }
     }
 
+    fn load_cave_edges(&mut self,
+                       pid: Stable<PlaneId>,
+                       cpos: V2,
+                       layer: u8,
+                       edge: u8) -> Option<&[u8]> {
+        unwrap_or!(self.summary.load(pid, cpos).ok(), return None);
+        Some(&self.summary.get(pid, cpos).cave_nums[layer as usize][edge as usize] as &[u8])
+    }
+
+    fn generate_cave_layer<R: Rng>(&mut self,
+                                   rng: &mut R,
+                                   pid: Stable<PlaneId>,
+                                   cpos: V2,
+                                   layer: u8) -> CellularGrid {
+        let mut grid = CellularGrid::new(scalar(CHUNK_SIZE + 1));
+
+        init_grid_edges(scalar(CHUNK_SIZE), cpos,
+                        |cpos, edge| self.load_cave_edges(pid, cpos, layer, edge),
+                        |pos, val| grid.set_fixed(pos, val));
+        {
+            let ds_levels = self.load_ds_levels(pid, cpos).unwrap();
+            let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE + 1));
+            init_grid_center(scalar(CHUNK_SIZE),
+                             layer * 2,
+                             |pos| ds_levels[bounds.index(pos)] as i32 - 100,
+                             |pos| grid.set_fixed(pos, true));
+        }
+        grid.init(|_pos| rng.gen_range(0, 3) < 1);
+
+        info!("original layer dump =====");
+        for i in 0 .. CHUNK_SIZE + 1 {
+            let mut s = String::new();
+            for j in 0 .. CHUNK_SIZE + 1 {
+                s.push_str(if grid.get(V2::new(j, i)) { "#" } else { "." });
+            }
+            info!("> {}", s);
+        }
+        info!("===== end dump");
+
+        for _ in 0 .. 3 {
+            grid.step(|here, active, total| 2 * (here as u8 + active) > total);
+        }
+
+        {
+            let summ = self.summary.get_mut(pid, cpos);
+            let layer_idx = layer as usize;
+            for i in 0 .. CHUNK_SIZE + 1 {
+                let idx = i as usize;
+                summ.cave_nums[layer_idx][0][idx] = grid.get(V2::new(i, 0)) as u8;
+                summ.cave_nums[layer_idx][1][idx] = grid.get(V2::new(CHUNK_SIZE, i)) as u8;
+                summ.cave_nums[layer_idx][2][idx] = grid.get(V2::new(i, CHUNK_SIZE)) as u8;
+                summ.cave_nums[layer_idx][3][idx] = grid.get(V2::new(0, i)) as u8;
+            }
+        }
+
+        info!("layer dump =====");
+        for i in 0 .. CHUNK_SIZE + 1 {
+            let mut s = String::new();
+            for j in 0 .. CHUNK_SIZE + 1 {
+                s.push_str(if grid.get(V2::new(j, i)) { "#" } else { "." });
+            }
+            info!("> {}", s);
+        }
+        info!("===== end dump");
+
+        grid
+    }
+
     pub fn generate_forest_chunk(&mut self, pid: Stable<PlaneId>, cpos: V2) -> GenChunk {
         let seed: (u32, u32, u32, u32) = self.rng.gen();
         let mut rng: XorShiftRng = SeedableRng::from_seed([seed.0, seed.1, seed.2, seed.3]);
@@ -113,39 +182,46 @@ impl<'d> Worker<'d> {
         self.generate_forest_ds_levels(&mut rng, pid, cpos);
 
         // Generate blocks.
-        let summ = self.summary.get(pid, cpos);
         let bounds = Region::<V2>::new(scalar(0), scalar(CHUNK_SIZE));
         let bounds_inc = Region::<V2>::new(scalar(0), scalar(CHUNK_SIZE + 1));
-        let get_level = |pos| summ.ds_levels[bounds_inc.index(pos)];
 
         let mut gc = GenChunk::new();
         let block_data = &self.data.block_data;
 
-        for pos in bounds.points() {
-            let name = format!("grass/center/v{}", rng.gen_range(0, 4));
-            gc.set_block(pos.extend(0), block_data.get_id(&name));
+        let grass_ids = (0 .. 4).map(|i| format!("grass/center/v{}", i))
+                                .map(|s| block_data.get_id(&s))
+                                .collect::<Vec<_>>();
+        const OUTSIDE_KEY: u8 = 1 + 3 * (1 + 3 * (1 + 3 * (1)));
 
-            let nw = get_level(pos + V2::new(0, 0)) as i32 - 100;
-            let ne = get_level(pos + V2::new(1, 0)) as i32 - 100;
-            let se = get_level(pos + V2::new(1, 1)) as i32 - 100;
-            let sw = get_level(pos + V2::new(0, 1)) as i32 - 100;
+        for layer in 0 .. CHUNK_SIZE / 2 {
+            let layer_z = 2 * layer;
+            let layer = layer as u8;
 
-            for z in (0 .. CHUNK_SIZE - 2).step_by(2) {
-                // Rotate 180 degrees.  If the two south points are within the raised region, then
-                // this is the *north* edge of the region.
-                let bits = collect_bits(se >= z, sw >= z, nw >= z, ne >= z);
+            let cave_grid = self.generate_cave_layer(&mut rng, pid, cpos, layer);
 
-                if bits == 0 {
-                    break;
+            let summ = self.summary.get(pid, cpos);
+            let mut level_grid = CellularGrid::new(scalar(CHUNK_SIZE + 1));
+            level_grid.init(|pos| summ.ds_levels[bounds_inc.index(pos)] as i32 - 100 >= layer_z);
+
+            let floor_type = if layer == 0 { "grass" } else { "dirt" };
+
+            for pos in bounds.points() {
+                if layer == 0 {
+                    gc.set_block(pos.extend(layer_z), *rng.choose(&grass_ids).unwrap())
+                }
+                let key = collect_indexes(pos, &level_grid, &cave_grid);
+
+                if key == OUTSIDE_KEY {
+                    continue;
                 }
 
-                let variant = BORDER_TILE_NAMES[bits as usize];
-                let z0_id = block_data.get_id(&format!("cave/{}/z0", variant));
-                let z1_id = block_data.get_id(&format!("cave/{}/z1", variant));
-                let z2_id = block_data.get_id(&format!("cave_top/{}", variant));
-                gc.set_block(pos.extend(z + 0), z0_id);
-                gc.set_block(pos.extend(z + 1), z1_id);
-                gc.set_block(pos.extend(z + 2), z2_id);
+                let z0_id = block_data.get_id(&format!("cave/{}/z0/{}", key, floor_type));
+                let z1_id = block_data.get_id(&format!("cave/{}/z1", key));
+                // TODO
+                //let z2_id = block_data.get_id(&format!("cave_top/{}", variant));
+                gc.set_block(pos.extend(layer_z + 0), z0_id);
+                gc.set_block(pos.extend(layer_z + 1), z1_id);
+                //gc.set_block(pos.extend(z + 2), z2_id);
             }
         }
 
@@ -239,6 +315,56 @@ fn set_edge_constraints<F>(grid: &mut DscGrid<F>,
 }
 
 
+fn init_grid_edge<SetValue>(size: i32,
+                            edge: &[u8],
+                            mut set_value: SetValue)
+        where SetValue: FnMut(i32, bool) {
+    for i in 0 .. size + 1 {
+        set_value(i, edge[i as usize] != 0);
+    }
+}
+
+fn init_grid_edges<'a, GetEdge, SetValue>(size: V2,
+                                          center: V2,
+                                          mut get_edge: GetEdge,
+                                          mut set_value: SetValue)
+        where GetEdge: FnMut(V2, u8) -> Option<&'a [u8]>,
+              SetValue: FnMut(V2, bool) {
+    get_edge(center + V2::new( 0, -1), 2)
+        .map(|e| init_grid_edge(size.x, e, |i, v| set_value(V2::new(i, 0), v)));
+    get_edge(center + V2::new( 0,  1), 0)
+        .map(|e| init_grid_edge(size.x, e, |i, v| set_value(V2::new(i, size.x), v)));
+    get_edge(center + V2::new(-1,  0), 1)
+        .map(|e| init_grid_edge(size.y, e, |i, v| set_value(V2::new(0, i), v)));
+    get_edge(center + V2::new( 1,  0), 3)
+        .map(|e| init_grid_edge(size.y, e, |i, v| set_value(V2::new(size.x, i), v)));
+
+    get_edge(center + V2::new(-1, -1), 2)
+        .map(|e| set_value(V2::new(0, 0), e[size.x as usize] != 0));
+    get_edge(center + V2::new(-1,  1), 0)
+        .map(|e| set_value(V2::new(0, size.y), e[size.x as usize] != 0));
+    get_edge(center + V2::new( 1, -1), 2)
+        .map(|e| set_value(V2::new(size.x, 0), e[0] != 0));
+    get_edge(center + V2::new( 1,  1), 0)
+        .map(|e| set_value(V2::new(size.x, size.y), e[0] != 0));
+}
+
+fn init_grid_center<GetLevel, SetValue>(size: V2,
+                                        z: u8,
+                                        mut get_level: GetLevel,
+                                        mut set_value: SetValue)
+        where GetLevel: FnMut(V2) -> i32,
+              SetValue: FnMut(V2) {
+    let z = z as i32;
+    let bounds = Region::new(scalar(0), size + scalar(1));
+    for pos in bounds.points() {
+        if get_level(pos) < z {
+            set_value(pos);
+        }
+    }
+}
+
+
 
 
 
@@ -248,6 +374,27 @@ fn collect_bits(x0: bool, x1: bool, x2: bool, x3: bool) -> u8 {
     ((x1 as u8) << 1) |
     ((x2 as u8) << 2) |
     ((x3 as u8) << 3)
+}
+
+fn collect_indexes(base: V2,
+                   level_grid: &CellularGrid,
+                   cave_grid: &CellularGrid) -> u8 {
+    let mut acc = 0;
+    for &(x, y) in &[(0, 1), (1, 1), (1, 0), (0, 0)] {
+        let pos = base + V2::new(x, y);
+        let val =
+            if !level_grid.get(pos) {
+                // 0 in level_grid = outside the raised area for this level
+                1
+            } else if !cave_grid.get(pos) {
+                // 0 in cave_grid = open space inside cave (1 = wall)
+                2
+            } else {
+                0
+            };
+        acc = acc * 3 + val;
+    }
+    acc
 }
 
 static DIRS: [V2; 8] = [

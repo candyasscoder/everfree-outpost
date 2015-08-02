@@ -14,14 +14,14 @@ bitflags! {
     }
 }
 
-struct CellularGrid {
+pub struct CellularGrid {
     grid: Box<[Cell]>,
     tmp: Box<[Cell]>,
     size: V2,
 }
 
 impl CellularGrid {
-    fn new(size: V2) -> CellularGrid {
+    pub fn new(size: V2) -> CellularGrid {
         let len = (size.x * size.y) as usize;
         let grid = iter::repeat(Cell::empty()).take(len).collect::<Vec<_>>().into_boxed_slice();
         let tmp = iter::repeat(Cell::empty()).take(len).collect::<Vec<_>>().into_boxed_slice();
@@ -33,39 +33,44 @@ impl CellularGrid {
         }
     }
 
-    fn init_fixed<F>(&mut self, mut f: F)
-            where F: FnMut(V2) -> Option<(bool, bool)> {
+    pub fn set_fixed(&mut self, pos: V2, val: bool) {
+        let bounds = Region::new(scalar(0), self.size);
+        self.grid[bounds.index(pos)] = (if val { ACTIVE } else { Cell::empty() }) | FIXED;
+    }
+
+    pub fn init<F: FnMut(V2) -> bool>(&mut self, mut f: F) {
         let bounds = Region::new(scalar(0), self.size);
         for pos in bounds.points() {
             let idx = bounds.index(pos);
-            if let Some((val, fix)) = f(pos) {
-                self.grid[idx] =
-                    (if val { ACTIVE } else { Cell::empty() }) |
-                    (if fix { FIXED } else { Cell::empty() });
+            if !self.grid[idx].contains(FIXED) {
+                self.grid[idx] = if f(pos) { ACTIVE } else { Cell::empty() };
             }
         }
     }
 
-    fn count_neighbors(&self, pos: V2) -> u8 {
+    fn count_neighbors(&self, pos: V2) -> (u8, u8) {
         let bounds = Region::new(scalar(0), self.size);
-        let mut count = 0;
+        let mut active = 0;
+        let mut total = 0;
         for &d in &DIRS {
             if bounds.contains(pos + d) {
-                count += self.grid[bounds.index(pos + d)].contains(ACTIVE) as u8;
+                active += self.grid[bounds.index(pos + d)].contains(ACTIVE) as u8;
+                total += 1;
             }
         }
-        count
+        (active, total)
     }
 
-    fn step<F>(&mut self, mut f: F)
-            where F: FnMut(bool, u8) -> bool {
+    pub fn step<F>(&mut self, mut f: F)
+            where F: FnMut(bool, u8, u8) -> bool {
         let bounds = Region::new(scalar(0), self.size);
         for pos in bounds.points() {
             let idx = bounds.index(pos);
             if self.grid[idx].contains(FIXED) {
                 self.tmp[idx] = self.grid[idx];
             } else {
-                if f(self.grid[idx].contains(ACTIVE), self.count_neighbors(pos)) {
+                let (active, total) = self.count_neighbors(pos);
+                if f(self.grid[idx].contains(ACTIVE), active, total) {
                     self.tmp[idx] = ACTIVE;
                 } else {
                     self.tmp[idx] = Cell::empty();
@@ -76,7 +81,7 @@ impl CellularGrid {
         mem::swap(&mut self.grid, &mut self.tmp);
     }
 
-    fn get(&self, pos: V2) -> bool {
+    pub fn get(&self, pos: V2) -> bool {
         let bounds = Region::new(scalar(0), self.size);
         self.grid[bounds.index(pos)].contains(ACTIVE)
     }

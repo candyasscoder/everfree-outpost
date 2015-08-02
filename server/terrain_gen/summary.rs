@@ -15,6 +15,7 @@ use util::{transmute_slice, transmute_slice_mut};
 
 
 pub type EachEdge<T> = [T; 4];
+pub type EachCell1<T> = [T; CHUNK_SIZE as usize];
 pub type EachCell2<T> = [T; (CHUNK_SIZE * CHUNK_SIZE) as usize];
 pub type EachCell3<T> = [T; (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize];
 
@@ -27,7 +28,7 @@ pub struct ChunkSummary {
     /// the same chunk are considered, so two caves connected only through a neighboring chunk will
     /// be assigned distinct cave numbers.  A cave number of 0 indicates that the cell is not part
     /// of a cave (it is either outdoors or solid).
-    pub cave_nums: EachEdge<EachCell2<u8>>,
+    pub cave_nums: [[[u8; CHUNK_SIZE as usize + 1]; 4]; CHUNK_SIZE as usize / 2],
 
     /// Map of internal connectivity between caves on different levels.  Cave number 0 indicates
     /// outside, for caves that open directly onto the surface.
@@ -49,8 +50,10 @@ impl ChunkSummary {
     fn write_to(&self, mut f: File) -> io::Result<()> {
         try!(f.write_all(&self.ds_levels));
 
-        for row in &self.cave_nums {
-            try!(f.write_all(row));
+        for layer in &self.cave_nums {
+            for edge in layer {
+                try!(f.write_all(edge));
+            }
         }
 
         // Length of cave_connectivity should never exceed 255 * 256 < u16::MAX
@@ -65,8 +68,10 @@ impl ChunkSummary {
 
         try!(f.read_exact(&mut summary.ds_levels));
 
-        for row in &mut summary.cave_nums {
-            try!(f.read_exact(row));
+        for layer in &mut summary.cave_nums {
+            for edge in layer {
+                try!(f.read_exact(edge));
+            }
         }
 
         let cave_connectivity_len = try!(f.read_bytes::<u16>()) as usize;
