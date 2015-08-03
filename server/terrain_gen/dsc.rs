@@ -657,8 +657,6 @@ impl<F> DscGrid<F>
         } else if flags.contains(PRESET_RANGE) {
             let (min, max) = self.range[idx];
             let val = Fixed(rng.gen_range(min.unwrap(), max.unwrap() + 1));
-            info!("fill {:?} (preset): range {:x} .. {:x} => {:x}",
-                  pos, min.0, max.0, val.0);
             self.set_value(pos, val);
         } else {
             self.fill_one_random(rng, pos, level, phase);
@@ -672,8 +670,6 @@ impl<F> DscGrid<F>
         let orig_range = self.range[self.bounds().index(pos)];
         let (min, max) = self.valid_range(pos).unwrap_or(orig_range);
         let val = Fixed(rng.gen_range(min.unwrap(), max.unwrap() + 1));
-        info!("fill {:?} (constrained): orig {:x} .. {:x}, actual {:x} .. {:x} => {:x}",
-              pos, (orig_range.0).0, (orig_range.1).0, min.0, max.0, val.0);
         self.set_value(pos, val);
     }
 
@@ -702,9 +698,6 @@ impl<F> DscGrid<F>
         let val =
             if raw_base < -offset { Fixed::from_u8(0) }
             else { Fixed((raw_base + offset) as u32).clamp_u8() };
-
-        info!("fill {:?} (random): base {:x}, offset {:x} => {:x}",
-              pos, base.0, offset, val.0);
 
         self.set_value(pos, val);
     }

@@ -79,13 +79,17 @@ impl<'d> Worker<'d> {
         let mut grid = DscGrid::new(scalar(SUPERCHUNK_SIZE * 3), SUPERCHUNK_BITS as u8, 
                                     |offset, level, _phase| {
                                         let ep = exp_power(&mut rng2, cpos + offset - base);
-                                        if 4 - level <= ep { 1 } else { 0 }
+                                        if 4 - level <= ep { 2 } else { 1 }
                                     });
         let loaded_dirs = init_grid(scalar(SUPERCHUNK_SIZE), scpos,
                                     |scpos| self.load_super_ds_levels(pid, scpos),
                                     |pos, val| grid.set_range(pos, val, val));
         set_seed_ranges(&mut grid, scalar(SUPERCHUNK_SIZE),
-                        |offset| (98, 98 + power(&mut rng3, cpos + offset - base) / 2));
+                        |offset| {
+                            let p = power(&mut rng3, cpos + offset - base);
+                            info!("pos {:?}, power {}", cpos + offset - base, p);
+                            (98, 100 + p / 2)
+                        });
         set_edge_constraints(&mut grid, scalar(SUPERCHUNK_SIZE));
 
         debug!("generate(super) {:x} {:?}: loaded {:x}", pid.unwrap(), scpos, loaded_dirs);
@@ -123,6 +127,10 @@ impl<'d> Worker<'d> {
     }
 
     fn chunk_super_ds_level(&mut self, pid: Stable<PlaneId>, cpos: V2) -> u8 {
+        if cpos == scalar(0) {
+            return 98;
+        }
+
         let scpos = cpos.div_floor(scalar(SUPERCHUNK_SIZE));
         let base = scpos * scalar(SUPERCHUNK_SIZE);
         let bounds = Region::new(base, base + scalar(SUPERCHUNK_SIZE + 1));
