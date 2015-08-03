@@ -193,6 +193,67 @@ impl<'d> Worker<'d> {
         }
     }
 
+    fn place_entrances(&self,
+                       pid: Stable<PlaneId>,
+                       cpos: V2,
+                       layer: u8) -> Vec<V2> {
+        let layer_z = layer * 2;
+        let summ = self.summary.get(pid, cpos);
+        let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE + 1));
+        let get = |x, y| {
+            if y < 0 {
+                return 0;
+            }
+            let pos = V2::new(x, y);
+            let z = summ.ds_levels[bounds.index(pos)];
+
+            let above = z >= layer_z + 100;
+            let below = z < layer_z + 100 - 2;
+            (above as u32) | ((below as u32) << 1)
+        };
+
+        // Accumulator records a 4x3 region above and to the left of the current point.  It
+        // consists of three sections, each containing four 2-bit fields plus 2 bits of padding.
+        // The lower bit of each field is a 1 if the height of the corresponding cell is above the
+        // current level, and the upper bit is 1 if it is strictly below the current level.  If
+        // both are zero, then the cell is exactly on the current level.
+        //
+        //            30             20             10              0 
+        //   high ->  __ __ AA BB CC DD __ EE FF GG HH __ II JJ KK LL  <- low
+        //
+        // Grid:
+        //      ABCD
+        //      EFGH
+        //      IJKL <- current cell
+        let mut acc = 0_u32;
+        let mut result = Vec::new();
+
+        // Entrance requirements:
+        //  >= >  >  >=
+        //  == == == ==
+        const ENTRANCE_PATTERN: u32 = (0b_00_01_01_00 << 10) |
+                                      (0b_00_00_00_00 <<  0);
+        const ENTRANCE_MASK: u32 =    (0b_10_11_11_10 << 10) |
+                                      (0b_11_11_11_11 <<  0);
+
+        for y in 0 .. CHUNK_SIZE + 1 {
+            acc = 0;
+            for x in 0 .. CHUNK_SIZE + 1 {
+                acc <<= 2;
+                acc &= !((3 << 8) | (3 << 18) | (3 << 28));    // Clear padding.
+                acc |= get(x, y - 2) << 20;
+                acc |= get(x, y - 1) << 10;
+                acc |= get(x, y - 0) <<  0;
+
+                if x >= 3 && y >= 1 && acc & ENTRANCE_MASK == ENTRANCE_PATTERN {
+                    result.push(V2::new(x - 3, y - 1));
+                }
+            }
+        }
+
+        result
+    }
+
     fn load_cave_edges(&mut self,
                        pid: Stable<PlaneId>,
                        cpos: V2,
@@ -206,19 +267,24 @@ impl<'d> Worker<'d> {
                                    rng: &mut R,
                                    pid: Stable<PlaneId>,
                                    cpos: V2,
-                                   layer: u8) -> CellularGrid {
+                                   layer: u8,
+                                   entrance_pos: Option<V2>) -> CellularGrid {
         let mut grid = CellularGrid::new(scalar(CHUNK_SIZE + 1));
+        let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE + 1));
 
         init_grid_edges(scalar(CHUNK_SIZE), cpos,
                         |cpos, edge| self.load_cave_edges(pid, cpos, layer, edge),
                         |pos, val| grid.set_fixed(pos, val));
         {
             let ds_levels = self.load_ds_levels(pid, cpos).unwrap();
-            let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE + 1));
             init_grid_center(scalar(CHUNK_SIZE),
                              layer * 2,
                              |pos| ds_levels[bounds.index(pos)] as i32 - 100,
                              |pos| grid.set_fixed(pos, true));
+        }
+        if let Some(pos) = entrance_pos {
+            grid.set_fixed(pos + V2::new(1, 0), false);
+            grid.set_fixed(pos + V2::new(2, 0), false);
         }
         grid.init(|_pos| rng.gen_range(0, 3) < 1);
 
@@ -289,7 +355,9 @@ impl<'d> Worker<'d> {
             let layer_z = 2 * layer;
             let layer = layer as u8;
 
-            let cave_grid = self.generate_cave_layer(&mut rng, pid, cpos, layer);
+            let entrances = self.place_entrances(pid, cpos, layer);
+            let entrance_pos = rng.choose(&entrances).map(|&x| x);
+            let cave_grid = self.generate_cave_layer(&mut rng, pid, cpos, layer, entrance_pos);
 
             let summ = self.summary.get(pid, cpos);
             let mut level_grid = CellularGrid::new(scalar(CHUNK_SIZE + 1));
@@ -314,6 +382,19 @@ impl<'d> Worker<'d> {
                 gc.set_block(pos.extend(layer_z + 0), z0_id);
                 gc.set_block(pos.extend(layer_z + 1), z1_id);
                 //gc.set_block(pos.extend(z + 2), z2_id);
+            }
+
+            if let Some(epos) = entrance_pos {
+                for (i, &side) in ["left", "center", "right"].iter().enumerate() {
+                    let pos = epos + V2::new(i as i32, 0);
+                    let key = collect_indexes(pos, &level_grid, &cave_grid);
+                    let z0_id = block_data.get_id(&format!("cave/entrance/{}/{}/z0/{}",
+                                                           side, key, floor_type));
+                    let z1_id = block_data.get_id(&format!("cave/entrance/{}/{}/z1",
+                                                           side, key));
+                    gc.set_block(pos.extend(layer_z + 0), z0_id);
+                    gc.set_block(pos.extend(layer_z + 1), z1_id);
+                }
             }
         }
 

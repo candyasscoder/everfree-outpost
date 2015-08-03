@@ -234,14 +234,18 @@ def mk_cave_walls2(cave_img, grass_img, dirt_img, dirt2_img, basename):
         x = dict(left=0, center=1, right=2)[side]
         blks.create('%s/entrance/%s/%d/z1' % (basename, side, i), shape1,
                 dict(top=tops[i], front=extract(img, (x, 0))))
-        blks.create('%s/entrance/%s/%d/z0/dirt' % (basename, side, i), shape1,
+        blks.create('%s/entrance/%s/%d/z0/dirt' % (basename, side, i), shape0,
                 dict(front=extract(img, (x, 1)), bottom=base_dirt[base_key]))
-        blks.create('%s/entrance/%s/%d/z0/grass' % (basename, side, i), shape1,
+        blks.create('%s/entrance/%s/%d/z0/grass' % (basename, side, i), shape0,
                 dict(front=extract(img, (x, 1)), bottom=base_grass[base_key]))
 
+    entrance_part((0, 2, 1, 1), 'left', 'center/v0', entrance_flat)
     entrance_part((1, 2, 1, 1), 'left', 'center/v0', entrance_corner)
     entrance_part((2, 2, 1, 1), 'left', 'center/v0', entrance_flat)
+
     entrance_part((2, 2, 1, 1), 'center', 'center/v0', entrance_flat)
+
+    entrance_part((2, 0, 1, 1), 'right', 'center/v0', entrance_flat)
     entrance_part((2, 1, 1, 1), 'right', 'center/v0', entrance_corner)
     entrance_part((2, 2, 1, 1), 'right', 'center/v0', entrance_flat)
 
