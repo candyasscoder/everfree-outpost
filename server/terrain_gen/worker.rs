@@ -83,7 +83,7 @@ impl<'d> Worker<'d> {
                                     });
         let loaded_dirs = init_grid(scalar(SUPERCHUNK_SIZE), scpos,
                                     |scpos| self.load_super_ds_levels(pid, scpos),
-                                    |pos, val| grid.set_value(pos, val));
+                                    |pos, val| grid.set_range(pos, val, val));
         set_seed_ranges(&mut grid, scalar(SUPERCHUNK_SIZE),
                         |offset| (98, 98 + power(&mut rng3, cpos + offset - base) / 2));
         set_edge_constraints(&mut grid, scalar(SUPERCHUNK_SIZE));
@@ -99,7 +99,6 @@ impl<'d> Worker<'d> {
                                      scalar(2 * SUPERCHUNK_SIZE + 1));
             for pos in bounds.points() {
                 let val = grid.get_value(pos).unwrap();
-                info!("{:?} -> {}", pos, val);
                 summ.ds_levels[bounds.index(pos)] = val;
             }
         }
@@ -160,7 +159,7 @@ impl<'d> Worker<'d> {
 
         let loaded_dirs = init_grid(scalar(CHUNK_SIZE), cpos,
                                     |cpos| self.load_ds_levels(pid, cpos),
-                                    |pos, val| grid.set_value(pos, val));
+                                    |pos, val| grid.set_range(pos, val, val));
         set_seed_ranges(&mut grid, scalar(CHUNK_SIZE),
                         |offset| {
                             let cpos = cpos - scalar(1) + offset.div_floor(scalar(CHUNK_SIZE));
@@ -369,12 +368,9 @@ fn set_seed_ranges<F, GetRange>(grid: &mut DscGrid<F>,
         where GetRange: FnMut(V2) -> (u8, u8) {
     for step in Region::<V2>::new(scalar(0), scalar(4)).points() {
         let pos = step * size;
-        match grid.get_value(pos) {
-            Some(val) => grid.set_range(pos, val, val),
-            None => {
-                let (low, high) = get_range(pos);
-                grid.set_range(pos, low, high)
-            },
+        if grid.get_range(pos).is_none() {
+            let (low, high) = get_range(pos);
+            grid.set_range(pos, low, high)
         }
     }
 }
@@ -383,8 +379,8 @@ fn set_seed_ranges<F, GetRange>(grid: &mut DscGrid<F>,
 fn set_edge_constraints<F>(grid: &mut DscGrid<F>,
                            size: V2) {
     let mut go = |pos| {
-        if let Some(val) = grid.get_value(pos) {
-            grid.set_constraint(pos, val, val);
+        if let Some((min, max)) = grid.get_range(pos) {
+            grid.set_constrained(pos);
         }
     };
 

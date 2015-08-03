@@ -7,6 +7,7 @@
     core,
     filling_drop,
     fnbox,
+    iter_cmp,
     mpsc_select,
     num_bits_bytes,
     raw,

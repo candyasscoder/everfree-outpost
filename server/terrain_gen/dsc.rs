@@ -14,6 +14,8 @@ use rand::Rng;
 
 use types::*;
 
+use util::small_vec::SmallVec;
+
 pub use self::Phase::{Diamond, Square};
 
 
@@ -29,6 +31,11 @@ impl Fixed {
     /// Convert a `u8` to a `Fixed` in the range 0..256.
     fn from_u8(x: u8) -> Fixed {
         Fixed((x as u32) << FIXEDPOINT_BASE)
+    }
+
+    fn from_u8_mid(x: u8) -> Fixed {
+        let extra = 1 << (FIXEDPOINT_BASE - 1);
+        Fixed::from_u8(x) + Fixed(extra)
     }
 
     /// Convert a `u8` to the largest `Fixed` that truncates to the same `u8` value.  (That is,
@@ -128,13 +135,15 @@ pub enum Phase {
 
 bitflags! {
     flags PointFlags: u8 {
-        #[doc = "The value for the cell has already been determined, and cannot be changed."]
-        const PRESET_VALUE =            0x01,
+        /// The range for the cell has been set externally.
+        const PRESET_RANGE =            0x01,
         #[doc = "There is a constraint on the cell."]
         const HAS_CONSTRAINT =          0x02,
         #[doc = "There is a constraint on the cell or on another cell whose value depends on the \
         value of this one."]
         const CHILD_HAS_CONSTRAINT =    0x04,
+        /// The `value` field for the cell has been initialized.
+        const HAS_VALUE =               0x08,
     }
 }
 
@@ -171,12 +180,12 @@ fn parent_dirs(level: u8, phase: Phase) -> (&'static [V2; 4], i32) {
 
 pub struct DscGrid<F> {
     /// The value of each cell.  Only valid for cells that have the `PRESET_VALUE` flag set.
-    value: Box<[u8]>,
+    value: Box<[Fixed]>,
     /// The range of possible values for each cell.  Only valid for cells that have the
     /// `CHILD_HAS_CONSTRAINT` flag set.
     range: Box<[(Fixed, Fixed)]>,
     /// The constraint on each cell.  Only valid for cells with `HAS_CONSTRAINT` set.
-    constraint: Box<[(u8, u8)]>,
+    constraint: Box<[(Fixed, Fixed)]>,
     /// List of cells that have constraints.
     constrained_points: Vec<V2>,
     /// The flags for each cell.
@@ -204,9 +213,9 @@ impl<F> DscGrid<F> {
     pub fn new(size: V2, seed_level: u8, get_max_offset: F) -> DscGrid<F> {
         let len = ((size.x + 1) * (size.y + 1)) as usize;
         let f0 = Fixed::from_u8(0);
-        let value = iter::repeat(0).take(len).collect::<Vec<_>>().into_boxed_slice();
+        let value = iter::repeat(f0).take(len).collect::<Vec<_>>().into_boxed_slice();
         let range = iter::repeat((f0, f0)).take(len).collect::<Vec<_>>().into_boxed_slice();
-        let constraint = iter::repeat((0, 0)).take(len).collect::<Vec<_>>().into_boxed_slice();
+        let constraint = iter::repeat((f0, f0)).take(len).collect::<Vec<_>>().into_boxed_slice();
         let flags = iter::repeat(PointFlags::empty()).take(len).collect::<Vec<_>>()
                                                      .into_boxed_slice();
         let weight = iter::repeat(f0).take(len).collect::<Vec<_>>().into_boxed_slice();
@@ -238,7 +247,7 @@ impl<F> DscGrid<F> {
 
         dump(self.size, |p| {
             let idx = self.bounds().index(p);
-            format!("{:3} ", self.value[idx])
+            format!("{:3} ", self.value[idx].as_u8())
         });
     }
 
@@ -248,15 +257,15 @@ impl<F> DscGrid<F> {
         Region::new(scalar(0), self.size + scalar(1))
     }
 
-    /// Set a cell value to a constant, and mark it as "preset".
-    pub fn set_value(&mut self, pos: V2, value: u8) {
+    fn set_value(&mut self, pos: V2, value: Fixed) {
         if !self.bounds().contains(pos) {
             return;
         }
 
         let idx = self.bounds().index(pos);
-        self.flags[idx].insert(PRESET_VALUE);
+        self.flags[idx].insert(HAS_VALUE);
         self.value[idx] = value;
+        self.range[idx] = (value, value);
     }
 
     pub fn get_value(&self, pos: V2) -> Option<u8> {
@@ -265,11 +274,11 @@ impl<F> DscGrid<F> {
         }
 
         let idx = self.bounds().index(pos);
-        if !self.flags[idx].contains(PRESET_VALUE) {
+        if !self.flags[idx].contains(HAS_VALUE) {
             return None;
         }
 
-        Some(self.value[idx])
+        Some(self.value[idx].as_u8())
     }
 
     /// Set the range of allowable values for a seed point.  The value for that cell will be chosen
@@ -280,21 +289,36 @@ impl<F> DscGrid<F> {
         }
 
         let idx = self.bounds().index(pos);
+        self.flags[idx].insert(PRESET_RANGE);
         self.range[idx] = (Fixed::from_u8(low),
                            Fixed::from_u8_max(high));
     }
 
-    /// Set the constraint for a cell.
-    pub fn set_constraint(&mut self, pos: V2, low: u8, high: u8) {
+    pub fn get_range(&self, pos: V2) -> Option<(u8, u8)> {
+        if !self.bounds().contains(pos) {
+            return None;
+        }
+
+        let idx = self.bounds().index(pos);
+        if !self.flags[idx].contains(PRESET_RANGE) {
+            return None;
+        }
+
+        let (min, max) = self.range[idx];
+        Some((min.as_u8(), max.as_u8()))
+    }
+
+    pub fn set_constrained(&mut self, pos: V2) {
         if !self.bounds().contains(pos) {
             return;
         }
 
         let idx = self.bounds().index(pos);
-        self.flags[idx].insert(HAS_CONSTRAINT);
-        self.constraint[idx] = (low, high);
-
-        self.constrained_points.push(pos);
+        if self.flags[idx].contains(PRESET_RANGE) {
+            self.flags[idx].insert(HAS_CONSTRAINT);
+            self.constraint[idx] = self.range[idx];
+            self.constrained_points.push(pos);
+        }
     }
 }
 
@@ -393,10 +417,7 @@ impl<F> DscGrid<F>
         if !self.flags[idx].contains(CHILD_HAS_CONSTRAINT) {
             return;
         }
-
-        if self.flags[idx].contains(PRESET_VALUE) {
-            self.range[idx] = (Fixed::from_u8(self.value[idx]),
-                               Fixed::from_u8_max(self.value[idx]));
+        if self.flags[idx].contains(PRESET_RANGE) {
             return;
         }
 
@@ -418,8 +439,8 @@ impl<F> DscGrid<F>
 
         let offset = Fixed::from_u8((self.get_max_offset)(pos, level, phase));
 
-        self.range[idx] = (Fixed(min_sum.unwrap() / count) - offset,
-                           Fixed((max_sum.unwrap() + count - 1) / count) - offset);
+        self.range[idx] = (min_sum / count - offset,
+                           max_sum / count + offset);
     }
 
 
@@ -492,18 +513,21 @@ impl<F> DscGrid<F>
     }
 
 
-    fn count_valid(&self,
-                   target: V2,
-                   buf: &mut [u8; 256]) {
+    fn valid_range(&self,
+                   target: V2) -> Option<(Fixed, Fixed)> {
         let bounds = self.bounds();
         let (target_cur_min, target_cur_max) = self.range[bounds.index(target)];
+        struct Entry {
+            min: Fixed,
+            max: Fixed,
+            count: u32,
+        }
+        let mut ranges = SmallVec::<Entry>::new();
 
         for &pos in self.constrained_points.iter() {
             let idx = bounds.index(pos);
             let (pos_cur_min, pos_cur_max) = self.range[idx];
-            let (c8_min, c8_max) = self.constraint[idx];
-            let c_min = Fixed::from_u8(c8_min);
-            let c_max = Fixed::from_u8_max(c8_max);
+            let (c_min, c_max) = self.constraint[idx];
             let weight = self.weight[idx];
             if weight == Fixed::from_u8(0) {
                 continue;
@@ -552,12 +576,35 @@ impl<F> DscGrid<F>
             let satisfying_min = clamp_fixed_u8(min_tmp + (target_cur_max.unwrap() as i64));
             let satisfying_max = clamp_fixed_u8(max_tmp + (target_cur_min.unwrap() as i64));
 
-            let min8 = cmp::max(satisfying_min, target_cur_min).as_u8();
-            let max8 = cmp::min(satisfying_max, target_cur_max).as_u8();
-            for val in min8 as usize .. max8 as usize + 1 {
-                buf[val] += 1;
+            let range_min = cmp::max(satisfying_min, target_cur_min);
+            let range_max = cmp::min(satisfying_max, target_cur_max);
+
+            if range_max < range_min {
+                continue;
+            }
+
+            let mut overlapped_any = false;
+            for entry in ranges.iter_mut() {
+                if range_min <= entry.max && entry.min <= range_max {
+                    overlapped_any = true;
+                    entry.min = cmp::max(entry.min, range_min);
+                    entry.max = cmp::min(entry.max, range_max);
+                    entry.count += 1;
+                }
+            }
+
+            if !overlapped_any {
+                ranges.push(Entry {
+                    min: range_min,
+                    max: range_max,
+                    count: 1
+                });
             }
         }
+
+        ranges.iter()
+              .max_by(|e| e.count)
+              .map(|e| (e.min, e.max))
     }
 
 
@@ -571,8 +618,7 @@ impl<F> DscGrid<F>
         let level = self.seed_level;
         for seed_pos in (bounds / scalar(1 << level)).points_inclusive() {
             let pos = seed_pos * scalar(1 << level);
-            // TODO: only use fill_one_constrained if there are actually constraints.
-            self.fill_one_constrained(rng, pos, level, Diamond);
+            self.fill_one(rng, pos, level, Diamond);
         }
 
         for level in (0 .. self.seed_level).rev() {
@@ -604,13 +650,16 @@ impl<F> DscGrid<F>
     }
 
     fn fill_one<R: Rng>(&mut self, rng: &mut R, pos: V2, level: u8, phase: Phase) {
-        let flags = self.flags[self.bounds().index(pos)];
-        if flags.contains(PRESET_VALUE) {
-            return;
-        }
-
+        let idx = self.bounds().index(pos);
+        let flags = self.flags[idx];
         if flags.contains(CHILD_HAS_CONSTRAINT) {
             self.fill_one_constrained(rng, pos, level, phase);
+        } else if flags.contains(PRESET_RANGE) {
+            let (min, max) = self.range[idx];
+            let val = Fixed(rng.gen_range(min.unwrap(), max.unwrap() + 1));
+            info!("fill {:?} (preset): range {:x} .. {:x} => {:x}",
+                  pos, min.0, max.0, val.0);
+            self.set_value(pos, val);
         } else {
             self.fill_one_random(rng, pos, level, phase);
         }
@@ -619,47 +668,21 @@ impl<F> DscGrid<F>
     fn fill_one_constrained<R: Rng>(&mut self, rng: &mut R, pos: V2, level: u8, phase: Phase) {
         self.calc_range();
         self.calc_weight(pos, level, phase);
-        let mut buf = [0; 256];
-        self.count_valid(pos, &mut buf);
 
-        let max = buf.iter().map(|&x| x).max().unwrap_or(0);
-
-        let mut count = 0;
-        for &x in buf.iter() {
-            if x == max {
-                count += 1;
-            }
-        }
-        let value =
-            if max == 0 {
-                let (min, max) = self.range[self.bounds().index(pos)];
-                let min32 = min.as_u8() as u32;
-                let max32 = max.as_u8() as u32 + 1;
-                rng.gen_range(min32, max32) as u8
-            } else {
-                let choice = rng.gen_range(0, count);
-                let mut count = 0;
-                let mut result = None;
-                for (i, &x) in buf.iter().enumerate() {
-                    if x == max {
-                        count += 1;
-                        if count > choice {
-                            result = Some(i);
-                            break;
-                        }
-                    }
-                }
-                result.expect("failed to make a choice, but count > 0") as u8
-            };
-
-        self.set_value(pos, value);
+        let orig_range = self.range[self.bounds().index(pos)];
+        let (min, max) = self.valid_range(pos).unwrap_or(orig_range);
+        let val = Fixed(rng.gen_range(min.unwrap(), max.unwrap() + 1));
+        info!("fill {:?} (constrained): orig {:x} .. {:x}, actual {:x} .. {:x} => {:x}",
+              pos, (orig_range.0).0, (orig_range.1).0, min.0, max.0, val.0);
+        self.set_value(pos, val);
     }
 
     fn fill_one_random<R: Rng>(&mut self, rng: &mut R, pos: V2, level: u8, phase: Phase) {
         let bounds = self.bounds();
+        let idx = bounds.index(pos);
 
         let (dirs, dist) = parent_dirs(level, phase);
-        let mut sum = 0;
+        let mut sum = Fixed::from_u8(0);
         let mut count = 0;
         for &d in dirs.iter() {
             let p = pos + d * scalar(dist);
@@ -667,20 +690,22 @@ impl<F> DscGrid<F>
                 continue;
             }
 
-            sum = sum + self.value[bounds.index(p)] as i32;
+            sum = sum + self.value[bounds.index(p)];
             count += 1;
         }
+        let base = sum / count;
+        let raw_base = base.unwrap() as i32;
 
-        let max_offset = (self.get_max_offset)(pos, level, phase) as i32;
+        let max_offset = ((self.get_max_offset)(pos, level, phase) as i32) << FIXEDPOINT_BASE;
         let offset = rng.gen_range(-max_offset, max_offset + 1);
-        // Divide with random rounding.
-        //let raw_value = (sum + rng.gen_range(0, count)) / count + offset;
-        let raw_value = sum / count + offset;
-        let value =
-            if raw_value < 0 { 0 }
-            else if raw_value > u8::MAX as i32 { u8::MAX }
-            else { raw_value as u8 };
 
-        self.set_value(pos, value);
+        let val =
+            if raw_base < -offset { Fixed::from_u8(0) }
+            else { Fixed((raw_base + offset) as u32).clamp_u8() };
+
+        info!("fill {:?} (random): base {:x}, offset {:x} => {:x}",
+              pos, base.0, offset, val.0);
+
+        self.set_value(pos, val);
     }
 }
