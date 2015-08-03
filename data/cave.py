@@ -155,11 +155,34 @@ def mk_cave_walls2_tops(img):
     out.save('test.png')
     return result
 
-def mk_cave_walls2(cave_img, grass_img, dirt_img, dirt2_img, basename):
+TERRAIN_KEYS = (
+        'outside',
+        'corner/outer/se',
+        'corner/outer/sw',
+        'edge/s',
+        'corner/outer/nw',
+        'cross/nw',
+        'edge/w',
+        'corner/inner/sw',
+        'corner/outer/ne',
+        'edge/e',
+        'cross/ne',
+        'corner/inner/se',
+        'edge/n',
+        'corner/inner/ne',
+        'corner/inner/nw',
+        'center',
+        )
+
+def mk_cave_walls2(cave_img, grass_img, dirt_img, dirt2_img, dirt2_cross_img, basename):
     tops = mk_cave_walls2_tops(cave_img)
     grass = chop_terrain(grass_img)
     dirt = chop_terrain(dirt_img)
     dirt2 = chop_terrain(dirt2_img)
+    dirt2['cross/nw'] = extract(dirt2_cross_img, (0, 0))
+    dirt2['cross/ne'] = extract(dirt2_cross_img, (0, 1))
+    dirt2['outside'] = Image.new('RGBA', (TILE_SIZE, TILE_SIZE))
+    dirt2['center'] = dirt2['center/v0']
 
     base_grass = dict((k, stack(grass['center/v0'], v)) for k,v in dirt2.items())
     base_dirt = dict((k, stack(dirt['center/v0'], v)) for k,v in dirt2.items())
@@ -191,6 +214,7 @@ def mk_cave_walls2(cave_img, grass_img, dirt_img, dirt2_img, basename):
         # (NW on the left, SW on the right)
         b = pack4(tuple(int(x == 1) for x in reversed(idxs)), 2)
         c = pack4(tuple(int(x == 2) for x in reversed(idxs)), 2)
+        base_key = TERRAIN_KEYS[pack4(tuple(int(x != 1) for x in idxs), 2)]
 
         check = lambda x: b == x or c == x
 
@@ -217,9 +241,9 @@ def mk_cave_walls2(cave_img, grass_img, dirt_img, dirt2_img, basename):
         blks.create('%s/%d/z1' % (basename, i), shape1,
                 dict(top=tops[i], front=front_parts[1].get(front_key, empty)))
         blks.create('%s/%d/z0/dirt' % (basename, i), shape0,
-                dict(front=front_parts[0].get(front_key, empty), bottom=base_dirt['center/v0']))
+                dict(front=front_parts[0].get(front_key, empty), bottom=base_dirt[base_key]))
         blks.create('%s/%d/z0/grass' % (basename, i), shape0,
-                dict(front=front_parts[0].get(front_key, empty), bottom=base_grass['center/v0']))
+                dict(front=front_parts[0].get(front_key, empty), bottom=base_grass[base_key]))
 
 
     entrance_flat = extract(cave_img, (0, 5), (3, 2))
@@ -229,6 +253,7 @@ def mk_cave_walls2(cave_img, grass_img, dirt_img, dirt2_img, basename):
 
     def entrance_part(idxs, side, base_key, img):
         i = pack4(idxs, 3)
+        base_key = TERRAIN_KEYS[pack4(tuple(int(x != 1) for x in idxs), 2)]
         shape0 = 'solid' if side != 'center' else 'floor'
         shape1 = 'solid' if side != 'center' else 'empty'
         x = dict(left=0, center=1, right=2)[side]
@@ -251,6 +276,18 @@ def mk_cave_walls2(cave_img, grass_img, dirt_img, dirt2_img, basename):
 
     return blks
 
+def mk_cave_top2(top_img, top_cross_img, basename):
+    top = chop_terrain(top_img)
+    top['cross/nw'] = extract(top_cross_img, (0, 0))
+    top['cross/ne'] = extract(top_cross_img, (0, 1))
+    top['outside'] = Image.new('RGBA', (TILE_SIZE, TILE_SIZE))
+    top['center'] = top['center/v0']
+
+    blks = block_builder()
+
+    for i, k in enumerate(TERRAIN_KEYS):
+        blks.create('%s/%d' % (basename, i), 'floor', dict(bottom=top[k]))
+
 def init():
     tiles = loader('tiles')
 
@@ -258,5 +295,10 @@ def init():
     grass = tiles('lpc-base-tiles/grass.png')
     dirt = tiles('lpc-base-tiles/dirt.png')
     dirt2 = tiles('lpc-base-tiles/dirt2.png')
+    dirt2_cross = tiles('lpc-dirt2-cross.png')
 
-    mk_cave_walls2(cave2, grass, dirt, dirt2, 'cave')
+    mk_cave_walls2(cave2, grass, dirt, dirt2, dirt2_cross, 'cave')
+
+    top = tiles('lpc-cave-top.png')
+    top_cross = tiles('lpc-cave-top-cross.png')
+    mk_cave_top2(top, top_cross, 'cave_top')

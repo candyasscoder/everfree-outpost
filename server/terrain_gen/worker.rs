@@ -369,7 +369,7 @@ impl<'d> Worker<'d> {
                 if layer == 0 {
                     gc.set_block(pos.extend(layer_z), *rng.choose(&grass_ids).unwrap())
                 }
-                let key = collect_indexes(pos, &level_grid, &cave_grid);
+                let (key, top_key) = collect_indexes(pos, &level_grid, &cave_grid);
 
                 if key == OUTSIDE_KEY {
                     continue;
@@ -377,17 +377,18 @@ impl<'d> Worker<'d> {
 
                 let z0_id = block_data.get_id(&format!("cave/{}/z0/{}", key, floor_type));
                 let z1_id = block_data.get_id(&format!("cave/{}/z1", key));
-                // TODO
-                //let z2_id = block_data.get_id(&format!("cave_top/{}", variant));
                 gc.set_block(pos.extend(layer_z + 0), z0_id);
                 gc.set_block(pos.extend(layer_z + 1), z1_id);
-                //gc.set_block(pos.extend(z + 2), z2_id);
+                if layer_z + 2 < CHUNK_SIZE {
+                    let z2_id = block_data.get_id(&format!("cave_top/{}", top_key));
+                    gc.set_block(pos.extend(layer_z + 2), z2_id);
+                }
             }
 
             if let Some(epos) = entrance_pos {
                 for (i, &side) in ["left", "center", "right"].iter().enumerate() {
                     let pos = epos + V2::new(i as i32, 0);
-                    let key = collect_indexes(pos, &level_grid, &cave_grid);
+                    let (key, _) = collect_indexes(pos, &level_grid, &cave_grid);
                     let z0_id = block_data.get_id(&format!("cave/entrance/{}/{}/z0/{}",
                                                            side, key, floor_type));
                     let z1_id = block_data.get_id(&format!("cave/entrance/{}/{}/z1",
@@ -548,8 +549,9 @@ fn collect_bits(x0: bool, x1: bool, x2: bool, x3: bool) -> u8 {
 
 fn collect_indexes(base: V2,
                    level_grid: &CellularGrid,
-                   cave_grid: &CellularGrid) -> u8 {
-    let mut acc = 0;
+                   cave_grid: &CellularGrid) -> (u8, u8) {
+    let mut acc_cave = 0;
+    let mut acc_top = 0;
     for &(x, y) in &[(0, 1), (1, 1), (1, 0), (0, 0)] {
         let pos = base + V2::new(x, y);
         let val =
@@ -562,9 +564,10 @@ fn collect_indexes(base: V2,
             } else {
                 0
             };
-        acc = acc * 3 + val;
+        acc_cave = acc_cave * 3 + val;
+        acc_top = acc_top * 2 + (val != 1) as u8;
     }
-    acc
+    (acc_cave, acc_top)
 }
 
 static DIRS: [V2; 8] = [
