@@ -286,7 +286,18 @@ impl<'d> Worker<'d> {
             grid.set_fixed(pos + V2::new(1, 0), false);
             grid.set_fixed(pos + V2::new(2, 0), false);
         }
-        grid.init(|_pos| rng.gen_range(0, 3) < 1);
+        grid.init(|pos| {
+            let bonus =
+                if let Some(epos) = entrance_pos {
+                    let dist = (epos - pos).abs().max();
+                    if dist < 8 { 8 - dist } else { 0 }
+                } else {
+                    0
+                };
+            // Base chance of wall: 10/20 = 50%
+            // Reduced to 2/20 = 10% near entrances.
+            rng.gen_range(0, 20) < 10 - bonus
+        });
 
         /*
         info!("original layer dump =====");
