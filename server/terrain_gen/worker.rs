@@ -88,7 +88,7 @@ impl<'d> Worker<'d> {
                         |offset| {
                             let p = power(&mut rng3, cpos + offset - base);
                             info!("pos {:?}, power {}", cpos + offset - base, p);
-                            (98, 100 + p / 2)
+                            (98, 99 + p / 2)
                         });
         set_edge_constraints(&mut grid, scalar(SUPERCHUNK_SIZE));
 
