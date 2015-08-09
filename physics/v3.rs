@@ -186,6 +186,10 @@ pub trait Vn: Sized+Copy {
         <Self as Vn>::fold_axes(0, |a, sum| sum + self.get(a) * other.get(a))
     }
 
+    fn mag2(self) -> i32 {
+        self.dot(self)
+    }
+
     fn get_dir(self, dir_axis: (<Self as Vn>::Axis, bool)) -> i32 {
         let (axis, neg) = dir_axis;
         if neg { -self.get(axis) } else { self.get(axis) }
