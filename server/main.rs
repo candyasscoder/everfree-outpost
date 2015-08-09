@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 #![feature(
+    as_slice,   // Option::as_slice
     convert,    // OsStr::to_cstring
     core,
     filling_drop,

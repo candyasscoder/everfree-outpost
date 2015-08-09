@@ -20,16 +20,22 @@ pub use self::disk_sampler::IsoDiskSampler;
 pub use self::diamond_square::DiamondSquare;
 pub use self::fields::{ConstantField, RandomField, FilterField, BorderField};
 
-use self::summary::Summary;
-use self::dsc::DscGrid;
 
 mod diamond_square;
 mod disk_sampler;
 mod fields;
-mod summary;
-mod dsc;
+
 mod worker;
+mod prop;
+mod cache;
+
+mod dsc;
 mod cellular;
+
+mod forest;
+
+
+pub type StdRng = XorShiftRng;
 
 
 pub type TerrainGenEvent = worker::Response;

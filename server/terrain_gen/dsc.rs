@@ -178,7 +178,7 @@ fn parent_dirs(level: u8, phase: Phase) -> (&'static [V2; 4], i32) {
     (dirs, dist)
 }
 
-pub struct DscGrid<F> {
+pub struct DscGrid {
     /// The value of each cell.  Only valid for cells that have the `PRESET_VALUE` flag set.
     value: Box<[Fixed]>,
     /// The range of possible values for each cell.  Only valid for cells that have the
@@ -200,17 +200,14 @@ pub struct DscGrid<F> {
     /// Number of levels of subdivision below the seed points.  That is, seed points are spaced on
     /// a `1 << seed_level` unit grid.
     seed_level: u8,
-    /// Closure to compute the maximum amount of random offset that can be applied to a cell.  The
-    /// actual offset will be in the range `-max <= actual <= max`.
-    get_max_offset: F,
 }
 
 // TODO: There's a lot of potential for rounding errors in here.  I haven't really checked to make
 // sure everything lines up, so there may be situations where (e.g.) filling a grid, erasing some
 // values (leaving the rest as constraints), and regenerating may fail to produce a valid grid.
 
-impl<F> DscGrid<F> {
-    pub fn new(size: V2, seed_level: u8, get_max_offset: F) -> DscGrid<F> {
+impl DscGrid {
+    pub fn new(size: V2, seed_level: u8) -> DscGrid {
         let len = ((size.x + 1) * (size.y + 1)) as usize;
         let f0 = Fixed::from_u8(0);
         let value = iter::repeat(f0).take(len).collect::<Vec<_>>().into_boxed_slice();
@@ -229,7 +226,6 @@ impl<F> DscGrid<F> {
             weight: weight,
             size: size,
             seed_level: seed_level,
-            get_max_offset: get_max_offset,
         }
     }
 
@@ -320,10 +316,7 @@ impl<F> DscGrid<F> {
             self.constrained_points.push(pos);
         }
     }
-}
 
-impl<F> DscGrid<F>
-        where F: FnMut(V2, u8, Phase) -> u8 {
     fn calc_child_has_constraint(&mut self) {
         // Bottom-up traversal
         let bounds = self.bounds();
@@ -379,7 +372,8 @@ impl<F> DscGrid<F>
     }
 
 
-    fn calc_range(&mut self) {
+    fn calc_range<F>(&mut self, mut get_max_offset: F)
+            where F: FnMut(V2, u8, Phase) -> u8 {
         // Before running this function, initialize ranges for all seed points.
         let bounds = self.bounds();
 
@@ -392,7 +386,7 @@ impl<F> DscGrid<F>
                 let base = base * scalar(step);
                 let center = base + scalar(half);
                 if bounds.contains(center) {
-                    self.calc_one_range(center, level, Square);
+                    self.calc_one_range(center, level, Square, &mut get_max_offset);
                 }
             }
 
@@ -402,16 +396,17 @@ impl<F> DscGrid<F>
                 let north = base + V2::new(half, 0);
                 let west = base + V2::new(0, half);
                 if bounds.contains(north) {
-                    self.calc_one_range(north, level, Diamond);
+                    self.calc_one_range(north, level, Diamond, &mut get_max_offset);
                 }
                 if bounds.contains(west) {
-                    self.calc_one_range(west, level, Diamond);
+                    self.calc_one_range(west, level, Diamond, &mut get_max_offset);
                 }
             }
         }
     }
 
-    fn calc_one_range(&mut self, pos: V2, level: u8, phase: Phase) {
+    fn calc_one_range<F>(&mut self, pos: V2, level: u8, phase: Phase, get_max_offset: &mut F)
+            where F: FnMut(V2, u8, Phase) -> u8 {
         let bounds = self.bounds();
         let idx = bounds.index(pos);
         if !self.flags[idx].contains(CHILD_HAS_CONSTRAINT) {
@@ -437,7 +432,7 @@ impl<F> DscGrid<F>
             count += 1;
         }
 
-        let offset = Fixed::from_u8((self.get_max_offset)(pos, level, phase));
+        let offset = Fixed::from_u8(get_max_offset(pos, level, phase));
 
         self.range[idx] = (min_sum / count - offset,
                            max_sum / count + offset);
@@ -611,14 +606,15 @@ impl<F> DscGrid<F>
     /// Fill in the entire grid using diamond-square.
     ///
     /// Before running this function, initialize ranges for all seed points.
-    pub fn fill<R: Rng>(&mut self, rng: &mut R) {
+    pub fn fill<R: Rng, F>(&mut self, rng: &mut R, mut get_max_offset: F)
+            where F: FnMut(V2, u8, Phase) -> u8 {
         self.calc_child_has_constraint();
         let bounds = self.bounds();
 
         let level = self.seed_level;
         for seed_pos in (bounds / scalar(1 << level)).points_inclusive() {
             let pos = seed_pos * scalar(1 << level);
-            self.fill_one(rng, pos, level, Diamond);
+            self.fill_one(rng, pos, level, Diamond, &mut get_max_offset);
         }
 
         for level in (0 .. self.seed_level).rev() {
@@ -630,7 +626,7 @@ impl<F> DscGrid<F>
                 let base = base * scalar(step);
                 let center = base + scalar(half);
                 if bounds.contains(center) {
-                    self.fill_one(rng, center, level, Square);
+                    self.fill_one(rng, center, level, Square, &mut get_max_offset);
                 }
             }
 
@@ -640,31 +636,43 @@ impl<F> DscGrid<F>
                 let north = base + V2::new(half, 0);
                 let west = base + V2::new(0, half);
                 if bounds.contains(north) {
-                    self.fill_one(rng, north, level, Diamond);
+                    self.fill_one(rng, north, level, Diamond, &mut get_max_offset);
                 }
                 if bounds.contains(west) {
-                    self.fill_one(rng, west, level, Diamond);
+                    self.fill_one(rng, west, level, Diamond, &mut get_max_offset);
                 }
             }
         }
     }
 
-    fn fill_one<R: Rng>(&mut self, rng: &mut R, pos: V2, level: u8, phase: Phase) {
+    fn fill_one<R: Rng, F>(&mut self,
+                           rng: &mut R,
+                           pos: V2,
+                           level: u8,
+                           phase: Phase,
+                           get_max_offset: &mut F)
+            where F: FnMut(V2, u8, Phase) -> u8 {
         let idx = self.bounds().index(pos);
         let flags = self.flags[idx];
         if flags.contains(CHILD_HAS_CONSTRAINT) {
-            self.fill_one_constrained(rng, pos, level, phase);
+            self.fill_one_constrained(rng, pos, level, phase, get_max_offset);
         } else if flags.contains(PRESET_RANGE) {
             let (min, max) = self.range[idx];
             let val = Fixed(rng.gen_range(min.unwrap(), max.unwrap() + 1));
             self.set_value(pos, val);
         } else {
-            self.fill_one_random(rng, pos, level, phase);
+            self.fill_one_random(rng, pos, level, phase, get_max_offset);
         }
     }
 
-    fn fill_one_constrained<R: Rng>(&mut self, rng: &mut R, pos: V2, level: u8, phase: Phase) {
-        self.calc_range();
+    fn fill_one_constrained<R: Rng, F>(&mut self,
+                                       rng: &mut R,
+                                       pos: V2,
+                                       level: u8,
+                                       phase: Phase,
+                                       get_max_offset: &mut F)
+            where F: FnMut(V2, u8, Phase) -> u8 {
+        self.calc_range(|pos, level, phase| get_max_offset(pos, level, phase));
         self.calc_weight(pos, level, phase);
 
         let orig_range = self.range[self.bounds().index(pos)];
@@ -673,7 +681,13 @@ impl<F> DscGrid<F>
         self.set_value(pos, val);
     }
 
-    fn fill_one_random<R: Rng>(&mut self, rng: &mut R, pos: V2, level: u8, phase: Phase) {
+    fn fill_one_random<R: Rng, F>(&mut self,
+                                  rng: &mut R,
+                                  pos: V2,
+                                  level: u8,
+                                  phase: Phase,
+                                  get_max_offset: &mut F)
+            where F: FnMut(V2, u8, Phase) -> u8 {
         let bounds = self.bounds();
         let idx = bounds.index(pos);
 
@@ -692,7 +706,7 @@ impl<F> DscGrid<F>
         let base = sum / count;
         let raw_base = base.unwrap() as i32;
 
-        let max_offset = ((self.get_max_offset)(pos, level, phase) as i32) << FIXEDPOINT_BASE;
+        let max_offset = (get_max_offset(pos, level, phase) as i32) << FIXEDPOINT_BASE;
         let offset = rng.gen_range(-max_offset, max_offset + 1);
 
         let val =

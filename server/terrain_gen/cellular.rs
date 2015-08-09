@@ -33,13 +33,33 @@ impl CellularGrid {
         }
     }
 
+    pub fn debug(&self) {
+        for y in 0 .. self.size.y {
+            let mut s = String::new();
+            for x in 0 .. self.size.x {
+                let idx = self.bounds().index(V2::new(x, y));
+                s.push_str(&format!("{:x}", self.grid[idx].bits()));
+            }
+            info!("{}", s);
+        }
+    }
+
+    pub fn bounds(&self) -> Region<V2> {
+        Region::new(scalar(0), self.size)
+    }
+
     pub fn set_fixed(&mut self, pos: V2, val: bool) {
-        let bounds = Region::new(scalar(0), self.size);
-        self.grid[bounds.index(pos)] = (if val { ACTIVE } else { Cell::empty() }) | FIXED;
+        let cell_val = (if val { ACTIVE } else { Cell::empty() }) | FIXED;
+        self.grid[self.bounds().index(pos)] = cell_val;
+    }
+
+    pub fn set(&mut self, pos: V2, val: bool) {
+        let cell_val = if val { ACTIVE } else { Cell::empty() };
+        self.grid[self.bounds().index(pos)] = cell_val;
     }
 
     pub fn init<F: FnMut(V2) -> bool>(&mut self, mut f: F) {
-        let bounds = Region::new(scalar(0), self.size);
+        let bounds = self.bounds();
         for pos in bounds.points() {
             let idx = bounds.index(pos);
             if !self.grid[idx].contains(FIXED) {
@@ -49,7 +69,7 @@ impl CellularGrid {
     }
 
     fn count_neighbors(&self, pos: V2) -> (u8, u8) {
-        let bounds = Region::new(scalar(0), self.size);
+        let bounds = self.bounds();
         let mut active = 0;
         let mut total = 0;
         for &d in &DIRS {
@@ -63,7 +83,7 @@ impl CellularGrid {
 
     pub fn step<F>(&mut self, mut f: F)
             where F: FnMut(bool, u8, u8) -> bool {
-        let bounds = Region::new(scalar(0), self.size);
+        let bounds = self.bounds();
         for pos in bounds.points() {
             let idx = bounds.index(pos);
             if self.grid[idx].contains(FIXED) {
@@ -82,8 +102,7 @@ impl CellularGrid {
     }
 
     pub fn get(&self, pos: V2) -> bool {
-        let bounds = Region::new(scalar(0), self.size);
-        self.grid[bounds.index(pos)].contains(ACTIVE)
+        self.grid[self.bounds().index(pos)].contains(ACTIVE)
     }
 }
 

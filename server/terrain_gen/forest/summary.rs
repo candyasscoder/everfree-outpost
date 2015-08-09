@@ -8,23 +8,12 @@ use physics::CHUNK_SIZE;
 use types::*;
 
 use storage::Storage;
+use terrain_gen::cache::Summary;
 use util::bytes::*;
 use util::Convert;
 use util::ReadExact;
 use util::{transmute_slice, transmute_slice_mut};
 
-
-pub trait Summary {
-    fn alloc() -> Box<Self>;
-    fn write_to(&self, f: File) -> io::Result<()>;
-    fn read_from(f: File) -> io::Result<Box<Self>>;
-}
-
-
-pub type EachEdge<T> = [T; 4];
-pub type EachCell1<T> = [T; CHUNK_SIZE as usize];
-pub type EachCell2<T> = [T; (CHUNK_SIZE * CHUNK_SIZE) as usize];
-pub type EachCell3<T> = [T; (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize];
 
 pub struct ChunkSummary {
     /// The value at each diamond-square vertex in the chunk.
@@ -116,88 +105,5 @@ impl Summary for SuperchunkSummary {
         try!(f.read_exact(&mut summary.ds_levels));
 
         Ok(summary)
-    }
-}
-
-
-pub struct CacheEntry<T> {
-    data: Box<T>,
-    dirty: bool,
-}
-
-impl<T> CacheEntry<T> {
-    fn new(data: Box<T>) -> CacheEntry<T> {
-        CacheEntry {
-            data: data,
-            dirty: false,
-        }
-    }
-}
-
-pub struct Cache<'d, T: Summary> {
-    storage: &'d Storage,
-    name: &'static str,
-    cache: LinkedHashMap<(Stable<PlaneId>, V2), CacheEntry<T>>,
-}
-
-const CACHE_LIMIT: usize = 1024;
-
-impl<'d, T: Summary> Cache<'d, T> {
-    pub fn new(storage: &'d Storage, name: &'static str) -> Cache<'d, T> {
-        Cache {
-            storage: storage,
-            name: name,
-            cache: LinkedHashMap::new(),
-        }
-    }
-
-    fn make_space(&mut self, extra: usize) {
-        assert!(extra <= CACHE_LIMIT);
-        while self.cache.len() + extra > CACHE_LIMIT {
-            let ((pid, cpos), entry) = self.cache.pop_front().unwrap();
-            if entry.dirty {
-                let file = self.storage.create_summary_file(self.name, pid, cpos);
-                warn_on_err!(entry.data.write_to(file));
-            }
-        }
-    }
-
-    pub fn create(&mut self, pid: Stable<PlaneId>, cpos: V2) -> &mut T {
-        self.make_space(1);
-        self.cache.insert((pid, cpos), CacheEntry::new(T::alloc()));
-        self.get_mut(pid, cpos)
-    }
-
-    pub fn load(&mut self, pid: Stable<PlaneId>, cpos: V2) -> io::Result<()> {
-        if let Some(_) = self.cache.get_refresh(&(pid, cpos)) {
-            // Already in the cache.
-            Ok(())
-        } else {
-            self.make_space(1);
-            let path = self.storage.summary_file_path(self.name, pid, cpos);
-            let file = try!(File::open(path));
-            let summary = try!(T::read_from(file));
-            self.cache.insert((pid, cpos), CacheEntry::new(summary));
-            Ok(())
-        }
-    }
-
-    // No explicit `unload` - data is unloaded automatically in LRU fashion.
-
-    pub fn get(&self, pid: Stable<PlaneId>, cpos: V2) -> &T {
-        &self.cache[&(pid, cpos)].data
-    }
-
-    pub fn get_mut(&mut self, pid: Stable<PlaneId>, cpos: V2) -> &mut T {
-        let entry = &mut self.cache[&(pid, cpos)];
-        entry.dirty = true;
-        &mut entry.data
-    }
-}
-
-impl<'d, T: Summary> Drop for Cache<'d, T> {
-    fn drop(&mut self) {
-        // Evict everything.
-        self.make_space(CACHE_LIMIT);
     }
 }
