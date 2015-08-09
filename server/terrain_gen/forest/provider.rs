@@ -5,7 +5,7 @@ use physics::CHUNK_SIZE;
 
 use data::Data;
 use storage::Storage;
-use terrain_gen::GenChunk;
+use terrain_gen::{GenChunk, GenStructure};
 use terrain_gen::StdRng;
 use terrain_gen::cache::Cache;
 use terrain_gen::cellular::CellularGrid;
@@ -18,6 +18,7 @@ use super::summary::{SuperchunkSummary, SUPERCHUNK_SIZE};
 use super::super_heightmap::SuperHeightmap;
 use super::heightmap::Heightmap;
 use super::caves::Caves;
+use super::trees::Trees;
 
 
 pub struct Provider<'d> {
@@ -70,6 +71,9 @@ impl<'d> Provider<'d> {
                                          |cpos| self.super_height(pid, cpos))
                               .generate_into(&mut self.cache, pid, cpos);
 
+        Trees::new(self.rng.gen())
+            .generate_into(&mut self.cache, pid, cpos);
+
         for layer in 0 .. CHUNK_SIZE as u8 / 2 {
             let layer_cutoff = layer * 2 + 100;
 
@@ -88,6 +92,14 @@ impl<'d> Provider<'d> {
                             &height_grid,
                             opt_entrance,
                             &cave_grid);
+        }
+
+        let tree_id = self.data.structure_templates.get_id("tree");
+        let rock_id = self.data.structure_templates.get_id("rock");
+        for &pos in &self.cache.get(pid, cpos).tree_offsets {
+            let kind = if self.rng.gen_range(0, 3) < 2 { tree_id } else { rock_id };
+            let gs = GenStructure::new(pos.extend(0), kind);
+            gc.structures.push(gs);
         }
 
         gc

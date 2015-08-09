@@ -32,6 +32,9 @@ pub struct ChunkSummary {
     /// It should always be the case that every cave in the chunk is accessible from the surface or
     /// through some adjacent chunk.
     pub cave_connectivity: Vec<(u8, u8)>,
+
+    /// Offsets of all trees/rocks in the chunk.
+    pub tree_offsets: Vec<V2>,
 }
 
 impl Summary for ChunkSummary {
@@ -40,6 +43,7 @@ impl Summary for ChunkSummary {
             ds_levels: unsafe { mem::zeroed() },
             cave_nums: unsafe { mem::zeroed() },
             cave_connectivity: Vec::new(),
+            tree_offsets: Vec::new(),
         })
     }
 

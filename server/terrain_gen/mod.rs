@@ -31,6 +31,7 @@ mod cache;
 
 mod dsc;
 mod cellular;
+mod disk_sampler2;
 
 mod forest;
 
@@ -84,8 +85,9 @@ pub trait Fragment<'d> {
     fn process(&mut self, evt: TerrainGenEvent) {
         let (stable_pid, cpos, gc) = evt;
         self.with_world(move |wf| {
+            let pid = unwrap_or!(wf.world().transient_plane_id(stable_pid));
+
             let tcid = {
-                let pid = unwrap_or!(wf.world().transient_plane_id(stable_pid));
                 let mut p = wf.plane_mut(pid);
                 let mut tc = unwrap_or!(p.get_terrain_chunk_mut(cpos));
  
@@ -105,6 +107,12 @@ pub trait Fragment<'d> {
                 tc.id()
             };
             wf.with_hooks(|h| h.on_terrain_chunk_update(tcid));
+
+            let base = cpos.extend(0) * scalar(CHUNK_SIZE);
+            for gs in &gc.structures {
+                info!("chunk {:?}: place {} at {:?}", cpos, gs.template, gs.pos);
+                warn_on_err!(wf.create_structure_unchecked(pid, base + gs.pos, gs.template));
+            }
         });
     }
 
