@@ -103,7 +103,6 @@ impl DiskSampler {
     fn try_place(&mut self, pos: V2) {
         if self.check_spacing(pos) {
             let cell = pos.div_floor(scalar(self.cell_size));
-            info!("successfully placed at {:?} (cell {:?})", pos, cell);
             let cell_idx = self.grid_bounds().index(cell);
             let offset = pos - cell * scalar(self.cell_size);
             self.grid[cell_idx] = (offset.x as u16, offset.y as u16);
@@ -133,7 +132,6 @@ impl DiskSampler {
     }
 
     pub fn generate<R: Rng>(&mut self, rng: &mut R, tries: u32) {
-        info!("populating grid with {} init points", self.init_points.len());
         for i in 0 .. self.init_points.len() {
             let pos = self.init_points[i];
             self.try_place(pos);
@@ -142,16 +140,13 @@ impl DiskSampler {
         if self.points.len() == 0 {
             let pos = V2::new(rng.gen_range(0, self.size.x),
                               rng.gen_range(0, self.size.y));
-            info!("adding random extra point at {:?}", pos);
             self.try_place(pos);
         }
 
         let mut idx = 0;
         while let Some(pos) = self.choose_one(rng, &mut idx) {
-            info!("placing near {:?}...", pos);
             self.place_nearby(rng, pos, tries);
         }
-        info!("done! --------------------------");
     }
 
     pub fn points(&self) -> &[V2] {

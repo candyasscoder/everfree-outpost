@@ -110,7 +110,6 @@ pub trait Fragment<'d> {
 
             let base = cpos.extend(0) * scalar(CHUNK_SIZE);
             for gs in &gc.structures {
-                info!("chunk {:?}: place {} at {:?}", cpos, gs.template, gs.pos);
                 warn_on_err!(wf.create_structure_unchecked(pid, base + gs.pos, gs.template));
             }
         });
