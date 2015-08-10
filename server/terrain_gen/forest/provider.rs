@@ -2,6 +2,7 @@ use rand::Rng;
 
 use types::*;
 use physics::CHUNK_SIZE;
+use physics::Shape;
 
 use data::Data;
 use storage::Storage;
@@ -94,12 +95,32 @@ impl<'d> Provider<'d> {
                             &cave_grid);
         }
 
+        let base = scalar(CHUNK_SIZE);
         let tree_id = self.data.structure_templates.get_id("tree");
         let rock_id = self.data.structure_templates.get_id("rock");
         for &pos in &self.cache.get(pid, cpos).tree_offsets {
-            let kind = if self.rng.gen_range(0, 3) < 2 { tree_id } else { rock_id };
-            let gs = GenStructure::new(pos.extend(0), kind);
-            gc.structures.push(gs);
+            let id = if self.rng.gen_range(0, 3) < 2 { tree_id } else { rock_id };
+            let template = self.data.structure_templates.template(id);
+            let footprint = Region::new(pos, pos + template.size.reduce());
+            let max_height = footprint.points_inclusive()
+                                      .map(|p| height_grid.get_value(p + base).unwrap())
+                                      .max().unwrap();
+            let max_layer = if max_height < 100 { 0 } else { (max_height - 100) / 2 + 1 };
+            let z = max_layer as i32 * 2;
+            // TODO: check (or constrain) heights of neighboring chunks.  Right now we can
+            // mistakenly place a tree off the edge of a cliff if the cliff is at x=0 on the
+            // neighboring chunk.
+            let ok = footprint.intersect(Region::new(scalar(0), scalar(CHUNK_SIZE)))
+                              .points()
+                              .all(|p| {
+                                  let id = gc.get_block(p.extend(z));
+                                  self.data.block_data.shape(id) == Shape::Floor
+                              });
+
+            if ok {
+                let gs = GenStructure::new(pos.extend(z), id);
+                gc.structures.push(gs);
+            }
         }
 
         gc

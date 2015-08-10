@@ -136,6 +136,12 @@ impl GenChunk {
         assert!(bounds.contains(pos));
         self.blocks[bounds.index(pos)] = val;
     }
+
+    pub fn get_block(&self, pos: V3) -> BlockId {
+        let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
+        assert!(bounds.contains(pos));
+        self.blocks[bounds.index(pos)]
+    }
 }
 
 pub struct GenStructure {
