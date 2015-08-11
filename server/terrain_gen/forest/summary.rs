@@ -60,6 +60,9 @@ impl Summary for ChunkSummary {
         try!(f.write_bytes(self.cave_connectivity.len().to_u16().unwrap()));
         try!(f.write_all(unsafe { transmute_slice(&self.cave_connectivity) }));
 
+        try!(f.write_bytes(self.tree_offsets.len().to_u16().unwrap()));
+        try!(f.write_all(unsafe { transmute_slice(&self.tree_offsets) }));
+
         Ok(())
     }
 
@@ -77,6 +80,10 @@ impl Summary for ChunkSummary {
         let cave_connectivity_len = try!(f.read_bytes::<u16>()) as usize;
         summary.cave_connectivity = iter::repeat((0, 0)).take(cave_connectivity_len).collect();
         try!(f.read_exact(unsafe { transmute_slice_mut(&mut summary.cave_connectivity) }));
+
+        let tree_offsets_len = try!(f.read_bytes::<u16>()) as usize;
+        summary.tree_offsets = iter::repeat(scalar(0)).take(tree_offsets_len).collect();
+        try!(f.read_exact(unsafe { transmute_slice_mut(&mut summary.tree_offsets) }));
 
         Ok(summary)
     }
