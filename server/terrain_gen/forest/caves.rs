@@ -77,16 +77,11 @@ impl<'a> LocalProperty for Caves<'a> {
 
     fn load(&mut self, grid: &mut CellularGrid, dir: V2, summ: &ChunkSummary) {
         let base = (dir + scalar(1)) * scalar(CHUNK_SIZE);
-        let mut f = |side: usize, i: i32, x: i32, y: i32| {
-            let is_wall = summ.cave_nums[self.layer as usize][side][i as usize] == 0;
-            grid.set_fixed(base + V2::new(x, y), is_wall);
-        };
+        let bounds = Region::new(base, base + scalar(CHUNK_SIZE + 1));
+        let layer = summ.cave_wall_layer(self.layer);
 
-        for i in 0 .. CHUNK_SIZE + 1 {
-            f(0, i,  i,          0);
-            f(1, i,  CHUNK_SIZE, i);
-            f(2, i,  i,          CHUNK_SIZE);
-            f(3, i,  0,          i);
+        for pos in bounds.points() {
+            grid.set_fixed(pos, layer.get(bounds.index(pos)));
         }
     }
 
@@ -98,16 +93,11 @@ impl<'a> LocalProperty for Caves<'a> {
 
     fn save(&mut self, grid: &CellularGrid, summ: &mut ChunkSummary) {
         let base: V2 = scalar(CHUNK_SIZE);
-        let mut f = |side: usize, i: i32, x: i32, y: i32| {
-            let is_wall = grid.get(base + V2::new(x, y));
-            summ.cave_nums[self.layer as usize][side][i as usize] = (!is_wall) as u8;
-        };
+        let bounds = Region::new(base, base + scalar(CHUNK_SIZE + 1));
+        let layer = summ.cave_wall_layer_mut(self.layer);
 
-        for i in 0 .. CHUNK_SIZE + 1 {
-            f(0, i,  i,          0);
-            f(1, i,  CHUNK_SIZE, i);
-            f(2, i,  i,          CHUNK_SIZE);
-            f(3, i,  0,          i);
+        for pos in bounds.points() {
+            layer.set(bounds.index(pos), grid.get(pos));
         }
     }
 }

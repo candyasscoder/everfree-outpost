@@ -9,40 +9,41 @@ use types::*;
 
 use storage::Storage;
 use terrain_gen::cache::Summary;
-use util::bytes::*;
-use util::Convert;
-use util::ReadExact;
+use util::{BitSlice, Convert, ReadExact};
 use util::{transmute_slice, transmute_slice_mut};
+use util::bytes::*;
 
 
 pub struct ChunkSummary {
     /// The value at each diamond-square vertex in the chunk.
     pub ds_levels: [u8; ((CHUNK_SIZE + 1) * (CHUNK_SIZE + 1)) as usize],
 
-    /// For each face, a map of what caves are present on that face.  In each horizontal slice of
-    /// the chunk, each connected component is assigned a distinct number.  Only connections within
-    /// the same chunk are considered, so two caves connected only through a neighboring chunk will
-    /// be assigned distinct cave numbers.  A cave number of 0 indicates that the cell is not part
-    /// of a cave (it is either outdoors or solid).
-    pub cave_nums: [[[u8; CHUNK_SIZE as usize + 1]; 4]; CHUNK_SIZE as usize / 2],
-
-    /// Map of internal connectivity between caves on different levels.  Cave number 0 indicates
-    /// outside, for caves that open directly onto the surface.
-    ///
-    /// It should always be the case that every cave in the chunk is accessible from the surface or
-    /// through some adjacent chunk.
-    pub cave_connectivity: Vec<(u8, u8)>,
+    /// A bit for each vertex, 0 for cave interior and 1 for walls (or "not inside a cave").  This
+    /// field is private because callers should use the methods returning `BitSlice` rather than
+    /// accessing it directly.
+    cave_walls: [[u8;
+            (((CHUNK_SIZE + 1) * (CHUNK_SIZE + 1) + 7) / 8) as usize];
+            (CHUNK_SIZE / 2) as usize],
 
     /// Offsets of all trees/rocks in the chunk.
     pub tree_offsets: Vec<V2>,
+}
+
+impl ChunkSummary {
+    pub fn cave_wall_layer(&self, layer: u8) -> &BitSlice {
+        BitSlice::from_bytes(&self.cave_walls[layer as usize])
+    }
+
+    pub fn cave_wall_layer_mut(&mut self, layer: u8) -> &mut BitSlice {
+        BitSlice::from_bytes_mut(&mut self.cave_walls[layer as usize])
+    }
 }
 
 impl Summary for ChunkSummary {
     fn alloc() -> Box<ChunkSummary> {
         Box::new(ChunkSummary {
             ds_levels: unsafe { mem::zeroed() },
-            cave_nums: unsafe { mem::zeroed() },
-            cave_connectivity: Vec::new(),
+            cave_walls: unsafe { mem::zeroed() },
             tree_offsets: Vec::new(),
         })
     }
@@ -50,15 +51,9 @@ impl Summary for ChunkSummary {
     fn write_to(&self, mut f: File) -> io::Result<()> {
         try!(f.write_all(&self.ds_levels));
 
-        for layer in &self.cave_nums {
-            for edge in layer {
-                try!(f.write_all(edge));
-            }
+        for layer in &self.cave_walls {
+            try!(f.write_all(layer));
         }
-
-        // Length of cave_connectivity should never exceed 255 * 256 < u16::MAX
-        try!(f.write_bytes(self.cave_connectivity.len().to_u16().unwrap()));
-        try!(f.write_all(unsafe { transmute_slice(&self.cave_connectivity) }));
 
         try!(f.write_bytes(self.tree_offsets.len().to_u16().unwrap()));
         try!(f.write_all(unsafe { transmute_slice(&self.tree_offsets) }));
@@ -71,15 +66,9 @@ impl Summary for ChunkSummary {
 
         try!(f.read_exact(&mut summary.ds_levels));
 
-        for layer in &mut summary.cave_nums {
-            for edge in layer {
-                try!(f.read_exact(edge));
-            }
+        for layer in &mut summary.cave_walls {
+            try!(f.read_exact(layer));
         }
-
-        let cave_connectivity_len = try!(f.read_bytes::<u16>()) as usize;
-        summary.cave_connectivity = iter::repeat((0, 0)).take(cave_connectivity_len).collect();
-        try!(f.read_exact(unsafe { transmute_slice_mut(&mut summary.cave_connectivity) }));
 
         let tree_offsets_len = try!(f.read_bytes::<u16>()) as usize;
         summary.tree_offsets = iter::repeat(scalar(0)).take(tree_offsets_len).collect();
