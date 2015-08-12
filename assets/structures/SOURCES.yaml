@@ -201,3 +201,10 @@ crops.png:
     author: Daniel Eddeland (daneeklu)
     license: CC-BY-SA 3.0 / GPL 3.0
     derived-from: ../tiles/daneeklu_farming_tilesets/plants.png
+
+cave-junk.png:
+    title: LPC Rocks and Stalagmites
+    author: Lanea Zimmerman (AKA Sharm)
+    license: CC-BY-SA 3.0 / GPL 3.0
+    derived-from:
+        ../tiles/lpc-base-tiles/mountains.png
