@@ -16,7 +16,7 @@ use util::bytes::*;
 
 pub struct ChunkSummary {
     /// The value at each diamond-square vertex in the chunk.
-    pub ds_levels: [u8; ((CHUNK_SIZE + 1) * (CHUNK_SIZE + 1)) as usize],
+    pub heightmap: [u8; ((CHUNK_SIZE + 1) * (CHUNK_SIZE + 1)) as usize],
 
     /// A bit for each vertex, 0 for cave interior and 1 for walls (or "not inside a cave").  This
     /// field is private because callers should use the methods returning `BitSlice` rather than
@@ -42,14 +42,14 @@ impl ChunkSummary {
 impl Summary for ChunkSummary {
     fn alloc() -> Box<ChunkSummary> {
         Box::new(ChunkSummary {
-            ds_levels: unsafe { mem::zeroed() },
+            heightmap: unsafe { mem::zeroed() },
             cave_walls: unsafe { mem::zeroed() },
             tree_offsets: Vec::new(),
         })
     }
 
     fn write_to(&self, mut f: File) -> io::Result<()> {
-        try!(f.write_all(&self.ds_levels));
+        try!(f.write_all(&self.heightmap));
 
         for layer in &self.cave_walls {
             try!(f.write_all(layer));
@@ -64,7 +64,7 @@ impl Summary for ChunkSummary {
     fn read_from(mut f: File) -> io::Result<Box<ChunkSummary>> {
         let mut summary = ChunkSummary::alloc();
 
-        try!(f.read_exact(&mut summary.ds_levels));
+        try!(f.read_exact(&mut summary.heightmap));
 
         for layer in &mut summary.cave_walls {
             try!(f.read_exact(layer));

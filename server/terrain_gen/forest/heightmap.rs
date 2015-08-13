@@ -53,7 +53,7 @@ impl LocalProperty for Heightmap {
         let bounds = Region::new(base,
                                  base + scalar(CHUNK_SIZE + 1));
         for pos in bounds.points() {
-            let val = summ.ds_levels[bounds.index(pos)];
+            let val = summ.heightmap[bounds.index(pos)];
             grid.set_range(pos, val, val);
         }
 
@@ -78,7 +78,7 @@ impl LocalProperty for Heightmap {
                                  base + scalar(CHUNK_SIZE + 1));
         for pos in bounds.points() {
             let val = grid.get_value(pos).unwrap();
-            summ.ds_levels[bounds.index(pos)] = val;
+            summ.heightmap[bounds.index(pos)] = val;
         }
     }
 }

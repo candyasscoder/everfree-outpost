@@ -63,11 +63,9 @@ impl<'d> Provider<'d> {
         heightmap[bounds.index(cpos)]
     }
 
-    pub fn generate(&mut self,
-                    pid: Stable<PlaneId>,
-                    cpos: V2) -> GenChunk {
-        let mut gc = GenChunk::new();
-
+    fn generate_summary(&mut self,
+                        pid: Stable<PlaneId>,
+                        cpos: V2) {
         let height_grid = Heightmap::new(cpos, self.rng.gen(),
                                          |cpos| self.super_height(pid, cpos))
                               .generate_into(&mut self.cache, pid, cpos);
@@ -80,48 +78,103 @@ impl<'d> Provider<'d> {
 
             let opt_entrance = self.place_entrance(&height_grid,
                                                    layer_cutoff);
-            let cave_grid = Caves::new(self.rng.gen(),
-                                       layer,
-                                       layer_cutoff,
-                                       &height_grid,
-                                       opt_entrance.as_slice())
-                                .generate_into(&mut self.cache, pid, cpos);
+            Caves::new(self.rng.gen(),
+                       layer,
+                       layer_cutoff,
+                       &height_grid,
+                       opt_entrance.as_slice())
+                .generate_into(&mut self.cache, pid, cpos);
+        }
+    }
 
-            self.fill_layer(&mut gc,
-                            layer,
-                            layer_cutoff,
-                            &height_grid,
-                            opt_entrance,
-                            &cave_grid);
+
+    pub fn generate(&mut self,
+                    pid: Stable<PlaneId>,
+                    cpos: V2) -> GenChunk {
+        self.generate_summary(pid, cpos);
+
+
+        let mut gc = GenChunk::new();
+        let summ = self.cache.get(pid, cpos);
+        // Bounds of the heightmap and cave grids, which assign a value to every vertex.
+        let grid_bounds = Region::<V2>::new(scalar(0), scalar(CHUNK_SIZE + 1));
+        // Bounds of the actual chunk, which assigns a block to every cell.
+        let bounds = Region::<V2>::new(scalar(0), scalar(CHUNK_SIZE));
+
+        let block_data = &self.data.block_data;
+        macro_rules! block_id {
+            ($($t:tt)*) => (block_data.get_id(&format!($($t)*)))
+        };
+
+        // Grass layer
+        let grass_ids = [
+            block_id!("grass/center/v0"),
+            block_id!("grass/center/v1"),
+            block_id!("grass/center/v2"),
+            block_id!("grass/center/v3"),
+        ];
+        for pos in bounds.points() {
+            gc.set_block(pos.extend(0), *self.rng.choose(&grass_ids).unwrap());
         }
 
-        let base = scalar(CHUNK_SIZE);
+        // Cave/hill layers
+        for layer in 0 .. CHUNK_SIZE as u8 / 2 {
+            let floor_type = if layer == 0 { "grass" } else { "dirt" };
+
+            for pos in bounds.points() {
+                let (cave_key, top_key) = get_cell_keys(summ, pos, layer);
+                if cave_key == OUTSIDE_KEY {
+                    continue;
+                }
+
+                let layer_z = layer as i32 * 2;
+                gc.set_block(pos.extend(layer_z + 0),
+                             block_id!("cave/{}/z0/{}", cave_key, floor_type));
+                gc.set_block(pos.extend(layer_z + 1),
+                             block_id!("cave/{}/z1", cave_key));
+                if layer_z + 2 < CHUNK_SIZE {
+                    gc.set_block(pos.extend(layer_z + 2),
+                                 block_id!("cave_top/{}", top_key));
+                }
+            }
+
+            // TODO: entrance
+        }
+
+        // Trees/rocks
         let tree_id = self.data.structure_templates.get_id("tree");
         let rock_id = self.data.structure_templates.get_id("rock");
         for &pos in &self.cache.get(pid, cpos).tree_offsets {
             let id = if self.rng.gen_range(0, 3) < 2 { tree_id } else { rock_id };
-            let template = self.data.structure_templates.template(id);
-            let footprint = Region::new(pos, pos + template.size.reduce());
-            let max_height = footprint.points_inclusive()
-                                      .map(|p| height_grid.get_value(p + base).unwrap())
-                                      .max().unwrap();
-            let max_layer = if max_height < 100 { 0 } else { (max_height - 100) / 2 + 1 };
-            let z = max_layer as i32 * 2;
-            // TODO: check (or constrain) heights of neighboring chunks.  Right now we can
-            // mistakenly place a tree off the edge of a cliff if the cliff is at x=0 on the
-            // neighboring chunk.
-            let ok = footprint.intersect(Region::new(scalar(0), scalar(CHUNK_SIZE)))
-                              .points()
-                              .all(|p| {
-                                  let id = gc.get_block(p.extend(z));
-                                  self.data.block_data.shape(id) == Shape::Floor
-                              });
+            let height = summ.heightmap[grid_bounds.index(pos)];
+            let layer = if height < 100 { 0 } else { (height - 100) / 2 + 1 };
+            let z = layer as i32 * 2;
+            // TODO: filter trees/rocks during generation
+            let gs = GenStructure::new(pos.extend(z), id);
+            gc.structures.push(gs);
+        }
 
-            if ok {
-                let gs = GenStructure::new(pos.extend(z), id);
+        /*
+        // Cave junk
+        let cave_junk_ids = [
+            block_id!("cave_junk/0"),
+            block_id!("cave_junk/1"),
+            block_id!("cave_junk/2"),
+        ];
+        for layer in 0 .. CHUNK_SIZE as u8 / 2 {
+            let layer_z = layer as i32 * 2;
+            for &pos in &self.cache.get(pid, cpos).treasure_offsets {
+                let id = *self.rng.choose(&cave_junk_ids);
+                // TODO: do this filtering during generation
+                if get_cell_keys(summ, pos, layer).0 != CAVE_KEY {
+                    continue;
+                }
+
+                let gs = GenStructure::new(pos.extend(layer_z), id);
                 gc.structures.push(gs);
             }
         }
+        */
 
         gc
     }
@@ -141,6 +194,7 @@ impl<'d> Provider<'d> {
         self.rng.choose(&candidates).map(|&pos| pos - V2::new(2, 1))
     }
 
+    /*
     fn fill_layer(&mut self,
                   gc: &mut GenChunk,
                   layer: u8,
@@ -216,7 +270,39 @@ impl<'d> Provider<'d> {
             }
         }
     }
+    */
 }
+
+fn cutoff(layer: u8) -> u8 {
+    layer * 2 + 100
+}
+
+fn get_vertex_key(summ: &ChunkSummary, pos: V2, layer: u8) -> u8 {
+    let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE + 1));
+    if summ.heightmap[bounds.index(pos)] < cutoff(layer) {
+        // Outside the raised area
+        1
+    } else if !summ.cave_wall_layer(layer).get(bounds.index(pos)) {
+        // Inside the raised area, and not a cave wall
+        2
+    } else {
+        0
+    }
+}
+
+fn get_cell_keys(summ: &ChunkSummary, pos: V2, layer: u8) -> (u8, u8) {
+    let mut acc_cave = 0;
+    let mut acc_top = 0;
+    for &(dx, dy) in &[(0, 1), (1, 1), (1, 0), (0, 0)] {
+        let val = get_vertex_key(summ, pos + V2::new(dx, dy), layer);
+        acc_cave = acc_cave * 3 + val;
+        acc_top = acc_top * 2 + (val != 1) as u8;
+    }
+    (acc_cave, acc_top)
+}
+
+const OUTSIDE_KEY: u8 = 1 + 1*3 + 1*3*3 + 1*3*3*3;
+const CAVE_KEY: u8 = 2 + 2*3 + 2*3*3 + 2*3*3*3;
 
 fn find_pattern(grid: &DscGrid, cutoff: u8, bits: u32, mask: u32) -> Vec<V2> {
     let base: V2 = scalar(CHUNK_SIZE);
