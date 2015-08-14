@@ -83,6 +83,15 @@ impl<'a> LocalProperty for Caves<'a> {
         for pos in bounds.points() {
             grid.set_fixed(pos, layer.get(bounds.index(pos)));
         }
+
+        // Apply additional constraints.
+        for &(old_pos, is_wall) in &summ.cave_wall_constraints[self.layer as usize] {
+            let pos = old_pos + base - scalar(CHUNK_SIZE);
+            if !grid.bounds().contains(pos) {
+                continue;
+            }
+            grid.set_fixed(pos, is_wall);
+        }
     }
 
     fn generate(&mut self, grid: &mut CellularGrid) {

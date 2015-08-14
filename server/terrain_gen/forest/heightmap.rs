@@ -63,6 +63,16 @@ impl LocalProperty for Heightmap {
         for pos in bounds.intersect(center_bounds).points() {
             grid.set_constrained(pos);
         }
+
+        // Apply additional constraints.
+        for &(old_pos, (low, high)) in &summ.heightmap_constraints {
+            let pos = old_pos + base - scalar(CHUNK_SIZE);
+            if !grid.bounds().contains(pos) {
+                continue;
+            }
+            grid.set_range(pos, low, high);
+            grid.set_constrained(pos);
+        }
     }
 
     fn generate(&mut self, grid: &mut DscGrid) {
