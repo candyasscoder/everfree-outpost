@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::{self, Read, Write};
 use std::iter;
 use std::mem;
+use std::ptr;
 use linked_hash_map::LinkedHashMap;
 
 use physics::CHUNK_SIZE;
@@ -27,6 +28,9 @@ pub struct ChunkSummary {
 
     /// Offsets of all trees/rocks in the chunk.
     pub tree_offsets: Vec<V2>,
+
+    /// Offsets of treasure (cave structures) on each layer of the chunk.
+    pub treasure_offsets: [Vec<V2>; CHUNK_SIZE as usize / 2],
 }
 
 impl ChunkSummary {
@@ -41,10 +45,19 @@ impl ChunkSummary {
 
 impl Summary for ChunkSummary {
     fn alloc() -> Box<ChunkSummary> {
+        let mut treasure_offsets = unsafe {
+            let mut arr = mem::zeroed();
+            for p in &mut arr {
+                ptr::write(p as *mut _, Vec::<V2>::new());
+            }
+            arr
+        };
+
         Box::new(ChunkSummary {
             heightmap: unsafe { mem::zeroed() },
             cave_walls: unsafe { mem::zeroed() },
             tree_offsets: Vec::new(),
+            treasure_offsets: treasure_offsets,
         })
     }
 
@@ -57,6 +70,11 @@ impl Summary for ChunkSummary {
 
         try!(f.write_bytes(self.tree_offsets.len().to_u16().unwrap()));
         try!(f.write_all(unsafe { transmute_slice(&self.tree_offsets) }));
+
+        for layer in &self.treasure_offsets {
+            try!(f.write_bytes(layer.len().to_u16().unwrap()));
+            try!(f.write_all(unsafe { transmute_slice(&layer) }));
+        }
 
         Ok(())
     }
@@ -73,6 +91,12 @@ impl Summary for ChunkSummary {
         let tree_offsets_len = try!(f.read_bytes::<u16>()) as usize;
         summary.tree_offsets = iter::repeat(scalar(0)).take(tree_offsets_len).collect();
         try!(f.read_exact(unsafe { transmute_slice_mut(&mut summary.tree_offsets) }));
+
+        for layer in &mut summary.treasure_offsets {
+            let layer_len = try!(f.read_bytes::<u16>()) as usize;
+            *layer = iter::repeat(scalar(0)).take(layer_len).collect();
+            try!(f.read_exact(unsafe { transmute_slice_mut(layer) }));
+        }
 
         Ok(summary)
     }

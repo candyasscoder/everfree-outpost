@@ -20,6 +20,7 @@ use super::super_heightmap::SuperHeightmap;
 use super::heightmap::Heightmap;
 use super::caves::Caves;
 use super::trees::Trees;
+use super::treasure::Treasure;
 
 
 pub struct Provider<'d> {
@@ -78,11 +79,17 @@ impl<'d> Provider<'d> {
 
             let opt_entrance = self.place_entrance(&height_grid,
                                                    layer_cutoff);
-            Caves::new(self.rng.gen(),
-                       layer,
-                       layer_cutoff,
-                       &height_grid,
-                       opt_entrance.as_slice())
+
+            let cave_grid = Caves::new(self.rng.gen(),
+                                       layer,
+                                       layer_cutoff,
+                                       &height_grid,
+                                       opt_entrance.as_slice())
+                                .generate_into(&mut self.cache, pid, cpos);
+
+            Treasure::new(self.rng.gen(),
+                          layer,
+                          &cave_grid)
                 .generate_into(&mut self.cache, pid, cpos);
         }
     }
@@ -104,6 +111,11 @@ impl<'d> Provider<'d> {
         let block_data = &self.data.block_data;
         macro_rules! block_id {
             ($($t:tt)*) => (block_data.get_id(&format!($($t)*)))
+        };
+
+        let structure_templates = &self.data.structure_templates;
+        macro_rules! template_id {
+            ($($t:tt)*) => (structure_templates.get_id(&format!($($t)*)))
         };
 
         // Grass layer
@@ -141,9 +153,11 @@ impl<'d> Provider<'d> {
             // TODO: entrance
         }
 
+
+
         // Trees/rocks
-        let tree_id = self.data.structure_templates.get_id("tree");
-        let rock_id = self.data.structure_templates.get_id("rock");
+        let tree_id = template_id!("tree");
+        let rock_id = template_id!("rock");
         for &pos in &self.cache.get(pid, cpos).tree_offsets {
             let id = if self.rng.gen_range(0, 3) < 2 { tree_id } else { rock_id };
             let height = summ.heightmap[grid_bounds.index(pos)];
@@ -154,27 +168,20 @@ impl<'d> Provider<'d> {
             gc.structures.push(gs);
         }
 
-        /*
-        // Cave junk
+        // Treasure
         let cave_junk_ids = [
-            block_id!("cave_junk/0"),
-            block_id!("cave_junk/1"),
-            block_id!("cave_junk/2"),
+            template_id!("cave_junk/0"),
+            template_id!("cave_junk/1"),
+            template_id!("cave_junk/2"),
         ];
         for layer in 0 .. CHUNK_SIZE as u8 / 2 {
             let layer_z = layer as i32 * 2;
-            for &pos in &self.cache.get(pid, cpos).treasure_offsets {
-                let id = *self.rng.choose(&cave_junk_ids);
-                // TODO: do this filtering during generation
-                if get_cell_keys(summ, pos, layer).0 != CAVE_KEY {
-                    continue;
-                }
-
+            for &pos in &self.cache.get(pid, cpos).treasure_offsets[layer as usize] {
+                let id = *self.rng.choose(&cave_junk_ids).unwrap();
                 let gs = GenStructure::new(pos.extend(layer_z), id);
                 gc.structures.push(gs);
             }
         }
-        */
 
         gc
     }

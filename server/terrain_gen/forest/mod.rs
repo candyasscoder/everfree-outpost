@@ -8,6 +8,7 @@ mod super_heightmap;
 mod heightmap;
 mod caves;
 mod trees;
+mod treasure;
 mod provider;
 
 pub use self::provider::Provider;
