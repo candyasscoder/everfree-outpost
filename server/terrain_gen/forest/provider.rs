@@ -71,7 +71,7 @@ impl<'d> Provider<'d> {
                                          |cpos| self.super_height(pid, cpos))
                               .generate_into(&mut self.cache, pid, cpos);
 
-        Trees::new(self.rng.gen())
+        Trees::new(self.rng.gen(), &height_grid)
             .generate_into(&mut self.cache, pid, cpos);
 
         for layer in 0 .. CHUNK_SIZE as u8 / 2 {
@@ -159,10 +159,16 @@ impl<'d> Provider<'d> {
         let tree_id = template_id!("tree");
         let rock_id = template_id!("rock");
         for &pos in &self.cache.get(pid, cpos).tree_offsets {
-            let id = if self.rng.gen_range(0, 3) < 2 { tree_id } else { rock_id };
             let height = summ.heightmap[grid_bounds.index(pos)];
             let layer = if height < 100 { 0 } else { (height - 100) / 2 + 1 };
             let z = layer as i32 * 2;
+
+            let id = if layer == 0 {
+                if self.rng.gen_range(0, 3) < 2 { tree_id } else { rock_id }
+            } else {
+                if self.rng.gen_range(0, 3) < 1 { continue; } else { rock_id }
+            };
+
             // TODO: filter trees/rocks during generation
             let gs = GenStructure::new(pos.extend(z), id);
             gc.structures.push(gs);
