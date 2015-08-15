@@ -50,7 +50,3 @@ def init():
     sign = mk_solid_structure('sign', structures('sign.png'), (1, 1, 1))
     mk_structure_item(sign, 'sign', 'Sign') \
             .recipe('anvil', {'wood': 5})
-
-    junk_img = structures('cave-junk.png')
-    for i in range(3):
-        mk_solid_small('cave_junk/%d' % i, extract(junk_img, (i, 0)))

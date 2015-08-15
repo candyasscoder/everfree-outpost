@@ -4,6 +4,7 @@ from ..core.images import loader
 from ..core.structure import Shape
 from ..core.util import chop_image, chop_image_named, chop_terrain, stack, extract
 
+from .lib.structures import mk_solid_small
 from .lib.terrain import *
 
 
@@ -288,8 +289,69 @@ def mk_cave_top2(top_img, top_cross_img, basename):
     for i, k in enumerate(TERRAIN_KEYS):
         blks.create('%s/%d' % (basename, i), 'floor', dict(bottom=top[k]))
 
+NATURAL_RAMP_PARTS = (
+        (None,          'top_sliced',   None),
+        ('left/0',      'ramp/0',       'right/0'),
+        ('left/1',      'ramp/1',       'right/1'),
+        ('left/2',      'ramp/2',       'right/2'),
+        ('top',         'ramp/3',       None),
+        )
+
+def mk_natural_ramp(ramp_img, cave2_img, floor_imgs, basename):
+    floor_tiles = dict((k, chop_terrain(v)['center/v0']) for k,v in floor_imgs.items())
+    ramp_parts = chop_image_named(ramp_img, NATURAL_RAMP_PARTS)
+    black = cave2_img.getpixel((TILE_SIZE, TILE_SIZE))
+
+    blks = block_builder()
+
+    # Ramp
+    blks.create('%s/ramp/z1' % basename, 'ramp_n',
+            dict(back=ramp_parts['ramp/0'], bottom=ramp_parts['ramp/1']))
+    for floor_name, floor_tile in floor_tiles.items():
+        blks.create('%s/ramp/z0/%s' % (basename, floor_name), 'ramp_n',
+                dict(back=stack(floor_tile, ramp_parts['ramp/2']),
+                    bottom=stack(floor_tile, ramp_parts['ramp/3'])))
+
+    # Back of ramp
+    # 1 is not valid because terrain gen ensures the NW and NE corners are at a
+    # higher elevation (and therefore either cave or black).
+    for nw, ne in ((0, 0), (0, 2), (2, 0), (2, 2)):
+        key = pack4((nw, ne, 1, 1), 3)
+        img = ramp_parts['top_sliced'].copy()
+        if nw == ne == 2:
+            # Keep the horizontal top half from ramp_img.
+            pass
+        else:
+            # Replace top half with black or corner as appropriate.
+            nw_src = black if nw == 0 else cave2_img.crop((64, 64, 80, 80))
+            ne_src = black if ne == 0 else cave2_img.crop((16, 64, 32, 80))
+            img.paste(nw_src, (0, 0, 16, 16))
+            img.paste(ne_src, (16, 0, 32, 16))
+        blks.create('%s/back/%d' % (basename, key), 'solid', dict(top=img))
+
+    # Sides of ramp
+    def do_side(side, nw, ne, black_pos):
+        key = pack4((nw, ne, 1, 1), 3)
+        img = ramp_parts['%s/0' % side].copy()
+        if black_pos is not None:
+            x, y = black_pos
+            img.paste(black, (x, y, x + 16, y + 16))
+        blks.create('%s/%s/%d/z1' % (basename, side, key), 'solid',
+                dict(top=img, front=ramp_parts['%s/1' % side]))
+    do_side('left', 2, 1, None)
+    do_side('left', 0, 1, (0, 0))
+    do_side('right', 2, 1, None)
+    do_side('right', 0, 1, (16, 0))
+
+    # Top of ramp
+    blks.create('%s/top' % basename, 'floor', dict(bottom=ramp_parts['top']))
+
+    return blks
+
+
 def init():
     tiles = loader('tiles')
+    structures = loader('structures')
 
     cave2 = tiles('lpc-cave-walls2.png')
     grass = tiles('lpc-base-tiles/grass.png')
@@ -302,3 +364,11 @@ def init():
     top = tiles('lpc-cave-top.png')
     top_cross = tiles('lpc-cave-top-cross.png')
     mk_cave_top2(top, top_cross, 'cave_top')
+
+
+    junk_img = structures('cave-junk.png')
+    for i in range(3):
+        mk_solid_small('cave_junk/%d' % i, extract(junk_img, (i, 0)))
+
+    floor_imgs = {'grass': grass, 'dirt': dirt}
+    mk_natural_ramp(tiles('outdoor-ramps.png'), cave2, floor_imgs, 'natural_ramp')

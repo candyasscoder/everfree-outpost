@@ -440,3 +440,8 @@ farmland-interior-parts.png:
         tiles.
     derived-from: daneeklu_farming_tilesets/plowed_soil.png
 
+outdoor-ramps.png:
+    title: LPC Outdoor Ramps
+    author: Anonymous, Lanea Zimmerman (AKA Sharm)
+    license: CC-BY-SA 3.0 / GPL 3.0
+    derived-from: lpc-base-tiles/mountains.png
