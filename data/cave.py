@@ -340,8 +340,8 @@ def mk_natural_ramp(ramp_img, cave2_img, floor_imgs, basename):
                 dict(top=img, front=ramp_parts['%s/1' % side]))
     do_side('left', 2, 1, None)
     do_side('left', 0, 1, (0, 0))
-    do_side('right', 2, 1, None)
-    do_side('right', 0, 1, (16, 0))
+    do_side('right', 1, 2, None)
+    do_side('right', 1, 0, (16, 0))
 
     # Top of ramp
     blks.create('%s/top' % basename, 'floor', dict(bottom=ramp_parts['top']))

@@ -168,6 +168,52 @@ impl<'d> Provider<'d> {
             }
         }
 
+        // Natural ramps
+        for &pos in &summ.natural_ramps {
+            info!("placing ramp at {:?}", pos);
+            let base = pos.reduce() - V2::new(3, 3);
+            let layer = pos.z as u8 / 2;
+            let floor_type = if layer == 0 { "grass" } else { "dirt" };
+            for offset in Region::new(scalar(0), scalar(3)).points() {
+                let (cave_key, _) = get_cell_keys(summ, base + offset, layer);
+                info!("  {:?} => {}", offset, cave_key);
+            }
+
+            // Ramp
+            gc.set_block((base + V2::new(1, 1)).extend(pos.z + 1),
+                         block_id!("natural_ramp/ramp/z1"));
+            gc.set_block((base + V2::new(1, 2)).extend(pos.z + 0),
+                         block_id!("natural_ramp/ramp/z0/{}", floor_type));
+
+            // Back of ramp
+            let back_pos = base + V2::new(1, 0);
+            let (cave_key, _) = get_cell_keys(summ, back_pos, layer);
+            gc.set_block(back_pos.extend(pos.z + 1),
+                         block_id!("natural_ramp/back/{}", cave_key));
+            if pos.z + 2 < CHUNK_SIZE {
+                gc.set_block(back_pos.extend(pos.z + 2),
+                             block_id!("natural_ramp/top"));
+            }
+
+            const SIDE_BASE_KEY: u8 = 1*3*3 + 1*3*3*3;
+
+            // Left side
+            let left_pos = base + V2::new(0, 1);
+            let (cave_key, _) = get_cell_keys(summ, left_pos, layer);
+            gc.set_block(left_pos.extend(pos.z + 1),
+                         block_id!("natural_ramp/left/{}/z1", cave_key));
+            gc.set_block(left_pos.extend(pos.z + 0),
+                         block_id!("cave/{}/z0/{}", SIDE_BASE_KEY, floor_type));
+
+            // Right side
+            let right_pos = base + V2::new(2, 1);
+            let (cave_key, _) = get_cell_keys(summ, right_pos, layer);
+            gc.set_block(right_pos.extend(pos.z + 1),
+                         block_id!("natural_ramp/right/{}/z1", cave_key));
+            gc.set_block(right_pos.extend(pos.z + 0),
+                         block_id!("cave/{}/z0/{}", SIDE_BASE_KEY, floor_type));
+        }
+
 
         // Trees/rocks
         let tree_id = template_id!("tree");
