@@ -59,7 +59,7 @@ impl<'a> LocalProperty for Trees<'a> {
     type Summary = ChunkSummary;
     type Temporary = DiskSampler;
 
-    fn init(&mut self) -> DiskSampler {
+    fn init(&mut self, _: &ChunkSummary) -> DiskSampler {
         // min spacing == max spacing == 4 tiles.
         DiskSampler::new(scalar(CHUNK_SIZE * 3), 4, 8)
     }

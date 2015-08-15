@@ -35,7 +35,7 @@ impl LocalProperty for Heightmap {
     type Summary = ChunkSummary;
     type Temporary = DscGrid;
 
-    fn init(&mut self) -> DscGrid {
+    fn init(&mut self, _: &ChunkSummary) -> DscGrid {
         let mut grid = DscGrid::new(scalar(CHUNK_SIZE * 3), CHUNK_BITS as u8);
 
         let super_bounds = Region::<V2>::new(scalar(0), scalar(4));

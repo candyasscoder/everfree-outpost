@@ -38,7 +38,7 @@ impl<'a> LocalProperty for Treasure<'a> {
     type Summary = ChunkSummary;
     type Temporary = DiskSampler;
 
-    fn init(&mut self) -> DiskSampler {
+    fn init(&mut self, _: &ChunkSummary) -> DiskSampler {
         // All treasure so far is 1 tile in size.
         // Note that we currently can't set min_spacing to 1, because 1 / sqrt(2) == 0 (in other
         // words, the grid resolution is not high enough to handle it).

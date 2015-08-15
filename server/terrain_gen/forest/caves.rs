@@ -18,21 +18,18 @@ pub struct Caves<'a> {
     layer: u8,
     level_cutoff: u8,
     heightmap: &'a DscGrid,
-    entrances: &'a [V2],
 }
 
 impl<'a> Caves<'a> {
     pub fn new(rng: StdRng,
                layer: u8,
                level_cutoff: u8,
-               heightmap: &'a DscGrid,
-               entrances: &'a [V2]) -> Caves<'a> {
+               heightmap: &'a DscGrid) -> Caves<'a> {
         Caves {
             rng: rng,
             layer: layer,
             level_cutoff: level_cutoff,
             heightmap: heightmap,
-            entrances: entrances,
         }
     }
 }
@@ -41,7 +38,7 @@ impl<'a> LocalProperty for Caves<'a> {
     type Summary = ChunkSummary;
     type Temporary = CellularGrid;
 
-    fn init(&mut self) -> CellularGrid {
+    fn init(&mut self, summ: &ChunkSummary) -> CellularGrid {
         let mut grid = CellularGrid::new(scalar(CHUNK_SIZE * 3 + 1));
 
         let bounds = grid.bounds();
@@ -57,8 +54,9 @@ impl<'a> LocalProperty for Caves<'a> {
             let rel_pos = pos - scalar(CHUNK_SIZE);
             // Compute "closeness to entrance" metric.  Value decreases linearly with distance from
             // entrance until eventually reaching zero.
-            let entrance_weight = self.entrances.iter()
-                                      .map(|&e| (rel_pos - e).abs().max())
+            let entrance_weight = summ.cave_entrances.iter()
+                                      .filter(|&e| e.z == self.layer as i32 * 2)
+                                      .map(|&e| (rel_pos - e.reduce()).abs().max())
                                       .min()
                                       .map_or(0, |x| cmp::max(0, 8 - x));
             let wall_chance = 5 - entrance_weight;

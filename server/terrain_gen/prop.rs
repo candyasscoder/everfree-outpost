@@ -11,7 +11,8 @@ pub trait LocalProperty {
     type Temporary;
 
     /// Create a new instance of temporary storage for this property.
-    fn init(&mut self) -> Self::Temporary;
+    fn init(&mut self,
+            summ: &Self::Summary) -> Self::Temporary;
 
     /// Load data from an adjacent chunk's summary into temporary storage.
     fn load(&mut self,
@@ -21,7 +22,7 @@ pub trait LocalProperty {
 
     /// Generate data for the current chunk and write it to temporary storage.
     fn generate(&mut self,
-                          tmp: &mut Self::Temporary);
+                tmp: &mut Self::Temporary);
 
     /// Copy data from temporary storage into the summary for the current chunk.
     fn save(&mut self,
@@ -33,7 +34,15 @@ pub trait LocalProperty {
                      cache: &mut Cache<Self::Summary>,
                      pid: Stable<PlaneId>,
                      cpos: V2) -> Self::Temporary {
-        let mut tmp = self.init();
+        let mut tmp = {
+            let summ =
+                if let Ok(_) = cache.load(pid, cpos) {
+                    cache.get(pid, cpos)
+                } else {
+                    &*cache.create(pid, cpos)
+                };
+            self.init(summ)
+        };
 
         for &dir in &DIRS {
             unwrap_or!(cache.load(pid, cpos + dir).ok(), continue);
@@ -43,13 +52,9 @@ pub trait LocalProperty {
 
         self.generate(&mut tmp);
 
-        let summ =
-            if let Ok(_) = cache.load(pid, cpos) {
-                cache.get_mut(pid, cpos)
-            } else {
-                cache.create(pid, cpos)
-            };
-        self.save(&tmp, summ);
+        // Summary was previously loaded.  We assume it's still around (requires cache size of at
+        // least 9).
+        self.save(&tmp, cache.get_mut(pid, cpos));
 
         tmp
     }

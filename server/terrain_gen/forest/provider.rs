@@ -84,8 +84,7 @@ impl<'d> Provider<'d> {
             let cave_grid = Caves::new(self.rng.gen(),
                                        layer,
                                        layer_cutoff,
-                                       &height_grid,
-                                       &[])
+                                       &height_grid)
                                 .generate_into(&mut self.cache, pid, cpos);
 
             Treasure::new(self.rng.gen(),
@@ -150,10 +149,23 @@ impl<'d> Provider<'d> {
                                  block_id!("cave_top/{}", top_key));
                 }
             }
-
-            // TODO: entrance
         }
 
+        // Cave entrances
+        for &pos in &summ.cave_entrances {
+            let base = pos.reduce() - V2::new(3, 1);
+            let layer = pos.z as u8 / 2;
+            let floor_type = if layer == 0 { "grass" } else { "dirt" };
+
+            for (i, &side) in ["left", "center", "right"].iter().enumerate() {
+                let side_pos = base + V2::new(i as i32, 0);
+                let (cave_key, _) = get_cell_keys(summ, side_pos, layer);
+                gc.set_block(side_pos.extend(pos.z + 0),
+                             block_id!("cave/entrance/{}/{}/z0/{}", side, cave_key, floor_type));
+                gc.set_block(side_pos.extend(pos.z + 1),
+                             block_id!("cave/entrance/{}/{}/z1", side, cave_key));
+            }
+        }
 
 
         // Trees/rocks

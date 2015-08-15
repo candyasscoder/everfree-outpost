@@ -73,7 +73,7 @@ impl<'a> LocalProperty for CliffVaults<'a> {
     type Summary = ChunkSummary;
     type Temporary = Temporary;
 
-    fn init(&mut self) -> Temporary {
+    fn init(&mut self, _: &ChunkSummary) -> Temporary {
         Temporary {
             loaded_chunks: [false; 3 * 3],
             pattern_grid: PatternGrid::new(scalar(CHUNK_SIZE * 3 + 1), 2, V2::new(4, 4)),
@@ -104,7 +104,7 @@ impl<'a> LocalProperty for CliffVaults<'a> {
             });
             let ramp_pos = self.rng.choose(&candidates).map(|&x| x);
             if let Some(pos) = ramp_pos {
-                tmp.ramps.push(pos.extend(layer as i32 * 2));
+                tmp.ramps.push((pos - scalar(CHUNK_SIZE)).extend(layer as i32 * 2));
             }
 
             let ramp_area = ramp_pos.map(|pos| Region::new(pos - V2::new(3, 3), pos));
@@ -121,7 +121,7 @@ impl<'a> LocalProperty for CliffVaults<'a> {
             });
             let entrance_pos = self.rng.choose(&candidates).map(|&x| x);
             if let Some(pos) = entrance_pos {
-                tmp.entrances.push(pos.extend(layer as i32 * 2));
+                tmp.entrances.push((pos - scalar(CHUNK_SIZE)).extend(layer as i32 * 2));
             }
         }
     }
