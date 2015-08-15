@@ -19,6 +19,7 @@
     unsafe_no_drop_flag,
     vec_push_all,
     vecmap,
+    zero_one,
 )]
 
 #[macro_use] extern crate bitflags;

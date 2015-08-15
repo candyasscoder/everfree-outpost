@@ -9,6 +9,7 @@ mod heightmap;
 mod caves;
 mod trees;
 mod treasure;
+mod cliff_vaults;
 mod provider;
 
 pub use self::provider::Provider;

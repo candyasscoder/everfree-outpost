@@ -163,3 +163,16 @@ pub unsafe fn transmute_slice_mut<'a, T, U>(x: &'a mut [T]) -> &'a mut [U] {
         len: x.len() * mem::size_of::<T>() / mem::size_of::<U>(),
     })
 }
+
+
+/// Filter a `Vec<T>` in-place, not preserving order.
+pub fn filter_in_place<T, F: FnMut(&T) -> bool>(vec: &mut Vec<T>, mut f: F) {
+    let mut i = 0;
+    while i < vec.len() {
+        if f(&vec[i]) {
+            i += 1;
+        } else {
+            vec.swap_remove(i);
+        }
+    }
+}
