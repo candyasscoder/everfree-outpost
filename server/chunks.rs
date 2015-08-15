@@ -118,20 +118,13 @@ pub trait Fragment<'d> {
 
 
 struct Lifecycle {
-    // Keep two separate refcounts for each chunk.  We do this to deal with the fact that building
-    // the cached terrain for a chunk requires access not only to that chunk but also to its three
-    // neighbors to the north and west.  `ref_count > 0` means the chunk is loaded for some reason.
-    // `user_ref_count > 0` means the chunk is loaded because some external user wants the cached
-    // terrain to be availaible (so the chunk and its three neighbors must all be loaded).
     ref_count: HashMap<(PlaneId, V2), u32>,
-    user_ref_count: HashMap<(PlaneId, V2), u32>,
 }
 
 impl Lifecycle {
     pub fn new() -> Lifecycle {
         Lifecycle {
             ref_count: HashMap::new(),
-            user_ref_count: HashMap::new(),
         }
     }
 
@@ -140,7 +133,7 @@ impl Lifecycle {
                      cpos: V2,
                      mut load: F) -> bool
             where F: FnMut(PlaneId, V2) {
-        let first = match self.user_ref_count.entry((pid, cpos)) {
+        let first = match self.ref_count.entry((pid, cpos)) {
             Vacant(e) => {
                 e.insert(1);
                 debug!("retain: 1 users of {:?} {:?}", pid, cpos);
@@ -154,9 +147,7 @@ impl Lifecycle {
         };
 
         if first {
-            for subpos in Region::around(cpos, 1).points() {
-                self.retain_inner(pid, subpos, &mut load);
-            }
+            load(pid, cpos);
         }
 
         first
@@ -167,7 +158,7 @@ impl Lifecycle {
                       cpos: V2,
                       mut unload: F) -> bool
             where F: FnMut(PlaneId, V2) {
-        let last = if let Occupied(mut e) = self.user_ref_count.entry((pid, cpos)) {
+        let last = if let Occupied(mut e) = self.ref_count.entry((pid, cpos)) {
             *e.get_mut() -= 1;
             debug!("release: {} users of {:?} {:?}", *e.get(), pid, cpos);
             if *e.get() == 0 {
@@ -182,55 +173,9 @@ impl Lifecycle {
         };
 
         if last {
-            for subpos in Region::around(cpos, 1).points() {
-                self.release_inner(pid, subpos, &mut unload);
-            }
+            unload(pid, cpos);
         }
 
         last
-    }
-
-    pub fn retain_inner<F>(&mut self,
-                           pid: PlaneId,
-                           cpos: V2,
-                           load: &mut F)
-            where F: FnMut(PlaneId, V2) {
-        let first = match self.ref_count.entry((pid, cpos)) {
-            Vacant(e) => {
-                e.insert(1);
-                true
-            },
-            Occupied(e) => {
-                *e.into_mut() += 1;
-                false
-            }
-        };
-
-        if first {
-            (*load)(pid, cpos);
-        }
-    }
-
-    pub fn release_inner<F>(&mut self,
-                            pid: PlaneId,
-                            cpos: V2,
-                            unload: &mut F)
-            where F: FnMut(PlaneId, V2) {
-        let last = if let Occupied(mut e) = self.ref_count.entry((pid, cpos)) {
-            *e.get_mut() -= 1;
-            if *e.get() == 0 {
-                e.remove();
-                true
-            } else {
-                false
-            }
-        } else {
-            panic!("tried to release chunk {:?} {:?}, but its ref_count is already zero",
-                   pid, cpos);
-        };
-
-        if last {
-            (*unload)(pid, cpos);
-        }
     }
 }
