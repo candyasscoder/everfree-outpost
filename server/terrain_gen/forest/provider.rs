@@ -153,6 +153,7 @@ impl<'d> Provider<'d> {
 
         // Cave entrances
         for &pos in &summ.cave_entrances {
+            info!("placing entrance at {:?}", pos);
             let base = pos.reduce() - V2::new(3, 1);
             let layer = pos.z as u8 / 2;
             let floor_type = if layer == 0 { "grass" } else { "dirt" };

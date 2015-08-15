@@ -39,7 +39,12 @@ pub struct Temporary {
 
 impl Temporary {
     fn check_placement(&self, pos: V2, size: V2) -> bool {
-        let area = Region::new(pos - size, pos);
+        // `expand` before the check means we not only reject placement that overlaps other chunks,
+        // but also placement that is too close to the edge of the center chunk.  This is a
+        // temporary measure to deal with the fact that cave entrances placed right at the chunk
+        // edge may not get a chance to influence cave generation (and placing an entrance where
+        // there is no cave causes a crash). 
+        let area = Region::new(pos - size, pos).expand(scalar(1));
         let chunk_area = area.div_round(CHUNK_SIZE);
         if chunk_area != Region::new(scalar(1), scalar(2)) {
             // TODO: For now, just reject any candidate that extends beyond the center
