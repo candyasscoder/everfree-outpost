@@ -77,14 +77,11 @@ impl<'d> Provider<'d> {
         for layer in 0 .. CHUNK_SIZE as u8 / 2 {
             let layer_cutoff = layer * 2 + 100;
 
-            let opt_entrance = self.place_entrance(&height_grid,
-                                                   layer_cutoff);
-
             let cave_grid = Caves::new(self.rng.gen(),
                                        layer,
                                        layer_cutoff,
                                        &height_grid,
-                                       opt_entrance.as_slice())
+                                       &[])
                                 .generate_into(&mut self.cache, pid, cpos);
 
             Treasure::new(self.rng.gen(),
@@ -192,21 +189,6 @@ impl<'d> Provider<'d> {
         gc
     }
 
-    fn place_entrance(&mut self, height_grid: &DscGrid, cutoff: u8) -> Option<V2> {
-        // Entrance requirements:
-        //  >= >  >  >=
-        //  == == == ==
-        const ENTRANCE_PATTERN: u32 = (0b_00_01_01_00 << 10) |
-                                      (0b_00_00_00_00 <<  0);
-        const ENTRANCE_MASK: u32 =    (0b_10_11_11_10 << 10) |
-                                      (0b_11_11_11_11 <<  0);
-        let candidates = find_pattern(height_grid, cutoff, ENTRANCE_PATTERN, ENTRANCE_MASK);
-        // Results listed in `candidates` are "x".  Translate to get "*".
-        // _ * _ _
-        // _ _ _ x
-        self.rng.choose(&candidates).map(|&pos| pos - V2::new(2, 1))
-    }
-
     /*
     fn fill_layer(&mut self,
                   gc: &mut GenChunk,
@@ -286,7 +268,7 @@ impl<'d> Provider<'d> {
     */
 }
 
-fn cutoff(layer: u8) -> u8 {
+pub fn cutoff(layer: u8) -> u8 {
     layer * 2 + 100
 }
 
@@ -316,53 +298,6 @@ fn get_cell_keys(summ: &ChunkSummary, pos: V2, layer: u8) -> (u8, u8) {
 
 const OUTSIDE_KEY: u8 = 1 + 1*3 + 1*3*3 + 1*3*3*3;
 const CAVE_KEY: u8 = 2 + 2*3 + 2*3*3 + 2*3*3*3;
-
-fn find_pattern(grid: &DscGrid, cutoff: u8, bits: u32, mask: u32) -> Vec<V2> {
-    let base: V2 = scalar(CHUNK_SIZE);
-    let get = |x, y| {
-        if y < 0 {
-            return 0;
-        }
-        let pos = base + V2::new(x, y);
-        let val = grid.get_value(pos).unwrap();
-
-        let above = val >= cutoff;
-        let below = val + 2 < cutoff;
-        (above as u32) | ((below as u32) << 1)
-    };
-
-    // Accumulator records a 4x3 region above and to the left of the current point.  It
-    // consists of three sections, each containing four 2-bit fields plus 2 bits of padding.
-    // The lower bit of each field is a 1 if the height of the corresponding cell is above the
-    // current level, and the upper bit is 1 if it is strictly below the current level.  If
-    // both are zero, then the cell is exactly on the current level.
-    //
-    //            30             20             10              0 
-    //   high ->  __ __ AA BB CC DD __ EE FF GG HH __ II JJ KK LL  <- low
-    //
-    // Grid:
-    //      ABCD
-    //      EFGH
-    //      IJKL <- current cell
-    let mut acc = 0_u32;
-    let mut result = Vec::new();
-
-    for y in 0 .. CHUNK_SIZE + 1 {
-        acc = 0;
-        for x in 0 .. CHUNK_SIZE + 1 {
-            acc <<= 2;
-            acc &= !((3 << 8) | (3 << 18) | (3 << 28));    // Clear padding.
-            acc |= get(x, y - 2) << 20;
-            acc |= get(x, y - 1) << 10;
-            acc |= get(x, y - 0) <<  0;
-
-            if x >= 3 && y >= 1 && acc & mask == bits {
-                result.push(V2::new(x, y));
-            }
-        }
-    }
-    result
-}
 
 /*
         let seed: (u32, u32, u32, u32) = self.rng.gen();

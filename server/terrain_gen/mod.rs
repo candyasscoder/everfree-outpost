@@ -32,6 +32,7 @@ mod cache;
 mod dsc;
 mod cellular;
 mod disk_sampler2;
+mod pattern;
 
 mod forest;
 
