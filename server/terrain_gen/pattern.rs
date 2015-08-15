@@ -58,13 +58,12 @@ impl<T: BitNum> PatternGrid<T> {
         }
 
         let row_mask = (<T as One>::one() << self.row_bits) - One::one();
-        let pattern_mask = (<T as One>::one() << self.pattern_bits) - One::one();
         for x in 0 .. self.size.x {
             let mut acc: T = Zero::zero();
             for y in 0 .. self.size.y {
                 let pos = V2::new(x, y);
                 acc = (acc << self.row_bits) | (tmp[bounds.index(pos)] & row_mask);
-                self.arr[bounds.index(pos)] = acc & pattern_mask;
+                self.arr[bounds.index(pos)] = acc;
             }
         }
     }

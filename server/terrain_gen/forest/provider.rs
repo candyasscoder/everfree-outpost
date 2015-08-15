@@ -78,9 +78,6 @@ impl<'d> Provider<'d> {
         CliffVaults::new(self.rng.gen(), &height_grid)
             .generate_into(&mut self.cache, pid, cpos);
 
-        info!("{:?}: entrances = {:?}", cpos,
-              self.cache.get(pid, cpos).cave_entrances);
-
         for layer in 0 .. CHUNK_SIZE as u8 / 2 {
             let layer_cutoff = layer * 2 + 100;
 

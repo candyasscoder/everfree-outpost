@@ -22,6 +22,7 @@ pub struct ChunkSummary {
     pub heightmap_constraints: Vec<(V2, (u8, u8))>,
 
     pub cave_entrances: Vec<V3>,
+    pub natural_ramps: Vec<V3>,
 
     /// A bit for each vertex, 0 for cave interior and 1 for walls (or "not inside a cave").  This
     /// field is private because callers should use the methods returning `BitSlice` rather than
@@ -79,6 +80,7 @@ impl Summary for ChunkSummary {
             heightmap: unsafe { mem::zeroed() },
             heightmap_constraints: Vec::new(),
             cave_entrances: Vec::new(),
+            natural_ramps: Vec::new(),
             cave_walls: unsafe { mem::zeroed() },
             cave_wall_constraints: vec_per_layer(),
             tree_offsets: Vec::new(),
@@ -90,6 +92,7 @@ impl Summary for ChunkSummary {
         try!(f.write_all(&self.heightmap));
         try!(unsafe { write_vec(&mut f, &self.heightmap_constraints) });
         try!(unsafe { write_vec(&mut f, &self.cave_entrances) });
+        try!(unsafe { write_vec(&mut f, &self.natural_ramps) });
 
         for i in 0 .. self.cave_walls.len() {
             try!(f.write_all(&self.cave_walls[i]));
@@ -111,6 +114,7 @@ impl Summary for ChunkSummary {
         try!(f.read_exact(&mut summary.heightmap));
         summary.heightmap_constraints = try!(unsafe { read_vec(&mut f) });
         summary.cave_entrances = try!(unsafe { read_vec(&mut f) });
+        summary.natural_ramps = try!(unsafe { read_vec(&mut f) });
 
         for i in 0 .. summary.cave_walls.len() {
             try!(f.read_exact(&mut summary.cave_walls[i]));

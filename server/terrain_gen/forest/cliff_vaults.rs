@@ -37,6 +37,38 @@ pub struct Temporary {
     ramps: Vec<V3>,
 }
 
+impl Temporary {
+    fn check_placement(&self, pos: V2, size: V2) -> bool {
+        let area = Region::new(pos - size, pos);
+        let chunk_area = area.div_round(CHUNK_SIZE);
+        if chunk_area != Region::new(scalar(1), scalar(2)) {
+            // TODO: For now, just reject any candidate that extends beyond the center
+            // chunk.  Later, fix to allow candidates that extend into not-yet-generated
+            // chunks, and add extra constraints as needed (like for trees).
+            return false;
+        }
+        /*
+        if !chunk_area.contains(scalar(1)) {
+            // Discard candidates that don't at least partially overlap the center chunk.
+            return false;
+        }
+
+        let chunk_bounds = Region::new(scalar(0), scalar(3));
+        for cpos in chunk_area.points() {
+            if self.loaded_chunks[chunk_bounds.index(cpos)] {
+                // We can't modify already-generated chunks, so discard candidates that
+                // would extend into those chunks.
+                return false;
+            }
+
+            if 
+        }
+        */
+
+        true
+    }
+}
+
 impl<'a> LocalProperty for CliffVaults<'a> {
     type Summary = ChunkSummary;
     type Temporary = Temporary;
@@ -44,7 +76,7 @@ impl<'a> LocalProperty for CliffVaults<'a> {
     fn init(&mut self) -> Temporary {
         Temporary {
             loaded_chunks: [false; 3 * 3],
-            pattern_grid: PatternGrid::new(scalar(CHUNK_SIZE * 3 + 1), 2, V2::new(4, 3)),
+            pattern_grid: PatternGrid::new(scalar(CHUNK_SIZE * 3 + 1), 2, V2::new(4, 4)),
             entrances: Vec::new(),
             ramps: Vec::new(),
         }
@@ -66,39 +98,29 @@ impl<'a> LocalProperty for CliffVaults<'a> {
                 (above as u32) | ((below as u32) << 1)
             });
 
+            let mut candidates = tmp.pattern_grid.find(RAMP_PATTERN, RAMP_MASK);
+            util::filter_in_place(&mut candidates, |&pos| {
+                tmp.check_placement(pos, V2::new(3, 3))
+            });
+            let ramp_pos = self.rng.choose(&candidates).map(|&x| x);
+            if let Some(pos) = ramp_pos {
+                tmp.ramps.push(pos.extend(layer as i32 * 2));
+            }
+
+            let ramp_area = ramp_pos.map(|pos| Region::new(pos - V2::new(3, 3), pos));
+
             let mut candidates = tmp.pattern_grid.find(ENTRANCE_PATTERN, ENTRANCE_MASK);
             util::filter_in_place(&mut candidates, |&pos| {
-                let size = V2::new(3, 1);
-                let area = Region::new(pos - size, pos);
-                let chunk_area = area.div_round(CHUNK_SIZE);
-                if chunk_area != Region::new(scalar(1), scalar(2)) {
-                    // TODO: For now, just reject any candidate that extends beyond the center
-                    // chunk.  Later, fix to allow candidates that extend into not-yet-generated
-                    // chunks, and add extra constraints as needed (like for trees).
-                    return false;
-                }
-                /*
-                if !chunk_area.contains(scalar(1)) {
-                    // Discard candidates that don't at least partially overlap the center chunk.
-                    return false;
-                }
-
-                let chunk_bounds = Region::new(scalar(0), scalar(3));
-                for cpos in chunk_area.points() {
-                    if tmp.loaded_chunks[chunk_bounds.index(cpos)] {
-                        // We can't modify already-generated chunks, so discard candidates that
-                        // would extend into those chunks.
+                if let Some(ramp_area) = ramp_area {
+                    let entrance_area = Region::new(pos - V2::new(3, 1), pos);
+                    if entrance_area.overlaps(ramp_area) {
                         return false;
                     }
-
-                    if 
                 }
-                */
-
-                true
+                tmp.check_placement(pos, V2::new(3, 1))
             });
-
-            if let Some(&pos) = self.rng.choose(&candidates) {
+            let entrance_pos = self.rng.choose(&candidates).map(|&x| x);
+            if let Some(pos) = entrance_pos {
                 tmp.entrances.push(pos.extend(layer as i32 * 2));
             }
         }
@@ -106,6 +128,7 @@ impl<'a> LocalProperty for CliffVaults<'a> {
 
     fn save(&mut self, tmp: &Temporary, summ: &mut ChunkSummary) {
         summ.cave_entrances = tmp.entrances.clone();
+        summ.natural_ramps = tmp.ramps.clone();
     }
 }
 
@@ -116,6 +139,20 @@ const ENTRANCE_PATTERN: u32 = (0b_00_01_01_00 <<  8) |
                               (0b_00_00_00_00 <<  0);
 const ENTRANCE_MASK: u32 =    (0b_10_11_11_10 <<  8) |
                               (0b_11_11_11_11 <<  0);
+
+// Entrance requirements:
+//  *  >  >  *
+//  >  == == >
+//  == == == ==
+//  *  == == *
+const RAMP_PATTERN: u32 = (0b_00_01_01_00 << 24) |
+                          (0b_01_00_00_01 << 16) |
+                          (0b_00_00_00_00 <<  8) |
+                          (0b_00_00_00_00 <<  0);
+const RAMP_MASK: u32 =    (0b_00_11_11_00 << 24) |
+                          (0b_11_11_11_11 << 16) |
+                          (0b_11_11_11_11 <<  8) |
+                          (0b_00_11_11_00 <<  0);
 
 fn find_pattern(grid: &DscGrid, cutoff: u8, bits: u32, mask: u32) -> Vec<V2> {
     let base: V2 = scalar(CHUNK_SIZE);
