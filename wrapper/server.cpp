@@ -15,7 +15,8 @@ server::server(io_service& ios,
       control_(new control(*this, ios, control_addr)),
       repl_(new repl(*this, ios, repl_addr)),
       signals_(new signals(*this, ios)),
-      websocket_(new websocket(*this, ios, ws_port)) {
+      websocket_(new websocket(*this, ios, ws_port)),
+      restarting_(false) {
     backend_->start();
 }
 
@@ -38,8 +39,8 @@ void server::handle_backend_response(uint16_t client_id, vector<uint8_t> msg) {
 }
 
 void server::handle_backend_shutdown() {
-    if (restarting) {
-        restarting = false;
+    if (restarting_) {
+        restarting_ = false;
         backend_->start();
         backend_->resume();
     } else {
@@ -57,7 +58,7 @@ void server::handle_control_command(uint16_t op) {
     backend_->write(0, move(command));
 
     if (op == opcode::OP_RESTART_SERVER || op == opcode::OP_RESTART_BOTH) {
-        restarting = true;
+        restarting_ = true;
         backend_->suspend();
     }
 }
