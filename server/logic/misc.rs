@@ -1,5 +1,6 @@
-use physics::CHUNK_SIZE;
+use std::str::FromStr;
 
+use physics::CHUNK_SIZE;
 use types::*;
 
 use world::{self, Hooks};
@@ -225,3 +226,82 @@ const INTERIOR_NAMES: [&'static str; 47] = [
     "nswe/1111",
 ];
 
+
+
+pub fn set_cave<'d, F>(wf: &mut F,
+                       pid: PlaneId,
+                       center: V3) -> world::OpResult<()>
+        where F: world::Fragment<'d> {
+    {
+        let mut p = unwrap!(wf.get_plane_mut(pid));
+        try!(set_cave_single(&mut p, center + V3::new( 0,  0, 0), [true,  true,  true,  true]));
+
+        try!(set_cave_single(&mut p, center + V3::new( 1,  0, 0), [true,  false, false, true]));
+        try!(set_cave_single(&mut p, center + V3::new( 1,  1, 0), [true,  false, false, false]));
+        try!(set_cave_single(&mut p, center + V3::new( 0,  1, 0), [true,  true,  false, false]));
+        try!(set_cave_single(&mut p, center + V3::new(-1,  1, 0), [false, true,  false, false]));
+        try!(set_cave_single(&mut p, center + V3::new(-1,  0, 0), [false, true,  true,  false]));
+        try!(set_cave_single(&mut p, center + V3::new(-1, -1, 0), [false, false, true,  false]));
+        try!(set_cave_single(&mut p, center + V3::new( 0, -1, 0), [false, false, true,  true]));
+        try!(set_cave_single(&mut p, center + V3::new( 1, -1, 0), [false, false, false, true]));
+    }
+
+    let update_region = Region::new(center - V3::new(1, 1, 0),
+                                    center + V3::new(2, 2, 1));
+    for cpos in update_region.reduce().div_round_signed(CHUNK_SIZE).points() {
+        let tcid = unwrap_or!(wf.world().plane(pid).get_terrain_chunk(cpos), continue).id();
+        wf.with_hooks(|h| h.on_terrain_chunk_update(tcid));
+    }
+    Ok(())
+}
+
+pub fn set_cave_single<'a, 'd, F>(p: &mut ObjectRefMut<'a, 'd, world::Plane, F>,
+                                  pos: V3,
+                                  set_corners: [bool; 4]) -> world::OpResult<()>
+        where F: world::Fragment<'d> {
+    let block_data = &p.world().data().block_data;
+    let mut tc = unwrap!(p.get_terrain_chunk_mut(pos.reduce().div_floor(scalar(CHUNK_SIZE))));
+    let idx = tc.bounds().index(pos);
+    let old_name = block_data.name(tc.blocks()[idx]);
+
+    let mut cave_key_str = "";
+    let mut floor_type = "";
+    {
+        // Match against the pattern: cave/<key>/z0/<floor_type>
+        // We `return Ok(())` if this fails anywhere, since that just means the player is trying to
+        // mine the wrong type of block.
+        let mut iter = old_name.split("/");
+        if unwrap_or!(iter.next(), return Ok(())) != "cave" {
+            return Ok(());
+        }
+        cave_key_str = unwrap_or!(iter.next(), return Ok(()));
+        if unwrap_or!(iter.next(), return Ok(())) != "z0" {
+            return Ok(());
+        }
+        floor_type = unwrap_or!(iter.next(), return Ok(()));
+        if iter.next().is_some() {
+            return Ok(());
+        }
+    }
+    // After this, we use `unwrap!` because the only blocks matching the pattern should be ones
+    // with a properly constructed name.
+
+    let old_key: u8 = unwrap!(FromStr::from_str(cave_key_str).ok(), return Ok(()));
+    let mut mul = 1;
+    let mut new_key = 0;
+    for &set in &set_corners {
+        let old_val = old_key / mul % 3;
+        let new_val = if set && old_val == 0 { 2 } else { old_val };
+        new_key += new_val * mul;
+        mul *= 3;
+    }
+
+    let z0_idx = idx;
+    let z1_idx = tc.bounds().index(pos + V3::new(0, 0, 1));
+    tc.blocks_mut()[z0_idx] = unwrap!(block_data.find_id(
+            &format!("cave/{}/z0/{}", new_key, floor_type)));
+    tc.blocks_mut()[z1_idx] = unwrap!(block_data.find_id(
+            &format!("cave/{}/z1", new_key)));
+
+    Ok(())
+}

@@ -496,6 +496,12 @@ impl Userdata for Plane {
                 logic::misc::clear_block_interior(&mut wf, plane.id, pos, &base, new_center_id)
             }
 
+            fn set_cave(!full wf: WorldFragment,
+                        plane: Plane,
+                        pos: V3) -> StrResult<()> {
+                logic::misc::set_cave(&mut wf, plane.id, pos)
+            }
+
             fn get_block(!partial w: &world::World,
                          plane: Plane,
                          pos: V3) -> Option<String> {
