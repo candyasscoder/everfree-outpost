@@ -1,10 +1,13 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::io;
+use std::mem;
+use std::raw;
 use time;
 
 use types::Time;
 
+pub use self::bit_slice::BitSlice;
 pub use self::bytes::Bytes;
 pub use self::convert::Convert;
 pub use self::cursor::Cursor;
@@ -17,6 +20,7 @@ pub use self::str_error::{StrError, StrResult};
 pub use self::str_error::{StringError, StringResult};
 
 #[macro_use] pub mod str_error;
+pub mod bit_slice;
 pub mod bytes;
 pub mod convert;
 pub mod cursor;
@@ -142,5 +146,33 @@ impl<R: io::Read> ReadExact for R {
             base += n;
         }
         Ok(())
+    }
+}
+
+
+pub unsafe fn transmute_slice<'a, T, U>(x: &'a [T]) -> &'a [U] {
+    mem::transmute(raw::Slice {
+        data: x.as_ptr() as *const U,
+        len: x.len() * mem::size_of::<T>() / mem::size_of::<U>(),
+    })
+}
+
+pub unsafe fn transmute_slice_mut<'a, T, U>(x: &'a mut [T]) -> &'a mut [U] {
+    mem::transmute(raw::Slice {
+        data: x.as_ptr() as *const U,
+        len: x.len() * mem::size_of::<T>() / mem::size_of::<U>(),
+    })
+}
+
+
+/// Filter a `Vec<T>` in-place, not preserving order.
+pub fn filter_in_place<T, F: FnMut(&T) -> bool>(vec: &mut Vec<T>, mut f: F) {
+    let mut i = 0;
+    while i < vec.len() {
+        if f(&vec[i]) {
+            i += 1;
+        } else {
+            vec.swap_remove(i);
+        }
     }
 }

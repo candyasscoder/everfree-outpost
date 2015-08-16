@@ -11,7 +11,8 @@ use types::*;
 use data::Data;
 use util::Convert;
 use world;
-use world::{EntityAttachment, StructureAttachment, StructureFlags, InventoryAttachment};
+use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
+use world::{TerrainChunkFlags, StructureFlags};
 use world::object::*;
 use world::ops;
 
@@ -299,6 +300,10 @@ impl<R: io::Read> ObjectReader<R> {
 
                 tc.plane = plane;
                 tc.cpos = cpos;
+
+                if self.file_version > 4 {
+                    tc.flags = TerrainChunkFlags::from_bits_truncate(try!(self.r.read()));
+                }
 
                 // Read saved BlockIds into tc.blocks.
                 let byte_len = tc.blocks.len() * mem::size_of::<BlockId>();

@@ -360,7 +360,7 @@ function maybeRegister(info, next) {
         last_name = name;
 
         var appearance = calcAppearance(app_info);
-        Config.last_appearance.set(app_info);
+        saveAppearance(app_info);
         conn.onRegisterResult = handle_result;
         conn.sendRegister(name,
                           secret,
@@ -485,6 +485,19 @@ function calcAppearance(a) {
         (a.blue << 0);
 
     return appearance;
+}
+
+function saveAppearance(a) {
+    Config.last_appearance.set({
+        'eyes': a.eyes,
+        'tail': a.tail,
+        'mane': a.mane,
+        'sex': a.sex,
+        'tribe': a.tribe,
+        'red': a.red,
+        'green': a.green,
+        'blue': a.blue,
+    });
 }
 
 function drawPony(ctx, app_info) {

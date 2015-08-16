@@ -50,5 +50,3 @@ def init():
     sign = mk_solid_structure('sign', structures('sign.png'), (1, 1, 1))
     mk_structure_item(sign, 'sign', 'Sign') \
             .recipe('anvil', {'wood': 5})
-
-

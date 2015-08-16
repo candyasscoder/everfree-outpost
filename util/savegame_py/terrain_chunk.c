@@ -26,6 +26,7 @@ typedef struct _TerrainChunk {
     uint64_t stable_id;
     PyObject* extra;
 
+    uint32_t flags;
     PyObject* blocks;
 
     PyObject* child_structures;
@@ -41,6 +42,7 @@ static PyMemberDef TerrainChunk_members[] = {
     {"version", T_INT, offsetof(TerrainChunk, version), 0, NULL},
     {"stable_id", T_ULONGLONG, offsetof(TerrainChunk, stable_id), 0, NULL},
     {"extra", T_OBJECT, offsetof(TerrainChunk, extra), 0, NULL},
+    {"flags", T_UINT, offsetof(TerrainChunk, flags), 0, NULL},
     {"blocks", T_OBJECT, offsetof(TerrainChunk, blocks), 0, NULL},
     {"child_structures", T_OBJECT, offsetof(TerrainChunk, child_structures), 0, NULL},
     {NULL}
@@ -157,6 +159,10 @@ TerrainChunk* terrain_chunk_read(Reader* r, int version) {
     FAIL_IF(read_register_object(r, tc->save->save_id, (PyObject*)tc) < 0);
     READ(tc->stable_id);
 
+
+    if (version >= 5) {
+        READ(tc->flags);
+    }
 
     uint16_t buf[1 << (3 * CHUNK_BITS)];
     READ(buf);

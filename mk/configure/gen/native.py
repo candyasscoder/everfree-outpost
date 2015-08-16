@@ -11,7 +11,7 @@ def rules(i):
             '-L $b_native',
             maybe('-L %s', i.rust_extra_libdir),
             i.rust_lib_externs,
-            cond(i.debug, '', '-C opt-level=3'),
+            cond(i.debug, '-g', '-C opt-level=3'),
             )
 
     common_cflags = join(

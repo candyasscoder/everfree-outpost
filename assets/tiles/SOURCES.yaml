@@ -316,6 +316,13 @@ lpc-watergrass-cross.png: &watergrass-cross
     derived-from: "lpc-base-tiles/watergrass.png"
 lpc-watergrass-cross.xcf: *watergrass-cross
 
+lpc-dirt2-cross.png: &dirt2-cross
+    title: LPC dirt2 Diagonal Crossing
+    author: Lanea Zimmerman (AKA Sharm)
+    license: CC-BY-SA 3.0 / GPL 3.0
+    derived-from: "lpc-base-tiles/dirt2.png"
+lpc-dirt2-cross.xcf: *dirt2-cross
+
 lpc-cave-walls.png: &cave-walls
     title: LPC Cave Walls
     author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
@@ -328,6 +335,8 @@ lpc-cave-walls.xcf: *cave-walls
 
 lpc-cave-top.png: *cave-walls
 lpc-cave-top-cross.png: *cave-walls
+
+lpc-cave-walls2.png: *cave-walls
 
 lpc-cave-inside.png:
     title: LPC Cave Interior
@@ -431,3 +440,8 @@ farmland-interior-parts.png:
         tiles.
     derived-from: daneeklu_farming_tilesets/plowed_soil.png
 
+outdoor-ramps.png:
+    title: LPC Outdoor Ramps
+    author: Anonymous, Lanea Zimmerman (AKA Sharm)
+    license: CC-BY-SA 3.0 / GPL 3.0
+    derived-from: lpc-base-tiles/mountains.png

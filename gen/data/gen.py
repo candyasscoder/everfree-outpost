@@ -22,7 +22,7 @@ def postprocess(b):
     id_maps = IdMaps(
         util.assign_ids(b.structures),
         util.assign_ids(b.tiles, {'empty'}),
-        util.assign_ids(b.blocks, {'empty'}),
+        util.assign_ids(b.blocks, {'empty', 'placeholder'}),
         util.assign_ids(b.items, {'none'}),
         util.assign_ids(b.recipes),
         util.assign_ids(b.animations),

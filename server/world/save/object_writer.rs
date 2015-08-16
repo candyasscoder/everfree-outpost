@@ -185,6 +185,8 @@ impl<W: io::Write, H: WriteHooks> ObjectWriter<W, H> {
 
         // Don't write `plane` or `cpos`.  These will be reconstructed from metadata.
 
+        try!(self.w.write(t.flags.bits()));
+
         // Body - block data
         let len = t.blocks.len();
         let byte_len = len * mem::size_of::<BlockId>();

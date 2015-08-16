@@ -3,18 +3,23 @@
 #![allow(dead_code)]
 
 #![feature(
+    as_slice,   // Option::as_slice
     convert,    // OsStr::to_cstring
     core,
     filling_drop,
     fnbox,
+    iter_cmp,
     mpsc_select,
     num_bits_bytes,
     raw,
+    scoped,
+    step_by,
     trace_macros,
     unboxed_closures,
     unsafe_no_drop_flag,
     vec_push_all,
     vecmap,
+    zero_one,
 )]
 
 #[macro_use] extern crate bitflags;
@@ -26,6 +31,7 @@ extern crate rand;
 extern crate rustc_serialize;
 extern crate time;
 
+extern crate linked_hash_map;
 extern crate lru_cache;
 extern crate rusqlite;
 extern crate libsqlite3_sys as rusqlite_ffi;

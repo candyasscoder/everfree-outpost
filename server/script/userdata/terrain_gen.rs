@@ -1,8 +1,6 @@
 use std::ptr;
 use rand::{self, XorShiftRng};
 
-use physics::CHUNK_SIZE;
-
 use types::*;
 use util::StrResult;
 
@@ -27,8 +25,8 @@ impl Userdata for Rng {
                 Rng::new(rand::random())
             }
 
-            fn with_seed(!partial ctx: &terrain_gen::TerrainGen, seed: i32) -> Rng {
-                Rng::new(ctx.rng(seed as u32))
+            fn with_seed(!partial _ctx: &terrain_gen::TerrainGen, _seed: i32) -> Rng {
+                unimplemented!()
             }
 
             fn gen(rng: &Rng,
@@ -264,40 +262,18 @@ impl Userdata for GenChunk {
         lua_table_fns2! {
             lua, -1,
 
-            fn set_block(!partial ctx: &terrain_gen::TerrainGen,
-                         gc: &GenChunk,
-                         pos: V3,
-                         block: &str) -> StrResult<()> {
-                let block_id = unwrap!(ctx.data().block_data.find_id(block));
-
-                let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
-                if !bounds.contains(pos) {
-                    fail!("position out of bounds");
-                };
-
-                let idx = bounds.index(pos);
-                try!(gc.open(|gc| gc.blocks[idx] = block_id));
-                Ok(())
+            fn set_block(!partial _ctx: &terrain_gen::TerrainGen,
+                         _gc: &GenChunk,
+                         _pos: V3,
+                         _block: &str) -> StrResult<()> {
+                unimplemented!()
             }
 
-            fn add_structure(!partial ctx: &terrain_gen::TerrainGen,
-                             gc: &GenChunk,
-                             pos: V3,
-                             template_name: &str) -> StrResult<i32> {
-                let template_id = unwrap!(ctx.data().structure_templates.find_id(template_name));
-
-                let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
-                if !bounds.contains(pos) {
-                    fail!("position out of bounds");
-                };
-
-                // TODO: could use some sanity checks here.
-                let s = terrain_gen::GenStructure::new(pos, template_id);
-                let idx = try!(gc.open(|gc| {
-                    gc.structures.push(s);
-                    gc.structures.len() - 1
-                }));
-                Ok(idx as i32)
+            fn add_structure(!partial _ctx: &terrain_gen::TerrainGen,
+                             _gc: &GenChunk,
+                             _pos: V3,
+                             _template_name: &str) -> StrResult<i32> {
+                unimplemented!()
             }
 
             fn set_structure_extra(gc: &GenChunk,
