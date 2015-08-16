@@ -498,7 +498,7 @@ impl Userdata for Plane {
 
             fn set_cave(!full wf: WorldFragment,
                         plane: Plane,
-                        pos: V3) -> StrResult<()> {
+                        pos: V3) -> StrResult<bool> {
                 logic::misc::set_cave(&mut wf, plane.id, pos)
             }
 

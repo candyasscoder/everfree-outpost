@@ -22,8 +22,12 @@ tools.handler.pick._ = function(c, s, inv)
     end
 
     local plane = c:pawn():plane()
-    local err = plane:set_cave(pos)
+    local mined, err = plane:set_cave(pos)
     if err then
         print('error mining at', pos, err)
+    end
+    if mined then
+        inv:update('pick', -1)
+        inv:update('stone', 20)
     end
 end

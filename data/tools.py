@@ -12,7 +12,7 @@ def init():
     gervais = loader('tiles/gervais_roguelike')
 
     mk_item('pick', 'Pickaxe', gervais('AngbandTk_pick.png')) \
-            .recipe('anvil', {'wood': 10, 'stone': 10})
+            .recipe('anvil', {'wood': 10, 'stone': 10}, count=5)
     mk_item('axe', 'Axe', gervais('AngbandTk_axe.png')) \
             .recipe('anvil', {'wood': 10, 'stone': 10})
     mk_item('mallet', 'Mallet', gervais('AngbandTk_mallet.png')) \
