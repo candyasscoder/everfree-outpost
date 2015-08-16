@@ -22,7 +22,7 @@ def rules(i):
 
     return template('''
         rule rustc_native_bin
-            command = %rustc_base --crate-type=bin  %if i.debug% -C lto %end%
+            command = %rustc_base --crate-type=bin  %if not i.debug% -C lto %end%
             depfile = $b_native/$crate_name.d
             description = RUSTC $out
 
