@@ -15,6 +15,7 @@ use script::ScriptEngine;
 use storage::Storage;
 use world::Fragment as World_Fragment;
 use world::Hooks;
+use world::StructureAttachment;
 use world::flags;
 use world::object::*;
 
@@ -116,7 +117,10 @@ pub trait Fragment<'d> {
                 let sid = match wf.create_structure_unchecked(pid,
                                                               base + gs.pos,
                                                               gs.template) {
-                    Ok(s) => s.id(),
+                    Ok(mut s) => {
+                        s.set_attachment(StructureAttachment::Chunk);
+                        s.id()
+                    },
                     Err(e) => {
                         warn!("error placing generated structure: {}",
                               ::std::error::Error::description(&e));
