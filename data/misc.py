@@ -50,3 +50,15 @@ def init():
     sign = mk_solid_structure('sign', structures('sign.png'), (1, 1, 1))
     mk_structure_item(sign, 'sign', 'Sign') \
             .recipe('anvil', {'wood': 5})
+
+
+    image = structures('pillar.png')
+    planemap = structures('pillar-planemap.png')
+    pillar = mk_solid_structure('pillar/wood', image, (1, 1, 2), base=(0, 0),
+                plane_image=planemap)
+    mk_structure_item(pillar, 'wood_pillar', 'Wooden Pillar') \
+            .recipe('anvil', {'wood': 5})
+    pillar = mk_solid_structure('pillar/stone', image, (1, 1, 2), base=(1, 0),
+                plane_image=planemap)
+    mk_structure_item(pillar, 'stone_pillar', 'Stone Pillar') \
+            .recipe('anvil', {'stone': 5})

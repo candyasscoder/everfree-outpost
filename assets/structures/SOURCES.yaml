@@ -183,6 +183,20 @@ cottage-wall.png: &cottage-wall
     license: CC-BY-SA 3.0 / GPL 3.0
 cottage-wall-planemap.png: *cottage-wall
 
+door-rough.png:
+    title: Rough Wooden Door
+    author: Nonnykins, Nemisys
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution: Wood texture based on Nemisys's LPC Signpost
+    derived-from: sign.png
+
+pillar.png: &pillar
+    title: Pillars
+    author: Nonnykins, Nemisys
+    license: CC-BY-SA 3.0 / GPL 3.0
+    attribution: Wood texture based on Nemisys's LPC Signpost
+    derived-from: sign.png
+pillar-planemap.png: *pillar
 
 sign.png:
     title: LPC Signpost

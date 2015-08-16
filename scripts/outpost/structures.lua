@@ -52,7 +52,7 @@ autorotate.add_simple_wall_item('wood_wall', 'wood_wall', false)
 autorotate.add_simple_wall_item('wood_door', 'wood_wall', true)
 door.make_door('wood_door', 'wood_wall/door', 'axe')
 mallet_cycle('wood_wall/', {
-    'edge/horiz', 'edge/vert',
+    'edge/horiz', 'window/v0', 'edge/vert',
     'corner/nw', 'corner/ne', 'corner/se', 'corner/sw', 
     'tee/n', 'tee/e', 'tee/s', 'tee/w',
     'cross',
@@ -137,3 +137,6 @@ structure_items.attachment_map['bookshelf/0'] = horiz_walls
 
 add_attachment_item('bookshelf', 'bookshelf/0')
 
+
+add_structure_item('wood_pillar', 'pillar/wood')
+add_structure_item('stone_pillar', 'pillar/stone')

@@ -60,9 +60,12 @@ def do_wall_parts(basename, image, plane_image, door_image=None):
 def init():
     structures = loader('structures')
 
-    wall = do_wall_parts('wood_wall',
-            structures('wood_wall.png'), structures('wood_wall-planemap.png'),
-            door_image=structures('door.png'))
+    image = structures('wood_wall.png')
+    planemap = structures('wood_wall-planemap.png')
+    wall = do_wall_parts('wood_wall', image, planemap,
+            door_image=structures('door-rough.png'))
+    mk_solid_structure('wood_wall/window/v0', image, (1, 1, 2), base=(15, 0),
+            plane_image=planemap)
 
     mk_structure_item(wall['wood_wall/edge/horiz'], 'wood_wall', 'Wooden Wall', (0, 0)) \
         .recipe('anvil', {'wood': 5})
