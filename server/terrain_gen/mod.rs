@@ -10,6 +10,8 @@ use types::*;
 use util::StrResult;
 
 use data::Data;
+use engine::split::PartFlags;
+use script::ScriptEngine;
 use storage::Storage;
 use world::Fragment as World_Fragment;
 use world::Hooks;
@@ -111,7 +113,19 @@ pub trait Fragment<'d> {
 
             let base = cpos.extend(0) * scalar(CHUNK_SIZE);
             for gs in &gc.structures {
-                warn_on_err!(wf.create_structure_unchecked(pid, base + gs.pos, gs.template));
+                let sid = match wf.create_structure_unchecked(pid,
+                                                              base + gs.pos,
+                                                              gs.template) {
+                    Ok(s) => s.id(),
+                    Err(e) => {
+                        warn!("error placing generated structure: {}",
+                              ::std::error::Error::description(&e));
+                        continue;
+                    },
+                };
+                for (k, v) in &gs.extra {
+                    warn_on_err!(ScriptEngine::cb_apply_structure_extra(wf, sid, k, v));
+                }
             }
         });
     }

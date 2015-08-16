@@ -268,11 +268,17 @@ impl ScriptEngine {
         })
     }
 
-    pub fn cb_apply_structure_extra(eng: &mut engine::Engine,
-                                    sid: StructureId,
-                                    key: &str,
-                                    value: &str) -> StringResult<()> {
-        ScriptEngine::with_engine(eng, |lua| {
+    pub fn cb_apply_structure_extra<'d, WF>(wf: &mut WF,
+                                            sid: StructureId,
+                                            key: &str,
+                                            value: &str) -> StringResult<()>
+            where WF: world::Fragment<'d> {
+        // FIXME: SUPER UNSAFE!!!
+        // The correct solution is to add a PartFlags bound here and in terrain_gen::Fragment::WF,
+        // but doing so causes incomprehensible lifetime errors in engine::glue...
+        let wf: &mut engine::glue::WorldFragment = unsafe { mem::transmute(wf) };
+        let ptr: *mut _ = wf;
+        wf.script_mut().with_context(ptr, |lua| {
             run_callback(lua,
                          "outpost_callback_apply_structure_extra",
                          (userdata::world::Structure { id: sid }, key, value))
