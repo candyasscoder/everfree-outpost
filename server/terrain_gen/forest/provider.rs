@@ -250,6 +250,8 @@ impl<'d> Provider<'d> {
                     let loot =
                         if loot_idx < 1 {
                             ("hat", 1)
+                        } else if loot_idx < 5 {
+                            ("book", self.rng.gen_range(10, 20))
                         } else if loot_idx < 50 {
                             ("crystal", self.rng.gen_range(15, 20))
                         } else if loot_idx < 75 {

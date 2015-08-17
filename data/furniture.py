@@ -44,16 +44,20 @@ def init():
 
     s.merge(mk_solid_structure('bookshelf/0', image, (1, 1, 2), (5, 0),
             plane_image=plane, layer=2))
-    mk_structure_item(s['bookshelf/0'], 'bookshelf', 'Bookshelves', (0, 1))
+    mk_structure_item(s['bookshelf/0'], 'bookshelf', 'Bookshelves', (0, 1)) \
+            .recipe('anvil', {'wood': 20})
     mk_solid_structure('bookshelf/1', image, (1, 1, 2), (6, 0), plane_image=plane, layer=2)
     mk_solid_structure('bookshelf/2', image, (1, 1, 2), (7, 0), plane_image=plane, layer=2)
     mk_item('book', 'Book', tiles('gervais_roguelike/AngbandTk_book.png'))
 
+
     s.merge(mk_solid_structure('trophy', structures('trophy.png'), (1, 1, 1)))
-    mk_structure_item(s['trophy'], 'trophy', 'Trophy')
+    mk_structure_item(s['trophy'], 'trophy', 'Trophy') \
+            .recipe('anvil', {'stone': 10})
 
     s.merge(mk_solid_structure('fountain', structures('fountain.png'), (2, 2, 1)))
-    mk_structure_item(s['fountain'], 'fountain', 'Fountain')
+    mk_structure_item(s['fountain'], 'fountain', 'Fountain') \
+            .recipe('anvil', {'stone': 10})
 
     s.merge(mk_solid_structure('torch', structures('torch.png'), (1, 1, 1)) \
             .light((16, 16, 32), (255, 230, 200), 300))
