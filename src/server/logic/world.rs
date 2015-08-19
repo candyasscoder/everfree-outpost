@@ -1,17 +1,17 @@
 use std::iter;
-use physics::{CHUNK_SIZE, TILE_SIZE};
+use libphysics::{CHUNK_SIZE, TILE_SIZE};
 
 use types::*;
 use util::SmallSet;
 use util::StrResult;
-use physics::Shape;
+use libphysics::Shape;
 
 use data::StructureTemplate;
 use engine::glue::*;
 use engine::split::{Open, EngineRef};
 use logic;
 use messages::{ClientResponse, SyncKind};
-use physics_;
+use physics;
 use world::{self, World, Entity, Structure};
 use world::object::*;
 use vision::{self, vision_region};
@@ -415,7 +415,7 @@ fn compute_layer_mask_excluding(w: &World,
 
 fn update_physics(mut eng: EngineRef, eid: EntityId) {
     let now = eng.now();
-    warn_on_err!(physics_::Fragment::update(&mut eng.as_physics_fragment(), now, eid));
+    warn_on_err!(physics::Fragment::update(&mut eng.as_physics_fragment(), now, eid));
     // When `update` changes the entity's motion, the hook will schedule the next update,
     // cancelling any currently pending update.
 }

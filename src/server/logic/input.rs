@@ -4,7 +4,7 @@ use engine::split::EngineRef;
 use input::{InputBits};
 use messages::ClientResponse;
 use msg::ExtraArg;
-use physics_;
+use physics;
 use script;
 use world::object::*;
 use vision;
@@ -15,7 +15,7 @@ pub fn input(mut eng: EngineRef, cid: ClientId, input: InputBits) {
 
     let target_velocity = input.to_velocity();
     if let Some(eid) = eng.world().get_client(cid).and_then(|c| c.pawn_id()) {
-        warn_on_err!(physics_::Fragment::set_velocity(
+        warn_on_err!(physics::Fragment::set_velocity(
                 &mut eng.as_physics_fragment(), now, eid, target_velocity));
     }
 }

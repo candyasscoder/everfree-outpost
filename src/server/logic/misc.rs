@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use physics::CHUNK_SIZE;
+use libphysics::CHUNK_SIZE;
 use types::*;
 
 use world::{self, Hooks};

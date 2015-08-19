@@ -1,5 +1,5 @@
-use physics::{self, Shape, ShapeSource};
-use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE};
+use libphysics::{self, Shape, ShapeSource};
+use libphysics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE};
 
 use types::*;
 use util::StrResult;
@@ -93,7 +93,7 @@ pub trait Fragment<'d> {
                 plane: e.plane_id(),
             };
             let (mut end_pos, mut dur) =
-                physics::collide(&source, start_pos - base_px, size, velocity);
+                libphysics::collide(&source, start_pos - base_px, size, velocity);
             end_pos = end_pos + base_px;
 
             // NB: keep this in sync with client/js/physics.js  computeForecast

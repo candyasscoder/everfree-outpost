@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use physics::CHUNK_SIZE;
+use libphysics::CHUNK_SIZE;
 use types::*;
 use util::{multimap_insert, multimap_remove};
 use util::stable_id_map::NO_STABLE_ID;

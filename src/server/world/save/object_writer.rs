@@ -3,7 +3,7 @@ use std::io;
 use std::mem;
 use std::slice;
 
-use physics::CHUNK_SIZE;
+use libphysics::CHUNK_SIZE;
 use types::*;
 
 use data::Data;

@@ -1,8 +1,8 @@
 use std::u16;
 use std::i64;
-use physics::CHUNK_BITS;
+use libphysics::CHUNK_BITS;
 
-pub use physics::v3::{V2, V3, Vn, scalar, Region, Region2};
+pub use libphysics::v3::{V2, V3, Vn, scalar, Region, Region2};
 
 pub use util::stable_id_map::Stable;
 

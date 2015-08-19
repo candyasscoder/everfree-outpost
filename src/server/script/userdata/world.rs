@@ -1,6 +1,6 @@
 use std::borrow::ToOwned;
 
-use physics::CHUNK_SIZE;
+use libphysics::CHUNK_SIZE;
 
 use types::*;
 use util::StrResult;

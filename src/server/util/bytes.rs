@@ -2,7 +2,7 @@ use std::io;
 use std::mem;
 use std::raw;
 
-use physics::v3::{V3, V2};
+use libphysics::v3::{V3, V2};
 
 use util::ReadExact;
 

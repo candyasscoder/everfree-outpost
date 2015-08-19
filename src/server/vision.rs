@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, VecMap};
 use std::mem;
 
-use physics::{CHUNK_SIZE, TILE_SIZE};
+use libphysics::{CHUNK_SIZE, TILE_SIZE};
 
 use types::*;
 use util::{multimap_insert, multimap_remove};

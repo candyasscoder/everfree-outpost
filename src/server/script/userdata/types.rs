@@ -1,4 +1,4 @@
-use physics::{TILE_SIZE, CHUNK_SIZE};
+use libphysics::{TILE_SIZE, CHUNK_SIZE};
 
 use types::*;
 

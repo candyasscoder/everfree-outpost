@@ -15,7 +15,7 @@ use messages::{Event, ControlEvent, WireEvent, ClientEvent};
 use messages::SyncKind;
 use messages::{ControlResponse, WireResponse, ClientResponse};
 use msg::{Request, Response};
-use physics_::Physics;
+use physics::Physics;
 use script::ScriptEngine;
 use storage::Storage;
 use terrain_gen::{TerrainGen, TerrainGenEvent};

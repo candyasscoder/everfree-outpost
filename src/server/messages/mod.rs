@@ -6,7 +6,7 @@ use std::sync::mpsc::{Sender, Receiver};
 use types::*;
 use util::StringResult;
 use util::now;
-use physics::TILE_SIZE;
+use libphysics::TILE_SIZE;
 
 use auth::Secret;
 use input::InputBits;

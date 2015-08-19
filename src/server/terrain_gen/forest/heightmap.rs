@@ -1,6 +1,6 @@
 use rand::Rng;
 
-use physics::{CHUNK_BITS, CHUNK_SIZE};
+use libphysics::{CHUNK_BITS, CHUNK_SIZE};
 use types::*;
 
 use terrain_gen::StdRng;

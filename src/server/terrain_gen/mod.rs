@@ -5,7 +5,7 @@ use std::thread::{self, JoinGuard};
 use std::sync::mpsc::{self, Sender, Receiver};
 use rand::{Rng, XorShiftRng, SeedableRng};
 
-use physics::CHUNK_SIZE;
+use libphysics::CHUNK_SIZE;
 use types::*;
 use util::StrResult;
 

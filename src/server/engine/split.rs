@@ -166,7 +166,7 @@ EnginePart_decl! {
     Ex Ex2 Ex3 (extra, extra_mut, ::logic::extra::Extra),
     Ms Ms2 Ms3 (messages, messages_mut, ::messages::Messages),
     Ti Ti2 Ti3 (timer, timer_mut, ::timer::Timer),
-    Ph Ph2 Ph3 (physics, physics_mut, ::physics_::Physics<'d>),
+    Ph Ph2 Ph3 (physics, physics_mut, ::physics::Physics<'d>),
     Vi Vi2 Vi3 (vision, vision_mut, ::vision::Vision),
     Au Au2 Au3 (auth, auth_mut, ::auth::Auth),
     Ch Ch2 Ch3 (chunks, chunks_mut, ::chunks::Chunks<'d>),
@@ -252,7 +252,7 @@ macro_rules! engine_part_typedef_helper {
      / $m:ident $name:ident /
      physics, $($x:ident,)*) => {
         engine_part_typedef_helper!(
-            $wr, $sc, $ex, $ms, $ti, ::physics_::Physics<'d>, $vi, $au, $ch, $ca, $tg,
+            $wr, $sc, $ex, $ms, $ti, ::physics::Physics<'d>, $vi, $au, $ch, $ca, $tg,
             / $m $name / $($x,)*);
     };
 

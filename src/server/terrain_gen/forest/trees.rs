@@ -1,7 +1,7 @@
 use std::cmp;
 use rand::Rng;
 
-use physics::CHUNK_SIZE;
+use libphysics::CHUNK_SIZE;
 use types::*;
 
 use terrain_gen::StdRng;

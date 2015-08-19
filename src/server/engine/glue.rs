@@ -1,7 +1,7 @@
 use cache::TerrainCache;
 use chunks::{self, Chunks};
 use engine::split::{EngineRef, Open, Part};
-use physics_::{self, Physics};
+use physics::{self, Physics};
 use terrain_gen::{self, TerrainGen};
 use vision::{self, Vision};
 use world::{self, World};
@@ -222,7 +222,7 @@ impl_slice! {
 
 parts!(PhysicsFragment);
 
-impl<'a, 'd> physics_::Fragment<'d> for PhysicsFragment<'a, 'd> {
+impl<'a, 'd> physics::Fragment<'d> for PhysicsFragment<'a, 'd> {
     fn with_cache<F, R>(&mut self, f: F) -> R
             where F: FnOnce(&mut Physics<'d>, &TerrainCache, &World<'d>) -> R {
         let Open { physics, cache, world, .. } = self.open();

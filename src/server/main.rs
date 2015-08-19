@@ -36,7 +36,7 @@ extern crate lru_cache;
 extern crate rusqlite;
 extern crate libsqlite3_sys as rusqlite_ffi;
 
-extern crate physics;
+extern crate physics as libphysics;
 
 use std::fs::File;
 use std::io::{self, Read};
@@ -60,8 +60,7 @@ mod storage;
 
 mod auth;
 mod messages;
-// TODO: rename to 'physics'; import lib as 'physics_lib'
-mod physics_;
+mod physics;
 mod chunks;
 mod terrain_gen;
 mod vision;

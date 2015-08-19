@@ -5,7 +5,7 @@ use std::mem;
 use std::ptr;
 use linked_hash_map::LinkedHashMap;
 
-use physics::CHUNK_SIZE;
+use libphysics::CHUNK_SIZE;
 use types::*;
 
 use storage::Storage;

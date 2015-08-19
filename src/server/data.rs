@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::iter::repeat;
 use rustc_serialize::json::Json;
 
-use physics::Shape;
+use libphysics::Shape;
 use types::*;
 
 

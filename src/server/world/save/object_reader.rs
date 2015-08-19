@@ -5,7 +5,7 @@ use std::mem;
 use std::raw;
 use std::result;
 
-use physics::CHUNK_SIZE;
+use libphysics::CHUNK_SIZE;
 use types::*;
 
 use data::Data;

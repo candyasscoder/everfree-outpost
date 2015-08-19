@@ -1,7 +1,7 @@
 use std::collections::{HashMap, hash_map};
 use rand::{self, Rng};
 
-use physics::{CHUNK_SIZE, CHUNK_BITS, TILE_SIZE, TILE_BITS};
+use libphysics::{CHUNK_SIZE, CHUNK_BITS, TILE_SIZE, TILE_BITS};
 
 use types::*;
 

@@ -1,7 +1,7 @@
 use rand::{Rng, XorShiftRng, SeedableRng, Rand};
 use std::sync::mpsc::{Sender, Receiver};
 
-use physics::{CHUNK_BITS, CHUNK_SIZE};
+use libphysics::{CHUNK_BITS, CHUNK_SIZE};
 use types::*;
 use util::StrResult;
 use util::now;

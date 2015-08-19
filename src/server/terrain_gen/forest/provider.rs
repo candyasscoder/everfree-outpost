@@ -1,8 +1,8 @@
 use rand::Rng;
 
 use types::*;
-use physics::CHUNK_SIZE;
-use physics::Shape;
+use libphysics::CHUNK_SIZE;
+use libphysics::Shape;
 
 use data::Data;
 use storage::Storage;

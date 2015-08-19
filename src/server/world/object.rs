@@ -2,8 +2,8 @@ use std::collections::hash_set;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
-use physics::CHUNK_SIZE;
-use physics::Shape;
+use libphysics::CHUNK_SIZE;
+use libphysics::Shape;
 
 use data::StructureTemplate;
 use types::*;
