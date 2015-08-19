@@ -38,18 +38,6 @@ V3 = outpost_ffi.types.V3.table
 V2 = outpost_ffi.types.V2.table
 World = outpost_ffi.types.World.table
 
-Rng = outpost_ffi.types.Rng.table
-GenChunk = outpost_ffi.types.GenChunk.table
-ValuesMut = outpost_ffi.types.ValuesMut.table
-
-ConstantField = outpost_ffi.types.ConstantField.table
-RandomField = outpost_ffi.types.RandomField.table
-FilterField = outpost_ffi.types.FilterField.table
-BorderField = outpost_ffi.types.BorderField.table
-DiamondSquare = outpost_ffi.types.DiamondSquare.table
-
-IsoDiskSampler = outpost_ffi.types.IsoDiskSampler.table
-
 ExtraArg = outpost_ffi.types.ExtraArg.table
 
 Time = outpost_ffi.types.Time.table

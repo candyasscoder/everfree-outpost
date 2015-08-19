@@ -103,7 +103,6 @@ macro_rules! lua_table_fns2 {
 }
 
 pub mod extra_arg;
-pub mod terrain_gen;
 pub mod timer;
 pub mod types;
 pub mod world;
@@ -135,22 +134,6 @@ mk_build_types_table!(
     self::world::StableInventory,
     self::world::StablePlane,
     self::world::StableStructure,
-
-    self::terrain_gen::Rng,
-    self::terrain_gen::GenChunk,
-
-    self::terrain_gen::Values,
-    self::terrain_gen::ValuesMut,
-    self::terrain_gen::Points,
-
-    self::terrain_gen::Field,
-    self::terrain_gen::ConstantField,
-    self::terrain_gen::RandomField,
-    self::terrain_gen::FilterField,
-    self::terrain_gen::BorderField,
-    self::terrain_gen::DiamondSquare,
-
-    self::terrain_gen::IsoDiskSampler,
 
     self::extra_arg::ExtraArg,
 

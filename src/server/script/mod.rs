@@ -237,37 +237,6 @@ impl ScriptEngine {
                                   (iid.unwrap(), Nil)));
     }
 
-    pub fn cb_generate_chunk(tgf: &mut engine::glue::TerrainGenFragment,
-                             plane_name: &str,
-                             cpos: V2,
-                             plane_rng: XorShiftRng,
-                             chunk_rng: XorShiftRng) -> StringResult<terrain_gen::GenChunk> {
-        use script::userdata::terrain_gen::GenChunk;
-        let ptr: *mut _ = tgf;
-        tgf.script_mut().with_context(ptr, |lua| {
-            let gc = terrain_gen::GenChunk::new();
-            let gc_wrap = userdata::terrain_gen::GenChunk::new(gc);
-            gc_wrap.to_lua(lua);
-            let gc_idx = lua.top_index();
-
-            lua.get_field(REGISTRY_INDEX, "outpost_callback_generate_chunk");
-            lua.copy(gc_idx);
-            plane_name.to_lua(lua);
-            cpos.to_lua(lua);
-            userdata::terrain_gen::Rng::new(plane_rng).to_lua(lua);
-            userdata::terrain_gen::Rng::new(chunk_rng).to_lua(lua);
-            try!(lua.pcall(5, 0, 0)
-                    .map_err(|(e, s)| StringError { msg: format!("{:?}: {}", e, s) }));
-
-            let gc = {
-                let gc_wrap = unwrap!(unsafe { lua.to_userdata::<GenChunk>(gc_idx) });
-                unwrap!(gc_wrap.take())
-            };
-            lua.pop(1);
-            Ok(gc)
-        })
-    }
-
     pub fn cb_apply_structure_extra<'d, WF>(wf: &mut WF,
                                             sid: StructureId,
                                             key: &str,
