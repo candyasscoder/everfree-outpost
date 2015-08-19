@@ -1,6 +1,6 @@
 bin/backend$_exe: $b_native/backend$_exe
 bin/wrapper$_exe: $b_native/wrapper$_exe
-bin/run_server.sh: $src/util/run_server.sh
+bin/run_server.sh: $root/util/run_server.sh
 
 data/blocks.json: $b_data/blocks_server.json
 data/items.json: $b_data/items_server.json
@@ -10,20 +10,20 @@ data/animations.json: $b_data/animations_server.json
 
 scripts/: $b_scripts/gen/
 
-www/client.html: $src/client/client.html
-www/instructions.html: $src/client/instructions.html
+www/client.html: $root/client/client.html
+www/instructions.html: $root/client/instructions.html
 www/credits.html: $b_data/credits.html
 www/outpost.js: $b_js/outpost.js
 www/asmlibs.js: $b_js/asmlibs.js
 www/outpost.pack: $b_data/outpost.pack
 www/server.json: $b_data/server.json
 
-www/animtest.html: $src/client/animtest.html
+www/animtest.html: $root/client/animtest.html
 www/animtest.js: $b_js/animtest.js
-www/configedit.html: $src/client/configedit.html
+www/configedit.html: $root/client/configedit.html
 www/configedit.js: $b_js/configedit.js
 
-util/map.tmpl.html: $src/util/map.tmpl.html
+util/map.tmpl.html: $root/util/map.tmpl.html
 util/outpost_savegame$_so: $b_native/outpost_savegame$_so
-util/render_map.py: $src/util/render_map.py
-util/nginx.conf: $src/util/nginx.conf
+util/render_map.py: $root/util/render_map.py
+util/nginx.conf: $root/util/nginx.conf

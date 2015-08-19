@@ -11,7 +11,7 @@ def rules(i):
             description = STAMP $out
 
         rule copy_mod_scripts
-            command = $python3 $src/mk/misc/copy_mod_scripts.py $
+            command = $python3 $root/mk/misc/copy_mod_scripts.py $
                 --mod-name $mod_name $
                 --input-dir $input_dir $
                 --output-dir $output_dir $
@@ -24,7 +24,7 @@ def rules(i):
             description = COPY $out
 
         rule gen_script_loader
-            command = $python3 $src/mk/misc/gen_script_loader.py $
+            command = $python3 $root/mk/misc/gen_script_loader.py $
                 --script-dir $script_dir $
                 --mods $mods $
                 --output $out
@@ -38,13 +38,13 @@ def copy_mod_scripts(mods):
 
     for mod in mods:
         if mod != 'outpost':
-            input_dir = os.path.join('$src', 'mods', mod, 'scripts')
+            input_dir = os.path.join('$root', 'mods', mod, 'scripts')
         else:
-            input_dir = os.path.join('$src', 'scripts', 'outpost')
+            input_dir = os.path.join('$root', 'scripts', 'outpost')
 
         add_build('''
             build $b_scripts/stamp/%mod: copy_mod_scripts $
-                    | $src/mk/misc/copy_mod_scripts.py
+                    | $root/mk/misc/copy_mod_scripts.py
                 mod_name = %mod
                 input_dir = %input_dir
                 output_dir = $b_scripts/gen
@@ -52,20 +52,20 @@ def copy_mod_scripts(mods):
 
     add_build('''
         build $b_scripts/stamp/core: copy_mod_scripts $
-                | $src/mk/misc/copy_mod_scripts.py
+                | $root/mk/misc/copy_mod_scripts.py
             mod_name = core
-            input_dir = $src/scripts/core
+            input_dir = $root/scripts/core
             output_dir = $b_scripts/gen
 
         build $b_scripts/gen/loader.lua: gen_script_loader | $
                 %for mod in mods
                 $b_scripts/stamp/%mod $
                 %end
-                $src/mk/misc/gen_script_loader.py
+                $root/mk/misc/gen_script_loader.py
             script_dir = $b_scripts/gen
             mods = $mods
 
-        build $b_scripts/gen/bootstrap.lua: copy_script $src/scripts/bootstrap.lua
+        build $b_scripts/gen/bootstrap.lua: copy_script $root/scripts/bootstrap.lua
 
         build $b_scripts/gen/: scripts_stamp | $
             %for mod in mods

@@ -80,16 +80,16 @@ def rules(i):
             description = ASMJS $out
 
         rule asm_add_function_tables
-            command = $python3 $src/mk/misc/asmjs_function_tables.py <$in >$out
+            command = $python3 $root/mk/misc/asmjs_function_tables.py <$in >$out
             description = ASMJS $out
 
         rule asm_insert_functions
-            command = $python3 $src/mk/misc/asmjs_insert_functions.py $in >$out
+            command = $python3 $root/mk/misc/asmjs_insert_functions.py $in >$out
             description = ASMJS $out
     ''', **locals())
 
 def rlib(crate_name, deps, src_file=None):
-    src_file = src_file or '$src/%s/lib.rs' % crate_name
+    src_file = src_file or '$root/%s/lib.rs' % crate_name
 
     return template('''
         build $b_asmjs/lib%{crate_name}.rlib: asm_compile_rlib %src_file $
@@ -109,7 +109,7 @@ def asmlibs(name, rust_src, rust_deps, exports_file, template_file):
             exports_file = %base.exports.txt
         build %base.0.js: asm_generate_js %base.opt.bc
         build %base.1.js: asm_add_function_tables %base.0.js $
-            | $src/mk/misc/asmjs_function_tables.py
+            | $root/mk/misc/asmjs_function_tables.py
         build %base.js: asm_insert_functions %template_file %base.1.js $
-            | $src/mk/misc/asmjs_insert_functions.py
+            | $root/mk/misc/asmjs_insert_functions.py
     ''', base = '$b_asmjs/%s' % name, **locals())

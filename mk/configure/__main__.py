@@ -80,11 +80,11 @@ class Info(object):
 
         script_dir = os.path.dirname(sys.argv[0])
         if script_dir == '':
-            self.src_dir = '.'
+            self.root_dir = '.'
         else:
-            self.src_dir = os.path.normpath(os.path.join(script_dir, '..', '..'))
+            self.root_dir = os.path.normpath(os.path.join(script_dir, '..', '..'))
 
-        in_tree = self.src_dir == '.' or self.src_dir == os.getcwd()
+        in_tree = self.root_dir == '.' or self.root_dir == os.getcwd()
 
         if args.build_dir is None:
             self.build_dir = 'build' if in_tree else '.'
@@ -105,7 +105,9 @@ def header(i):
         return os.path.normpath(os.path.join(i.build_dir, *args))
 
     return template('''
-        src = %{os.path.normpath(i.src_dir)}
+        # Root of the source tree.  This used to be called $src, but that would
+        # be confusing now that $root/src is an actual directory.
+        root = %{os.path.normpath(i.root_dir)}
         # Note: (1) `build` is a ninja keyword; (2) `builddir` is a special
         # variable that determines where `.ninja_log` is stored.
         builddir = %{os.path.normpath(i.build_dir)}
@@ -178,14 +180,14 @@ if __name__ == '__main__':
     else:
         dist_manifest_base = 'release.manifest'
 
-    dist_manifest = os.path.join(i.src_dir, 'mk', dist_manifest_base)
-    common_manifest = os.path.join(i.src_dir, 'mk', 'common.manifest')
-    maybe_data_filter = os.path.join(i.src_dir, 'mk', 'data_files.txt') \
+    dist_manifest = os.path.join(i.root_dir, 'mk', dist_manifest_base)
+    common_manifest = os.path.join(i.root_dir, 'mk', 'common.manifest')
+    maybe_data_filter = os.path.join(i.root_dir, 'mk', 'data_files.txt') \
             if i.data_only else None
 
     dist_extra = []
     if i.with_server_gui:
-        dist_extra.append(('server_gui.py', '$src/util/server_gui.py'))
+        dist_extra.append(('server_gui.py', '$root/util/server_gui.py'))
 
     i.mod_list = ['outpost'] + (i.mods.split(',') if i.mods else [])
 
@@ -197,17 +199,17 @@ if __name__ == '__main__':
             '# Native',
             native.rules(i),
             native.rust('physics', 'lib', ()),
-            native.rust('backend', 'bin', ('physics',), '$src/server/main.rs'),
+            native.rust('backend', 'bin', ('physics',), '$root/server/main.rs'),
             native.cxx('wrapper', 'bin',
-                ('$src/wrapper/%s' % f for f in os.listdir(os.path.join(i.src_dir, 'wrapper'))
+                ('$root/wrapper/%s' % f for f in os.listdir(os.path.join(i.root_dir, 'wrapper'))
                     if f.endswith('.cpp')),
                 cxxflags='-DWEBSOCKETPP_STRICT_MASKING',
                 ldflags='-static',
                 libs='-lboost_system -lpthread' if not i.win32 else
                     '-lboost_system-mt -lpthread -lwsock32 -lws2_32'),
             native.cxx('outpost_savegame', 'shlib',
-                ('$src/util/savegame_py/%s' % f
-                    for f in os.listdir(os.path.join(i.src_dir, 'util/savegame_py'))
+                ('$root/util/savegame_py/%s' % f
+                    for f in os.listdir(os.path.join(i.root_dir, 'util/savegame_py'))
                     if f.endswith('.c')),
                 cflags=py_includes,
                 ldflags=py_ldflags,
@@ -222,23 +224,23 @@ if __name__ == '__main__':
             asmjs.rlib('physics', ('core', 'bitflags', 'asmrt')),
             asmjs.rlib('graphics', ('core', 'asmrt', 'physics')),
             asmjs.asmlibs('asmlibs',
-                '$src/client/asmlibs.rs', ('core', 'asmrt', 'physics', 'graphics'),
-                '$src/client/asmlibs_exports.txt', '$src/client/asmlibs.tmpl.js'),
+                '$root/client/asmlibs.rs', ('core', 'asmrt', 'physics', 'graphics'),
+                '$root/client/asmlibs_exports.txt', '$root/client/asmlibs.tmpl.js'),
 
             '# Javascript',
             js.rules(i),
-            js.compile(i, '$b_js/outpost.js', '$src/client/js/main.js'),
+            js.compile(i, '$b_js/outpost.js', '$root/client/js/main.js'),
             js.minify('$b_js/asmlibs.js', '$b_asmjs/asmlibs.js'),
-            js.compile(i, '$b_js/animtest.js', '$src/client/js/animtest.js'),
-            js.compile(i, '$b_js/configedit.js', '$src/client/js/configedit.js'),
+            js.compile(i, '$b_js/animtest.js', '$root/client/js/animtest.js'),
+            js.compile(i, '$b_js/configedit.js', '$root/client/js/configedit.js'),
             ))
 
     content += '\n\n'.join((
         '',
         '# Data',
         data.rules(i),
-        data.font('$b_data/font', '$src/assets/misc/NeoSans.png'),
-        data.day_night('$b_data/day_night.json', '$src/assets/misc/day_night_pixels.png'),
+        data.font('$b_data/font', '$root/assets/misc/NeoSans.png'),
+        data.day_night('$b_data/day_night.json', '$root/assets/misc/day_night_pixels.png'),
         data.server_json('$b_data/server.json'),
         data.process(),
         data.pack(),
