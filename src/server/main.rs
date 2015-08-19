@@ -37,6 +37,7 @@ extern crate rusqlite;
 extern crate libsqlite3_sys as rusqlite_ffi;
 
 extern crate physics as libphysics;
+extern crate server_data as data;
 
 use std::fs::File;
 use std::io::{self, Read};
@@ -52,7 +53,6 @@ mod tasks;
 mod timer;
 mod types;
 mod input;
-mod data;
 mod lua;
 mod script;
 mod world;

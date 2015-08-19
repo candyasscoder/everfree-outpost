@@ -1,10 +1,24 @@
+#![crate_name = "server_data"]
+
+#[macro_use] extern crate log;
+extern crate physics as libphysics;
+extern crate rustc_serialize;
+
 use std::borrow::ToOwned;
 use std::collections::HashMap;
 use std::iter::repeat;
 use rustc_serialize::json::Json;
 
 use libphysics::Shape;
-use types::*;
+use libphysics::v3::V3;
+
+
+pub type AnimId = u16;
+pub type BlockId = u16;
+pub type ItemId = u16;
+pub type RecipeId = u16;
+pub type TileId = u16;
+pub type TemplateId = u32;
 
 
 #[derive(Debug)]
@@ -104,7 +118,6 @@ macro_rules! convert {
 }
 
 
-// TODO: should allow non-contiguous IDs, since the YAML->JSON converter supports it
 pub struct BlockData {
     shapes: Vec<Shape>,
     names: Vec<String>,

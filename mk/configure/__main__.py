@@ -199,7 +199,10 @@ if __name__ == '__main__':
             '# Native',
             native.rules(i),
             native.rust('physics', 'lib', ()),
-            native.rust('backend', 'bin', ('physics',), '$root/src/server/main.rs'),
+            native.rust('server_data', 'lib', ('physics',)),
+            native.rust('backend', 'bin',
+                ('physics', 'server_data'),
+                '$root/src/server/main.rs'),
             native.cxx('wrapper', 'bin',
                 ('$root/src/wrapper/%s' % f
                     for f in os.listdir(os.path.join(i.root_dir, 'src', 'wrapper'))

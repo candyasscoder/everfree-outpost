@@ -4,6 +4,7 @@ use libphysics::CHUNK_BITS;
 
 pub use libphysics::v3::{V2, V3, Vn, scalar, Region, Region2};
 
+pub use data::{AnimId, BlockId, ItemId, RecipeId, TileId, TemplateId};
 pub use util::stable_id_map::Stable;
 
 pub type LocalTime = u16;
@@ -47,13 +48,6 @@ pub const STABLE_PLANE_FOREST: Stable<PlaneId> = const_Stable!(2);
 pub const CONTROL_WIRE_ID: WireId = WireId(0);
 
 pub type StableId = u64;
-
-pub type AnimId = u16;
-pub type BlockId = u16;
-pub type ItemId = u16;
-pub type RecipeId = u16;
-pub type TileId = u16;
-pub type TemplateId = u32;
 
 pub const DURATION_MAX: Duration = u16::MAX;
 pub const TIME_MIN: Time = i64::MIN;
