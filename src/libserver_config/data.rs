@@ -1,9 +1,3 @@
-#![crate_name = "server_data"]
-
-#[macro_use] extern crate log;
-extern crate physics as libphysics;
-extern crate rustc_serialize;
-
 use std::borrow::ToOwned;
 use std::collections::HashMap;
 use std::iter::repeat;
@@ -11,14 +5,7 @@ use rustc_serialize::json::Json;
 
 use libphysics::Shape;
 use libphysics::v3::V3;
-
-
-pub type AnimId = u16;
-pub type BlockId = u16;
-pub type ItemId = u16;
-pub type RecipeId = u16;
-pub type TileId = u16;
-pub type TemplateId = u32;
+use libserver_types::*;
 
 
 #[derive(Debug)]

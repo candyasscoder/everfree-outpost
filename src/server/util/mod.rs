@@ -15,7 +15,7 @@ pub use self::id_map::IdMap;
 pub use self::refcount::RefcountedMap;
 pub use self::small_vec::SmallVec;
 pub use self::small_set::SmallSet;
-pub use self::stable_id_map::{StableIdMap, IntrusiveStableId, Stable};
+pub use self::stable_id_map::{StableIdMap, IntrusiveStableId};
 pub use self::str_error::{StrError, StrResult};
 pub use self::str_error::{StringError, StringResult};
 

@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 use libphysics::CHUNK_SIZE;
 use types::*;
 use util::{multimap_insert, multimap_remove};
-use util::stable_id_map::NO_STABLE_ID;
 
 use world::{Structure, StructureAttachment, StructureFlags};
 use world::{Fragment, Hooks};

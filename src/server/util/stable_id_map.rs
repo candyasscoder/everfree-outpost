@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::ops::{Index, IndexMut};
 
 use types::{ClientId, EntityId, InventoryId, PlaneId, TerrainChunkId, StructureId};
-use types::StableId;
+use types::{StableId, Stable, NO_STABLE_ID};
 use util::id_map::{self, IdMap};
 use util::StrResult;
 
@@ -14,40 +14,6 @@ pub struct StableIdMap<K, V> {
     next_id: StableId,
     _marker0: PhantomData<K>,
 }
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-pub struct Stable<Id> {
-    pub val: StableId,
-    pub _marker0: PhantomData<Id>,
-}
-
-macro_rules! const_Stable {
-    ($val:expr) => {
-        Stable { val: $val, _marker0: ::std::marker::PhantomData }
-    };
-}
-
-impl<Id> Stable<Id> {
-    pub fn none() -> Stable<Id> {
-        Stable {
-            val: NO_STABLE_ID,
-            _marker0: PhantomData,
-        }
-    }
-
-    pub fn new(val: StableId) -> Stable<Id> {
-        Stable {
-            val: val,
-            _marker0: PhantomData,
-        }
-    }
-
-    pub fn unwrap(self) -> StableId {
-        self.val
-    }
-}
-
-pub const NO_STABLE_ID: StableId = 0;
 
 pub trait IntrusiveStableId {
     fn get_stable_id(&self) -> StableId;

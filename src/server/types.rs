@@ -4,53 +4,7 @@ use libphysics::CHUNK_BITS;
 
 pub use libphysics::v3::{V2, V3, Vn, scalar, Region, Region2};
 
-pub use data::{AnimId, BlockId, ItemId, RecipeId, TileId, TemplateId};
-pub use util::stable_id_map::Stable;
-
-pub type LocalTime = u16;
-pub type LocalCoord = u16;
-
-pub type Time = i64;
-pub type Duration = u16;
-pub type Coord = i32;
-
-macro_rules! mk_id_newtypes {
-    ( $($name:ident($inner:ty);)* ) => {
-        $(
-            #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-            pub struct $name(pub $inner);
-
-            impl $name {
-                pub fn unwrap(self) -> $inner {
-                    let $name(x) = self;
-                    x
-                }
-            }
-        )*
-    };
-}
-
-mk_id_newtypes! {
-    WireId(u16);
-    ClientId(u16);
-    EntityId(u32);
-    InventoryId(u32);
-    PlaneId(u32);
-    TerrainChunkId(u32);
-    StructureId(u32);
-}
-
-pub const PLANE_LIMBO: PlaneId = PlaneId(0);
-pub const STABLE_PLANE_LIMBO: Stable<PlaneId> = const_Stable!(1);
-pub const PLANE_FOREST: PlaneId = PlaneId(1);
-pub const STABLE_PLANE_FOREST: Stable<PlaneId> = const_Stable!(2);
-
-pub const CONTROL_WIRE_ID: WireId = WireId(0);
-
-pub type StableId = u64;
-
-pub const DURATION_MAX: Duration = u16::MAX;
-pub const TIME_MIN: Time = i64::MIN;
+pub use libserver_types::*;
 
 pub const CHUNK_TOTAL: usize = 1 << (3 * CHUNK_BITS);
 pub type BlockChunk = [BlockId; CHUNK_TOTAL];

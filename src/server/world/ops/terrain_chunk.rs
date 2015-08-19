@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
 use types::*;
-use util::stable_id_map::NO_STABLE_ID;
 
 use world::{TerrainChunk, TerrainChunkFlags};
 use world::{Fragment, Hooks};

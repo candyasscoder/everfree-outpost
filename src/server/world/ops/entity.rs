@@ -2,7 +2,6 @@ use std::collections::HashSet;
 use std::mem::replace;
 
 use types::*;
-use util::stable_id_map::NO_STABLE_ID;
 use util::{multimap_insert, multimap_remove};
 
 use world::{Entity, EntityAttachment, Motion};

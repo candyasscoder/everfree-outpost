@@ -37,7 +37,8 @@ extern crate rusqlite;
 extern crate libsqlite3_sys as rusqlite_ffi;
 
 extern crate physics as libphysics;
-extern crate server_data as data;
+extern crate server_config as libserver_config;
+extern crate server_types as libserver_types;
 
 use std::fs::File;
 use std::io::{self, Read};
@@ -56,7 +57,6 @@ mod input;
 mod lua;
 mod script;
 mod world;
-mod storage;
 
 mod auth;
 mod messages;
@@ -66,6 +66,14 @@ mod terrain_gen;
 mod vision;
 mod logic;
 mod cache;
+
+mod data {
+    pub use libserver_config::data::*;
+}
+
+mod storage {
+    pub use libserver_config::storage::*;
+}
 
 
 fn read_json(mut file: File) -> json::Json {

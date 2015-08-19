@@ -4,7 +4,8 @@ use std::fs::{self, File};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use types::*;
+use libphysics::v3::V2;
+use libserver_types::{Stable, PlaneId, TerrainChunkId};
 
 
 const DATA_DIR: &'static str = "data";

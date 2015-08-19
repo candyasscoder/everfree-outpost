@@ -199,9 +199,10 @@ if __name__ == '__main__':
             '# Native',
             native.rules(i),
             native.rust('physics', 'lib', ()),
-            native.rust('server_data', 'lib', ('physics',)),
+            native.rust('server_types', 'lib', ()),
+            native.rust('server_config', 'lib', ('physics', 'server_types')),
             native.rust('backend', 'bin',
-                ('physics', 'server_data'),
+                ('physics', 'server_config', 'server_types'),
                 '$root/src/server/main.rs'),
             native.cxx('wrapper', 'bin',
                 ('$root/src/wrapper/%s' % f

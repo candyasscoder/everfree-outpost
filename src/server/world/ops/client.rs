@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use std::mem::replace;
 
 use types::*;
-use util::stable_id_map::NO_STABLE_ID;
 
 use input::InputBits;
 use world::EntityAttachment;

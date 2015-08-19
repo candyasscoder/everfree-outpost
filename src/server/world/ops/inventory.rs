@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::mem::replace;
 
 use types::*;
-use util::stable_id_map::NO_STABLE_ID;
 
 use world::{Inventory, InventoryAttachment};
 use world::{Fragment, Hooks};

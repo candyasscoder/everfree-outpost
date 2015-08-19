@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use types::*;
-use util::stable_id_map::NO_STABLE_ID;
 
 use world::Plane;
 use world::{Fragment, Hooks};
