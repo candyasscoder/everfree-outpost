@@ -1,13 +1,10 @@
-use std::cmp;
-use rand::Rng;
-
 use libphysics::CHUNK_SIZE;
-use types::*;
+use libserver_types::*;
 
-use terrain_gen::StdRng;
-use terrain_gen::cellular::CellularGrid;
-use terrain_gen::disk_sampler2::DiskSampler;
-use terrain_gen::prop::LocalProperty;
+use StdRng;
+use cellular::CellularGrid;
+use disk_sampler2::DiskSampler;
+use prop::LocalProperty;
 
 use super::summary::ChunkSummary;
 

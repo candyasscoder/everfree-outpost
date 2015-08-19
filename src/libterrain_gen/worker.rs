@@ -1,18 +1,13 @@
-use rand::{Rng, XorShiftRng, SeedableRng, Rand};
 use std::sync::mpsc::{Sender, Receiver};
+use rand::SeedableRng;
+use time;
 
-use libphysics::{CHUNK_BITS, CHUNK_SIZE};
-use types::*;
-use util::StrResult;
-use util::now;
+use libserver_types::*;
+use libserver_config::Data;
+use libserver_config::Storage;
 
-use data::Data;
-use storage::Storage;
-use terrain_gen::GenChunk;
-use terrain_gen::cellular::CellularGrid;
-use terrain_gen::dsc::{DscGrid, Phase};
-
-use terrain_gen::forest::Provider as ForestProvider;
+use GenChunk;
+use forest::Provider as ForestProvider;
 
 
 pub enum Command {
@@ -62,4 +57,10 @@ impl<'d> Worker<'d> {
         info!("generated {} {:?} in {} ms", pid.unwrap(), cpos, end - start);
         gc
     }
+}
+
+
+fn now() -> u64 {
+    let timespec = time::get_time();
+    (timespec.sec as u64 * 1000) + (timespec.nsec / 1000000) as u64
 }

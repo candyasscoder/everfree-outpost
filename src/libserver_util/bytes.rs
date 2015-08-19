@@ -2,9 +2,9 @@ use std::io;
 use std::mem;
 use std::raw;
 
-use libphysics::v3::{V3, V2};
+use libserver_types::{V3, V2};
 
-use util::ReadExact;
+use ReadExact;
 
 
 /// Marker trait for types that can be safely manipulated as a string of bytes.  This means a type

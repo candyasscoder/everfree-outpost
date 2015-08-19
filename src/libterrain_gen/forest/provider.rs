@@ -1,17 +1,14 @@
 use rand::Rng;
 
-use types::*;
+use libserver_types::*;
 use libphysics::CHUNK_SIZE;
-use libphysics::Shape;
+use libserver_config::Data;
+use libserver_config::Storage;
 
-use data::Data;
-use storage::Storage;
-use terrain_gen::{GenChunk, GenStructure};
-use terrain_gen::StdRng;
-use terrain_gen::cache::Cache;
-use terrain_gen::cellular::CellularGrid;
-use terrain_gen::dsc::DscGrid;
-use terrain_gen::prop::{self, LocalProperty};
+use {GenChunk, GenStructure};
+use StdRng;
+use cache::Cache;
+use prop::LocalProperty;
 
 use super::summary::ChunkSummary;
 use super::summary::{SuperchunkSummary, SUPERCHUNK_SIZE};

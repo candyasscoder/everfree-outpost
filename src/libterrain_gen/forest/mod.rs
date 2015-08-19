@@ -1,6 +1,6 @@
 use rand::Rng;
 
-use types::*;
+use libserver_types::*;
 
 
 mod summary;

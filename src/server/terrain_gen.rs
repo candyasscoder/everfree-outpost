@@ -1,16 +1,12 @@
-use std::collections::HashMap;
-use std::hash::{Hash, Hasher, SipHasher};
-use std::mem;
 use std::thread::{self, JoinGuard};
 use std::sync::mpsc::{self, Sender, Receiver};
-use rand::{Rng, XorShiftRng, SeedableRng};
 
 use libphysics::CHUNK_SIZE;
+use libterrain_gen::worker;
 use types::*;
 use util::StrResult;
 
 use data::Data;
-use engine::split::PartFlags;
 use script::ScriptEngine;
 use storage::Storage;
 use world::Fragment as World_Fragment;
@@ -18,21 +14,6 @@ use world::Hooks;
 use world::StructureAttachment;
 use world::flags;
 use world::object::*;
-
-mod worker;
-mod prop;
-mod cache;
-
-mod dsc;
-mod cellular;
-mod disk_sampler2;
-mod pattern;
-
-mod forest;
-
-
-pub type StdRng = XorShiftRng;
-
 
 pub type TerrainGenEvent = worker::Response;
 
@@ -125,47 +106,4 @@ pub trait Fragment<'d> {
         });
     }
 
-}
-
-
-pub struct GenChunk {
-    pub blocks: Box<BlockChunk>,
-    pub structures: Vec<GenStructure>,
-}
-
-impl GenChunk {
-    pub fn new() -> GenChunk {
-        GenChunk {
-            blocks: Box::new(EMPTY_CHUNK),
-            structures: Vec::new(),
-        }
-    }
-
-    pub fn set_block(&mut self, pos: V3, val: BlockId) {
-        let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
-        assert!(bounds.contains(pos));
-        self.blocks[bounds.index(pos)] = val;
-    }
-
-    pub fn get_block(&self, pos: V3) -> BlockId {
-        let bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
-        assert!(bounds.contains(pos));
-        self.blocks[bounds.index(pos)]
-    }
-}
-
-pub struct GenStructure {
-    pub pos: V3,
-    pub template: TemplateId,
-    pub extra: HashMap<String, String>,
-}
-
-impl GenStructure {
-    pub fn new(pos: V3, template: TemplateId) -> GenStructure {
-        GenStructure {
-            pos: pos,
-            template: template,
-            extra: HashMap::new(),
-        }
-    }
 }

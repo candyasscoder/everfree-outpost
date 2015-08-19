@@ -64,18 +64,20 @@ impl<'a> From<&'a str> for StringError {
 pub type StringResult<T> = Result<T, StringError>;
 
 
+#[macro_export]
 macro_rules! fail {
     ($msg:expr) => {{
-            let error = $crate::util::StrError { msg: $msg };
+            let error = $crate::StrError { msg: $msg };
             return Err(::std::convert::From::from(error));
     }};
 
     ($msg:expr, $($args:tt)*) => {{
-            let error = $crate::util::StringError { msg: format!($msg, $($args)*) };
+            let error = $crate::StringError { msg: format!($msg, $($args)*) };
             return Err(::std::convert::From::from(error));
     }};
 }
 
+#[macro_export]
 macro_rules! unwrap {
     ($e:expr, $msg:expr) => { unwrap_or!($e, fail!($msg)) };
     ($e:expr) => {
@@ -84,6 +86,7 @@ macro_rules! unwrap {
     };
 }
 
+#[macro_export]
 macro_rules! unwrap_or {
     ($e:expr, $or:expr) => {
         match $e {

@@ -1,10 +1,8 @@
-use std::cmp;
 use std::iter;
 use std::num::{Zero, One};
 use std::ops::{Add, Sub, BitAnd, BitOr, BitXor, Not, Shl, Shr};
-use rand::Rng;
 
-use types::*;
+use libserver_types::*;
 
 
 pub struct PatternGrid<T> {
@@ -12,7 +10,6 @@ pub struct PatternGrid<T> {
     size: V2,
     cell_bits: u8,
     row_bits: u8,
-    pattern_bits: u8,
 }
 
 pub trait BitNum: Copy + Eq + Zero + One +
@@ -34,7 +31,6 @@ impl<T: BitNum> PatternGrid<T> {
             size: size,
             cell_bits: cell_bits,
             row_bits: cell_bits * pattern_size.x as u8,
-            pattern_bits: cell_bits * pattern_size.x as u8 * pattern_size.y as u8,
         }
     }
 

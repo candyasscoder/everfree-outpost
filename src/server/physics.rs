@@ -1,4 +1,4 @@
-use libphysics::{self, Shape, ShapeSource};
+use libphysics::{self, ShapeSource};
 use libphysics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE};
 
 use types::*;

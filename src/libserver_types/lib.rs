@@ -1,6 +1,12 @@
 #![crate_name = "server_types"]
+extern crate physics as libphysics;
+
 use std::marker::PhantomData;
 use std::{i64, u16};
+use libphysics::CHUNK_BITS;
+
+pub use libphysics::v3::{V2, V3, Vn, scalar, Region, Region2};
+pub use libphysics::Shape;
 
 
 // Stable IDs, for use with StableIdMap.
@@ -106,3 +112,14 @@ pub const TIME_MIN: Time = i64::MIN;
 pub const TIME_MAX: Time = i64::MAX;
 pub const DURATION_MIN: Duration = u16::MIN;
 pub const DURATION_MAX: Duration = u16::MAX;
+
+
+// Chunks
+
+pub const CHUNK_TOTAL: usize = 1 << (3 * CHUNK_BITS);
+pub type BlockChunk = [BlockId; CHUNK_TOTAL];
+
+// 0 is always the BlockId of "empty" (no appearance; empty shape)
+pub static EMPTY_CHUNK: BlockChunk = [0; CHUNK_TOTAL];
+// 1 is always the BlockId of "placeholder" (no appearance; solid shape)
+pub static PLACEHOLDER_CHUNK: BlockChunk = [1; CHUNK_TOTAL];

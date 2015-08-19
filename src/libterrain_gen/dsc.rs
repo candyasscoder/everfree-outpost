@@ -12,9 +12,7 @@ use std::u8;
 use std::u32;
 use rand::Rng;
 
-use types::*;
-
-use util::small_vec::SmallVec;
+use libserver_types::*;
 
 pub use self::Phase::{Diamond, Square};
 
@@ -517,7 +515,8 @@ impl DscGrid {
             max: Fixed,
             count: u32,
         }
-        let mut ranges = SmallVec::<Entry>::new();
+        // TODO: use SmallVec once server::util is moved to a library
+        let mut ranges = Vec::<Entry>::new();
 
         for &pos in self.constrained_points.iter() {
             let idx = bounds.index(pos);
@@ -689,7 +688,6 @@ impl DscGrid {
                                   get_max_offset: &mut F)
             where F: FnMut(V2, u8, Phase) -> u8 {
         let bounds = self.bounds();
-        let idx = bounds.index(pos);
 
         let (dirs, dist) = parent_dirs(level, phase);
         let mut sum = Fixed::from_u8(0);

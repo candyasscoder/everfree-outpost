@@ -1,17 +1,14 @@
-use std::cmp;
 use rand::Rng;
 
-use libphysics::{CHUNK_BITS, CHUNK_SIZE};
-use types::*;
+use libphysics::CHUNK_SIZE;
+use libserver_types::*;
+use libserver_util as util;
 
-use terrain_gen::StdRng;
-use terrain_gen::cellular::CellularGrid;
-use terrain_gen::dsc::DscGrid;
-use terrain_gen::pattern::PatternGrid;
-use terrain_gen::prop::LocalProperty;
-use util;
+use StdRng;
+use dsc::DscGrid;
+use pattern::PatternGrid;
+use prop::LocalProperty;
 
-use super::{power, exp_power};
 use super::provider;
 use super::summary::ChunkSummary;
 
@@ -158,51 +155,3 @@ const RAMP_MASK: u32 =    (0b_00_11_11_00 << 24) |
                           (0b_11_11_11_11 << 16) |
                           (0b_11_11_11_11 <<  8) |
                           (0b_00_11_11_00 <<  0);
-
-fn find_pattern(grid: &DscGrid, cutoff: u8, bits: u32, mask: u32) -> Vec<V2> {
-    let base: V2 = scalar(CHUNK_SIZE);
-    let get = |x, y| {
-        if y < 0 {
-            return 0;
-        }
-        let pos = base + V2::new(x, y);
-        let val = grid.get_value(pos).unwrap();
-
-        let above = val >= cutoff;
-        let below = val < cutoff - 2;
-        (above as u32) | ((below as u32) << 1)
-    };
-
-    // Accumulator records a 4x3 region above and to the left of the current point.  It
-    // consists of three sections, each containing four 2-bit fields plus 2 bits of padding.
-    // The lower bit of each field is a 1 if the height of the corresponding cell is above the
-    // current level, and the upper bit is 1 if it is strictly below the current level.  If
-    // both are zero, then the cell is exactly on the current level.
-    //
-    //            30             20             10              0 
-    //   high ->  __ __ AA BB CC DD __ EE FF GG HH __ II JJ KK LL  <- low
-    //
-    // Grid:
-    //      ABCD
-    //      EFGH
-    //      IJKL <- current cell
-    let mut acc = 0_u32;
-    let mut result = Vec::new();
-
-    for y in 0 .. CHUNK_SIZE + 1 {
-        acc = 0;
-        for x in 0 .. CHUNK_SIZE + 1 {
-            acc <<= 2;
-            acc &= !((3 << 8) | (3 << 18) | (3 << 28));    // Clear padding.
-            acc |= get(x, y - 2) << 20;
-            acc |= get(x, y - 1) << 10;
-            acc |= get(x, y - 0) <<  0;
-
-            if x >= 3 && y >= 1 && acc & mask == bits {
-                result.push(V2::new(x, y));
-            }
-        }
-    }
-    result
-}
-

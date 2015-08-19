@@ -1,10 +1,7 @@
-use std::fs::File;
-use std::io;
+use libserver_types::*;
 
-use types::*;
+use cache::{Cache, Summary};
 
-
-use terrain_gen::cache::{Cache, Summary};
 
 pub trait LocalProperty {
     type Summary: Summary;
@@ -45,7 +42,10 @@ pub trait LocalProperty {
         };
 
         for &dir in &DIRS {
-            unwrap_or!(cache.load(pid, cpos + dir).ok(), continue);
+            match cache.load(pid, cpos + dir) {
+                Ok(_) => {},
+                Err(_) => continue,
+            }
             let summ = cache.get(pid, cpos + dir);
             self.load(&mut tmp, dir, summ);
         }

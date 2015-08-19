@@ -3,10 +3,9 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 use libphysics::CHUNK_SIZE;
-use libphysics::Shape;
+use types::*;
 
 use data::StructureTemplate;
-use types::*;
 use world::World;
 use world::{Client, Entity, Inventory, Plane, TerrainChunk, Structure};
 use world::{EntitiesById, StructuresById, InventoriesById};

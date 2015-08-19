@@ -1,7 +1,7 @@
 use std::fs::File;
 
 use types::*;
-use util::bytes::{ReadBytes, WriteBytes};
+use libserver_util::bytes::{ReadBytes, WriteBytes};
 use util::now;
 
 use engine::glue::*;

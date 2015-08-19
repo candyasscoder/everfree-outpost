@@ -1,16 +1,15 @@
 use std::cmp;
 use rand::Rng;
 
-use libphysics::{CHUNK_BITS, CHUNK_SIZE};
-use types::*;
+use libphysics::CHUNK_SIZE;
+use libserver_types::*;
 
-use terrain_gen::StdRng;
-use terrain_gen::cellular::CellularGrid;
-use terrain_gen::dsc::DscGrid;
-use terrain_gen::prop::LocalProperty;
+use StdRng;
+use cellular::CellularGrid;
+use dsc::DscGrid;
+use prop::LocalProperty;
 
 use super::summary::ChunkSummary;
-use super::{power, exp_power};
 
 
 pub struct Caves<'a> {

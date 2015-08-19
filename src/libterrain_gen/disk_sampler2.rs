@@ -1,7 +1,7 @@
 use std::iter;
 use rand::Rng;
 
-use types::*;
+use libserver_types::*;
 
 
 pub struct DiskSampler {
@@ -112,7 +112,6 @@ impl DiskSampler {
 
     fn place_nearby<R: Rng>(&mut self, rng: &mut R, pos: V2, tries: u32) {
         let step = self.max_spacing;
-        let bounds = self.bounds();
         let min2 = self.min_spacing * self.min_spacing;
         let max2 = self.max_spacing * self.max_spacing;
         for _ in 0 .. tries {

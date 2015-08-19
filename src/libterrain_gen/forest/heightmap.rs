@@ -1,14 +1,11 @@
-use rand::Rng;
-
 use libphysics::{CHUNK_BITS, CHUNK_SIZE};
-use types::*;
+use libserver_types::*;
 
-use terrain_gen::StdRng;
-use terrain_gen::dsc::{DscGrid, Phase};
-use terrain_gen::prop::LocalProperty;
+use StdRng;
+use dsc::{DscGrid, Phase};
+use prop::LocalProperty;
 
 use super::summary::ChunkSummary;
-use super::{power, exp_power};
 
 
 pub struct Heightmap {

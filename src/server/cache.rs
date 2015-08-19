@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use types::*;
 use util::StrResult;
-use libphysics::{CHUNK_BITS, CHUNK_SIZE, Shape};
+use libphysics::{CHUNK_BITS, CHUNK_SIZE};
 
 use world::World;
 use world::object::*;

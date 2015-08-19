@@ -5,7 +5,7 @@
 use std::iter;
 use std::mem;
 
-use types::*;
+use libserver_types::*;
 
 bitflags! {
     flags Cell: u8 {

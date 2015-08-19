@@ -3,8 +3,6 @@ use std::collections::HashMap;
 use std::iter::repeat;
 use rustc_serialize::json::Json;
 
-use libphysics::Shape;
-use libphysics::v3::V3;
 use libserver_types::*;
 
 

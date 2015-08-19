@@ -4,7 +4,6 @@ use libphysics::{CHUNK_SIZE, TILE_SIZE};
 use types::*;
 use util::SmallSet;
 use util::StrResult;
-use libphysics::Shape;
 
 use data::StructureTemplate;
 use engine::glue::*;

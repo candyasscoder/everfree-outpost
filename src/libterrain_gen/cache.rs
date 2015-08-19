@@ -1,10 +1,10 @@
+use std::error::Error;
 use std::fs::File;
-use std::io::{self, Read, Write};
+use std::io;
 use linked_hash_map::LinkedHashMap;
 
-use types::*;
-
-use storage::Storage;
+use libserver_types::*;
+use libserver_config::Storage;
 
 
 pub trait Summary {
@@ -56,7 +56,13 @@ impl<'d, T: Summary> Cache<'d, T> {
             let ((pid, cpos), entry) = self.cache.pop_front().unwrap();
             if entry.dirty {
                 let file = self.storage.create_summary_file(self.name, pid, cpos);
-                warn_on_err!(entry.data.write_to(file));
+                match entry.data.write_to(file) {
+                    Ok(_) => {},
+                    Err(e) => {
+                        warn!("error writing cache entry to disk: {}",
+                              e.description());
+                    },
+                }
             }
         }
     }

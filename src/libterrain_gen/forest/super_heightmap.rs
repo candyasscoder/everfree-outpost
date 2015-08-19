@@ -1,10 +1,10 @@
 use rand::Rng;
 
-use types::*;
+use libserver_types::*;
 
-use terrain_gen::StdRng;
-use terrain_gen::dsc::DscGrid;
-use terrain_gen::prop::LocalProperty;
+use StdRng;
+use dsc::DscGrid;
+use prop::LocalProperty;
 
 use super::summary::{SuperchunkSummary, SUPERCHUNK_BITS, SUPERCHUNK_SIZE};
 use super::{power, exp_power};
