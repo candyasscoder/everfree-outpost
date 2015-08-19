@@ -7,7 +7,7 @@ from configure.util import join, maybe
 def rules(i):
     return template('''
         rule process_font
-            command = $python3 $root/gen/process_font.py $
+            command = $python3 $root/src/gen/process_font.py $
                 --font-image-in=$in $
                 --first-char=$first_char $
                 --font-image-out=$out_img $
@@ -15,15 +15,15 @@ def rules(i):
             description = GEN $out_img
 
         rule process_day_night
-            command = $python3 $root/gen/gen_day_night.py $in >$out
+            command = $python3 $root/src/gen/gen_day_night.py $in >$out
             description = GEN $out
 
         rule gen_server_json
-            command = $python3 $root/gen/gen_server_json.py >$out
+            command = $python3 $root/src/gen/gen_server_json.py >$out
             description = GEN $out
 
         rule gen_credits
-            command = $python3 $root/gen/gen_credits.py $root $out $dep_files
+            command = $python3 $root/src/gen/gen_credits.py $root $out $dep_files
             description = GEN $out
     ''', **locals())
 
@@ -33,7 +33,7 @@ def font(out_base, src_img):
 
     return template('''
         build %out_img %out_metrics: process_font %src_img $
-            | $root/gen/process_font.py
+            | $root/src/gen/process_font.py
             first_char = 0x21
             out_img = %out_img
             out_metrics = %out_metrics
@@ -41,13 +41,13 @@ def font(out_base, src_img):
 
 def server_json(out_json):
     return template('''
-        build %out_json: gen_server_json | $root/gen/gen_server_json.py
+        build %out_json: gen_server_json | $root/src/gen/gen_server_json.py
     ''', **locals())
 
 def day_night(out_json, src_img):
     return template('''
         build %out_json: process_day_night %src_img $
-            | $root/gen/gen_day_night.py
+            | $root/src/gen/gen_day_night.py
     ''', **locals())
 
 def process():
@@ -57,7 +57,7 @@ def process():
     data_files.append('extras_client.json')
     return template('''
         rule process_data
-            command = $python3 $root/gen/data_main.py --mods=$mods $
+            command = $python3 $root/src/gen/data_main.py --mods=$mods $
                     --src-dir=$root --output-dir=$b_data
             description = DATA
             depfile = $b_data/data.d
@@ -67,7 +67,7 @@ def process():
                 $b_data/%{name} $
             %end
             $b_data/tiles.png $b_data/items.png: $
-            process_data | $root/gen/data_main.py
+            process_data | $root/src/gen/data_main.py
     ''', **locals())
 
 def pack():
@@ -86,6 +86,6 @@ def credits(out_path):
     return template('''
         build %out_path: gen_credits $
             | $b_data/stamp $b_data/outpost.pack $
-              $root/gen/gen_credits.py
+              $root/src/gen/gen_credits.py
             dep_files = $b_data/data.d $b_data/outpost.pack.d
     ''', **locals())

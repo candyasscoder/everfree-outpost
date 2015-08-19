@@ -199,9 +199,10 @@ if __name__ == '__main__':
             '# Native',
             native.rules(i),
             native.rust('physics', 'lib', ()),
-            native.rust('backend', 'bin', ('physics',), '$root/server/main.rs'),
+            native.rust('backend', 'bin', ('physics',), '$root/src/server/main.rs'),
             native.cxx('wrapper', 'bin',
-                ('$root/wrapper/%s' % f for f in os.listdir(os.path.join(i.root_dir, 'wrapper'))
+                ('$root/src/wrapper/%s' % f
+                    for f in os.listdir(os.path.join(i.root_dir, 'src', 'wrapper'))
                     if f.endswith('.cpp')),
                 cxxflags='-DWEBSOCKETPP_STRICT_MASKING',
                 ldflags='-static',
@@ -224,15 +225,15 @@ if __name__ == '__main__':
             asmjs.rlib('physics', ('core', 'bitflags', 'asmrt')),
             asmjs.rlib('graphics', ('core', 'asmrt', 'physics')),
             asmjs.asmlibs('asmlibs',
-                '$root/client/asmlibs.rs', ('core', 'asmrt', 'physics', 'graphics'),
-                '$root/client/asmlibs_exports.txt', '$root/client/asmlibs.tmpl.js'),
+                '$root/src/client/asmlibs.rs', ('core', 'asmrt', 'physics', 'graphics'),
+                '$root/src/client/asmlibs_exports.txt', '$root/src/client/asmlibs.tmpl.js'),
 
             '# Javascript',
             js.rules(i),
-            js.compile(i, '$b_js/outpost.js', '$root/client/js/main.js'),
+            js.compile(i, '$b_js/outpost.js', '$root/src/client/js/main.js'),
             js.minify('$b_js/asmlibs.js', '$b_asmjs/asmlibs.js'),
-            js.compile(i, '$b_js/animtest.js', '$root/client/js/animtest.js'),
-            js.compile(i, '$b_js/configedit.js', '$root/client/js/configedit.js'),
+            js.compile(i, '$b_js/animtest.js', '$root/src/client/js/animtest.js'),
+            js.compile(i, '$b_js/configedit.js', '$root/src/client/js/configedit.js'),
             ))
 
     content += '\n\n'.join((

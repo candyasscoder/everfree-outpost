@@ -96,7 +96,8 @@ def main(args):
 
     # Set up `outpost_data.core` package.
     load_fake_package('outpost_data', ns.src_dir)
-    load_from_path('outpost_data.core', os.path.join(ns.src_dir, 'gen', 'data', '__init__.py'))
+    load_from_path('outpost_data.core',
+            os.path.join(ns.src_dir, 'src', 'gen', 'data', '__init__.py'))
 
     sys.modules['outpost_data.core.loader'] = sys.modules[__name__]
     attach_to_package('outpost_data.core.loader')

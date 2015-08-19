@@ -89,7 +89,7 @@ def rules(i):
     ''', **locals())
 
 def rlib(crate_name, deps, src_file=None):
-    src_file = src_file or '$root/%s/lib.rs' % crate_name
+    src_file = src_file or '$root/src/lib%s/lib.rs' % crate_name
 
     return template('''
         build $b_asmjs/lib%{crate_name}.rlib: asm_compile_rlib %src_file $

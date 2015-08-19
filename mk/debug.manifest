@@ -1,1 +1,1 @@
-www/js/: $root/client/js/
+www/js/: $root/src/client/js/

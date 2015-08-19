@@ -54,10 +54,10 @@ def rules(i):
 def rust(crate_name, crate_type, deps, src_file=None):
     if crate_type == 'bin':
         output_name = '%s$_exe' % crate_name
-        src_file = src_file or '$root/%s/main.rs' % crate_name
+        src_file = src_file or '$root/src/%s/main.rs' % crate_name
     elif crate_type == 'lib':
         output_name = 'lib%s.rlib' % crate_name
-        src_file = src_file or '$root/%s/lib.rs' % crate_name
+        src_file = src_file or '$root/src/lib%s/lib.rs' % crate_name
 
     return template('''
         build $b_native/%output_name: rustc_native_%{crate_type} %src_file $
