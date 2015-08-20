@@ -1,5 +1,5 @@
-use std::thread::{self, JoinGuard};
 use std::sync::mpsc::{self, Sender, Receiver};
+use std::thread::{self, JoinGuard};
 
 use libphysics::CHUNK_SIZE;
 use libterrain_gen::worker;
