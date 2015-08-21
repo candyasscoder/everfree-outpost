@@ -116,6 +116,7 @@ def header(i):
 
         _exe = %{'' if not i.win32 else '.exe'}
         _so = %{'.so' if not i.win32 else '.dll'}
+        _a = .a
 
         b_native = %{b('native')}
         b_asmjs = %{b('asmjs')}
@@ -222,6 +223,20 @@ if __name__ == '__main__':
                 cflags=py_includes,
                 ldflags=py_ldflags,
                 ),
+
+            native.rust('terrain_gen_ffi', 'staticlib',
+                ('terrain_gen', 'server_config', 'server_types'),
+                src_file='$root/src/test_terrain_gen/ffi.rs'),
+            native.cxx('outpost_terrain_gen', 'shlib',
+                ('$root/src/test_terrain_gen/py.c',),
+                cflags=py_includes,
+                ldflags=py_ldflags,
+                link_extra=['$b_native/libterrain_gen_ffi$_a'],
+                ),
+
+            'build pymodules: phony '
+                '$b_native/outpost_savegame$_so '
+                '$b_native/outpost_terrain_gen$_so',
 
             '# Asm.js',
             asmjs.rules(i),

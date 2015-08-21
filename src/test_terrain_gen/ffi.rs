@@ -3,7 +3,6 @@
 #![feature(
     box_raw,
     cstr_to_str,
-    libc,
     scoped,
 )]
 

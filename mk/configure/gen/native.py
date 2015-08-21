@@ -11,7 +11,6 @@ def rules(i):
             '-L $b_native',
             maybe('-L %s', i.rust_extra_libdir),
             i.rust_lib_externs,
-            cond(i.debug, '-g', '-C opt-level=3'),
             )
 
     common_cflags = join(
@@ -21,13 +20,23 @@ def rules(i):
             )
 
     return template('''
+        rustflags_debug = -g
+        rustflags_release = -C opt-level=3
+        rustflags_default = %if i.debug% $rustflags_debug %else% $rustflags_release %end%
+        rustflags_lto = %if not i.debug%  -C lto  %end%
+
         rule rustc_native_bin
-            command = %rustc_base --crate-type=bin  %if not i.debug% -C lto %end%
+            command = %rustc_base --crate-type=bin $rustflags_lto $rustflags
             depfile = $b_native/$crate_name.d
             description = RUSTC $out
 
         rule rustc_native_lib
-            command = %rustc_base --crate-type=lib
+            command = %rustc_base --crate-type=lib $rustflags
+            depfile = $b_native/$crate_name.d
+            description = RUSTC $out
+
+        rule rustc_native_staticlib
+            command = %rustc_base --crate-type=staticlib $rustflags_lto $rustflags
             depfile = $b_native/$crate_name.d
             description = RUSTC $out
 
@@ -50,22 +59,25 @@ def rules(i):
             description = LD $out
     ''', **locals())
 
+def rust(crate_name, crate_type, deps, src_file=None, build_type='default'):
+    src_template, output_template, can_lto = {
+            'bin': ('$root/src/%s/main.rs', '%s$_exe', True),
+            'lib': ('$root/src/lib%s/lib.rs', 'lib%s.rlib', False),
+            'staticlib': ('$root/src/lib%s/lib.rs', 'lib%s$_a', True),
+            }[crate_type]
 
-def rust(crate_name, crate_type, deps, src_file=None):
-    if crate_type == 'bin':
-        output_name = '%s$_exe' % crate_name
-        src_file = src_file or '$root/src/%s/main.rs' % crate_name
-    elif crate_type == 'lib':
-        output_name = 'lib%s.rlib' % crate_name
-        src_file = src_file or '$root/src/lib%s/lib.rs' % crate_name
+    output_name = output_template % crate_name
+    src_file = src_file or src_template % crate_name
 
     return template('''
-        build $b_native/%output_name: rustc_native_%{crate_type} %src_file $
+        build $b_native/%output_name: rustc_native_%crate_type %src_file $
             | %for d in deps% $b_native/lib%{d}.rlib %end%
             crate_name = %crate_name
+            crate_type = %crate_type
+            rustflags = $rustflags_%build_type
     ''', **locals())
 
-def cxx(out_name, out_type, src_files, **kwargs):
+def cxx(out_name, out_type, src_files, link_extra=[], **kwargs):
     builds = []
     def add_build(*args, **kwargs):
         builds.append(mk_build(*args, **kwargs))
@@ -84,6 +96,6 @@ def cxx(out_name, out_type, src_files, **kwargs):
         add_build(obj_file, build_type, f, picflag=pic_flag, **kwargs)
         deps.append(obj_file)
 
-    add_build(out_path, 'link_%s' % out_type, deps, **kwargs)
+    add_build(out_path, 'link_%s' % out_type, deps + link_extra, **kwargs)
 
     return '\n'.join(builds)
