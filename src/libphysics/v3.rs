@@ -41,22 +41,27 @@ impl fmt::Debug for V3 {
 }
 
 impl V3 {
+    #[inline]
     pub fn new(x: i32, y: i32, z: i32) -> V3 {
         V3 { x: x, y: y, z: z }
     }
 
+    #[inline]
     pub fn with_x(self, val: i32) -> V3 {
         self.with(Axis::X, val)
     }
 
+    #[inline]
     pub fn with_y(self, val: i32) -> V3 {
         self.with(Axis::Y, val)
     }
 
+    #[inline]
     pub fn with_z(self, val: i32) -> V3 {
         self.with(Axis::Z, val)
     }
 
+    #[inline]
     pub fn reduce(self) -> V2 {
         V2::new(self.x, self.y)
     }
@@ -65,6 +70,7 @@ impl V3 {
 impl Vn for V3 {
     type Axis = Axis;
 
+    #[inline]
     fn unfold<T, F: FnMut(Axis, T) -> (i32, T)>(val: T, mut f: F) -> (V3, T) {
         let (x, val) = f(Axis::X, val);
         let (y, val) = f(Axis::Y, val);
@@ -72,6 +78,7 @@ impl Vn for V3 {
         (V3::new(x, y, z), val)
     }
 
+    #[inline]
     fn get(self, axis: Axis) -> i32 {
         match axis {
             Axis::X => self.x,
@@ -80,6 +87,7 @@ impl Vn for V3 {
         }
     }
 
+    #[inline]
     fn fold_axes<T, F: FnMut(Axis, T) -> T>(val: T, mut f: F) -> T {
         let val = f(Axis::X, val);
         let val = f(Axis::Y, val);
@@ -109,18 +117,22 @@ impl fmt::Debug for V2 {
 }
 
 impl V2 {
+    #[inline]
     pub fn new(x: i32, y: i32) -> V2 {
         V2 { x: x, y: y }
     }
 
+    #[inline]
     pub fn with_x(self, val: i32) -> V2 {
         self.with(Axis2::X, val)
     }
 
+    #[inline]
     pub fn with_y(self, val: i32) -> V2 {
         self.with(Axis2::Y, val)
     }
 
+    #[inline]
     pub fn extend(self, val: i32) -> V3 {
         V3::new(self.x, self.y, val)
     }
@@ -129,12 +141,14 @@ impl V2 {
 impl Vn for V2 {
     type Axis = Axis2;
 
+    #[inline]
     fn unfold<T, F: FnMut(Axis2, T) -> (i32, T)>(val: T, mut f: F) -> (V2, T) {
         let (x, val) = f(Axis2::X, val);
         let (y, val) = f(Axis2::Y, val);
         (V2::new(x, y), val)
     }
 
+    #[inline]
     fn get(self, axis: Axis2) -> i32 {
         match axis {
             Axis2::X => self.x,
@@ -142,6 +156,7 @@ impl Vn for V2 {
         }
     }
 
+    #[inline]
     fn fold_axes<T, F: FnMut(Axis2, T) -> T>(val: T, mut f: F) -> T {
         let val = f(Axis2::X, val);
         let val = f(Axis2::Y, val);
@@ -157,89 +172,110 @@ pub trait Vn: Sized+Copy {
     fn get(self, axis: <Self as Vn>::Axis) -> i32;
     fn fold_axes<T, F: FnMut(<Self as Vn>::Axis, T) -> T>(init: T, mut f: F) -> T;
 
+    #[inline]
     fn from_fn<F: FnMut(<Self as Vn>::Axis) -> i32>(mut f: F) -> Self {
         <Self as Vn>::unfold((), |a, ()| (f(a), ())).0
     }
 
+    #[inline]
     fn on_axis(axis: <Self as Vn>::Axis, mag: i32) -> Self {
         <Self as Vn>::from_fn(|a| if a == axis { mag } else { 0 })
     }
 
+    #[inline]
     fn on_dir_axis(dir_axis: (<Self as Vn>::Axis, bool), mag: i32) -> Self {
         let (axis, neg) = dir_axis;
         <Self as Vn>::on_axis(axis, if neg { -mag } else { mag })
     }
 
+    #[inline]
     fn map<F: FnMut(i32) -> i32>(self, mut f: F) -> Self {
         <Self as Vn>::from_fn(|a| f(self.get(a)))
     }
 
+    #[inline]
     fn zip<F: FnMut(i32, i32) -> i32>(self, other: Self, mut f: F) -> Self {
         <Self as Vn>::from_fn(|a| f(self.get(a), other.get(a)))
     }
 
+    #[inline]
     fn zip3<F: FnMut(i32, i32, i32) -> i32>(self, other1: Self, other2: Self, mut f: F) -> Self {
         <Self as Vn>::from_fn(|a| f(self.get(a), other1.get(a), other2.get(a)))
     }
 
+    #[inline]
     fn dot(self, other: Self) -> i32 {
         <Self as Vn>::fold_axes(0, |a, sum| sum + self.get(a) * other.get(a))
     }
 
+    #[inline]
     fn mag2(self) -> i32 {
         self.dot(self)
     }
 
+    #[inline]
     fn get_dir(self, dir_axis: (<Self as Vn>::Axis, bool)) -> i32 {
         let (axis, neg) = dir_axis;
         if neg { -self.get(axis) } else { self.get(axis) }
     }
 
+    #[inline]
     fn get_if_pos(self, dir_axis: (<Self as Vn>::Axis, bool)) -> i32 {
         let (axis, neg) = dir_axis;
         if neg { 0 } else { self.get(axis) }
     }
 
+    #[inline]
     fn only(self, axis: <Self as Vn>::Axis) -> Self {
         <Self as Vn>::on_axis(axis, self.get(axis))
     }
 
+    #[inline]
     fn abs(self) -> Self {
         self.map(|x| x.abs())
     }
 
+    #[inline]
     fn signum(self) -> Self {
         self.map(|x| x.signum())
     }
 
+    #[inline]
     fn is_positive(self) -> Self {
         self.map(|x| (x > 0) as i32)
     }
 
+    #[inline]
     fn is_negative(self) -> Self {
         self.map(|x| (x < 0) as i32)
     }
 
+    #[inline]
     fn is_zero(self) -> Self {
         self.map(|x| (x == 0) as i32)
     }
 
+    #[inline]
     fn choose(self, a: Self, b: Self) -> Self {
         self.zip3(a, b, |x, a, b| if x != 0 { a } else { b })
     }
 
+    #[inline]
     fn clamp(self, low: i32, high: i32) -> Self {
         self.map(|x| max(low, min(high, x)))
     }
 
+    #[inline]
     fn with(self, axis: <Self as Vn>::Axis, mag: i32) -> Self {
         <Self as Vn>::from_fn(|a| if a == axis { mag } else { self.get(a) })
     }
 
+    #[inline]
     fn div_floor(self, other: Self) -> Self {
         self.zip(other, |a, b| div_floor(a, b))
     }
 
+    #[inline]
     fn min(self) -> i32 {
         <Self as Vn>::fold_axes(None, |a, x| {
             match x {
@@ -249,6 +285,7 @@ pub trait Vn: Sized+Copy {
         }).unwrap()
     }
 
+    #[inline]
     fn max(self) -> i32 {
         <Self as Vn>::fold_axes(None, |a, x| {
             match x {
@@ -258,56 +295,68 @@ pub trait Vn: Sized+Copy {
         }).unwrap()
     }
 
-
+    #[inline]
     fn add(self, other: Self) -> Self {
         self.zip(other, |a, b| a + b)
     }
 
+    #[inline]
     fn sub(self, other: Self) -> Self {
         self.zip(other, |a, b| a - b)
     }
 
+    #[inline]
     fn mul(self, other: Self) -> Self {
         self.zip(other, |a, b| a * b)
     }
 
+    #[inline]
     fn div(self, other: Self) -> Self {
         self.zip(other, |a, b| a / b)
     }
 
+    #[inline]
     fn rem(self, other: Self) -> Self {
         self.zip(other, |a, b| a % b)
     }
 
+    #[inline]
     fn neg(self) -> Self {
         self.map(|x| -x)
     }
 
+    #[inline]
     fn shl(self, amount: usize) -> Self {
         self.map(|x| x << amount)
     }
 
+    #[inline]
     fn shr(self, amount: usize) -> Self {
         self.map(|x| x >> amount)
     }
 
+    #[inline]
     fn bitand(self, other: Self) -> Self {
         self.zip(other, |a, b| a & b)
     }
 
+    #[inline]
     fn bitor(self, other: Self) -> Self {
         self.zip(other, |a, b| a | b)
     }
 
+    #[inline]
     fn bitxor(self, other: Self) -> Self {
         self.zip(other, |a, b| a ^ b)
     }
 
+    #[inline]
     fn not(self) -> Self {
         self.map(|x| !x)
     }
 }
 
+#[inline]
 fn div_floor(a: i32, b: i32) -> i32 {
     if b < 0 {
         return div_floor(-a, -b);
@@ -327,6 +376,7 @@ fn div_floor(a: i32, b: i32) -> i32 {
     }
 }
 
+#[inline]
 pub fn scalar<V: Vn>(w: i32) -> V {
     <V as Vn>::from_fn(|_| w)
 }
@@ -336,6 +386,7 @@ macro_rules! impl_Vn_binop {
     ($vec:ty, $op:ident, $method:ident) => {
         impl $op<$vec> for $vec {
             type Output = $vec;
+            #[inline]
             fn $method(self, other: $vec) -> $vec {
                 <$vec as Vn>::$method(self, other)
             }
@@ -347,6 +398,7 @@ macro_rules! impl_Vn_unop {
     ($vec:ty, $op:ident, $method:ident) => {
         impl $op for $vec {
             type Output = $vec;
+            #[inline]
             fn $method(self) -> $vec {
                 <$vec as Vn>::$method(self)
             }
@@ -358,6 +410,7 @@ macro_rules! impl_Vn_shift_op {
     ($vec:ty, $op:ident, $method:ident) => {
         impl $op<usize> for $vec {
             type Output = $vec;
+            #[inline]
             fn $method(self, amount: usize) -> $vec {
                 <$vec as Vn>::$method(self, amount)
             }
@@ -567,6 +620,7 @@ macro_rules! impl_Region_binop {
     ($op:ident, $method:ident) => {
         impl<V: Vn+Copy> $op<V> for Region<V> {
             type Output = Region<V>;
+            #[inline]
             fn $method(self, other: V) -> Region<V> {
                 Region::new(<V as Vn>::$method(self.min, other),
                             <V as Vn>::$method(self.max, other))
@@ -579,6 +633,7 @@ macro_rules! impl_Region_unop {
     ($op:ident, $method:ident) => {
         impl<V: Vn+Copy> $op for Region<V> {
             type Output = Region<V>;
+            #[inline]
             fn $method(self) -> Region<V> {
                 Region::new(<V as Vn>::$method(self.min),
                             <V as Vn>::$method(self.max))
@@ -591,6 +646,7 @@ macro_rules! impl_Region_shift_op {
     ($op:ident, $method:ident) => {
         impl<V: Vn+Copy> $op<usize> for Region<V> {
             type Output = Region<V>;
+            #[inline]
             fn $method(self, amount: usize) -> Region<V> {
                 Region::new(<V as Vn>::$method(self.min, amount),
                             <V as Vn>::$method(self.max, amount))
@@ -629,6 +685,7 @@ pub struct RegionPoints<V> {
 }
 
 impl<V: Vn> RegionPoints<V> {
+    #[inline]
     pub fn empty() -> RegionPoints<V> {
         RegionPoints {
             cur: scalar(0),
@@ -637,6 +694,7 @@ impl<V: Vn> RegionPoints<V> {
         }
     }
 
+    #[inline]
     pub fn new(min: V, max: V) -> RegionPoints<V> {
         let mut first = true;
         let start = min.map(|x| {
@@ -658,6 +716,7 @@ impl<V: Vn> RegionPoints<V> {
 impl<V: Vn+Copy> Iterator for RegionPoints<V> {
     type Item = V;
 
+    #[inline]
     fn next(&mut self) -> Option<V> {
         let (new, carry) = <V as Vn>::unfold(true, |a, carry| {
             if !carry {

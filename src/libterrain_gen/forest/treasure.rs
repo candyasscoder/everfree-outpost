@@ -2,8 +2,8 @@ use libphysics::CHUNK_SIZE;
 use libserver_types::*;
 
 use StdRng;
-use cellular::CellularGrid;
-use disk_sampler2::DiskSampler;
+use algo::cellular::CellularGrid;
+use algo::disk_sampler::DiskSampler;
 use prop::LocalProperty;
 
 use super::summary::ChunkSummary;

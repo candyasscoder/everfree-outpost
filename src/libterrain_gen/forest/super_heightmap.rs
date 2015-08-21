@@ -3,7 +3,7 @@ use rand::Rng;
 use libserver_types::*;
 
 use StdRng;
-use dsc::DscGrid;
+use algo::dsc::DscGrid;
 use prop::LocalProperty;
 
 use super::summary::{SuperchunkSummary, SUPERCHUNK_BITS, SUPERCHUNK_SIZE};

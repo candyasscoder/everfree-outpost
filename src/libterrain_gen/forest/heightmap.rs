@@ -2,7 +2,7 @@ use libphysics::{CHUNK_BITS, CHUNK_SIZE};
 use libserver_types::*;
 
 use StdRng;
-use dsc::{DscGrid, Phase};
+use algo::dsc::{DscGrid, Phase};
 use prop::LocalProperty;
 
 use super::summary::ChunkSummary;

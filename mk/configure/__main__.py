@@ -203,8 +203,12 @@ if __name__ == '__main__':
             native.rust('server_types', 'lib', ('physics',)),
             native.rust('server_util', 'lib', ('server_types',)),
             native.rust('server_config', 'lib', ('server_types',)),
+            native.rust('terrain_gen_algo', 'lib', ('server_types',), build_type='release'),
             native.rust('terrain_gen', 'lib',
-                ('physics', 'server_config', 'server_types', 'server_util')),
+                ('physics', 'server_config', 'server_types', 'server_util', 'terrain_gen_algo'),
+                # Slow terrain gen algorithms cause serious problems in debug
+                # builds (3000+ ms to generate each chunk).
+                build_type='release'),
             native.rust('backend', 'bin',
                 ('physics', 'terrain_gen', 'server_config', 'server_types', 'server_util'),
                 '$root/src/server/main.rs'),

@@ -5,8 +5,8 @@ use libphysics::CHUNK_SIZE;
 use libserver_types::*;
 
 use StdRng;
-use cellular::CellularGrid;
-use dsc::DscGrid;
+use algo::cellular::CellularGrid;
+use algo::dsc::DscGrid;
 use prop::LocalProperty;
 
 use super::summary::ChunkSummary;

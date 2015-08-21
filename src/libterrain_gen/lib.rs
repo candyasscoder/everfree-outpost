@@ -1,9 +1,5 @@
 #![crate_name = "terrain_gen"]
 #![allow(dead_code)]
-#![feature(
-    iter_cmp,
-    zero_one,
-)]
 
 #[macro_use] extern crate bitflags;
 extern crate linked_hash_map;
@@ -15,6 +11,7 @@ extern crate physics as libphysics;
 extern crate server_config as libserver_config;
 extern crate server_types as libserver_types;
 extern crate server_util as libserver_util;
+extern crate terrain_gen_algo as libterrain_gen_algo;
 
 use std::collections::HashMap;
 use rand::XorShiftRng;
@@ -22,14 +19,11 @@ use rand::XorShiftRng;
 use libphysics::CHUNK_SIZE;
 use libserver_types::*;
 
+pub use libterrain_gen_algo as algo;
+
 pub mod worker;
 mod prop;
 mod cache;
-
-pub mod dsc;
-pub mod cellular;
-pub mod disk_sampler2;
-pub mod pattern;
 
 mod forest;
 

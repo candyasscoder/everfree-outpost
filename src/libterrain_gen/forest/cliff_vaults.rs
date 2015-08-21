@@ -5,8 +5,8 @@ use libserver_types::*;
 use libserver_util as util;
 
 use StdRng;
-use dsc::DscGrid;
-use pattern::PatternGrid;
+use algo::dsc::DscGrid;
+use algo::pattern::PatternGrid;
 use prop::LocalProperty;
 
 use super::provider;
