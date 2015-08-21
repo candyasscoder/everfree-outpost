@@ -26,6 +26,7 @@ mod prop;
 mod cache;
 
 mod forest;
+mod dungeon;
 
 
 pub type StdRng = XorShiftRng;

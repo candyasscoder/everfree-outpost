@@ -70,3 +70,44 @@ static DIRS: [V2; 8] = [
     V2 { x:  0, y: -1 },
     V2 { x:  1, y: -1 },
 ];
+
+
+pub trait GlobalProperty {
+    type Summary: Summary;
+    type Temporary;
+
+    /// Create a new instance of temporary storage for this property.
+    fn init(&mut self,
+            summ: &Self::Summary) -> Self::Temporary;
+
+    /// Generate data for the current chunk and write it to temporary storage.
+    fn generate(&mut self,
+                tmp: &mut Self::Temporary);
+
+    /// Copy data from temporary storage into the summary.
+    fn save(&mut self,
+            tmp: &Self::Temporary,
+            summ: &mut Self::Summary);
+
+    /// Generate a chunk summary into the named cache.
+    fn generate_into(&mut self,
+                     cache: &mut Cache<Self::Summary>,
+                     pid: Stable<PlaneId>,
+                     cpos: V2) -> Self::Temporary {
+        let mut tmp = {
+            let summ =
+                if let Ok(_) = cache.load(pid, cpos) {
+                    cache.get(pid, cpos)
+                } else {
+                    &*cache.create(pid, cpos)
+                };
+            self.init(summ)
+        };
+
+        self.generate(&mut tmp);
+
+        self.save(&tmp, cache.get_mut(pid, cpos));
+
+        tmp
+    }
+}

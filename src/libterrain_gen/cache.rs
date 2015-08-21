@@ -19,7 +19,7 @@ pub trait Summary {
 }
 
 
-pub struct CacheEntry<T> {
+struct CacheEntry<T> {
     data: Box<T>,
     dirty: bool,
 }
