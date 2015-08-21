@@ -1,11 +1,35 @@
+import argparse
 from collections import namedtuple
 from functools import lru_cache
 import os
 import sys
 
+import tornado.autoreload
+import tornado.web
+
 from outpost_savegame import V2, V3
 import outpost_terrain_gen as tg
 import render_map
+
+
+def int_pair(s):
+    parts = s.split(',')
+    if len(parts) != 2:
+        raise ValueError('expected 2 items, but found %d: %r' % (len(parts), s))
+    return (int(parts[0]), int(parts[1]))
+
+def build_parser():
+    p = argparse.ArgumentParser()
+    p.add_argument('dist_dir', metavar='DIST_DIR',
+            help='path to the outpost distribution')
+    p.add_argument('--plane-id', metavar='INT', type=int, default=2,
+            help='stable ID of the plane to generate')
+    p.add_argument('--port', metavar='PORT', type=int, default=8000,
+            help='port number for running the HTTP server (default: 8000)')
+    p.add_argument('--origin', metavar='X,Y', type=int_pair, default=(0, 0),
+            help='center point for map generation (default: 0,0)')
+    return p
+
 
 ChunkWrapper = namedtuple('ChunkWrapper', ('blocks', 'child_structures'))
 StructureWrapper = namedtuple('StructureWrapper', ('offset', 'template'))
@@ -27,67 +51,82 @@ def mk_wrap(data):
     return wrap_chunk
 
 class SliceCache(object):
-    def __init__(self, data, chunks):
+    def __init__(self, data, get_chunk):
         self.data = data
-        self.chunks = chunks
+        self.get_chunk = get_chunk
 
     @lru_cache(maxsize=128)
     def get_slices(self, cpos):
-        if cpos not in self.chunks:
+        chunk = self.get_chunk(cpos)
+        if chunk is None:
             return []
 
-        c = render_map.slice_chunk(self.data, self.chunks[cpos])
-        return c
+        return render_map.slice_chunk(self.data, chunk)
 
-def main(dist_dir, map_dir, base_x, base_y):
-    data = render_map.load_data(dist_dir)
-    worker = tg.Worker(dist_dir)
 
-    # Generate a bunch of chunks.
-    print(' * Generating chunks')
-    chunks = {}
-    for y in range(-4, 4):
-        for x in range(-4, 4):
-            worker.request(2, x + base_x, y + base_y)
-            chunks[V2(x, y)] = None
-
-    for i in range(len(chunks)):
-        _, x, y, chunk = worker.get_response()
-        chunks[V2(x - base_x, y - base_y)] = chunk
-
-    # Wrap all chunks and build the slice cache.
-    wrap_chunk = mk_wrap(data)
-    wrapped_chunks = dict((k, wrap_chunk(v)) for k,v in chunks.items())
-    slice_cache = SliceCache(data, wrapped_chunks)
-
-    # Render all the chunks.
-    print(' * Rendering %d chunks' % len(chunks))
-    imgs = dict((k, render_map.render_chunk(slice_cache, k)) for k in chunks.keys())
-
-    # Populate map directory.
-    ZOOM = 10
-    tile_dir = os.path.join(map_dir, 'tiles', 'z%d' % ZOOM)
-    os.makedirs(tile_dir, exist_ok=True)
-
-    print(' * Saving tiles')
-    tile_base = 1 << (ZOOM - 1)
-    for k,v in imgs.items():
-        path = os.path.join(tile_dir, '%s,%s.png' % (k.x + tile_base, k.y + tile_base))
-        v.resize((256, 256)).save(path)
-
+def mk_map_handler():
     with open(os.path.join(os.path.dirname(sys.argv[0]), 'map.tmpl.html'), 'r') as f:
         html = f.read()
-    html = html \
-            .replace('%DATE%', 'Terrain Generation Test') \
-            .replace('%MAX_ZOOM%', '10') \
-            .replace('%DEFAULT_ZOOM%', '10')
-    with open(os.path.join(map_dir, 'map.html'), 'w') as f:
-        f.write(html)
+        html = html \
+                .replace('%DATE%', 'Terrain Generation Test') \
+                .replace('%MAX_ZOOM%', '10') \
+                .replace('%DEFAULT_ZOOM%', '10')
+
+    class MapHandler(tornado.web.RequestHandler):
+        def get(self):
+            self.write(html)
+
+    return MapHandler
+
+ZOOM = 10
+CENTER_TILE = 1 << (ZOOM - 1)
+
+def mk_tile_handler(args):
+    offset = V2(*args.origin) - V2(CENTER_TILE, CENTER_TILE)
+
+    data = render_map.load_data(args.dist_dir)
+    worker = tg.Worker(args.dist_dir)
+
+    wrap_chunk = mk_wrap(data)
+    def get_chunk(cpos):
+        worker.request(args.plane_id, cpos.x, cpos.y)
+        _, _, _, chunk = worker.get_response()
+        return wrap_chunk(chunk)
+    slice_cache = SliceCache(data, get_chunk)
+
+    @lru_cache(maxsize=128)
+    def generate_image(tile_pos):
+        cpos = tile_pos + offset
+        img = render_map.render_chunk(slice_cache, cpos)
+        return img.resize((256, 256))
+
+    class TileHandler(tornado.web.RequestHandler):
+
+        def get(self, z_str, x_str, y_str):
+            tile_pos = V2(int(x_str), int(y_str))
+            img = generate_image(tile_pos)
+            img.save(self, format='PNG')
+
+    return TileHandler
+
+
+def mk_application(args):
+    MapHandler = mk_map_handler()
+    TileHandler = mk_tile_handler(args)
+
+    return tornado.web.Application([
+        (r'/', MapHandler),
+        (r'/map.html', MapHandler),
+        (r'/tiles/z([0-9]*)/([0-9]*),([0-9]*).png', TileHandler),
+    ], debug=True)
+
+def main(argv):
+    args = build_parser().parse_args(argv)
+    tornado.autoreload.watch(tg.__file__)
+
+    application = mk_application(args)
+    application.listen(args.port)
+    tornado.ioloop.IOLoop.instance().start()
 
 if __name__ == '__main__':
-    dist_dir, map_dir = sys.argv[1:3]
-    if len(sys.argv) > 3:
-        base_x, base_y = sys.argv[3:]
-    else:
-        base_x, base_y = 0, 0
-    main(dist_dir, map_dir, int(base_x), int(base_y))
+    main(sys.argv[1:])
