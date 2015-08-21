@@ -38,46 +38,34 @@ impl<'a> LocalProperty for Caves<'a> {
     fn init(&mut self, summ: &ChunkSummary) -> CellularGrid {
         let mut grid = CellularGrid::new(scalar(CHUNK_SIZE * 3 + 1));
 
-        /*
-        let bounds = grid.bounds();
-        for pos in bounds.points() {
-            let cur_level = self.heightmap.get_value(pos).unwrap();
-            if cur_level < self.level_cutoff {
-                // Point is outside the valid region, so mark it as permanent wall.
-                grid.set_fixed(pos, true);
-                continue;
-            }
-
-
-            let rel_pos = pos - scalar(CHUNK_SIZE);
-            // Compute "closeness to entrance" metric.  Value decreases linearly with distance from
-            // entrance until eventually reaching zero.
-            let entrance_weight = summ.cave_entrances.iter()
-                                      .filter(|&e| e.z == self.layer as i32 * 2)
-                                      .map(|&e| (rel_pos - e.reduce()).abs().max())
-                                      .min()
-                                      .map_or(0, |x| cmp::max(0, 8 - x));
-            let wall_chance = 5 - entrance_weight;
-            if wall_chance < 0 {
-                // Close enough to the entrance, force open space.
-                grid.set_fixed(pos, false);
-            } else {
-                // Otherwise, `wall_chance` in 10 should be walls.
-                let is_wall = self.rng.gen_range(0, 10) < wall_chance;
-                grid.set(pos, is_wall);
-            }
-        }
-        */
-
         for pos in grid.bounds().points() {
-            let is_wall = self.rng.gen_range(0, 10) < 5;
+            let is_wall = self.rng.gen_range(0, 10) < 6;
             grid.set(pos, is_wall);
         }
 
         let base = self.cpos * scalar(CHUNK_SIZE) - scalar(CHUNK_SIZE);
-        for &pos in &self.plane_summ.vertices {
-            if grid.bounds().contains(pos - base) {
-                grid.set_fixed(pos - base, false);
+        {
+            let mut mark_square = |pos| {
+                for &(ox, oy) in &[(0, 0), (0, 1), (1, 1), (1, 0)] {
+                    let pos = pos + V2::new(ox, oy);
+                    if grid.bounds().contains(pos - base) {
+                        grid.set_fixed(pos - base, false);
+                    }
+                }
+            };
+
+            for &pos in &self.plane_summ.vertices {
+                mark_square(pos);
+            }
+
+            for &(i, j) in &self.plane_summ.edges {
+                let a = self.plane_summ.vertices[i as usize];
+                let b = self.plane_summ.vertices[j as usize];
+                const STEPS: i32 = 32;
+                for d in 0 .. STEPS + 1 {
+                    let pos = a + (b - a) * scalar(d) / scalar(STEPS);
+                    mark_square(pos);
+                }
             }
         }
 

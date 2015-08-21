@@ -5,7 +5,7 @@ use libphysics::CHUNK_SIZE;
 use libserver_config::Data;
 use libserver_config::Storage;
 
-use {GenChunk, GenStructure};
+use GenChunk;
 use StdRng;
 use cache::Cache;
 use prop::{LocalProperty, GlobalProperty};
@@ -14,6 +14,7 @@ use super::summary::ChunkSummary;
 use super::summary::PlaneSummary;
 
 use super::graph_vertices::GraphVertices;
+use super::graph_edges::GraphEdges;
 use super::caves::Caves;
 
 
@@ -39,6 +40,8 @@ impl<'d> Provider<'d> {
         if let Err(_) = self.plane_cache.load(pid, scalar(0)) {
             GraphVertices::new(self.rng.gen())
                 .generate_into(&mut self.plane_cache, pid, scalar(0));
+            GraphEdges::new(self.rng.gen())
+                .generate_into(&mut self.plane_cache, pid, scalar(0));
         }
     }
 
@@ -61,9 +64,6 @@ impl<'d> Provider<'d> {
 
         let mut gc = GenChunk::new();
         let summ = self.cache.get(pid, cpos);
-        // Bounds of the heightmap and cave grids, which assign a value to every vertex.
-        let grid_bounds = Region::<V2>::new(scalar(0), scalar(CHUNK_SIZE + 1));
-        // Bounds of the actual chunk, which assigns a block to every cell.
         let bounds = Region::<V2>::new(scalar(0), scalar(CHUNK_SIZE));
 
         let block_data = &self.data.block_data;
@@ -89,6 +89,17 @@ impl<'d> Provider<'d> {
                          block_id!("cave/{}/z0/{}", cave_key, floor_type));
             gc.set_block(pos.extend(layer_z + 1),
                          block_id!("cave/{}/z1", cave_key));
+        }
+
+
+        // Mark vertices
+        let plane_summ = self.plane_cache.get(pid, scalar(0));
+        let base = cpos * scalar(CHUNK_SIZE);
+        for &pos in &plane_summ.vertices {
+            if bounds.contains(pos - base) {
+                gc.set_block((pos - base).extend(layer_z),
+                             block_id!("grass/center/v0"));
+            }
         }
 
         gc

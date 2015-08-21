@@ -1,4 +1,3 @@
-use libphysics::CHUNK_SIZE;
 use libserver_types::*;
 
 use StdRng;
@@ -31,7 +30,7 @@ impl GlobalProperty for GraphVertices {
         // We want a DUNGEON_SIZE x DUNGEON_SIZE region, but to keep things uniform around the
         // edges, we fill a larger region with vertices and edges, then truncate to the desired
         // size.
-        DiskSampler::new(scalar(DUNGEON_SIZE + 2 * PADDING), 12, 20)
+        DiskSampler::new(scalar(DUNGEON_SIZE + 2 * PADDING), 16, 32)
     }
 
     fn generate(&mut self, samp: &mut DiskSampler) {

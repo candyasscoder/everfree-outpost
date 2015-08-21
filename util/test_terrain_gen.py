@@ -3,12 +3,19 @@ from collections import namedtuple
 from functools import lru_cache
 import os
 import sys
+import time
 
 import tornado.autoreload
 import tornado.web
 
 from outpost_savegame import V2, V3
-import outpost_terrain_gen as tg
+try:
+    import outpost_terrain_gen as tg
+except ImportError:
+    # Sometimes the import fails because the autoreload triggered too early,
+    # before the linker finished writing the .so.
+    time.sleep(1.0)
+    import outpost_terrain_gen as tg
 import render_map
 
 
