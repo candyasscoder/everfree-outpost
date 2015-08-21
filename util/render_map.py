@@ -59,7 +59,7 @@ class DataDir(object):
             self.loaded[name] = data
         return self.loaded[name]
 
-BlockDef = namedtuple('BlockDef', ('top', 'bottom', 'front', 'back'))
+BlockDef = namedtuple('BlockDef', ('id', 'top', 'bottom', 'front', 'back'))
 
 def mk_block_data(pack, data_dir):
     blocks = {}
@@ -73,6 +73,7 @@ def mk_block_data(pack, data_dir):
         name = server[i]['name']
         info = client[i]
         blocks[name] = BlockDef(
+                i,
                 info.get('top', 0),
                 info.get('bottom', 0),
                 info.get('front', 0),
@@ -81,7 +82,7 @@ def mk_block_data(pack, data_dir):
     return blocks
 
 TemplateDef = namedtuple('TemplateDef',
-        ('layer', 'size', 'display_size', 'sheet_idx', 'offset'))
+        ('id', 'layer', 'size', 'display_size', 'sheet_idx', 'offset'))
 
 def mk_template_data(pack, data_dir):
     templates = {}
@@ -98,7 +99,7 @@ def mk_template_data(pack, data_dir):
         disp_size = tuple(client[i]['display_size'])
         sheet_idx = client[i]['sheet']
         offset = tuple(client[i]['offset'])
-        templates[name] = TemplateDef(layer, size, disp_size, sheet_idx, offset)
+        templates[name] = TemplateDef(i, layer, size, disp_size, sheet_idx, offset)
 
     return templates
 
