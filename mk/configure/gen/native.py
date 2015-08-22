@@ -23,7 +23,10 @@ def rules(i):
         rustflags_debug = -g
         rustflags_release = -C opt-level=3
         rustflags_default = %if i.debug% $rustflags_debug %else% $rustflags_release %end%
-        rustflags_lto = %if not i.debug%  -C lto  %end%
+        # LTO temporarily disabled because it causes LLVM to crash
+        # TODO: fix this after upgrading beyond rustc 1.3.0-dev (dc6e3bbb7 2015-07-27)
+        #rustflags_lto = %if not i.debug%  -C lto  %end%
+        rustflags_lto =
 
         rule rustc_native_bin
             command = %rustc_base --crate-type=bin $rustflags_lto $rustflags
