@@ -12,6 +12,7 @@ extern crate rand;
 extern crate server_types as libserver_types;
 
 
+pub mod blob;
 pub mod cellular;
 pub mod disk_sampler;
 pub mod dsc;
