@@ -183,9 +183,11 @@ impl<'a> Context<'a> {
             }
 
             let pos = pos - self.base();
-            let choice = self.rng.gen_range(0, 20);
+            let choice = self.rng.gen_range(0, 30);
             match choice {
                 0 => self.gen_library(pos),
+                1 => self.gen_structure_room(pos, template_id!(self, "fountain")),
+                2 => self.gen_structure_room(pos, template_id!(self, "trophy")),
                 _ => {},
             }
         }
@@ -222,6 +224,14 @@ impl<'a> Context<'a> {
 
         for off in Region::new(scalar(0), V2::new(w, h)).points() {
             let off = V2::new(off.x, 2 * off.y);
+        }
+    }
+
+    fn gen_structure_room(&mut self, pos: V2, template_id: TemplateId) {
+        let size = self.structure_templates.template(template_id).size;
+        if self.check_placement(pos, size.reduce()) {
+            let gs = GenStructure::new(pos.extend(self.layer_z()), template_id);
+            self.gc.structures.push(gs);
         }
     }
 
