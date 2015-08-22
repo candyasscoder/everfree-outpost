@@ -22,6 +22,18 @@ function tools.handler.axe.chest(c, s, inv)
 end
 
 
+action.use.barrel = action.use.chest
+
+function action.use_item.barrel(c, inv)
+    structure_items.use_item(c, inv, 'barrel', 'barrel')
+end
+
+function tools.handler.axe.barrel(c, s, inv)
+    -- TODO: do something with the barrel contents
+    structure_items.use_structure(c, s, 'barrel')
+end
+
+
 function action.use.cabinets(c, s)
     if not ward.check(c, s:pos()) then
         return

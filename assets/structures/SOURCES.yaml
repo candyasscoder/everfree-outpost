@@ -222,3 +222,9 @@ cave-junk.png:
     license: CC-BY-SA 3.0 / GPL 3.0
     derived-from:
         ../tiles/lpc-base-tiles/mountains.png
+
+barrel.png:
+    title: LPC Barrel
+    author: Lanea Zimmerman (AKA Sharm)
+    license: CC-BY-SA 3.0 / GPL 3.0
+    derived-from: ../tiles/lpc-base-tiles/barrel.png
