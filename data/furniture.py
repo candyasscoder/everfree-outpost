@@ -53,11 +53,9 @@ def init():
 
     s.merge(mk_solid_structure('trophy', structures('trophy.png'), (1, 1, 1)))
     mk_structure_item(s['trophy'], 'trophy', 'Trophy') \
-            .recipe('anvil', {'stone': 10})
 
     s.merge(mk_solid_structure('fountain', structures('fountain.png'), (2, 2, 1)))
     mk_structure_item(s['fountain'], 'fountain', 'Fountain') \
-            .recipe('anvil', {'stone': 10})
 
     s.merge(mk_solid_structure('torch', structures('torch.png'), (1, 1, 1)) \
             .light((16, 16, 32), (255, 230, 200), 300))
