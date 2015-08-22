@@ -75,7 +75,9 @@ impl<'d> Provider<'d> {
                 cpos: cpos,
                 block_data: &self.data.block_data,
                 structure_templates: &self.data.structure_templates,
-                layer: 7,
+                // Don't use layer 7.  Anything 2 blocks tall on that layer will have its top plane
+                // fail to render.  TODO: fix rendering so this doesn't happen
+                layer: 6,
             };
             ctx.gen();
         }

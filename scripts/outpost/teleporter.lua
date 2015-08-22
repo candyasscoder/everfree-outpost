@@ -122,7 +122,7 @@ function action.use.dungeon_entrance(c, s)
         s:extra().target_plane = p:stable_id()
     end
 
-    local entrance_pos = V3.new(128, 128, 14) * V3.new(32, 32, 32)
+    local entrance_pos = V3.new(128, 128, 12) * V3.new(32, 32, 32)
     c:pawn():teleport_stable_plane(s:extra().target_plane, entrance_pos)
 end
 
