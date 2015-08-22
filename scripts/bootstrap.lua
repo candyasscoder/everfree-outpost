@@ -218,8 +218,11 @@ end
 command.help.permit = '/permit <name>: Give <name> permission to bypass your ward'
 
 function command.handler.revoke(c, arg)
-    ward.revoke(c, arg)
-    c:send_message('Revoked permission from ' .. arg)
+    if ward.revoke(c, arg) then
+        c:send_message('Revoked permission from ' .. arg)
+    else
+        c:send_message('No permissions to revoke from ' .. arg)
+    end
 end
 command.help.revoke = "/revoke <name>: Revoke <name>'s permission to bypass your ward"
 

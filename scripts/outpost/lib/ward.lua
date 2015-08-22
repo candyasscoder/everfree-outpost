@@ -47,10 +47,11 @@ end
 local function revoke(owner, name)
     local perm = ward_perm_table()
     local id = owner:id()
-    if perm[id] == nil then
-        return
+    if perm[id] == nil or perm[id][name] == nil then
+        return false
     end
     perm[id][name] = nil
+    return true
 end
 
 local function check_perm(owner, name)
@@ -109,7 +110,7 @@ return {
     ward_info = ward_info,
 
     permit = function(c, name) permit(c:stable_id(), name) end,
-    revoke = function(c, name) revoke(c:stable_id(), name) end,
+    revoke = function(c, name) return revoke(c:stable_id(), name) end,
 
     check = function(c, pos)
         -- There are no wards outside the forest.
