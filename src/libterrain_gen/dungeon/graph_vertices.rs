@@ -4,6 +4,7 @@ use StdRng;
 use algo::disk_sampler::DiskSampler;
 use prop::GlobalProperty;
 
+use super::{DUNGEON_SIZE, ENTRANCE_POS};
 use super::summary::PlaneSummary;
 
 
@@ -19,7 +20,6 @@ impl GraphVertices {
     }
 }
 
-const DUNGEON_SIZE: i32 = 256;
 const PADDING: i32 = 32;
 
 impl GlobalProperty for GraphVertices {
@@ -34,6 +34,7 @@ impl GlobalProperty for GraphVertices {
     }
 
     fn generate(&mut self, samp: &mut DiskSampler) {
+        samp.add_init_point(ENTRANCE_POS + scalar(PADDING));
         samp.generate(&mut self.rng, 30);
     }
 

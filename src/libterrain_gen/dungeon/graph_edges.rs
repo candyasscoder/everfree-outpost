@@ -39,6 +39,8 @@ impl GlobalProperty for GraphEdges {
                 .take(summ.vertices.len()).collect::<Vec<_>>().into_boxed_slice();
         info!("generating edges for {} vertices", summ.vertices.len());
 
+        info!("  {:?}", &summ.vertices);
+
         for (i, &a) in summ.vertices.iter().enumerate() {
             for (j, &b) in summ.vertices.iter().enumerate() {
                 let dist2 = (a - b).mag2();

@@ -5,7 +5,7 @@ use libphysics::CHUNK_SIZE;
 use libserver_config::Data;
 use libserver_config::Storage;
 
-use GenChunk;
+use {GenChunk, GenStructure};
 use StdRng;
 use cache::Cache;
 use prop::{LocalProperty, GlobalProperty};
@@ -13,6 +13,7 @@ use prop::{LocalProperty, GlobalProperty};
 use super::summary::ChunkSummary;
 use super::summary::PlaneSummary;
 
+use super::ENTRANCE_POS;
 use super::graph_vertices::GraphVertices;
 use super::graph_edges::GraphEdges;
 use super::caves::Caves;
@@ -92,15 +93,16 @@ impl<'d> Provider<'d> {
         }
 
 
-        // Mark vertices
-        let plane_summ = self.plane_cache.get(pid, scalar(0));
+        // Place exit
+        let exit_pos = ENTRANCE_POS + V2::new(0, -1);
         let base = cpos * scalar(CHUNK_SIZE);
-        for &pos in &plane_summ.vertices {
-            if bounds.contains(pos - base) {
-                gc.set_block((pos - base).extend(layer_z),
-                             block_id!("grass/center/v0"));
-            }
+        if bounds.contains(exit_pos - base) {
+            let gs = GenStructure::new((exit_pos - base).extend(layer_z),
+                                       template_id!("dungeon_exit"));
+            gc.structures.push(gs);
+            info!("did exit");
         }
+
 
         gc
     }

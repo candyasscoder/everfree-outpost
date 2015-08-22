@@ -11,6 +11,7 @@ use algo::cellular::CellularGrid;
 use algo::dsc::DscGrid;
 use prop::LocalProperty;
 
+use super::ENTRANCE_POS;
 use super::summary::ChunkSummary;
 use super::summary::PlaneSummary;
 
@@ -67,6 +68,15 @@ impl<'a> LocalProperty for Caves<'a> {
             blob.expand_with_callback(&mut self.rng, len as usize * 5, |pos| {
                 grid.set(pos, false);
             });
+        }
+
+        if bounds.contains(ENTRANCE_POS) {
+            for offset in Region::new(scalar(-1), scalar(5)).points() {
+                let p = ENTRANCE_POS + offset - base;
+                if grid.bounds().contains(p) {
+                    grid.set_fixed(p, false);
+                }
+            }
         }
 
         grid
