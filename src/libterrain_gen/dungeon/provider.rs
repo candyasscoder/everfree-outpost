@@ -183,7 +183,7 @@ impl<'a> Context<'a> {
             }
 
             let pos = pos - self.base();
-            let choice = self.rng.gen_range(0, 30);
+            let choice = self.rng.gen_range(0, 20);
             match choice {
                 0 => self.gen_library(pos),
                 1 => self.gen_structure_room(pos, template_id!(self, "fountain")),
