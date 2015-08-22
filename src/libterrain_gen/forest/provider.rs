@@ -238,26 +238,33 @@ impl<'d> Provider<'d> {
             template_id!("cave_junk/2"),
         ];
         let chest_id = template_id!("chest");
+        let entrance_id = template_id!("dungeon_entrance");
         for layer in 0 .. CHUNK_SIZE as u8 / 2 {
             let layer_z = layer as i32 * 2;
             for &pos in &self.cache.get(pid, cpos).treasure_offsets[layer as usize] {
                 if self.rng.gen_range(0, 100) < 1 {
-                    let mut gs = GenStructure::new(pos.extend(layer_z), chest_id);
-                    let loot_idx = self.rng.gen_range(0, 100);
-                    let loot =
-                        if loot_idx < 1 {
-                            ("hat", 1)
-                        } else if loot_idx < 5 {
-                            ("book", self.rng.gen_range(10, 20))
-                        } else if loot_idx < 50 {
-                            ("crystal", self.rng.gen_range(15, 20))
-                        } else if loot_idx < 75 {
-                            ("wood", self.rng.gen_range(80, 120))
-                        } else {
-                            ("stone", self.rng.gen_range(80, 120))
-                        };
-                    gs.extra.insert("loot".to_owned(), format!("{}:{}", loot.0, loot.1));
-                    gc.structures.push(gs);
+                    if self.rng.gen_range(0, 20) < 1 {
+                        info!("dungeon entrance at {:?}", cpos * scalar(CHUNK_SIZE) + pos);
+                        let gs = GenStructure::new(pos.extend(layer_z), entrance_id);
+                        gc.structures.push(gs);
+                    } else {
+                        let mut gs = GenStructure::new(pos.extend(layer_z), chest_id);
+                        let loot_idx = self.rng.gen_range(0, 100);
+                        let loot =
+                            if loot_idx < 1 {
+                                ("hat", 1)
+                            } else if loot_idx < 5 {
+                                ("book", self.rng.gen_range(10, 20))
+                            } else if loot_idx < 50 {
+                                ("crystal", self.rng.gen_range(15, 20))
+                            } else if loot_idx < 75 {
+                                ("wood", self.rng.gen_range(80, 120))
+                            } else {
+                                ("stone", self.rng.gen_range(80, 120))
+                            };
+                        gs.extra.insert("loot".to_owned(), format!("{}:{}", loot.0, loot.1));
+                        gc.structures.push(gs);
+                    }
                 } else {
                     let id = *self.rng.choose(&cave_junk_ids).unwrap();
                     let gs = GenStructure::new(pos.extend(layer_z), id);
