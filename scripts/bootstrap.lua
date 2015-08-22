@@ -211,6 +211,18 @@ command.help.unignore = '/unignore <name>: Stop hiding chat messages from <name>
 command.handler.count = no_op
 command.help.count = '/count: Show the number of players currently online'
 
+function command.handler.permit(c, arg)
+    ward.permit(c, arg)
+    c:send_message('Granted permission to ' .. arg)
+end
+command.help.permit = '/permit <name>: Give <name> permission to bypass your ward'
+
+function command.handler.revoke(c, arg)
+    ward.revoke(c, arg)
+    c:send_message('Revoked permission from ' .. arg)
+end
+command.help.revoke = "/revoke <name>: Revoke <name>'s permission to bypass your ward"
+
 
 function client_by_name(s)
     local w = World.get()

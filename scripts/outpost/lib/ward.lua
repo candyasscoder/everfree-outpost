@@ -24,12 +24,60 @@ local function set_ward_info(owner, info)
 end
 
 
+local function ward_perm_table()
+    local perm = World.get():extra().ward_perm
+    if perm ~= nil then
+        return perm
+    else
+        perm = {}
+        World.get():extra().ward_perm = perm
+        return perm
+    end
+end
+
+local function permit(owner, name)
+    local perm = ward_perm_table()
+    local id = owner:id()
+    if perm[id] == nil then
+        perm[id] = {}
+    end
+    perm[id][name] = true
+end
+
+local function revoke(owner, name)
+    local perm = ward_perm_table()
+    local id = owner:id()
+    if perm[id] == nil then
+        return
+    end
+    perm[id][name] = nil
+end
+
+local function check_perm(owner, name)
+    if owner == nil then
+        -- This is the case for the built-in spawn ward..
+        return false
+    end
+    local perm = ward_perm_table()
+    local id = owner:id()
+    if perm[id] == nil then
+        return false
+    end
+    if perm[id][name] then
+        return true
+    else
+        return false
+    end
+end
+
+
 local function add_ward(c, s)
     local owner = c:stable_id()
     s:extra().owner = owner
     set_ward_info(owner, {
         pos = s:pos(),
         name = c:name(),
+        owner = owner,
     })
 end
 
@@ -60,6 +108,9 @@ return {
     find_ward = find_ward,
     ward_info = ward_info,
 
+    permit = function(c, name) permit(c:stable_id(), name) end,
+    revoke = function(c, name) revoke(c:stable_id(), name) end,
+
     check = function(c, pos)
         -- There are no wards outside the forest.
         if c:pawn():plane():name() ~= PLANE_FOREST then
@@ -68,6 +119,9 @@ return {
 
         local info, dist = find_ward(c, pos, WARD_RADIUS)
         if info ~= nil then
+            if check_perm(info.owner, c:name()) then
+                return true
+            end
             c:send_message('This area belongs to ' .. info.name)
             if c:extra().superuser then
                 return true
