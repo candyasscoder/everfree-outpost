@@ -6,6 +6,7 @@ use libserver_types::*;
 
 use StdRng;
 use algo;
+use algo::blob::BlobGrid;
 use algo::cellular::CellularGrid;
 use algo::dsc::DscGrid;
 use prop::LocalProperty;
@@ -40,32 +41,32 @@ impl<'a> LocalProperty for Caves<'a> {
         let mut grid = CellularGrid::new(scalar(CHUNK_SIZE * 3 + 1));
 
         for pos in grid.bounds().points() {
-            let is_wall = self.rng.gen_range(0, 10) < 6;
+            let is_wall = self.rng.gen_range(0, 10) < 7;
             grid.set(pos, is_wall);
         }
 
         let base = self.cpos * scalar(CHUNK_SIZE) - scalar(CHUNK_SIZE);
-        {
-            let mut mark_square = |pos| {
-                for &(ox, oy) in &[(0, 0), (0, 1), (1, 1), (1, 0)] {
-                    let pos = pos + V2::new(ox, oy);
-                    if grid.bounds().contains(pos - base) {
-                        grid.set_fixed(pos - base, false);
-                    }
+        let mut blob = BlobGrid::new(scalar(CHUNK_SIZE * 3 + 1));
+
+        let bounds = grid.bounds() + base;
+        for &(i, j) in &self.plane_summ.edges {
+            let a = self.plane_summ.vertices[i as usize];
+            let b = self.plane_summ.vertices[j as usize];
+            if !bounds.contains(a) && !bounds.contains(b) {
+                continue;
+            }
+            blob.clear();
+            algo::line_points(a, b, |pos| {
+                let pos = pos - base;
+                blob.add_point(pos);
+                if grid.bounds().contains(pos) {
+                    grid.set_fixed(pos, false);
                 }
-            };
-
-            for &pos in &self.plane_summ.vertices {
-                mark_square(pos);
-            }
-
-            for &(i, j) in &self.plane_summ.edges {
-                let a = self.plane_summ.vertices[i as usize];
-                let b = self.plane_summ.vertices[j as usize];
-                algo::line_points(a, b, |pos| {
-                    mark_square(pos);
-                });
-            }
+            });
+            let len = (b - a).abs().max();
+            blob.expand_with_callback(&mut self.rng, len as usize * 5, |pos| {
+                grid.set(pos, false);
+            });
         }
 
         grid

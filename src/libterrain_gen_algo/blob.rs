@@ -47,6 +47,15 @@ impl BlobGrid {
         Region::new(scalar(0), self.size)
     }
 
+    pub fn clear(&mut self) {
+        for p in self.grid.iter_mut() {
+            *p = false;
+        }
+        self.area_covered = 0;
+        self.pending.clear();
+        self.pending_set.clear();
+    }
+
     fn maybe_enqueue(&mut self, pos: V2) {
         if !self.bounds().contains(pos) ||
            self.grid[self.bounds().index(pos)] == true ||
@@ -70,13 +79,21 @@ impl BlobGrid {
         }
     }
 
-    pub fn expand<R: Rng>(&mut self, rng: &mut R, area: usize) {
-        while self.area_covered < area {
+    pub fn expand_with_callback<R: Rng, F: FnMut(V2)>(&mut self,
+                                                      rng: &mut R,
+                                                      area: usize,
+                                                      mut f: F) {
+        while self.area_covered < area && self.pending.len() > 0 {
             let idx = rng.gen_range(0, self.pending.len());
             let pos = self.pending.swap_remove(idx);
             self.pending_set.remove(&pos);
+            f(pos);
             self.add_point(pos);
         }
+    }
+
+    pub fn expand<R: Rng>(&mut self, rng: &mut R, area: usize) {
+        self.expand_with_callback(rng, area, |_| {});
     }
 
     pub fn get(&self, pos: V2) -> bool {
