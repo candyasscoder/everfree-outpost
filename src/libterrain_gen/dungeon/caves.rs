@@ -5,6 +5,7 @@ use libphysics::CHUNK_SIZE;
 use libserver_types::*;
 
 use StdRng;
+use algo;
 use algo::cellular::CellularGrid;
 use algo::dsc::DscGrid;
 use prop::LocalProperty;
@@ -61,11 +62,9 @@ impl<'a> LocalProperty for Caves<'a> {
             for &(i, j) in &self.plane_summ.edges {
                 let a = self.plane_summ.vertices[i as usize];
                 let b = self.plane_summ.vertices[j as usize];
-                const STEPS: i32 = 32;
-                for d in 0 .. STEPS + 1 {
-                    let pos = a + (b - a) * scalar(d) / scalar(STEPS);
+                algo::line_points(a, b, |pos| {
                     mark_square(pos);
-                }
+                });
             }
         }
 
