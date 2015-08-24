@@ -19,6 +19,8 @@ pub mod cellular;
 pub mod disk_sampler;
 pub mod dsc;
 pub mod pattern;
+pub mod triangulate;
+
 
 pub fn line_points<F: FnMut(V2)>(start: V2, end: V2, mut f: F) {
     // Bresenham line drawing, with some V2 tricks to handle lines running in any direction.

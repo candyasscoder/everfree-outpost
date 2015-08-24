@@ -87,6 +87,7 @@ impl GlobalProperty for GraphEdges {
     }
 
     fn save(&mut self, tmp: &Temporary, summ: &mut PlaneSummary) {
-        summ.edges = tmp.edge_list.clone();
+        //summ.edges = tmp.edge_list.clone();
+        summ.edges = ::libterrain_gen_algo::triangulate::triangulate(&summ.vertices);
     }
 }
