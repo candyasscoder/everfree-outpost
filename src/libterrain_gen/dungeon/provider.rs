@@ -15,8 +15,7 @@ use super::summary::ChunkSummary;
 use super::summary::PlaneSummary;
 
 use super::ENTRANCE_POS;
-use super::graph_vertices::GraphVertices;
-use super::graph_edges::GraphEdges;
+use super::plan::Plan;
 use super::caves::Caves;
 
 
@@ -40,9 +39,7 @@ impl<'d> Provider<'d> {
     fn load_plane_summary(&mut self,
                           pid: Stable<PlaneId>) {
         if let Err(_) = self.plane_cache.load(pid, scalar(0)) {
-            GraphVertices::new(self.rng.gen())
-                .generate_into(&mut self.plane_cache, pid, scalar(0));
-            GraphEdges::new(self.rng.gen())
+            Plan::new(self.rng.gen())
                 .generate_into(&mut self.plane_cache, pid, scalar(0));
         }
     }
