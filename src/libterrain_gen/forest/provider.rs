@@ -216,6 +216,12 @@ impl<'d> Provider<'d> {
         let tree_id = template_id!("tree");
         let rock_id = template_id!("rock");
         for &pos in &self.cache.get(pid, cpos).tree_offsets {
+            // Make sure the area near spawn is clear of structures.
+            let abs_pos = pos + cpos * scalar(CHUNK_SIZE);
+            if abs_pos.dot(abs_pos) < 5 * 5 {
+                continue;
+            }
+
             let height = summ.heightmap[grid_bounds.index(pos)];
             let layer = if height < 100 { 0 } else { (height - 100) / 2 + 1 };
             let z = layer as i32 * 2;
@@ -271,6 +277,12 @@ impl<'d> Provider<'d> {
                     gc.structures.push(gs);
                 }
             }
+        }
+
+        // Anvil (at spawn)
+        if cpos == scalar(0) {
+            let gs = GenStructure::new(scalar(0), template_id!("anvil"));
+            gc.structures.push(gs);
         }
 
         gc
