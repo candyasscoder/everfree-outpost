@@ -1,3 +1,4 @@
+use std::iter;
 use rand::Rng;
 
 use libserver_types::*;
@@ -61,10 +62,18 @@ impl GlobalProperty for Plan {
                                     .map(|&p| p - base)
                                     .collect();
 
-        tmp.idx_edges = triangulate::triangulate(&tmp.vertices)
-                            .into_iter()
-                            .filter(|_| self.rng.gen_range(0, 2) < 1)
-                            .collect();
+        let mut count = iter::repeat(0).take(tmp.vertices.len())
+                                       .collect::<Vec<_>>().into_boxed_slice();
+        let mut edges = triangulate::triangulate(&tmp.vertices);
+        self.rng.shuffle(&mut edges);
+        for (i, j) in edges.into_iter() {
+            if count[i as usize] >= 3 || count[j as usize] >= 3 {
+                continue;
+            }
+            tmp.idx_edges.push((i, j));
+            count[i as usize] += 1;
+            count[j as usize] += 1;
+        }
     }
 
     fn save(&mut self, tmp: &Temporary, summ: &mut PlaneSummary) {
