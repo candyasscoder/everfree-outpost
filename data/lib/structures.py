@@ -31,7 +31,10 @@ def mk_solid_structure(name, image, size, base=(0, 0), display_size=None,
         w = size_x * TILE_SIZE
         h = (size_y + size_z) * TILE_SIZE
 
-    struct_img = image.crop((x, y, x + w, y + h))
+    if x == 0 and y == 0 and w == image.size[0] and h == image.size[1]:
+        struct_img = image
+    else:
+        struct_img = image.crop((x, y, x + w, y + h))
     if plane_image is None:
         depth = depthmap.solid(size_x * TILE_SIZE, size_y * TILE_SIZE, size_z * TILE_SIZE)
         # Cut a w*h sized section from the bottom.

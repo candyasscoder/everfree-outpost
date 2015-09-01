@@ -1,7 +1,7 @@
 from ..core.builder import *
 from ..core.images import loader
 from ..core import depthmap
-from ..core.structure import Shape
+from ..core.structure import Shape, StaticAnimDef
 from ..core.util import extract
 
 from .lib.items import *
@@ -57,7 +57,8 @@ def init():
     s.merge(mk_solid_structure('fountain', structures('fountain.png'), (2, 2, 1)))
     mk_structure_item(s['fountain'], 'fountain', 'Fountain') \
 
-    s.merge(mk_solid_structure('torch', structures('torch.png'), (1, 1, 1)) \
+    torch_anim = StaticAnimDef(structures('torch.png'), 4, 2)
+    s.merge(mk_solid_structure('torch', torch_anim, (1, 1, 1)) \
             .light((16, 16, 32), (255, 230, 200), 300))
     mk_structure_item(s['torch'], 'torch', 'Torch') \
             .recipe('anvil', {'wood': 2, 'stone': 1})
