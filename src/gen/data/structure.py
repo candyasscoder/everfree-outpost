@@ -137,7 +137,7 @@ def build_client_json(structures):
                 'shape': [SHAPE_ID[x] for x in s.shape],
                 'sheet': s.sheet_idx,
                 'offset': [x * TILE_SIZE for x in s.offset],
-                'display_size': s.get_display_size(),
+                'display_size': s.get_display_px(),
                 'layer': s.layer,
                 }
         if s.anim is not None:
