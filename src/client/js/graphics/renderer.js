@@ -1,4 +1,5 @@
 var Asm = require('asmlibs').Asm;
+var SIZEOF = require('asmlibs').SIZEOF;
 var getRendererHeapSize = require('asmlibs').getRendererHeapSize;
 var getGraphicsHeapSize = require('asmlibs').getGraphicsHeapSize;
 var OffscreenContext = require('graphics/canvas').OffscreenContext;
@@ -375,23 +376,49 @@ Renderer.prototype.refreshTexture = function(image) {
 
 // Data loading
 
+// Helper function for writing data into an asm structure.  Constructs a
+// subarray of `view` for accessing element `index` in an array of structures
+// of the given `size`.  The `size` should include any necessary padding for
+// alignment following each structure.
+function mk_out(view, index, size) {
+    var shift;
+    switch (view.constructor.BYTES_PER_ELEMENT) {
+        case 1: shift = 0; break;
+        case 2: shift = 1; break;
+        case 4: shift = 2; break;
+        case 8: shift = 3; break;
+        default: throw 'TypedArray has non-power-of-two BYTES_PER_ELEMENT';
+    }
+    var arr = view.subarray(index * (size >> shift), (index + 1) * (size >> shift));
+
+    // If `count` is null, store number `x` at byte offset `j`.  Otherwise,
+    // store `count` numbers from array `x` starting at byte offset `j`.
+    return function(j, x, count) {
+        if (count == null) {
+            arr[j >> shift] = x;
+        } else {
+            for (var k = 0; k < count; ++k) {
+                arr[(j >> shift) + k] = x[k];
+            }
+        }
+    };
+}
+
 Renderer.prototype.loadBlockData = function(blocks) {
     var view8 = this._asm.blockDataView8();
     var view16 = this._asm.blockDataView16();
     for (var i = 0; i < blocks.length; ++i) {
         var block = blocks[i];
+        var out8 = mk_out(view8, i, SIZEOF.BlockDisplay);
+        var out16 = mk_out(view16, i, SIZEOF.BlockDisplay);
 
-        var out8 = view8.subarray(i * 14, (i + 1) * 14);
-        var out16 = view16.subarray(i * 7, (i + 1) * 7);
-        out16[0] = block.front;
-        out16[1] = block.back;
-        out16[2] = block.top;
-        out16[3] = block.bottom;
+        out16(  0, block.front);
+        out16(  2, block.back);
+        out16(  4, block.top);
+        out16(  6, block.bottom);
 
-        out8[8] = block.light_r;
-        out8[9] = block.light_g;
-        out8[10] = block.light_b;
-        out16[6] = block.light_radius;
+        out8(   8, block.light_color, 3);
+        out16( 12, block.light_radius);
     }
 };
 
@@ -410,28 +437,30 @@ Renderer.prototype.loadChunk = function(i, j, chunk) {
 Renderer.prototype.loadTemplateData = function(templates) {
     var view8 = this._asm.templateDataView8();
     var view16 = this._asm.templateDataView16();
+
     for (var i = 0; i < templates.length; ++i) {
         var template = templates[i];
-        var out8 = view8.subarray(i * 22, (i + 1) * 22);
-        var out16 = view16.subarray(i * 11, (i + 1) * 11);
+        var out8 = mk_out(view8, i, SIZEOF.StructureTemplate);
+        var out16 = mk_out(view16, i, SIZEOF.StructureTemplate);
 
-        out8[0] = template.size.x;
-        out8[1] = template.size.y;
-        out8[2] = template.size.z;
-        out8[3] = template.sheet;
-        out16[2] = template.display_size[0];
-        out16[3] = template.display_size[1];
-        out16[4] = template.display_offset[0];
-        out16[5] = template.display_offset[1];
-        out8[12] = template.layer;
+        out8(   0, template.size.x);
+        out8(   1, template.size.y);
+        out8(   2, template.size.z);
+        out8(   3, template.sheet);
+        out16(  4, template.display_size, 2);
+        out16(  8, template.display_offset, 2);
+        out8(  12, template.layer);
 
-        out8[13] = template.light_pos[0];
-        out8[14] = template.light_pos[1];
-        out8[15] = template.light_pos[2];
-        out8[16] = template.light_color[0];
-        out8[17] = template.light_color[1];
-        out8[18] = template.light_color[2];
-        out16[10] = template.light_radius;
+        out8(  13, template.anim_sheet);
+        out8(  14, template.anim_length);
+        out8(  15, template.anim_rate);
+        out16( 16, template.anim_offset, 2);
+        out16( 20, template.anim_pos, 2);
+        out8(  24, template.anim_size, 2);
+
+        out8(  26, template.light_pos, 3);
+        out8(  29, template.light_color, 3);
+        out16( 32, template.light_radius);
     }
 };
 

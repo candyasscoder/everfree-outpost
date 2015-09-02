@@ -36,14 +36,18 @@ const LOCAL_SIZE: u16 = 1 << LOCAL_BITS;
 /// Tile numbers used to display a particular block.
 #[derive(Clone, Copy)]
 pub struct BlockDisplay {
+    // 0
     pub front: u16,
     pub back: u16,
     pub top: u16,
     pub bottom: u16,
 
+    // 8
     pub light_color: (u8, u8, u8),
     pub _pad1: u8,
     pub light_radius: u16,
+
+    // 14
 }
 
 impl BlockDisplay {
@@ -239,16 +243,27 @@ pub fn generate_geometry<F>(local: &LocalChunks,
 
 
 pub struct StructureTemplate {
+    // 0
     pub size: (u8, u8, u8),
     pub sheet: u8,
     pub display_size: (u16, u16),
     pub display_offset: (u16, u16),
-
     pub layer: u8,
+
+    // 13
+    pub anim_sheet: u8,
+    pub anim_length: u8,
+    pub anim_rate: u8,
+    pub anim_offset: (u16, u16),
+    pub anim_pos: (u16, u16),
+    pub anim_size: (u8, u8),
+
+    // 26
     pub light_pos: (u8, u8, u8),
     pub light_color: (u8, u8, u8),
-    pub _pad1: u8,
     pub light_radius: u16,
+
+    // 34
 }
 
 /// All structure templates known to the client.  The number of elements is arbitrary.
@@ -479,7 +494,7 @@ impl<'a> StructureBuffer<'a> {
             let (s, t) = tex_coord;
             buf[*idx].s = s;
             buf[*idx].t = t;
-            buf[*idx].layer = layer as u16;
+            buf[*idx].layer = layer;
             *idx += 1;
         }
 
@@ -573,8 +588,10 @@ pub struct StructureVertex {
     base_z: i16,
     s: u16,
     t: u16,
-    layer: u16,
-    _pad0: u16,
+    layer: u8,
+    anim_rate: u8,
+    anim_length: u8,
+    anim_step: u8,
 }
 
 /// Buffer for StructureVertex items.  The number of elements is set to 6 times the length of

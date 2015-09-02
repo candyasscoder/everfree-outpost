@@ -15,6 +15,13 @@ function TemplateDef_(id, info, assets) {
     this.display_size = info['display_size'];
     this.display_offset = info['offset'];
 
+    this.anim_size = info['anim_size'] || [0, 0];
+    this.anim_offset = info['anim_offset'] || [0, 0];
+    this.anim_pos = info['anim_pos'] || [0, 0];
+    this.anim_length = info['anim_length'] || 0;
+    this.anim_rate = info['anim_rate'] || 0;
+    this.anim_sheet = info['anim_sheet'] || 0;
+
     this.light_pos = info['light_pos'] || [0, 0, 0];
     this.light_color = info['light_color'] || [0, 0, 0];
     this.light_radius = info['light_radius'] || 0;

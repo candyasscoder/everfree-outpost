@@ -46,9 +46,8 @@ function BlockDef_(id, info) {
     this.front = info['front'] || 0;
     this.back = info['back'] || 0;
 
-    this.light_r = info['light_r'] || 0;
-    this.light_g = info['light_g'] || 0;
-    this.light_b = info['light_b'] || 0;
+    this.light_color = info['light_r'] == null ? [0, 0, 0] :
+        [info['light_r'], info['light_g'], info['light_g']];
     this.light_radius = info['light_radius'] || 0;
 }
 

@@ -92,7 +92,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 15;
+    var EXPECT_SIZES = 16;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -106,24 +106,26 @@ var SIZEOF = (function() {
         ShapeChunk: view[1],
         ShapeLayers: view[2],
 
-        BlockData: view[3],
-        BlockChunk: view[4],
-        LocalChunks: view[5],
+        BlockDisplay: view[3],
+        BlockData: view[4],
+        BlockChunk: view[5],
+        LocalChunks: view[6],
 
-        TerrainVertex: view[6],
-        TerrainGeometryBuffer: view[7],
+        TerrainVertex: view[7],
+        TerrainGeometryBuffer: view[8],
 
-        StructureTemplate: view[8],
-        StructureTemplateData: view[9],
-        StructureBuffer: view[10],
-        StructureVertex: view[11],
-        StructureGeometryBuffer: view[12],
+        StructureTemplate: view[9],
+        StructureTemplateData: view[10],
+        StructureBuffer: view[11],
+        StructureVertex: view[12],
+        StructureGeometryBuffer: view[13],
 
-        LightGeometryState: view[13],
-        LightVertex: view[14],
-        LightGeometryBuffer: view[15],
+        LightGeometryState: view[14],
+        LightVertex: view[15],
+        LightGeometryBuffer: view[16],
     });
 })();
+exports.SIZEOF = SIZEOF;
 
 
 // window.Asm wrapper

@@ -16,7 +16,7 @@ use core::raw;
 use physics::v3::{V3, V2, scalar, Region};
 use physics::{Shape, ShapeSource};
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE, TILE_BITS};
-use graphics::{BlockData, BlockChunk, LocalChunks};
+use graphics::{BlockDisplay, BlockData, BlockChunk, LocalChunks};
 use graphics::{TerrainVertex, TerrainGeometryBuffer};
 use graphics::{StructureTemplate, StructureTemplateData, StructureBuffer,
                StructureVertex, StructureGeometryBuffer};
@@ -329,6 +329,7 @@ pub struct Sizes {
     shape_chunk: usize,
     shape_layers: usize,
 
+    block_display: usize,
     block_data: usize,
     block_chunk: usize,
     local_chunks: usize,
@@ -354,6 +355,7 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
     sizes.shape_chunk = size_of::<ShapeChunk>();
     sizes.shape_layers = size_of::<ShapeLayers>();
 
+    sizes.block_display = size_of::<BlockDisplay>();
     sizes.block_data = size_of::<BlockData>();
     sizes.block_chunk = size_of::<BlockChunk>();
     sizes.local_chunks = size_of::<LocalChunks>();
