@@ -40,7 +40,7 @@ def mk_terrain_interior(img, basename, **kwargs):
             ('sw/outer',    'se/horiz',     'sw/horiz',     'se/outer'),
             )
 
-    parts_half = chop_image_named(img, PART_NAMES_HALF, TILE_SIZE // 2)
+    parts_half = chop_image_named(img, PART_NAMES_HALF, (TILE_SIZE // 2, TILE_SIZE // 2))
 
     def variations(k, vs):
         f = lambda x: (('0', 'inner'), ('1', 'full')) if x == '*' else (('', x),)

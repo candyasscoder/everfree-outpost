@@ -68,25 +68,27 @@ def warn(s):
     sys.stderr.write('warning: ' + s + '\n')
 
 
-def chop_image_named(img, table, size=TILE_SIZE):
+def chop_image_named(img, table, size=(TILE_SIZE, TILE_SIZE)):
+    sx, sy = size
     result = {}
     for i, row in enumerate(table):
         for j, part_name in enumerate(row):
             if part_name is None:
                 continue
-            x = j * size
-            y = i * size
-            tile = img.crop((x, y, x + size, y + size))
+            x = j * sx
+            y = i * sy
+            tile = img.crop((x, y, x + sx, y + sy))
             result[part_name] = tile
     return result
 
 def chop_terrain(img):
-    return chop_image_named(img, TERRAIN_PARTS, TILE_SIZE)
+    return chop_image_named(img, TERRAIN_PARTS, (TILE_SIZE, TILE_SIZE))
 
-def chop_image(img, size=TILE_SIZE):
+def chop_image(img, size=(TILE_SIZE, TILE_SIZE)):
     w, h = img.size
-    tw = (w + size - 1) // size
-    th = (h + size - 1) // size
+    sx, sy = size
+    tw = (w + sx - 1) // sx
+    th = (h + sy - 1) // sy
     return chop_image_named(img, [[(i, j) for i in range(tw)] for j in range(th)], size)
 
 def stack(base, *args):

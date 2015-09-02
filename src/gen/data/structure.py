@@ -1,4 +1,4 @@
-from PIL import Image
+from PIL import Image, ImageChops
 
 from .consts import *
 from .util import pack_boxes
@@ -22,13 +22,76 @@ class StaticAnimDef(object):
     """An animation for a static element (structure or block).  This class is
     distinct from AnimationDef (sprite animations) because the requirements are
     not actually very similar."""
-    def __init__(self, sheet, length, framerate):
+    def __init__(self, frames, length, framerate):
         self.length = length
         self.framerate = framerate
-        self.sheet = sheet
+        self.frames = frames
+        self.size = frames[0].size
 
-        w, h = sheet.size
-        self.size = (w // length, h)
+        # Set by `self.process_frames()`
+        self.static_base = None
+        self.anim_offset = None
+        self.anim_size = None
+        self.anim_sheet = None
+        self.process_frames()
+
+        # Set by `build_anim_sheets`
+        self.sheet_idx = None
+        self.offset = None
+
+    def process_frames(self):
+        assert all(f.size == self.frames[0].size for f in self.frames), \
+                'all animation frames must be the same size'
+
+        w, h = self.frames[0].size
+        first = self.frames[0].getdata()
+        px_size = len(first) // (w * h)
+
+        base = self.frames[0].convert('RGBA')
+
+        min_x, min_y = w, h
+        max_x, max_y = 0, 0
+        for f in self.frames[1:]:
+            data = f.getdata()
+            for i in range(w * h):
+                if data[i] != first[i]:
+                    i //= px_size
+                    x = i % w
+                    y = i // w
+                    min_x = min(min_x, x)
+                    min_y = min(min_y, y)
+                    max_x = max(max_x, x + 1)
+                    max_y = max(max_y, y + 1)
+
+                    base.paste((0, 0, 0, 0), (x, y, x + 1, y + 1))
+
+        self.static_base = base
+        self.anim_offset = (min_x, min_y)
+        self.anim_size = (max_x - min_x, max_y - min_y)
+        
+        sheet = Image.new('RGBA', (len(self.frames) * (max_x - min_x), max_y - min_y))
+        for i, f in enumerate(self.frames):
+            tmp = ImageChops.subtract(f, base)
+            tmp = tmp.crop((min_x, min_y, max_x, max_y))
+            sheet.paste(tmp, ((max_x - min_x) * i, 0))
+
+        self.anim_sheet = sheet
+
+    def extract_depthmap(self, parent_depthmap):
+        # Cut out the single-frame depthmap from the overall structure depthmap.
+        ax, ay = self.anim_offset
+        aw, ah = self.anim_size
+        box = (ax, ay, ax + aw, ay + ah)
+        frame_depth = parent_depthmap.crop(box)
+
+        # Combine several copies to build the depthmap for the whole anim sheet.
+        depthmap = Image.new('L', self.anim_sheet.size)
+        w, h = self.size
+        for i in range(self.length):
+            depthmap.paste(frame_depth, (i * w, 0))
+
+        return depthmap
+
 
 
 class StructureDef(object):
@@ -36,9 +99,7 @@ class StructureDef(object):
         self.name = name
         if isinstance(image, StaticAnimDef):
             self.anim = image
-            # Also provide a reasonable image, for mk_structure_item and such.
-            w, h = self.anim.size
-            self.image = self.anim.sheet.crop((0, 0, w, h))
+            self.image = self.anim.static_base
         else:
             self.image = image
             self.anim = None
@@ -63,19 +124,13 @@ class StructureDef(object):
 
     def get_display_px(self):
         """Get the size of the structure on the screen."""
-        if self.anim is None:
-            return self.image.size
-        else:
-            return self.anim.size
+        return self.image.size
 
     def get_sheet_px(self):
-        """Get the size of the structure in the sprite sheet.  This may be
-        larger than the size on screen if the structure has multiple animation
-        frames."""
-        if self.anim is None:
-            return self.image.size
-        else:
-            return self.anim.sheet.size
+        """Get the size of the structure in the sprite sheet.  Currently this
+        is the same as `get_display_px` because animated structures place only
+        the static parts in the main structure sheet."""
+        return self.image.size
 
     def get_display_size(self):
         w, h = self.get_display_px()
@@ -84,6 +139,14 @@ class StructureDef(object):
     def get_sheet_size(self):
         w, h = self.get_sheet_px()
         return (w // TILE_SIZE, h // TILE_SIZE)
+
+    def get_anim_sheet_px(self):
+        return self.anim.anim_sheet.size
+
+    def get_anim_sheet_size(self):
+        w, h = self.get_anim_sheet_px()
+        return ((w + TILE_SIZE - 1) // TILE_SIZE,
+                (h + TILE_SIZE - 1) // TILE_SIZE)
 
     def set_light(self, pos, color, radius):
         self.light_pos = pos
@@ -106,8 +169,6 @@ def build_sheets(structures):
     depthmaps = [Image.new('RGBA', (SHEET_PX, SHEET_PX))]
 
     for s, (j, offset) in zip(structures, offsets):
-        size = s.get_sheet_size()
-
         x, y = offset
         x *= TILE_SIZE
         y *= TILE_SIZE
@@ -116,14 +177,38 @@ def build_sheets(structures):
         if px_h % TILE_SIZE != 0:
             y += 32 - px_h % TILE_SIZE
 
-        if s.anim is None:
-            images[j].paste(s.image, (x, y))
-        else:
-            images[j].paste(s.anim.sheet, (x, y))
+        images[j].paste(s.image, (x, y))
         depthmaps[j].paste(s.depthmap, (x, y))
 
         s.sheet_idx = j
         s.offset = offset
+
+    return zip(images, depthmaps)
+
+def build_anim_sheets(structures):
+    '''Build sprite sheet(s) containing the animated parts of each structure.
+    Also generate the depthmaps corresponding to those parts.
+    '''
+    anim_structures = [s for s in structures if s.anim is not None]
+    boxes = [s.get_anim_sheet_size() for s in anim_structures]
+    num_sheets, offsets = pack_boxes(SHEET_SIZE, boxes)
+
+
+    images = [Image.new('RGBA', (SHEET_PX, SHEET_PX))]
+    depthmaps = [Image.new('RGBA', (SHEET_PX, SHEET_PX))]
+
+    for s, (j, offset) in zip(anim_structures, offsets):
+        x, y = offset
+        x *= TILE_SIZE
+        y *= TILE_SIZE
+
+        images[j].paste(s.anim.anim_sheet, (x, y))
+        depthmaps[j].paste(s.anim.extract_depthmap(s.depthmap), (x, y))
+
+        s.anim.sheet_idx = j
+        # Give the offset in pixels, since the anim size is also in pixels.
+        ox, oy = offset
+        s.anim.offset = (ox * TILE_SIZE, oy * TILE_SIZE)
 
     return zip(images, depthmaps)
 
@@ -143,7 +228,11 @@ def build_client_json(structures):
         if s.anim is not None:
             dct.update(
                 anim_length=s.anim.length,
-                anim_rate=s.anim.framerate)
+                anim_rate=s.anim.framerate,
+                anim_pos=s.anim.anim_offset,
+                anim_size=s.anim.anim_size,
+                anim_offset=s.anim.offset,
+                anim_sheet=s.anim.sheet_idx)
         if s.light_color is not None:
             dct.update(
                 light_pos=s.light_pos,

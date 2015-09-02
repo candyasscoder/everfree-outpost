@@ -51,6 +51,12 @@ def emit_structures(output_dir, structures):
         image.save(os.path.join(output_dir, 'structures%d.png' % i))
         depthmap.save(os.path.join(output_dir, 'structdepth%d.png' % i))
 
+    anim_sheets = structure.build_anim_sheets(structures)
+    for i, (image, depthmap) in enumerate(anim_sheets):
+        sheet_names.update(('staticanim%d' % i, 'staticanimdepth%d' % i))
+        image.save(os.path.join(output_dir, 'staticanim%d.png' % i))
+        depthmap.save(os.path.join(output_dir, 'staticanimdepth%d.png' % i))
+
     write_json(output_dir, 'structures_server.json',
             structure.build_server_json(structures))
 

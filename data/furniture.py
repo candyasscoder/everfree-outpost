@@ -2,7 +2,7 @@ from ..core.builder import *
 from ..core.images import loader
 from ..core import depthmap
 from ..core.structure import Shape, StaticAnimDef
-from ..core.util import extract
+from ..core.util import extract, chop_image
 
 from .lib.items import *
 from .lib.structures import *
@@ -57,7 +57,8 @@ def init():
     s.merge(mk_solid_structure('fountain', structures('fountain.png'), (2, 2, 1)))
     mk_structure_item(s['fountain'], 'fountain', 'Fountain') \
 
-    torch_anim = StaticAnimDef(structures('torch.png'), 4, 2)
+    torch_frames = chop_image(structures('torch.png'), (TILE_SIZE, 2 * TILE_SIZE))
+    torch_anim = StaticAnimDef(list(torch_frames.values()), 4, 2)
     s.merge(mk_solid_structure('torch', torch_anim, (1, 1, 1)) \
             .light((16, 16, 32), (255, 230, 200), 300))
     mk_structure_item(s['torch'], 'torch', 'Torch') \
