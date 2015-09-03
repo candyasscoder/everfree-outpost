@@ -398,13 +398,8 @@ Asm.prototype.resetStructureGeometry = function() {
 Asm.prototype.generateStructureGeometry = function(cx, cy, max_z) {
     var output = this._stackAlloc(Int32Array, 2);
 
-    if (max_z != 16) {
-        this._raw['generate_sliced_structure_geometry'](
-                STRUCTURES_START, STRUCTURE_GEOM_START, cx, cy, max_z, output.byteOffset);
-    } else {
-        this._raw['generate_structure_geometry'](
-                STRUCTURES_START, STRUCTURE_GEOM_START, cx, cy, output.byteOffset);
-    }
+    this._raw['generate_structure_geometry'](
+            STRUCTURES_START, STRUCTURE_GEOM_START, cx, cy, max_z, output.byteOffset);
 
     var output8 = new Uint8Array(output.buffer, output.byteOffset, output.byteLength);
     var vertex_count = output[0];

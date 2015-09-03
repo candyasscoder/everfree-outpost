@@ -60,6 +60,7 @@ def main(src_dir, build_dir, out_file):
     add('text', 'structure.frag',       src('assets/shaders/structure.frag'))
     add('text', 'structure_shadow.frag', src('assets/shaders/structure_shadow.frag'))
     add('text', 'structure.vert',       src('assets/shaders/structure.vert'))
+    add('text', 'structure_anim.vert',  src('assets/shaders/structure_anim.vert'))
     add('text', 'light.frag',           src('assets/shaders/light.frag'))
     add('text', 'light.vert',           src('assets/shaders/light.vert'))
 

@@ -375,6 +375,25 @@ impl<'a> StructureBuffer<'a> {
         (vertex_count, sheet, more)
     }
 
+    pub fn continue_anim_geometry_gen<F>(&mut self,
+                                         buf: &mut StructureGeometryBuffer,
+                                         cx: u8,
+                                         cy: u8,
+                                         filter: F) -> (usize, u8, bool)
+            where F: Fn(&Structure, &StructureTemplate) -> bool {
+        let filter = |s: &Structure, t: &StructureTemplate| {
+            t.anim_length != 0 && filter(s, t)
+        };
+
+        if self.num_indexes == 0 {
+            self.fill_indexes(cx, cy, filter);
+        }
+
+        let (vertex_count, sheet) = self.generate_anim_geometry(buf, cx, cy);
+        let more = self.index_sheets != 0 || self.next_index <= self.last_used;
+        (vertex_count, sheet, more)
+    }
+
     fn fill_indexes<F>(&mut self, cx: u8, cy: u8, filter: F)
             where F: Fn(&Structure, &StructureTemplate) -> bool {
         // Most arithmetic in this function is wrapping arithmetic mod `LOCAL_SIZE * CHUNK_SIZE`.
@@ -533,6 +552,55 @@ impl<'a> StructureBuffer<'a> {
                 vert.s = base_s + off_s;
                 vert.t = base_t + off_t;
                 vert.layer = t.layer;
+                buf_idx += 1;
+            }
+        });
+
+        (buf_idx, sheet)
+    }
+
+    fn generate_anim_geometry(&mut self,
+                              buf: &mut StructureGeometryBuffer,
+                              cx: u8,
+                              cy: u8) -> (usize, u8) {
+        let base_x = tile_to_px(cx * CHUNK_SIZE as u8);
+        let base_y = tile_to_px(cy * CHUNK_SIZE as u8);
+        let sub_base_wrap = |x, y| sub_base_wrap(x, y, base_x, base_y);
+
+        let mut buf_idx = 0;
+        let sheet = self.iter_structs_by_sheet(|s, t| {
+            let (x, y, z) = s.pos;
+            let (_sx, sy, _sz) = t.size;
+
+            // Do the rendering at the front (+y) side of the structure.
+            let (px_x, px_y) = sub_base_wrap(tile_to_px(x), tile_to_px(y) + tile_to_px(sy));
+            let px_z = tile_to_px(z);
+
+            let anim_x = t.anim_pos.0;
+            // anim_z is the offset of the bottom of the anim region from the bottom of the entire
+            // structure.
+            let anim_z = t.display_size.1 - (t.anim_pos.1 + t.anim_size.1 as u16);
+            let (base_s, base_t) = t.anim_offset;
+            let (step_s, step_t) = t.anim_size;
+
+            for &(dx, dy) in CORNERS.iter() {
+                let off_x = dx as i16 * step_s as i16;
+                let off_y = 0;
+                let off_z = dy as i16 * step_t as i16;
+                let off_s = dx as u16 * step_s as u16;
+                let off_t = (1 - dy) as u16 * step_t as u16;
+
+                let vert = &mut buf[buf_idx];
+                vert.x = px_x + off_x + anim_x as i16;
+                vert.y = px_y + off_y;
+                vert.z = px_z + off_z + anim_z as i16;
+                vert.base_z = px_z;
+                vert.s = base_s + off_s;
+                vert.t = base_t + off_t;
+                vert.layer = t.layer;
+                vert.anim_length = t.anim_length;
+                vert.anim_rate = t.anim_rate;
+                vert.anim_step = step_s as u8;
                 buf_idx += 1;
             }
         });

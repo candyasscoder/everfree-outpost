@@ -57,11 +57,10 @@ Renderer.prototype.initGl = function(assets) {
     var atlas = assets['tiles'];
     var atlas_tex = this.cacheTexture(atlas);
 
-    var struct_sheet = assets['structures0'];
-    var struct_sheet_tex = this.cacheTexture(struct_sheet);
-
-    var struct_depth = assets['structdepth0'];
-    var struct_depth_tex = this.cacheTexture(struct_depth);
+    var struct_sheet_tex = this.cacheTexture(assets['structures0']);
+    var struct_depth_tex = this.cacheTexture(assets['structdepth0']);
+    var anim_sheet_tex = this.cacheTexture(assets['staticanim0']);
+    var anim_depth_tex = this.cacheTexture(assets['staticanimdepth0']);
 
     var blits = build_blits(gl, assets);
     this.blit = blits.normal;
@@ -72,9 +71,12 @@ Renderer.prototype.initGl = function(assets) {
 
     this.terrain_block = build_terrain_block(gl, assets, atlas_tex);
 
-    var structures = build_structures(gl, assets, struct_sheet_tex, struct_depth_tex);
+    var structures = build_structures(gl, assets,
+            struct_sheet_tex, struct_depth_tex,
+            anim_sheet_tex, anim_depth_tex);
     this.structure = structures.normal;
     this.structure_shadow = structures.shadow;
+    this.structure_anim = structures.anim;
 
     var lights = build_lights(gl, assets);
     this.static_light = lights.static_;
@@ -297,12 +299,14 @@ function build_lights(gl, assets) {
     };
 }
 
-function build_structures(gl, assets, sheet_tex, depth_tex) {
+function build_structures(gl, assets, sheet_tex, depth_tex, anim_sheet_tex, anim_depth_tex) {
     var vert = assets['structure.vert'];
     var frag = assets['structure.frag'];
+    var anim_vert = assets['structure_anim.vert'];
     var shadow_frag = assets['structure_shadow.frag'];
     var programs = buildPrograms(gl, vert, frag, 2);
     var shadow_programs = buildPrograms(gl, vert, shadow_frag, 2);
+    var anim_programs = buildPrograms(gl, anim_vert, frag, 2);
 
     var uniforms = {
         'sheetSize': uniform('vec2', [sheet_tex.width, sheet_tex.height]),
@@ -325,9 +329,31 @@ function build_structures(gl, assets, sheet_tex, depth_tex) {
         'depthTex': depth_tex,
     };
 
+
+    var uniforms_anim = {
+        'sheetSize': uniform('vec2', [anim_sheet_tex.width, anim_sheet_tex.height]),
+        'now': uniform('float', null),
+    };
+
+    var attributes_anim = {
+        'position': attribute(null, 3, gl.SHORT, false, 16, 0),
+        'baseZAttr': attribute(null, 1, gl.SHORT, false, 16, 6),
+        'texCoord': attribute(null, 2, gl.UNSIGNED_SHORT, false, 16, 8),
+        'animRate': attribute(null, 1, gl.UNSIGNED_BYTE, false, 16, 13),
+        'animLength': attribute(null, 1, gl.UNSIGNED_BYTE, false, 16, 14),
+        'animStep': attribute(null, 1, gl.UNSIGNED_BYTE, false, 16, 15),
+    };
+
+    var textures_anim = {
+        'sheetTex': anim_sheet_tex,
+        'depthTex': anim_depth_tex,
+    };
+
+
     return {
         normal: new GlObject(gl, programs, uniforms, attributes, textures),
         shadow: new GlObject(gl, shadow_programs, uniforms, attributes_shadow, textures),
+        anim: new GlObject(gl, anim_programs, uniforms_anim, attributes_anim, textures_anim),
     };
 }
 
@@ -689,6 +715,14 @@ Renderer.prototype.render = function(s, draw_extra) {
         var cls = this.classes[k];
         cls.setCamera(pos, size);
     }
+
+    // Make sure the `now` sent to the shader is (1) measured in seconds and
+    // (2) small enough to minimize roundoff error.  The downside to this
+    // adjustment is a small glitch in the animation every so often.  This is
+    // minimized by choosing the modulus to be the magic number 55440, which is
+    // divisible by every number from 1 to 12 (and most "reasonable" numbers
+    // above that).
+    this.structure_anim.setUniformValue('now', [s.now / 1000 % 55440]);
 
 
     if (this.last_sw != size[0] || this.last_sh != size[1]) {

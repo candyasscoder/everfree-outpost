@@ -262,22 +262,32 @@ pub extern fn generate_structure_geometry(structures: &mut StructureBuffer,
                                           geom: &mut StructureGeometryBuffer,
                                           cx: u8,
                                           cy: u8,
+                                          max_z: u8,
                                           output: &mut StructureGeometryResult) {
-    let (vertex_count, sheet, more) = structures.continue_geometry_gen(geom, cx, cy, |_, _| true);
+    let (vertex_count, sheet, more) =
+        if max_z >= 16 {
+            structures.continue_geometry_gen(geom, cx, cy, |_, _| true)
+        } else {
+            structures.continue_geometry_gen(geom, cx, cy, |s, _| s.pos.2 < max_z)
+        };
     output.vertex_count = vertex_count;
     output.sheet = sheet;
     output.more = more as u8;
 }
 
-#[export_name = "generate_sliced_structure_geometry"]
-pub extern fn generate_sliced_structure_geometry(structures: &mut StructureBuffer,
-                                                 geom: &mut StructureGeometryBuffer,
-                                                 cx: u8,
-                                                 cy: u8,
-                                                 max_z: u8,
-                                                 output: &mut StructureGeometryResult) {
-    let (vertex_count, sheet, more) = structures.continue_geometry_gen(geom, cx, cy,
-                                                                       |s, _| s.pos.2 < max_z);
+#[export_name = "generate_structure_anim_geometry"]
+pub extern fn generate_structure_anim_geometry(structures: &mut StructureBuffer,
+                                               geom: &mut StructureGeometryBuffer,
+                                               cx: u8,
+                                               cy: u8,
+                                               max_z: u8,
+                                               output: &mut StructureGeometryResult) {
+    let (vertex_count, sheet, more) =
+        if max_z >= 16 {
+            structures.continue_anim_geometry_gen(geom, cx, cy, |_, _| true)
+        } else {
+            structures.continue_anim_geometry_gen(geom, cx, cy, |s, _| s.pos.2 < max_z)
+        };
     output.vertex_count = vertex_count;
     output.sheet = sheet;
     output.more = more as u8;

@@ -157,7 +157,7 @@ var asmlibs_code_raw = function(global, env, buffer) {
         remove_structure: _remove_structure,
         reset_structure_geometry: _reset_structure_geometry,
         generate_structure_geometry: _generate_structure_geometry,
-        generate_sliced_structure_geometry: _generate_sliced_structure_geometry,
+        generate_structure_anim_geometry: _generate_structure_anim_geometry,
 
         init_light_state: _init_light_state,
         reset_light_geometry: _reset_light_geometry,

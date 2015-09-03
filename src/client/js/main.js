@@ -1106,6 +1106,7 @@ function frame(ac, client_now) {
 
 
     var s = new Scene();
+    s.now = now;
 
 
     var entity_ids = Object.getOwnPropertyNames(entities);
