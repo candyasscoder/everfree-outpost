@@ -370,7 +370,7 @@ impl<'a> StructureBuffer<'a> {
             self.fill_indexes(cx, cy, filter);
         }
 
-        let (vertex_count, sheet) = self.generate_geometry(buf, cx, cy);
+        let (vertex_count, sheet) = self.generate_base_geometry(buf, cx, cy);
         let more = self.index_sheets != 0 || self.next_index <= self.last_used;
         (vertex_count, sheet, more)
     }
@@ -464,10 +464,8 @@ impl<'a> StructureBuffer<'a> {
         self.next_index = self.last_used + 1;
     }
 
-    fn generate_geometry(&mut self,
-                         buf: &mut StructureGeometryBuffer,
-                         cx: u8,
-                         cy: u8) -> (usize, u8) {
+    fn iter_structs_by_sheet<F>(&mut self, mut emit_struct: F) -> u8
+            where F: FnMut(&Structure, &StructureTemplate) {
         let mut sheet = 0;
         for i in 0 .. 32 {
             if self.index_sheets & (1 << i) != 0 {
@@ -478,59 +476,6 @@ impl<'a> StructureBuffer<'a> {
         let sheet = sheet;
 
         let mut out_idx = 0;
-        let mut buf_idx = 0;
-
-        fn emit(buf: &mut StructureGeometryBuffer,
-                idx: &mut usize,
-                pos: (i16, i16, i16),
-                base_z: i16,
-                tex_coord: (u16, u16),
-                layer: u8) {
-            let (x, y, z) = pos;
-            buf[*idx].x = x;
-            buf[*idx].y = y;
-            buf[*idx].z = z;
-            buf[*idx].base_z = base_z;
-            let (s, t) = tex_coord;
-            buf[*idx].s = s;
-            buf[*idx].t = t;
-            buf[*idx].layer = layer;
-            *idx += 1;
-        }
-
-        fn tile_to_px(tile: u8) -> i16 {
-            return tile as i16 * TILE_SIZE as i16;
-        }
-
-        let base_x = tile_to_px(cx * CHUNK_SIZE as u8);
-        let base_y = tile_to_px(cy * CHUNK_SIZE as u8);
-
-        // Should be at least the maximum structure size, and no more than (local region size -
-        // chunk size - max structure size).
-        const MARGIN: i16 = (CHUNK_SIZE * TILE_SIZE) as i16;
-        let origin_x = base_x - MARGIN;
-        let origin_y = base_y - MARGIN;
-        const MASK: i16 = (LOCAL_SIZE * CHUNK_SIZE * TILE_SIZE - 1) as i16;
-
-        // Subtract (base_x, base_y) from (x, y), but wrap coordinates across the local region
-        // borders so that (parts of) structures in the top chunk can appear in the bottom one and
-        // vice versa.
-        //
-        //  +-----+    MARGIN   (remainder, may exceed MARGIN)
-        //  |     |        /-\ /-\
-        //  |     |        +-----+
-        //  |     |        |     |
-        //  |   +-+  wrap  | +-+ |
-        //  |   | |   =>   | | | |
-        //  +-----+        | +-+ |
-        //                 |     |
-        //                 +-----+
-        let sub_base_wrap = |x, y| {
-            (((x - origin_x) & MASK) - MARGIN,
-             ((y - origin_y) & MASK) - MARGIN)
-        };
-
-        const CORNERS: [(u8, u8); 6] = [(0,0), (1,0), (1,1),  (0,0), (1, 1), (0,1)];
 
         // Walk through self.indexes, looking for structures whose template is on the correct
         // sheet.  Structures on other sheets get moved to the front of the list (over the top of
@@ -545,6 +490,24 @@ impl<'a> StructureBuffer<'a> {
                 continue;
             }
 
+            emit_struct(s, t);
+        }
+
+        self.num_indexes = out_idx;
+        self.index_sheets &= !(1 << sheet);
+        sheet
+    }
+
+    fn generate_base_geometry(&mut self,
+                              buf: &mut StructureGeometryBuffer,
+                              cx: u8,
+                              cy: u8) -> (usize, u8) {
+        let base_x = tile_to_px(cx * CHUNK_SIZE as u8);
+        let base_y = tile_to_px(cy * CHUNK_SIZE as u8);
+        let sub_base_wrap = |x, y| sub_base_wrap(x, y, base_x, base_y);
+
+        let mut buf_idx = 0;
+        let sheet = self.iter_structs_by_sheet(|s, t| {
             let (x, y, z) = s.pos;
             let (_sx, sy, _sz) = t.size;
 
@@ -562,21 +525,52 @@ impl<'a> StructureBuffer<'a> {
                 let off_s = dx as u16 * step_s;
                 let off_t = (1 - dy) as u16 * step_t;
 
-                emit(buf, &mut buf_idx,
-                     (px_x + off_x,
-                      px_y + off_y,
-                      px_z + off_z),
-                     px_z,
-                     (base_s + off_s,
-                      base_t + off_t),
-                     t.layer);
+                let vert = &mut buf[buf_idx];
+                vert.x = px_x + off_x;
+                vert.y = px_y + off_y;
+                vert.z = px_z + off_z;
+                vert.base_z = px_z;
+                vert.s = base_s + off_s;
+                vert.t = base_t + off_t;
+                vert.layer = t.layer;
+                buf_idx += 1;
             }
-        }
+        });
 
-        self.num_indexes = out_idx;
-        self.index_sheets &= !(1 << sheet);
         (buf_idx, sheet)
     }
+}
+
+const CORNERS: [(u8, u8); 6] = [(0,0), (1,0), (1,1),  (0,0), (1, 1), (0,1)];
+
+// Should be at least the maximum structure size, and no more than (local region size -
+// chunk size - max structure size).
+const MARGIN: i16 = (CHUNK_SIZE * TILE_SIZE) as i16;
+const MASK: i16 = (LOCAL_SIZE * CHUNK_SIZE * TILE_SIZE - 1) as i16;
+
+// Subtract (base_x, base_y) from (x, y), but wrap coordinates across the local region
+// borders so that (parts of) structures in the top chunk can appear in the bottom one and
+// vice versa.
+//
+//  +-----+    MARGIN   (remainder, may exceed MARGIN)
+//  |     |        /-\ /-\
+//  |     |        +-----+
+//  |     |        |     |
+//  |   +-+  wrap  | +-+ |
+//  |   | |   =>   | | | |
+//  +-----+        | +-+ |
+//                 |     |
+//                 +-----+
+fn sub_base_wrap(x: i16, y: i16, base_x: i16, base_y: i16) -> (i16, i16) {
+    let origin_x = base_x - MARGIN;
+    let origin_y = base_y - MARGIN;
+    (((x - origin_x) & MASK) - MARGIN,
+     ((y - origin_y) & MASK) - MARGIN)
+}
+
+
+fn tile_to_px(tile: u8) -> i16 {
+    return tile as i16 * TILE_SIZE as i16;
 }
 
 
