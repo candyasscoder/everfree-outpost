@@ -266,11 +266,7 @@ Renderer.prototype._renderTerrain = function(fb, cx, cy, max_z) {
     fb.use(function(idx) {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        this_.terrain_block.draw(idx, 0, geom.length / 8, {}, {
-            'position': buffer,
-            'side': buffer,
-            'texCoord': buffer,
-        }, {});
+        this_.terrain_block.draw(idx, 0, geom.length / 8, {}, {'*': buffer}, {});
     });
 
     gl.disable(gl.DEPTH_TEST);
@@ -306,19 +302,12 @@ Renderer.prototype._renderStructures = function(fb, cx, cy, max_z) {
 
         // Render images and metadata.
         fb.use(function(idx) {
-            this_.structure.draw(idx, 0, geom.length / 8, {}, {
-                'position': buffer,
-                'baseZAttr': buffer,
-                'texCoord': buffer,
-            }, {});
+            this_.structure.draw(idx, 0, geom.length / 8, {}, {'*': buffer}, {});
         });
 
         // Render shadows only.
         this.fb_shadow.use(function(idx) {
-            this_.structure_shadow.draw(idx, 0, geom.length / 8, {}, {
-                'position': buffer,
-                'texCoord': buffer,
-            }, {});
+            this_.structure_shadow.draw(idx, 0, geom.length / 8, {}, {'*': buffer}, {});
         });
     }
 
@@ -364,12 +353,8 @@ Renderer.prototype._renderStaticLights = function(fb, depth_tex, cx0, cy0, cx1, 
         var this_ = this;
         fb.use(function(idx) {
             if (geom.length > 0) {
-                this_.static_light.draw(idx, 0, geom.length / 16, {}, {
-                    'posOffset': buffer,
-                    'center': buffer,
-                    'colorIn': buffer,
-                    'radiusIn': buffer,
-                }, {
+                this_.static_light.draw(idx, 0, geom.length / 16, {}, {'*': buffer},
+                {
                     'depthTex': depth_tex,
                 });
             }

@@ -343,7 +343,7 @@ GlObject.prototype.drawMulti = function(prog_idx, vert_indexes, uniforms, attrib
     // set the ones in `base_attributes` as well.
     for (var key in this.base_attributes) {
         var base = this.base_attributes[key];
-        var buffer = attributes[key] || base.buffer;
+        var buffer = attributes[key] || base.buffer || attributes['*'];
         if (buffer == null) {
             continue;
         }

@@ -135,10 +135,11 @@ function makeShaders(shaders, gl, assets, make_texture) {
 
     var struct_uniforms = new Uniforms()
         .vec2('sheetSize', [struct_sheet.width, struct_sheet.height]);
-    var struct_attributes = new Attributes(16)
+    var struct_shadow_attributes = new Attributes(16)
         .field( 0, gl.SHORT,          3, 'position')
-        .field( 6, gl.SHORT,          1, 'baseZAttr')
         .field( 8, gl.UNSIGNED_SHORT, 2, 'texCoord');
+    var struct_attributes = struct_shadow_attributes.copy()
+        .field( 6, gl.SHORT,          1, 'baseZAttr');
     var struct_textures = new Textures()
         .texture('sheetTex', struct_sheet)
         .texture('depthTex', ctx.makeAssetTexture('structdepth0'));
@@ -151,7 +152,7 @@ function makeShaders(shaders, gl, assets, make_texture) {
 
     shaders.structure_shadow = ctx.start('structure.vert', 'structure_shadow.frag', 2)
         .uniforms(struct_uniforms)
-        .attributes(struct_attributes)
+        .attributes(struct_shadow_attributes)
         .textures(struct_textures)
         .finish();
 
