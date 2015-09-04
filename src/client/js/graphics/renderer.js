@@ -13,6 +13,7 @@ var Texture = require('graphics/glutil').Texture;
 var Buffer = require('graphics/glutil').Buffer;
 var Framebuffer = require('graphics/glutil').Framebuffer;
 var makeShaders = require('graphics/shaders').makeShaders;
+var ChunkRenderer = require('graphics/chunk').ChunkRenderer;
 
 var GlObject = require('graphics/glutil').GlObject;
 var uniform = require('graphics/glutil').uniform;
@@ -35,17 +36,7 @@ function Renderer(gl) {
     this._asm.initLightState();
 
     this.texture_cache = new WeakMap();
-    this.terrain_cache = new RenderCache(gl, function(gl) {
-        return {
-            image: new Framebuffer(gl, CHUNK_PX, CHUNK_PX, 2),
-        };
-    });
-    this.sliced_cache = new RenderCache(gl, function(gl) {
-        return {
-            image: new Framebuffer(gl, CHUNK_PX, CHUNK_PX, 2),
-        };
-    });
-    this.last_slice_z = -1;
+    this.chunk_cache = new RenderCache();
 }
 exports.Renderer = Renderer;
 
@@ -166,12 +157,14 @@ Renderer.prototype.loadChunk = function(i, j, chunk) {
     this._asm.chunkView().set(chunk._tiles);
     this._asm.loadChunk(j, i);
 
-    this.terrain_cache.invalidate(i * LOCAL_SIZE + j);
-    this.sliced_cache.invalidate(i * LOCAL_SIZE + j);
+    this.chunk_cache.ifPresent(i * LOCAL_SIZE + j, function(cr) {
+        cr.invalidateTerrain();
+    });
 
     var above = (i - 1) & (LOCAL_SIZE - 1);
-    this.terrain_cache.invalidate(above * LOCAL_SIZE + j);
-    this.sliced_cache.invalidate(above * LOCAL_SIZE + j);
+    this.chunk_cache.ifPresent(above * LOCAL_SIZE + j, function(cr) {
+        cr.invalidateTerrain();
+    });
 };
 
 Renderer.prototype.loadTemplateData = function(templates) {
@@ -240,93 +233,17 @@ Renderer.prototype._invalidateStructureRegion = function(x, y, z, template) {
     for (var cy = cv0; cy < cv1; ++cy) {
         for (var cx = cx0; cx < cx1; ++cx) {
             var idx = (cy & mask) * LOCAL_SIZE + (cx & mask);
-            this.terrain_cache.invalidate(idx);
-            this.sliced_cache.invalidate(idx);
+            this.chunk_cache.ifPresent(idx, function(cr) {
+                cr.invalidateStructures();
+            });
         }
     }
 };
 
 
 // Render
-
-Renderer.prototype._renderTerrain = function(fb, cx, cy, max_z) {
-    var geom = this._asm.generateTerrainGeometry(cx, cy, max_z);
-
-    var gl = this.gl;
-    gl.viewport(0, 0, fb.width, fb.height);
-    gl.clearDepth(0.0);
-    gl.clearColor(0, 0, 0, 0);
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.GEQUAL);
-
-    var buffer = new Buffer(gl);
-    buffer.loadData(geom);
-
-    var this_ = this;
-    fb.use(function(idx) {
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        this_.terrain_block.draw(idx, 0, geom.length / 8, {}, {'*': buffer}, {});
-    });
-
-    gl.disable(gl.DEPTH_TEST);
-};
-
-Renderer.prototype._renderStructures = function(fb, cx, cy, max_z) {
-    var gl = this.gl;
-    gl.viewport(0, 0, fb.width, fb.height);
-
-    var this_ = this;
-
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.ALWAYS);
-
-    this.fb_shadow.use(function(idx) {
-        this_.blit_depth.draw(idx, 0, 6, {}, {}, {
-            'depthTex': fb.depth_texture,
-        });
-    });
-
-    gl.depthFunc(gl.GEQUAL);
-
-    this._asm.resetStructureGeometry();
-    var more = true;
-    while (more) {
-        var result = this._asm.generateStructureGeometry(cx, cy, max_z);
-        var geom = result.geometry;
-        more = result.more;
-        // TODO: use result.sheet
-
-        var buffer = new Buffer(gl);
-        buffer.loadData(geom);
-
-        // Render images and metadata.
-        fb.use(function(idx) {
-            this_.structure.draw(idx, 0, geom.length / 8, {}, {'*': buffer}, {});
-        });
-
-        // Render shadows only.
-        this.fb_shadow.use(function(idx) {
-            this_.structure_shadow.draw(idx, 0, geom.length / 8, {}, {'*': buffer}, {});
-        });
-    }
-
-    gl.disable(gl.DEPTH_TEST);
-
-    // Composite shadows over the rest.
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-    fb.use(function(idx) {
-        if (idx == 0) {
-            this_.blit_full.draw(0, 0, 6, {}, {}, {
-                'imageTex': this_.fb_shadow.textures[0],
-            });
-        }
-    });
-
-    gl.disable(gl.BLEND);
-};
+// This section has screen-space passes only.  Other rendering is done by
+// ChunkRenderer in graphics/chunk.js.
 
 Renderer.prototype._renderStaticLights = function(fb, depth_tex, cx0, cy0, cx1, cy1, amb) {
     var gl = this.gl;
@@ -423,6 +340,8 @@ Renderer.prototype.render = function(s, draw_extra) {
     // above that).
     this.structure_anim.setUniformValue('now', [s.now / 1000 % 55440]);
 
+    this.blit_sliced.setUniformValue('sliceFrac', [s.slice_frac]);
+
 
     if (this.last_sw != size[0] || this.last_sh != size[1]) {
         this._initFramebuffers(size[0], size[1]);
@@ -447,27 +366,15 @@ Renderer.prototype.render = function(s, draw_extra) {
     }
 
     var this_ = this;
-    this.terrain_cache.populate(chunk_idxs, function(idx, fbs) {
+    this.chunk_cache.populate(chunk_idxs, function(idx) {
         var cx = (idx % LOCAL_SIZE)|0;
         var cy = (idx / LOCAL_SIZE)|0;
-        this_._renderTerrain(fbs.image, cx, cy, CHUNK_SIZE);
-        this_._renderStructures(fbs.image, cx, cy, CHUNK_SIZE);
+        return new ChunkRenderer(this_, cx, cy);
     });
-
-    if (s.slice_z < CHUNK_SIZE) {
-        if (s.slice_z != this.last_slice_z) {
-            this.sliced_cache.invalidateAll();
-        }
-        this.sliced_cache.populate(chunk_idxs, function(idx, fbs) {
-            var cx = (idx % LOCAL_SIZE)|0;
-            var cy = (idx / LOCAL_SIZE)|0;
-            this_._renderTerrain(fbs.image, cx, cy, s.slice_z);
-            this_._renderStructures(fbs.image, cx, cy, s.slice_z);
-        });
-        this.last_slice_z = s.slice_z;
-    } else {
-        this.sliced_cache.reduce(0);
-    }
+    this.chunk_cache.forEach(function(cr) {
+        cr.setSliceZ(s.slice_z);
+        cr.update();
+    });
 
 
     // Render everything into the world framebuffer.
@@ -481,35 +388,9 @@ Renderer.prototype.render = function(s, draw_extra) {
     this.fb_world.use(function(fb_idx) {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        for (var cy = cy0; cy < cy1; ++cy) {
-            for (var cx = cx0; cx < cx1; ++cx) {
-                var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
-
-                if (s.slice_z >= CHUNK_SIZE) {
-                    this_.blit.draw(fb_idx, 0, 6, {
-                        'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
-                                    cy * CHUNK_SIZE * TILE_SIZE],
-                    }, {}, {
-                        'image0Tex': this_.terrain_cache.get(idx).image.textures[0],
-                        'image1Tex': this_.terrain_cache.get(idx).image.textures[1],
-                        'depthTex': this_.terrain_cache.get(idx).image.depth_texture,
-                    });
-                } else {
-                    this_.blit_sliced.draw(fb_idx, 0, 6, {
-                        'rectPos': [cx * CHUNK_SIZE * TILE_SIZE,
-                                    cy * CHUNK_SIZE * TILE_SIZE],
-                        'sliceFrac': [s.slice_frac],
-                    }, {}, {
-                        'upperImage0Tex': this_.terrain_cache.get(idx).image.textures[0],
-                        'upperImage1Tex': this_.terrain_cache.get(idx).image.textures[1],
-                        'upperDepthTex': this_.terrain_cache.get(idx).image.depth_texture,
-                        'lowerImage0Tex': this_.sliced_cache.get(idx).image.textures[0],
-                        'lowerImage1Tex': this_.sliced_cache.get(idx).image.textures[1],
-                        'lowerDepthTex': this_.sliced_cache.get(idx).image.depth_texture,
-                    });
-                }
-            }
-        }
+        this_.chunk_cache.forEach(function(cr) {
+            cr.draw(fb_idx);
+        });
 
         for (var i = 0; i < s.sprites.length; ++i) {
             var sprite = s.sprites[i];
@@ -566,10 +447,7 @@ Renderer.prototype.renderSpecial = function(fb_idx, sprite) {
 
 
 /** @constructor */
-function RenderCache(gl, init) {
-    this.gl = gl;
-    this.init = init;
-
+function RenderCache() {
     this.slots = [];
     this.users = [];
 
@@ -584,7 +462,7 @@ function RenderCache(gl, init) {
 }
 
 RenderCache.prototype._addSlot = function() {
-    this.slots.push(this.init(this.gl));
+    this.slots.push(null);
     this.users.push(-1);
 };
 
@@ -621,7 +499,7 @@ RenderCache.prototype.populate = function(idxs, callback) {
             }
 
             // Populate the slot and assign it to `idx`.
-            callback(idx, this.slots[free]);
+            this.slots[free] = callback(idx);
             this.map[idx] = free;
             this.users[free] = idx;
         }
@@ -637,21 +515,10 @@ RenderCache.prototype.get = function(idx) {
     }
 };
 
-RenderCache.prototype.invalidate = function(idx) {
+RenderCache.prototype.ifPresent = function(idx, callback) {
     var slot = this.map[idx];
     if (slot != -1 && this.users[slot] == idx) {
-        this.users[slot] = -1;
-    }
-    this.map[idx] = -1;
-};
-
-RenderCache.prototype.invalidateAll = function() {
-    for (var slot = 0; slot < this.slots.length; ++slot) {
-        var idx = this.users[slot];
-        if (idx != -1) {
-            this.map[idx] = -1;
-        }
-        this.users[slot] = -1;
+        callback(this.slots[slot]);
     }
 };
 
@@ -663,5 +530,11 @@ RenderCache.prototype.reduce = function(len) {
     for (var i = 0; i < len; ++i) {
         this.slots.pop();
         this.users.pop();
+    }
+};
+
+RenderCache.prototype.forEach = function(callback) {
+    for (var i = 0; i < this.slots.length; ++i) {
+        callback(this.slots[i], this.users[i]);
     }
 };
