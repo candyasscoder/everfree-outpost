@@ -212,13 +212,13 @@ ChunkRenderer.prototype._initAnimData = function(buf) {
 };
 
 
-ChunkRenderer.prototype.draw = function(idx) {
+ChunkRenderer.prototype.draw = function(idx, draw_cx, draw_cy) {
     var r = this.r;
     var gl = this.r.gl;
 
     if (!this._slicingEnabled()) {
         r.blit.draw(idx, 0, 6, {
-            'rectPos': [this.cx * CHUNK_PX, this.cy * CHUNK_PX],
+            'rectPos': [draw_cx * CHUNK_PX, draw_cy * CHUNK_PX],
         }, {}, {
             'image0Tex': this.base_fb.textures[0],
             'image1Tex': this.base_fb.textures[1],
@@ -226,7 +226,7 @@ ChunkRenderer.prototype.draw = function(idx) {
         });
     } else {
         r.blit_sliced.draw(idx, 0, 6, {
-            'rectPos': [this.cx * CHUNK_PX, this.cy * CHUNK_PX],
+            'rectPos': [draw_cx * CHUNK_PX, draw_cy * CHUNK_PX],
         }, {}, {
             'upperImage0Tex': this.base_fb.textures[0],
             'upperImage1Tex': this.base_fb.textures[1],

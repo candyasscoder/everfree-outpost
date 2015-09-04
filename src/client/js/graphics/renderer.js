@@ -388,9 +388,12 @@ Renderer.prototype.render = function(s, draw_extra) {
     this.fb_world.use(function(fb_idx) {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        this_.chunk_cache.forEach(function(cr) {
-            cr.draw(fb_idx);
-        });
+        for (var cy = cy0; cy < cy1; ++cy) {
+            for (var cx = cx0; cx < cx1; ++cx) {
+                var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
+                this_.chunk_cache.get(idx).draw(fb_idx, cx, cy);
+            }
+        }
 
         for (var i = 0; i < s.sprites.length; ++i) {
             var sprite = s.sprites[i];
