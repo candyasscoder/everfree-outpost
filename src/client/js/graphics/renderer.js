@@ -24,7 +24,6 @@ var attribute = require('graphics/glutil').attribute;
 //var Named3D = require('graphics/draw/named').Named3D;
 //var PonyOutline3D = require('graphics/draw/ponyoutline').PonyOutline3D;
 var PonyAppearanceClass = require('graphics/appearance/pony').PonyAppearanceClass;
-console.log('pac', PonyAppearanceClass);
 
 var CHUNK_PX = CHUNK_SIZE * TILE_SIZE;
 
@@ -207,7 +206,6 @@ Renderer.prototype.loadTemplateData = function(templates) {
 
         out8(  13, template.anim_sheet);
         var oneshot_length = template.anim_length * (template.anim_oneshot ? -1 : 1);
-        console.log(oneshot_length);
         out8(  14, oneshot_length);
         out8(  15, template.anim_rate);
         out16( 16, template.anim_offset, 2);
@@ -223,7 +221,6 @@ Renderer.prototype.loadTemplateData = function(templates) {
 Renderer.prototype.addStructure = function(now, x, y, z, template) {
     var render_idx = this._asm.addStructure(x, y, z, template.id);
     if (template.anim_oneshot) {
-        console.log('set oneshot start to', now % ONESHOT_MODULUS, 'at', now);
         // The template defines a one-shot animation.  Set the start time to
         // now.
         this._asm.setStructureOneshotStart(render_idx, now % ONESHOT_MODULUS);
