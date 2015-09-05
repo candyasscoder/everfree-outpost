@@ -155,6 +155,7 @@ var asmlibs_code_raw = function(global, env, buffer) {
         init_structure_buffer: _init_structure_buffer,
         add_structure: _add_structure,
         remove_structure: _remove_structure,
+        set_structure_oneshot_start: _set_structure_oneshot_start,
         reset_structure_geometry: _reset_structure_geometry,
         generate_structure_geometry: _generate_structure_geometry,
         generate_structure_anim_geometry: _generate_structure_anim_geometry,

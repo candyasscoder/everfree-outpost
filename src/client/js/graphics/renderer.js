@@ -28,6 +28,27 @@ console.log('pac', PonyAppearanceClass);
 
 var CHUNK_PX = CHUNK_SIZE * TILE_SIZE;
 
+// The `now` value passed to the animation shader must be reduced to fit in a
+// float.  We use the magic number 55440 for this, since it's divisible by
+// every number from 1 to 12 (and most "reasonable" numbers above that).  This
+// is useful because repeating animations will glitch when `now` wraps around
+// unless `length / framerate` divides evenly into the modulus.
+//
+// Note that the shader `now` and ANIM_MODULUS are both in seconds, not ms.
+var ANIM_MODULUS = 55440;
+
+// We also need a smaller modulus for one-shot animation start times.  These
+// are measured in milliseconds and must fit in a 16-bit int.  It's important
+// that the one-shot modulus divides evenly into 1000 * ANIM_MODULUS, because
+// the current frame time in milliseconds will be modded by 1000 * ANIM_MODULUS
+// and then again by the one-shot modulus.
+//
+// We re-use ANIM_MODULUS as the one-shot modulus, since it obviously divides
+// evenly into 1000 * ANIM_MODULUS.  This is okay as long as ANIM_MODULUS fits
+// into 16 bits.
+var ONESHOT_MODULUS = ANIM_MODULUS;
+
+
 /** @constructor */
 function Renderer(gl) {
     this.gl = gl;
@@ -185,7 +206,9 @@ Renderer.prototype.loadTemplateData = function(templates) {
         out8(  12, template.layer);
 
         out8(  13, template.anim_sheet);
-        out8(  14, template.anim_length);
+        var oneshot_length = template.anim_length * (template.anim_oneshot ? -1 : 1);
+        console.log(oneshot_length);
+        out8(  14, oneshot_length);
         out8(  15, template.anim_rate);
         out16( 16, template.anim_offset, 2);
         out16( 20, template.anim_pos, 2);
@@ -197,9 +220,14 @@ Renderer.prototype.loadTemplateData = function(templates) {
     }
 };
 
-Renderer.prototype.addStructure = function(x, y, z, template_id) {
-    var render_idx = this._asm.addStructure(x, y, z, template_id);
-    var template = TemplateDef.by_id[template_id];
+Renderer.prototype.addStructure = function(now, x, y, z, template) {
+    var render_idx = this._asm.addStructure(x, y, z, template.id);
+    if (template.anim_oneshot) {
+        console.log('set oneshot start to', now % ONESHOT_MODULUS, 'at', now);
+        // The template defines a one-shot animation.  Set the start time to
+        // now.
+        this._asm.setStructureOneshotStart(render_idx, now % ONESHOT_MODULUS);
+    }
 
     var tx = (x / TILE_SIZE)|0;
     var ty = (y / TILE_SIZE)|0;
@@ -270,10 +298,8 @@ Renderer.prototype._renderStaticLights = function(fb, depth_tex, cx0, cy0, cx1, 
         var this_ = this;
         fb.use(function(idx) {
             if (geom.length > 0) {
-                this_.static_light.draw(idx, 0, geom.length / 16, {}, {'*': buffer},
-                {
-                    'depthTex': depth_tex,
-                });
+                this_.static_light.draw(idx, 0, geom.length / SIZEOF.LightVertex,
+                        {}, {'*': buffer}, {'depthTex': depth_tex});
             }
         });
     }
@@ -332,13 +358,7 @@ Renderer.prototype.render = function(s, draw_extra) {
         cls.setCamera(pos, size);
     }
 
-    // Make sure the `now` sent to the shader is (1) measured in seconds and
-    // (2) small enough to minimize roundoff error.  The downside to this
-    // adjustment is a small glitch in the animation every so often.  This is
-    // minimized by choosing the modulus to be the magic number 55440, which is
-    // divisible by every number from 1 to 12 (and most "reasonable" numbers
-    // above that).
-    this.structure_anim.setUniformValue('now', [s.now / 1000 % 55440]);
+    this.structure_anim.setUniformValue('now', [s.now / 1000 % ANIM_MODULUS]);
 
     this.blit_sliced.setUniformValue('sliceFrac', [s.slice_frac]);
 

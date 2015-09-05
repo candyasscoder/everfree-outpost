@@ -58,7 +58,7 @@ def init():
     mk_structure_item(s['fountain'], 'fountain', 'Fountain') \
 
     torch_frames = chop_image(structures('torch.png'), (TILE_SIZE, 2 * TILE_SIZE))
-    torch_anim = StaticAnimDef(list(torch_frames.values()), 4, 2)
+    torch_anim = StaticAnimDef(list(torch_frames.values()), 4, 2, oneshot=True)
     s.merge(mk_solid_structure('torch', torch_anim, (1, 1, 1)) \
             .light((16, 16, 32), (255, 230, 200), 300))
     mk_structure_item(s['torch'], 'torch', 'Torch') \

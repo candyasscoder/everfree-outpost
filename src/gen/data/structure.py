@@ -22,9 +22,10 @@ class StaticAnimDef(object):
     """An animation for a static element (structure or block).  This class is
     distinct from AnimationDef (sprite animations) because the requirements are
     not actually very similar."""
-    def __init__(self, frames, length, framerate):
+    def __init__(self, frames, length, framerate, oneshot=False):
         self.length = length
         self.framerate = framerate
+        self.oneshot = oneshot
         self.frames = frames
         self.size = frames[0].size
 
@@ -229,6 +230,7 @@ def build_client_json(structures):
             dct.update(
                 anim_length=s.anim.length,
                 anim_rate=s.anim.framerate,
+                anim_oneshot=s.anim.oneshot,
                 anim_pos=s.anim.anim_offset,
                 anim_size=s.anim.anim_size,
                 anim_offset=s.anim.offset,

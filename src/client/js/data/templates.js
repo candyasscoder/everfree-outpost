@@ -20,6 +20,7 @@ function TemplateDef_(id, info, assets) {
     this.anim_pos = info['anim_pos'] || [0, 0];
     this.anim_length = info['anim_length'] || 0;
     this.anim_rate = info['anim_rate'] || 0;
+    this.anim_oneshot = info['anim_oneshot'] || false;
     this.anim_sheet = info['anim_sheet'] || 0;
 
     this.light_pos = info['light_pos'] || [0, 0, 0];

@@ -852,9 +852,11 @@ function handleEntityGone(id, time) {
 }
 
 function handleStructureAppear(id, template_id, x, y, z) {
-    var idx = renderer.addStructure(x, y, z, template_id);
-
+    var now = timing.visibleNow();
     var template = TemplateDef.by_id[template_id];
+
+    var idx = renderer.addStructure(now, x, y, z, template);
+
     var pos = new Vec(x, y, z).divScalar(TILE_SIZE);
 
     structures[id] = new Structure(pos, template, idx);

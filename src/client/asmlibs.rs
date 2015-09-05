@@ -245,6 +245,13 @@ pub extern fn remove_structure(structures: &mut StructureBuffer,
     structures.remove_structure(idx);
 }
 
+#[export_name = "set_structure_oneshot_start"]
+pub extern fn set_structure_oneshot_start(structures: &mut StructureBuffer,
+                                          idx: usize,
+                                          start: u16) {
+    structures.set_oneshot_start(idx, start);
+}
+
 #[export_name = "reset_structure_geometry"]
 pub extern fn reset_structure_geometry(structures: &mut StructureBuffer) {
     structures.start_geometry_gen();

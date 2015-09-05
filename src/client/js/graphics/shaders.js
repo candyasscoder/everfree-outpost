@@ -1,8 +1,10 @@
+var SIZEOF = require('asmlibs').SIZEOF;
 var sb = require('graphics/shaderbuilder');
 
 var Uniforms = sb.Uniforms;
 var Attributes = sb.Attributes;
 var Textures = sb.Textures;
+
 
 
 function makeShaders(shaders, gl, assets, make_texture) {
@@ -38,7 +40,7 @@ function makeShaders(shaders, gl, assets, make_texture) {
     shaders.terrain_block = ctx.start('terrain_block.vert', 'terrain_block.frag', 2)
         .uniformVec2('atlasSize', [(terrain_atlas.width / TILE_SIZE)|0,
                                    (terrain_atlas.height / TILE_SIZE)|0])
-        .attributes(new Attributes(8)
+        .attributes(new Attributes(SIZEOF.TerrainVertex)
                 .field(0, gl.UNSIGNED_BYTE, 3, 'position')
                 .field(3, gl.UNSIGNED_BYTE, 1, 'side')
                 .field(4, gl.UNSIGNED_BYTE, 2, 'texCoord'))
@@ -109,7 +111,7 @@ function makeShaders(shaders, gl, assets, make_texture) {
 
     shaders.static_light = light_base.copy()
         .define('LIGHT_INPUT', 'attribute')
-        .attributes(new Attributes(16)
+        .attributes(new Attributes(SIZEOF.LightVertex)
                 .field( 0, gl.BYTE,           2, 'posOffset')
                 .field( 2, gl.SHORT,          3, 'center')
                 .field( 8, gl.UNSIGNED_BYTE,  3, 'colorIn', true)
@@ -135,7 +137,7 @@ function makeShaders(shaders, gl, assets, make_texture) {
 
     var struct_uniforms = new Uniforms()
         .vec2('sheetSize', [struct_sheet.width, struct_sheet.height]);
-    var struct_shadow_attributes = new Attributes(16)
+    var struct_shadow_attributes = new Attributes(SIZEOF.StructureVertex)
         .field( 0, gl.SHORT,          3, 'position')
         .field( 8, gl.UNSIGNED_SHORT, 2, 'texCoord');
     var struct_attributes = struct_shadow_attributes.copy()
@@ -161,8 +163,9 @@ function makeShaders(shaders, gl, assets, make_texture) {
         .uniformFloat('now')
         .attributes(struct_attributes.copy()
                 .field(13, gl.UNSIGNED_BYTE,  1, 'animRate')
-                .field(14, gl.UNSIGNED_BYTE,  1, 'animLength')
-                .field(15, gl.UNSIGNED_BYTE,  1, 'animStep'))
+                .field(14, gl.BYTE,           1, 'animLength')
+                .field(15, gl.UNSIGNED_BYTE,  1, 'animStep')
+                .field(16, gl.UNSIGNED_SHORT, 1, 'animOneshotStart'))
         .texture('sheetTex', staticanim_sheet)
         .texture('depthTex', ctx.makeAssetTexture('staticanimdepth0'))
         .finish();

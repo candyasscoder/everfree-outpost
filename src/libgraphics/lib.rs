@@ -252,7 +252,7 @@ pub struct StructureTemplate {
 
     // 13
     pub anim_sheet: u8,
-    pub anim_length: u8,
+    pub anim_length: i8,
     pub anim_rate: u8,
     pub anim_offset: (u16, u16),
     pub anim_pos: (u16, u16),
@@ -277,6 +277,10 @@ pub struct Structure {
     pub pos: (u8, u8, u8),
 
     pub template_id: u16,
+
+    /// Timestamp indicating when to start the structure's one-shot animation.  This field is only
+    /// relevant if the structure's template defines such an animation.
+    pub oneshot_start: u16,
 }
 
 pub struct StructureBuffer<'a> {
@@ -333,6 +337,7 @@ impl<'a> StructureBuffer<'a> {
             s.live = true;
             s.pos = pos;
             s.template_id = template_id as u16;
+            s.oneshot_start = 0;
             self.first_free
         };
         while self.first_free < self.structures.len() && self.structures[self.first_free].live {
@@ -352,6 +357,10 @@ impl<'a> StructureBuffer<'a> {
         if idx < self.first_free {
             self.first_free = idx;
         }
+    }
+
+    pub fn set_oneshot_start(&mut self, idx: usize, start: u16) {
+        self.structures[idx].oneshot_start = start;
     }
 
     pub fn start_geometry_gen(&mut self) {
@@ -601,6 +610,7 @@ impl<'a> StructureBuffer<'a> {
                 vert.anim_length = t.anim_length;
                 vert.anim_rate = t.anim_rate;
                 vert.anim_step = step_s as u8;
+                vert.anim_oneshot_start = s.oneshot_start;
                 buf_idx += 1;
             }
         });
@@ -652,8 +662,9 @@ pub struct StructureVertex {
     t: u16,
     layer: u8,
     anim_rate: u8,
-    anim_length: u8,
+    anim_length: i8,
     anim_step: u8,
+    anim_oneshot_start: u16,
 }
 
 /// Buffer for StructureVertex items.  The number of elements is set to 6 times the length of

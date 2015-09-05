@@ -10,6 +10,7 @@ generate_sliced_terrain_geometry
 init_structure_buffer
 add_structure
 remove_structure
+set_structure_oneshot_start
 reset_structure_geometry
 generate_structure_geometry
 generate_structure_anim_geometry

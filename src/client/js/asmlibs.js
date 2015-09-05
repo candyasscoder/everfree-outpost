@@ -391,6 +391,10 @@ Asm.prototype.removeStructure = function(idx) {
     this._raw['remove_structure'](STRUCTURES_START, idx);
 };
 
+Asm.prototype.setStructureOneshotStart = function(idx, start) {
+    this._raw['set_structure_oneshot_start'](STRUCTURES_START, idx, start);
+};
+
 Asm.prototype.resetStructureGeometry = function() {
     this._raw['reset_structure_geometry'](STRUCTURES_START);
 };
