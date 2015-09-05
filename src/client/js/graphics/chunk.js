@@ -13,13 +13,16 @@ function ChunkRenderer(r, cx, cy) {
     this.cy = cy;
 
     this.base_fb = null;
+    this.anim_fb = null;
     this.shadow_fb = null;
     this.normal_fbs_dirty = false;
 
     this.anim_data = null;
+    this.anim_data_count = 0;
     this.anim_data_dirty = false;
 
     this.sliced_base_fb = null;
+    this.sliced_anim_fb = null;
     this.sliced_shadow_fb = null;
     this.slice_z = CHUNK_SIZE;
     this.sliced_fbs_dirty = false;
@@ -48,6 +51,7 @@ ChunkRenderer.prototype.setSliceZ = function(slice_z) {
         this.sliced_fbs_dirty = true;
     } else {
         this.sliced_base_fb = null;
+        this.sliced_anim_fb = null;
         this.sliced_shadow_fb = null;
     }
 };
@@ -63,6 +67,10 @@ ChunkRenderer.prototype._updateNormalFbs = function() {
         this.base_fb = new Framebuffer(this.r.gl, CHUNK_PX, CHUNK_PX, 2);
         dirty = true;
     }
+    if (this.anim_fb == null) {
+        this.anim_fb = new Framebuffer(this.r.gl, CHUNK_PX, CHUNK_PX, 2);
+        dirty = true;
+    }
     if (this.shadow_fb == null) {
         this.shadow_fb = new Framebuffer(this.r.gl, CHUNK_PX, CHUNK_PX, 1);
         dirty = true;
@@ -72,6 +80,8 @@ ChunkRenderer.prototype._updateNormalFbs = function() {
         this._renderStructures(this.base_fb, this.shadow_fb, CHUNK_SIZE);
         this.normal_fbs_dirty = false;
     }
+
+    this._renderAnim(this.anim_fb, this.slice_z);
 };
 
 ChunkRenderer.prototype._updateSlicedFbs = function() {
@@ -84,6 +94,10 @@ ChunkRenderer.prototype._updateSlicedFbs = function() {
         this.sliced_base_fb = new Framebuffer(this.r.gl, CHUNK_PX, CHUNK_PX, 2);
         dirty = true;
     }
+    if (this.sliced_anim_fb == null) {
+        this.sliced_anim_fb = new Framebuffer(this.r.gl, CHUNK_PX, CHUNK_PX, 2);
+        dirty = true;
+    }
     if (this.sliced_shadow_fb == null) {
         this.sliced_shadow_fb = new Framebuffer(this.r.gl, CHUNK_PX, CHUNK_PX, 1);
         dirty = true;
@@ -93,6 +107,8 @@ ChunkRenderer.prototype._updateSlicedFbs = function() {
         this._renderStructures(this.sliced_base_fb, this.sliced_shadow_fb, this.slice_z);
         this.sliced_fbs_dirty = false;
     }
+
+    this._renderAnim(this.sliced_anim_fb, this.slice_z);
 };
 
 ChunkRenderer.prototype._updateAnimData = function() {
@@ -102,7 +118,7 @@ ChunkRenderer.prototype._updateAnimData = function() {
         dirty = true;
     }
     if (dirty) {
-        this._initAnimData(this.anim_data);
+        this.anim_data_count = this._initAnimData(this.anim_data);
         this.anim_data_dirty = false;
     }
 };
@@ -112,9 +128,9 @@ ChunkRenderer.prototype._updateAnimData = function() {
 // we can't `update` then without additional work to restore the previous
 // framebuffer binding.
 ChunkRenderer.prototype.update = function() {
+    //this._updateAnimData();
     this._updateNormalFbs();
     this._updateSlicedFbs();
-    this._updateAnimData();
 };
 
 
@@ -184,6 +200,37 @@ ChunkRenderer.prototype._renderStructures = function(fb_image, fb_shadow, slice_
     gl.disable(gl.DEPTH_TEST);
 };
 
+ChunkRenderer.prototype._renderAnim = function(fb, slice_z) {
+    var r = this.r;
+    var gl = this.r.gl;
+
+    gl.viewport(0, 0, fb.width, fb.height);
+    gl.clearDepth(0.0);
+    gl.clearColor(0, 0, 0, 0);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.GEQUAL);
+
+    r._asm.resetStructureGeometry();
+    var more = true;
+    while (more) {
+        var result = r._asm.generateStructureAnimGeometry(this.cx, this.cy, slice_z);
+        var geom = result.geometry;
+        more = result.more;
+        // TODO: use result.sheet
+
+        var buffer = new Buffer(gl);
+        buffer.loadData(geom);
+
+        fb.use(function(idx) {
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            r.structure_anim.draw(idx, 0, geom.length / SIZEOF.StructureVertex,
+                    {}, {'*': buffer}, {});
+        });
+    }
+
+    gl.disable(gl.DEPTH_TEST);
+};
+
 ChunkRenderer.prototype._initAnimData = function(buf) {
     var r = this.r;
 
@@ -209,6 +256,8 @@ ChunkRenderer.prototype._initAnimData = function(buf) {
     }
 
     buf.loadData(all_geom);
+
+    return all_geom.length / SIZEOF.StructureVertex;
 };
 
 
@@ -244,13 +293,17 @@ ChunkRenderer.prototype.draw = function(idx, draw_cx, draw_cy) {
 
     this._doBlit(idx, draw_cx, draw_cy, this.base_fb, this.sliced_base_fb);
 
+    // TODO: not sure why we need BLEND here to make the (0, 0, 0, 0) parts of
+    // anim_fb not overwrite the stuff from base_fb.  I would think DEPTH_TEST
+    // would be sufficient to make that happen?
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    this._doBlit(idx, draw_cx, draw_cy, this.anim_fb, this.sliced_anim_fb);
+
     if (idx == 0) {
-        // Composite shadows over the rest.
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
         this._doBlit(idx, draw_cx, draw_cy, this.shadow_fb, this.sliced_shadow_fb);
-
-        gl.disable(gl.BLEND);
     }
+
+    gl.disable(gl.BLEND);
 };
