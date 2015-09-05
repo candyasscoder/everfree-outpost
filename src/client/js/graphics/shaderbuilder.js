@@ -20,6 +20,7 @@ function copy_dict(d) {
 }
 
 
+/** @constructor */
 function ShaderBuilderContext(gl, assets, make_texture) {
     this.gl = gl;
     this.assets = assets;
@@ -49,6 +50,7 @@ ShaderBuilderContext.prototype.makeAssetTexture = function(name) {
 };
 
 
+/** @constructor */
 function ShaderBuilder(owner, vert_name, frag_name, fb_count) {
     this.p = owner;
 
@@ -133,6 +135,7 @@ ShaderBuilder.prototype.finish = function() {
 };
 
 
+/** @constructor */
 function Uniforms() {
     this.u = {};
 }
@@ -170,6 +173,7 @@ Uniforms.prototype.vec4 = function(name, value) {
 };
 
 
+/** @constructor */
 function Attributes(size, buffer) {
     this.size = size;
     this.buffer = buffer || null;
@@ -189,6 +193,7 @@ Attributes.prototype.field = function(offset, type, count, name, scaled) {
 };
 
 
+/** @constructor */
 function Textures() {
     this.t = {};
 };

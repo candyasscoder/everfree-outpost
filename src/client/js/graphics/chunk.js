@@ -1,3 +1,7 @@
+var glutil = require('graphics/glutil');
+var Framebuffer = glutil.Framebuffer;
+var Buffer = glutil.Buffer;
+
 var CHUNK_SIZE = require('data/chunk').CHUNK_SIZE;
 var TILE_SIZE = require('data/chunk').TILE_SIZE;
 var LOCAL_SIZE = require('data/chunk').LOCAL_SIZE;
@@ -7,6 +11,7 @@ var CHUNK_PX = CHUNK_SIZE * TILE_SIZE;
 var SIZEOF = require('asmlibs').SIZEOF;
 
 
+/** @constructor */
 function ChunkRenderer(r, cx, cy) {
     this.r = r;
     this.cx = cx;
@@ -280,9 +285,9 @@ ChunkRenderer.prototype._doBlit = function(idx, draw_cx, draw_cy, normal_fb, sli
             'upperImage0Tex': normal_fb.textures[0],
             'upperImage1Tex': normal_fb.textures[1],
             'upperDepthTex': normal_fb.depth_texture,
-            'lowerImage0Tex': sliced_base_fb.textures[0],
-            'lowerImage1Tex': sliced_base_fb.textures[1],
-            'lowerDepthTex': sliced_base_fb.depth_texture,
+            'lowerImage0Tex': sliced_fb.textures[0],
+            'lowerImage1Tex': sliced_fb.textures[1],
+            'lowerDepthTex': sliced_fb.depth_texture,
         });
     }
 };
