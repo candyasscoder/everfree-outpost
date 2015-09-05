@@ -212,7 +212,7 @@ ChunkRenderer.prototype._initAnimData = function(buf) {
 };
 
 
-ChunkRenderer.prototype.draw = function(idx, draw_cx, draw_cy) {
+ChunkRenderer.prototype._doBlit = function(idx, draw_cx, draw_cy, normal_fb, sliced_fb) {
     var r = this.r;
     var gl = this.r.gl;
 
@@ -220,20 +220,37 @@ ChunkRenderer.prototype.draw = function(idx, draw_cx, draw_cy) {
         r.blit.draw(idx, 0, 6, {
             'rectPos': [draw_cx * CHUNK_PX, draw_cy * CHUNK_PX],
         }, {}, {
-            'image0Tex': this.base_fb.textures[0],
-            'image1Tex': this.base_fb.textures[1],
-            'depthTex': this.base_fb.depth_texture,
+            'image0Tex': normal_fb.textures[0],
+            'image1Tex': normal_fb.textures[1],
+            'depthTex': normal_fb.depth_texture,
         });
     } else {
         r.blit_sliced.draw(idx, 0, 6, {
             'rectPos': [draw_cx * CHUNK_PX, draw_cy * CHUNK_PX],
         }, {}, {
-            'upperImage0Tex': this.base_fb.textures[0],
-            'upperImage1Tex': this.base_fb.textures[1],
-            'upperDepthTex': this.base_fb.depth_texture,
-            'lowerImage0Tex': this.sliced_base_fb.textures[0],
-            'lowerImage1Tex': this.sliced_base_fb.textures[1],
-            'lowerDepthTex': this.sliced_base_fb.depth_texture,
+            'upperImage0Tex': normal_fb.textures[0],
+            'upperImage1Tex': normal_fb.textures[1],
+            'upperDepthTex': normal_fb.depth_texture,
+            'lowerImage0Tex': sliced_base_fb.textures[0],
+            'lowerImage1Tex': sliced_base_fb.textures[1],
+            'lowerDepthTex': sliced_base_fb.depth_texture,
         });
+    }
+};
+
+ChunkRenderer.prototype.draw = function(idx, draw_cx, draw_cy) {
+    var r = this.r;
+    var gl = this.r.gl;
+
+    this._doBlit(idx, draw_cx, draw_cy, this.base_fb, this.sliced_base_fb);
+
+    if (idx == 0) {
+        // Composite shadows over the rest.
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+        this._doBlit(idx, draw_cx, draw_cy, this.shadow_fb, this.sliced_shadow_fb);
+
+        gl.disable(gl.BLEND);
     }
 };
