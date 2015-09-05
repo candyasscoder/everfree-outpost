@@ -67,19 +67,15 @@ def do_house_parts(basename, image, plane_image, door_image):
 
     x = 10 * TILE_SIZE
     y = 0
-    open_door_img = image.crop((x, y, x + w, y + h))
-    closed_door_img = stack(open_door_img, door_image)
-    door_depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
-    b.create(basename + '/door/in/closed', closed_door_img, door_depth, closed_door_shape, 1)
-    b.create(basename + '/door/in/open', open_door_img, door_depth, open_door_shape, 1)
+    doorway_img = image.crop((x, y, x + w, y + h))
+    doorway_depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
+    b.merge(mk_door_anim(basename + '/door/in', doorway_img, doorway_depth, door_image))
 
     x = 13 * TILE_SIZE
     y = 0
-    open_door_img = image.crop((x, y, x + w, y + h))
-    closed_door_img = stack(open_door_img, door_image)
-    door_depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
-    b.create(basename + '/door/out/closed', closed_door_img, door_depth, closed_door_shape, 1)
-    b.create(basename + '/door/out/open', open_door_img, door_depth, open_door_shape, 1)
+    doorway_img = image.crop((x, y, x + w, y + h))
+    doorway_depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
+    b.merge(mk_door_anim(basename + '/door/out', doorway_img, doorway_depth, door_image))
 
     return b
 

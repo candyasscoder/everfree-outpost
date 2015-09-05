@@ -22,8 +22,8 @@ class StaticAnimDef(object):
     """An animation for a static element (structure or block).  This class is
     distinct from AnimationDef (sprite animations) because the requirements are
     not actually very similar."""
-    def __init__(self, frames, length, framerate, oneshot=False):
-        self.length = length
+    def __init__(self, frames, framerate, oneshot=False):
+        self.length = len(frames)
         self.framerate = framerate
         self.oneshot = oneshot
         self.frames = frames

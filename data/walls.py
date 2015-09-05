@@ -2,7 +2,7 @@ from ..core.builder import *
 from ..core.images import loader
 from ..core import depthmap
 from ..core.structure import Shape
-from ..core.util import extract, stack
+from ..core.util import extract, stack, chop_image
 
 from .lib.items import *
 from .lib.structures import *
@@ -32,28 +32,14 @@ def do_wall_parts(basename, image, plane_image, door_image=None):
         b.merge(mk_solid_structure(name, image, (1, 1, 2), base=(j, 0), plane_image=plane_image))
 
     if door_image is not None:
-        open_door_shape_arr = [
-                'solid', 'floor', 'solid',
-                'solid', 'empty', 'solid',
-                ]
-        open_door_shape = Shape(3, 1, 2, open_door_shape_arr)
-
-        closed_door_shape_arr = [
-                'solid', 'solid', 'solid',
-                'solid', 'solid', 'solid',
-                ]
-        closed_door_shape = Shape(3, 1, 2, closed_door_shape_arr)
-
         w = 3 * TILE_SIZE
         h = 3 * TILE_SIZE
-
         x = len(parts) * TILE_SIZE
         y = 0
-        open_door_img = image.crop((x, y, x + w, y + h))
-        closed_door_img = stack(open_door_img, door_image)
-        door_depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
-        b.create(basename + '/door/closed', closed_door_img, door_depth, closed_door_shape, 1)
-        b.create(basename + '/door/open', open_door_img, door_depth, open_door_shape, 1)
+        doorway_img = image.crop((x, y, x + w, y + h))
+        doorway_depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
+
+        b.merge(mk_door_anim(basename + '/door', doorway_img, doorway_depth, door_image))
 
     return b
 

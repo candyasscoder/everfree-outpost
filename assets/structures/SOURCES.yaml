@@ -207,8 +207,8 @@ sign.png:
 door.png:
     title: LPC Door
     author: Lanea Zimmerman (AKA Sharm)
-    license: CC-BY-SA 3.0 / GPL 3.0
-    derived-from: ../tiles/lpc-base-tiles/house.png
+    license: CC-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
+    derived-from: lpc-doors-animated-1.png
 
 crops.png:
     title: "[LPC] Farming tilesets, magic animations and UI elements"
@@ -228,3 +228,11 @@ barrel.png:
     author: Lanea Zimmerman (AKA Sharm)
     license: CC-BY-SA 3.0 / GPL 3.0
     derived-from: ../tiles/lpc-base-tiles/barrel.png
+
+lpc-doors-animated-1.png:
+    title: LPC Animated Doors
+    author: Lanea Zimmerman (AKA Sharm)
+    license: CC-BY 3.0 / CC-BY-SO 3.0 / GPL 3.0
+    url: http://opengameart.org/content/lpc-animated-doors
+    attribution: >
+        Original wood and dungeon doors by Lanea Zimmerman (AKA Sharm).
