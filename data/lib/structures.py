@@ -72,6 +72,8 @@ def mk_door_anim(basename, doorway_img, doorway_depth, door_img):
         # Only have the "closed" frame.  Use empty doorway for "open".
         b.create(basename + '/closed', merged_frames[0], doorway_depth, closed_door_shape, 1)
         b.create(basename + '/open', doorway_img, doorway_depth, open_door_shape, 1)
+        b.create(basename + '/closing', merged_frames[0], doorway_depth, closed_door_shape, 1)
+        b.create(basename + '/opening', doorway_img, doorway_depth, closed_door_shape, 1)
     else:
         b.create(basename + '/closed', merged_frames[0], doorway_depth, closed_door_shape, 1)
         b.create(basename + '/open', merged_frames[-1], doorway_depth, open_door_shape, 1)
