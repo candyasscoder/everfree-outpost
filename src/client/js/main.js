@@ -855,7 +855,7 @@ function handleStructureAppear(id, template_id, x, y, z) {
     var now = timing.visibleNow();
     var template = TemplateDef.by_id[template_id];
 
-    var idx = renderer.addStructure(now, x, y, z, template);
+    var idx = renderer.addStructure(now, id, x, y, z, template);
 
     var pos = new Vec(x, y, z).divScalar(TILE_SIZE);
 
@@ -866,7 +866,10 @@ function handleStructureAppear(id, template_id, x, y, z) {
 function handleStructureGone(id, time) {
     if (structures[id] != null) {
         physics.removeStructure(structures[id]);
-        renderer.removeStructure(structures[id]);
+
+        var new_id = renderer.removeStructure(structures[id]);
+        // Structure `new_id` has been moved to the slot just vacated by `id`.
+        structures[new_id].render_index = structures[id].render_index;
     }
     delete structures[id];
 }

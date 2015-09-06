@@ -23,6 +23,7 @@ use graphics::{StructureTemplate, StructureTemplateData, StructureBuffer,
                StructureVertex, StructureGeometryBuffer};
 use graphics::{LightGeometryState, LightVertex, LightGeometryBuffer};
 
+use graphics::structures;
 use graphics::terrain;
 use graphics::types as gfx_types;
 
@@ -243,6 +244,44 @@ pub unsafe extern fn terrain_geom_generate(geom: &mut terrain::GeomGen,
 }
 
 
+#[export_name = "structure_buffer_init"]
+pub unsafe extern fn structure_buffer_init(buf: &mut structures::Buffer<'static>,
+                                           storage_ptr: *mut structures::Structure,
+                                           storage_byte_len: usize) {
+    let storage = make_slice_mut(storage_ptr, storage_byte_len);
+    buf.init(storage);
+}
+
+#[export_name = "structure_buffer_insert"]
+pub extern fn structure_buffer_insert(buf: &mut structures::Buffer,
+                                      external_id: u32,
+                                      pos_x: u8,
+                                      pos_y: u8,
+                                      pos_z: u8,
+                                      template_id: u32) -> usize {
+    if let Some(idx) = buf.insert(external_id,
+                                  (pos_x, pos_y, pos_z),
+                                  template_id) {
+        idx
+    } else {
+        (-1_isize) as usize
+    }
+}
+
+#[export_name = "structure_buffer_remove"]
+pub extern fn structure_buffer_remove(buf: &mut structures::Buffer,
+                                      idx: usize) -> u32 {
+    buf.remove(idx)
+}
+
+#[export_name = "structure_buffer_set_oneshot_start"]
+pub extern fn structure_buffer_set_oneshot_start(buf: &mut structures::Buffer,
+                                                 idx: usize,
+                                                 oneshot_start: u16) {
+    buf[idx].oneshot_start = oneshot_start;
+}
+
+
 #[export_name = "load_chunk"]
 pub extern fn load_chunk(local: &mut LocalChunks,
                          chunk: &BlockChunk,
@@ -415,7 +454,9 @@ pub struct Sizes {
     light_geometry_buffer: usize,
 
     terrain2_vertex: usize,
-    terrain2_geom_gen: usize
+    terrain2_geom_gen: usize,
+
+    structures2_buffer: usize,
 }
 
 #[export_name = "get_sizes"]
@@ -445,6 +486,8 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
 
     sizes.terrain2_vertex = size_of::<terrain::Vertex>();
     sizes.terrain2_geom_gen = size_of::<terrain::GeomGen>();
+
+    sizes.structures2_buffer = size_of::<structures::Buffer>();
 
     *num_sizes = size_of::<Sizes>() / size_of::<usize>();
 }

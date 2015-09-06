@@ -238,27 +238,30 @@ Renderer.prototype.loadTemplateData = function(templates) {
     }
 };
 
-Renderer.prototype.addStructure = function(now, x, y, z, template) {
-    var render_idx = this._asm.addStructure(x, y, z, template.id);
+Renderer.prototype.addStructure = function(now, id, x, y, z, template) {
+    var tx = (x / TILE_SIZE) & (LOCAL_SIZE * CHUNK_SIZE - 1);
+    var ty = (y / TILE_SIZE) & (LOCAL_SIZE * CHUNK_SIZE - 1);
+    var tz = (z / TILE_SIZE) & (LOCAL_SIZE * CHUNK_SIZE - 1);
+
+    var render_idx = this._asm.addStructure(id, tx, ty, tz, template.id);
     if (template.anim_oneshot) {
         // The template defines a one-shot animation.  Set the start time to
         // now.
         this._asm.setStructureOneshotStart(render_idx, now % ONESHOT_MODULUS);
     }
 
-    var tx = (x / TILE_SIZE)|0;
-    var ty = (y / TILE_SIZE)|0;
-    var tz = (z / TILE_SIZE)|0;
-
     this._invalidateStructureRegion(tx, ty, tz, template);
     return render_idx;
 };
 
 Renderer.prototype.removeStructure = function(structure) {
-    this._asm.removeStructure(structure.render_index);
+    // ID of the structure that now occupies the old slot.
+    var new_id = this._asm.removeStructure(structure.render_index);
 
     var pos = structure.pos;
     this._invalidateStructureRegion(pos.x, pos.y, pos.z, structure.template);
+
+    return new_id;
 };
 
 Renderer.prototype._invalidateStructureRegion = function(x, y, z, template) {

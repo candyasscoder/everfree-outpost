@@ -189,6 +189,7 @@ ChunkRenderer.prototype._renderStructures = function(fb_image, fb_shadow, slice_
         var buffer = new Buffer(gl);
         buffer.loadData(geom);
 
+        /*
         // Render images and metadata.
         fb_image.use(function(idx) {
             r.structure.draw(idx, 0, geom.length / SIZEOF.StructureVertex,
@@ -200,6 +201,7 @@ ChunkRenderer.prototype._renderStructures = function(fb_image, fb_shadow, slice_
             r.structure_shadow.draw(idx, 0, geom.length / SIZEOF.StructureVertex,
                     {}, {'*': buffer}, {});
         });
+        */
     }
 
     gl.disable(gl.DEPTH_TEST);

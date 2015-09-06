@@ -24,6 +24,7 @@ mod std {
 }
 
 pub mod types;
+pub mod structures;
 pub mod terrain;
 
 

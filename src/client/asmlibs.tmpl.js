@@ -168,6 +168,11 @@ var asmlibs_code_raw = function(global, env, buffer) {
         terrain_geom_reset: _terrain_geom_reset,
         terrain_geom_generate: _terrain_geom_generate,
 
+        structure_buffer_init: _structure_buffer_init,
+        structure_buffer_insert: _structure_buffer_insert,
+        structure_buffer_remove: _structure_buffer_remove,
+        structure_buffer_set_oneshot_start: _structure_buffer_set_oneshot_start,
+
         test: _test,
     });
 };

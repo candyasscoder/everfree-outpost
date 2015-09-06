@@ -92,7 +92,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 18;
+    var EXPECT_SIZES = 19;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -129,6 +129,8 @@ var SIZEOF = (function() {
 
     sizeof.Terrain2Vertex = next();
     sizeof.Terrain2GeomGen = next();
+
+    sizeof.Structure2Buffer = next();
 
     console.assert(index == EXPECT_SIZES,
             'some items were left over after building sizeof', index, EXPECT_SIZES);
@@ -341,7 +343,13 @@ var LIGHT_GEOM_END = LIGHT_GEOM_START + SIZEOF.LightGeometryBuffer;
 var TERRAIN2_GEOM_GEN_START = LIGHT_GEOM_END;
 var TERRAIN2_GEOM_GEN_END = TERRAIN2_GEOM_GEN_START + SIZEOF.Terrain2GeomGen;
 
-var GRAPHICS_HEAP_END = TERRAIN2_GEOM_GEN_END;
+var STRUCTURE2_BUFFER_START = TERRAIN2_GEOM_GEN_END;
+var STRUCTURE2_BUFFER_END = STRUCTURE2_BUFFER_START + SIZEOF.Structure2Buffer;
+
+var STRUCTURE2_STORAGE_START = STRUCTURE2_BUFFER_END;
+var STRUCTURE2_STORAGE_END = STRUCTURE2_STORAGE_START + 1024 * 1024;
+
+var GRAPHICS_HEAP_END = STRUCTURE2_STORAGE_END;
 
 exports.getGraphicsHeapSize = function() {
     return GRAPHICS_HEAP_END - GRAPHICS_HEAP_START;
@@ -513,6 +521,26 @@ Asm.prototype.terrainGeomGenerate = function() {
         geometry: new Uint8Array(this.buffer, GEOM_START, SIZEOF.Terrain2Vertex * vertex_count),
         more: more,
     };
+};
+
+
+Asm.prototype.structureBufferInit = function() {
+    this._raw['structure_buffer_init'](
+            STRUCTURE2_BUFFER_START,
+            STRUCTURE2_STORAGE_START,
+            STRUCTURE2_STORAGE_END - STRUCTURE2_STORAGE_START);
+};
+
+Asm.prototype.structureBufferInsert = function(id, x, y, z, template_id) {
+    return this._raw['structure_buffer_insert'](STRUCTURE_BUFFER_START, id, x, y, z, template_id);
+};
+
+Asm.prototype.structureBufferRemove = function(idx) {
+    return this._raw['structure_buffer_remove'](STRUCTURE_BUFFER_START, idx);
+};
+
+Asm.prototype.structureBufferSetOneshotStart = function(idx, oneshot_start) {
+    this._raw['structure_buffer_set_oneshot_start'](STRUCTURE_BUFFER_START, idx, oneshot_start);
 };
 
 

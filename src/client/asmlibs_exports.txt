@@ -20,3 +20,7 @@ generate_light_geometry
 terrain_geom_init
 terrain_geom_reset
 terrain_geom_generate
+structure_buffer_init
+structure_buffer_insert
+structure_buffer_remove
+structure_buffer_set_oneshot_start

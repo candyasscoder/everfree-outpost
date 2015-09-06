@@ -37,3 +37,28 @@ impl BlockData {
 pub type BlockChunk = [u16; 1 << (3 * CHUNK_BITS)];
 /// BlockChunk for every chunk in the local region.
 pub type LocalChunks = [BlockChunk; 1 << (2 * LOCAL_BITS)];
+
+
+pub struct StructureTemplate {
+    // 0
+    pub size: (u8, u8, u8),
+    pub sheet: u8,
+    pub display_size: (u16, u16),
+    pub display_offset: (u16, u16),
+    pub layer: u8,
+
+    // 13
+    pub anim_sheet: u8,
+    pub anim_length: i8,
+    pub anim_rate: u8,
+    pub anim_offset: (u16, u16),
+    pub anim_pos: (u16, u16),
+    pub anim_size: (u8, u8),
+
+    // 26
+    pub light_pos: (u8, u8, u8),
+    pub light_color: (u8, u8, u8),
+    pub light_radius: u16,
+
+    // 34
+}
