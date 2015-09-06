@@ -24,10 +24,10 @@ void main(void) {
     // If it's too far left/up from the camera, wrap around.
     if (blockPos.x * TILE_SIZE < cameraPos.x - CHUNK_SIZE * TILE_SIZE) {
         // Remember, posX is measured in *blocks*.
-        posX += LOCAL_SIZE * CHUNK_SIZE;
+        posX += LOCAL_SIZE * CHUNK_SIZE * TILE_SIZE;
     }
     if (blockPos.y * TILE_SIZE < cameraPos.y - CHUNK_SIZE * TILE_SIZE) {
-        posY += LOCAL_SIZE * CHUNK_SIZE;
+        posY += LOCAL_SIZE * CHUNK_SIZE * TILE_SIZE;
     }
 
     vec2 pixelPos = vec2(posX, posY - posZ);

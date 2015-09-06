@@ -294,6 +294,7 @@ Renderer.prototype._invalidateStructureRegion = function(x, y, z, template) {
     var mask = LOCAL_SIZE - 1;
     for (var cy = cv0; cy < cv1; ++cy) {
         for (var cx = cx0; cx < cx1; ++cx) {
+            this.structure_buf.invalidate(cx, cy);
             var idx = (cy & mask) * LOCAL_SIZE + (cx & mask);
             this.chunk_cache.ifPresent(idx, function(cr) {
                 cr.invalidateStructures();
@@ -456,6 +457,9 @@ Renderer.prototype.render = function(s, draw_extra) {
         var buf = this_.structure_buf.getBuffer();
         var len = this_.structure_buf.getSize();
         this_.structure2.draw(fb_idx, 0, len / SIZEOF.Structure2Vertex, {}, {'*': buf}, {});
+        //this_.structure2.draw(fb_idx, 0, len / SIZEOF.Structure2Vertex, {}, {'*': buf}, {});
+        //this_.structure2.draw(fb_idx, 0, len / SIZEOF.Structure2Vertex, {}, {'*': buf}, {});
+        //this_.structure2.draw(fb_idx, 0, len / SIZEOF.Structure2Vertex, {}, {'*': buf}, {});
 
         /*
         for (var cy = cy0; cy < cy1; ++cy) {
