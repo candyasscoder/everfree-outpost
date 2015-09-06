@@ -387,6 +387,8 @@ Renderer.prototype.render = function(s, draw_extra) {
     this.dynamic_light.setUniformValue('cameraSize', size);
     this.terrain2.setUniformValue('cameraPos', pos);
     this.terrain2.setUniformValue('cameraSize', size);
+    this.structure2.setUniformValue('cameraPos', pos);
+    this.structure2.setUniformValue('cameraSize', size);
     // this.blit_full uses fixed camera
 
     for (var k in this.classes) {
@@ -451,12 +453,18 @@ Renderer.prototype.render = function(s, draw_extra) {
         var len = this_.terrain_buf.getSize();
         this_.terrain2.draw(fb_idx, 0, len / SIZEOF.Terrain2Vertex, {}, {'*': buf}, {});
 
+        var buf = this_.structure_buf.getBuffer();
+        var len = this_.structure_buf.getSize();
+        this_.structure2.draw(fb_idx, 0, len / SIZEOF.Structure2Vertex, {}, {'*': buf}, {});
+
+        /*
         for (var cy = cy0; cy < cy1; ++cy) {
             for (var cx = cx0; cx < cx1; ++cx) {
                 var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
                 this_.chunk_cache.get(idx).draw(fb_idx, cx, cy);
             }
         }
+        */
 
         for (var i = 0; i < s.sprites.length; ++i) {
             var sprite = s.sprites[i];

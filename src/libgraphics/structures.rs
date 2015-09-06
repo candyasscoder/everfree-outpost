@@ -100,7 +100,7 @@ pub struct Vertex {
     display_size: (u16, u16),
     display_offset: (u16, u16),
 
-    // 12
+    // 16
 }
 
 impl IntrusiveCorner for Vertex {
@@ -173,7 +173,11 @@ impl<'a> GeomGen<'a> {
 
             emit_quad(buf, idx, Vertex {
                 corner: (0, 0),
-                pos: s.pos,
+                // Give the position of the front corner of the structure, since the quad should
+                // cover the front plane.
+                pos: (s.pos.0,
+                      s.pos.1 + t.size.1,
+                      s.pos.2),
                 layer: t.layer,
                 _pad1: 0,
                 display_size: t.display_size,
