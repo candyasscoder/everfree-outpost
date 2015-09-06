@@ -425,6 +425,7 @@ Renderer.prototype.render = function(s, draw_extra) {
     }
 
     var this_ = this;
+    /*
     this.chunk_cache.populate(chunk_idxs, function(idx) {
         var cx = (idx % LOCAL_SIZE)|0;
         var cy = (idx / LOCAL_SIZE)|0;
@@ -434,6 +435,7 @@ Renderer.prototype.render = function(s, draw_extra) {
         cr.setSliceZ(s.slice_z);
         cr.update();
     });
+    */
 
     this.terrain_buf.prepare(cx0, cy0, cx1, cy1);
     this.structure_buf.prepare(cx0, cy0, cx1, cy1);
@@ -457,9 +459,6 @@ Renderer.prototype.render = function(s, draw_extra) {
         var buf = this_.structure_buf.getBuffer();
         var len = this_.structure_buf.getSize();
         this_.structure2.draw(fb_idx, 0, len / SIZEOF.Structure2Vertex, {}, {'*': buf}, {});
-        //this_.structure2.draw(fb_idx, 0, len / SIZEOF.Structure2Vertex, {}, {'*': buf}, {});
-        //this_.structure2.draw(fb_idx, 0, len / SIZEOF.Structure2Vertex, {}, {'*': buf}, {});
-        //this_.structure2.draw(fb_idx, 0, len / SIZEOF.Structure2Vertex, {}, {'*': buf}, {});
 
         /*
         for (var cy = cy0; cy < cy1; ++cy) {
