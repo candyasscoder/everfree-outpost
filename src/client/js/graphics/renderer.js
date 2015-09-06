@@ -14,6 +14,7 @@ var Buffer = require('graphics/glutil').Buffer;
 var Framebuffer = require('graphics/glutil').Framebuffer;
 var makeShaders = require('graphics/shaders').makeShaders;
 var ChunkRenderer = require('graphics/chunk').ChunkRenderer;
+var BufferCache = require('graphics/buffers').BufferCache;
 
 var GlObject = require('graphics/glutil').GlObject;
 var uniform = require('graphics/glutil').uniform;
@@ -54,9 +55,22 @@ function Renderer(gl) {
     this._asm = new Asm(getGraphicsHeapSize());
     this._asm.initStructureBuffer();
     this._asm.initLightState();
+    this._asm.terrainGeomInit();
 
     this.texture_cache = new WeakMap();
     this.chunk_cache = new RenderCache();
+
+    var r = this;
+    this.terrain_buf = new BufferCache(gl, function(cx, cy, feed) {
+        r._asm.terrainGeomReset(cx, cy);
+        var more = true;
+        while (more) {
+            var result = r._asm.terrainGeomGenerate();
+            console.log('result: ', result.geometry.length, result.more);
+            feed(result.geometry);
+            more = result.more;
+        }
+    });
 }
 exports.Renderer = Renderer;
 
@@ -176,6 +190,12 @@ Renderer.prototype.loadBlockData = function(blocks) {
 Renderer.prototype.loadChunk = function(i, j, chunk) {
     this._asm.chunkView().set(chunk._tiles);
     this._asm.loadChunk(j, i);
+
+    this.terrain_buf.invalidate(j, i);
+    this.terrain_buf.invalidate(j, i - 1);
+    // TODO: I think a change at y=0 z=15 might be able to affect two chunks to
+    // the north?
+    //this.terrain_buf.invalidate(j, i - 2);
 
     this.chunk_cache.ifPresent(i * LOCAL_SIZE + j, function(cr) {
         cr.invalidateTerrain();
@@ -348,6 +368,8 @@ Renderer.prototype.render = function(s, draw_extra) {
     this.static_light.setUniformValue('cameraSize', size);
     this.dynamic_light.setUniformValue('cameraPos', pos);
     this.dynamic_light.setUniformValue('cameraSize', size);
+    this.terrain2.setUniformValue('cameraPos', pos);
+    this.terrain2.setUniformValue('cameraSize', size);
     // this.blit_full uses fixed camera
 
     for (var k in this.classes) {
@@ -393,6 +415,8 @@ Renderer.prototype.render = function(s, draw_extra) {
         cr.update();
     });
 
+    this.terrain_buf.prepare(cx0, cy0, cx1, cy1);
+
 
     // Render everything into the world framebuffer.
 
@@ -404,6 +428,10 @@ Renderer.prototype.render = function(s, draw_extra) {
 
     this.fb_world.use(function(fb_idx) {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        var buf = this_.terrain_buf.getBuffer();
+        var len = this_.terrain_buf.getSize();
+        this_.terrain2.draw(fb_idx, 0, len / SIZEOF.Terrain2Vertex, {}, {'*': buf}, {});
 
         for (var cy = cy0; cy < cy1; ++cy) {
             for (var cx = cx0; cx < cx1; ++cx) {

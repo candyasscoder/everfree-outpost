@@ -154,8 +154,8 @@ ChunkRenderer.prototype._renderTerrain = function(fb, slice_z) {
 
     fb.use(function(idx) {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        r.terrain_block.draw(idx, 0, geom.length / SIZEOF.TerrainVertex,
-                {}, {'*': buffer}, {});
+        //r.terrain_block.draw(idx, 0, geom.length / SIZEOF.TerrainVertex,
+                //{}, {'*': buffer}, {});
     });
 
     gl.disable(gl.DEPTH_TEST);

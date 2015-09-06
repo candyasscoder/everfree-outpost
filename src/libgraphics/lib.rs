@@ -23,6 +23,8 @@ mod std {
     pub use core::marker;
 }
 
+pub mod terrain;
+
 
 const ATLAS_SIZE: u16 = 32;
 
@@ -87,6 +89,26 @@ pub fn get_chunk<'a>(local: &'a LocalChunks, cpos: V2) -> &'a BlockChunk {
     let i = cpos.y as u16 % LOCAL_SIZE;
     let j = cpos.x as u16 % LOCAL_SIZE;
     &local[(i * LOCAL_SIZE + j) as usize]
+}
+
+
+pub trait IntrusiveCorner {
+    fn corner(&self) -> &(u8, u8);
+    fn corner_mut(&mut self) -> &mut (u8, u8);
+}
+
+pub fn emit_quad<T: Copy+IntrusiveCorner>(buf: &mut [T],
+                                          idx: &mut usize,
+                                          vertex: T) {
+    for &corner in &[(0, 0), (1, 0), (1, 1), (0, 0), (1, 1), (0, 1)] {
+        buf[*idx] = vertex;
+        *buf[*idx].corner_mut() = corner;
+        *idx += 1;
+    }
+}
+
+pub fn remaining_quads<T>(buf: &[T], idx: usize) -> usize {
+    (buf.len() - idx) / 6
 }
 
 
@@ -195,6 +217,8 @@ pub fn generate_geometry<F>(local: &LocalChunks,
     }
 
     let chunk0 = &local[(cy0 * LOCAL_SIZE + cx) as usize];
+    let x_base = (cx * CHUNK_SIZE) as i32;
+    let y0_base = (cy0 * CHUNK_SIZE) as i32;
     for z in 0 .. CHUNK_SIZE as i32 {
         for y in z .. CHUNK_SIZE as i32 {
             for x in 0 .. CHUNK_SIZE as i32 {
@@ -210,13 +234,14 @@ pub fn generate_geometry<F>(local: &LocalChunks,
                     if tile_id == 0 {
                         continue;
                     }
-                    place(geom, &mut out_idx, tile_id, x, y, z, side);
+                    place(geom, &mut out_idx, tile_id, x_base + x, y0_base + y, z, side);
                 }
             }
         }
     }
 
     let chunk1 = &local[(cy1 * LOCAL_SIZE + cx) as usize];
+    let y1_base = (cy1 * CHUNK_SIZE) as i32;
     for z in 0 .. CHUNK_SIZE as i32 {
         for y in 0 .. z + 1 {   // NB: 0..z+1 instead of z..SIZE
             for x in 0 .. CHUNK_SIZE as i32 {
@@ -232,7 +257,7 @@ pub fn generate_geometry<F>(local: &LocalChunks,
                     if tile_id == 0 {
                         continue;
                     }
-                    place(geom, &mut out_idx, tile_id, x, y + 16, z, side);  // NB: +16
+                    place(geom, &mut out_idx, tile_id, x_base + x, y1_base + y, z, side);
                 }
             }
         }

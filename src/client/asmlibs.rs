@@ -13,6 +13,7 @@ extern crate graphics;
 use core::prelude::*;
 use core::mem;
 use core::raw;
+use core::slice;
 use physics::v3::{V3, V2, scalar, Region};
 use physics::{Shape, ShapeSource};
 use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE, TILE_BITS};
@@ -21,6 +22,8 @@ use graphics::{TerrainVertex, TerrainGeometryBuffer};
 use graphics::{StructureTemplate, StructureTemplateData, StructureBuffer,
                StructureVertex, StructureGeometryBuffer};
 use graphics::{LightGeometryState, LightVertex, LightGeometryBuffer};
+
+use graphics::terrain;
 
 mod std {
     pub use core::fmt;
@@ -193,6 +196,43 @@ pub extern fn find_ceiling(layers: &[ShapeLayers; 1 << (2 * LOCAL_BITS)],
 
 // Graphics
 
+pub struct GeometryResult {
+    vertex_count: usize,
+    more: u8,
+}
+
+#[export_name = "terrain_geom_init"]
+pub extern fn terrain_geom_init(geom: &mut terrain::GeomGen<'static>,
+                                block_data: &'static BlockData,
+                                local_chunks: &'static LocalChunks) {
+    unsafe {
+        geom.init(block_data, local_chunks);
+    }
+}
+
+#[export_name = "terrain_geom_reset"]
+pub extern fn terrain_geom_reset(geom: &mut terrain::GeomGen,
+                                 cx: i32,
+                                 cy: i32) {
+    geom.reset(V2::new(cx, cy));
+}
+
+#[export_name = "terrain_geom_generate"]
+pub unsafe extern fn terrain_geom_generate(geom: &mut terrain::GeomGen,
+                                           buf: *mut terrain::Vertex,
+                                           byte_len: usize,
+                                           result: &mut GeometryResult) {
+    let len = byte_len / mem::size_of::<terrain::Vertex>();
+    let mut slice = slice::from_raw_parts_mut(buf, len);
+
+    let mut idx = 0;
+    let more = geom.generate(slice, &mut idx);
+
+    result.vertex_count = idx;
+    result.more = more as u8;
+}
+
+
 #[export_name = "load_chunk"]
 pub extern fn load_chunk(local: &mut LocalChunks,
                          chunk: &BlockChunk,
@@ -363,6 +403,9 @@ pub struct Sizes {
     light_geometry_state: usize,
     light_vertex: usize,
     light_geometry_buffer: usize,
+
+    terrain2_vertex: usize,
+    terrain2_geom_gen: usize
 }
 
 #[export_name = "get_sizes"]
@@ -389,6 +432,9 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
     sizes.light_geometry_state = size_of::<LightGeometryState>();
     sizes.light_vertex = size_of::<LightVertex>();
     sizes.light_geometry_buffer = size_of::<LightGeometryBuffer>();
+
+    sizes.terrain2_vertex = size_of::<terrain::Vertex>();
+    sizes.terrain2_geom_gen = size_of::<terrain::GeomGen>();
 
     *num_sizes = size_of::<Sizes>() / size_of::<usize>();
 }

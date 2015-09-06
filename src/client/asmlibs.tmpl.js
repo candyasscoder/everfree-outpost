@@ -164,6 +164,10 @@ var asmlibs_code_raw = function(global, env, buffer) {
         reset_light_geometry: _reset_light_geometry,
         generate_light_geometry: _generate_light_geometry,
 
+        terrain_geom_init: _terrain_geom_init,
+        terrain_geom_reset: _terrain_geom_reset,
+        terrain_geom_generate: _terrain_geom_generate,
+
         test: _test,
     });
 };

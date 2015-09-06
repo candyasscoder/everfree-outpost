@@ -64,6 +64,9 @@ def main(src_dir, build_dir, out_file):
     add('text', 'light.frag',           src('assets/shaders/light.frag'))
     add('text', 'light.vert',           src('assets/shaders/light.vert'))
 
+    add('text', 'terrain2.frag',        src('assets/shaders/terrain2.frag'))
+    add('text', 'terrain2.vert',        src('assets/shaders/terrain2.vert'))
+
     add('image', 'tiles', build('tiles.png'))
 
     with open(build('structures_list.json')) as f:

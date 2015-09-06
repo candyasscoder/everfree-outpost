@@ -92,7 +92,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 16;
+    var EXPECT_SIZES = 18;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -102,28 +102,38 @@ var SIZEOF = (function() {
     console.assert(view[0] == EXPECT_SIZES,
             'expected sizes for ' + EXPECT_SIZES + ' types, but got ' + view[0]);
 
-    return ({
-        ShapeChunk: view[1],
-        ShapeLayers: view[2],
+    var sizeof = {};
+    var index = 0;
+    var next = function() { return view[1 + index++]; };
 
-        BlockDisplay: view[3],
-        BlockData: view[4],
-        BlockChunk: view[5],
-        LocalChunks: view[6],
+    sizeof.ShapeChunk = next();
+    sizeof.ShapeLayers = next();
 
-        TerrainVertex: view[7],
-        TerrainGeometryBuffer: view[8],
+    sizeof.BlockDisplay = next();
+    sizeof.BlockData = next();
+    sizeof.BlockChunk = next();
+    sizeof.LocalChunks = next();
 
-        StructureTemplate: view[9],
-        StructureTemplateData: view[10],
-        StructureBuffer: view[11],
-        StructureVertex: view[12],
-        StructureGeometryBuffer: view[13],
+    sizeof.TerrainVertex = next();
+    sizeof.TerrainGeometryBuffer = next();
 
-        LightGeometryState: view[14],
-        LightVertex: view[15],
-        LightGeometryBuffer: view[16],
-    });
+    sizeof.StructureTemplate = next();
+    sizeof.StructureTemplateData = next();
+    sizeof.StructureBuffer = next();
+    sizeof.StructureVertex = next();
+    sizeof.StructureGeometryBuffer = next();
+
+    sizeof.LightGeometryState = next();
+    sizeof.LightVertex = next();
+    sizeof.LightGeometryBuffer = next();
+
+    sizeof.Terrain2Vertex = next();
+    sizeof.Terrain2GeomGen = next();
+
+    console.assert(index == EXPECT_SIZES,
+            'some items were left over after building sizeof', index, EXPECT_SIZES);
+
+    return sizeof;
 })();
 exports.SIZEOF = SIZEOF;
 
@@ -328,7 +338,10 @@ var LIGHT_STATE_END = LIGHT_STATE_START + SIZEOF.LightGeometryState;
 var LIGHT_GEOM_START = LIGHT_STATE_END;
 var LIGHT_GEOM_END = LIGHT_GEOM_START + SIZEOF.LightGeometryBuffer;
 
-var GRAPHICS_HEAP_END = LIGHT_GEOM_END;
+var TERRAIN2_GEOM_GEN_START = LIGHT_GEOM_END;
+var TERRAIN2_GEOM_GEN_END = TERRAIN2_GEOM_GEN_START + SIZEOF.Terrain2GeomGen;
+
+var GRAPHICS_HEAP_END = TERRAIN2_GEOM_GEN_END;
 
 exports.getGraphicsHeapSize = function() {
     return GRAPHICS_HEAP_END - GRAPHICS_HEAP_START;
@@ -467,6 +480,38 @@ Asm.prototype.generateLightGeometry = function() {
 
     this._stackFree(output);
     return result;
+};
+
+
+Asm.prototype.terrainGeomInit = function() {
+    this._raw['terrain_geom_init'](
+            TERRAIN2_GEOM_GEN_START,
+            BLOCK_DATA_START,
+            LOCAL_CHUNKS_START);
+};
+
+Asm.prototype.terrainGeomReset = function(cx, cy) {
+    this._raw['terrain_geom_reset'](TERRAIN2_GEOM_GEN_START, cx, cy);
+};
+
+Asm.prototype.terrainGeomGenerate = function() {
+    var output = this._stackAlloc(Int32Array, 2);
+
+    this._raw['terrain_geom_generate'](
+            TERRAIN2_GEOM_GEN_START,
+            GEOM_START,
+            GEOM_END - GEOM_START,
+            output.byteOffset);
+
+    var vertex_count = output[0];
+    var more = (output[1] & 1) != 0;
+
+    this._stackFree(output);
+
+    return {
+        geometry: new Uint8Array(this.buffer, GEOM_START, SIZEOF.Terrain2Vertex * vertex_count),
+        more: more,
+    };
 };
 
 

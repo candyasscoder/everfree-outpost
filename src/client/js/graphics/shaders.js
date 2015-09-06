@@ -51,6 +51,22 @@ function makeShaders(shaders, gl, assets, make_texture) {
 
 
     //
+    // Terrain2
+    //
+
+    shaders.terrain2 = ctx.start('terrain2.vert', 'terrain2.frag', 2)
+        .uniformVec2('cameraPos')
+        .uniformVec2('cameraSize')
+        .attributes(new Attributes(SIZEOF.Terrain2Vertex)
+                .field(0, gl.UNSIGNED_BYTE, 2, 'corner')
+                .field(2, gl.UNSIGNED_BYTE, 3, 'blockPos')
+                .field(5, gl.UNSIGNED_BYTE, 1, 'side')
+                .field(6, gl.UNSIGNED_BYTE, 2, 'tileCoord'))
+        .texture('atlasTex', ctx.makeAssetTexture('tiles'))
+        .finish();
+
+
+    //
     // Blits
     //
 

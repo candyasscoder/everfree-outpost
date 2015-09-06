@@ -17,3 +17,6 @@ generate_structure_anim_geometry
 init_light_state
 reset_light_geometry
 generate_light_geometry
+terrain_geom_init
+terrain_geom_reset
+terrain_geom_generate
