@@ -23,7 +23,8 @@ use graphics::{StructureTemplate, StructureTemplateData, StructureBuffer,
                StructureVertex, StructureGeometryBuffer};
 use graphics::{LightGeometryState, LightVertex, LightGeometryBuffer};
 
-use graphics::{block_data, terrain};
+use graphics::terrain;
+use graphics::types as gfx_types;
 
 mod std {
     pub use core::fmt;
@@ -209,11 +210,12 @@ pub struct GeometryResult {
     more: u8,
 }
 
+
 #[export_name = "terrain_geom_init"]
 pub unsafe extern fn terrain_geom_init(geom: &mut terrain::GeomGen<'static>,
-                                       block_data_ptr: *const block_data::BlockData,
+                                       block_data_ptr: *const gfx_types::BlockData,
                                        block_data_byte_len: usize,
-                                       local_chunks: &'static LocalChunks) {
+                                       local_chunks: &'static gfx_types::LocalChunks) {
     let block_data = make_slice(block_data_ptr, block_data_byte_len);
     geom.init(block_data, local_chunks);
 }

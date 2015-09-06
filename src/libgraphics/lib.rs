@@ -23,7 +23,7 @@ mod std {
     pub use core::marker;
 }
 
-pub mod block_data;
+pub mod types;
 pub mod terrain;
 
 

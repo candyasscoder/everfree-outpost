@@ -7,8 +7,7 @@ use ATLAS_SIZE;
 
 use IntrusiveCorner;
 use {emit_quad, remaining_quads};
-use block_data::BlockData;
-use LocalChunks;
+use types::{BlockData, LocalChunks};
 
 
 const LOCAL_SIZE: i32 = 8;
