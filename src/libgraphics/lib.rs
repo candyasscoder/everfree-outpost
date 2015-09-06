@@ -23,6 +23,7 @@ mod std {
     pub use core::marker;
 }
 
+pub mod block_data;
 pub mod terrain;
 
 
@@ -48,8 +49,9 @@ pub struct BlockDisplay {
     pub light_color: (u8, u8, u8),
     pub _pad1: u8,
     pub light_radius: u16,
+    pub _pad2: u16,
 
-    // 14
+    // 16
 }
 
 impl BlockDisplay {

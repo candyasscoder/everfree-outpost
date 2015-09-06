@@ -23,7 +23,7 @@ use graphics::{StructureTemplate, StructureTemplateData, StructureBuffer,
                StructureVertex, StructureGeometryBuffer};
 use graphics::{LightGeometryState, LightVertex, LightGeometryBuffer};
 
-use graphics::terrain;
+use graphics::{block_data, terrain};
 
 mod std {
     pub use core::fmt;
@@ -196,18 +196,26 @@ pub extern fn find_ceiling(layers: &[ShapeLayers; 1 << (2 * LOCAL_BITS)],
 
 // Graphics
 
+unsafe fn make_slice<T>(ptr: *const T, byte_len: usize) -> &'static [T] {
+    slice::from_raw_parts(ptr, byte_len / mem::size_of::<T>())
+}
+
+unsafe fn make_slice_mut<T>(ptr: *mut T, byte_len: usize) -> &'static mut [T] {
+    slice::from_raw_parts_mut(ptr, byte_len / mem::size_of::<T>())
+}
+
 pub struct GeometryResult {
     vertex_count: usize,
     more: u8,
 }
 
 #[export_name = "terrain_geom_init"]
-pub extern fn terrain_geom_init(geom: &mut terrain::GeomGen<'static>,
-                                block_data: &'static BlockData,
-                                local_chunks: &'static LocalChunks) {
-    unsafe {
-        geom.init(block_data, local_chunks);
-    }
+pub unsafe extern fn terrain_geom_init(geom: &mut terrain::GeomGen<'static>,
+                                       block_data_ptr: *const block_data::BlockData,
+                                       block_data_byte_len: usize,
+                                       local_chunks: &'static LocalChunks) {
+    let block_data = make_slice(block_data_ptr, block_data_byte_len);
+    geom.init(block_data, local_chunks);
 }
 
 #[export_name = "terrain_geom_reset"]

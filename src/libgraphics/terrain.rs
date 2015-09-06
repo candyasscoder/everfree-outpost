@@ -6,8 +6,9 @@ use physics::CHUNK_SIZE;
 use ATLAS_SIZE;
 
 use IntrusiveCorner;
-use {BlockData, LocalChunks};
 use {emit_quad, remaining_quads};
+use block_data::BlockData;
+use LocalChunks;
 
 
 const LOCAL_SIZE: i32 = 8;
@@ -30,7 +31,7 @@ impl IntrusiveCorner for Vertex {
 
 
 pub struct GeomGen<'a> {
-    block_data: &'a BlockData,
+    block_data: &'a [BlockData],
     local_chunks: &'a LocalChunks,
 
     cpos: V2,
@@ -39,7 +40,7 @@ pub struct GeomGen<'a> {
 
 impl<'a> GeomGen<'a> {
     pub unsafe fn init(&mut self,
-                       block_data: &'a BlockData,
+                       block_data: &'a [BlockData],
                        local_chunks: &'a LocalChunks) {
         ptr::write(&mut self.block_data, block_data);
         ptr::write(&mut self.local_chunks, local_chunks);

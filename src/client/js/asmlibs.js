@@ -487,6 +487,7 @@ Asm.prototype.terrainGeomInit = function() {
     this._raw['terrain_geom_init'](
             TERRAIN2_GEOM_GEN_START,
             BLOCK_DATA_START,
+            BLOCK_DATA_END - BLOCK_DATA_START,
             LOCAL_CHUNKS_START);
 };
 
