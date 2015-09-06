@@ -92,7 +92,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 19;
+    var EXPECT_SIZES = 21;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -131,6 +131,8 @@ var SIZEOF = (function() {
     sizeof.Terrain2GeomGen = next();
 
     sizeof.Structure2Buffer = next();
+    sizeof.Structure2Vertex = next();
+    sizeof.Structure2GeomGen = next();
 
     console.assert(index == EXPECT_SIZES,
             'some items were left over after building sizeof', index, EXPECT_SIZES);
@@ -346,7 +348,10 @@ var TERRAIN2_GEOM_GEN_END = TERRAIN2_GEOM_GEN_START + SIZEOF.Terrain2GeomGen;
 var STRUCTURE2_BUFFER_START = TERRAIN2_GEOM_GEN_END;
 var STRUCTURE2_BUFFER_END = STRUCTURE2_BUFFER_START + SIZEOF.Structure2Buffer;
 
-var STRUCTURE2_STORAGE_START = STRUCTURE2_BUFFER_END;
+var STRUCTURE2_GEOM_GEN_START = STRUCTURE2_BUFFER_END;
+var STRUCTURE2_GEOM_GEN_END = STRUCTURE2_GEOM_GEN_START + SIZEOF.Structure2GeomGen;
+
+var STRUCTURE2_STORAGE_START = STRUCTURE2_GEOM_GEN_END;
 var STRUCTURE2_STORAGE_END = STRUCTURE2_STORAGE_START + 1024 * 1024;
 
 var GRAPHICS_HEAP_END = STRUCTURE2_STORAGE_END;
@@ -532,16 +537,51 @@ Asm.prototype.structureBufferInit = function() {
 };
 
 Asm.prototype.structureBufferInsert = function(id, x, y, z, template_id) {
-    return this._raw['structure_buffer_insert'](STRUCTURE_BUFFER_START, id, x, y, z, template_id);
+    return this._raw['structure_buffer_insert'](STRUCTURE2_BUFFER_START, id, x, y, z, template_id);
 };
 
 Asm.prototype.structureBufferRemove = function(idx) {
-    return this._raw['structure_buffer_remove'](STRUCTURE_BUFFER_START, idx);
+    return this._raw['structure_buffer_remove'](STRUCTURE2_BUFFER_START, idx);
 };
 
 Asm.prototype.structureBufferSetOneshotStart = function(idx, oneshot_start) {
-    this._raw['structure_buffer_set_oneshot_start'](STRUCTURE_BUFFER_START, idx, oneshot_start);
+    this._raw['structure_buffer_set_oneshot_start'](STRUCTURE2_BUFFER_START, idx, oneshot_start);
 };
+
+
+Asm.prototype.structureGeomInit = function() {
+    this._raw['structure_geom_init'](
+            STRUCTURE2_GEOM_GEN_START,
+            STRUCTURE2_BUFFER_START,
+            TEMPLATE_DATA_START,
+            TEMPLATE_DATA_END - TEMPLATE_DATA_START);
+};
+
+Asm.prototype.structureGeomReset = function(cx0, cy0, cx1, cy1, sheet) {
+    this._raw['structure_geom_reset'](STRUCTURE2_GEOM_GEN_START, cx0, cy0, cx1, cy1, sheet);
+};
+
+Asm.prototype.structureGeomGenerate = function() {
+    var output = this._stackAlloc(Int32Array, 2);
+
+    this._raw['structure_geom_generate'](
+            STRUCTURE2_GEOM_GEN_START,
+            GEOM_START,
+            GEOM_END - GEOM_START,
+            output.byteOffset);
+
+    var vertex_count = output[0];
+    var more = (output[1] & 1) != 0;
+
+    this._stackFree(output);
+
+    return {
+        geometry: new Uint8Array(this.buffer, GEOM_START, SIZEOF.Structure2Vertex * vertex_count),
+        more: more,
+    };
+};
+
+
 
 
 // Test

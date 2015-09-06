@@ -56,17 +56,31 @@ function Renderer(gl) {
     this._asm.initStructureBuffer();
     this._asm.initLightState();
     this._asm.terrainGeomInit();
+    this._asm.structureBufferInit();
+    this._asm.structureGeomInit();
 
     this.texture_cache = new WeakMap();
     this.chunk_cache = new RenderCache();
 
     var r = this;
+
     this.terrain_buf = new BufferCache(gl, function(cx, cy, feed) {
         r._asm.terrainGeomReset(cx, cy);
         var more = true;
         while (more) {
             var result = r._asm.terrainGeomGenerate();
             console.log('result: ', result.geometry.length, result.more);
+            feed(result.geometry);
+            more = result.more;
+        }
+    });
+
+    this.structure_buf = new BufferCache(gl, function(cx, cy, feed) {
+        r._asm.structureGeomReset(cx, cy, cx + 1, cy + 1);
+        var more = true;
+        while (more) {
+            var result = r._asm.structureGeomGenerate();
+            console.log('result (s): ', result.geometry.length, result.more);
             feed(result.geometry);
             more = result.more;
         }
@@ -243,11 +257,11 @@ Renderer.prototype.addStructure = function(now, id, x, y, z, template) {
     var ty = (y / TILE_SIZE) & (LOCAL_SIZE * CHUNK_SIZE - 1);
     var tz = (z / TILE_SIZE) & (LOCAL_SIZE * CHUNK_SIZE - 1);
 
-    var render_idx = this._asm.addStructure(id, tx, ty, tz, template.id);
+    var render_idx = this._asm.structureBufferInsert(id, tx, ty, tz, template.id);
     if (template.anim_oneshot) {
         // The template defines a one-shot animation.  Set the start time to
         // now.
-        this._asm.setStructureOneshotStart(render_idx, now % ONESHOT_MODULUS);
+        this._asm.structureBufferSetOneshotStart(render_idx, now % ONESHOT_MODULUS);
     }
 
     this._invalidateStructureRegion(tx, ty, tz, template);
@@ -256,7 +270,7 @@ Renderer.prototype.addStructure = function(now, id, x, y, z, template) {
 
 Renderer.prototype.removeStructure = function(structure) {
     // ID of the structure that now occupies the old slot.
-    var new_id = this._asm.removeStructure(structure.render_index);
+    var new_id = this._asm.structureBufferRemove(structure.render_index);
 
     var pos = structure.pos;
     this._invalidateStructureRegion(pos.x, pos.y, pos.z, structure.template);
@@ -419,6 +433,7 @@ Renderer.prototype.render = function(s, draw_extra) {
     });
 
     this.terrain_buf.prepare(cx0, cy0, cx1, cy1);
+    this.structure_buf.prepare(cx0, cy0, cx1, cy1);
 
 
     // Render everything into the world framebuffer.
