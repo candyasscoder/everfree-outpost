@@ -5,6 +5,7 @@
 #![feature(core, core_prelude, core_slice_ext)]
 
 #[macro_use] extern crate core;
+#[macro_use] extern crate bitflags;
 #[cfg(asmjs)] #[macro_use] extern crate asmrt;
 #[cfg(not(asmjs))] #[macro_use] extern crate std;
 extern crate physics;
@@ -18,9 +19,7 @@ use physics::v3::{V3, V2, scalar, Region};
 
 #[cfg(asmjs)]
 mod std {
-    pub use core::cmp;
-    pub use core::fmt;
-    pub use core::marker;
+    pub use core::{cmp, fmt, iter, marker, ops, option, result};
 }
 
 pub mod types;

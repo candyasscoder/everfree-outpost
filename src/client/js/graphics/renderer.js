@@ -227,8 +227,8 @@ Renderer.prototype.loadTemplateData = function(templates) {
 
     for (var i = 0; i < templates.length; ++i) {
         var template = templates[i];
-        var out8 = mk_out(view8, i, SIZEOF.StructureTemplate);
-        var out16 = mk_out(view16, i, SIZEOF.StructureTemplate);
+        var out8 = mk_out(view8, i, SIZEOF.Structure2Template);
+        var out16 = mk_out(view16, i, SIZEOF.Structure2Template);
 
         out8(   0, template.size.x);
         out8(   1, template.size.y);
@@ -237,18 +237,19 @@ Renderer.prototype.loadTemplateData = function(templates) {
         out16(  4, template.display_size, 2);
         out16(  8, template.display_offset, 2);
         out8(  12, template.layer);
+        out8(  13, template.flags);
 
-        out8(  13, template.anim_sheet);
+        out8(  14, template.anim_sheet);
         var oneshot_length = template.anim_length * (template.anim_oneshot ? -1 : 1);
-        out8(  14, oneshot_length);
-        out8(  15, template.anim_rate);
-        out16( 16, template.anim_offset, 2);
-        out16( 20, template.anim_pos, 2);
-        out8(  24, template.anim_size, 2);
+        out8(  15, oneshot_length);
+        out8(  16, template.anim_rate);
+        out16( 18, template.anim_offset, 2);
+        out16( 22, template.anim_pos, 2);
+        out8(  26, template.anim_size, 2);
 
-        out8(  26, template.light_pos, 3);
-        out8(  29, template.light_color, 3);
-        out16( 32, template.light_radius);
+        out8(  28, template.light_pos, 3);
+        out8(  31, template.light_color, 3);
+        out16( 34, template.light_radius);
     }
 };
 

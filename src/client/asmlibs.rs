@@ -496,6 +496,7 @@ pub struct Sizes {
     terrain2_vertex: usize,
     terrain2_geom_gen: usize,
 
+    structures2_template: usize,
     structures2_buffer: usize,
     structures2_vertex: usize,
     structures2_geom_gen: usize,
@@ -529,6 +530,7 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
     sizes.terrain2_vertex = size_of::<terrain::Vertex>();
     sizes.terrain2_geom_gen = size_of::<terrain::GeomGen>();
 
+    sizes.structures2_template = size_of::<gfx_types::StructureTemplate>();
     sizes.structures2_buffer = size_of::<structures::Buffer>();
     sizes.structures2_vertex = size_of::<structures::Vertex>();
     sizes.structures2_geom_gen = size_of::<structures::GeomGen>();

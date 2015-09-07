@@ -92,7 +92,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 21;
+    var EXPECT_SIZES = 22;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -130,6 +130,7 @@ var SIZEOF = (function() {
     sizeof.Terrain2Vertex = next();
     sizeof.Terrain2GeomGen = next();
 
+    sizeof.Structure2Template = next();
     sizeof.Structure2Buffer = next();
     sizeof.Structure2Vertex = next();
     sizeof.Structure2GeomGen = next();
