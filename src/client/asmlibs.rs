@@ -230,14 +230,13 @@ pub extern fn terrain_geom_reset(geom: &mut terrain::GeomGen,
 
 #[export_name = "terrain_geom_generate"]
 pub unsafe extern fn terrain_geom_generate(geom: &mut terrain::GeomGen,
-                                           buf: *mut terrain::Vertex,
-                                           byte_len: usize,
+                                           buf_ptr: *mut terrain::Vertex,
+                                           buf_byte_len: usize,
                                            result: &mut GeometryResult) {
-    let len = byte_len / mem::size_of::<terrain::Vertex>();
-    let mut slice = slice::from_raw_parts_mut(buf, len);
+    let buf = make_slice_mut(buf_ptr, buf_byte_len);
 
     let mut idx = 0;
-    let more = geom.generate(slice, &mut idx);
+    let more = geom.generate(buf, &mut idx);
 
     result.vertex_count = idx;
     result.more = more as u8;
@@ -282,37 +281,36 @@ pub extern fn structure_buffer_set_oneshot_start(buf: &mut structures::Buffer,
 }
 
 
-#[export_name = "structure_geom_init"]
-pub unsafe extern fn structure_geom_init(geom: &mut structures::GeomGen<'static>,
-                                         buffer: &'static structures::Buffer<'static>,
-                                         templates_ptr: *const gfx_types::StructureTemplate,
-                                         templates_byte_len: usize) {
+#[export_name = "structure_base_geom_init"]
+pub unsafe extern fn structure_base_geom_init(geom: &mut structures::base::GeomGen<'static>,
+                                              buffer: &'static structures::Buffer<'static>,
+                                              templates_ptr: *const gfx_types::StructureTemplate,
+                                              templates_byte_len: usize) {
     let templates = make_slice(templates_ptr, templates_byte_len);
     geom.init(buffer, templates);
 }
 
-#[export_name = "structure_geom_reset"]
-pub extern fn structure_geom_reset(geom: &mut structures::GeomGen,
-                                   cx0: i32,
-                                   cy0: i32,
-                                   cx1: i32,
-                                   cy1: i32,
-                                   sheet: u8) {
+#[export_name = "structure_base_geom_reset"]
+pub extern fn structure_base_geom_reset(geom: &mut structures::base::GeomGen,
+                                        cx0: i32,
+                                        cy0: i32,
+                                        cx1: i32,
+                                        cy1: i32,
+                                        sheet: u8) {
     geom.reset(Region::new(V2::new(cx0, cy0),
                            V2::new(cx1, cy1)),
                sheet);
 }
 
-#[export_name = "structure_geom_generate"]
-pub unsafe extern fn structure_geom_generate(geom: &mut structures::GeomGen,
-                                             buf: *mut structures::Vertex,
-                                             byte_len: usize,
-                                             result: &mut GeometryResult) {
-    let len = byte_len / mem::size_of::<structures::Vertex>();
-    let mut slice = slice::from_raw_parts_mut(buf, len);
+#[export_name = "structure_base_geom_generate"]
+pub unsafe extern fn structure_base_geom_generate(geom: &mut structures::base::GeomGen,
+                                                  buf_ptr: *mut structures::base::Vertex,
+                                                  buf_byte_len: usize,
+                                                  result: &mut GeometryResult) {
+    let buf = make_slice_mut(buf_ptr, buf_byte_len);
 
     let mut idx = 0;
-    let more = geom.generate(slice, &mut idx);
+    let more = geom.generate(buf, &mut idx);
 
     result.vertex_count = idx;
     result.more = more as u8;
@@ -498,8 +496,8 @@ pub struct Sizes {
 
     structures2_template: usize,
     structures2_buffer: usize,
-    structures2_vertex: usize,
-    structures2_geom_gen: usize,
+    structures2_base_vertex: usize,
+    structures2_base_geom_gen: usize,
 }
 
 #[export_name = "get_sizes"]
@@ -532,8 +530,8 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
 
     sizes.structures2_template = size_of::<gfx_types::StructureTemplate>();
     sizes.structures2_buffer = size_of::<structures::Buffer>();
-    sizes.structures2_vertex = size_of::<structures::Vertex>();
-    sizes.structures2_geom_gen = size_of::<structures::GeomGen>();
+    sizes.structures2_base_vertex = size_of::<structures::base::Vertex>();
+    sizes.structures2_base_geom_gen = size_of::<structures::base::GeomGen>();
 
     *num_sizes = size_of::<Sizes>() / size_of::<usize>();
 }

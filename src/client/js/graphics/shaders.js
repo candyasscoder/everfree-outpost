@@ -196,7 +196,7 @@ function makeShaders(shaders, gl, assets, make_texture) {
     var struct_uniforms = new Uniforms()
         .vec2('cameraPos')
         .vec2('cameraSize');
-    var struct_attributes = new Attributes(SIZEOF.Structure2Vertex)
+    var struct_attributes = new Attributes(SIZEOF.Structure2BaseVertex)
         .field( 0, gl.UNSIGNED_BYTE,  2, 'corner')
         .field( 2, gl.UNSIGNED_BYTE,  3, 'blockPos')
         .field( 5, gl.UNSIGNED_BYTE,  1, 'layer')

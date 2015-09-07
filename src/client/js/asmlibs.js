@@ -132,8 +132,8 @@ var SIZEOF = (function() {
 
     sizeof.Structure2Template = next();
     sizeof.Structure2Buffer = next();
-    sizeof.Structure2Vertex = next();
-    sizeof.Structure2GeomGen = next();
+    sizeof.Structure2BaseVertex = next();
+    sizeof.Structure2BaseGeomGen = next();
 
     console.assert(index == EXPECT_SIZES,
             'some items were left over after building sizeof', index, EXPECT_SIZES);
@@ -349,10 +349,10 @@ var TERRAIN2_GEOM_GEN_END = TERRAIN2_GEOM_GEN_START + SIZEOF.Terrain2GeomGen;
 var STRUCTURE2_BUFFER_START = TERRAIN2_GEOM_GEN_END;
 var STRUCTURE2_BUFFER_END = STRUCTURE2_BUFFER_START + SIZEOF.Structure2Buffer;
 
-var STRUCTURE2_GEOM_GEN_START = STRUCTURE2_BUFFER_END;
-var STRUCTURE2_GEOM_GEN_END = STRUCTURE2_GEOM_GEN_START + SIZEOF.Structure2GeomGen;
+var STRUCTURE2_BASE_GEOM_GEN_START = STRUCTURE2_BUFFER_END;
+var STRUCTURE2_BASE_GEOM_GEN_END = STRUCTURE2_BASE_GEOM_GEN_START + SIZEOF.Structure2BaseGeomGen;
 
-var STRUCTURE2_STORAGE_START = STRUCTURE2_GEOM_GEN_END;
+var STRUCTURE2_STORAGE_START = STRUCTURE2_BASE_GEOM_GEN_END;
 var STRUCTURE2_STORAGE_END = STRUCTURE2_STORAGE_START + 1024 * 1024;
 
 var GRAPHICS_HEAP_END = STRUCTURE2_STORAGE_END;
@@ -551,22 +551,24 @@ Asm.prototype.structureBufferSetOneshotStart = function(idx, oneshot_start) {
 
 
 Asm.prototype.structureGeomInit = function() {
-    this._raw['structure_geom_init'](
-            STRUCTURE2_GEOM_GEN_START,
+    this._raw['structure_base_geom_init'](
+            STRUCTURE2_BASE_GEOM_GEN_START,
             STRUCTURE2_BUFFER_START,
             TEMPLATE_DATA_START,
             TEMPLATE_DATA_END - TEMPLATE_DATA_START);
 };
 
 Asm.prototype.structureGeomReset = function(cx0, cy0, cx1, cy1, sheet) {
-    this._raw['structure_geom_reset'](STRUCTURE2_GEOM_GEN_START, cx0, cy0, cx1, cy1, sheet);
+    this._raw['structure_base_geom_reset'](
+            STRUCTURE2_BASE_GEOM_GEN_START,
+            cx0, cy0, cx1, cy1, sheet);
 };
 
 Asm.prototype.structureGeomGenerate = function() {
     var output = this._stackAlloc(Int32Array, 2);
 
-    this._raw['structure_geom_generate'](
-            STRUCTURE2_GEOM_GEN_START,
+    this._raw['structure_base_geom_generate'](
+            STRUCTURE2_BASE_GEOM_GEN_START,
             GEOM_START,
             GEOM_END - GEOM_START,
             output.byteOffset);
@@ -577,7 +579,7 @@ Asm.prototype.structureGeomGenerate = function() {
     this._stackFree(output);
 
     return {
-        geometry: new Uint8Array(this.buffer, GEOM_START, SIZEOF.Structure2Vertex * vertex_count),
+        geometry: new Uint8Array(this.buffer, GEOM_START, SIZEOF.Structure2BaseVertex * vertex_count),
         more: more,
     };
 };

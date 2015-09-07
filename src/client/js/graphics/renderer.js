@@ -459,7 +459,7 @@ Renderer.prototype.render = function(s, draw_extra) {
 
         var buf = this_.structure_buf.getBuffer();
         var len = this_.structure_buf.getSize();
-        this_.structure2.draw(fb_idx, 0, len / SIZEOF.Structure2Vertex, {}, {'*': buf}, {});
+        this_.structure2.draw(fb_idx, 0, len / SIZEOF.Structure2BaseVertex, {}, {'*': buf}, {});
 
         /*
         for (var cy = cy0; cy < cy1; ++cy) {

@@ -24,6 +24,6 @@ structure_buffer_init
 structure_buffer_insert
 structure_buffer_remove
 structure_buffer_set_oneshot_start
-structure_geom_init
-structure_geom_reset
-structure_geom_generate
+structure_base_geom_init
+structure_base_geom_reset
+structure_base_geom_generate
