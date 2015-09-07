@@ -27,3 +27,6 @@ structure_buffer_set_oneshot_start
 structure_base_geom_init
 structure_base_geom_reset
 structure_base_geom_generate
+structure_anim_geom_init
+structure_anim_geom_reset
+structure_anim_geom_generate

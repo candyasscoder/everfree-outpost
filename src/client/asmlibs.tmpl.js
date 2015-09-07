@@ -177,6 +177,10 @@ var asmlibs_code_raw = function(global, env, buffer) {
         structure_base_geom_reset: _structure_base_geom_reset,
         structure_base_geom_generate: _structure_base_geom_generate,
 
+        structure_anim_geom_init: _structure_anim_geom_init,
+        structure_anim_geom_reset: _structure_anim_geom_reset,
+        structure_anim_geom_generate: _structure_anim_geom_generate,
+
         test: _test,
     });
 };

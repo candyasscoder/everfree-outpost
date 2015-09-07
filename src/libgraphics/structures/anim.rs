@@ -21,13 +21,14 @@ pub struct Vertex {
     _pad1: u16,
 
     // 8
+    anim_size: (u16, u16),
     anim_offset: (u16, u16),
     anim_pos: (u16, u16),
-    anim_size: (u8, u8),
     anim_length: i8,
     anim_rate: u8,
+    anim_oneshot_start: u16,
 
-    // 20
+    // 24
 }
 
 impl IntrusiveCorner for Vertex {
@@ -84,7 +85,7 @@ impl<'a> GeomGen<'a> {
 
             emit_quad(buf, idx, Vertex {
                 corner: (0, 0),
-                // Give the position of the front corner of the structure, since the quad should
+                // Give the position of the top front corner of the structure, since the quad should
                 // cover the front plane.
                 pos: (s.pos.0,
                       s.pos.1 + t.size.1,
@@ -93,10 +94,14 @@ impl<'a> GeomGen<'a> {
                 _pad1: 0,
 
                 anim_offset: t.anim_offset,
-                anim_pos: t.anim_pos,
+                // Give the anim_pos relative to the bottom corner.  This makes life easier for the
+                // shader.
+                anim_pos: (t.anim_pos.0,
+                           t.display_size.1 - (t.anim_pos.1 + t.anim_size.1 as u16)),
                 anim_size: t.anim_size,
                 anim_length: t.anim_length,
                 anim_rate: t.anim_rate,
+                anim_oneshot_start: s.oneshot_start,
             });
         }
 

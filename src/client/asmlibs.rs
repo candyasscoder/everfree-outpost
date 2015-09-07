@@ -317,6 +317,42 @@ pub unsafe extern fn structure_base_geom_generate(geom: &mut structures::base::G
 }
 
 
+#[export_name = "structure_anim_geom_init"]
+pub unsafe extern fn structure_anim_geom_init(geom: &mut structures::anim::GeomGen<'static>,
+                                              buffer: &'static structures::Buffer<'static>,
+                                              templates_ptr: *const gfx_types::StructureTemplate,
+                                              templates_byte_len: usize) {
+    let templates = make_slice(templates_ptr, templates_byte_len);
+    geom.init(buffer, templates);
+}
+
+#[export_name = "structure_anim_geom_reset"]
+pub extern fn structure_anim_geom_reset(geom: &mut structures::anim::GeomGen,
+                                        cx0: i32,
+                                        cy0: i32,
+                                        cx1: i32,
+                                        cy1: i32,
+                                        sheet: u8) {
+    geom.reset(Region::new(V2::new(cx0, cy0),
+                           V2::new(cx1, cy1)),
+               sheet);
+}
+
+#[export_name = "structure_anim_geom_generate"]
+pub unsafe extern fn structure_anim_geom_generate(geom: &mut structures::anim::GeomGen,
+                                                  buf_ptr: *mut structures::anim::Vertex,
+                                                  buf_byte_len: usize,
+                                                  result: &mut GeometryResult) {
+    let buf = make_slice_mut(buf_ptr, buf_byte_len);
+
+    let mut idx = 0;
+    let more = geom.generate(buf, &mut idx);
+
+    result.vertex_count = idx;
+    result.more = more as u8;
+}
+
+
 
 
 
@@ -498,6 +534,8 @@ pub struct Sizes {
     structures2_buffer: usize,
     structures2_base_vertex: usize,
     structures2_base_geom_gen: usize,
+    structures2_anim_vertex: usize,
+    structures2_anim_geom_gen: usize,
 }
 
 #[export_name = "get_sizes"]
@@ -532,6 +570,8 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
     sizes.structures2_buffer = size_of::<structures::Buffer>();
     sizes.structures2_base_vertex = size_of::<structures::base::Vertex>();
     sizes.structures2_base_geom_gen = size_of::<structures::base::GeomGen>();
+    sizes.structures2_anim_vertex = size_of::<structures::anim::Vertex>();
+    sizes.structures2_anim_geom_gen = size_of::<structures::anim::GeomGen>();
 
     *num_sizes = size_of::<Sizes>() / size_of::<usize>();
 }

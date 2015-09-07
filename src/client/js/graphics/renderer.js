@@ -57,7 +57,8 @@ function Renderer(gl) {
     this._asm.initLightState();
     this._asm.terrainGeomInit();
     this._asm.structureBufferInit();
-    this._asm.structureGeomInit();
+    this._asm.structureBaseGeomInit();
+    this._asm.structureAnimGeomInit();
 
     this.texture_cache = new WeakMap();
     this.chunk_cache = new RenderCache();
@@ -76,11 +77,22 @@ function Renderer(gl) {
     });
 
     this.structure_buf = new BufferCache(gl, function(cx, cy, feed) {
-        r._asm.structureGeomReset(cx, cy, cx + 1, cy + 1);
+        r._asm.structureBaseGeomReset(cx, cy, cx + 1, cy + 1);
         var more = true;
         while (more) {
-            var result = r._asm.structureGeomGenerate();
+            var result = r._asm.structureBaseGeomGenerate();
             console.log('result (s): ', result.geometry.length, result.more);
+            feed(result.geometry);
+            more = result.more;
+        }
+    });
+
+    this.structure_anim_buf = new BufferCache(gl, function(cx, cy, feed) {
+        r._asm.structureAnimGeomReset(cx, cy, cx + 1, cy + 1);
+        var more = true;
+        while (more) {
+            var result = r._asm.structureAnimGeomGenerate();
+            console.log('result (a): ', result.geometry.length, result.more);
             feed(result.geometry);
             more = result.more;
         }
@@ -245,11 +257,11 @@ Renderer.prototype.loadTemplateData = function(templates) {
         out8(  16, template.anim_rate);
         out16( 18, template.anim_offset, 2);
         out16( 22, template.anim_pos, 2);
-        out8(  26, template.anim_size, 2);
+        out16( 26, template.anim_size, 2);
 
-        out8(  28, template.light_pos, 3);
-        out8(  31, template.light_color, 3);
-        out16( 34, template.light_radius);
+        out8(  30, template.light_pos, 3);
+        out8(  33, template.light_color, 3);
+        out16( 36, template.light_radius);
     }
 };
 
@@ -296,6 +308,10 @@ Renderer.prototype._invalidateStructureRegion = function(x, y, z, template) {
     for (var cy = cv0; cy < cv1; ++cy) {
         for (var cx = cx0; cx < cx1; ++cx) {
             this.structure_buf.invalidate(cx, cy);
+            // TODO: magic number
+            if (template.flags & 2) {   // HAS_ANIM
+                this.structure_anim_buf.invalidate(cx, cy);
+            }
             var idx = (cy & mask) * LOCAL_SIZE + (cx & mask);
             this.chunk_cache.ifPresent(idx, function(cr) {
                 cr.invalidateStructures();
@@ -391,6 +407,8 @@ Renderer.prototype.render = function(s, draw_extra) {
     this.terrain2.setUniformValue('cameraSize', size);
     this.structure2.setUniformValue('cameraPos', pos);
     this.structure2.setUniformValue('cameraSize', size);
+    this.structure2_anim.setUniformValue('cameraPos', pos);
+    this.structure2_anim.setUniformValue('cameraSize', size);
     // this.blit_full uses fixed camera
 
     for (var k in this.classes) {
@@ -399,6 +417,7 @@ Renderer.prototype.render = function(s, draw_extra) {
     }
 
     this.structure_anim.setUniformValue('now', [s.now / 1000 % ANIM_MODULUS]);
+    this.structure2_anim.setUniformValue('now', [s.now / 1000 % ANIM_MODULUS]);
 
     this.blit_sliced.setUniformValue('sliceFrac', [s.slice_frac]);
 
@@ -440,6 +459,7 @@ Renderer.prototype.render = function(s, draw_extra) {
 
     this.terrain_buf.prepare(cx0, cy0, cx1, cy1);
     this.structure_buf.prepare(cx0, cy0, cx1, cy1);
+    this.structure_anim_buf.prepare(cx0, cy0, cx1, cy1);
 
 
     // Render everything into the world framebuffer.
@@ -460,6 +480,10 @@ Renderer.prototype.render = function(s, draw_extra) {
         var buf = this_.structure_buf.getBuffer();
         var len = this_.structure_buf.getSize();
         this_.structure2.draw(fb_idx, 0, len / SIZEOF.Structure2BaseVertex, {}, {'*': buf}, {});
+
+        var buf = this_.structure_anim_buf.getBuffer();
+        var len = this_.structure_anim_buf.getSize();
+        this_.structure2_anim.draw(fb_idx, 0, len / SIZEOF.Structure2AnimVertex, {}, {'*': buf}, {});
 
         /*
         for (var cy = cy0; cy < cy1; ++cy) {

@@ -9,7 +9,7 @@ use {emit_quad, remaining_quads};
 use types::StructureTemplate;
 
 use super::Buffer;
-use super::check_output;
+use super::check_bounds;
 
 
 #[derive(Clone, Copy)]
@@ -72,7 +72,7 @@ impl<'a> GeomGen<'a> {
 
             let t = &self.templates[s.template_id as usize];
 
-            if !check_output(s, t, self.bounds, self.sheet) {
+            if t.sheet != self.sheet || !check_bounds(s, t, self.bounds) {
                 continue;
             }
 

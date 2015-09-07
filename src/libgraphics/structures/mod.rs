@@ -10,7 +10,7 @@ use types::StructureTemplate;
 
 
 pub mod base;
-//mod anim;
+pub mod anim;
 
 
 #[derive(Clone, Copy)]
@@ -118,15 +118,9 @@ fn overlaps_wrapping_1d(a: (i32, i32), b: (i32, i32)) -> bool {
 }
 
 
-fn check_output(s: &Structure,
+fn check_bounds(s: &Structure,
                 t: &StructureTemplate,
-                bounds: Region<V2>,
-                sheet: u8) -> bool {
-    if t.sheet != sheet {
-        return false;
-    }
-
-
+                bounds: Region<V2>) -> bool {
     let pos = V3::new(s.pos.0 as i32,
                       s.pos.1 as i32,
                       s.pos.2 as i32);

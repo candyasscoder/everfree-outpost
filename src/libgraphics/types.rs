@@ -63,12 +63,12 @@ pub struct StructureTemplate {
     pub _pad1: u8,
     pub anim_offset: (u16, u16),
     pub anim_pos: (u16, u16),
-    pub anim_size: (u8, u8),
+    pub anim_size: (u16, u16),
 
-    // 28
+    // 30
     pub light_pos: (u8, u8, u8),
     pub light_color: (u8, u8, u8),
     pub light_radius: u16,
 
-    // 36
+    // 38
 }
