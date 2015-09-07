@@ -3,8 +3,9 @@ use core::ops::{Deref, DerefMut};
 use core::ptr;
 
 use physics::v3::{V3, V2, scalar, Region};
-use physics::CHUNK_SIZE;
+use physics::{CHUNK_SIZE, CHUNK_BITS};
 
+use LOCAL_BITS;
 use IntrusiveCorner;
 use {emit_quad, remaining_quads};
 use types::StructureTemplate;
@@ -189,7 +190,28 @@ impl<'a> GeomGen<'a> {
     }
 }
 
-fn overlaps_wrapping(_a: Region<V2>, _b: Region<V2>) -> bool {
-    // TODO
-    true
+fn overlaps_wrapping(a: Region<V2>, b: Region<V2>) -> bool {
+    //        |--A--|       `a` region
+    // |-B-|                `b` region
+    // |--------|           local region
+    // A--|   |--           `a` region, wrapped
+    //
+    // The normal check is `b.min < a.max && a.min < b.max`.  This check fails for the `a` and `b`
+    // in the example.  We instead do a "wrapped check": `(x - a.min) & MASK < a.max - a.min`.
+    // This only works correctly when testing a single point (`x`) against a range, so we test each
+    // endpoint against the other range and return true if any lies within.
+
+    overlaps_wrapping_1d((a.min.x, a.max.x), (b.min.x, b.max.x)) &&
+    overlaps_wrapping_1d((a.min.y, a.max.y), (b.min.y, b.max.y))
+}
+
+fn overlaps_wrapping_1d(a: (i32, i32), b: (i32, i32)) -> bool {
+    const MASK: i32 = (1 << (LOCAL_BITS + CHUNK_BITS)) - 1;
+    let (a_min, a_max) = a;
+    let (b_min, b_max) = b;
+
+    (b_min - a_min) & MASK < a_max - a_min ||
+    (b_max - a_min) & MASK < a_max - a_min ||
+    (a_min - b_min) & MASK < b_max - b_min ||
+    (a_max - b_min) & MASK < b_max - b_min
 }
