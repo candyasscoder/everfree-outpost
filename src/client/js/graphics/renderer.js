@@ -13,7 +13,6 @@ var Texture = require('graphics/glutil').Texture;
 var Buffer = require('graphics/glutil').Buffer;
 var Framebuffer = require('graphics/glutil').Framebuffer;
 var makeShaders = require('graphics/shaders').makeShaders;
-var ChunkRenderer = require('graphics/chunk').ChunkRenderer;
 var BufferCache = require('graphics/buffers').BufferCache;
 
 var GlObject = require('graphics/glutil').GlObject;
@@ -62,7 +61,6 @@ function Renderer(gl) {
     this._asm.lightGeomInit();
 
     this.texture_cache = new WeakMap();
-    this.chunk_cache = new RenderCache();
 
     var r = this;
 
@@ -123,11 +121,6 @@ Renderer.prototype.initGl = function(assets) {
 
     this.last_sw = -1;
     this.last_sh = -1;
-
-    // Temporary framebuffer for storing shadows and other translucent parts
-    // during structure rendering.  This doesn't depend on the screen size,
-    // which is why it's not in _initFramebuffers with the rest.
-    this.fb_shadow = new Framebuffer(this.gl, CHUNK_PX, CHUNK_PX, 1);
 };
 
 Renderer.prototype._initFramebuffers = function(sw, sh) {
@@ -141,8 +134,11 @@ Renderer.prototype._initFramebuffers = function(sw, sh) {
     // postprocessing shader doesn't output to the screen immediately.)
     this.fb_post = new Framebuffer(this.gl, sw, sh, 1, false);
 
-    // this.fb_shadow does not depend on sw/sh, so it gets initialized
-    // elsewhere.
+    // Temporary framebuffer for storing shadows and other translucent parts
+    // during structure rendering.  This doesn't depend on the screen size,
+    // which is why it's not in _initFramebuffers with the rest.
+    // TODO
+    //this.fb_shadow = new Framebuffer(this.gl, CHUNK_PX, CHUNK_PX, 1);
 
     this.last_sw = sw;
     this.last_sh = sh;
@@ -230,15 +226,6 @@ Renderer.prototype.loadChunk = function(i, j, chunk) {
     // TODO: I think a change at y=0 z=15 might be able to affect two chunks to
     // the north?
     //this.terrain_buf.invalidate(j, i - 2);
-
-    this.chunk_cache.ifPresent(i * LOCAL_SIZE + j, function(cr) {
-        cr.invalidateTerrain();
-    });
-
-    var above = (i - 1) & (LOCAL_SIZE - 1);
-    this.chunk_cache.ifPresent(above * LOCAL_SIZE + j, function(cr) {
-        cr.invalidateTerrain();
-    });
 };
 
 Renderer.prototype.loadTemplateData = function(templates) {
@@ -320,10 +307,6 @@ Renderer.prototype._invalidateStructureRegion = function(x, y, z, template) {
             if (template.flags & 2) {   // HAS_ANIM
                 this.structure_anim_buf.invalidate(cx, cy);
             }
-            var idx = (cy & mask) * LOCAL_SIZE + (cx & mask);
-            this.chunk_cache.ifPresent(idx, function(cr) {
-                cr.invalidateStructures();
-            });
         }
     }
 
@@ -463,17 +446,6 @@ Renderer.prototype.render = function(s, draw_extra) {
     }
 
     var this_ = this;
-    /*
-    this.chunk_cache.populate(chunk_idxs, function(idx) {
-        var cx = (idx % LOCAL_SIZE)|0;
-        var cy = (idx / LOCAL_SIZE)|0;
-        return new ChunkRenderer(this_, cx, cy);
-    });
-    this.chunk_cache.forEach(function(cr) {
-        cr.setSliceZ(s.slice_z);
-        cr.update();
-    });
-    */
 
     this.terrain_buf.prepare(cx0, cy0, cx1, cy1);
     this.structure_buf.prepare(cx0, cy0, cx1, cy1);
@@ -503,15 +475,6 @@ Renderer.prototype.render = function(s, draw_extra) {
         var buf = this_.structure_anim_buf.getBuffer();
         var len = this_.structure_anim_buf.getSize();
         this_.structure2_anim.draw(fb_idx, 0, len / SIZEOF.Structure2AnimVertex, {}, {'*': buf}, {});
-
-        /*
-        for (var cy = cy0; cy < cy1; ++cy) {
-            for (var cx = cx0; cx < cx1; ++cx) {
-                var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
-                this_.chunk_cache.get(idx).draw(fb_idx, cx, cy);
-            }
-        }
-        */
 
         for (var i = 0; i < s.sprites.length; ++i) {
             var sprite = s.sprites[i];
@@ -590,99 +553,4 @@ Renderer.prototype.render = function(s, draw_extra) {
 
 Renderer.prototype.renderSpecial = function(fb_idx, sprite) {
     sprite.appearance.draw3D(fb_idx, this, sprite, 0);
-};
-
-
-
-/** @constructor */
-function RenderCache() {
-    this.slots = [];
-    this.users = [];
-
-    this.map = new Array(LOCAL_SIZE * LOCAL_SIZE);
-    for (var i = 0; i < this.map.length; ++i) {
-        this.map[i] = -1;
-    }
-
-    // `users` maps slots to indexes.  `map` maps indexes to slots.  `map` is
-    // not always kept up to date, so it's necessary to check that
-    // `users[slot] == idx` before relying on the result of a `map` lookup.
-}
-
-RenderCache.prototype._addSlot = function() {
-    this.slots.push(null);
-    this.users.push(-1);
-};
-
-RenderCache.prototype.populate = function(idxs, callback) {
-    // First, collect any slot/idx pairs that can be reused.  Clear all
-    // remaining slots (set `user[slot]` to -1).
-    var new_users = new Array(this.users.length);
-    for (var i = 0; i < new_users.length; ++i) {
-        new_users[i] = -1;
-    }
-
-    for (var i = 0; i < idxs.length; ++i) {
-        var idx = idxs[i];
-        var slot = this.map[idx];
-        if (slot != -1 && this.users[slot] == idx) {
-            new_users[slot] = idx;
-        }
-    }
-
-    this.users = new_users;
-
-    // Now make a second pass to find slots for all remaining `idxs`.
-    var free = 0;
-    for (var i = 0; i < idxs.length; ++i) {
-        var idx = idxs[i];
-        var slot = this.map[idx];
-        if (slot == -1 || this.users[slot] != idx) {
-            // Find or create a free slot
-            while (free < this.users.length && this.users[free] != -1) {
-                ++free;
-            }
-            if (free == this.users.length) {
-                this._addSlot();
-            }
-
-            // Populate the slot and assign it to `idx`.
-            this.slots[free] = callback(idx);
-            this.map[idx] = free;
-            this.users[free] = idx;
-        }
-    }
-};
-
-RenderCache.prototype.get = function(idx) {
-    var slot = this.map[idx];
-    if (slot == -1 || this.users[slot] != idx) {
-        return null;
-    } else {
-        return this.slots[slot];
-    }
-};
-
-RenderCache.prototype.ifPresent = function(idx, callback) {
-    var slot = this.map[idx];
-    if (slot != -1 && this.users[slot] == idx) {
-        callback(this.slots[slot]);
-    }
-};
-
-RenderCache.prototype.reduce = function(len) {
-    for (var i = len; i < this.users.length; ++i) {
-        var idx = this.users[i];
-        this.map[idx] = -1;
-    }
-    for (var i = 0; i < len; ++i) {
-        this.slots.pop();
-        this.users.pop();
-    }
-};
-
-RenderCache.prototype.forEach = function(callback) {
-    for (var i = 0; i < this.slots.length; ++i) {
-        callback(this.slots[i], this.users[i]);
-    }
 };
