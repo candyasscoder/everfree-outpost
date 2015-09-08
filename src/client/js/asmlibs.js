@@ -92,7 +92,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 26;
+    var EXPECT_SIZES = 16;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -109,23 +109,11 @@ var SIZEOF = (function() {
     sizeof.ShapeChunk = next();
     sizeof.ShapeLayers = next();
 
-    sizeof.BlockDisplay = next();
     sizeof.BlockData = next();
     sizeof.BlockChunk = next();
     sizeof.LocalChunks = next();
 
-    sizeof.TerrainVertex = next();
-    sizeof.TerrainGeometryBuffer = next();
-
-    sizeof.StructureTemplate = next();
-    sizeof.StructureTemplateData = next();
-    sizeof.StructureBuffer = next();
-    sizeof.StructureVertex = next();
-    sizeof.StructureGeometryBuffer = next();
-
-    sizeof.LightGeometryState = next();
-    sizeof.LightVertex = next();
-    sizeof.LightGeometryBuffer = next();
+    sizeof.Structure = next();
 
     sizeof.Terrain2Vertex = next();
     sizeof.Terrain2GeomGen = next();
@@ -337,7 +325,7 @@ function AsmGraphics(num_blocks, num_templates, structures_size, geom_size) {
     this.num_blocks = num_blocks;
     this.num_templates = num_templates;
 
-    this.block_data_bytes = num_blocks * SIZEOF.BlockDisplay;
+    this.block_data_bytes = num_blocks * SIZEOF.BlockData;
     this.template_data_bytes = num_templates * SIZEOF.Structure2Template;
     this.geom_buffer_bytes = geom_size;
     // TODO: sizeof(Structure) * num_structures

@@ -213,8 +213,8 @@ Renderer.prototype.loadBlockData = function(blocks) {
     var view16 = this._asm.blockDataView16();
     for (var i = 0; i < blocks.length; ++i) {
         var block = blocks[i];
-        var out8 = mk_out(view8, i, SIZEOF.BlockDisplay);
-        var out16 = mk_out(view16, i, SIZEOF.BlockDisplay);
+        var out8 = mk_out(view8, i, SIZEOF.BlockData);
+        var out16 = mk_out(view16, i, SIZEOF.BlockData);
 
         out16(  0, block.front);
         out16(  2, block.back);
