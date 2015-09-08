@@ -2,12 +2,6 @@ use core::prelude::*;
 use core::ops::{Deref, DerefMut};
 use core::ptr;
 
-use physics::v3::{V3, V2, Region};
-use physics::CHUNK_BITS;
-
-use LOCAL_BITS;
-use types::StructureTemplate;
-
 
 pub mod base;
 pub mod anim;
@@ -88,50 +82,4 @@ impl<'a> DerefMut for Buffer<'a> {
     fn deref_mut(&mut self) -> &mut [Structure] {
         &mut self.storage[.. self.len]
     }
-}
-
-
-fn overlaps_wrapping(a: Region<V2>, b: Region<V2>) -> bool {
-    //        |--A--|       `a` region
-    // |-B-|                `b` region
-    // |--------|           local region
-    // A--|   |--           `a` region, wrapped
-    //
-    // The normal check is `b.min < a.max && a.min < b.max`.  This check fails for the `a` and `b`
-    // in the example.  We instead do a "wrapped check": `(x - a.min) & MASK < a.max - a.min`.
-    // This only works correctly when testing a single point (`x`) against a range, so we test each
-    // endpoint against the other range and return true if any lies within.
-
-    overlaps_wrapping_1d((a.min.x, a.max.x), (b.min.x, b.max.x)) &&
-    overlaps_wrapping_1d((a.min.y, a.max.y), (b.min.y, b.max.y))
-}
-
-fn overlaps_wrapping_1d(a: (i32, i32), b: (i32, i32)) -> bool {
-    const MASK: i32 = (1 << (LOCAL_BITS + CHUNK_BITS)) - 1;
-    let (a_min, a_max) = a;
-    let (b_min, b_max) = b;
-
-    (b_min - a_min) & MASK < a_max - a_min ||
-    (b_max - a_min) & MASK < a_max - a_min ||
-    (a_min - b_min) & MASK < b_max - b_min ||
-    (a_max - b_min) & MASK < b_max - b_min
-}
-
-
-fn check_bounds(s: &Structure,
-                t: &StructureTemplate,
-                bounds: Region<V2>) -> bool {
-    let pos = V3::new(s.pos.0 as i32,
-                      s.pos.1 as i32,
-                      s.pos.2 as i32);
-    let size = V3::new(t.size.0 as i32,
-                       t.size.1 as i32,
-                       t.size.2 as i32);
-    let draw_min = V2::new(pos.x,
-                           pos.y - pos.z - size.z);
-    let draw_max = V2::new(pos.x + size.x,
-                           pos.y - pos.z + size.y);
-    let draw_bounds = Region::new(draw_min, draw_max);
-
-    overlaps_wrapping(draw_bounds, bounds)
 }

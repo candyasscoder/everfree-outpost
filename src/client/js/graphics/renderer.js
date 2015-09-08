@@ -230,10 +230,6 @@ Renderer.prototype.loadChunk = function(i, j, chunk) {
     this._asm.chunkView(j, i).set(chunk._tiles);
 
     this.terrain_buf.invalidate(j, i);
-    this.terrain_buf.invalidate(j, i - 1);
-    // TODO: I think a change at y=0 z=15 might be able to affect two chunks to
-    // the north?
-    //this.terrain_buf.invalidate(j, i - 2);
 };
 
 Renderer.prototype.loadTemplateData = function(templates) {
@@ -280,7 +276,7 @@ Renderer.prototype.addStructure = function(now, id, x, y, z, template) {
         this._asm.structureBufferSetOneshotStart(render_idx, now % ONESHOT_MODULUS);
     }
 
-    this._invalidateStructureRegion(tx, ty, tz, template);
+    this._invalidateStructure(tx, ty, tz, template);
     return render_idx;
 };
 
@@ -289,38 +285,21 @@ Renderer.prototype.removeStructure = function(structure) {
     var new_id = this._asm.structureBufferRemove(structure.render_index);
 
     var pos = structure.pos;
-    this._invalidateStructureRegion(pos.x, pos.y, pos.z, structure.template);
+    this._invalidateStructure(pos.x, pos.y, pos.z, structure.template);
 
     return new_id;
 };
 
-Renderer.prototype._invalidateStructureRegion = function(x, y, z, template) {
-    var x0 = x;
-    var x1 = x + template.size.x;
+Renderer.prototype._invalidateStructure = function(x, y, z, template) {
+    var cx = (x / CHUNK_SIZE)|0;
+    var cy = (y / CHUNK_SIZE)|0;
 
-    // Avoid negative numbers
-    var v0 = y - z - template.size.z + LOCAL_SIZE * CHUNK_SIZE;
-    var v1 = y - z + template.size.y + LOCAL_SIZE * CHUNK_SIZE;
-
-    var cx0 = (x0 / CHUNK_SIZE)|0;
-    var cx1 = ((x1 + CHUNK_SIZE - 1) / CHUNK_SIZE)|0;
-    var cv0 = (v0 / CHUNK_SIZE)|0;
-    var cv1 = ((v1 + CHUNK_SIZE - 1) / CHUNK_SIZE)|0;
-
-    var mask = LOCAL_SIZE - 1;
-    for (var cy = cv0; cy < cv1; ++cy) {
-        for (var cx = cx0; cx < cx1; ++cx) {
-            this.structure_buf.invalidate(cx, cy);
-            // TODO: magic number
-            if (template.flags & 2) {   // HAS_ANIM
-                this.structure_anim_buf.invalidate(cx, cy);
-            }
-        }
+    this.structure_buf.invalidate(cx, cy);
+    // TODO: magic number
+    if (template.flags & 2) {   // HAS_ANIM
+        this.structure_anim_buf.invalidate(cx, cy);
     }
-
     if (template.flags & 4) {   // HAS_LIGHT
-        var cx = (x / CHUNK_SIZE)|0;
-        var cy = (y / CHUNK_SIZE)|0;
         this.light_buf.invalidate(cx, cy);
     }
 };
@@ -378,9 +357,13 @@ Renderer.prototype.render = function(s, draw_extra) {
 
     var this_ = this;
 
-    this.terrain_buf.prepare(cx0, cy0, cx1, cy1);
-    this.structure_buf.prepare(cx0, cy0, cx1, cy1);
-    this.structure_anim_buf.prepare(cx0, cy0, cx1, cy1);
+    // Terrain from the chunk below can cover the current one.
+    this.terrain_buf.prepare(cx0, cy0, cx1, cy1 + 1);
+    // Structures from the chunk below can cover the current one, and also
+    // structures from chunks above and to the left can extend into it.
+    this.structure_buf.prepare(cx0 - 1, cy0 - 1, cx1, cy1 + 1);
+    this.structure_anim_buf.prepare(cx0 - 1, cy0 - 1, cx1, cy1 + 1);
+    // Light from any adjacent chunk can extend into the current one.
     this.light_buf.prepare(cx0 - 1, cy0 - 1, cx1 + 1, cy1 + 1);
 
 

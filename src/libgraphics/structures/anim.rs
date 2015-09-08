@@ -1,7 +1,7 @@
 use core::prelude::*;
 use core::ptr;
 
-use physics::v3::{V2, scalar, Region};
+use physics::v3::{V3, V2, scalar, Region};
 use physics::CHUNK_SIZE;
 
 use IntrusiveCorner;
@@ -9,7 +9,6 @@ use {emit_quad, remaining_quads};
 use types::{StructureTemplate, HAS_ANIM};
 
 use super::Buffer;
-use super::check_bounds;
 
 
 #[derive(Clone, Copy)]
@@ -77,8 +76,11 @@ impl<'a> GeomGen<'a> {
 
             let t = &self.templates[s.template_id as usize];
 
+            let s_pos = V3::new(s.pos.0 as i32,
+                                s.pos.1 as i32,
+                                s.pos.2 as i32);
             if t.sheet != self.sheet || !t.flags.contains(HAS_ANIM) ||
-               !check_bounds(s, t, self.bounds) {
+               !self.bounds.contains(s_pos.reduce()) {
                 continue;
             }
 

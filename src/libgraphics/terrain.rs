@@ -1,7 +1,7 @@
 use core::prelude::*;
 use core::ptr;
 
-use physics::v3::{V3, V2, Vn, scalar, Region, RegionPoints};
+use physics::v3::{V3, V2, scalar, Region, RegionPoints};
 use physics::CHUNK_SIZE;
 use ATLAS_SIZE;
 
@@ -50,14 +50,14 @@ impl<'a> GeomGen<'a> {
 
     pub fn reset(&mut self, cpos: V2) {
         self.cpos = cpos;
-        self.iter = Region::new(scalar(0),
-                                scalar::<V3>(CHUNK_SIZE) + V3::new(0, 1, 0)).points();
+        self.iter = Region::new(scalar(0), scalar::<V3>(CHUNK_SIZE)).points();
     }
 
     pub fn generate(&mut self,
                     buf: &mut [Vertex],
                     idx: &mut usize) -> bool {
         let local_bounds = Region::new(scalar(0), scalar(LOCAL_SIZE as i32));
+        let chunk_idx = local_bounds.index(self.cpos);
         let chunk_bounds = Region::new(scalar(0), scalar(CHUNK_SIZE));
 
         while remaining_quads(buf, *idx) >= 4 {
@@ -66,13 +66,9 @@ impl<'a> GeomGen<'a> {
                 None => return false,
             };
 
-            let adj_pos = iter_pos + V3::new(0, iter_pos.z, 0);
-            let pos = self.cpos.extend(0) * scalar(CHUNK_SIZE) + adj_pos;
-            let cpos = pos.div_floor(scalar(CHUNK_SIZE)) % scalar(LOCAL_SIZE);
-            let offset = adj_pos % scalar(CHUNK_SIZE);
+            let pos = self.cpos.extend(0) * scalar(CHUNK_SIZE) + iter_pos;
 
-            let chunk_idx = local_bounds.index(cpos);
-            let block_idx = chunk_bounds.index(offset);
+            let block_idx = chunk_bounds.index(iter_pos);
             let block_id = self.local_chunks[chunk_idx][block_idx];
             let block = &self.block_data[block_id as usize];
 
