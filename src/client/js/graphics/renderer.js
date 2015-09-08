@@ -392,14 +392,6 @@ Renderer.prototype.render = function(s, draw_extra) {
     var pos = s.camera_pos;
     var size = s.camera_size;
 
-    this.blit.setUniformValue('cameraPos', pos);
-    this.blit.setUniformValue('cameraSize', size);
-    this.blit_sliced.setUniformValue('cameraPos', pos);
-    this.blit_sliced.setUniformValue('cameraSize', size);
-    this.static_light.setUniformValue('cameraPos', pos);
-    this.static_light.setUniformValue('cameraSize', size);
-    this.dynamic_light.setUniformValue('cameraPos', pos);
-    this.dynamic_light.setUniformValue('cameraSize', size);
     this.terrain2.setUniformValue('cameraPos', pos);
     this.terrain2.setUniformValue('cameraSize', size);
     this.structure2.setUniformValue('cameraPos', pos);
@@ -417,10 +409,7 @@ Renderer.prototype.render = function(s, draw_extra) {
         cls.setCamera(pos, size);
     }
 
-    this.structure_anim.setUniformValue('now', [s.now / 1000 % ANIM_MODULUS]);
     this.structure2_anim.setUniformValue('now', [s.now / 1000 % ANIM_MODULUS]);
-
-    this.blit_sliced.setUniformValue('sliceFrac', [s.slice_frac]);
 
 
     if (this.last_sw != size[0] || this.last_sh != size[1]) {
