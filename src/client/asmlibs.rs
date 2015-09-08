@@ -397,18 +397,18 @@ pub struct Sizes {
 
     structure: usize,
 
-    terrain2_vertex: usize,
-    terrain2_geom_gen: usize,
+    terrain_vertex: usize,
+    terrain_geom_gen: usize,
 
-    structures2_template: usize,
-    structures2_buffer: usize,
-    structures2_base_vertex: usize,
-    structures2_base_geom_gen: usize,
-    structures2_anim_vertex: usize,
-    structures2_anim_geom_gen: usize,
+    structures_template: usize,
+    structures_buffer: usize,
+    structures_base_vertex: usize,
+    structures_base_geom_gen: usize,
+    structures_anim_vertex: usize,
+    structures_anim_geom_gen: usize,
 
-    light2_vertex: usize,
-    light2_geom_gen: usize,
+    light_vertex: usize,
+    light_geom_gen: usize,
 }
 
 #[export_name = "get_sizes"]
@@ -424,18 +424,18 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
 
     sizes.structure = size_of::<structures::Structure>();
 
-    sizes.terrain2_vertex = size_of::<terrain::Vertex>();
-    sizes.terrain2_geom_gen = size_of::<terrain::GeomGen>();
+    sizes.terrain_vertex = size_of::<terrain::Vertex>();
+    sizes.terrain_geom_gen = size_of::<terrain::GeomGen>();
 
-    sizes.structures2_template = size_of::<gfx_types::StructureTemplate>();
-    sizes.structures2_buffer = size_of::<structures::Buffer>();
-    sizes.structures2_base_vertex = size_of::<structures::base::Vertex>();
-    sizes.structures2_base_geom_gen = size_of::<structures::base::GeomGen>();
-    sizes.structures2_anim_vertex = size_of::<structures::anim::Vertex>();
-    sizes.structures2_anim_geom_gen = size_of::<structures::anim::GeomGen>();
+    sizes.structures_template = size_of::<gfx_types::StructureTemplate>();
+    sizes.structures_buffer = size_of::<structures::Buffer>();
+    sizes.structures_base_vertex = size_of::<structures::base::Vertex>();
+    sizes.structures_base_geom_gen = size_of::<structures::base::GeomGen>();
+    sizes.structures_anim_vertex = size_of::<structures::anim::Vertex>();
+    sizes.structures_anim_geom_gen = size_of::<structures::anim::GeomGen>();
 
-    sizes.light2_vertex = size_of::<lights::Vertex>();
-    sizes.light2_geom_gen = size_of::<lights::GeomGen>();
+    sizes.light_vertex = size_of::<lights::Vertex>();
+    sizes.light_geom_gen = size_of::<lights::GeomGen>();
 
     *num_sizes = size_of::<Sizes>() / size_of::<usize>();
 }

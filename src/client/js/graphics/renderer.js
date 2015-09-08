@@ -242,8 +242,8 @@ Renderer.prototype.loadTemplateData = function(templates) {
 
     for (var i = 0; i < templates.length; ++i) {
         var template = templates[i];
-        var out8 = mk_out(view8, i, SIZEOF.Structure2Template);
-        var out16 = mk_out(view16, i, SIZEOF.Structure2Template);
+        var out8 = mk_out(view8, i, SIZEOF.StructureTemplate);
+        var out16 = mk_out(view16, i, SIZEOF.StructureTemplate);
 
         out8(   0, template.size.x);
         out8(   1, template.size.y);
@@ -334,16 +334,16 @@ Renderer.prototype.render = function(s, draw_extra) {
     var pos = s.camera_pos;
     var size = s.camera_size;
 
-    this.terrain2.setUniformValue('cameraPos', pos);
-    this.terrain2.setUniformValue('cameraSize', size);
-    this.structure2.setUniformValue('cameraPos', pos);
-    this.structure2.setUniformValue('cameraSize', size);
-    this.structure2_anim.setUniformValue('cameraPos', pos);
-    this.structure2_anim.setUniformValue('cameraSize', size);
-    this.light2_static.setUniformValue('cameraPos', pos);
-    this.light2_static.setUniformValue('cameraSize', size);
-    this.light2_dynamic.setUniformValue('cameraPos', pos);
-    this.light2_dynamic.setUniformValue('cameraSize', size);
+    this.terrain.setUniformValue('cameraPos', pos);
+    this.terrain.setUniformValue('cameraSize', size);
+    this.structure.setUniformValue('cameraPos', pos);
+    this.structure.setUniformValue('cameraSize', size);
+    this.structure_anim.setUniformValue('cameraPos', pos);
+    this.structure_anim.setUniformValue('cameraSize', size);
+    this.light_static.setUniformValue('cameraPos', pos);
+    this.light_static.setUniformValue('cameraSize', size);
+    this.light_dynamic.setUniformValue('cameraPos', pos);
+    this.light_dynamic.setUniformValue('cameraSize', size);
     // this.blit_full uses fixed camera
 
     for (var k in this.classes) {
@@ -351,7 +351,7 @@ Renderer.prototype.render = function(s, draw_extra) {
         cls.setCamera(pos, size);
     }
 
-    this.structure2_anim.setUniformValue('now', [s.now / 1000 % ANIM_MODULUS]);
+    this.structure_anim.setUniformValue('now', [s.now / 1000 % ANIM_MODULUS]);
 
 
     if (this.last_sw != size[0] || this.last_sh != size[1]) {
@@ -397,15 +397,15 @@ Renderer.prototype.render = function(s, draw_extra) {
 
         var buf = this_.terrain_buf.getBuffer();
         var len = this_.terrain_buf.getSize();
-        this_.terrain2.draw(fb_idx, 0, len / SIZEOF.Terrain2Vertex, {}, {'*': buf}, {});
+        this_.terrain.draw(fb_idx, 0, len / SIZEOF.TerrainVertex, {}, {'*': buf}, {});
 
         var buf = this_.structure_buf.getBuffer();
         var len = this_.structure_buf.getSize();
-        this_.structure2.draw(fb_idx, 0, len / SIZEOF.Structure2BaseVertex, {}, {'*': buf}, {});
+        this_.structure.draw(fb_idx, 0, len / SIZEOF.StructureBaseVertex, {}, {'*': buf}, {});
 
         var buf = this_.structure_anim_buf.getBuffer();
         var len = this_.structure_anim_buf.getSize();
-        this_.structure2_anim.draw(fb_idx, 0, len / SIZEOF.Structure2AnimVertex, {}, {'*': buf}, {});
+        this_.structure_anim.draw(fb_idx, 0, len / SIZEOF.StructureAnimVertex, {}, {'*': buf}, {});
 
         for (var i = 0; i < s.sprites.length; ++i) {
             var sprite = s.sprites[i];
@@ -430,13 +430,13 @@ Renderer.prototype.render = function(s, draw_extra) {
 
         var buf = this_.light_buf.getBuffer();
         var len = this_.light_buf.getSize();
-        this_.light2_static.draw(fb_idx, 0, len / SIZEOF.Light2Vertex, {}, {'*': buf}, {
+        this_.light_static.draw(fb_idx, 0, len / SIZEOF.LightVertex, {}, {'*': buf}, {
             'depthTex': this_.fb_world.depth_texture,
         });
 
         for (var i = 0; i < s.lights.length; ++i) {
             var light = s.lights[i];
-            this_.light2_dynamic.draw(fb_idx, 0, 6, {
+            this_.light_dynamic.draw(fb_idx, 0, 6, {
                 'center': [
                     light.pos.x,
                     light.pos.y,

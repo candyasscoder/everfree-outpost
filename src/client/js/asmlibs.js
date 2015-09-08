@@ -115,18 +115,18 @@ var SIZEOF = (function() {
 
     sizeof.Structure = next();
 
-    sizeof.Terrain2Vertex = next();
-    sizeof.Terrain2GeomGen = next();
+    sizeof.TerrainVertex = next();
+    sizeof.TerrainGeomGen = next();
 
-    sizeof.Structure2Template = next();
-    sizeof.Structure2Buffer = next();
-    sizeof.Structure2BaseVertex = next();
-    sizeof.Structure2BaseGeomGen = next();
-    sizeof.Structure2AnimVertex = next();
-    sizeof.Structure2AnimGeomGen = next();
+    sizeof.StructureTemplate = next();
+    sizeof.StructureBuffer = next();
+    sizeof.StructureBaseVertex = next();
+    sizeof.StructureBaseGeomGen = next();
+    sizeof.StructureAnimVertex = next();
+    sizeof.StructureAnimGeomGen = next();
 
-    sizeof.Light2Vertex = next();
-    sizeof.Light2GeomGen = next();
+    sizeof.LightVertex = next();
+    sizeof.LightGeomGen = next();
 
     console.assert(index == EXPECT_SIZES,
             'some items were left over after building sizeof', index, EXPECT_SIZES);
@@ -326,17 +326,17 @@ function AsmGraphics(num_blocks, num_templates, structures_size, geom_size) {
     this.num_templates = num_templates;
 
     this.block_data_bytes = num_blocks * SIZEOF.BlockData;
-    this.template_data_bytes = num_templates * SIZEOF.Structure2Template;
+    this.template_data_bytes = num_templates * SIZEOF.StructureTemplate;
     this.geom_buffer_bytes = geom_size;
     // TODO: sizeof(Structure) * num_structures
     this.structure_storage_bytes = structures_size
 
     this.LOCAL_CHUNKS = alloc(SIZEOF.LocalChunks);
-    this.TERRAIN_GEOM_GEN = alloc(SIZEOF.Terrain2GeomGen);
-    this.STRUCTURE_BASE_GEOM_GEN = alloc(SIZEOF.Structure2BaseGeomGen);
-    this.STRUCTURE_ANIM_GEOM_GEN = alloc(SIZEOF.Structure2AnimGeomGen);
-    this.LIGHT_GEOM_GEN = alloc(SIZEOF.Light2GeomGen);
-    this.STRUCTURE_BUFFER = alloc(SIZEOF.Structure2Buffer);
+    this.TERRAIN_GEOM_GEN = alloc(SIZEOF.TerrainGeomGen);
+    this.STRUCTURE_BASE_GEOM_GEN = alloc(SIZEOF.StructureBaseGeomGen);
+    this.STRUCTURE_ANIM_GEOM_GEN = alloc(SIZEOF.StructureAnimGeomGen);
+    this.LIGHT_GEOM_GEN = alloc(SIZEOF.LightGeomGen);
+    this.STRUCTURE_BUFFER = alloc(SIZEOF.StructureBuffer);
 
     this.BLOCK_DATA = alloc(this.block_data_bytes);
     this.TEMPLATE_DATA = alloc(this.template_data_bytes);
@@ -401,7 +401,7 @@ AsmGraphics.prototype.terrainGeomGenerate = function() {
 
     return {
         geometry: this._makeView(Uint8Array, this.GEOM_BUFFER,
-                          vertex_count * SIZEOF.Terrain2Vertex),
+                          vertex_count * SIZEOF.TerrainVertex),
         more: more,
     };
 };
@@ -463,7 +463,7 @@ AsmGraphics.prototype.structureBaseGeomGenerate = function() {
 
     return {
         geometry: this._makeView(Uint8Array, this.GEOM_BUFFER,
-                          vertex_count * SIZEOF.Structure2BaseVertex),
+                          vertex_count * SIZEOF.StructureBaseVertex),
         more: more,
     };
 };
@@ -499,7 +499,7 @@ AsmGraphics.prototype.structureAnimGeomGenerate = function() {
 
     return {
         geometry: this._makeView(Uint8Array, this.GEOM_BUFFER,
-                          vertex_count * SIZEOF.Structure2AnimVertex),
+                          vertex_count * SIZEOF.StructureAnimVertex),
         more: more,
     };
 };
@@ -535,7 +535,7 @@ AsmGraphics.prototype.lightGeomGenerate = function() {
 
     return {
         geometry: this._makeView(Uint8Array, this.GEOM_BUFFER,
-                          vertex_count * SIZEOF.Light2Vertex),
+                          vertex_count * SIZEOF.LightVertex),
         more: more,
     };
 };
