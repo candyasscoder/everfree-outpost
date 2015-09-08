@@ -181,6 +181,10 @@ var asmlibs_code_raw = function(global, env, buffer) {
         structure_anim_geom_reset: _structure_anim_geom_reset,
         structure_anim_geom_generate: _structure_anim_geom_generate,
 
+        light_geom_init: _light_geom_init,
+        light_geom_reset: _light_geom_reset,
+        light_geom_generate: _light_geom_generate,
+
         test: _test,
     });
 };

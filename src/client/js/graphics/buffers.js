@@ -159,7 +159,6 @@ BufferCache.prototype._updateBuffer = function() {
 
     // Store data into the buffer.
     var offset = 0;
-    var s = [];
     for (var n = this.first_part; n != null; n = n.next) {
         if (n.dirty || n.last_offset != offset || fresh_buf) {
             // `n.data` is not already present in `this.buffer` at `offset`,
@@ -171,13 +170,9 @@ BufferCache.prototype._updateBuffer = function() {
             gl.bufferSubData(gl.ARRAY_BUFFER, offset, n.data);
             n.dirty = false;
             n.last_offset = offset;
-            s.push('!!');
         }
         offset += n.data.byteLength;
-
-        s.push(n.chunk_idx + ': ' + n.data.byteLength + ' @ ' + n.last_offset);
     }
-    console.log(s.join(';; '))
 
     // Done!
 

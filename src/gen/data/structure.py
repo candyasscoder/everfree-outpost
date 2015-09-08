@@ -164,9 +164,11 @@ class StructureDef(object):
             has_shadow = false
 
         has_anim = self.anim is not None
+        has_light = self.light_radius is not None
 
         return ((int(has_shadow) << 0) |
-                (int(has_anim) << 1))
+                (int(has_anim) << 1) |
+                (int(has_light) << 2))
 
 
 # Sprite sheets

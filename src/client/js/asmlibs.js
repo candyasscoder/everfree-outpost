@@ -92,7 +92,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 24;
+    var EXPECT_SIZES = 26;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -136,6 +136,9 @@ var SIZEOF = (function() {
     sizeof.Structure2BaseGeomGen = next();
     sizeof.Structure2AnimVertex = next();
     sizeof.Structure2AnimGeomGen = next();
+
+    sizeof.Light2Vertex = next();
+    sizeof.Light2GeomGen = next();
 
     console.assert(index == EXPECT_SIZES,
             'some items were left over after building sizeof', index, EXPECT_SIZES);
@@ -357,7 +360,10 @@ var STRUCTURE2_BASE_GEOM_GEN_END = STRUCTURE2_BASE_GEOM_GEN_START + SIZEOF.Struc
 var STRUCTURE2_ANIM_GEOM_GEN_START = STRUCTURE2_BASE_GEOM_GEN_END;
 var STRUCTURE2_ANIM_GEOM_GEN_END = STRUCTURE2_ANIM_GEOM_GEN_START + SIZEOF.Structure2AnimGeomGen;
 
-var STRUCTURE2_STORAGE_START = STRUCTURE2_ANIM_GEOM_GEN_END;
+var LIGHT2_GEOM_GEN_START = STRUCTURE2_ANIM_GEOM_GEN_END;
+var LIGHT2_GEOM_GEN_END = LIGHT2_GEOM_GEN_START + SIZEOF.Light2GeomGen;
+
+var STRUCTURE2_STORAGE_START = LIGHT2_GEOM_GEN_END;
 var STRUCTURE2_STORAGE_END = STRUCTURE2_STORAGE_START + 1024 * 1024;
 
 var GRAPHICS_HEAP_END = STRUCTURE2_STORAGE_END;
@@ -620,6 +626,41 @@ Asm.prototype.structureAnimGeomGenerate = function() {
 
     return {
         geometry: new Uint8Array(this.buffer, GEOM_START, SIZEOF.Structure2AnimVertex * vertex_count),
+        more: more,
+    };
+};
+
+
+Asm.prototype.lightGeomInit = function() {
+    this._raw['light_geom_init'](
+            LIGHT2_GEOM_GEN_START,
+            STRUCTURE2_BUFFER_START,
+            TEMPLATE_DATA_START,
+            TEMPLATE_DATA_END - TEMPLATE_DATA_START);
+};
+
+Asm.prototype.lightGeomReset = function(cx0, cy0, cx1, cy1) {
+    this._raw['light_geom_reset'](
+            LIGHT2_GEOM_GEN_START,
+            cx0, cy0, cx1, cy1);
+};
+
+Asm.prototype.lightGeomGenerate = function() {
+    var output = this._stackAlloc(Int32Array, 2);
+
+    this._raw['light_geom_generate'](
+            LIGHT2_GEOM_GEN_START,
+            GEOM_START,
+            GEOM_END - GEOM_START,
+            output.byteOffset);
+
+    var vertex_count = output[0];
+    var more = (output[1] & 1) != 0;
+
+    this._stackFree(output);
+
+    return {
+        geometry: new Uint8Array(this.buffer, GEOM_START, SIZEOF.Light2Vertex * vertex_count),
         more: more,
     };
 };

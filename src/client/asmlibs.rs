@@ -23,6 +23,7 @@ use graphics::{StructureTemplate, StructureTemplateData, StructureBuffer,
                StructureVertex, StructureGeometryBuffer};
 use graphics::{LightGeometryState, LightVertex, LightGeometryBuffer};
 
+use graphics::lights;
 use graphics::structures;
 use graphics::terrain;
 use graphics::types as gfx_types;
@@ -353,6 +354,40 @@ pub unsafe extern fn structure_anim_geom_generate(geom: &mut structures::anim::G
 }
 
 
+#[export_name = "light_geom_init"]
+pub unsafe extern fn light_geom_init(geom: &mut lights::GeomGen<'static>,
+                                     buffer: &'static structures::Buffer<'static>,
+                                     templates_ptr: *const gfx_types::StructureTemplate,
+                                     templates_byte_len: usize) {
+    let templates = make_slice(templates_ptr, templates_byte_len);
+    geom.init(buffer, templates);
+}
+
+#[export_name = "light_geom_reset"]
+pub extern fn light_geom_reset(geom: &mut lights::GeomGen,
+                               cx0: i32,
+                               cy0: i32,
+                               cx1: i32,
+                               cy1: i32) {
+    geom.reset(Region::new(V2::new(cx0, cy0),
+                           V2::new(cx1, cy1)));
+}
+
+#[export_name = "light_geom_generate"]
+pub unsafe extern fn light_geom_generate(geom: &mut lights::GeomGen,
+                                         buf_ptr: *mut lights::Vertex,
+                                         buf_byte_len: usize,
+                                         result: &mut GeometryResult) {
+    let buf = make_slice_mut(buf_ptr, buf_byte_len);
+
+    let mut idx = 0;
+    let more = geom.generate(buf, &mut idx);
+
+    result.vertex_count = idx;
+    result.more = more as u8;
+}
+
+
 
 
 
@@ -536,6 +571,9 @@ pub struct Sizes {
     structures2_base_geom_gen: usize,
     structures2_anim_vertex: usize,
     structures2_anim_geom_gen: usize,
+
+    light2_vertex: usize,
+    light2_geom_gen: usize,
 }
 
 #[export_name = "get_sizes"]
@@ -572,6 +610,9 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
     sizes.structures2_base_geom_gen = size_of::<structures::base::GeomGen>();
     sizes.structures2_anim_vertex = size_of::<structures::anim::Vertex>();
     sizes.structures2_anim_geom_gen = size_of::<structures::anim::GeomGen>();
+
+    sizes.light2_vertex = size_of::<lights::Vertex>();
+    sizes.light2_geom_gen = size_of::<lights::GeomGen>();
 
     *num_sizes = size_of::<Sizes>() / size_of::<usize>();
 }

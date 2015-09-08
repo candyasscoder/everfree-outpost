@@ -25,6 +25,7 @@ mod std {
 pub mod types;
 pub mod structures;
 pub mod terrain;
+pub mod lights;
 
 
 const ATLAS_SIZE: u16 = 32;

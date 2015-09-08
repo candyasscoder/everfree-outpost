@@ -68,6 +68,8 @@ def main(src_dir, build_dir, out_file):
     add('text', 'terrain2.vert',        src('assets/shaders/terrain2.vert'))
     add('text', 'structure2.frag',      src('assets/shaders/structure2.frag'))
     add('text', 'structure2.vert',      src('assets/shaders/structure2.vert'))
+    add('text', 'light2.frag',          src('assets/shaders/light2.frag'))
+    add('text', 'light2.vert',          src('assets/shaders/light2.vert'))
 
     add('image', 'tiles', build('tiles.png'))
 

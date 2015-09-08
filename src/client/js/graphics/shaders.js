@@ -147,6 +147,34 @@ function makeShaders(shaders, gl, assets, make_texture) {
 
 
     //
+    // Light2
+    //
+
+    var light_base = ctx.start('light2.vert', 'light2.frag', 1)
+        .uniformVec2('cameraPos')
+        .uniformVec2('cameraSize')
+        .texture('depthTex');
+
+    shaders.light2_static = light_base.copy()
+        .define('LIGHT_INPUT', 'attribute')
+        .attributes(new Attributes(SIZEOF.Light2Vertex)
+                .field( 0, gl.UNSIGNED_BYTE,  2, 'corner')
+                .field( 2, gl.UNSIGNED_SHORT, 3, 'center')
+                .field( 8, gl.UNSIGNED_BYTE,  3, 'colorIn', true)
+                .field(12, gl.UNSIGNED_SHORT, 1, 'radiusIn'))
+        .finish();
+
+    shaders.light2_dynamic = light_base.copy()
+        .define('LIGHT_INPUT', 'uniform')
+        .uniformVec3('center')
+        .uniformVec3('colorIn')
+        .uniformFloat('radiusIn')
+        .attributes(new Attributes(2, square01_buf)
+                .field( 0, gl.UNSIGNED_BYTE,  2, 'corner'))
+        .finish();
+
+
+    //
     // Structures
     //
 
