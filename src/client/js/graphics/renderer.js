@@ -64,6 +64,8 @@ function Renderer(gl) {
 
     var r = this;
 
+    // TODO: move these somewhere nicer
+
     this.terrain_buf = new BufferCache(gl, function(cx, cy, feed) {
         r._asm.terrainGeomReset(cx, cy);
         var more = true;
@@ -319,72 +321,6 @@ Renderer.prototype._invalidateStructureRegion = function(x, y, z, template) {
 
 
 // Render
-// This section has screen-space passes only.  Other rendering is done by
-// ChunkRenderer in graphics/chunk.js.
-
-Renderer.prototype._renderStaticLights = function(fb, depth_tex, cx0, cy0, cx1, cy1, amb) {
-    var gl = this.gl;
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-    // clearColor sets the ambient light color+intensity
-    var amb_intensity = 0.2126 * amb[0] + 0.7152 * amb[1] + 0.0722 * amb[2];
-    gl.clearColor(amb[0] / 255, amb[1] / 255, amb[2] / 255, amb_intensity / 255);
-
-    fb.use(function(idx) {
-        gl.clear(gl.COLOR_BUFFER_BIT);
-    });
-
-    this._asm.resetLightGeometry(cx0, cy0, cx1, cy1);
-    var more = true;
-    while (more) {
-        var result = this._asm.generateLightGeometry();
-        var geom = result.geometry;
-        more = result.more;
-
-        var buffer = new Buffer(gl);
-        buffer.loadData(geom);
-
-        var this_ = this;
-        fb.use(function(idx) {
-            if (geom.length > 0) {
-                this_.static_light.draw(idx, 0, geom.length / SIZEOF.LightVertex,
-                        {}, {'*': buffer}, {'depthTex': depth_tex});
-            }
-        });
-    }
-
-    gl.disable(gl.BLEND);
-};
-
-Renderer.prototype._renderDynamicLights = function(fb, depth_tex, lights) {
-    var gl = this.gl;
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-
-    var this_ = this;
-    fb.use(function(idx) {
-        for (var i = 0; i < lights.length; ++i) {
-            var light = lights[i];
-            this_.light2_dynamic.draw(idx, 0, 6, {
-                'center': [
-                    light.pos.x,
-                    light.pos.y,
-                    light.pos.z,
-                ],
-                'colorIn': [
-                    light.color[0] / 255,
-                    light.color[1] / 255,
-                    light.color[2] / 255,
-                ],
-                'radiusIn': [light.radius],
-            }, {}, {
-                'depthTex': depth_tex,
-            });
-        }
-    });
-
-    gl.disable(gl.BLEND);
-};
 
 Renderer.prototype.render = function(s, draw_extra) {
     var gl = this.gl;
