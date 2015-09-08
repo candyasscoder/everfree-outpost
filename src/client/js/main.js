@@ -263,7 +263,6 @@ function loadAssets(next) {
             for (var i = 0; i < blocks.length; ++i) {
                 BlockDef.register(i, blocks[i]);
             }
-            renderer.loadBlockData(BlockDef.by_id);
 
             var items = assets['item_defs'];
             for (var i = 0; i < items.length; ++i) {
@@ -279,7 +278,6 @@ function loadAssets(next) {
             for (var i = 0; i < templates.length; ++i) {
                 TemplateDef.register(i, templates[i], assets);
             }
-            renderer.loadTemplateData(TemplateDef.by_id);
 
             var animations = assets['animation_defs'];
             for (var i = 0; i < animations.length; ++i) {
@@ -292,6 +290,8 @@ function loadAssets(next) {
             }
 
             ExtraDefs.init(assets['extra_defs']);
+
+            renderer.initData(BlockDef.by_id, TemplateDef.by_id);
 
             var css = '.item-icon {' +
                 'background-image: url("' + assets['items'] + '");' +

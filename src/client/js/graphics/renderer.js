@@ -51,14 +51,7 @@ var ONESHOT_MODULUS = ANIM_MODULUS;
 /** @constructor */
 function Renderer(gl) {
     this.gl = gl;
-    this._asm = new Asm(getGraphicsHeapSize());
-    this._asm.initStructureBuffer();
-    this._asm.initLightState();
-    this._asm.terrainGeomInit();
-    this._asm.structureBufferInit();
-    this._asm.structureBaseGeomInit();
-    this._asm.structureAnimGeomInit();
-    this._asm.lightGeomInit();
+    this._asm = null;
 
     this.texture_cache = new WeakMap();
 
@@ -110,6 +103,20 @@ exports.Renderer = Renderer;
 
 
 // Renderer initialization
+
+Renderer.prototype.initData = function(blocks, templates) {
+    this._asm = new AsmGraphics(blocks.length, templates.length,
+            512 * 1024, 512 * 1024);
+
+    this._asm.terrainGeomInit();
+    this._asm.structureBufferInit();
+    this._asm.structureBaseGeomInit();
+    this._asm.structureAnimGeomInit();
+    this._asm.lightGeomInit();
+
+    this.loadBlockData(blocks);
+    this.loadTemplateData(templates);
+};
 
 Renderer.prototype.initGl = function(assets) {
     var gl = this.gl;
@@ -220,8 +227,7 @@ Renderer.prototype.loadBlockData = function(blocks) {
 };
 
 Renderer.prototype.loadChunk = function(i, j, chunk) {
-    this._asm.chunkView().set(chunk._tiles);
-    this._asm.loadChunk(j, i);
+    this._asm.chunkView(j, i).set(chunk._tiles);
 
     this.terrain_buf.invalidate(j, i);
     this.terrain_buf.invalidate(j, i - 1);
