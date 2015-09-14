@@ -407,6 +407,10 @@ Renderer.prototype.render = function(s, draw_extra) {
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
+    // clearColor sets the ambient light color+intensity
+    var amb = s.ambient_color;
+    var amb_intensity = 0.2126 * amb[0] + 0.7152 * amb[1] + 0.0722 * amb[2];
+    gl.clearColor(amb[0] / 255, amb[1] / 255, amb[2] / 255, amb_intensity / 255);
 
     this.fb_light.use(function(fb_idx) {
         gl.clear(gl.COLOR_BUFFER_BIT);
