@@ -260,7 +260,8 @@
     min-height: 2px;
     min-width: 2px;
 
-    border-image-source: url('panel.png');
+    /* TODO: fix this filename */
+    border-image-source: url('img/panel-outer-border-border.png');
     border-image-slice: 6 6 6 6;
     border-image-width: auto;
     border-image-repeat: repeat;
@@ -280,11 +281,11 @@
 .g-panel.g-with-spacer::before {
     content: "";
     position: absolute;
-    top: -10px;
-    left: 5px;
-    width: calc(100% - 10px);
-    height: 5px;
-    z-index: -1;
+    top: -7px;
+    left: 7px;
+    width: calc(100% - 14px);
+    height: 2px;
+    /* z-index: -1; */
 }
 
 .g-panel.g-with-spacer::before, .g-panel-spacer {
@@ -558,14 +559,19 @@
                 }
 
                 .dialog {
-                    background-color: white;
-                    border: solid 0.125rem black;
-                    border-radius: 0.5rem;
-                    padding: 1rem;
+                    padding: 0.25rem;
+                }
+
+                .dialog-title {
+                    padding: 0 0.25rem;
+                    text-align: center;
                 }
             </style>
             <div id="dialog-container" class="dialog-container hidden">
-                <div class="dialog" data-part="inner"></div>
+                <div class="dialog-wrapper g-col">
+                    <div class="dialog-title g-panel-title" data-part="title">Dialog Title</div>
+                    <div class="dialog g-panel g-with-spacer" data-part="inner"></div>
+                </div>
             </div>
 
             <style>
@@ -764,8 +770,7 @@
                 <div class="item-name" data-part="name"></div>
             </div>
 
-            <div id="inventory">
-                <div class="title">Inventory</div>
+            <div id="inventory" data-dialog-title="Inventory">
                 <div class="dialog-body">
                     <div class="hole" data-key="item_list"></div>
                 </div>
@@ -776,8 +781,7 @@
                 </div>
             </div>
 
-            <div id="container">
-                <div class="title">Container</div>
+            <div id="container" data-dialog-title="Container">
                 <div class="dialog-body">
                     <div class="hole" data-key="item_list1"></div>
                     <div class="vertical-rule"></div>
@@ -846,8 +850,7 @@
                 }
 
             </style>
-            <div id="crafting" class="crafting">
-                <div class="title">Crafting</div>
+            <div id="crafting" class="crafting" data-dialog-title="Crafting">
                 <div class="dialog-body" data-part="container">
                     <div class="hole" data-key="recipe_list"></div>
                     <div class="vertical-rule"></div>
@@ -871,8 +874,7 @@
                     text-align: center;
                 }
             </style>
-            <div id="unsupported-browser">
-                <div class="title">Browser Warning</div>
+            <div id="unsupported-browser" data-dialog-title="Warning">
                 <p>This game has only been tested with Firefox and Chrome.</p>
                 <p>It may not work properly in other browsers.</p>
                 <div class="unsupported-option">
@@ -883,8 +885,7 @@
                     <a href="#" class="unsupported-try">Try to play anyway</a>
                 </div>
             </div>
-            <div id="unsupported-mobile">
-                <div class="title">Mobile Device Warning</div>
+            <div id="unsupported-mobile" data-dialog-title="Warning">
                 <p>This game has not been tested on mobile devices.</p>
                 <p>A keyboard is required to play this game.</p>
                 <div class="unsupported-option">Switch to a desktop computer</div>
@@ -894,14 +895,13 @@
                 </div>
             </div>
 
-            <div id="disconnected">
-                <div class="title">Disconnected from Server</div>
+            <div id="disconnected" data-dialog-title="Disconnected">
                 <p>You have been disconnected from the server.</p>
                 <p class="hole" data-key="reason"></p>
                 <p>Refresh the page to reconnect.</p>
             </div>
 
-            <div id="server-offline">
+            <div id="server-offline" data-dialog-title="Server Offline">
                 <div class="title">Server Offline</div>
                 <div class="hole" data-key="msg"></div>
             </div>
@@ -934,8 +934,7 @@
                     color: blue;
                 }
             </style>
-            <div id="config-editor">
-                <h1>Config Editor</h1>
+            <div id="config-editor" data-dialog-title="Config Editor">
                 <select class="config-select" size="10"></select>
                 <textarea class="config-input" rows="10"></textarea>
                 <div>
@@ -1013,7 +1012,7 @@
                     color: red;
                 }
             </style>
-            <div id="pony-editor">
+            <div id="pony-editor" data-dialog-title="Create Character">
                 <div class="pony-row" data-part="name-row">
                     <div class="pony-label">Name: </div>
                     <input type="text" class="pony-name" size="16" data-part="name-field">
@@ -1034,8 +1033,7 @@
                     width: 100%;
                 }
             </style>
-            <div id="music-test">
-                <h1>Music Test</h1>
+            <div id="music-test" data-dialog-title="Music Test">
                 <select class="music-select" size="10"></select><br>
                 <input type="file" class="music-file"><br>
                 <audio loop="true" class="music-player"></audio>
@@ -1079,8 +1077,7 @@
                 <div class="hole" data-key="list"></div>
             </div>
 
-            <div id="sign-text">
-                <div class="title">Sign Text</div>
+            <div id="sign-text" data-dialog-title="Sign Text">
                 <input type="text" size="100" data-part="input">
                 <div data-part="buttons">
                     <button data-part="submit">Done</span>
@@ -1103,8 +1100,7 @@
                     width: 5rem;
                 }
             </style>
-            <div id="teleport-setup" class="teleport-setup">
-                <div class="title">Teleporter Setup</div>
+            <div id="teleport-setup" class="teleport-setup" data-dialog-title="Teleporter Setup">
                 <div class="labeled-row" data-part="name-row">
                     <div class="label">Name:</div>
                     <input type="text" size="20" data-part="name">
@@ -1134,8 +1130,8 @@
                     margin: auto;
                 }
             </style>
-            <div id="teleport-dest" class="teleport-dest">
-                <div class="title">Choose Destination</div>
+            <div id="teleport-dest" class="teleport-dest" data-dialog-title="Teleporter">
+                Choose a destination:<br>
                 <div class="hole" data-key="list"></div>
             </div>
 

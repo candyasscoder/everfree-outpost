@@ -13,7 +13,7 @@ function InventoryUI(inv, title) {
 
     var dom = fromTemplate('inventory', { 'item_list': this.list.dom });
     if (title != null) {
-        dom.getElementsByClassName('title')[0].textContent = title;
+        dom.dataset['dialogTitle'] = title;
     }
 
     widget.Form.call(this, this.list, dom);
