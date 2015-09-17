@@ -131,6 +131,14 @@
 
 
 
+@font-face {
+    font-family: 'helv8';
+    src: url('font/helvR08_75dpi.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+
 
 * {
     image-rendering: -moz-crisp-edges;
@@ -703,55 +711,60 @@
             </div>
 
             <style>
-                .item-box > .item-qty {
-                    font-size: 0.6rem;
-                    min-width: 2.0em;
-                    padding-left: 0.125rem;
-                    text-align: right;
-                    flex: 0 0 auto;
-                }
-
-                .item-box > .item-icon {
-                    flex: 0 0 auto;
-                }
-
-                .item-box {
-                    display: flex;
-                    align-items: center;
-                    justify-content: flex-start;
-                }
-
-
                 .hotbar {
                     position: absolute;
-                    top: 0.25rem;
-                    left: 0.25rem;
+                    top: 4px;
+                    left: 4px;
+                    width: 24px;
+                    padding-bottom: 1px;
 
-                    margin: 0.25rem;
-                    padding: 0.125rem 0.125rem;
-                    border-radius: 0.5rem;
-                    background-color: rgba(255, 255, 255, 0.5);
-                    border: solid 0.125rem black;
+                    border-image-source: url('img/hotbar-vertical-caps.png');
+                    border-image-slice: 7 0 7 0;
+                    border-image-width: 7px 5px 7px 5px;
+                    border-width: 7px 0px;
+                    border-style: solid;
+
+                    background-clip: padding-box;
+                    background-image: url('img/hotbar-vertical-bar.png');
+                    background-repeat: repeat-y;
+                    background-position: center;
 
                     display: inline-flex;
                     flex-direction: column;
                 }
 
-                .hotbar > .item-box {
-                    flex: 0 0 auto;
+                .item-box {
+                    width: 16px;
+                    height: 16px;
+                    margin-top: 1px;
+                    flex-grow: 0;
+                    flex-shrink: 0;
+                    position: relative;
+
+                    border-image-source: url('img/hotbar-box-yellow.png');
+                    border-image-slice: 5 5 5 5;
+                    border-image-width: auto;
+                    border-width: 4px;
+                    border-style: solid;
+
+                    background-clip: padding-box;
+                    background-color: #4e4a4e;
                 }
-                .hotbar > .item-box > .item-icon {
-                    background-color: darkgray;
-                    margin: 0.125rem;
-                    border-radius: 0.125rem;
+                .item-box.active-item {
+                    border-image-source: url('img/hotbar-box-green.png');
                 }
-                .hotbar > .item-box.active-item > .item-icon {
-                    margin: 0;
-                    border: 0.125rem solid limegreen;
+                .item-box.active-ability {
+                    border-image-source: url('img/hotbar-box-blue.png');
                 }
-                .hotbar > .item-box.active-ability > .item-icon {
-                    margin: 0;
-                    border: 0.125rem solid deepskyblue;
+
+                .item-box > .item-qty {
+                    position: absolute;
+                    bottom: -2px;
+                    right: 1px;
+                    font-size: 10px;
+                    font-family: 'helv8';
+                    color: #deeed6;
+                    text-shadow: 0px 1px #140c1c, 1px 0px #140c1c;
                 }
             </style>
             <div id="item-box" class="item-box">
