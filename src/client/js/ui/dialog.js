@@ -43,6 +43,12 @@ Dialog.prototype.show = function(content) {
     this.title.textContent = content.dom.dataset['dialogTitle'] || 'Dialog';
     this.container.classList.remove('hidden');
 
+    if (content.dom.classList.contains('dialog-expand')) {
+        this.container.classList.add('dialog-expanded');
+    } else {
+        this.container.classList.remove('dialog-expanded');
+    }
+
     var this_ = this;
     this.keyboard.pushHandler(function(down, evt) {
         var widget_evt = new widget.WidgetKeyEvent(down, evt);

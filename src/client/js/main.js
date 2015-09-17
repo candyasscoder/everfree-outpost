@@ -16,6 +16,7 @@ var Cursor = require('graphics/cursor').Cursor;
 var glutil = require('graphics/glutil');
 var Scene = require('graphics/scene').Scene;
 var DayNight = require('graphics/daynight').DayNight;
+var handleResize = require('resize').handleResize;
 
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
@@ -109,6 +110,7 @@ for (var i = 0; i < anim_dirs.length; ++i) {
 
 
 var canvas;
+var ui_div;
 var debug;
 var dialog;
 var banner;
@@ -175,6 +177,7 @@ function init() {
                 'rendering in fallback mode');
     }
 
+    ui_div = util.element('div', ['ui-container']);
     debug = new DebugMonitor();
     banner = new Banner();
     keyboard = new Keyboard();
@@ -393,18 +396,25 @@ function buildUI() {
     keyboard.attach(document);
     setupKeyHandler();
 
-    document.body.appendChild(canvas.canvas);
-    document.body.appendChild($('key-list'));
-    document.body.appendChild(hotbar.dom);
-    document.body.appendChild(chat.container);
-    document.body.appendChild(inv_update_list.container);
-    document.body.appendChild(banner.container);
-    document.body.appendChild(dialog.container);
-    document.body.appendChild(debug.container);
+    function doResize() {
+        handleResize(canvas, ui_div, window.innerWidth, window.innerHeight);
+    }
+    window.addEventListener('resize', doResize);
+    doResize();
+
+    var key_list = $('key-list');
+
+    ui_div.appendChild(key_list);
+    ui_div.appendChild(hotbar.dom);
+    ui_div.appendChild(chat.container);
+    ui_div.appendChild(inv_update_list.container);
+    ui_div.appendChild(banner.container);
+    ui_div.appendChild(dialog.container);
+    ui_div.appendChild(debug.container);
 
     if (Config.show_key_display.get()) {
         var key_display = new KeyDisplay();
-        document.body.appendChild(key_display.container);
+        ui_div.appendChild(key_display.container);
         keyboard.monitor = function(down, evt) {
             if (down) {
                 key_display.onKeyDown(evt);
@@ -415,7 +425,7 @@ function buildUI() {
     }
 
     if (!Config.show_controls.get()) {
-        $('key-list').classList.add('hidden');
+        key_list.classList.add('hidden');
     }
 
     if (!Config.debug_show_panel.get()) {
@@ -423,6 +433,9 @@ function buildUI() {
     }
 
     banner.show('Loading...', 0, keyboard, function() { return false; });
+
+    document.body.appendChild(canvas.canvas);
+    document.body.appendChild(ui_div);
 }
 
 function initMenus() {

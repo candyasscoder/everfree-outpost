@@ -81,7 +81,7 @@ function PonyEditor(name, draw) {
     // Canvas setup
 
     var canvas = parts['canvas'];
-    var scale = document.body.dataset.scale * 2;
+    var scale = 2;
     canvas.width = 96 * scale;
     canvas.height = 96 * scale;
 
