@@ -35,7 +35,7 @@ function CraftingUI(station_type, station_id, inv) {
     this_._updateRecipeDisplay();
 
     var list = new widget.SimpleList(
-            parts['container'],
+            parts['top'],
             [this.recipe_list, this.item_list],
             ['move_left', 'move_right']);
 

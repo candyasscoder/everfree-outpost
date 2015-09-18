@@ -111,10 +111,6 @@
                 background-color: black;
             }
 
-            .dialog-body {
-                height: 60%;
-            }
-
             .dialog-body, .container-horiz {
                 display: flex;
                 align-items: stretch;
@@ -915,17 +911,15 @@
                 }
 
             </style>
-            <div id="crafting" class="crafting" data-dialog-title="Crafting">
-                <div class="dialog-body" data-part="container">
-                    <div class="hole" data-key="recipe_list"></div>
-                    <div class="vertical-rule"></div>
-                    <div class="container-vert">
-                        <div class="hole" data-key="item_list"></div>
-                        <div class="horizontal-rule"></div>
-                        <div class="hole" data-key="input_list"></div>
-                        <div class="hole" data-key="arrow"></div>
-                        <div class="hole" data-key="output_list"></div>
-                    </div>
+            <div id="crafting" class="crafting dialog-expand g-row" data-dialog-title="Crafting">
+                <div class="hole" data-key="recipe_list"></div>
+                <div class="vertical-rule"></div>
+                <div class="g-col">
+                    <div class="hole" data-key="item_list"></div>
+                    <div class="horizontal-rule"></div>
+                    <div class="hole" data-key="input_list"></div>
+                    <div class="hole" data-key="arrow"></div>
+                    <div class="hole" data-key="output_list"></div>
                 </div>
             </div>
 
