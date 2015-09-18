@@ -42,16 +42,17 @@
             }
 
             kbd {
-                font-size: 0.65em;
+                font-family: 'helv12px';
+                font-size: 12px;
                 text-align: center;
                 vertical-align: middle;
                 display: inline-block;
                 border-style: outset;
-                border-width: .2em;
+                border-width: 2px;
                 border-color: gray;
                 /* padding: .1em; */
-                min-width: 1.3em;
-                min-height: 1.3em;
+                min-width: 16px;
+                min-height: 16px;
             }
 
             .hidden {
@@ -132,6 +133,13 @@
 @font-face {
     font-family: 'helv10px';
     src: url('font/helvR08_75dpi.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'helv12px';
+    src: url('font/helvR10_75dpi.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
 }
@@ -633,10 +641,6 @@
                     top: 0;
                 }
 
-                #key-list kbd {
-                    font-size: 0.8em;
-                }
-
                 #key-list td {
                     vertical-align: middle;
                 }
@@ -816,12 +820,13 @@
                 .item > .item-qty {
                     flex: 0;
                     min-width: 1.8rem;
-                    font-size: 0.75rem;
+                    font-family: 'helv12px';
+                    font-size: 12px;
                     padding-right: 0.125rem;
                     text-align: right;
                 }
             </style>
-            <div id="item-row" class="item">
+            <div id="item-row" class="item g-list-item">
                 <div class="item-qty" data-part="qty"></div>
                 <div class="item-icon" data-part="icon"></div>
                 <div class="item-name" data-part="name"></div>

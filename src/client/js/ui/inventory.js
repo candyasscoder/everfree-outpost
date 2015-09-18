@@ -90,7 +90,7 @@ ContainerUI.prototype._transfer = function(evt, fromIndex) {
 
 /** @constructor */
 function ItemList(inv) {
-    widget.DynamicList.call(this, util.element('div', ['item-list']));
+    widget.DynamicList.call(this, util.element('div', ['item-list', 'g-scrollpane', 'g-list']));
 
     this.inventory_id = inv.getId();
 
