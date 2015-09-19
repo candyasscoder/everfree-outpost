@@ -1,6 +1,7 @@
 <!doctype html>
 <html style="font-size: 16px">
     <head>
+        <meta charset="utf-8">
         <title>Everfree Outpost</title>
         <style type='text/css'>
             html {
@@ -324,7 +325,10 @@
 }
 
 .g-panel.g-with-spacer::before {
-    content: "";
+    /* NB: The quotes contain U+200B ZERO WIDTH SPACE.  I'd prefer to leave
+       them empty, but Chrome treats '' as `none` and removes the ::before
+       element from the page. */
+    content: '​';
     position: relative;
     top: -7px;
     left: 7px;
@@ -447,7 +451,8 @@
     border-image-slice: 1 9 2 2;
     border-image-width: auto;
     border-image-repeat: repeat;
-    border-width: 0px;
+    /* In Chrome, 'border-width: 0px' disables the border completely. */
+    border-width: 1px;
     border-style: solid;
 
     background-color: #854c30;
@@ -462,7 +467,10 @@
 
 
 .g-arrow-row::before {
-    content: '';
+    /* NB: The quotes contain U+200B ZERO WIDTH SPACE.  I'd prefer to leave
+       them empty, but Chrome treats '' as `none` and removes the ::before
+       element from the page. */
+    content: '​';
     width: 6px;
     height: 100%;
     margin-left: 2px;
@@ -626,8 +634,15 @@
                     height: 80%;
                 }
 
-                .dialog-expand {
-                    height: 100%;
+                .dialog-expanded > * > .dialog {
+                    /* Force child height to equal dialog height, but allow the
+                       child to determine its own width.
+
+                       We should be able to just give the child 'width: 100%',
+                       but that doesn't work on Chrome for some reason.  */
+                    display: flex;
+                    flex-direction: row;
+                    align-items: stretch;
                 }
 
                 .dialog {
