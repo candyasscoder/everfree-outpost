@@ -460,6 +460,23 @@
 }
 */
 
+
+.g-arrow-row::before {
+    content: '';
+    width: 6px;
+    height: 100%;
+    margin-left: 2px;
+    margin-right: 2px;
+
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.g-arrow-row.active::before {
+    background-image: url('img/arrow-yellow.png');
+}
+
+
         </style>
     </head>
     <body>
@@ -582,10 +599,6 @@
 
 
             /* Item lists */
-            .item-list.active > .item.active {
-                background-color: lightblue;
-            }
-
             .item-list {
                 width: 10rem;
                 overflow-x: hidden;
@@ -807,10 +820,6 @@
                     align-items: center;
                 }
 
-                .item.active {
-                    background-color: lightgray;
-                }
-
                 .item-name {
                     padding-left: 0.25rem;
                     font-size: 1rem;
@@ -819,14 +828,14 @@
 
                 .item > .item-qty {
                     flex: 0;
-                    min-width: 1.8rem;
+                    min-width: 3.0ch;
                     font-family: 'helv12px';
                     font-size: 12px;
                     padding-right: 0.125rem;
                     text-align: right;
                 }
             </style>
-            <div id="item-row" class="item g-list-item">
+            <div id="item-row" class="item g-list-item g-arrow-row">
                 <div class="item-qty" data-part="qty"></div>
                 <div class="item-icon" data-part="icon"></div>
                 <div class="item-name" data-part="name"></div>
@@ -835,6 +844,10 @@
             <style>
                 .inventory > .item-list {
                     flex-grow: 1;
+                }
+
+                .item-list:not(.active) > .item.g-arrow-row.active::before {
+                    background-image: url('img/arrow-gray.png');
                 }
             </style>
             <div id="inventory" data-dialog-title="Inventory"
