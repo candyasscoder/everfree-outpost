@@ -6,6 +6,8 @@ uniform sampler2D image0Tex;
 uniform sampler2D image1Tex;
 uniform sampler2D lightTex;
 uniform sampler2D depthTex;
+uniform sampler2D shadowTex;
+uniform sampler2D shadowDepthTex;
 uniform vec2 screenSize;
 
 
@@ -88,9 +90,19 @@ float get_highlight() {
 }
 
 void main(void) {
+    vec4 baseColor = texture2D(image0Tex, texCoord);
+    if (texture2D(depthTex, texCoord).r < texture2D(shadowDepthTex, texCoord).r) {
+        vec4 shadowColor = texture2D(shadowTex, texCoord);
+        if (shadowColor.a > 0.0) {
+            baseColor = baseColor * (1.0 - shadowColor.a) + shadowColor * shadowColor.a;
+        }
+    }
+
     vec4 lightColor = texture2D(lightTex, texCoord);
-    vec4 mainColor = texture2D(image0Tex, texCoord) * lightColor;
+    vec4 mainColor = baseColor * lightColor;
+
     vec4 highlightColor = vec4(0.0, 0.75, 1.0, 1.0) * lightColor.a;
+
     gl_FragColor = mix(mainColor, highlightColor, get_highlight());
     gl_FragColor.a = 1.0;
 }

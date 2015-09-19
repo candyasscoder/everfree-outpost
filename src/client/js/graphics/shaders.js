@@ -82,19 +82,32 @@ function makeShaders(shaders, gl, assets, make_texture) {
     // Structure
     //
 
-    var struct_uniforms = new Uniforms()
+    var structure_uniforms = new Uniforms()
+        .vec2('cameraPos')
+        .vec2('cameraSize');
+
+    var structure_attributes = new Attributes(SIZEOF.StructureBaseVertex)
+        .field( 0, gl.UNSIGNED_BYTE,  2, 'corner')
+        .field( 2, gl.UNSIGNED_BYTE,  3, 'blockPos')
+        .field( 5, gl.UNSIGNED_BYTE,  1, 'layer')
+        .field( 8, gl.UNSIGNED_SHORT, 2, 'displaySize')
+        .field(12, gl.UNSIGNED_SHORT, 2, 'displayOffset');
+
+    var structure_textures = new Textures()
+        .texture('sheetTex', ctx.makeAssetTexture('structures0'))
+        .texture('depthTex', ctx.makeAssetTexture('structdepth0'));
 
     shaders.structure = ctx.start('structure2.vert', 'structure2.frag', 2)
-        .uniformVec2('cameraPos')
-        .uniformVec2('cameraSize')
-        .attributes(new Attributes(SIZEOF.StructureBaseVertex)
-                .field( 0, gl.UNSIGNED_BYTE,  2, 'corner')
-                .field( 2, gl.UNSIGNED_BYTE,  3, 'blockPos')
-                .field( 5, gl.UNSIGNED_BYTE,  1, 'layer')
-                .field( 8, gl.UNSIGNED_SHORT, 2, 'displaySize')
-                .field(12, gl.UNSIGNED_SHORT, 2, 'displayOffset'))
-        .texture('sheetTex', ctx.makeAssetTexture('structures0'))
-        .texture('depthTex', ctx.makeAssetTexture('structdepth0'))
+        .uniforms(structure_uniforms)
+        .attributes(structure_attributes)
+        .textures(structure_textures)
+        .finish();
+
+    shaders.structure_shadow = ctx.start('structure2.vert', 'structure2.frag', 1)
+        .define('OUTPOST_SHADOW', '1')
+        .uniforms(structure_uniforms)
+        .attributes(structure_attributes)
+        .textures(structure_textures)
         .finish();
 
     shaders.structure_anim = ctx.start('structure2.vert', 'structure2.frag', 2)
@@ -138,6 +151,8 @@ function makeShaders(shaders, gl, assets, make_texture) {
         .attributes(blit_attributes)
         .textures(blit_textures)
         .texture('lightTex')
+        .texture('shadowTex')
+        .texture('shadowDepthTex')
         .finish();
 }
 exports.makeShaders = makeShaders;

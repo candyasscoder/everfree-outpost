@@ -144,10 +144,8 @@ Renderer.prototype._initFramebuffers = function(sw, sh) {
     this.fb_post = new Framebuffer(this.gl, sw, sh, 1, false);
 
     // Temporary framebuffer for storing shadows and other translucent parts
-    // during structure rendering.  This doesn't depend on the screen size,
-    // which is why it's not in _initFramebuffers with the rest.
-    // TODO
-    //this.fb_shadow = new Framebuffer(this.gl, CHUNK_PX, CHUNK_PX, 1);
+    // during structure rendering.
+    this.fb_shadow = new Framebuffer(this.gl, sw, sh, 1);
 
     this.last_sw = sw;
     this.last_sh = sh;
@@ -317,6 +315,8 @@ Renderer.prototype.render = function(s, draw_extra) {
     this.terrain.setUniformValue('cameraSize', size);
     this.structure.setUniformValue('cameraPos', pos);
     this.structure.setUniformValue('cameraSize', size);
+    this.structure_shadow.setUniformValue('cameraPos', pos);
+    this.structure_shadow.setUniformValue('cameraSize', size);
     this.structure_anim.setUniformValue('cameraPos', pos);
     this.structure_anim.setUniformValue('cameraSize', size);
     this.light_static.setUniformValue('cameraPos', pos);
@@ -400,6 +400,14 @@ Renderer.prototype.render = function(s, draw_extra) {
         }
     });
 
+    this.fb_shadow.use(function(fb_idx) {
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        var buf = this_.structure_buf.getBuffer();
+        var len = this_.structure_buf.getSize();
+        this_.structure_shadow.draw(fb_idx, 0, len / SIZEOF.StructureBaseVertex, {}, {'*': buf}, {});
+    });
+
     gl.disable(gl.DEPTH_TEST);
 
 
@@ -454,6 +462,8 @@ Renderer.prototype.render = function(s, draw_extra) {
             'image1Tex': this_.fb_world.textures[1],
             'lightTex': this_.fb_light.textures[0],
             'depthTex': this_.fb_world.depth_texture,
+            'shadowTex': this_.fb_shadow.textures[0],
+            'shadowDepthTex': this_.fb_shadow.depth_texture,
         });
 
         draw_extra(idx, this_);

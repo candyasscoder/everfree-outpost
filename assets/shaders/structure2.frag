@@ -20,6 +20,7 @@ varying float baseZ;
 
 void main(void) {
     vec4 color = texture2D(sheetTex, texCoord);
+#ifndef OUTPOST_SHADOW
     if (color.a < 1.0) {
         discard;
     } else {
@@ -27,6 +28,16 @@ void main(void) {
         float tileZ = baseZ / 32.0;
         emit(1, vec4(tileZ * 8.0 / 255.0, 0.0, 1.0, 1.0));
     }
+#else
+    if (color.a == 0.0) {
+        discard;
+    } else if (color.a == 1.0) {
+        emit(0, vec4(1.0));
+    } else {
+        emit(0, color);
+    }
+#endif
+
     // gl_FragCoord.z steps by 1/512, while color values step by 1/255.  Note
     // that gl_FragCoord varies in the range 0..1, not -1..+1
     gl_FragDepthEXT = gl_FragCoord.z -
