@@ -14,6 +14,7 @@ attribute float side;
 attribute vec2 tileCoord;
 
 varying vec2 texCoord;
+varying float baseZ;
 
 void main(void) {
     float posX = blockPos.x + corner.x;
@@ -51,4 +52,5 @@ void main(void) {
     gl_Position = vec4(glPos, 1.0);
 
     texCoord = (tileCoord + corner) / ATLAS_SIZE;
+    baseZ = blockPos.z;
 }

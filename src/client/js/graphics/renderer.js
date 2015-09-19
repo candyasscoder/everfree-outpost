@@ -310,15 +310,25 @@ Renderer.prototype.render = function(s, draw_extra) {
 
     var pos = s.camera_pos;
     var size = s.camera_size;
+    var slice_radius = [s.slice_frac * Math.max(size[0], size[1])];
+    var slice_z = [s.slice_z];
 
     this.terrain.setUniformValue('cameraPos', pos);
     this.terrain.setUniformValue('cameraSize', size);
+    this.terrain.setUniformValue('sliceRadius', slice_radius);
+    this.terrain.setUniformValue('sliceZ', slice_z);
     this.structure.setUniformValue('cameraPos', pos);
     this.structure.setUniformValue('cameraSize', size);
+    this.structure.setUniformValue('sliceRadius', slice_radius);
+    this.structure.setUniformValue('sliceZ', slice_z);
     this.structure_shadow.setUniformValue('cameraPos', pos);
     this.structure_shadow.setUniformValue('cameraSize', size);
+    this.structure_shadow.setUniformValue('sliceRadius', slice_radius);
+    this.structure_shadow.setUniformValue('sliceZ', slice_z);
     this.structure_anim.setUniformValue('cameraPos', pos);
     this.structure_anim.setUniformValue('cameraSize', size);
+    this.structure_anim.setUniformValue('sliceRadius', slice_radius);
+    this.structure_anim.setUniformValue('sliceZ', slice_z);
     this.light_static.setUniformValue('cameraPos', pos);
     this.light_static.setUniformValue('cameraSize', size);
     this.light_dynamic.setUniformValue('cameraPos', pos);

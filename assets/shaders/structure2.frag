@@ -1,4 +1,4 @@
-precision mediump float;
+precision highp float;
 
 const float TILE_SIZE = 32.0;
 const float CHUNK_SIZE = 16.0;
@@ -14,11 +14,21 @@ const float CHUNK_SIZE = 16.0;
 
 uniform sampler2D sheetTex;
 uniform sampler2D depthTex;
+uniform vec2 cameraSize;
+uniform float sliceRadius;
+uniform float sliceZ;
 
 varying vec2 texCoord;
 varying float baseZ;
 
 void main(void) {
+    if (sliceRadius > 0.0 && baseZ >= sliceZ) {
+        vec2 pixelPos = gl_FragCoord.xy - cameraSize * 0.5;
+        if (dot(pixelPos, pixelPos) < sliceRadius * sliceRadius) {
+            discard;
+        }
+    }
+
     vec4 color = texture2D(sheetTex, texCoord);
 #ifndef OUTPOST_SHADOW
     if (color.a < 1.0) {

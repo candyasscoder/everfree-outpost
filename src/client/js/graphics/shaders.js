@@ -41,6 +41,8 @@ function makeShaders(shaders, gl, assets, make_texture) {
     shaders.terrain = ctx.start('terrain2.vert', 'terrain2.frag', 2)
         .uniformVec2('cameraPos')
         .uniformVec2('cameraSize')
+        .uniformFloat('sliceRadius')
+        .uniformFloat('sliceZ')
         .attributes(new Attributes(SIZEOF.TerrainVertex)
                 .field(0, gl.UNSIGNED_BYTE, 2, 'corner')
                 .field(2, gl.UNSIGNED_BYTE, 3, 'blockPos')
@@ -84,7 +86,9 @@ function makeShaders(shaders, gl, assets, make_texture) {
 
     var structure_uniforms = new Uniforms()
         .vec2('cameraPos')
-        .vec2('cameraSize');
+        .vec2('cameraSize')
+        .float_('sliceRadius')
+        .float_('sliceZ');
 
     var structure_attributes = new Attributes(SIZEOF.StructureBaseVertex)
         .field( 0, gl.UNSIGNED_BYTE,  2, 'corner')
@@ -112,8 +116,7 @@ function makeShaders(shaders, gl, assets, make_texture) {
 
     shaders.structure_anim = ctx.start('structure2.vert', 'structure2.frag', 2)
         .define('OUTPOST_ANIM', '1')
-        .uniformVec2('cameraPos')
-        .uniformVec2('cameraSize')
+        .uniforms(structure_uniforms)
         .uniformFloat('now')
         .attributes(new Attributes(SIZEOF.StructureAnimVertex)
                 .field( 0, gl.UNSIGNED_BYTE,  2, 'corner')
