@@ -1180,4 +1180,5 @@ function frame(ac, client_now) {
     debug.frameEnd();
     debug.updateJobs(runner);
     debug.updateTiming(timing);
+    debug.updateGraphics(renderer);
 }

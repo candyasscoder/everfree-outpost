@@ -25,6 +25,10 @@ var attribute = require('graphics/glutil').attribute;
 //var PonyOutline3D = require('graphics/draw/ponyoutline').PonyOutline3D;
 var PonyAppearanceClass = require('graphics/appearance/pony').PonyAppearanceClass;
 
+var TimeSeries = require('util/timeseries').TimeSeries;
+var fstr1 = require('util/misc').fstr1;
+
+
 var CHUNK_PX = CHUNK_SIZE * TILE_SIZE;
 
 // The `now` value passed to the animation shader must be reduced to fit in a
@@ -54,6 +58,9 @@ function Renderer(gl) {
     this._asm = null;
 
     this.texture_cache = new WeakMap();
+
+    this.prep_time = new TimeSeries(5000);
+    this.render_time = new TimeSeries(5000);
 
     var r = this;
 
@@ -347,25 +354,17 @@ Renderer.prototype.render = function(s, draw_extra) {
         this._initFramebuffers(size[0], size[1]);
     }
 
+    var this_ = this;
 
-    // Populate the terrain caches.
+
+    // Populate the geometry buffers.
+
+    var start_prep = Date.now();
+
     var cx0 = ((pos[0]|0) / CHUNK_PX)|0;
     var cx1 = (((pos[0]|0) + (size[0]|0) + CHUNK_PX) / CHUNK_PX)|0;
     var cy0 = ((pos[1]|0) / CHUNK_PX)|0;
     var cy1 = (((pos[1]|0) + (size[1]|0) + CHUNK_PX) / CHUNK_PX)|0;
-
-    var chunk_idxs = new Array((cx1 - cx0) * (cy1 - cy0));
-
-    var i = 0;
-    for (var cy = cy0; cy < cy1; ++cy) {
-        for (var cx = cx0; cx < cx1; ++cx) {
-            var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
-            chunk_idxs[i] = idx;
-            ++i;
-        }
-    }
-
-    var this_ = this;
 
     // Terrain from the chunk below can cover the current one.
     this.terrain_buf.prepare(cx0, cy0, cx1, cy1 + 1);
@@ -376,6 +375,10 @@ Renderer.prototype.render = function(s, draw_extra) {
     // Light from any adjacent chunk can extend into the current one.
     this.light_buf.prepare(cx0 - 1, cy0 - 1, cx1 + 1, cy1 + 1);
 
+    var end_prep = Date.now();
+
+
+    var start_render = end_prep;
 
     // Render everything into the world framebuffer.
 
@@ -487,8 +490,25 @@ Renderer.prototype.render = function(s, draw_extra) {
     this.blit_full.draw(0, 0, 6, {}, {}, {
         'imageTex': this.fb_post.textures[0],
     });
+
+
+    var end_render = Date.now();
+    this.prep_time.record(end_prep, end_prep - start_prep);
+    this.render_time.record(end_render, end_render - start_render);
 };
 
 Renderer.prototype.renderSpecial = function(fb_idx, sprite) {
     sprite.appearance.draw3D(fb_idx, this, sprite, 0);
+};
+
+
+Renderer.prototype.getDebugHTML = function() {
+    var prep_sum = this.prep_time.sum;
+    var prep_ms = this.prep_time.sum / this.prep_time.count;
+    var render_ms = this.render_time.sum / this.render_time.count;
+    return (
+        'Prep: ' + fstr1(prep_ms) + ' ms<br>' +
+        'Prep (sum): ' + prep_sum + ' ms<br>' +
+        'Render: ' + fstr1(render_ms) + ' ms'
+        );
 };
