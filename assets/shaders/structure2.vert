@@ -46,7 +46,14 @@ void main(void) {
 #endif
 
     vec2 pixelPos = vec2(posX, posY - posZ);
-    float depth = posZ + 1.0;
+
+    // Structures are always rendered vertically, so apply an adjustment to
+    // each fragment depth.
+    float axisAdj = -0.5;
+    // Further adjust Z based on the structure's layer.
+    float layerAdj = layer + 1.0;
+    float adjZ = axisAdj / 512.0 + layerAdj / 16384.0;
+    float depth = posZ + adjZ;
 
     vec2 normPos = (pixelPos - cameraPos) / cameraSize;
     float normDepth = depth / (CHUNK_SIZE * TILE_SIZE);
