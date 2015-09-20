@@ -154,6 +154,22 @@ class StructureDef(object):
         self.light_color = color
         self.light_radius = radius
 
+    def get_flags(self):
+        if self.image.mode == 'RGBA':
+            hist = self.image.histogram()
+            a_hist = hist[256 * 3 : 256 * 4]
+            # Is there any pixel whose alpha value is not 0 or 255?
+            has_shadow = any(count > 0 for count in a_hist[1:-1])
+        else:
+            has_shadow = false
+
+        has_anim = self.anim is not None
+        has_light = self.light_radius is not None
+
+        return ((int(has_shadow) << 0) |
+                (int(has_anim) << 1) |
+                (int(has_light) << 2))
+
 
 # Sprite sheets
 
@@ -226,6 +242,12 @@ def build_client_json(structures):
                 'display_size': s.get_display_px(),
                 'layer': s.layer,
                 }
+
+        flags = s.get_flags()
+        if flags != 0:
+            dct.update(
+                flags=flags)
+
         if s.anim is not None:
             dct.update(
                 anim_length=s.anim.length,
@@ -235,11 +257,13 @@ def build_client_json(structures):
                 anim_size=s.anim.anim_size,
                 anim_offset=s.anim.offset,
                 anim_sheet=s.anim.sheet_idx)
+
         if s.light_color is not None:
             dct.update(
                 light_pos=s.light_pos,
                 light_color=s.light_color,
                 light_radius=s.light_radius)
+
         return dct
 
     return list(convert(s) for s in structures)

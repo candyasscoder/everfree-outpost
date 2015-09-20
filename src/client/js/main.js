@@ -263,7 +263,6 @@ function loadAssets(next) {
             for (var i = 0; i < blocks.length; ++i) {
                 BlockDef.register(i, blocks[i]);
             }
-            renderer.loadBlockData(BlockDef.by_id);
 
             var items = assets['item_defs'];
             for (var i = 0; i < items.length; ++i) {
@@ -279,7 +278,6 @@ function loadAssets(next) {
             for (var i = 0; i < templates.length; ++i) {
                 TemplateDef.register(i, templates[i], assets);
             }
-            renderer.loadTemplateData(TemplateDef.by_id);
 
             var animations = assets['animation_defs'];
             for (var i = 0; i < animations.length; ++i) {
@@ -292,6 +290,8 @@ function loadAssets(next) {
             }
 
             ExtraDefs.init(assets['extra_defs']);
+
+            renderer.initData(BlockDef.by_id, TemplateDef.by_id);
 
             var css = '.item-icon {' +
                 'background-image: url("' + assets['items'] + '");' +
@@ -855,7 +855,7 @@ function handleStructureAppear(id, template_id, x, y, z) {
     var now = timing.visibleNow();
     var template = TemplateDef.by_id[template_id];
 
-    var idx = renderer.addStructure(now, x, y, z, template);
+    var idx = renderer.addStructure(now, id, x, y, z, template);
 
     var pos = new Vec(x, y, z).divScalar(TILE_SIZE);
 
@@ -866,7 +866,10 @@ function handleStructureAppear(id, template_id, x, y, z) {
 function handleStructureGone(id, time) {
     if (structures[id] != null) {
         physics.removeStructure(structures[id]);
-        renderer.removeStructure(structures[id]);
+
+        var new_id = renderer.removeStructure(structures[id]);
+        // Structure `new_id` has been moved to the slot just vacated by `id`.
+        structures[new_id].render_index = structures[id].render_index;
     }
     delete structures[id];
 }
@@ -1177,4 +1180,5 @@ function frame(ac, client_now) {
     debug.frameEnd();
     debug.updateJobs(runner);
     debug.updateTiming(timing);
+    debug.updateGraphics(renderer);
 }

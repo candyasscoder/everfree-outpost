@@ -148,21 +148,26 @@ var asmlibs_code_raw = function(global, env, buffer) {
         refresh_shape_cache: _refresh_shape_cache,
         find_ceiling: _find_ceiling,
 
-        load_chunk: _load_chunk,
-        generate_terrain_geometry: _generate_terrain_geometry,
-        generate_sliced_terrain_geometry: _generate_sliced_terrain_geometry,
+        terrain_geom_init: _terrain_geom_init,
+        terrain_geom_reset: _terrain_geom_reset,
+        terrain_geom_generate: _terrain_geom_generate,
 
-        init_structure_buffer: _init_structure_buffer,
-        add_structure: _add_structure,
-        remove_structure: _remove_structure,
-        set_structure_oneshot_start: _set_structure_oneshot_start,
-        reset_structure_geometry: _reset_structure_geometry,
-        generate_structure_geometry: _generate_structure_geometry,
-        generate_structure_anim_geometry: _generate_structure_anim_geometry,
+        structure_buffer_init: _structure_buffer_init,
+        structure_buffer_insert: _structure_buffer_insert,
+        structure_buffer_remove: _structure_buffer_remove,
+        structure_buffer_set_oneshot_start: _structure_buffer_set_oneshot_start,
 
-        init_light_state: _init_light_state,
-        reset_light_geometry: _reset_light_geometry,
-        generate_light_geometry: _generate_light_geometry,
+        structure_base_geom_init: _structure_base_geom_init,
+        structure_base_geom_reset: _structure_base_geom_reset,
+        structure_base_geom_generate: _structure_base_geom_generate,
+
+        structure_anim_geom_init: _structure_anim_geom_init,
+        structure_anim_geom_reset: _structure_anim_geom_reset,
+        structure_anim_geom_generate: _structure_anim_geom_generate,
+
+        light_geom_init: _light_geom_init,
+        light_geom_reset: _light_geom_reset,
+        light_geom_generate: _light_geom_generate,
 
         test: _test,
     });

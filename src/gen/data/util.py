@@ -177,7 +177,7 @@ def build_sheet(objs):
     sheet_cols = SHEET_PX // obj_w
     sheet_rows = (len(objs) + sheet_cols - 1) // sheet_cols
     assert sheet_rows * obj_h <= SHEET_PX
-    sheet = Image.new('RGBA', (SHEET_PX, sheet_rows * obj_h))
+    sheet = Image.new('RGBA', (SHEET_PX, SHEET_PX))
 
     for o in objs:
         assert o.id < len(objs)

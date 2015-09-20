@@ -1,14 +1,6 @@
 var TimeSeries = require('util/timeseries').TimeSeries;
+var fstr1 = require('util/misc').fstr1;
 
-
-function fstr1(x) {
-    var y = Math.round(x * 10) / 10;
-    if (y % 1 == 0) {
-        return y + '.0';
-    } else {
-        return y + '';
-    }
-}
 
 window['timeit'] = function(f) {
     var start = Date.now();
@@ -40,10 +32,6 @@ function DebugMonitor() {
     this.motions = this._addRow('Motions');
     //this.plan = this._addRow('Plan');
     this.gfxDebug = this._addRow('Gfx');
-
-    this.gfxDebug.innerHTML = '<canvas width="128" height="128" style="border: solid 1px black">';
-    this.gfxCanvas = this.gfxDebug.getElementsByTagName('canvas')[0];
-    this.gfxCtx = this.gfxCanvas.getContext('2d');
 
     this._frames = new TimeSeries(5000);
     this._frame_start = 0;
@@ -118,4 +106,8 @@ DebugMonitor.prototype.updateMotions = function(e, timing) {
     this.motions.innerHTML = motions
         .map(function(m) { return (m.start_time % 100000) + ' .. ' + (m.end_time % 100000); })
         .join('<br>');
+};
+
+DebugMonitor.prototype.updateGraphics = function(r) {
+    this.gfxDebug.innerHTML = r.getDebugHTML();
 };

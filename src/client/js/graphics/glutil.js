@@ -350,7 +350,7 @@ GlObject.prototype.drawMulti = function(prog_idx, vert_indexes, uniforms, attrib
 
         var attr = program.getAttributeLocation(key);
         if (attr == -1) {
-            console.log('no attr', key);
+            //console.log('no attr', key);
             continue;
         }
 

@@ -13,7 +13,7 @@ var Texture = require('graphics/glutil').Texture;
 var Buffer = require('graphics/glutil').Buffer;
 var Framebuffer = require('graphics/glutil').Framebuffer;
 var makeShaders = require('graphics/shaders').makeShaders;
-var ChunkRenderer = require('graphics/chunk').ChunkRenderer;
+var BufferCache = require('graphics/buffers').BufferCache;
 
 var GlObject = require('graphics/glutil').GlObject;
 var uniform = require('graphics/glutil').uniform;
@@ -24,6 +24,10 @@ var attribute = require('graphics/glutil').attribute;
 //var Named3D = require('graphics/draw/named').Named3D;
 //var PonyOutline3D = require('graphics/draw/ponyoutline').PonyOutline3D;
 var PonyAppearanceClass = require('graphics/appearance/pony').PonyAppearanceClass;
+
+var TimeSeries = require('util/timeseries').TimeSeries;
+var fstr1 = require('util/misc').fstr1;
+
 
 var CHUNK_PX = CHUNK_SIZE * TILE_SIZE;
 
@@ -51,17 +55,75 @@ var ONESHOT_MODULUS = ANIM_MODULUS;
 /** @constructor */
 function Renderer(gl) {
     this.gl = gl;
-    this._asm = new Asm(getGraphicsHeapSize());
-    this._asm.initStructureBuffer();
-    this._asm.initLightState();
+    this._asm = null;
 
     this.texture_cache = new WeakMap();
-    this.chunk_cache = new RenderCache();
+
+    this.prep_time = new TimeSeries(5000);
+    this.render_time = new TimeSeries(5000);
+
+    var r = this;
+
+    // TODO: move these somewhere nicer
+
+    this.terrain_buf = new BufferCache(gl, function(cx, cy, feed) {
+        r._asm.terrainGeomReset(cx, cy);
+        var more = true;
+        while (more) {
+            var result = r._asm.terrainGeomGenerate();
+            feed(result.geometry);
+            more = result.more;
+        }
+    });
+
+    this.structure_buf = new BufferCache(gl, function(cx, cy, feed) {
+        r._asm.structureBaseGeomReset(cx, cy, cx + 1, cy + 1);
+        var more = true;
+        while (more) {
+            var result = r._asm.structureBaseGeomGenerate();
+            feed(result.geometry);
+            more = result.more;
+        }
+    });
+
+    this.structure_anim_buf = new BufferCache(gl, function(cx, cy, feed) {
+        r._asm.structureAnimGeomReset(cx, cy, cx + 1, cy + 1);
+        var more = true;
+        while (more) {
+            var result = r._asm.structureAnimGeomGenerate();
+            feed(result.geometry);
+            more = result.more;
+        }
+    });
+
+    this.light_buf = new BufferCache(gl, function(cx, cy, feed) {
+        r._asm.lightGeomReset(cx, cy, cx + 1, cy + 1);
+        var more = true;
+        while (more) {
+            var result = r._asm.lightGeomGenerate();
+            feed(result.geometry);
+            more = result.more;
+        }
+    });
 }
 exports.Renderer = Renderer;
 
 
 // Renderer initialization
+
+Renderer.prototype.initData = function(blocks, templates) {
+    this._asm = new AsmGraphics(blocks.length, templates.length,
+            512 * 1024, 512 * 1024);
+
+    this._asm.terrainGeomInit();
+    this._asm.structureBufferInit();
+    this._asm.structureBaseGeomInit();
+    this._asm.structureAnimGeomInit();
+    this._asm.lightGeomInit();
+
+    this.loadBlockData(blocks);
+    this.loadTemplateData(templates);
+};
 
 Renderer.prototype.initGl = function(assets) {
     var gl = this.gl;
@@ -75,11 +137,6 @@ Renderer.prototype.initGl = function(assets) {
 
     this.last_sw = -1;
     this.last_sh = -1;
-
-    // Temporary framebuffer for storing shadows and other translucent parts
-    // during structure rendering.  This doesn't depend on the screen size,
-    // which is why it's not in _initFramebuffers with the rest.
-    this.fb_shadow = new Framebuffer(this.gl, CHUNK_PX, CHUNK_PX, 1);
 };
 
 Renderer.prototype._initFramebuffers = function(sw, sh) {
@@ -93,8 +150,9 @@ Renderer.prototype._initFramebuffers = function(sw, sh) {
     // postprocessing shader doesn't output to the screen immediately.)
     this.fb_post = new Framebuffer(this.gl, sw, sh, 1, false);
 
-    // this.fb_shadow does not depend on sw/sh, so it gets initialized
-    // elsewhere.
+    // Temporary framebuffer for storing shadows and other translucent parts
+    // during structure rendering.
+    this.fb_shadow = new Framebuffer(this.gl, sw, sh, 1);
 
     this.last_sw = sw;
     this.last_sh = sh;
@@ -160,8 +218,8 @@ Renderer.prototype.loadBlockData = function(blocks) {
     var view16 = this._asm.blockDataView16();
     for (var i = 0; i < blocks.length; ++i) {
         var block = blocks[i];
-        var out8 = mk_out(view8, i, SIZEOF.BlockDisplay);
-        var out16 = mk_out(view16, i, SIZEOF.BlockDisplay);
+        var out8 = mk_out(view8, i, SIZEOF.BlockData);
+        var out16 = mk_out(view16, i, SIZEOF.BlockData);
 
         out16(  0, block.front);
         out16(  2, block.back);
@@ -174,17 +232,9 @@ Renderer.prototype.loadBlockData = function(blocks) {
 };
 
 Renderer.prototype.loadChunk = function(i, j, chunk) {
-    this._asm.chunkView().set(chunk._tiles);
-    this._asm.loadChunk(j, i);
+    this._asm.chunkView(j, i).set(chunk._tiles);
 
-    this.chunk_cache.ifPresent(i * LOCAL_SIZE + j, function(cr) {
-        cr.invalidateTerrain();
-    });
-
-    var above = (i - 1) & (LOCAL_SIZE - 1);
-    this.chunk_cache.ifPresent(above * LOCAL_SIZE + j, function(cr) {
-        cr.invalidateTerrain();
-    });
+    this.terrain_buf.invalidate(j, i);
 };
 
 Renderer.prototype.loadTemplateData = function(templates) {
@@ -203,151 +253,93 @@ Renderer.prototype.loadTemplateData = function(templates) {
         out16(  4, template.display_size, 2);
         out16(  8, template.display_offset, 2);
         out8(  12, template.layer);
+        out8(  13, template.flags);
 
-        out8(  13, template.anim_sheet);
+        out8(  14, template.anim_sheet);
         var oneshot_length = template.anim_length * (template.anim_oneshot ? -1 : 1);
-        out8(  14, oneshot_length);
-        out8(  15, template.anim_rate);
-        out16( 16, template.anim_offset, 2);
-        out16( 20, template.anim_pos, 2);
-        out8(  24, template.anim_size, 2);
+        out8(  15, oneshot_length);
+        out8(  16, template.anim_rate);
+        out16( 18, template.anim_offset, 2);
+        out16( 22, template.anim_pos, 2);
+        out16( 26, template.anim_size, 2);
 
-        out8(  26, template.light_pos, 3);
-        out8(  29, template.light_color, 3);
-        out16( 32, template.light_radius);
+        out8(  30, template.light_pos, 3);
+        out8(  33, template.light_color, 3);
+        out16( 36, template.light_radius);
     }
 };
 
-Renderer.prototype.addStructure = function(now, x, y, z, template) {
-    var render_idx = this._asm.addStructure(x, y, z, template.id);
+Renderer.prototype.addStructure = function(now, id, x, y, z, template) {
+    var tx = (x / TILE_SIZE) & (LOCAL_SIZE * CHUNK_SIZE - 1);
+    var ty = (y / TILE_SIZE) & (LOCAL_SIZE * CHUNK_SIZE - 1);
+    var tz = (z / TILE_SIZE) & (LOCAL_SIZE * CHUNK_SIZE - 1);
+
+    var render_idx = this._asm.structureBufferInsert(id, tx, ty, tz, template.id);
     if (template.anim_oneshot) {
         // The template defines a one-shot animation.  Set the start time to
         // now.
-        this._asm.setStructureOneshotStart(render_idx, now % ONESHOT_MODULUS);
+        this._asm.structureBufferSetOneshotStart(render_idx, now % ONESHOT_MODULUS);
     }
 
-    var tx = (x / TILE_SIZE)|0;
-    var ty = (y / TILE_SIZE)|0;
-    var tz = (z / TILE_SIZE)|0;
-
-    this._invalidateStructureRegion(tx, ty, tz, template);
+    this._invalidateStructure(tx, ty, tz, template);
     return render_idx;
 };
 
 Renderer.prototype.removeStructure = function(structure) {
-    this._asm.removeStructure(structure.render_index);
+    // ID of the structure that now occupies the old slot.
+    var new_id = this._asm.structureBufferRemove(structure.render_index);
 
     var pos = structure.pos;
-    this._invalidateStructureRegion(pos.x, pos.y, pos.z, structure.template);
+    this._invalidateStructure(pos.x, pos.y, pos.z, structure.template);
+
+    return new_id;
 };
 
-Renderer.prototype._invalidateStructureRegion = function(x, y, z, template) {
-    var x0 = x;
-    var x1 = x + template.size.x;
+Renderer.prototype._invalidateStructure = function(x, y, z, template) {
+    var cx = (x / CHUNK_SIZE)|0;
+    var cy = (y / CHUNK_SIZE)|0;
 
-    // Avoid negative numbers
-    var v0 = y - z - template.size.z + LOCAL_SIZE * CHUNK_SIZE;
-    var v1 = y - z + template.size.y + LOCAL_SIZE * CHUNK_SIZE;
-
-    var cx0 = (x0 / CHUNK_SIZE)|0;
-    var cx1 = ((x1 + CHUNK_SIZE - 1) / CHUNK_SIZE)|0;
-    var cv0 = (v0 / CHUNK_SIZE)|0;
-    var cv1 = ((v1 + CHUNK_SIZE - 1) / CHUNK_SIZE)|0;
-
-    var mask = LOCAL_SIZE - 1;
-    for (var cy = cv0; cy < cv1; ++cy) {
-        for (var cx = cx0; cx < cx1; ++cx) {
-            var idx = (cy & mask) * LOCAL_SIZE + (cx & mask);
-            this.chunk_cache.ifPresent(idx, function(cr) {
-                cr.invalidateStructures();
-            });
-        }
+    this.structure_buf.invalidate(cx, cy);
+    // TODO: magic number
+    if (template.flags & 2) {   // HAS_ANIM
+        this.structure_anim_buf.invalidate(cx, cy);
+    }
+    if (template.flags & 4) {   // HAS_LIGHT
+        this.light_buf.invalidate(cx, cy);
     }
 };
 
 
 // Render
-// This section has screen-space passes only.  Other rendering is done by
-// ChunkRenderer in graphics/chunk.js.
-
-Renderer.prototype._renderStaticLights = function(fb, depth_tex, cx0, cy0, cx1, cy1, amb) {
-    var gl = this.gl;
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-    // clearColor sets the ambient light color+intensity
-    var amb_intensity = 0.2126 * amb[0] + 0.7152 * amb[1] + 0.0722 * amb[2];
-    gl.clearColor(amb[0] / 255, amb[1] / 255, amb[2] / 255, amb_intensity / 255);
-
-    fb.use(function(idx) {
-        gl.clear(gl.COLOR_BUFFER_BIT);
-    });
-
-    this._asm.resetLightGeometry(cx0, cy0, cx1, cy1);
-    var more = true;
-    while (more) {
-        var result = this._asm.generateLightGeometry();
-        var geom = result.geometry;
-        more = result.more;
-
-        var buffer = new Buffer(gl);
-        buffer.loadData(geom);
-
-        var this_ = this;
-        fb.use(function(idx) {
-            if (geom.length > 0) {
-                this_.static_light.draw(idx, 0, geom.length / SIZEOF.LightVertex,
-                        {}, {'*': buffer}, {'depthTex': depth_tex});
-            }
-        });
-    }
-
-    gl.disable(gl.BLEND);
-};
-
-Renderer.prototype._renderDynamicLights = function(fb, depth_tex, lights) {
-    var gl = this.gl;
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-
-    var this_ = this;
-    fb.use(function(idx) {
-        for (var i = 0; i < lights.length; ++i) {
-            var light = lights[i];
-            this_.dynamic_light.draw(idx, 0, 6, {
-                'center': [
-                    light.pos.x,
-                    light.pos.y,
-                    light.pos.z,
-                ],
-                'colorIn': [
-                    light.color[0] / 255,
-                    light.color[1] / 255,
-                    light.color[2] / 255,
-                ],
-                'radiusIn': [light.radius],
-            }, {}, {
-                'depthTex': depth_tex,
-            });
-        }
-    });
-
-    gl.disable(gl.BLEND);
-};
 
 Renderer.prototype.render = function(s, draw_extra) {
     var gl = this.gl;
 
     var pos = s.camera_pos;
     var size = s.camera_size;
+    var slice_radius = [s.slice_frac * Math.max(size[0], size[1]) / 2.0];
+    var slice_z = [s.slice_z];
 
-    this.blit.setUniformValue('cameraPos', pos);
-    this.blit.setUniformValue('cameraSize', size);
-    this.blit_sliced.setUniformValue('cameraPos', pos);
-    this.blit_sliced.setUniformValue('cameraSize', size);
-    this.static_light.setUniformValue('cameraPos', pos);
-    this.static_light.setUniformValue('cameraSize', size);
-    this.dynamic_light.setUniformValue('cameraPos', pos);
-    this.dynamic_light.setUniformValue('cameraSize', size);
+    this.terrain.setUniformValue('cameraPos', pos);
+    this.terrain.setUniformValue('cameraSize', size);
+    this.terrain.setUniformValue('sliceRadius', slice_radius);
+    this.terrain.setUniformValue('sliceZ', slice_z);
+    this.structure.setUniformValue('cameraPos', pos);
+    this.structure.setUniformValue('cameraSize', size);
+    this.structure.setUniformValue('sliceRadius', slice_radius);
+    this.structure.setUniformValue('sliceZ', slice_z);
+    this.structure_shadow.setUniformValue('cameraPos', pos);
+    this.structure_shadow.setUniformValue('cameraSize', size);
+    this.structure_shadow.setUniformValue('sliceRadius', slice_radius);
+    this.structure_shadow.setUniformValue('sliceZ', slice_z);
+    this.structure_anim.setUniformValue('cameraPos', pos);
+    this.structure_anim.setUniformValue('cameraSize', size);
+    this.structure_anim.setUniformValue('sliceRadius', slice_radius);
+    this.structure_anim.setUniformValue('sliceZ', slice_z);
+    this.light_static.setUniformValue('cameraPos', pos);
+    this.light_static.setUniformValue('cameraSize', size);
+    this.light_dynamic.setUniformValue('cameraPos', pos);
+    this.light_dynamic.setUniformValue('cameraSize', size);
     // this.blit_full uses fixed camera
 
     for (var k in this.classes) {
@@ -357,42 +349,36 @@ Renderer.prototype.render = function(s, draw_extra) {
 
     this.structure_anim.setUniformValue('now', [s.now / 1000 % ANIM_MODULUS]);
 
-    this.blit_sliced.setUniformValue('sliceFrac', [s.slice_frac]);
-
 
     if (this.last_sw != size[0] || this.last_sh != size[1]) {
         this._initFramebuffers(size[0], size[1]);
     }
 
+    var this_ = this;
 
-    // Populate the terrain caches.
+
+    // Populate the geometry buffers.
+
+    var start_prep = Date.now();
+
     var cx0 = ((pos[0]|0) / CHUNK_PX)|0;
     var cx1 = (((pos[0]|0) + (size[0]|0) + CHUNK_PX) / CHUNK_PX)|0;
     var cy0 = ((pos[1]|0) / CHUNK_PX)|0;
     var cy1 = (((pos[1]|0) + (size[1]|0) + CHUNK_PX) / CHUNK_PX)|0;
 
-    var chunk_idxs = new Array((cx1 - cx0) * (cy1 - cy0));
+    // Terrain from the chunk below can cover the current one.
+    this.terrain_buf.prepare(cx0, cy0, cx1, cy1 + 1);
+    // Structures from the chunk below can cover the current one, and also
+    // structures from chunks above and to the left can extend into it.
+    this.structure_buf.prepare(cx0 - 1, cy0 - 1, cx1, cy1 + 1);
+    this.structure_anim_buf.prepare(cx0 - 1, cy0 - 1, cx1, cy1 + 1);
+    // Light from any adjacent chunk can extend into the current one.
+    this.light_buf.prepare(cx0 - 1, cy0 - 1, cx1 + 1, cy1 + 1);
 
-    var i = 0;
-    for (var cy = cy0; cy < cy1; ++cy) {
-        for (var cx = cx0; cx < cx1; ++cx) {
-            var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
-            chunk_idxs[i] = idx;
-            ++i;
-        }
-    }
+    var end_prep = Date.now();
 
-    var this_ = this;
-    this.chunk_cache.populate(chunk_idxs, function(idx) {
-        var cx = (idx % LOCAL_SIZE)|0;
-        var cy = (idx / LOCAL_SIZE)|0;
-        return new ChunkRenderer(this_, cx, cy);
-    });
-    this.chunk_cache.forEach(function(cr) {
-        cr.setSliceZ(s.slice_z);
-        cr.update();
-    });
 
+    var start_render = end_prep;
 
     // Render everything into the world framebuffer.
 
@@ -405,12 +391,17 @@ Renderer.prototype.render = function(s, draw_extra) {
     this.fb_world.use(function(fb_idx) {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        for (var cy = cy0; cy < cy1; ++cy) {
-            for (var cx = cx0; cx < cx1; ++cx) {
-                var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
-                this_.chunk_cache.get(idx).draw(fb_idx, cx, cy);
-            }
-        }
+        var buf = this_.terrain_buf.getBuffer();
+        var len = this_.terrain_buf.getSize();
+        this_.terrain.draw(fb_idx, 0, len / SIZEOF.TerrainVertex, {}, {'*': buf}, {});
+
+        var buf = this_.structure_buf.getBuffer();
+        var len = this_.structure_buf.getSize();
+        this_.structure.draw(fb_idx, 0, len / SIZEOF.StructureBaseVertex, {}, {'*': buf}, {});
+
+        var buf = this_.structure_anim_buf.getBuffer();
+        var len = this_.structure_anim_buf.getSize();
+        this_.structure_anim.draw(fb_idx, 0, len / SIZEOF.StructureAnimVertex, {}, {'*': buf}, {});
 
         for (var i = 0; i < s.sprites.length; ++i) {
             var sprite = s.sprites[i];
@@ -422,17 +413,56 @@ Renderer.prototype.render = function(s, draw_extra) {
         }
     });
 
+    this.fb_shadow.use(function(fb_idx) {
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        var buf = this_.structure_buf.getBuffer();
+        var len = this_.structure_buf.getSize();
+        this_.structure_shadow.draw(fb_idx, 0, len / SIZEOF.StructureBaseVertex, {}, {'*': buf}, {});
+    });
+
     gl.disable(gl.DEPTH_TEST);
 
 
     // Render lights into the light framebuffer.
 
-    this._renderStaticLights(this.fb_light, this.fb_world.depth_texture,
-            cx0, cy0, cx1, cy1,
-            s.ambient_color);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    // clearColor sets the ambient light color+intensity
+    var amb = s.ambient_color;
+    var amb_intensity = 0.2126 * amb[0] + 0.7152 * amb[1] + 0.0722 * amb[2];
+    gl.clearColor(amb[0] / 255, amb[1] / 255, amb[2] / 255, amb_intensity / 255);
 
-    this._renderDynamicLights(this.fb_light, this.fb_world.depth_texture,
-            s.lights);
+    this.fb_light.use(function(fb_idx) {
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        var buf = this_.light_buf.getBuffer();
+        var len = this_.light_buf.getSize();
+        this_.light_static.draw(fb_idx, 0, len / SIZEOF.LightVertex, {}, {'*': buf}, {
+            'depthTex': this_.fb_world.depth_texture,
+        });
+
+        for (var i = 0; i < s.lights.length; ++i) {
+            var light = s.lights[i];
+            this_.light_dynamic.draw(fb_idx, 0, 6, {
+                'center': [
+                    light.pos.x,
+                    light.pos.y,
+                    light.pos.z,
+                ],
+                'colorIn': [
+                    light.color[0] / 255,
+                    light.color[1] / 255,
+                    light.color[2] / 255,
+                ],
+                'radiusIn': [light.radius],
+            }, {}, {
+                'depthTex': this_.fb_world.depth_texture,
+            });
+        }
+    });
+
+    gl.disable(gl.BLEND);
 
 
     // Apply post-processing pass
@@ -445,6 +475,8 @@ Renderer.prototype.render = function(s, draw_extra) {
             'image1Tex': this_.fb_world.textures[1],
             'lightTex': this_.fb_light.textures[0],
             'depthTex': this_.fb_world.depth_texture,
+            'shadowTex': this_.fb_shadow.textures[0],
+            'shadowDepthTex': this_.fb_shadow.depth_texture,
         });
 
         draw_extra(idx, this_);
@@ -458,6 +490,11 @@ Renderer.prototype.render = function(s, draw_extra) {
     this.blit_full.draw(0, 0, 6, {}, {}, {
         'imageTex': this.fb_post.textures[0],
     });
+
+
+    var end_render = Date.now();
+    this.prep_time.record(end_prep, end_prep - start_prep);
+    this.render_time.record(end_render, end_render - start_render);
 };
 
 Renderer.prototype.renderSpecial = function(fb_idx, sprite) {
@@ -465,96 +502,13 @@ Renderer.prototype.renderSpecial = function(fb_idx, sprite) {
 };
 
 
-
-/** @constructor */
-function RenderCache() {
-    this.slots = [];
-    this.users = [];
-
-    this.map = new Array(LOCAL_SIZE * LOCAL_SIZE);
-    for (var i = 0; i < this.map.length; ++i) {
-        this.map[i] = -1;
-    }
-
-    // `users` maps slots to indexes.  `map` maps indexes to slots.  `map` is
-    // not always kept up to date, so it's necessary to check that
-    // `users[slot] == idx` before relying on the result of a `map` lookup.
-}
-
-RenderCache.prototype._addSlot = function() {
-    this.slots.push(null);
-    this.users.push(-1);
-};
-
-RenderCache.prototype.populate = function(idxs, callback) {
-    // First, collect any slot/idx pairs that can be reused.  Clear all
-    // remaining slots (set `user[slot]` to -1).
-    var new_users = new Array(this.users.length);
-    for (var i = 0; i < new_users.length; ++i) {
-        new_users[i] = -1;
-    }
-
-    for (var i = 0; i < idxs.length; ++i) {
-        var idx = idxs[i];
-        var slot = this.map[idx];
-        if (slot != -1 && this.users[slot] == idx) {
-            new_users[slot] = idx;
-        }
-    }
-
-    this.users = new_users;
-
-    // Now make a second pass to find slots for all remaining `idxs`.
-    var free = 0;
-    for (var i = 0; i < idxs.length; ++i) {
-        var idx = idxs[i];
-        var slot = this.map[idx];
-        if (slot == -1 || this.users[slot] != idx) {
-            // Find or create a free slot
-            while (free < this.users.length && this.users[free] != -1) {
-                ++free;
-            }
-            if (free == this.users.length) {
-                this._addSlot();
-            }
-
-            // Populate the slot and assign it to `idx`.
-            this.slots[free] = callback(idx);
-            this.map[idx] = free;
-            this.users[free] = idx;
-        }
-    }
-};
-
-RenderCache.prototype.get = function(idx) {
-    var slot = this.map[idx];
-    if (slot == -1 || this.users[slot] != idx) {
-        return null;
-    } else {
-        return this.slots[slot];
-    }
-};
-
-RenderCache.prototype.ifPresent = function(idx, callback) {
-    var slot = this.map[idx];
-    if (slot != -1 && this.users[slot] == idx) {
-        callback(this.slots[slot]);
-    }
-};
-
-RenderCache.prototype.reduce = function(len) {
-    for (var i = len; i < this.users.length; ++i) {
-        var idx = this.users[i];
-        this.map[idx] = -1;
-    }
-    for (var i = 0; i < len; ++i) {
-        this.slots.pop();
-        this.users.pop();
-    }
-};
-
-RenderCache.prototype.forEach = function(callback) {
-    for (var i = 0; i < this.slots.length; ++i) {
-        callback(this.slots[i], this.users[i]);
-    }
+Renderer.prototype.getDebugHTML = function() {
+    var prep_sum = this.prep_time.sum;
+    var prep_ms = this.prep_time.sum / this.prep_time.count;
+    var render_ms = this.render_time.sum / this.render_time.count;
+    return (
+        'Prep: ' + fstr1(prep_ms) + ' ms<br>' +
+        'Prep (sum): ' + prep_sum + ' ms<br>' +
+        'Render: ' + fstr1(render_ms) + ' ms'
+        );
 };
