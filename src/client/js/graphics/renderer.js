@@ -1,4 +1,4 @@
-var Asm = require('asmlibs').Asm;
+var AsmGraphics = require('asmlibs').AsmGraphics;
 var SIZEOF = require('asmlibs').SIZEOF;
 var getRendererHeapSize = require('asmlibs').getRendererHeapSize;
 var getGraphicsHeapSize = require('asmlibs').getGraphicsHeapSize;
