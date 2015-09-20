@@ -310,7 +310,7 @@ Renderer.prototype.render = function(s, draw_extra) {
 
     var pos = s.camera_pos;
     var size = s.camera_size;
-    var slice_radius = [s.slice_frac * Math.max(size[0], size[1])];
+    var slice_radius = [s.slice_frac * Math.max(size[0], size[1]) / 2.0];
     var slice_z = [s.slice_z];
 
     this.terrain.setUniformValue('cameraPos', pos);
