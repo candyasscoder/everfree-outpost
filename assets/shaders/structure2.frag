@@ -35,7 +35,7 @@ void main(void) {
         discard;
     } else {
         emit(0, color);
-        float tileZ = baseZ / 32.0;
+        float tileZ = baseZ;
         emit(1, vec4(tileZ * 8.0 / 255.0, 0.0, 1.0, 1.0));
     }
 #else

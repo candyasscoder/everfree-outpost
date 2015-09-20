@@ -101,7 +101,8 @@ void main(void) {
     vec4 lightColor = texture2D(lightTex, texCoord);
     vec4 mainColor = baseColor * lightColor;
 
-    vec4 highlightColor = vec4(0.0, 0.75, 1.0, 1.0) * lightColor.a;
+    //vec4 highlightColor = vec4(0.0, 0.75, 1.0, 1.0) * lightColor.a;
+    vec4 highlightColor = vec4(0.0, 0.75, 1.0, 1.0);
 
     gl_FragColor = mix(mainColor, highlightColor, get_highlight());
     gl_FragColor.a = 1.0;
