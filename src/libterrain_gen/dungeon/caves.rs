@@ -14,22 +14,26 @@ use prop::LocalProperty;
 use super::{DUNGEON_SIZE, ENTRANCE_POS};
 use super::summary::ChunkSummary;
 use super::summary::PlaneSummary;
+use super::vault::Vault;
 
 
 pub struct Caves<'a> {
     rng: StdRng,
     cpos: V2,
     plane_summ: &'a PlaneSummary,
+    vaults: &'a [&'a Vault],
 }
 
 impl<'a> Caves<'a> {
     pub fn new(rng: StdRng,
                cpos: V2,
-               plane_summ: &'a PlaneSummary) -> Caves<'a> {
+               plane_summ: &'a PlaneSummary,
+               vaults: &'a [&'a Vault]) -> Caves<'a> {
         Caves {
             rng: rng,
             cpos: cpos,
             plane_summ: plane_summ,
+            vaults: vaults,
         }
     }
 }
@@ -37,6 +41,7 @@ impl<'a> Caves<'a> {
 impl<'a> LocalProperty for Caves<'a> {
     type Summary = ChunkSummary;
     type Temporary = CellularGrid;
+    type Result = ();
 
     fn init(&mut self, summ: &ChunkSummary) -> CellularGrid {
         let mut grid = CellularGrid::new(scalar(CHUNK_SIZE * 3 + 1));
@@ -83,6 +88,10 @@ impl<'a> LocalProperty for Caves<'a> {
             }
         }
 
+        for v in self.vaults {
+            v.gen_cave_grid(&mut grid, bounds);
+        }
+
         grid
     }
 
@@ -102,7 +111,7 @@ impl<'a> LocalProperty for Caves<'a> {
         }
     }
 
-    fn save(&mut self, grid: &CellularGrid, summ: &mut ChunkSummary) {
+    fn save(&mut self, grid: CellularGrid, summ: &mut ChunkSummary) {
         let base: V2 = scalar(CHUNK_SIZE);
         let bounds = Region::new(base, base + scalar(CHUNK_SIZE + 1));
         let cave_walls = summ.cave_walls_mut();

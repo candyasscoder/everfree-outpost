@@ -74,6 +74,7 @@ impl Temporary {
 impl<'a> LocalProperty for CliffVaults<'a> {
     type Summary = ChunkSummary;
     type Temporary = Temporary;
+    type Result = ();
 
     fn init(&mut self, _: &ChunkSummary) -> Temporary {
         Temporary {
@@ -128,9 +129,9 @@ impl<'a> LocalProperty for CliffVaults<'a> {
         }
     }
 
-    fn save(&mut self, tmp: &Temporary, summ: &mut ChunkSummary) {
-        summ.cave_entrances = tmp.entrances.clone();
-        summ.natural_ramps = tmp.ramps.clone();
+    fn save(&mut self, tmp: Temporary, summ: &mut ChunkSummary) {
+        summ.cave_entrances = tmp.entrances;
+        summ.natural_ramps = tmp.ramps;
     }
 }
 

@@ -2,6 +2,7 @@ use std::iter;
 use rand::Rng;
 
 use libserver_types::*;
+use libserver_config::Data;
 
 use StdRng;
 use algo::disk_sampler::DiskSampler;
@@ -10,16 +11,20 @@ use prop::GlobalProperty;
 
 use super::{DUNGEON_SIZE, ENTRANCE_POS};
 use super::summary::PlaneSummary;
+use super::vault::Vault;
+use super::vault::FloorMarking;
 
 
-pub struct Plan {
+pub struct Plan<'d> {
     rng: StdRng,
+    data: &'d Data,
 }
 
-impl Plan {
-    pub fn new(rng: StdRng) -> Plan {
+impl<'d> Plan<'d> {
+    pub fn new(rng: StdRng, data: &'d Data) -> Plan<'d> {
         Plan {
             rng: rng,
+            data: data,
         }
     }
 }
@@ -29,16 +34,18 @@ pub struct Temporary {
     vertices: Vec<V2>,
     idx_edges: Vec<(u16, u16)>,
 
+    vaults: Vec<Box<Vault>>,
+
     // TODO:
     // edges: Vec<(V2, V2)>,
-    // vaults: Vec<_>,
 }
 
 const PADDING: i32 = 32;
 
-impl GlobalProperty for Plan {
+impl<'d> GlobalProperty for Plan<'d> {
     type Summary = PlaneSummary;
     type Temporary = Temporary;
+    type Result = ();
 
     fn init(&mut self, _: &PlaneSummary) -> Temporary {
         // We want a DUNGEON_SIZE x DUNGEON_SIZE region, but to keep things uniform around the
@@ -50,6 +57,7 @@ impl GlobalProperty for Plan {
             vert_samp: vert_samp,
             vertices: Vec::new(),
             idx_edges: Vec::new(),
+            vaults: Vec::new(),
         }
     }
 
@@ -74,10 +82,21 @@ impl GlobalProperty for Plan {
             count[i as usize] += 1;
             count[j as usize] += 1;
         }
+
+        let floor_id = self.data.structure_templates.get_id("wood_floor/center/v0");
+        for &pos in &tmp.vertices {
+            if self.rng.gen_range(0, 10) < 7 {
+                continue;
+            }
+
+            tmp.vaults.push(Box::new(FloorMarking::new(pos, floor_id)));
+        }
+        info!("generated {} vaults", tmp.vaults.len());
     }
 
-    fn save(&mut self, tmp: &Temporary, summ: &mut PlaneSummary) {
-        summ.vertices = tmp.vertices.clone();
-        summ.edges = tmp.idx_edges.clone();
+    fn save(&mut self, tmp: Temporary, summ: &mut PlaneSummary) {
+        summ.vertices = tmp.vertices;
+        summ.edges = tmp.idx_edges;
+        summ.vaults = tmp.vaults;
     }
 }

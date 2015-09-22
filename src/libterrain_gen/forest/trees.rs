@@ -55,6 +55,7 @@ impl<'a> Trees<'a> {
 impl<'a> LocalProperty for Trees<'a> {
     type Summary = ChunkSummary;
     type Temporary = DiskSampler;
+    type Result = ();
 
     fn init(&mut self, _: &ChunkSummary) -> DiskSampler {
         // min spacing == max spacing == 4 tiles.
@@ -72,7 +73,7 @@ impl<'a> LocalProperty for Trees<'a> {
         samp.generate(&mut self.rng, 30);
     }
 
-    fn save(&mut self, samp: &DiskSampler, summ: &mut ChunkSummary) {
+    fn save(&mut self, samp: DiskSampler, summ: &mut ChunkSummary) {
         let bounds = Region::new(scalar(CHUNK_SIZE),
                                  scalar(CHUNK_SIZE * 2));
 

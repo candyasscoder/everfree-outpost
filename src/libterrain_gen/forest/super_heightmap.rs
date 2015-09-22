@@ -27,6 +27,7 @@ impl SuperHeightmap {
 impl LocalProperty for SuperHeightmap {
     type Summary = SuperchunkSummary;
     type Temporary = DscGrid;
+    type Result = ();
 
     fn init(&mut self, _: &SuperchunkSummary) -> DscGrid {
         let mut grid = DscGrid::new(scalar(SUPERCHUNK_SIZE * 3), SUPERCHUNK_BITS as u8);
@@ -70,7 +71,7 @@ impl LocalProperty for SuperHeightmap {
                   });
     }
 
-    fn save(&mut self, grid: &DscGrid, summ: &mut SuperchunkSummary) {
+    fn save(&mut self, grid: DscGrid, summ: &mut SuperchunkSummary) {
         let base = scalar(SUPERCHUNK_SIZE);
         let bounds = Region::new(base,
                                  base + scalar(SUPERCHUNK_SIZE + 1));

@@ -523,6 +523,12 @@ impl<V: Vn> Region<V> {
     }
 
     #[inline]
+    pub fn overlaps_inclusive(&self, other: Region<V>) -> bool {
+        let inter = self.intersect(other);
+        <V as Vn>::fold_axes(true, |a, over| over && inter.min.get(a) <= inter.max.get(a))
+    }
+
+    #[inline]
     pub fn clamp_point(&self, point: V) -> V {
         <V as Vn>::from_fn(|a| max(self.min.get(a),
                                min(self.max.get(a),
