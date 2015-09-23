@@ -54,14 +54,8 @@ impl<'a> LocalProperty for Caves<'a> {
         let base = self.cpos * scalar(CHUNK_SIZE) - scalar(CHUNK_SIZE);
         let mut blob = BlobGrid::new(scalar(CHUNK_SIZE * 3 + 1));
 
-        let dungeon_bounds = Region::new(scalar(0), scalar(DUNGEON_SIZE));
         let bounds = grid.bounds() + base;
-        for &(i, j) in &self.plane_summ.edges {
-            let a = self.plane_summ.vertices[i as usize];
-            let b = self.plane_summ.vertices[j as usize];
-            if !dungeon_bounds.contains(a) || !dungeon_bounds.contains(b) {
-                continue;
-            }
+        for &(a, b) in &self.plane_summ.edges {
             if !bounds.contains(a) && !bounds.contains(b) {
                 continue;
             }

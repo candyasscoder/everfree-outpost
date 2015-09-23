@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::iter;
 use rand::Rng;
 
@@ -30,14 +31,18 @@ impl<'d> Plan<'d> {
 }
 
 pub struct Temporary {
-    vert_samp: DiskSampler,
-    vertices: Vec<V2>,
-    idx_edges: Vec<(u16, u16)>,
+    base_verts: Vec<V2>,
+    vert_level: Vec<u8>,
+    conn_map: HashMap<u16, Vec<u16>>,
 
+    edges: Vec<(V2, V2)>,
     vaults: Vec<Box<Vault>>,
+}
 
-    // TODO:
-    // edges: Vec<(V2, V2)>,
+impl Temporary {
+    fn emit_edge(&mut self, i: u16, j: u16) {
+        self.edges.push((self.base_verts[i as usize], self.base_verts[j as usize]));
+    }
 }
 
 const PADDING: i32 = 32;
@@ -48,55 +53,92 @@ impl<'d> GlobalProperty for Plan<'d> {
     type Result = ();
 
     fn init(&mut self, _: &PlaneSummary) -> Temporary {
-        // We want a DUNGEON_SIZE x DUNGEON_SIZE region, but to keep things uniform around the
-        // edges, we fill a larger region with vertices and edges, then truncate to the desired
-        // size.
-        let vert_samp = DiskSampler::new(scalar(DUNGEON_SIZE + 2 * PADDING), 16, 32);
-
         Temporary {
-            vert_samp: vert_samp,
-            vertices: Vec::new(),
-            idx_edges: Vec::new(),
+            base_verts: Vec::new(),
+            vert_level: Vec::new(),
+            conn_map: HashMap::new(),
+            edges: Vec::new(),
             vaults: Vec::new(),
         }
     }
 
     fn generate(&mut self, tmp: &mut Temporary) {
-        tmp.vert_samp.add_init_point(ENTRANCE_POS + scalar(PADDING));
-        tmp.vert_samp.generate(&mut self.rng, 30);
+        // We want a DUNGEON_SIZE x DUNGEON_SIZE region, but to keep things uniform around the
+        // edges, we fill a larger region with vertices and edges, then truncate to the desired
+        // size.
+        let mut vert_samp = DiskSampler::new(scalar(DUNGEON_SIZE + 2 * PADDING), 16, 32);
+        vert_samp.add_init_point(ENTRANCE_POS + scalar(PADDING));
+        vert_samp.generate(&mut self.rng, 30);
 
         let base = scalar(PADDING);
-        tmp.vertices = tmp.vert_samp.points().iter()
-                                    .map(|&p| p - base)
-                                    .collect();
+        tmp.base_verts = vert_samp.points().iter()
+                                  .map(|&p| p - base)
+                                  .collect::<Vec<_>>();
+        drop(vert_samp);
+        tmp.vert_level = iter::repeat(0).take(tmp.base_verts.len()).collect();
+        tmp.conn_map = HashMap::with_capacity(tmp.base_verts.len());
 
-        let mut count = iter::repeat(0).take(tmp.vertices.len())
-                                       .collect::<Vec<_>>().into_boxed_slice();
-        let mut edges = triangulate::triangulate(&tmp.vertices);
-        self.rng.shuffle(&mut edges);
-        for (i, j) in edges.into_iter() {
-            if count[i as usize] >= 3 || count[j as usize] >= 3 {
+        // Use unfiltered verts for `triangulate` to avoid long, skinny triangles near the edges of
+        // the map.
+        let mut edges = triangulate::triangulate(&tmp.base_verts);
+        let bounds = Region::new(scalar(0), scalar(DUNGEON_SIZE));
+        for &(i, j) in &edges {
+            if !bounds.contains(tmp.base_verts[i as usize]) ||
+               !bounds.contains(tmp.base_verts[j as usize]) {
                 continue;
             }
-            tmp.idx_edges.push((i, j));
-            count[i as usize] += 1;
-            count[j as usize] += 1;
+            tmp.conn_map.entry(i).or_insert_with(|| Vec::new()).push(j);
+            tmp.conn_map.entry(j).or_insert_with(|| Vec::new()).push(i);
         }
+        drop(edges);
 
-        let floor_id = self.data.structure_templates.get_id("wood_floor/center/v0");
-        for &pos in &tmp.vertices {
-            if self.rng.gen_range(0, 10) < 7 {
-                continue;
-            }
-
-            tmp.vaults.push(Box::new(FloorMarking::new(pos, floor_id)));
-        }
-        info!("generated {} vaults", tmp.vaults.len());
+        self.gen_paths(tmp);
     }
 
     fn save(&mut self, tmp: Temporary, summ: &mut PlaneSummary) {
-        summ.vertices = tmp.vertices;
-        summ.edges = tmp.idx_edges;
+        summ.edges = tmp.edges;
         summ.vaults = tmp.vaults;
+    }
+}
+
+impl<'d> Plan<'d> {
+    fn gen_paths(&mut self, tmp: &mut Temporary) {
+        let origin = tmp.base_verts.iter().position(|&p| p == ENTRANCE_POS)
+                        .expect("ENTRANCE_POS should always be in base_verts") as u16;
+
+
+        let mut heads = {
+            let neighbors = tmp.conn_map.get_mut(&origin).unwrap();
+            self.rng.shuffle(neighbors);
+            [neighbors[0],
+             neighbors[1],
+             neighbors[2]]
+        };
+
+        tmp.vert_level[origin as usize] = 1;
+        for &v in &heads {
+            tmp.vert_level[origin as usize] = 2;
+            tmp.emit_edge(origin, v);
+        }
+
+        for i in 0 .. 30 {
+            let j = self.rng.gen_range(0, heads.len());
+            let v1 = heads[j];
+            let v2 = {
+                let get_iter = || tmp.conn_map[&v1].iter().map(|&v| v)
+                                     .filter(|&v| tmp.vert_level[v as usize] == 0);
+                let count = get_iter().count();
+                let idx = self.rng.gen_range(0, count);
+                if let Some(v) = get_iter().nth(idx) {
+                    v
+                } else {
+                    continue;
+                }
+            };
+
+            tmp.emit_edge(v1, v2);
+            tmp.vert_level[v2 as usize] = i + 3;
+            heads[j] = v2;
+        }
     }
 }

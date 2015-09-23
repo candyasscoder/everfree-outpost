@@ -70,12 +70,9 @@ impl Summary for ChunkSummary {
 
 
 pub struct PlaneSummary {
-    /// Location of every vertex in the graph that controls the high-level structure of the plane.
-    // TODO: Box<[V2]>?
-    pub vertices: Vec<V2>,
-
-    /// Edges in the graph.  Each endpoint is the index of an element of `vertices`.
-    pub edges: Vec<(u16, u16)>,
+    /// Edges in the graph.  A passage will be placed roughly along each edge.
+    // TODO: Box<[(V2, V2)]>?
+    pub edges: Vec<(V2, V2)>,
 
     /// Vaults to be placed in the generated terrain.
     // TODO: wish we could use fewer allocations here...
@@ -85,14 +82,12 @@ pub struct PlaneSummary {
 impl Summary for PlaneSummary {
     fn alloc() -> Box<PlaneSummary> {
         Box::new(PlaneSummary {
-            vertices: Vec::new(),
             edges: Vec::new(),
             vaults: Vec::new(),
         })
     }
 
     fn write_to(&self, mut f: File) -> io::Result<()> {
-        try!(unsafe { write_vec(&mut f, &self.vertices) });
         try!(unsafe { write_vec(&mut f, &self.edges) });
         // TODO: write vaults
         error!("unimplemented: write vaults to file");
@@ -103,7 +98,6 @@ impl Summary for PlaneSummary {
     fn read_from(mut f: File) -> io::Result<Box<PlaneSummary>> {
         let mut summary = PlaneSummary::alloc();
 
-        summary.vertices = try!(unsafe { read_vec(&mut f) });
         summary.edges = try!(unsafe { read_vec(&mut f) });
         // TODO: read vaults
         error!("unimplemented: write vaults to file");

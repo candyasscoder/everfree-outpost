@@ -158,8 +158,8 @@ impl<'a> Context<'a> {
     fn gen(&mut self) {
         self.vaults = vaults_in_bounds(&self.plane_summ.vaults, self.global_bounds());
         self.gen_terrain();
-        self.gen_exit();
-        self.gen_rooms();
+        //self.gen_exit();
+        //self.gen_rooms();
         self.gen_vaults();
     }
 
@@ -183,15 +183,18 @@ impl<'a> Context<'a> {
     }
 
     fn gen_exit(&mut self) {
+        /*
         let exit_pos = ENTRANCE_POS + V2::new(0, -1);
         if self.global_bounds().contains(exit_pos) {
             let gs = GenStructure::new((exit_pos - self.base()).extend(self.layer_z()),
                                        template_id!(self, "dungeon_exit"));
             self.gc.structures.push(gs);
         }
+        */
     }
 
     fn gen_rooms(&mut self) {
+        /*
         for &pos in &self.plane_summ.vertices {
             if !self.global_bounds().contains(pos) || pos == ENTRANCE_POS {
                 continue;
@@ -206,6 +209,7 @@ impl<'a> Context<'a> {
                 _ => {},
             }
         }
+        */
     }
 
     fn gen_library(&mut self, room_center: V2) {
