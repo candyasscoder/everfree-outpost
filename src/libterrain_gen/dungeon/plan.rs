@@ -106,13 +106,13 @@ impl<'d> Plan<'d> {
         let origin = tmp.base_verts.iter().position(|&p| p == ENTRANCE_POS)
                         .expect("ENTRANCE_POS should always be in base_verts") as u16;
 
-
-        let mut heads = {
+        let mut heads = Vec::new();
+        {
             let neighbors = tmp.conn_map.get_mut(&origin).unwrap();
             self.rng.shuffle(neighbors);
-            [neighbors[0],
-             neighbors[1],
-             neighbors[2]]
+            for &h in &neighbors[0..3] {
+                heads.push(h);
+            }
         };
 
         tmp.vert_level[origin as usize] = 1;
@@ -121,24 +121,33 @@ impl<'d> Plan<'d> {
             tmp.emit_edge(origin, v);
         }
 
-        for i in 0 .. 30 {
+        while heads.len() > 0 {
             let j = self.rng.gen_range(0, heads.len());
-            let v1 = heads[j];
-            let v2 = {
-                let get_iter = || tmp.conn_map[&v1].iter().map(|&v| v)
-                                     .filter(|&v| tmp.vert_level[v as usize] == 0);
-                let count = get_iter().count();
-                let idx = self.rng.gen_range(0, count);
-                if let Some(v) = get_iter().nth(idx) {
-                    v
-                } else {
-                    continue;
-                }
-            };
+            let v1 = heads.swap_remove(j);
 
-            tmp.emit_edge(v1, v2);
-            tmp.vert_level[v2 as usize] = i + 3;
-            heads[j] = v2;
+            let forks = if self.rng.gen_range(0, 10) < 2 { 2 } else { 1 };
+
+            for _ in 0 .. forks {
+                let v2 = {
+                    let get_iter = || tmp.conn_map[&v1].iter().map(|&v| v)
+                                         .filter(|&v| tmp.vert_level[v as usize] == 0);
+                    let count = get_iter().count();
+                    if count == 0 {
+                        break;
+                    }
+
+                    let idx = self.rng.gen_range(0, count);
+                    if let Some(v2) = get_iter().nth(idx) {
+                        v2
+                    } else {
+                        break;
+                    }
+                };
+
+                tmp.emit_edge(v1, v2);
+                tmp.vert_level[v2 as usize] = 3;
+                heads.push(v2);
+            }
         }
     }
 }
