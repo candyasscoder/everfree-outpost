@@ -101,52 +101,78 @@ impl<'d> GlobalProperty for Plan<'d> {
     }
 }
 
+#[derive(Clone)]
+struct Path {
+    cur_vert: u16,
+    last_pos: V2,
+    level: u8,
+}
+
+impl Path {
+    fn new(cur_vert: u16, last_pos: V2) -> Path {
+        Path {
+            cur_vert: cur_vert,
+            last_pos: last_pos,
+            level: 1,
+        }
+    }
+
+    fn gen_tunnel(&mut self, ctx: &mut Plan, tmp: &mut Temporary) -> bool {
+        let vert = {
+            let get_iter = || tmp.conn_map[&self.cur_vert].iter().map(|&v| v)
+                                 .filter(|&v| tmp.vert_level[v as usize] == 0);
+            let count = get_iter().count();
+            if count == 0 {
+                return false;
+            }
+
+            let idx = ctx.rng.gen_range(0, count);
+            match get_iter().nth(idx) {
+                Some(v) => v,
+                None => return false,
+            }
+        };
+
+        self.last_pos = tmp.base_verts[self.cur_vert as usize];
+        tmp.emit_edge(self.cur_vert, vert);
+        tmp.vert_level[vert as usize] = self.level;
+        self.cur_vert = vert;
+        true
+    }
+}
+
 impl<'d> Plan<'d> {
     fn gen_paths(&mut self, tmp: &mut Temporary) {
         let origin = tmp.base_verts.iter().position(|&p| p == ENTRANCE_POS)
                         .expect("ENTRANCE_POS should always be in base_verts") as u16;
 
-        let mut heads = Vec::new();
-        {
-            let neighbors = tmp.conn_map.get_mut(&origin).unwrap();
-            self.rng.shuffle(neighbors);
-            for &h in &neighbors[0..3] {
-                heads.push(h);
-            }
-        };
-
-        tmp.vert_level[origin as usize] = 1;
-        for &v in &heads {
-            tmp.vert_level[origin as usize] = 2;
-            tmp.emit_edge(origin, v);
+        let mut paths = Vec::new();
+        self.rng.shuffle(tmp.conn_map.get_mut(&origin).unwrap());
+        for &v in &tmp.conn_map[&origin][0..3] {
+            paths.push(Path::new(v, ENTRANCE_POS));
         }
 
-        while heads.len() > 0 {
-            let j = self.rng.gen_range(0, heads.len());
-            let v1 = heads.swap_remove(j);
+        tmp.vert_level[origin as usize] = 1;
+        for p in &paths {
+            tmp.vert_level[p.cur_vert as usize] = 1;
+            tmp.emit_edge(origin, p.cur_vert);
+        }
 
-            let forks = if self.rng.gen_range(0, 10) < 2 { 2 } else { 1 };
+        while paths.len() > 0 {
+            let j = self.rng.gen_range(0, paths.len());
 
-            for _ in 0 .. forks {
-                let v2 = {
-                    let get_iter = || tmp.conn_map[&v1].iter().map(|&v| v)
-                                         .filter(|&v| tmp.vert_level[v as usize] == 0);
-                    let count = get_iter().count();
-                    if count == 0 {
-                        break;
-                    }
+            while self.rng.gen_range(0, 10) < 3 {
+                // Generate a fork
+                let mut new_path = paths[j].clone();
+                let ok = new_path.gen_tunnel(self, tmp);
+                if ok {
+                    paths.push(new_path);
+                }
+            }
 
-                    let idx = self.rng.gen_range(0, count);
-                    if let Some(v2) = get_iter().nth(idx) {
-                        v2
-                    } else {
-                        break;
-                    }
-                };
-
-                tmp.emit_edge(v1, v2);
-                tmp.vert_level[v2 as usize] = 3;
-                heads.push(v2);
+            let ok = paths[j].gen_tunnel(self, tmp);
+            if !ok {
+                paths.swap_remove(j);
             }
         }
     }

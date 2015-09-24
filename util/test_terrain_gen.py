@@ -7,6 +7,7 @@ import time
 
 import tornado.autoreload
 import tornado.web
+from PIL import Image
 
 from outpost_savegame import V2, V3
 try:
@@ -101,17 +102,27 @@ def mk_tile_handler(args):
         return wrap_chunk(chunk)
     slice_cache = SliceCache(data, get_chunk)
 
-    @lru_cache(maxsize=128)
-    def generate_image(tile_pos):
-        cpos = tile_pos + offset
-        img = render_map.render_chunk(slice_cache, cpos)
-        return img.resize((256, 256))
+    @lru_cache(maxsize=256)
+    def generate_image(tile_pos, z):
+        print('generate %d, %d, %d' % (tile_pos.x, tile_pos.y, z))
+        if z == ZOOM:
+            cpos = tile_pos + offset
+            img = render_map.render_chunk(slice_cache, cpos)
+            return img.resize((256, 256))
+        else:
+            parts = [(x, y, generate_image(tile_pos * 2 + V2(x, y), z + 1))
+                    for x in (0, 1) for y in (0, 1)]
+            img = Image.new('RGBA', (512, 512))
+            for x, y, subimg in parts:
+                img.paste(subimg, (x * 256, y * 256))
+            return img.resize((256, 256))
+
 
     class TileHandler(tornado.web.RequestHandler):
 
         def get(self, z_str, x_str, y_str):
             tile_pos = V2(int(x_str), int(y_str))
-            img = generate_image(tile_pos)
+            img = generate_image(tile_pos, int(z_str))
             img.save(self, format='PNG')
 
     return TileHandler
