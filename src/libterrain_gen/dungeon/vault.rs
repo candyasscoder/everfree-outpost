@@ -77,3 +77,72 @@ impl Vault for FloorMarking {
         }
     }
 }
+
+
+pub struct Door {
+    center: V2,
+    corners: (i8, i8),
+}
+
+impl Door {
+    pub fn new(center: V2, corners: (i8, i8)) -> Door {
+        Door {
+            center: center,
+            corners: corners,
+        }
+    }
+}
+
+impl Vault for Door {
+    fn pos(&self) -> V2 { self.center - V2::new(3, 3) }
+    fn size(&self) -> V2 { V2::new(7, 7) }
+
+    fn connection_points(&self) -> &[V2] { &[] }
+
+    fn gen_cave_grid(&self,
+                     grid: &mut CellularGrid,
+                     grid_bounds: Region<V2>) {
+        static GRID: [[u8; 8]; 8] = [
+            [3, 0, 0, 1, 1, 0, 0, 4],
+            [3, 3, 0, 1, 1, 0, 4, 4],
+            [3, 3, 1, 1, 1, 1, 4, 4],
+            [2, 2, 1, 1, 1, 1, 2, 2],
+            [2, 2, 1, 1, 1, 1, 2, 2],
+            [5, 5, 1, 1, 1, 1, 6, 6],
+            [5, 5, 0, 1, 1, 0, 6, 6],
+            [5, 0, 0, 1, 1, 0, 0, 6],
+        ];
+        let vault_bounds = Region::new(self.pos(), self.pos() + self.size() + scalar(1));
+        for pos in vault_bounds.intersect(grid_bounds).points() {
+            let offset = pos - self.pos();
+            let val = GRID[offset.y as usize][offset.x as usize];
+            let setting =
+                match val {
+                    1 => Some(false),
+                    2 => Some(true),
+                    3 if self.corners.1 != -1 => Some(true),
+                    4 if self.corners.1 !=  1 => Some(true),
+                    5 if self.corners.0 != -1 => Some(true),
+                    6 if self.corners.0 !=  1 => Some(true),
+                    _ => None,
+                };
+            if let Some(val) = setting {
+                grid.set_fixed(pos - grid_bounds.min, val);
+            }
+        }
+    }
+
+    fn gen_structures(&self,
+                      data: &Data,
+                      structures: &mut Vec<GenStructure>,
+                      bounds: Region<V2>,
+                      layer: u8) {
+        let layer_z = layer as i32 * 2;
+        let door_pos = self.center - V2::new(1, 0);
+        if bounds.contains(door_pos) {
+            let template_id = data.structure_templates.get_id("house_wall/door/out/closed");
+            structures.push(GenStructure::new((door_pos - bounds.min).extend(layer_z),
+                                              template_id));
+        }
+    }
+}

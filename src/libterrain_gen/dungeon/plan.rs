@@ -14,6 +14,7 @@ use super::{DUNGEON_SIZE, ENTRANCE_POS};
 use super::summary::PlaneSummary;
 use super::vault::Vault;
 use super::vault::FloorMarking;
+use super::vault::Door;
 
 
 pub struct Plan<'d> {
@@ -40,8 +41,22 @@ pub struct Temporary {
 }
 
 impl Temporary {
-    fn emit_edge(&mut self, i: u16, j: u16) {
+    fn emit_edge(&mut self, i: u16, j: u16) -> usize {
         self.edges.push((self.base_verts[i as usize], self.base_verts[j as usize]));
+        self.edges.len() - 1
+    }
+
+    fn choose_neighbor<F>(&self, rng: &mut StdRng, v0: u16, f: F) -> Option<u16>
+            where F: Fn(&Temporary, u16) -> bool {
+        let get_iter = || self.conn_map[&v0].iter().map(|&v| v)
+                              .filter(|&v| f(self, v));
+        let count = get_iter().count();
+        if count == 0 {
+            return None;
+        }
+
+        let idx = rng.gen_range(0, count);
+        Some(get_iter().nth(idx).unwrap())
     }
 }
 
@@ -66,7 +81,7 @@ impl<'d> GlobalProperty for Plan<'d> {
         // We want a DUNGEON_SIZE x DUNGEON_SIZE region, but to keep things uniform around the
         // edges, we fill a larger region with vertices and edges, then truncate to the desired
         // size.
-        let mut vert_samp = DiskSampler::new(scalar(DUNGEON_SIZE + 2 * PADDING), 16, 32);
+        let mut vert_samp = DiskSampler::new(scalar(DUNGEON_SIZE + 2 * PADDING), 24, 48);
         vert_samp.add_init_point(ENTRANCE_POS + scalar(PADDING));
         vert_samp.generate(&mut self.rng, 30);
 
@@ -106,6 +121,7 @@ struct Path {
     cur_vert: u16,
     last_pos: V2,
     level: u8,
+    last_edge: usize,
 }
 
 impl Path {
@@ -114,29 +130,105 @@ impl Path {
             cur_vert: cur_vert,
             last_pos: last_pos,
             level: 1,
+            last_edge: -1_isize as usize,
         }
     }
 
     fn gen_tunnel(&mut self, ctx: &mut Plan, tmp: &mut Temporary) -> bool {
-        let vert = {
-            let get_iter = || tmp.conn_map[&self.cur_vert].iter().map(|&v| v)
-                                 .filter(|&v| tmp.vert_level[v as usize] == 0);
-            let count = get_iter().count();
-            if count == 0 {
-                return false;
-            }
-
-            let idx = ctx.rng.gen_range(0, count);
-            match get_iter().nth(idx) {
-                Some(v) => v,
-                None => return false,
-            }
+        let opt_vert = tmp.choose_neighbor(&mut ctx.rng,
+                                           self.cur_vert,
+                                           |tmp, v| tmp.vert_level[v as usize] == 0);
+        let vert = match opt_vert {
+            Some(v) => v,
+            None => return false,
         };
 
         self.last_pos = tmp.base_verts[self.cur_vert as usize];
-        tmp.emit_edge(self.cur_vert, vert);
+        self.last_edge = tmp.emit_edge(self.cur_vert, vert);
         tmp.vert_level[vert as usize] = self.level;
         self.cur_vert = vert;
+        true
+    }
+
+    fn gen_door(&mut self, ctx: &mut Plan, tmp: &mut Temporary) -> bool {
+        let center = tmp.base_verts[self.cur_vert as usize];
+
+        fn assign_corner(dir: V2) -> Option<i32> {
+            if dir.y >= 3 {
+                // Connect directly to the entrance/exit point.
+                Some(0)
+            } else if dir.x.abs() >= 5 {
+                // Connect to the corner. then to the entrance/exit point.
+                Some(dir.x.signum())
+            } else {
+                // Would need to connect through (at least) two corners.  Too complicated; just
+                // give up.
+                None
+            }
+        }
+
+        let entrance = self.last_pos;
+        let entrance_dir = entrance - center;
+        let entrance_corner = match assign_corner(entrance_dir) {
+            Some(c) => c,
+            None => return false,
+        };
+
+        let opt_exit_vert = tmp.choose_neighbor(&mut ctx.rng, self.cur_vert, |tmp, v| {
+            if tmp.vert_level[v as usize] != 0 {
+                return false;
+            }
+
+            let exit = tmp.base_verts[v as usize];
+            let exit_dir = exit - center;
+            let exit_corner = match assign_corner(exit_dir * V2::new(1, -1)) {
+                Some(c) => c,
+                None => return false,
+            };
+            if exit_corner == entrance_corner &&
+               exit_dir.y > entrance_dir.y {
+                // The entrance and exit lines would cross over one another.
+                return false
+            }
+
+            true
+        });
+        let exit_vert = match opt_exit_vert {
+            Some(v) => v,
+            None => return false,
+        };
+        let exit = tmp.base_verts[exit_vert as usize];
+        let exit_dir = exit - center;
+        // If the corner assignment is not possible, the vertex should have been filtered out.
+        let exit_corner = assign_corner(exit_dir * V2::new(1, -1)).unwrap();
+
+        let entrance_target_pos = center + V2::new(0, 3);
+        let exit_target_pos = center + V2::new(0, -3);
+
+        if entrance_corner == 0 {
+            tmp.edges[self.last_edge].1 = entrance_target_pos;
+        } else {
+            let entrance_corner_pos = center + V2::new(5 * entrance_corner, 4);
+            tmp.edges[self.last_edge].1 = entrance_corner_pos;
+            tmp.edges.push((entrance_corner_pos, entrance_target_pos));
+        }
+
+        if exit_corner == 0 {
+            tmp.edges.push((exit_target_pos, exit))
+        } else {
+            let exit_corner_pos = center + V2::new(5 * exit_corner, -4);
+            tmp.edges.push((exit_target_pos, exit_corner_pos));
+            tmp.edges.push((exit_corner_pos, exit));
+        }
+
+        self.last_pos = center;
+        self.last_edge = tmp.edges.len() - 1;
+        self.level += 1;
+        tmp.vert_level[exit_vert as usize] = self.level;
+        self.cur_vert = exit_vert;
+
+        tmp.vaults.push(Box::new(Door::new(center, (entrance_corner as i8, exit_corner as i8))));
+
         true
     }
 }
@@ -153,27 +245,36 @@ impl<'d> Plan<'d> {
         }
 
         tmp.vert_level[origin as usize] = 1;
-        for p in &paths {
+        for p in &mut paths {
             tmp.vert_level[p.cur_vert as usize] = 1;
-            tmp.emit_edge(origin, p.cur_vert);
+            p.last_edge = tmp.emit_edge(origin, p.cur_vert);
         }
 
         while paths.len() > 0 {
             let j = self.rng.gen_range(0, paths.len());
 
+            // 1) Sometimes try to generate a door.
+            if self.rng.gen_range(0, 10) < 5 && paths[j].gen_door(self, tmp) {
+                // Successfully generated a door
+                continue;
+            }
+
+            // 2) Generate a tunnel and maybe some forks.
             while self.rng.gen_range(0, 10) < 3 {
                 // Generate a fork
                 let mut new_path = paths[j].clone();
-                let ok = new_path.gen_tunnel(self, tmp);
-                if ok {
+                if new_path.gen_tunnel(self, tmp) {
                     paths.push(new_path);
                 }
             }
 
-            let ok = paths[j].gen_tunnel(self, tmp);
-            if !ok {
-                paths.swap_remove(j);
+            if paths[j].gen_tunnel(self, tmp) {
+                // Successfully generated a tunnel.
+                continue;
             }
+
+            // Nothing was successfully generated.
+            paths.swap_remove(j);
         }
     }
 }

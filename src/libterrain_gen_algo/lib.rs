@@ -22,7 +22,7 @@ pub mod pattern;
 pub mod triangulate;
 
 
-pub fn line_points<F: FnMut(V2)>(start: V2, end: V2, mut f: F) {
+pub fn line_points<F: FnMut(V2, bool)>(start: V2, end: V2, mut f: F) {
     // Bresenham line drawing, with some V2 tricks to handle lines running in any direction.
     //
     // A "big step" moves one unit on both the X and Y axes.  A "small step" moves only along the
@@ -42,15 +42,16 @@ pub fn line_points<F: FnMut(V2)>(start: V2, end: V2, mut f: F) {
     // roughly symmetric.
     let mut acc = total / 2;
     let mut pos = start;
-    f(pos);
+    f(pos, true);
     for _ in 0 .. total {
         acc += big;
         if acc > total {
             acc -= total;
             pos = pos + big_dir;
+            f(pos - small_dir, false);
         } else {
             pos = pos + small_dir;
         }
-        f(pos);
+        f(pos, true);
     }
 }

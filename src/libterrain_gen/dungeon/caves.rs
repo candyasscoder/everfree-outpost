@@ -47,8 +47,8 @@ impl<'a> LocalProperty for Caves<'a> {
         let mut grid = CellularGrid::new(scalar(CHUNK_SIZE * 3 + 1));
 
         for pos in grid.bounds().points() {
-            //let is_wall = self.rng.gen_range(0, 10) < 7;
-            let is_wall = true;
+            let is_wall = self.rng.gen_range(0, 10) < 7;
+            //let is_wall = true;
             grid.set(pos, is_wall);
         }
 
@@ -61,18 +61,18 @@ impl<'a> LocalProperty for Caves<'a> {
                 continue;
             }
             blob.clear();
-            algo::line_points(a, b, |pos| {
+            algo::line_points(a, b, |pos, _| {
                 let pos = pos - base;
-                blob.add_point(pos);
-                for offset in Region::around(scalar(0), 1).points_inclusive() {
+                for offset in Region::new(scalar(0), scalar(1)).points_inclusive() {
                     if grid.bounds().contains(pos + offset) {
+                        blob.add_point(pos + offset);
                         grid.set_fixed(pos + offset, false);
                     }
                 }
             });
             let len = (b - a).abs().max();
             blob.expand_with_callback(&mut self.rng, len as usize * 5, |pos| {
-                //grid.set(pos, false);
+                grid.set(pos, false);
             });
         }
 
@@ -103,7 +103,7 @@ impl<'a> LocalProperty for Caves<'a> {
     }
 
     fn generate(&mut self, grid: &mut CellularGrid) {
-        for _ in 0 .. 0 {
+        for _ in 0 .. 5 {
             grid.step(|here, active, total| 2 * (here as u8 + active) > total);
         }
     }
