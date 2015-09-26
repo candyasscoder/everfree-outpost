@@ -70,8 +70,9 @@ impl<'a> LocalProperty for Caves<'a> {
                     }
                 }
             });
-            let len = (b - a).abs().max();
-            blob.expand_with_callback(&mut self.rng, len as usize * 5, |pos| {
+            let abs_delta = (b - a).abs();
+            let len = abs_delta.x + abs_delta.y;
+            blob.expand_with_callback(&mut self.rng, len as usize * 6, |pos| {
                 grid.set(pos, false);
             });
         }

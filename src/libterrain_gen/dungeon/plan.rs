@@ -82,7 +82,7 @@ impl<'d> GlobalProperty for Plan<'d> {
         // We want a DUNGEON_SIZE x DUNGEON_SIZE region, but to keep things uniform around the
         // edges, we fill a larger region with vertices and edges, then truncate to the desired
         // size.
-        let mut vert_samp = DiskSampler::new(scalar(DUNGEON_SIZE + 2 * PADDING), 24, 48);
+        let mut vert_samp = DiskSampler::new(scalar(DUNGEON_SIZE + 2 * PADDING), 20, 40);
         vert_samp.add_init_point(ENTRANCE_POS + scalar(PADDING));
         vert_samp.generate(&mut self.rng, 30);
 
@@ -190,7 +190,11 @@ impl Path {
             if exit_corner == entrance_corner &&
                exit_dir.y > entrance_dir.y {
                 // The entrance and exit lines would cross over one another.
-                return false
+                return false;
+            }
+            if exit_dir.dot(entrance_dir) > 0 {
+                // Entrance and exit directions are within 90 degrees of each other.
+                return false;
             }
 
             true
