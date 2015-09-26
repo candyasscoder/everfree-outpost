@@ -1,8 +1,13 @@
-use rand::Rng;
+use std::fs::File;
+use std::io::{self, Write};
+use rand::{self, Rng};
 
 use libserver_types::*;
 use libserver_config::Data;
 use libphysics::CHUNK_SIZE;
+use libserver_util::{Convert, ReadExact};
+use libserver_util::{transmute_slice, transmute_slice_mut};
+use libserver_util::bytes::*;
 
 use GenStructure;
 use algo::cellular::CellularGrid;
@@ -33,6 +38,12 @@ pub trait Vault {
                       structures: &mut Vec<GenStructure>,
                       bounds: Region<V2>,
                       layer: u8) {}
+
+    fn write_to(&self, f: &mut File) -> io::Result<()>;
+}
+
+pub trait VaultRead: Vault {
+    fn read_from(f: &mut File) -> io::Result<Box<Self>>;
 }
 
 
@@ -79,6 +90,25 @@ impl Vault for FloorMarking {
             structures.push(GenStructure::new((self.pos - bounds.min).extend(layer_z),
                                               self.template_id));
         }
+    }
+
+    fn write_to(&self, f: &mut File) -> io::Result<()> {
+        try!(f.write_bytes(1_u8));
+        try!(f.write_bytes(self.pos));
+        try!(f.write_bytes(self.template_id));
+        Ok(())
+    }
+}
+
+impl VaultRead for FloorMarking {
+    fn read_from(f: &mut File) -> io::Result<Box<FloorMarking>> {
+        let pos = try!(f.read_bytes());
+        // FIXME: this will break badly if the data files change
+        let template_id = try!(f.read_bytes());
+        Ok(Box::new(FloorMarking {
+            pos: pos,
+            template_id: template_id,
+        }))
     }
 }
 
@@ -176,6 +206,24 @@ impl Vault for Door {
                                               template_id));
         }
     }
+
+    fn write_to(&self, f: &mut File) -> io::Result<()> {
+        try!(f.write_bytes(2_u8));
+        try!(f.write_bytes(self.center));
+        try!(f.write_bytes(self.corners));
+        Ok(())
+    }
+}
+
+impl VaultRead for Door {
+    fn read_from(f: &mut File) -> io::Result<Box<Door>> {
+        let center = try!(f.read_bytes());
+        let corners = try!(f.read_bytes());
+        Ok(Box::new(Door {
+            center: center,
+            corners: corners,
+        }))
+    }
 }
 
 
@@ -220,14 +268,47 @@ impl Vault for Entrance {
                                               template_id));
         }
     }
+
+    fn write_to(&self, f: &mut File) -> io::Result<()> {
+        try!(f.write_bytes(3_u8));
+        try!(f.write_bytes(self.center));
+        Ok(())
+    }
+}
+
+impl VaultRead for Entrance {
+    fn read_from(f: &mut File) -> io::Result<Box<Entrance>> {
+        let center = try!(f.read_bytes());
+        Ok(Box::new(Entrance {
+            center: center,
+        }))
+    }
 }
 
 
+#[derive(Clone, Copy)]
+pub enum ChestItem {
+    Hat,
+    Key,
+}
+
+impl ChestItem {
+    fn data_name(self) -> &'static str {
+        match self {
+            ChestItem::Hat => "hat",
+            ChestItem::Key => "key",
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
 pub enum TreasureKind {
-    Chest(u8, &'static str),
+    Chest(u8, ChestItem),
     Trophy,
     Fountain,
 }
+
+unsafe impl Bytes for TreasureKind {}
 
 pub struct Treasure {
     center: V2,
@@ -270,7 +351,8 @@ impl Vault for Treasure {
                 TreasureKind::Chest(count, item) => {
                     let template_id = data.structure_templates.get_id("chest");
                     let mut gs = GenStructure::new(pos, template_id);
-                    gs.extra.insert("loot".to_owned(), format!("{}:{}", item, count));
+                    gs.extra.insert("loot".to_owned(),
+                                    format!("{}:{}", item.data_name(), count));
                     structures.push(gs);
                 },
                 TreasureKind::Trophy => {
@@ -283,6 +365,24 @@ impl Vault for Treasure {
                 },
             }
         }
+    }
+
+    fn write_to(&self, f: &mut File) -> io::Result<()> {
+        try!(f.write_bytes(4_u8));
+        try!(f.write_bytes(self.center));
+        try!(f.write_bytes(self.kind));
+        Ok(())
+    }
+}
+
+impl VaultRead for Treasure {
+    fn read_from(f: &mut File) -> io::Result<Box<Treasure>> {
+        let center = try!(f.read_bytes());
+        let kind = try!(f.read_bytes());
+        Ok(Box::new(Treasure {
+            center: center,
+            kind: kind,
+        }))
     }
 }
 
@@ -342,5 +442,37 @@ impl Vault for Library {
                                                   template_id));
             }
         }
+    }
+
+    fn write_to(&self, f: &mut File) -> io::Result<()> {
+        try!(f.write_bytes(5_u8));
+        try!(f.write_bytes(self.center));
+        try!(f.write_bytes(self.size));
+        Ok(())
+    }
+}
+
+impl VaultRead for Library {
+    fn read_from(f: &mut File) -> io::Result<Box<Library>> {
+        let center = try!(f.read_bytes());
+        let size = try!(f.read_bytes());
+        let rng = rand::random();
+        Ok(Box::new(Library {
+            center: center,
+            size: size,
+            rng: rng,
+        }))
+    }
+}
+
+
+pub fn read_vault(f: &mut File) -> io::Result<Box<Vault>> {
+    match try!(f.read_bytes::<u8>()) {
+        1 => Ok(try!(FloorMarking::read_from(f))),
+        2 => Ok(try!(Door::read_from(f))),
+        3 => Ok(try!(Entrance::read_from(f))),
+        4 => Ok(try!(Treasure::read_from(f))),
+        5 => Ok(try!(Library::read_from(f))),
+        _ => panic!("bad vault tag in summary"),
     }
 }

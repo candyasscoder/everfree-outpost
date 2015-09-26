@@ -10,7 +10,7 @@ use libserver_util::{transmute_slice, transmute_slice_mut};
 use libserver_util::bytes::*;
 
 use cache::Summary;
-use super::vault::Vault;
+use super::vault::{Vault, read_vault};
 
 
 // TODO: copied from forest::summary; move to somewhere common
@@ -89,8 +89,11 @@ impl Summary for PlaneSummary {
 
     fn write_to(&self, mut f: File) -> io::Result<()> {
         try!(unsafe { write_vec(&mut f, &self.edges) });
-        // TODO: write vaults
-        error!("unimplemented: write vaults to file");
+
+        try!(f.write_bytes(self.vaults.len().to_u32().unwrap()));
+        for v in &self.vaults {
+            v.write_to(&mut f);
+        }
 
         Ok(())
     }
@@ -99,8 +102,12 @@ impl Summary for PlaneSummary {
         let mut summary = PlaneSummary::alloc();
 
         summary.edges = try!(unsafe { read_vec(&mut f) });
-        // TODO: read vaults
-        error!("unimplemented: write vaults to file");
+
+        let vaults_count = try!(f.read_bytes::<u32>()) as usize;
+        summary.vaults = Vec::with_capacity(vaults_count);
+        for _ in 0 .. vaults_count {
+            summary.vaults.push(try!(read_vault(&mut f)));
+        }
 
         Ok(summary)
     }

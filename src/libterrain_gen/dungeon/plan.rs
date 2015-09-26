@@ -16,7 +16,7 @@ use super::vault::Vault;
 use super::vault::FloorMarking;
 use super::vault::Door;
 use super::vault::Entrance;
-use super::vault::{Treasure, TreasureKind};
+use super::vault::{Treasure, TreasureKind, ChestItem};
 use super::vault::Library;
 
 
@@ -274,10 +274,10 @@ impl<'d> Plan<'d> {
                 let chance = if level < 5 { 0 } else { level - 5 };
                 let (count, item) =
                     if self.rng.gen_range(0, 200) < chance {
-                        (1, "hat")
+                        (1, ChestItem::Hat)
                     } else {
                         // Generate 1-3 keys (avg: 2)
-                        (self.rng.gen_range(1, 4), "key")
+                        (self.rng.gen_range(1, 4), ChestItem::Key)
                     };
                 let kind = TreasureKind::Chest(count, item);
                 tmp.vaults.push(Box::new(Treasure::new(pos, kind)));
