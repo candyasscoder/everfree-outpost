@@ -16,6 +16,7 @@ use super::vault::Vault;
 use super::vault::FloorMarking;
 use super::vault::Door;
 use super::vault::Entrance;
+use super::vault::{Treasure, TreasureKind};
 
 
 pub struct Plan<'d> {
@@ -260,9 +261,32 @@ impl<'d> Plan<'d> {
             let j = self.rng.gen_range(0, paths.len());
 
             // 1) Sometimes try to generate a door.
-            if self.rng.gen_range(0, 10) < 5 && paths[j].gen_door(self, tmp) {
-                // Successfully generated a door
-                continue;
+            let choice = self.rng.gen_range(0, 100);
+            let pos = tmp.base_verts[paths[j].cur_vert as usize];
+            if choice < 40 {
+                if paths[j].gen_door(self, tmp) {
+                    continue;
+                }
+            } else if choice < 60 {
+                let level = paths[j].level;
+                // 0.5% chance of hat at level 5, +0.5% for every level thereafter.
+                let chance = if level < 5 { 0 } else { level - 5 };
+                let (count, item) =
+                    if self.rng.gen_range(0, 200) < chance {
+                        (1, "hat")
+                    } else {
+                        // Generate 1-3 keys (avg: 2)
+                        (self.rng.gen_range(1, 4), "key")
+                    };
+                let kind = TreasureKind::Chest(count, item);
+                tmp.vaults.push(Box::new(Treasure::new(pos, kind)));
+                // Then also make a path
+            } else if choice < 63 {
+                tmp.vaults.push(Box::new(Treasure::new(pos, TreasureKind::Fountain)));
+            } else if choice < 66 {
+                tmp.vaults.push(Box::new(Treasure::new(pos, TreasureKind::Trophy)));
+            } else if choice < 70 {
+                // TODO: library
             }
 
             // 2) Generate a tunnel and maybe some forks.
