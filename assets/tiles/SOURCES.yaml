@@ -445,3 +445,17 @@ outdoor-ramps.png:
     author: Anonymous, Lanea Zimmerman (AKA Sharm)
     license: CC-BY-SA 3.0 / GPL 3.0
     derived-from: lpc-base-tiles/mountains.png
+
+roguelikeitems_1.png:
+    title: Roguelike/RPG Items
+    author: Joe Williamson
+    license: CC-BY-SA 3.0
+    url: http://opengameart.org/content/roguelikerpg-items
+    attribution: >
+        If possible, please link to my twitter (@JoeCreates) when giving credit. Thanks!
+
+key32.png:
+    title: Key Icon
+    author: Joe Williamson
+    license: CC-BY-SA 3.0
+    derived-from: roguelikeitems_1.png
