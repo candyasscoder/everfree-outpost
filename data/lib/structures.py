@@ -50,7 +50,7 @@ def mk_solid_small(name, image, **kwargs):
     only a 1x1 tile (for the front, nothing on the top)."""
     return mk_solid_structure(name, image, (1, 1, 1), display_size=(1, 1), **kwargs)
 
-def mk_door_anim(basename, doorway_img, doorway_depth, door_img):
+def mk_door_anim(basename, doorway_img, doorway_depth, door_img, framerate=0):
     open_door_shape_arr = [
             'solid', 'floor', 'solid',
             'solid', 'empty', 'solid',
@@ -78,7 +78,7 @@ def mk_door_anim(basename, doorway_img, doorway_depth, door_img):
         b.create(basename + '/closed', merged_frames[0], doorway_depth, closed_door_shape, 1)
         b.create(basename + '/open', merged_frames[-1], doorway_depth, open_door_shape, 1)
 
-        rate = len(merged_frames) * 4
+        rate = framerate or (len(merged_frames) * 4)
         open_anim = StaticAnimDef(merged_frames, rate, oneshot=True)
         close_anim = StaticAnimDef(list(reversed(merged_frames)), rate, oneshot=True)
         b.create(basename + '/closing', close_anim, doorway_depth, closed_door_shape, 1)

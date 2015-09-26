@@ -1,5 +1,6 @@
 use libserver_types::*;
 use libserver_config::Data;
+use libphysics::CHUNK_SIZE;
 
 use GenStructure;
 use algo::cellular::CellularGrid;
@@ -132,6 +133,33 @@ impl Vault for Door {
         }
     }
 
+    fn gen_terrain(&self,
+                   data: &Data,
+                   terrain: &mut [BlockId],
+                   bounds: Region<V2>,
+                   layer: u8) {
+        let left = self.center - V2::new(2, 0);
+        let right = self.center + V2::new(2, 0);
+        let layer_z = layer as i32 * 2;
+        let tile_bounds = bounds.extend(0, CHUNK_SIZE);
+
+        if bounds.contains(left) {
+            let key = 1*3 + 2*3*3;
+            terrain[tile_bounds.index(left.extend(layer_z))] =
+                data.block_data.get_id(&format!("cave/{}/z0/dirt", key));
+            terrain[tile_bounds.index(left.extend(layer_z + 1))] =
+                data.block_data.get_id(&format!("cave/{}/z1", key));
+        }
+
+        if bounds.contains(right) {
+            let key = 1 + 2*3*3*3;
+            terrain[tile_bounds.index(right.extend(layer_z))] =
+                data.block_data.get_id(&format!("cave/{}/z0/dirt", key));
+            terrain[tile_bounds.index(right.extend(layer_z + 1))] =
+                data.block_data.get_id(&format!("cave/{}/z1", key));
+        }
+    }
+
     fn gen_structures(&self,
                       data: &Data,
                       structures: &mut Vec<GenStructure>,
@@ -140,7 +168,7 @@ impl Vault for Door {
         let layer_z = layer as i32 * 2;
         let door_pos = self.center - V2::new(1, 0);
         if bounds.contains(door_pos) {
-            let template_id = data.structure_templates.get_id("house_wall/door/out/closed");
+            let template_id = data.structure_templates.get_id("dungeon/door/key/closed");
             structures.push(GenStructure::new((door_pos - bounds.min).extend(layer_z),
                                               template_id));
         }

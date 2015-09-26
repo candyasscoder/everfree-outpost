@@ -236,3 +236,10 @@ lpc-doors-animated-1.png:
     url: http://opengameart.org/content/lpc-animated-doors
     attribution: >
         Original wood and dungeon doors by Lanea Zimmerman (AKA Sharm).
+
+cave-door.png: &cave-door
+    title: Cave Door Animation
+    author: Lanea Zimmerman (AKA Sharm), Anonymous
+    license: CC-BY-SA 3.0 / GPL 3.0
+    derived-from: ../tiles/lpc-base-tiles/mountain.png
+cave-doorway-keyhole.png: *cave-door
