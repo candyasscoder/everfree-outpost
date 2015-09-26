@@ -36,4 +36,7 @@ action.use.cornucopia = function(client, structure)
     -- Once this script finishes, the player will see the normal "+5 Tomato"
     -- (or whatever vegetable) popup on the corner of their screen.
     client:pawn():inventory('main'):update(options[index], 5)
+
+    -- Temporary hack until key/door placement is smarter.
+    client:pawn():inventory('main'):update('key', 2)
 end
