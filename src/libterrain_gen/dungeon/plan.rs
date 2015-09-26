@@ -15,6 +15,7 @@ use super::summary::PlaneSummary;
 use super::vault::Vault;
 use super::vault::FloorMarking;
 use super::vault::Door;
+use super::vault::Entrance;
 
 
 pub struct Plan<'d> {
@@ -107,6 +108,7 @@ impl<'d> GlobalProperty for Plan<'d> {
         }
         drop(edges);
 
+        tmp.vaults.push(Box::new(Entrance::new(ENTRANCE_POS)));
         self.gen_paths(tmp);
     }
 

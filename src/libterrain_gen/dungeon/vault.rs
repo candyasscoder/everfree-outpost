@@ -174,3 +174,47 @@ impl Vault for Door {
         }
     }
 }
+
+
+pub struct Entrance {
+    center: V2,
+}
+
+impl Entrance {
+    pub fn new(center: V2) -> Entrance {
+        Entrance {
+            center: center,
+        }
+    }
+}
+
+impl Vault for Entrance {
+    fn pos(&self) -> V2 { self.center - V2::new(2, 2) }
+    fn size(&self) -> V2 { V2::new(5, 5) }
+
+    fn connection_points(&self) -> &[V2] { &[] }
+
+    fn gen_cave_grid(&self,
+                     grid: &mut CellularGrid,
+                     grid_bounds: Region<V2>) {
+        let vault_bounds = Region::new(self.pos(), self.pos() + self.size() + scalar(1));
+        for pos in vault_bounds.intersect(grid_bounds).points() {
+            grid.set_fixed(pos - grid_bounds.min, false);
+        }
+    }
+
+    fn gen_structures(&self,
+                      data: &Data,
+                      structures: &mut Vec<GenStructure>,
+                      bounds: Region<V2>,
+                      layer: u8) {
+        let layer_z = layer as i32 * 2;
+
+        let exit_pos = self.center - V2::new(0, 1);
+        if bounds.contains(exit_pos) {
+            let template_id = data.structure_templates.get_id("dungeon_exit");
+            structures.push(GenStructure::new((exit_pos - bounds.min).extend(layer_z),
+                                              template_id));
+        }
+    }
+}
