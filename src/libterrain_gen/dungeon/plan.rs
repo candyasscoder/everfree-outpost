@@ -17,6 +17,7 @@ use super::vault::FloorMarking;
 use super::vault::Door;
 use super::vault::Entrance;
 use super::vault::{Treasure, TreasureKind};
+use super::vault::Library;
 
 
 pub struct Plan<'d> {
@@ -286,7 +287,9 @@ impl<'d> Plan<'d> {
             } else if choice < 66 {
                 tmp.vaults.push(Box::new(Treasure::new(pos, TreasureKind::Trophy)));
             } else if choice < 70 {
-                // TODO: library
+                tmp.vaults.push(Box::new(Library::new(pos,
+                                                      self.rng.gen_range(3, 8),
+                                                      self.rng.gen())));
             }
 
             // 2) Generate a tunnel and maybe some forks.

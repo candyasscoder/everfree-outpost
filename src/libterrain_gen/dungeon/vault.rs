@@ -1,9 +1,12 @@
+use rand::Rng;
+
 use libserver_types::*;
 use libserver_config::Data;
 use libphysics::CHUNK_SIZE;
 
 use GenStructure;
 use algo::cellular::CellularGrid;
+use StdRng;
 
 pub trait Vault {
     fn pos(&self) -> V2;
@@ -278,6 +281,65 @@ impl Vault for Treasure {
                     let template_id = data.structure_templates.get_id("fountain");
                     structures.push(GenStructure::new(pos, template_id));
                 },
+            }
+        }
+    }
+}
+
+
+pub struct Library {
+    center: V2,
+    size: i32,
+    rng: StdRng,
+}
+
+impl Library {
+    pub fn new(center: V2, size: i32, rng: StdRng) -> Library {
+        Library {
+            center: center,
+            size: size,
+            rng: rng,
+        }
+    }
+}
+
+impl Vault for Library {
+    fn pos(&self) -> V2 { self.center - scalar(self.size) }
+    fn size(&self) -> V2 { scalar(2 * self.size + 1) }
+
+    fn connection_points(&self) -> &[V2] { &[] }
+
+    fn gen_cave_grid(&self,
+                     grid: &mut CellularGrid,
+                     grid_bounds: Region<V2>) {
+        let vault_bounds = Region::new(self.pos(), self.pos() + self.size() + scalar(1));
+        for pos in vault_bounds.intersect(grid_bounds).points() {
+            grid.set_fixed(pos - grid_bounds.min, false);
+        }
+    }
+
+    fn gen_structures(&self,
+                      data: &Data,
+                      structures: &mut Vec<GenStructure>,
+                      bounds: Region<V2>,
+                      layer: u8) {
+        // TODO: kind of a hack
+        let mut rng = self.rng.clone();
+        let layer_z = layer as i32 * 2;
+        let vault_bounds = Region::new(self.pos(), self.pos() + self.size());
+        for pos in vault_bounds.intersect(bounds).points() {
+            if (pos.y - self.center.y) % 2 != 0 {
+                let choice = rng.gen_range(0, 15);
+                let amount =
+                    if choice < 5 { 0 }
+                    else if choice < 8 { 1 }
+                    else if choice < 10 { 2 }
+                    else { continue; };
+
+                let template_id = data.structure_templates.get_id(
+                    &format!("bookshelf/{}", amount));
+                structures.push(GenStructure::new((pos - bounds.min).extend(layer_z),
+                                                  template_id));
             }
         }
     }
