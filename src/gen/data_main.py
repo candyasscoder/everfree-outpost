@@ -103,7 +103,7 @@ def main(args):
     attach_to_package('outpost_data.core.loader')
 
 
-    from outpost_data.core import images
+    from outpost_data.core import files
 
     # Load mods and set up asset search path.
     mods = []
@@ -125,7 +125,7 @@ def main(args):
                 seen_outpost = True
 
             mods.append(load_mod(mod_name, data_dir))
-            images.register_mod(mod_name, asset_dir, override_dir, deps)
+            files.register_mod(mod_name, asset_dir, override_dir, deps)
 
     from outpost_data.core import util
     if util.SAW_ERROR:

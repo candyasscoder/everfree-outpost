@@ -3,7 +3,7 @@ import json
 import os
 
 
-from . import builder, images, loader, util
+from . import builder, files, loader, util
 from . import structure, tile, block, item, recipe, animation, attachment, extra
 
 
@@ -144,12 +144,12 @@ def generate(output_dir):
         pass
 
     with open(os.path.join(output_dir, 'used_assets.txt'), 'w') as f:
-        f.write(''.join(p + '\n' for p in images.get_dependencies()))
+        f.write(''.join(p + '\n' for p in files.get_dependencies()))
 
     # Compute dependencies
     with open(os.path.join(output_dir, 'data.d'), 'w') as f:
         f.write('%s: \\\n' % os.path.join(output_dir, 'stamp'))
-        for p in images.get_dependencies() + loader.get_dependencies():
+        for p in files.get_dependencies() + loader.get_dependencies():
             f.write('    %s \\\n' % p)
 
     assert not util.SAW_ERROR
