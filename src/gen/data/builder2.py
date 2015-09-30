@@ -19,13 +19,13 @@ def raw_image(img):
 
 
 class PrototypeBase(object):
-    def __init__(self, name):
+    def __init__(self):
+        self.name = None
         for k in type(self).FIELDS:
             setattr(self, k, None)
-        self.name = name
 
     def clone(self):
-        new_inst = type(self)(self.name)
+        new_inst = type(self)()
         for k in type(self).FIELDS:
             setattr(new_inst, k, getattr(self, k))
         return new_inst
@@ -117,18 +117,20 @@ class BuilderBase(object):
     def __init__(self, parent=None, prefix=None):
         self._dct = {}
         self._parent = parent
+        self._proto = parent._proto.clone() if parent is not None else (self.PROTO_CLASS)()
 
-        self._prefix = \
-                (parent._prefix if parent is not None else '') + \
-                (prefix + '/' if prefix is not None else '')
+        self._prefix = prefix + '/' if prefix is not None else ''
+        self._full_prefix = (parent._full_prefix if parent is not None else '') + self._prefix
 
     def _add(self, name, val):
-        assert name not in self._dct, 'duplicate structure with name %r' % name
+        assert name not in self._dct, \
+                'duplicate %s with name %r' % (self.PROTO_CLASS.KIND, name)
         self._dct[name] = val
         if self._parent is not None:
             self._parent._add(self._prefix + name, val)
 
     def _modify(self, f, arg):
+        f(self._proto, arg)
         for x in self._dct.values():
             f(x, arg)
         return self
@@ -138,6 +140,7 @@ class BuilderBase(object):
             for k, v in arg.items():
                 f(self._dct[k], v)
         else:
+            f(self._proto, arg)
             for x in self._dct.values():
                 f(x, arg)
         return self
@@ -148,6 +151,11 @@ class BuilderBase(object):
 
     def __getitem__(self, k):
         return self._dct[k]
+
+    def _create(self, name):
+        obj = self._proto.clone()
+        obj.name = self._full_prefix + name
+        return obj
 
     def child(self):
         return type(self)(parent=self)
@@ -187,6 +195,7 @@ class BuilderBase(object):
                 (len(self._dct), sorted(self._dct.keys()))
         for x in self._dct.values():
             return x
+
 
 
 class StructurePrototype(PrototypeBase):
@@ -231,8 +240,7 @@ class StructurePrototype(PrototypeBase):
             return DEFAULT_IMAGE
 
 class StructureBuilder(BuilderBase):
-    def _create(self, n):
-        return StructurePrototype(n)
+    PROTO_CLASS = StructurePrototype
 
     image = dict_modifier('image')
     depthmap = dict_modifier('depthmap')
@@ -280,8 +288,7 @@ def make_structure_icon(orig):
     return img.resize((TILE_SIZE, TILE_SIZE), resample=Image.ANTIALIAS)
 
 class ItemBuilder(BuilderBase):
-    def _create(self, n):
-        return ItemPrototype(n)
+    PROTO_CLASS = ItemPrototype
 
     display_name = dict_modifier('display_name')
     icon = dict_modifier('icon')
@@ -289,10 +296,10 @@ class ItemBuilder(BuilderBase):
     def from_structure(self, s, name=None, extract_offset=None, **kwargs):
         if isinstance(s, StructurePrototype):
             s = [s]
-        else:
+        elif isinstance(s, StructureBuilder):
+            s = list(s._dct.values())
+        if len(s) > 1:
             assert name is None, "can't provide a name when generating multiple items"
-            if isinstance(s, StructureBuilder):
-                s = list(s._dct.values())
 
         child = self.child()
 
@@ -312,10 +319,16 @@ class ItemBuilder(BuilderBase):
 class RecipePrototype(PrototypeBase):
     KIND = 'recipe'
     FIELDS = ('display_name', 'station', 'inputs', 'outputs')
-    def __init__(self, name):
-        super(RecipePrototype, self).__init__(name)
+    def __init__(self):
+        super(RecipePrototype, self).__init__()
         self.inputs = {}
         self.outputs = {}
+
+    def clone(self):
+        obj = super(RecipePrototype, self).clone()
+        obj.inputs = self.inputs.copy()
+        obj.outputs = self.outputs.copy()
+        return obj
 
     def instantiate(self):
         self.name = self.require('name') or '_%x' % id(self)
@@ -324,8 +337,7 @@ class RecipePrototype(PrototypeBase):
         return RecipeDef(self.name, display_name, station, self.inputs, self.outputs)
 
 class RecipeBuilder(BuilderBase):
-    def _create(self, n):
-        return RecipePrototype(n)
+    PROTO_CLASS = RecipePrototype
 
     display_name = dict_modifier('display_name')
     station = dict_modifier('station')

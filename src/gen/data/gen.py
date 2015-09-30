@@ -140,6 +140,11 @@ def generate(output_dir):
     emit_attach_slots(output_dir, b.attach_slots)
     emit_extras(output_dir, b.extras)
 
+    print('%d structures, %d tiles, %d blocks, %d items, %d recipes' %
+            (len(b.structures), len(b.tiles), len(b.blocks), len(b.items), len(b.recipes)))
+    print('%d animations, %d sprites, %d attach_slots, %d extras' %
+            (len(b.animations), len(b.sprites), len(b.attach_slots), len(b.extras)))
+
     with open(os.path.join(output_dir, 'stamp'), 'w') as f:
         pass
 

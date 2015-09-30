@@ -9,6 +9,10 @@ class Shape(object):
         self.size = (x, y, z)
         self.shape_array = arr
 
+def empty(x, y, z):
+    arr = ['empty'] * (x * y * z)
+    return Shape(x, y, z, arr)
+
 def floor(x, y, z):
     arr = ['floor'] * (x * y) + ['empty'] * (x * y * (z - 1))
     return Shape(x, y, z, arr)
