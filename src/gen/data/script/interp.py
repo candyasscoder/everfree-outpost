@@ -5,10 +5,10 @@ from .field import FIELD_MAP, InterpError
 from .parse import Backticked, Value
 
 class Interpreter(object):
-    def __init__(self, builders, ctx):
+    def __init__(self, builders, ctx, load_image=None):
         self.builders = builders
         self.ctx = ctx
-        self.load_image = image2.loader()
+        self.load_image = load_image or image2.loader()
 
     def run_script(self, script):
         for section in script:
