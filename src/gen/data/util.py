@@ -188,6 +188,13 @@ def build_sheet(objs):
     return sheet
 
 
+def extract_mod_name(module_name):
+    if module_name.startswith('outpost_data.'):
+        parts = module_name.split('.')
+        if parts[1] != 'core':
+            return parts[1]
+    return None
+
 def get_caller_mod_name():
     stack = inspect.stack()
     try:
@@ -195,11 +202,9 @@ def get_caller_mod_name():
             module = inspect.getmodule(frame[0])
             if module is None:
                 continue
-            if module.__name__.startswith('outpost_data.'):
-                parts = module.__name__.split('.')
-                if parts[1] == 'core':
-                    continue
-                return parts[1]
+            mod_name = extract_mod_name(module.__name__)
+            if mod_name is not None:
+                return mod_name
         raise ValueError("couldn't detect calling module name")
     finally:
         del stack

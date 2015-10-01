@@ -23,3 +23,8 @@ TERRAIN_PARTS = (
         ('corner/outer/sw', 'edge/s',           'corner/outer/se'),
         ('center/v1',       'center/v2',        'center/v3'),
         )
+
+TERRAIN_PARTS2 = dict((n, (x, y))
+        for y, row in enumerate(TERRAIN_PARTS)
+        for x, n in enumerate(row))
+

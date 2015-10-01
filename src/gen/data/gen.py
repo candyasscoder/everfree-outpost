@@ -3,7 +3,7 @@ import json
 import os
 
 
-from . import builder, files, loader, util
+from . import builder, builder2, files, loader, util
 from . import structure, tile, block, item, recipe, animation, attachment, extra
 
 
@@ -17,6 +17,14 @@ IdMaps = namedtuple('IdMaps', (
     'attach_slots',
     'attachments_by_slot',
 ))
+
+def copy_builder2_to_builder(b):
+    def dump(k, lst):
+        for proto in builder2.INSTANCES[k]._dct.values():
+            lst.append(proto.instantiate())
+    dump('structure', b.structures)
+    dump('item', b.items)
+    dump('recipe', b.recipes)
 
 def postprocess(b):
     id_maps = IdMaps(
@@ -128,6 +136,7 @@ def emit_extras(output_dir, extras):
 
 def generate(output_dir):
     b = builder.INSTANCE
+    copy_builder2_to_builder(b)
     postprocess(b)
 
     emit_structures(output_dir, b.structures)
@@ -139,6 +148,11 @@ def generate(output_dir):
     emit_sprites(output_dir, b.sprites)
     emit_attach_slots(output_dir, b.attach_slots)
     emit_extras(output_dir, b.extras)
+
+    print('%d structures, %d tiles, %d blocks, %d items, %d recipes' %
+            (len(b.structures), len(b.tiles), len(b.blocks), len(b.items), len(b.recipes)))
+    print('%d animations, %d sprites, %d attach_slots, %d extras' %
+            (len(b.animations), len(b.sprites), len(b.attach_slots), len(b.extras)))
 
     with open(os.path.join(output_dir, 'stamp'), 'w') as f:
         pass
