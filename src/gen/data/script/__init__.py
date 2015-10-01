@@ -1,6 +1,6 @@
-from . import parse, interp
+from . import parse, compile
 
-Interpreter = interp.Interpreter
+Compiler = compile.Compiler
 
 def parse_script(text, filename='<string>'):
     tokens = parse.lex(text, filename)

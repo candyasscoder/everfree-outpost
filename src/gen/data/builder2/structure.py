@@ -1,3 +1,4 @@
+from outpost_data.core import image2
 from outpost_data.core.builder2.base import *
 from outpost_data.core.consts import *
 from outpost_data.core.structure import solid, StructureDef, StaticAnimDef
@@ -44,7 +45,7 @@ class StructurePrototype(PrototypeBase):
         elif self.anim_frames is not None and len(self.anim_frames) > 0:
             return self.anim_frames[0]
         else:
-            return DEFAULT_IMAGE
+            return image2.Image(img=DEFAULT_IMAGE)
 
 class StructureBuilder(BuilderBase):
     PROTO_CLASS = StructurePrototype

@@ -32,18 +32,18 @@ def lex(s, filename):
             if m is None:
                 text = line[j : j + 10]
                 util.err('%s:%d:%d: invalid token starting "%s..."' %
-                        (filename, i + 1, j + 1, text))
+                        (filename, i + 1, j, text))
                 return None
 
             word, punct, quoted, backticked, ignore = m.groups()
             if word is not None:
-                emit('word', word, i + 1, j + 1)
+                emit('word', word, i + 1, j)
             elif punct is not None:
-                emit('punct', punct, i + 1, j + 1)
+                emit('punct', punct, i + 1, j)
             elif quoted is not None:
-                emit('quoted', quoted, i + 1, j + 1)
+                emit('quoted', quoted, i + 1, j)
             elif backticked is not None:
-                emit('backticked', backticked, i + 1, j + 1)
+                emit('backticked', backticked, i + 1, j)
             elif ignore is not None:
                 pass
             else:
@@ -51,16 +51,16 @@ def lex(s, filename):
 
             j = m.end()
 
-        emit('eol', '', i + 1, j + 1)
+        emit('eol', '', i + 1, j)
 
-    emit('eof', '', i + 2, 1)
+    emit('eof', '', i + 2, 0)
 
     return tokens
 
-Section = namedtuple('Section', ('ty', 'name', 'fields'))
-Field = namedtuple('Field', ('name', 'value'))
-Backticked = namedtuple('Backticked', ('src',))
-Value = namedtuple('Value', ('value',))
+Section = namedtuple('Section', ('ty', 'name', 'fields', 'line', 'col'))
+Field = namedtuple('Field', ('name', 'value', 'line', 'col'))
+Backticked = namedtuple('Backticked', ('src', 'line', 'col'))
+Value = namedtuple('Value', ('value', 'line', 'col'))
 
 class Parser(object):
     def __init__(self, tokens, filename):
@@ -142,8 +142,8 @@ class Parser(object):
         return sections
 
     def parse_section(self):
+        t_sect = self.peek()
         self.take_punct('[')
-        t = self.peek()
         ty = self.take_word('section type')
         name = self.take_word('section name')
         self.take_punct(']')
@@ -153,13 +153,13 @@ class Parser(object):
             field_map = FIELD_MAP[ty]
         else:
             util.err('%s:%d:%d: unknown section type %r' %
-                    (self.filename, t.line, t.col, ty))
+                    (self.filename, t_sect.line, t_sect.col, ty))
             field_map = {}
             ty = None
 
         parts = []
         while True:
-            t = self.peek()
+            t_field = self.peek()
             if self.peek().kind != 'word':
                 break
 
@@ -170,36 +170,22 @@ class Parser(object):
                 if key not in field_map:
                     if ty is not None:
                         util.err('%s:%d:%d: unknown field %r for section type %r' %
-                                (self.filename, t.line, t.col, key, ty))
+                                (self.filename, t_field.line, t_field.col, key, ty))
                     raise ParseError()
 
                 if self.peek().kind == 'backticked':
-                    val = Backticked(self.take().text)
+                    t_val = self.take()
+                    val = Backticked(t_val.text, t_val.line, t_val.col)
                 else:
-                    val = Value(field_map[key].parse(self))
+                    t_val = self.peek()
+                    val = Value(field_map[key].parse(self), t_val.line, t_val.col)
 
                 self.take_eol()
 
-                parts.append(Field(key, val))
+                parts.append(Field(key, val, t_field.line, t_field.col))
             except ParseError as e:
                 self.skip_to_eol()
 
-        return Section(ty, name, parts)
+        return Section(ty, name, parts, t_sect.line, t_sect.col)
         
     parse_filename = lambda self: self.take_quoted('quoted filename')
-
-    def parse_item_count(self):
-        count = self.take_int()
-        item = self.take_word()
-        return (count, item)
-
-    def parse_shape(self):
-        kind = self.take_word()
-        self.take_punct('(')
-        x = self.take_int()
-        self.take_punct(',')
-        y = self.take_int()
-        self.take_punct(',')
-        z = self.take_int()
-        self.take_punct(')')
-        return (kind, (x, y, z))

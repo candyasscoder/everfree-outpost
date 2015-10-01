@@ -1,3 +1,5 @@
+import ast
+
 from ..structure import empty as empty_shape, floor as floor_shape, solid as solid_shape
 from ..consts import *
 
@@ -16,17 +18,19 @@ class FieldBase(object):
     __metaclass__ = field_meta
     IS_INIT_FIELD = False
 
-    def eval(interp, val):
-        return val
+    def eval(ctx, val):
+        return ctx.const(val)
 
-    def apply(obj, name, val):
-        getattr(obj, name)(val)
+    def apply(ctx, obj, name, val):
+        return obj.attr(name).call(val)
 
 class InitFieldBase(FieldBase):
     IS_INIT_FIELD = True
 
-    def apply(obj, name, val):
-        raise InterpError('this field must be placed first in the section')
+    def apply(ctx, obj, name, val):
+        return ast.Raise(
+                ctx.var('RuntimeError').call('this field must be placed first in the section'),
+                None)
 
 class NameField(FieldBase):
     def parse(parser):
@@ -44,29 +48,23 @@ class ImageField(FieldBase):
     def parse(parser):
         return parser.parse_filename()
 
-    def eval(interp, val):
-        return interp.load_image(val)
+    def eval(ctx, val):
+        return ctx.var('load').call(ctx.const(val))
 
 class ItemCountField(FieldBase):
     def parse(parser):
         count = parser.take_int()
         item = parser.take_word()
-        return (count, item)
+        return (item, count)
 
-    def apply(obj, name, val):
-        if isinstance(val, tuple):
-            count, item = val
-            getattr(obj, name)(item, count)
-        else:
-            getattr(obj, name)(val)
+    # NB: input()/output() methods work not only as `input(item, count)` but
+    # also as `input((item, count))` (taking a tuple).
 
 class ShapeField(FieldBase):
     def parse(parser):
-        t = parser.peek()
         kind = parser.take_word()
         if kind not in ('solid', 'floor', 'empty'):
             parser.error('"solid", "floor", or "empty"', t)
-
         parser.take_punct('(')
         x = parser.take_int()
         parser.take_punct(',')
@@ -74,40 +72,33 @@ class ShapeField(FieldBase):
         parser.take_punct(',')
         z = parser.take_int()
         parser.take_punct(')')
+        return (kind, (x, y, z))
 
-        if kind == 'solid':
-            return solid_shape(x, y, z)
-        elif kind == 'floor':
-            return floor_shape(x, y, z)
-        elif kind == 'empty':
-            return empty_shape(x, y, z)
-        else:
-            assert False, 'should have bailed out due to parser.error above'
+    def eval(ctx, val):
+        kind, (x, y, z) = val
+        return ctx.var('structure').attr(kind) \
+                .call(ctx.const(x), ctx.const(y), ctx.const(z))
 
 class MultiNameField(InitFieldBase):
     def parse(parser):
         parser.error('backticked Python expression')
 
-    def init(interp, section, name, val):
-        key = section.ty
-        if key.startswith('multi_'):
-            key = key[len('multi_'):]
-        builder = interp.builders[key]
-        return builder.prefixed(section.name).new(val)
+    def init(ctx, section, field_name, val_ast):
+        return ctx.var('INSTANCES').index(section.ty) \
+                .attr('prefixed').call(section.name) \
+                .attr('new').call(val_ast)
 
 class FromObjectField(InitFieldBase):
     def parse(parser):
         return parser.take_word()
 
-    def init(interp, section, name, val):
-        assert name.startswith('from_')
-        template_builder = interp.builders[name[len('from_'):]]
-        assert isinstance(val, str)
-        template_obj = template_builder[val]
+    def init(ctx, section, field_name, val_ast):
+        assert field_name.startswith('from_')
+        template_ty = field_name[len('from_'):]
+        template_obj = ctx.var('INSTANCES').index(template_ty).index(val_ast)
 
-        builder = interp.builders[section.ty]
-        from_obj = getattr(builder, name)
-        return from_obj(template_obj, name=section.name)
+        return ctx.var('INSTANCES').index(section.ty) \
+                .attr(field_name).call(template_obj, name=section.name)
 
 def _build_field_map():
     fm = {}

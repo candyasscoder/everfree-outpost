@@ -71,45 +71,7 @@ def load_fake_package(name, path, **kwargs):
 def add_script_import_hooks():
     import outpost_data.core.script
     import outpost_data.core.util
-
-    def mk_init(script, module_name):
-        # TODO: this code is a mess
-        mod_name = outpost_data.core.util.extract_mod_name(module_name)
-        def init():
-            from outpost_data.core import builder, builder2, image2, consts, depthmap
-            from outpost_data.core.script import Interpreter
-            from outpost_data.core.consts import TILE_SIZE
-
-            structure = builder2.StructureBuilder()
-            item = builder2.ItemBuilder()
-            recipe = builder2.RecipeBuilder()
-
-            # Build context
-            def flat_depthmap(x, y):
-                return image2.Image(img=depthmap.flat(x * TILE_SIZE, y * TILE_SIZE))
-            def solid_depthmap(x, y, z):
-                return image2.Image(img=depthmap.solid(x * TILE_SIZE, y * TILE_SIZE, z * TILE_SIZE))
-            ctx = {}
-            ctx.update(consts.__dict__)
-            ctx['flat_depthmap'] = flat_depthmap
-            ctx['solid_depthmap'] = solid_depthmap
-
-            # Run interpreter
-            interp = Interpreter(dict(
-                structure = structure,
-                item = item,
-                recipe = recipe,
-                ), ctx, load_image=image2.loader(mod=mod_name))
-            interp.run_script(script)
-
-            def dump(b2, lst):
-                for proto in b2._dct.values():
-                    lst.append(proto.instantiate())
-            dump(structure, builder.INSTANCE.structures)
-            dump(item, builder.INSTANCE.items)
-            dump(recipe, builder.INSTANCE.recipes)
-
-        return init
+    compiler = outpost_data.core.script.Compiler()
 
     class ScriptLoader(importlib.abc.Loader):
         def __init__(self, fullname, origin):
@@ -125,11 +87,17 @@ def add_script_import_hooks():
             mod.__package__ = package
             mod.__loader__ = self
 
-            with open(self.origin) as f:
-                script = outpost_data.core.script.parse_script(f.read(), self.origin)
-            if script == None:
-                raise ImportError('error parsing script %r' % self.origin)
-            mod.init = mk_init(script, self.fullname)
+            try:
+                with open(self.origin) as f:
+                    script = outpost_data.core.script.parse_script(f.read(), self.origin)
+                if script == None:
+                    raise ValueError('error parsing script %r' % self.origin)
+                code = compiler.compile_module(script, self.origin)
+                exec(code, mod.__dict__)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                raise
 
     class ScriptFinder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         def find_module(fullname, path):
