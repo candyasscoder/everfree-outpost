@@ -95,6 +95,17 @@ class Compiler(object):
                 self.import_from('outpost_data.core.script.context', ('*',)),
                 ]
 
+    def gen_init_body(self, script):
+        stmts, emit = mk_emit()
+
+        # load = image2.loader()
+        emit(self.assign(self.var('load'), self.var('image2').attr('loader').call()))
+
+        for sect in script:
+            stmts.extend(self.gen_section(sect))
+
+        return stmts
+
     def gen_section(self, sect):
         stmts, emit = mk_emit()
 
@@ -128,22 +139,11 @@ class Compiler(object):
         else:
             return info.eval(self, val.value)
 
-    def gen_init_body(self, script):
-        stmts, emit = mk_emit()
-
-        # load = image2.loader()
-        emit(self.assign(self.var('load'), self.var('image2').attr('loader').call()))
-
-        for sect in script:
-            stmts.extend(self.gen_section(sect))
-
-        return stmts
-
     def gen_module(self, script):
         func_args = ast.arguments(args=[])
         func = [ast.FunctionDef(name='init', args=func_args, body=self.gen_init_body(script))]
         m = ast.Module(self.gen_preamble() + func, lineno=0, col_offset=0)
-        FuncFix34().visit(m)
+        FuncFix().visit(m)
         ast.fix_missing_locations(m)
         return m
 
@@ -151,22 +151,22 @@ class Compiler(object):
         m = self.gen_module(script)
         return compile(m, filename, 'exec')
 
-def default_to_list(x, field):
-    if not hasattr(x, field):
-        setattr(x, field, [])
+def fix_fields(x, fields):
+    for f in fields:
+        if not hasattr(x, f):
+            setattr(x, f, [])
 
-class FuncFix34(ast.NodeVisitor):
+class FuncFix(ast.NodeVisitor):
     def visit_Call(self, n):
-        default_to_list(n, 'args')
-        default_to_list(n, 'keywords')
+        fix_fields(n, ('args', 'keywords'))
         self.generic_visit(n)
 
     def visit_FunctionDef(self, n):
-        default_to_list(n, 'decorator_list')
-        default_to_list(n.args, 'args')
-        default_to_list(n.args, 'kwonlyargs')
-        default_to_list(n.args, 'kw_defaults')
-        default_to_list(n.args, 'defaults')
+        fix_fields(n, ('decorator_list',))
+        self.generic_visit(n)
+
+    def visit_arguments(self, n):
+        fix_fields(n, ('args', 'kwonlyargs', 'kw_defaults', 'defaults'))
         self.generic_visit(n)
 
 class Pprint(ast.NodeVisitor):
