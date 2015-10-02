@@ -22,5 +22,6 @@ def assign_offsets(models):
 def build_client_json(models):
     arr = []
     for m in models:
+        print(m.name)
         arr.extend(m.verts)
     return arr

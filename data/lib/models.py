@@ -39,14 +39,16 @@ def verts_bottom(x, y):
             0, y * TILE_SIZE)
 
 def verts_solid(x, y, z):
-    return front(x, y, z) + top(x, y, z)
+    return verts_front(x, y, z) + verts_top(x, y, z)
 
 def model_builder(f):
+    generated = set()
     @functools.wraps(f)
     def g(*args):
         k = '%s_%s' % (f.__name__, '_'.join(str(x) for x in args))
-        if k not in INSTANCE.models:
+        if k not in generated:
             mk_model(k, f(*args))
+            generated.add(k)
         return k
     return g
 

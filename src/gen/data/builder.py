@@ -140,9 +140,9 @@ class AttachSlots(Objects):
 
 class Models(Objects):
     def create(self, name, verts):
-        s = model.ModelDef(name, verts)
-        self._add(s)
-        self.owner.models.append(s)
+        m = model.ModelDef(name, verts)
+        self._add(m)
+        self.owner.models.append(m)
         return self
 
 class Extras(Objects):
