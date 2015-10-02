@@ -92,7 +92,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 16;
+    var EXPECT_SIZES = 17;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -119,6 +119,7 @@ var SIZEOF = (function() {
     sizeof.TerrainGeomGen = next();
 
     sizeof.StructureTemplate = next();
+    sizeof.ModelVertex = next();
     sizeof.StructureBuffer = next();
     sizeof.StructureBaseVertex = next();
     sizeof.StructureBaseGeomGen = next();
@@ -312,7 +313,8 @@ exports.getPhysicsHeapSize = function() {
 // Graphics
 
 /** @constructor */
-function AsmGraphics(num_blocks, num_templates, structures_size, geom_size) {
+function AsmGraphics(num_blocks, num_templates, num_model_vertexes,
+        structures_size, geom_size) {
     var heap_end = HEAP_START;
     function alloc(size) {
         // 8-byte alignment
@@ -324,9 +326,11 @@ function AsmGraphics(num_blocks, num_templates, structures_size, geom_size) {
 
     this.num_blocks = num_blocks;
     this.num_templates = num_templates;
+    this.num_model_vertexes = num_model_vertexes;
 
     this.block_data_bytes = num_blocks * SIZEOF.BlockData;
     this.template_data_bytes = num_templates * SIZEOF.StructureTemplate;
+    this.model_vertex_bytes = num_model_vertexes * SIZEOF.ModelVertex;
     this.geom_buffer_bytes = geom_size;
     // TODO: sizeof(Structure) * num_structures
     this.structure_storage_bytes = structures_size
@@ -340,6 +344,7 @@ function AsmGraphics(num_blocks, num_templates, structures_size, geom_size) {
 
     this.BLOCK_DATA = alloc(this.block_data_bytes);
     this.TEMPLATE_DATA = alloc(this.template_data_bytes);
+    this.MODEL_DATA = alloc(this.model_vertex_bytes);
     this.GEOM_BUFFER = alloc(this.geom_buffer_bytes);
 
     this.STRUCTURE_STORAGE = alloc(this.structure_storage_bytes);
@@ -370,6 +375,10 @@ AsmGraphics.prototype.templateDataView8 = function() {
 
 AsmGraphics.prototype.templateDataView16 = function() {
     return this._makeView(Uint16Array, this.TEMPLATE_DATA, this.template_data_bytes);
+};
+
+AsmGraphics.prototype.modelVertexView = function() {
+    return this._makeView(Uint16Array, this.MODEL_DATA, this.model_vertex_bytes);
 };
 
 
@@ -438,7 +447,9 @@ AsmGraphics.prototype.structureBaseGeomInit = function() {
             this.STRUCTURE_BASE_GEOM_GEN,
             this.STRUCTURE_BUFFER,
             this.TEMPLATE_DATA,
-            this.template_data_bytes);
+            this.template_data_bytes,
+            this.MODEL_DATA,
+            this.model_vertex_bytes);
 };
 
 AsmGraphics.prototype.structureBaseGeomReset = function(cx0, cy0, cx1, cy1, sheet) {

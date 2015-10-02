@@ -232,6 +232,8 @@ def build_client_json(structures):
                 'sheet': s.sheet_idx,
                 'offset': [x * TILE_SIZE for x in s.offset],
                 'display_size': s.get_display_px(),
+                'model_offset': s.model_offset,
+                'model_length': s.model_length,
                 'layer': s.layer,
                 }
 

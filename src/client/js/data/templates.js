@@ -14,6 +14,8 @@ function TemplateDef_(id, info, assets) {
     this.sheet = info['sheet'];
     this.display_size = info['display_size'];
     this.display_offset = info['offset'];
+    this.model_offset = info['model_offset'];
+    this.model_length = info['model_length'];
     this.flags = info['flags'] || 0;
 
     this.anim_size = info['anim_size'] || [0, 0];

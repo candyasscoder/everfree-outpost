@@ -54,10 +54,12 @@ pub struct StructureTemplate {
     pub sheet: u8,
     pub display_size: (u16, u16),
     pub display_offset: (u16, u16),
+    pub model_offset: u16,
+    pub model_length: u16,
     pub layer: u8,
     pub flags: TemplateFlags,
 
-    // 14
+    // 18
     pub anim_sheet: u8,
     pub anim_length: i8,
     pub anim_rate: u8,
@@ -66,10 +68,16 @@ pub struct StructureTemplate {
     pub anim_pos: (u16, u16),
     pub anim_size: (u16, u16),
 
-    // 30
+    // 34
     pub light_pos: (u8, u8, u8),
     pub light_color: (u8, u8, u8),
     pub light_radius: u16,
 
-    // 38
+    // 42
+}
+
+pub struct ModelVertex {
+    pub x: u16,
+    pub y: u16,
+    pub z: u16,
 }

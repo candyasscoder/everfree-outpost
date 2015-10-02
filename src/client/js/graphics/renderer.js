@@ -111,8 +111,9 @@ exports.Renderer = Renderer;
 
 // Renderer initialization
 
-Renderer.prototype.initData = function(blocks, templates) {
-    this._asm = new AsmGraphics(blocks.length, templates.length,
+Renderer.prototype.initData = function(blocks, templates, model_verts) {
+    this._asm = new AsmGraphics(
+            blocks.length, templates.length, model_verts.length / 3,
             512 * 1024, 512 * 1024);
 
     this._asm.terrainGeomInit();
@@ -123,6 +124,7 @@ Renderer.prototype.initData = function(blocks, templates) {
 
     this.loadBlockData(blocks);
     this.loadTemplateData(templates);
+    this.loadModels(model_verts);
 };
 
 Renderer.prototype.initGl = function(assets) {
@@ -252,21 +254,29 @@ Renderer.prototype.loadTemplateData = function(templates) {
         out8(   3, template.sheet);
         out16(  4, template.display_size, 2);
         out16(  8, template.display_offset, 2);
-        out8(  12, template.layer);
-        out8(  13, template.flags);
+        out16( 12, template.model_offset);
+        out16( 14, template.model_length);
+        out8(  16, template.layer);
+        out8(  17, template.flags);
 
-        out8(  14, template.anim_sheet);
+        out8(  18, template.anim_sheet);
         var oneshot_length = template.anim_length * (template.anim_oneshot ? -1 : 1);
-        out8(  15, oneshot_length);
-        out8(  16, template.anim_rate);
-        out16( 18, template.anim_offset, 2);
-        out16( 22, template.anim_pos, 2);
-        out16( 26, template.anim_size, 2);
+        out8(  19, oneshot_length);
+        out8(  20, template.anim_rate);
+        out16( 22, template.anim_offset, 2);
+        out16( 26, template.anim_pos, 2);
+        out16( 30, template.anim_size, 2);
 
-        out8(  30, template.light_pos, 3);
-        out8(  33, template.light_color, 3);
-        out16( 36, template.light_radius);
+        out8(  34, template.light_pos, 3);
+        out8(  37, template.light_color, 3);
+        out16( 40, template.light_radius);
     }
+};
+
+Renderer.prototype.loadModels = function(verts) {
+    console.assert(SIZEOF.ModelVertex == 6);
+    var view = this._asm.modelVertexView();
+    view.set(verts);
 };
 
 Renderer.prototype.addStructure = function(now, id, x, y, z, template) {

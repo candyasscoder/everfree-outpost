@@ -291,7 +291,7 @@ function loadAssets(next) {
 
             ExtraDefs.init(assets['extra_defs']);
 
-            renderer.initData(BlockDef.by_id, TemplateDef.by_id);
+            renderer.initData(BlockDef.by_id, TemplateDef.by_id, assets['model_defs']);
 
             var css = '.item-icon {' +
                 'background-image: url("' + assets['items'] + '");' +
