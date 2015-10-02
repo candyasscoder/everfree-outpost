@@ -40,8 +40,8 @@ def init():
             .recipe('anvil', {'wood': 20})
 
     mk_model('cabinet',
-            models.quad_y(29,  0, 32,  0, 59) +
-            models.quad_z(59,  0, 32, 19, 29))
+            models.quad_y(29,  0, 32,  0, 60) +
+            models.quad_z(60,  0, 32, 20, 29))
     s.merge(mk_solid_structure('cabinets', image, (1, 1, 2), (4, 0),
             model='cabinet', layer=2))
     mk_structure_item(s['cabinets'], 'cabinets', 'Cabinets', (0, 1)) \

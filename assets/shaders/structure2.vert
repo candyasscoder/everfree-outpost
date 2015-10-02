@@ -46,7 +46,7 @@ void main(void) {
 
     vec2 pixelPos = vec2(pos.x, pos.y - pos.z);
 
-    float adjZ = blockPos.z / 1024.0 + 1.0 / 2048.0;
+    float adjZ = blockPos.z / 16.0 + 1.0 / 32.0;
     float depth = pos.z + adjZ;
 
     vec2 normPos = (pixelPos - cameraPos) / cameraSize;

@@ -46,7 +46,7 @@ void main(void) {
 
     // Tiebreaker: adjust based on posZ so that the bottom of an upper block
     // appears above the top of a lower one.
-    float adjZ = posZ / 1024.0;
+    float adjZ = posZ / 16.0;
     float depth = posZ * TILE_SIZE + adjZ;
 
     vec2 normPos = (pixelPos - cameraPos) / cameraSize;
