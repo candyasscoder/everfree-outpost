@@ -46,12 +46,7 @@ void main(void) {
 
     vec2 pixelPos = vec2(pos.x, pos.y - pos.z);
 
-    // Structures are always rendered vertically, so apply an adjustment to
-    // each fragment depth.
-    float axisAdj = -0.5;
-    // Further adjust Z based on the structure's layer.
-    float layerAdj = layer + 1.0;
-    float adjZ = axisAdj / 512.0 + layerAdj / 16384.0;
+    float adjZ = blockPos.z / 1024.0 + 1.0 / 2048.0;
     float depth = pos.z + adjZ;
 
     vec2 normPos = (pixelPos - cameraPos) / cameraSize;
