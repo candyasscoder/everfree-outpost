@@ -20,8 +20,6 @@ def assign_offsets(models):
     return dict((m.name, (m.offset, m.length)) for m in models)
 
 def build_client_json(models):
-    arr = []
-    for m in models:
-        print(m.name)
-        arr.extend(m.verts)
+    # Flatten out all coordinates of all vertices into one long list.
+    arr = [x for m in models for v in m.verts for x in v]
     return arr
