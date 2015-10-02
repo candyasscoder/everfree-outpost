@@ -4,7 +4,7 @@ import os
 
 
 from . import builder, builder2, files, loader, util
-from . import structure, tile, block, item, recipe, animation, attachment, extra
+from . import structure, tile, block, item, recipe, animation, attachment, model, extra
 
 
 IdMaps = namedtuple('IdMaps', (
@@ -16,6 +16,7 @@ IdMaps = namedtuple('IdMaps', (
     'animations',
     'attach_slots',
     'attachments_by_slot',
+    'models',
 ))
 
 def copy_builder2_to_builder(b):
@@ -36,8 +37,10 @@ def postprocess(b):
         util.assign_ids(b.animations),
         util.assign_ids(b.attach_slots),
         dict((s.name, util.assign_ids(s.variants, {'none'})) for s in b.attach_slots),
+        model.assign_offsets(b.models),
     )
 
+    structure.resolve_model_offsets(b.structures, id_maps.models)
     block.resolve_tile_ids(b.blocks, id_maps.tiles)
     recipe.resolve_item_ids(b.recipes, id_maps.items)
     recipe.resolve_structure_ids(b.recipes, id_maps.structures)
@@ -54,16 +57,14 @@ def emit_structures(output_dir, structures):
 
     sheet_names = set()
     sheets = structure.build_sheets(structures)
-    for i, (image, depthmap) in enumerate(sheets):
-        sheet_names.update(('structures%d' % i, 'structdepth%d' % i))
+    for i, image in enumerate(sheets):
+        sheet_names.update(('structures%d' % i,))
         image.save(os.path.join(output_dir, 'structures%d.png' % i))
-        depthmap.save(os.path.join(output_dir, 'structdepth%d.png' % i))
 
     anim_sheets = structure.build_anim_sheets(structures)
-    for i, (image, depthmap) in enumerate(anim_sheets):
-        sheet_names.update(('staticanim%d' % i, 'staticanimdepth%d' % i))
+    for i, image in enumerate(anim_sheets):
+        sheet_names.update(('staticanim%d' % i,))
         image.save(os.path.join(output_dir, 'staticanim%d.png' % i))
-        depthmap.save(os.path.join(output_dir, 'staticanimdepth%d.png' % i))
 
     write_json(output_dir, 'structures_server.json',
             structure.build_server_json(structures))
@@ -130,6 +131,10 @@ def emit_attach_slots(output_dir, attach_slots):
     write_json(output_dir, 'attach_slots_client.json',
             attachment.build_client_json(attach_slots))
 
+def emit_models(output_dir, models):
+    write_json(output_dir, 'models_client.json',
+            model.build_client_json(models))
+
 def emit_extras(output_dir, extras):
     write_json(output_dir, 'extras_client.json',
             extra.build_client_json(extras))
@@ -147,12 +152,13 @@ def generate(output_dir):
     emit_animations(output_dir, b.animations)
     emit_sprites(output_dir, b.sprites)
     emit_attach_slots(output_dir, b.attach_slots)
+    emit_models(output_dir, b.models)
     emit_extras(output_dir, b.extras)
 
     print('%d structures, %d tiles, %d blocks, %d items, %d recipes' %
             (len(b.structures), len(b.tiles), len(b.blocks), len(b.items), len(b.recipes)))
-    print('%d animations, %d sprites, %d attach_slots, %d extras' %
-            (len(b.animations), len(b.sprites), len(b.attach_slots), len(b.extras)))
+    print('%d animations, %d sprites, %d attach_slots, %d models, %d extras' %
+            (len(b.animations), len(b.sprites), len(b.attach_slots), len(b.models), len(b.extras)))
 
     with open(os.path.join(output_dir, 'stamp'), 'w') as f:
         pass

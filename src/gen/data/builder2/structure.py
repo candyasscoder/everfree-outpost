@@ -9,7 +9,7 @@ DEFAULT_SHAPE = solid(1, 1, 1)
 class StructurePrototype(PrototypeBase):
     KIND = 'structure'
     FIELDS = (
-            'image', 'depthmap', 'shape', 'layer',
+            'image', 'model', 'shape', 'layer',
             'light_offset', 'light_color', 'light_radius',
             'anim_frames', 'anim_framerate', 'anim_oneshot',
             )
@@ -26,11 +26,11 @@ class StructurePrototype(PrototypeBase):
 
             img = StaticAnimDef(self.anim_frames, self.anim_framerate, self.anim_oneshot)
 
-        depthmap = raw_image(self.require('depthmap'))
+        model = self.require('model')
         shape = self.require('shape', DEFAULT_SHAPE)
         layer = self.require('layer', 0)
 
-        s = StructureDef(self.name, img, depthmap, shape, layer)
+        s = StructureDef(self.name, img, model, shape, layer)
 
         pos, color, radius = self.check_group(
                 ('light_offset', 'light_color', 'light_radius'))
@@ -51,7 +51,7 @@ class StructureBuilder(BuilderBase):
     PROTO_CLASS = StructurePrototype
 
     image = dict_modifier('image')
-    depthmap = dict_modifier('depthmap')
+    model = dict_modifier('model')
     shape = dict_modifier('shape')
     layer = dict_modifier('layer')
 

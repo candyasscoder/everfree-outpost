@@ -1,5 +1,4 @@
 from ..core.builder import *
-from ..core import depthmap
 from ..core.images import loader
 from ..core.structure import Shape
 from ..core.util import extract

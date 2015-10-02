@@ -1,7 +1,7 @@
 [structure road]
 multi_names: `TERRAIN_PARTS2.keys()`
 image: `load("structures/road.png").chop(TERRAIN_PARTS2, unit=TILE_SIZE)`
-depthmap: `flat_depthmap(1, 1)`
+model: `models.bottom(1, 1)`
 shape: floor(1, 1, 1)
 layer: 0
 
@@ -17,7 +17,7 @@ input: 5 stone
 
 [structure anvil]
 image: "structures/anvil.png"
-depthmap: `solid_depthmap(1, 0, 1)`
+model: `models.front(1, 1, 1)`
 shape: solid(1, 1, 1)
 layer: 1
 
@@ -34,7 +34,7 @@ input: 10 stone
 
 [structure chest]
 image: "structures/chest.png"
-depthmap: `solid_depthmap(1, 0, 1)`
+model: `models.front(1, 1, 1)`
 shape: solid(1, 1, 1)
 layer: 1
 
@@ -50,7 +50,7 @@ input: 20 wood
 
 [structure barrel]
 image: "structures/barrel.png"
-depthmap: `solid_depthmap(1, 1, 1)`
+model: `models.solid(1, 1, 1)`
 shape: solid(1, 1, 1)
 layer: 1
 
