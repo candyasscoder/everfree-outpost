@@ -874,17 +874,10 @@ function handleStructureGone(id, time) {
 
 function handleStructureReplace(id, template_id) {
     if (structures[id] != null) {
-        var s = structures[id];
-        physics.removeStructure(s);
-        renderer.removeStructure(s);
-
-        var template = TemplateDef.by_id[template_id];
-        s.template = template;
-
         var now = timing.visibleNow();
-        var pos = s.pos.mulScalar(TILE_SIZE);
-        physics.addStructure(s);
-        s.render_index = renderer.addStructure(now, id, pos.x, pos.y, pos.z, template);
+        var pos = structures[id].pos.mulScalar(TILE_SIZE);
+        handleStructureGone(id, now);
+        handleStructureAppear(id, template_id, pos.x, pos.y, pos.z);
     }
 }
 
