@@ -485,7 +485,9 @@ AsmGraphics.prototype.structureAnimGeomInit = function() {
             this.STRUCTURE_ANIM_GEOM_GEN,
             this.STRUCTURE_BUFFER,
             this.TEMPLATE_DATA,
-            this.template_data_bytes);
+            this.template_data_bytes,
+            this.MODEL_DATA,
+            this.model_vertex_bytes);
 };
 
 AsmGraphics.prototype.structureAnimGeomReset = function(cx0, cy0, cx1, cy1, sheet) {

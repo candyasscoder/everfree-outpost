@@ -19,6 +19,10 @@ uniform float sliceZ;
 
 varying vec2 texCoord;
 varying float baseZ;
+#ifdef OUTPOST_ANIM
+varying vec2 renderMin;
+varying vec2 renderMax;
+#endif
 
 void main(void) {
     if (sliceRadius > 0.0 && baseZ >= sliceZ) {
@@ -27,6 +31,13 @@ void main(void) {
             discard;
         }
     }
+
+#ifdef OUTPOST_ANIM
+    if (texCoord.x < renderMin.x || texCoord.x >= renderMax.x || 
+            texCoord.y < renderMin.y || texCoord.y >= renderMax.y) {
+        discard;
+    }
+#endif
 
     vec4 color = texture2D(sheetTex, texCoord);
 #ifndef OUTPOST_SHADOW

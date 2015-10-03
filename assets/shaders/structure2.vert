@@ -16,15 +16,20 @@ attribute vec3 blockPos;
 attribute float layer;
 attribute vec2 displayOffset;
 #ifdef OUTPOST_ANIM
-// TODO
-attribute vec2 animPos;
 attribute float animLength;
 attribute float animRate;
 attribute float animOneshotStart;
+attribute float animStep;
+attribute vec2 animBoxMin;
+attribute vec2 animBoxSize;
 #endif
 
 varying vec2 texCoord;
 varying float baseZ;
+#ifdef OUTPOST_ANIM
+varying vec2 renderMin;
+varying vec2 renderMax;
+#endif
 
 void main(void) {
     vec3 pos = blockPos * TILE_SIZE + vertOffset;
@@ -37,12 +42,6 @@ void main(void) {
     if (blockPos.y * TILE_SIZE < cameraPos.y - CHUNK_SIZE * TILE_SIZE) {
         pos.y += LOCAL_SIZE * CHUNK_SIZE * TILE_SIZE;
     }
-
-#ifdef OUTPOST_ANIM
-    // TODO
-    pos.x += animPos.x;
-    pos.z += animPos.y;
-#endif
 
     vec2 pixelPos = vec2(pos.x, pos.y - pos.z);
 
@@ -58,7 +57,6 @@ void main(void) {
     //vec2 texPx = displayOffset + displaySize * corner;
     vec2 texPx = displayOffset + vec2(vertOffset.x, vertOffset.y - vertOffset.z);
 #ifdef OUTPOST_ANIM
-    // TODO
     float frame;
     if (animLength >= 0.0) {
         frame = mod(floor(now * animRate), animLength);
@@ -71,7 +69,11 @@ void main(void) {
         frame = clamp(floor(delta / 1000.0 * animRate), 0.0, -animLength - 1.0);
     }
 
-    //texPx.x += frame * displaySize.x;
+    vec2 frameStep = vec2(frame * animBoxSize.x, 0);
+    texPx.x += frameStep.x;
+
+    renderMin = (animBoxMin + frameStep) / (ATLAS_SIZE * TILE_SIZE);
+    renderMax = (animBoxMin + animBoxSize + frameStep) / (ATLAS_SIZE * TILE_SIZE);
 #endif
     texCoord = texPx / (ATLAS_SIZE * TILE_SIZE);
     baseZ = blockPos.z;

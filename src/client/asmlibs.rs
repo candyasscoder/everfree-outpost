@@ -320,9 +320,12 @@ pub unsafe extern fn structure_base_geom_generate(geom: &mut structures::base::G
 pub unsafe extern fn structure_anim_geom_init(geom: &mut structures::anim::GeomGen<'static>,
                                               buffer: &'static structures::Buffer<'static>,
                                               templates_ptr: *const gfx_types::StructureTemplate,
-                                              templates_byte_len: usize) {
+                                              templates_byte_len: usize,
+                                              model_verts_ptr: *const gfx_types::ModelVertex,
+                                              model_verts_byte_len: usize) {
     let templates = make_slice(templates_ptr, templates_byte_len);
-    geom.init(buffer, templates);
+    let model_verts = make_slice(model_verts_ptr, model_verts_byte_len);
+    geom.init(buffer, templates, model_verts);
 }
 
 #[export_name = "structure_anim_geom_reset"]

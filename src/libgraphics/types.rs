@@ -64,8 +64,8 @@ pub struct StructureTemplate {
     pub anim_length: i8,
     pub anim_rate: u8,
     pub _pad1: u8,
-    pub anim_offset: (u16, u16),
-    pub anim_pos: (u16, u16),
+    pub anim_offset: (u16, u16),    // offset of first frame within sheet
+    pub anim_pos: (u16, u16),       // offset of output relative to static part
     pub anim_size: (u16, u16),
 
     // 34
