@@ -1,0 +1,5 @@
+[structure cornucopia]
+image: "structures/food_bag.png"
+model: `models.front(1, 1, 1)`
+shape: solid(1, 1, 1)
+layer: 1
