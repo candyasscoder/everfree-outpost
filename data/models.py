@@ -2,8 +2,22 @@ from outpost_data.core.builder import mk_model
 from outpost_data.outpost.lib import models
 
 def init():
-    mk_model('tree', models.verts_solid(4, 2, 4))
-    mk_model('stump', models.verts_solid(4, 2, 1))
+    mk_model('tree',
+            models.quad_z(0, 0, 128, 0, 64) +
+            models.quad((32, 32,   0), (64, 64,   0),
+                        (64, 64, 128), (32, 32, 128)) +
+            models.quad((64, 64,   0), (96, 32,   0),
+                        (96, 32, 128), (64, 64, 128)) +
+            models.quad((32, 32, 128), (64, 64, 128),
+                        (96, 32, 128), (64,  0, 128)))
+    mk_model('stump',
+            models.quad_z(0, 0, 128, 0, 64) +
+            models.quad((32, 32,   0), (64, 64,   0),
+                        (64, 64,  32), (32, 32,  32)) +
+            models.quad((64, 64,   0), (96, 32,   0),
+                        (96, 32,  32), (64, 64,  32)) +
+            models.quad((32, 32,  32), (64, 64,  32),
+                        (96, 32,  32), (64,  0,  32)))
 
     def front(l, r, t, b):
         # Note: `t` is ignored
