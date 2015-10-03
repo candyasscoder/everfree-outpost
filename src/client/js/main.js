@@ -160,15 +160,11 @@ function init() {
 
     canvas = new AnimCanvas(frame, 'webgl', [
             'WEBGL_depth_texture',
-            'EXT_frag_depth',
             'WEBGL_draw_buffers',
     ]);
 
     if (!glutil.hasExtension(canvas.ctx, 'WEBGL_depth_texture')) {
         throw 'missing extension: WEBGL_depth_texture';
-    }
-    if (!glutil.hasExtension(canvas.ctx, 'EXT_frag_depth')) {
-        throw 'missing extension: EXT_frag_depth';
     }
     if (!glutil.hasExtension(canvas.ctx, 'WEBGL_draw_buffers')) {
         console.warn('missing optional extension: WEBGL_draw_buffers - ' +
