@@ -95,6 +95,7 @@ pub enum ClientResponse {
 
     StructureAppear(StructureId, TemplateId, V3),
     StructureGone(StructureId),
+    StructureReplace(StructureId, TemplateId),
 
     //InventoryAppear(InventoryId, Vec<(ItemId, u8)>),
     InventoryUpdate(InventoryId, Vec<(ItemId, u8, u8)>),
@@ -418,6 +419,10 @@ impl Messages {
 
             ClientResponse::StructureGone(sid) => {
                 self.send_raw(wire_id, Response::StructureGone(sid));
+            },
+
+            ClientResponse::StructureReplace(sid, template_id) => {
+                self.send_raw(wire_id, Response::StructureReplace(sid, template_id));
             },
 
 

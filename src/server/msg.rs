@@ -89,6 +89,7 @@ mod op {
         GetUseItemArgs = 0x8015,
         GetUseAbilityArgs = 0x8016,
         SyncStatus = 0x8017,
+        StructureReplace = 0x8018,
 
         // Deprecated responses
         PlayerMotion = 0x8002,
@@ -273,6 +274,7 @@ pub enum Response {
     GetUseItemArgs(ItemId, u32, ExtraArg),
     GetUseAbilityArgs(ItemId, u32, ExtraArg),
     SyncStatus(u8),
+    StructureReplace(StructureId, TemplateId),
 
     ClientRemoved(WireId),
     ReplResult(u16, String),
@@ -327,6 +329,8 @@ impl Response {
                 ww.write_msg(id, (op::GetUseAbilityArgs, item_id, dialog_id, args)),
             SyncStatus(kind) =>
                 ww.write_msg(id, (op::SyncStatus, kind)),
+            StructureReplace(sid, template_id) =>
+                ww.write_msg(id, (op::StructureReplace, sid, template_id)),
 
             ClientRemoved(wire_id) =>
                 ww.write_msg(id, (op::ClientRemoved, wire_id)),

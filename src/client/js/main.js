@@ -337,6 +337,7 @@ function openConn(info, next) {
     conn.onGetUseItemArgs = handleGetUseItemArgs;
     conn.onGetUseAbilityArgs = handleGetUseAbilityArgs;
     conn.onSyncStatus = handleSyncStatus;
+    conn.onStructureReplace = handleStructureReplace;
 }
 
 function maybeRegister(info, next) {
@@ -864,6 +865,7 @@ function handleStructureAppear(id, template_id, x, y, z) {
 }
 
 function handleStructureGone(id, time) {
+    // TODO: pay attention to the time
     if (structures[id] != null) {
         physics.removeStructure(structures[id]);
 
@@ -872,6 +874,22 @@ function handleStructureGone(id, time) {
         structures[new_id].render_index = structures[id].render_index;
     }
     delete structures[id];
+}
+
+function handleStructureReplace(id, template_id) {
+    if (structures[id] != null) {
+        var s = structures[id];
+        physics.removeStructure(s);
+        renderer.removeStructure(s);
+
+        var template = TemplateDef.by_id[template_id];
+        s.template = template;
+
+        var now = timing.visibleNow();
+        var pos = s.pos.mulScalar(TILE_SIZE);
+        physics.addStructure(s);
+        s.render_index = renderer.addStructure(now, id, pos.x, pos.y, pos.z, template);
+    }
 }
 
 function handleMainInventory(iid) {

@@ -98,6 +98,7 @@ pub trait Hooks {
 
     fn on_structure_appear(&mut self, cid: ClientId, sid: StructureId) {}
     fn on_structure_disappear(&mut self, cid: ClientId, sid: StructureId) {}
+    fn on_structure_template_change(&mut self, cid: ClientId, sid: StructureId) {}
 
     fn on_inventory_appear(&mut self, cid: ClientId, iid: InventoryId) {}
     fn on_inventory_disappear(&mut self, cid: ClientId, iid: InventoryId) {}
@@ -407,47 +408,75 @@ impl Vision {
                             area: SmallSet<V2>,
                             h: &mut H)
             where H: Hooks {
+        trace!("{:?} created", sid);
         self.structures.insert(sid.unwrap() as usize, Structure::new());
-        let structure = &mut self.structures[sid.unwrap() as usize];
-
-        // Structures don't move, so we can inline the two halves of the set_x_area logic.
-
-        for &p in area.iter() {
-            let pos = (plane, p);
-            for &cid in self.viewers_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
-                self.viewers[cid.unwrap() as usize].visible_structures.retain(sid, || {
-                    debug!("{:?} moved: ++{:?}", sid, cid);
-                    h.on_structure_appear(cid, sid);
-                    structure.viewers.insert(cid);
-                });
-            }
-            if plane != PLANE_LIMBO {
-                multimap_insert(&mut self.structures_by_pos, pos, sid);
-            }
-        }
-
-        structure.plane = plane;
-        structure.area = area;
+        self.set_structure_area(sid, plane, area, h);
     }
 
     pub fn remove_structure<H>(&mut self,
                                sid: StructureId,
                                h: &mut H)
             where H: Hooks {
-        let structure = self.structures.remove(&(sid.unwrap() as usize)).unwrap();
-        for &p in structure.area.iter() {
-            let pos = (structure.plane, p);
+        trace!("{:?} destroyed", sid);
+        self.set_structure_area(sid, PLANE_LIMBO, SmallSet::new(), h);
+        self.structures.remove(&(sid.unwrap() as usize));
+    }
+
+    pub fn set_structure_area<H>(&mut self,
+                                 sid: StructureId,
+                                 new_plane: PlaneId,
+                                 new_area: SmallSet<V2>,
+                                 h: &mut H)
+            where H: Hooks {
+        let raw_sid = sid.unwrap() as usize;
+        let structure = &mut self.structures[raw_sid];
+
+        let old_plane = mem::replace(&mut structure.plane, new_plane);
+        // SmallSet is non-Copy, so insert a dummy value here and set the real one later.
+        let old_area = mem::replace(&mut structure.area, SmallSet::new());
+        let plane_change = new_plane != old_plane;
+
+        // This ordering of events is okay for the same reason as in set_entity_structure.
+
+        for &p in new_area.iter().filter(|&p| !old_area.contains(p) || plane_change) {
+            let pos = (new_plane, p);
+            for &cid in self.viewers_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
+                self.viewers[cid.unwrap() as usize].visible_structures.retain(sid, || {
+                    trace!("{:?} moved: ++{:?}", sid, cid);
+                    h.on_structure_appear(cid, sid);
+                    structure.viewers.insert(cid);
+                });
+            }
+            if new_plane != PLANE_LIMBO {
+                multimap_insert(&mut self.structures_by_pos, pos, sid);
+            }
+        }
+
+        for &p in old_area.iter().filter(|&p| !new_area.contains(p) || plane_change) {
+            let pos = (old_plane, p);
             for &cid in self.viewers_by_pos.get(&pos).map(|x| x.iter()).unwrap_iter() {
                 self.viewers[cid.unwrap() as usize].visible_structures.release(sid, |()| {
-                    debug!("{:?} moved: --{:?}", sid, cid);
+                    trace!("{:?} moved: --{:?}", sid, cid);
                     h.on_structure_disappear(cid, sid);
+                    structure.viewers.remove(&cid);
                 });
             }
             multimap_remove(&mut self.structures_by_pos, pos, sid);
         }
+
+        structure.area = new_area;
     }
 
-    // TODO: handle structure template changes
+    pub fn change_structure_template<H>(&mut self,
+                                        sid: StructureId,
+                                        h: &mut H)
+            where H: Hooks {
+        let structure = self.structures.get(&(sid.unwrap() as usize)).unwrap();
+        for &cid in structure.viewers.iter() {
+            trace!("{:?} changed: **{:?}", sid, cid);
+            h.on_structure_template_change(cid, sid);
+        }
+    }
 
 
     pub fn subscribe_inventory<H>(&mut self,
@@ -570,6 +599,8 @@ gen_Fragment! {
 
     fn add_structure(sid: StructureId, plane: PlaneId, area: SmallSet<V2>);
     fn remove_structure(sid: StructureId);
+    fn set_structure_area(sid: StructureId, new_plane: PlaneId, new_area: SmallSet<V2>);
+    fn change_structure_template(sid: StructureId);
 
     fn subscribe_inventory(cid: ClientId, iid: InventoryId);
     fn unsubscribe_inventory(cid: ClientId, iid: InventoryId);

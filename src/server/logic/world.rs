@@ -17,8 +17,7 @@ use vision::{self, vision_region};
 
 
 macro_rules! impl_world_Hooks {
-    ($WorldHooks:ident, $as_vision_fragment:ident,
-     $old_structure:ident, $new_structure:ident) => {
+    ($WorldHooks:ident, $as_vision_fragment:ident) => {
 
 impl<'a, 'd> world::Hooks for $WorldHooks<'a, 'd> {
     // We should never get client callbacks in the HiddenWorldHooks variant.
@@ -116,14 +115,28 @@ impl<'a, 'd> world::Hooks for $WorldHooks<'a, 'd> {
 
 
     fn on_structure_create(&mut self, sid: StructureId) {
-        $new_structure(self, sid);
+        let (pid, area) = {
+            let s = self.world().structure(sid);
+            (s.plane_id(), structure_area(s))
+        };
+        vision::Fragment::add_structure(&mut self.$as_vision_fragment(), sid, pid, area);
+
+        let Open { world, cache, .. } = (**self).open();
+        let s = world.structure(sid);
+        cache.update_region(world, pid, s.bounds());
     }
 
     fn on_structure_destroy(&mut self,
                             sid: StructureId,
-                            pid: PlaneId,
+                            old_pid: PlaneId,
                             old_bounds: Region) {
-        $old_structure(self, sid, pid, old_bounds);
+        vision::Fragment::remove_structure(&mut self.$as_vision_fragment(), sid);
+
+        {
+            let Open { world, cache, .. } = (**self).open();
+            cache.update_region(world, old_pid, old_bounds);
+        }
+
         self.script_mut().cb_structure_destroyed(sid);
     }
 
@@ -131,8 +144,21 @@ impl<'a, 'd> world::Hooks for $WorldHooks<'a, 'd> {
                             sid: StructureId,
                             pid: PlaneId,
                             old_bounds: Region) {
-        $old_structure(self, sid, pid, old_bounds);
-        $new_structure(self, sid);
+        {
+            let Open { world, cache, .. } = (**self).open();
+            cache.update_region(world, pid, old_bounds);
+        }
+
+        let (pid, area) = {
+            let s = self.world().structure(sid);
+            (s.plane_id(), structure_area(s))
+        };
+        vision::Fragment::set_structure_area(&mut self.$as_vision_fragment(), sid, pid, area);
+        vision::Fragment::change_structure_template(&mut self.$as_vision_fragment(), sid);
+
+        let Open { world, cache, .. } = (**self).open();
+        let s = world.structure(sid);
+        cache.update_region(world, pid, old_bounds.join(s.bounds()));
     }
 
     fn check_structure_placement(&self,
@@ -248,38 +274,13 @@ impl<'a, 'd> $WorldHooks<'a, 'd> {
     }
 }
 
-fn $new_structure(wh: &mut $WorldHooks,
-                  sid: StructureId) {
-    let (pid, area) = {
-        let s = wh.world().structure(sid);
-        (s.plane_id(), structure_area(s))
-    };
-    vision::Fragment::add_structure(&mut wh.$as_vision_fragment(), sid, pid, area);
-
-    let Open { world, cache, .. } = (**wh).open();
-    let s = world.structure(sid);
-    cache.update_region(world, pid, s.bounds());
-}
-
-fn $old_structure(wh: &mut $WorldHooks,
-                  sid: StructureId,
-                  old_pid: PlaneId,
-                  old_bounds: Region) {
-    vision::Fragment::remove_structure(&mut wh.$as_vision_fragment(), sid);
-
-    let Open { world, cache, .. } = (**wh).open();
-    cache.update_region(world, old_pid, old_bounds);
-}
-
 // End of macro_rules
     };
 }
 
 
-impl_world_Hooks!(WorldHooks, as_vision_fragment,
-                  old_structure, new_structure);
-impl_world_Hooks!(HiddenWorldHooks, as_hidden_vision_fragment,
-                  old_structure_hidden, new_structure_hidden);
+impl_world_Hooks!(WorldHooks, as_vision_fragment);
+impl_world_Hooks!(HiddenWorldHooks, as_hidden_vision_fragment);
 
 
 pub fn entity_area(e: ObjectRef<Entity>) -> SmallSet<V2> {

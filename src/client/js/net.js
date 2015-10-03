@@ -43,6 +43,7 @@ var OP_GET_INTERACT_ARGS =      0x8014;
 var OP_GET_USE_ITEM_ARGS =      0x8015;
 var OP_GET_USE_ABILITY_ARGS =   0x8016;
 var OP_SYNC_STATUS =            0x8017;
+var OP_STRUCTURE_REPLACE =      0x8018;
 
 exports.SYNC_LOADING = 0;
 exports.SYNC_OK = 1;
@@ -85,6 +86,7 @@ function Connection(url) {
     this.onGetUseItemArgs = null;
     this.onGetUseAbilityArgs = null;
     this.onSyncStatus = null;
+    this.onStructureReplace = null;
 }
 exports.Connection = Connection;
 
@@ -385,6 +387,14 @@ Connection.prototype._handleMessage = function(evt) {
             if (this.onSyncStatus != null) {
                 var synced = get8();
                 this.onSyncStatus(synced);
+            }
+            break;
+
+        case OP_STRUCTURE_REPLACE:
+            if (this.onStructureReplace != null) {
+                var structure_id = get32();
+                var template_id = get32();
+                this.onStructureReplace(structure_id, template_id);
             }
             break;
 
