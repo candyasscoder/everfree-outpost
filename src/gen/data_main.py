@@ -44,8 +44,12 @@ def attach_to_package(name):
 def load_from_path(name, path):
     """Import a module (`name`) from a source file (`path`)."""
     if name not in sys.modules:
-        loader = importlib.machinery.SourceFileLoader(name, path)
-        loader.load_module()
+        if path.endswith('.od'):
+            loader = ScriptLoader(name, path)
+            loader.load_module(name)
+        else:
+            loader = importlib.machinery.SourceFileLoader(name, path)
+            loader.load_module()
         attach_to_package(name)
     return sys.modules[name]
 
@@ -68,51 +72,48 @@ def load_fake_package(name, path, **kwargs):
         attach_to_package(name)
     return sys.modules[name]
 
-def add_script_import_hooks():
-    import outpost_data.core.script
-    import outpost_data.core.util
-    compiler = outpost_data.core.script.Compiler()
+class ScriptLoader(importlib.abc.Loader):
+    def __init__(self, fullname, origin):
+        self.fullname = fullname
+        self.origin = origin
 
-    class ScriptLoader(importlib.abc.Loader):
-        def __init__(self, fullname, origin):
-            self.fullname = fullname
-            self.origin = origin
+    @importlib.util.module_for_loader
+    def load_module(self, mod):
+        package, _, basename = self.fullname.rpartition('.')
 
-        @importlib.util.module_for_loader
-        def load_module(self, mod):
-            package, _, basename = self.fullname.rpartition('.')
+        mod.__name__ = self.fullname
+        mod.__file__ = self.origin
+        mod.__package__ = package
+        mod.__loader__ = self
 
-            mod.__name__ = self.fullname
-            mod.__file__ = self.origin
-            mod.__package__ = package
-            mod.__loader__ = self
+        try:
+            import outpost_data.core.script
+            compiler = outpost_data.core.script.Compiler()
 
-            try:
-                with open(self.origin) as f:
-                    script = outpost_data.core.script.parse_script(f.read(), self.origin)
-                if script == None:
-                    raise ValueError('error parsing script %r' % self.origin)
-                code = compiler.compile_module(script, self.origin)
-                exec(code, mod.__dict__)
-            except Exception as e:
-                import traceback
-                traceback.print_exc()
-                raise
+            with open(self.origin) as f:
+                script = outpost_data.core.script.parse_script(f.read(), self.origin)
+            if script == None:
+                raise ValueError('error parsing script %r' % self.origin)
+            code = compiler.compile_module(script, self.origin)
+            exec(code, mod.__dict__)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise
 
-    class ScriptFinder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
-        def find_module(fullname, path):
-            if path is None:
-                return None
-
-            package, _, basename = fullname.rpartition('.')
-            filename = basename + '.od'
-            for d in path:
-                file_path = os.path.join(d, filename)
-                if os.path.exists(file_path):
-                    return ScriptLoader(fullname, file_path)
+class ScriptFinder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+    def find_module(fullname, path):
+        if path is None:
             return None
 
-    sys.meta_path.append(ScriptFinder)
+        package, _, basename = fullname.rpartition('.')
+        filename = basename + '.od'
+        for d in path:
+            file_path = os.path.join(d, filename)
+            if os.path.exists(file_path):
+                return ScriptLoader(fullname, file_path)
+        return None
+
 
 DEPENDENCIES = set()
 
@@ -172,7 +173,8 @@ def main(args):
     sys.modules['outpost_data.core.loader'] = sys.modules[__name__]
     attach_to_package('outpost_data.core.loader')
 
-    add_script_import_hooks()
+    # Register `ScriptFinder` for loading .od modules.
+    sys.meta_path.append(ScriptFinder)
 
 
     from outpost_data.core import files
