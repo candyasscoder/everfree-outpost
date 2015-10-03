@@ -105,7 +105,7 @@ def _build_field_map():
     fm['structure'] = dict(
             multi_names = MultiNameField,
             image = ImageField,
-            depthmap = ImageField,
+            model = StringField,
             shape = ShapeField,
             layer = IntField,
             )

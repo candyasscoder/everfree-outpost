@@ -3,7 +3,6 @@ precision highp float;
 const float TILE_SIZE = 32.0;
 const float CHUNK_SIZE = 16.0;
 
-#extension GL_EXT_frag_depth : enable
 #extension GL_EXT_draw_buffers : enable
 
 #ifdef GL_EXT_draw_buffers
@@ -20,6 +19,10 @@ uniform float sliceZ;
 
 varying vec2 texCoord;
 varying float baseZ;
+#ifdef OUTPOST_ANIM
+varying vec2 renderMin;
+varying vec2 renderMax;
+#endif
 
 void main(void) {
     if (sliceRadius > 0.0 && baseZ >= sliceZ) {
@@ -28,6 +31,13 @@ void main(void) {
             discard;
         }
     }
+
+#ifdef OUTPOST_ANIM
+    if (texCoord.x < renderMin.x || texCoord.x >= renderMax.x || 
+            texCoord.y < renderMin.y || texCoord.y >= renderMax.y) {
+        discard;
+    }
+#endif
 
     vec4 color = texture2D(sheetTex, texCoord);
 #ifndef OUTPOST_SHADOW
@@ -47,9 +57,4 @@ void main(void) {
         emit(0, color);
     }
 #endif
-
-    // gl_FragCoord.z steps by 1/512, while color values step by 1/255.  Note
-    // that gl_FragCoord varies in the range 0..1, not -1..+1
-    gl_FragDepthEXT = gl_FragCoord.z -
-        (255.0 / (CHUNK_SIZE * TILE_SIZE)) * texture2D(depthTex, texCoord).r;
 }

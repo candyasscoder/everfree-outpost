@@ -11,49 +11,42 @@ uniform vec2 cameraSize;
 uniform float now;  // Seconds
 #endif
 
-attribute vec2 corner;
+attribute vec3 vertOffset;
 attribute vec3 blockPos;
 attribute float layer;
 attribute vec2 displayOffset;
-attribute vec2 displaySize;
 #ifdef OUTPOST_ANIM
-attribute vec2 animPos;
 attribute float animLength;
 attribute float animRate;
 attribute float animOneshotStart;
+attribute float animStep;
+attribute vec2 animBoxMin;
+attribute vec2 animBoxSize;
 #endif
 
 varying vec2 texCoord;
 varying float baseZ;
+#ifdef OUTPOST_ANIM
+varying vec2 renderMin;
+varying vec2 renderMax;
+#endif
 
 void main(void) {
-    float posX = blockPos.x * TILE_SIZE + corner.x * displaySize.x;
-    float posY = blockPos.y * TILE_SIZE;
-    float posZ = blockPos.z * TILE_SIZE + (1.0 - corner.y) * displaySize.y;
+    vec3 pos = blockPos * TILE_SIZE + vertOffset;
 
     // If it's too far left/up from the camera, wrap around.
     if (blockPos.x * TILE_SIZE < cameraPos.x - CHUNK_SIZE * TILE_SIZE) {
-        // Remember, posX is measured in *blocks*.
-        posX += LOCAL_SIZE * CHUNK_SIZE * TILE_SIZE;
+        // Remember, pos.x is measured in *blocks*.
+        pos.x += LOCAL_SIZE * CHUNK_SIZE * TILE_SIZE;
     }
     if (blockPos.y * TILE_SIZE < cameraPos.y - CHUNK_SIZE * TILE_SIZE) {
-        posY += LOCAL_SIZE * CHUNK_SIZE * TILE_SIZE;
+        pos.y += LOCAL_SIZE * CHUNK_SIZE * TILE_SIZE;
     }
 
-#ifdef OUTPOST_ANIM
-    posX += animPos.x;
-    posZ += animPos.y;
-#endif
+    vec2 pixelPos = vec2(pos.x, pos.y - pos.z);
 
-    vec2 pixelPos = vec2(posX, posY - posZ);
-
-    // Structures are always rendered vertically, so apply an adjustment to
-    // each fragment depth.
-    float axisAdj = -0.5;
-    // Further adjust Z based on the structure's layer.
-    float layerAdj = layer + 1.0;
-    float adjZ = axisAdj / 512.0 + layerAdj / 16384.0;
-    float depth = posZ + adjZ;
+    float adjZ = blockPos.z / 16.0 + 1.0 / 32.0;
+    float depth = pos.z + adjZ;
 
     vec2 normPos = (pixelPos - cameraPos) / cameraSize;
     float normDepth = depth / (CHUNK_SIZE * TILE_SIZE);
@@ -61,7 +54,8 @@ void main(void) {
     glPos.y = -glPos.y;
     gl_Position = vec4(glPos, 1.0);
 
-    vec2 texPx = displayOffset + displaySize * corner;
+    //vec2 texPx = displayOffset + displaySize * corner;
+    vec2 texPx = displayOffset + vec2(vertOffset.x, vertOffset.y - vertOffset.z);
 #ifdef OUTPOST_ANIM
     float frame;
     if (animLength >= 0.0) {
@@ -75,7 +69,11 @@ void main(void) {
         frame = clamp(floor(delta / 1000.0 * animRate), 0.0, -animLength - 1.0);
     }
 
-    texPx.x += frame * displaySize.x;
+    vec2 frameStep = vec2(frame * animBoxSize.x, 0);
+    texPx.x += frameStep.x;
+
+    renderMin = (animBoxMin + frameStep) / (ATLAS_SIZE * TILE_SIZE);
+    renderMax = (animBoxMin + animBoxSize + frameStep) / (ATLAS_SIZE * TILE_SIZE);
 #endif
     texCoord = texPx / (ATLAS_SIZE * TILE_SIZE);
     baseZ = blockPos.z;

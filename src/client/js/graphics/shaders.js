@@ -91,15 +91,13 @@ function makeShaders(shaders, gl, assets, make_texture) {
         .float_('sliceZ');
 
     var structure_attributes = new Attributes(SIZEOF.StructureBaseVertex)
-        .field( 0, gl.UNSIGNED_BYTE,  2, 'corner')
-        .field( 2, gl.UNSIGNED_BYTE,  3, 'blockPos')
-        .field( 5, gl.UNSIGNED_BYTE,  1, 'layer')
-        .field( 8, gl.UNSIGNED_SHORT, 2, 'displaySize')
+        .field( 0, gl.UNSIGNED_SHORT, 3, 'vertOffset')
+        .field( 8, gl.UNSIGNED_BYTE,  3, 'blockPos')
+        .field(11, gl.UNSIGNED_BYTE,  1, 'layer')
         .field(12, gl.UNSIGNED_SHORT, 2, 'displayOffset');
 
     var structure_textures = new Textures()
-        .texture('sheetTex', ctx.makeAssetTexture('structures0'))
-        .texture('depthTex', ctx.makeAssetTexture('structdepth0'));
+        .texture('sheetTex', ctx.makeAssetTexture('structures0'));
 
     shaders.structure = ctx.start('structure2.vert', 'structure2.frag', 2)
         .uniforms(structure_uniforms)
@@ -119,17 +117,17 @@ function makeShaders(shaders, gl, assets, make_texture) {
         .uniforms(structure_uniforms)
         .uniformFloat('now')
         .attributes(new Attributes(SIZEOF.StructureAnimVertex)
-                .field( 0, gl.UNSIGNED_BYTE,  2, 'corner')
-                .field( 2, gl.UNSIGNED_BYTE,  3, 'blockPos')
-                .field( 5, gl.UNSIGNED_BYTE,  1, 'layer')
-                .field( 8, gl.UNSIGNED_SHORT, 2, 'displaySize')
+                .field( 0, gl.UNSIGNED_SHORT, 3, 'vertOffset')
+                .field( 6, gl.BYTE,           1, 'animLength')
+                .field( 7, gl.UNSIGNED_BYTE,  1, 'animRate')
+                .field( 8, gl.UNSIGNED_BYTE,  3, 'blockPos')
+                .field(11, gl.UNSIGNED_BYTE,  1, 'layer')
                 .field(12, gl.UNSIGNED_SHORT, 2, 'displayOffset')
-                .field(16, gl.UNSIGNED_SHORT, 2, 'animPos')
-                .field(20, gl.BYTE,           1, 'animLength')
-                .field(21, gl.UNSIGNED_BYTE,  1, 'animRate')
-                .field(22, gl.UNSIGNED_SHORT, 1, 'animOneshotStart'))
+                .field(16, gl.UNSIGNED_SHORT, 1, 'animOneshotStart')
+                .field(18, gl.UNSIGNED_SHORT, 1, 'animStep')
+                .field(20, gl.UNSIGNED_SHORT, 2, 'animBoxMin')
+                .field(24, gl.UNSIGNED_SHORT, 2, 'animBoxSize'))
         .texture('sheetTex', ctx.makeAssetTexture('staticanim0'))
-        .texture('depthTex', ctx.makeAssetTexture('staticanimdepth0'))
         .finish();
 
 

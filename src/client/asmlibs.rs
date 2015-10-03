@@ -281,9 +281,12 @@ pub extern fn structure_buffer_set_oneshot_start(buf: &mut structures::Buffer,
 pub unsafe extern fn structure_base_geom_init(geom: &mut structures::base::GeomGen<'static>,
                                               buffer: &'static structures::Buffer<'static>,
                                               templates_ptr: *const gfx_types::StructureTemplate,
-                                              templates_byte_len: usize) {
+                                              templates_byte_len: usize,
+                                              model_verts_ptr: *const gfx_types::ModelVertex,
+                                              model_verts_byte_len: usize) {
     let templates = make_slice(templates_ptr, templates_byte_len);
-    geom.init(buffer, templates);
+    let model_verts = make_slice(model_verts_ptr, model_verts_byte_len);
+    geom.init(buffer, templates, model_verts);
 }
 
 #[export_name = "structure_base_geom_reset"]
@@ -317,9 +320,12 @@ pub unsafe extern fn structure_base_geom_generate(geom: &mut structures::base::G
 pub unsafe extern fn structure_anim_geom_init(geom: &mut structures::anim::GeomGen<'static>,
                                               buffer: &'static structures::Buffer<'static>,
                                               templates_ptr: *const gfx_types::StructureTemplate,
-                                              templates_byte_len: usize) {
+                                              templates_byte_len: usize,
+                                              model_verts_ptr: *const gfx_types::ModelVertex,
+                                              model_verts_byte_len: usize) {
     let templates = make_slice(templates_ptr, templates_byte_len);
-    geom.init(buffer, templates);
+    let model_verts = make_slice(model_verts_ptr, model_verts_byte_len);
+    geom.init(buffer, templates, model_verts);
 }
 
 #[export_name = "structure_anim_geom_reset"]
@@ -401,6 +407,7 @@ pub struct Sizes {
     terrain_geom_gen: usize,
 
     structures_template: usize,
+    model_vertex: usize,
     structures_buffer: usize,
     structures_base_vertex: usize,
     structures_base_geom_gen: usize,
@@ -428,6 +435,7 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
     sizes.terrain_geom_gen = size_of::<terrain::GeomGen>();
 
     sizes.structures_template = size_of::<gfx_types::StructureTemplate>();
+    sizes.model_vertex = size_of::<gfx_types::ModelVertex>();
     sizes.structures_buffer = size_of::<structures::Buffer>();
     sizes.structures_base_vertex = size_of::<structures::base::Vertex>();
     sizes.structures_base_geom_gen = size_of::<structures::base::GeomGen>();

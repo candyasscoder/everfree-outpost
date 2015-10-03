@@ -1,11 +1,11 @@
 from ..core.builder import *
 from ..core.images import loader
-from ..core import depthmap
 from ..core.structure import Shape
 from ..core.util import extract
 
 from .lib.structures import *
 from .lib.terrain import *
+from outpost_data.outpost.lib import models
 
 
 def do_tree(image, plane_image):
@@ -30,14 +30,14 @@ def do_tree(image, plane_image):
     b.create(
         'tree',
         image.crop(tree_bounds),
-        depthmap.from_planemap(plane_image.crop(tree_bounds)),
+        'tree',
         tree_shape,
         1)
 
     b.create(
         'stump',
         image.crop(stump_bounds),
-        depthmap.from_planemap(plane_image.crop(stump_bounds)),
+        'stump',
         stump_shape,
         1)
 
