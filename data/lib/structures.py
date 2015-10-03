@@ -44,7 +44,8 @@ def mk_solid_structure(name, image, size, base=(0, 0), display_size=None,
 def mk_solid_small(name, image, **kwargs):
     """Make a small, solid structure: a solid structure with size 1x1x1, but
     only a 1x1 tile (for the front, nothing on the top)."""
-    return mk_solid_structure(name, image, (1, 1, 1), display_size=(1, 1), **kwargs)
+    return mk_solid_structure(name, image, (1, 1, 1), display_size=(1, 1),
+            model=models.front(1, 1, 1), **kwargs)
 
 def mk_door_anim(basename, doorway_img, doorway_model, door_img, framerate=0):
     open_door_shape_arr = [
