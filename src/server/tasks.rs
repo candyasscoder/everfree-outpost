@@ -1,3 +1,10 @@
+//! Small functions that need to run on background threads.  Currently this just means
+//! serialization and deserialization of requests/responses.
+//!
+//! De/serialization is actually pretty fast, but the input side does need to run in a separate
+//! thread so the main `Engine` loop can `select` over a channel of incoming `Request`s along with
+//! the channels for other types of events.
+
 use std::io::{self, Read, Write};
 use std::sync::mpsc::{Sender, Receiver};
 

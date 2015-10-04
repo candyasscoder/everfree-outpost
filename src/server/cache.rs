@@ -1,3 +1,8 @@
+//! A cache for computed data about the world's terrain.  Most importantly, this includes the
+//! computed shape of each block of terrain, derived from the `TerrainChunk` block at that position
+//! and any structures that overlap it.  External callers notify the `TerrainCache` when something
+//! changes in the world, so the cache can recompute the data for the relevant chunks.  Then other
+//! engine parts (such as the physics engine) can query the cache for information about terrain.
 use std::collections::HashMap;
 
 use types::*;

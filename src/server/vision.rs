@@ -1,3 +1,18 @@
+//! Visibility tracking for game objects.  The vision system keeps track of which objects in the
+//! world are visible to which clients.  External callers notify the vision system about changes to
+//! the state of the world (creation/destruction/movement of game objects or client viewports), and
+//! the vision system invokes hooks to notify about changes in visibility (object enters/leaves a
+//! particular viewport).
+//!
+//! The vision system operates only in terms of object IDs.  It relies on external code to provide
+//! the relevant information about each object (such as position), rather than trying to extract
+//! information directly from the `World`.  Hooks must also consult the `World` for more
+//! information about updated game objects, as the vision system itself stores only the bare
+//! minimum to track visibility.
+//!
+//! In the overall server architecture, the vision system acts as a sort of filter between world
+//! updates and client messages, ensuring that each client receives updates only for objects it can
+//! actually see.
 use std::collections::{HashMap, HashSet, VecMap};
 use std::mem;
 

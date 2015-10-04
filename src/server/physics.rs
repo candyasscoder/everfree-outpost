@@ -1,3 +1,6 @@
+//! Interface to the physics engine.  The physics engine itself lives in a separate library,
+//! `libphysics`, so that it can be compiled to asm.js for use on the client.  This system just
+//! provides the glue to connect the physics engine to entities and the rest of the `World`.
 use libphysics::{self, ShapeSource};
 use libphysics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE};
 
