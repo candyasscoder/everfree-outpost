@@ -4,6 +4,7 @@
 #include <iostream>
 
 using namespace std;
+using namespace std::placeholders;
 using namespace boost::asio;
 using websocketpp::connection_hdl;
 
