@@ -34,7 +34,68 @@ impl<'d> Plan<'d> {
     }
 }
 
+struct Graph<T> {
+    verts: Vec<T>,
+    edges: Vec<Vec<u16>>,
+    roots: Vec<u16>,
+}
+
+impl<T> Graph<T> {
+    fn new() -> Graph<T> {
+        Graph {
+            verts: Vec::new(),
+            edges: Vec::new(),
+            roots: Vec::new(),
+        }
+    }
+
+    fn add_vert(&mut self, v: T) -> u16 {
+        self.verts.push(v);
+        self.edges.push(Vec::new());
+        (self.verts.len() - 1) as u16
+    }
+
+    fn add_edge(&mut self, a: u16, b: u16) {
+        assert!((a as usize) < self.verts.len());
+        assert!((b as usize) < self.verts.len());
+        self.edges[a as usize].push(b);
+    }
+
+    fn add_edge_undir(&mut self, a: u16, b: u16) {
+        self.edges[a as usize].push(b);
+        self.edges[b as usize].push(a);
+    }
+
+    fn neighbors(&self, v: u16) -> &[u16] {
+        &self.edges[v as usize]
+    }
+
+    fn vert(&self, v: u16) -> &T {
+        &self.verts[v as usize]
+    }
+
+    fn vert_mut(&mut self, v: u16) -> &mut T {
+        &mut self.verts[v as usize]
+    }
+
+    fn choose_neighbor<F: Fn(u16) -> bool>(&self, rng: &mut StdRng, v: u16, f: F) -> Option<u16> {
+        let mk_iter = || self.neighbors(v).iter().map(|&v| v).filter(|&v| f(v));
+        let count = mk_iter().count();
+        if count == 0 {
+            return None;
+        }
+        Some(mk_iter().nth(rng.gen_range(0, count)).unwrap())
+    }
+}
+
+struct HighVert {
+    pos: V2,
+    //puzzle: Box<Puzzle>,
+}
+
 pub struct Temporary {
+    high: Graph<HighVert>,
+
     base_verts: Vec<V2>,
     vert_level: Vec<u8>,
     conn_map: HashMap<u16, Vec<u16>>,
@@ -43,7 +104,99 @@ pub struct Temporary {
     vaults: Vec<Box<Vault>>,
 }
 
+const HIGH_SPACING: i32 = 48;
+
+fn triangulated_graph(raw_verts: &[V2], bounds: Region<V2>) -> Graph<V2> {
+    let raw_edges = triangulate::triangulate(raw_verts);
+
+    let mut idx_map = Vec::with_capacity(raw_verts.len());
+    let mut g = Graph::new();
+    for (i, &p) in raw_verts.iter().enumerate() {
+        if bounds.contains(p) {
+            let g_idx = g.add_vert(p - bounds.min);
+            idx_map.push(g_idx);
+        } else {
+            idx_map.push(0);
+        }
+    }
+
+    for (raw_v1, raw_v2) in raw_edges {
+        let v1 = idx_map[raw_v1 as usize];
+        let v2 = idx_map[raw_v2 as usize];
+        if (v1 == 0 && !bounds.contains(raw_verts[raw_v1 as usize])) ||
+           (v2 == 0 && !bounds.contains(raw_verts[raw_v2 as usize])) {
+            continue;
+        }
+
+        g.add_edge(v1, v2);
+    }
+
+    g
+}
+
 impl Temporary {
+    fn gen_high(&mut self, rng: &mut StdRng) {
+        let mut samp = DiskSampler::new(scalar(DUNGEON_SIZE + 2 * HIGH_SPACING),
+                                        HIGH_SPACING,
+                                        2 * HIGH_SPACING);
+        samp.add_init_point(ENTRANCE_POS + scalar(HIGH_SPACING));
+        samp.generate(rng, 30);
+
+        let bounds = Region::new(scalar(0), scalar(DUNGEON_SIZE)) + scalar(HIGH_SPACING);
+        let tris = triangulated_graph(samp.points(), bounds);
+
+        let origin = tris.verts.iter().position(|&p| p == ENTRANCE_POS)
+                         .expect("ENTRANCE_POS should always be in samp.points()") as u16;
+        let mut used = iter::repeat(false).take(tris.verts.len()).collect::<Vec<_>>();
+        let mut g = Graph::new();
+        let g_origin = g.add_vert(HighVert { pos: ENTRANCE_POS });
+        g.roots.push(g_origin);
+
+        // Populate `g` with a tree, using edges from `tris` and rooted at `origin`.
+        #[derive(Clone, Copy)]
+        struct Path {
+            tris_idx: u16,
+            g_idx: u16,
+            level: u8,
+            remaining: u8,
+        }
+        let mut paths = Vec::with_capacity(5);
+        for _ in 0 .. rng.gen_range(2, 4) {
+            paths.push(Path {
+                tris_idx: 0,
+                g_idx: g_origin,
+                level: 0,
+                remaining: rng.gen_range(3, 5),
+            });
+        }
+        used[origin as usize] = true;
+
+        while paths.len() > 0 {
+            let choice = rng.gen_range(0, paths.len());
+            let mut p = paths.swap_remove(choice);
+
+            let new_idx = match tris.choose_neighbor(rng, p.tris_idx, |v| !used[v as usize]) {
+                Some(x) => x,
+                None => continue,
+            };
+
+            let new_g_idx = g.add_vert(HighVert { pos: *tris.vert(new_idx) });
+            g.add_edge(p.g_idx, new_g_idx);
+
+            p.tris_idx = new_idx;
+            p.level += 1;
+            p.remaining -= 1;
+            p.g_idx = new_g_idx;
+            used[p.tris_idx as usize] = true;
+
+            if p.remaining > 0 {
+                paths.push(p);
+            }
+        }
+
+        self.high = g;
+    }
+
     fn emit_edge(&mut self, i: u16, j: u16) -> usize {
         self.edges.push((self.base_verts[i as usize], self.base_verts[j as usize]));
         self.edges.len() - 1
@@ -72,6 +225,7 @@ impl<'d> GlobalProperty for Plan<'d> {
 
     fn init(&mut self, _: &PlaneSummary) -> Temporary {
         Temporary {
+            high: Graph::new(),
             base_verts: Vec::new(),
             vert_level: Vec::new(),
             conn_map: HashMap::new(),
@@ -81,6 +235,9 @@ impl<'d> GlobalProperty for Plan<'d> {
     }
 
     fn generate(&mut self, tmp: &mut Temporary) {
+        tmp.gen_high(&mut self.rng);
+
+        /*
         // We want a DUNGEON_SIZE x DUNGEON_SIZE region, but to keep things uniform around the
         // edges, we fill a larger region with vertices and edges, then truncate to the desired
         // size.
@@ -112,6 +269,15 @@ impl<'d> GlobalProperty for Plan<'d> {
 
         tmp.vaults.push(Box::new(Entrance::new(ENTRANCE_POS)));
         self.gen_paths(tmp);
+        */
+
+        for (v1, neighbors) in tmp.high.edges.iter().enumerate() {
+            for &v2 in neighbors {
+                let p1 = tmp.high.vert(v1 as u16).pos;
+                let p2 = tmp.high.vert(v2).pos;
+                tmp.edges.push((p1, p2));
+            }
+        }
     }
 
     fn save(&mut self, tmp: Temporary, summ: &mut PlaneSummary) {
