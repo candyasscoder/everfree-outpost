@@ -20,6 +20,7 @@ pub mod disk_sampler;
 pub mod dsc;
 pub mod pattern;
 pub mod triangulate;
+pub mod union_find;
 
 
 pub fn line_points<F: FnMut(V2, bool)>(start: V2, end: V2, mut f: F) {
