@@ -1,9 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::iter;
 use rand::Rng;
 
 use libserver_types::*;
 use libserver_config::Data;
+use libserver_util::SmallVec;
 
 use StdRng;
 use algo::disk_sampler::DiskSampler;
@@ -86,15 +87,105 @@ impl<T> Graph<T> {
         }
         Some(mk_iter().nth(rng.gen_range(0, count)).unwrap())
     }
+
+    fn a_star<VertPos, VertWeight>(&self,
+                                   source: u16,
+                                   target: u16,
+                                   vert_pos: VertPos,
+                                   mut vert_weight: VertWeight) -> Vec<u16>
+            where VertPos: Fn(&T) -> V2,
+                  VertWeight: FnMut(u16, &T) -> i32 {
+        let dist = |s, t| (vert_pos(self.vert(s)) - vert_pos(self.vert(t))).abs().max();
+        let mut weight = |v| vert_weight(v, self.vert(v));
+
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+        struct Entry {
+            cost: i32,
+            dist: i32,
+            vert: u16,
+            parent: u16,
+        }
+        impl Entry {
+            fn new(vert: u16, parent: u16, dist: i32, heur: i32) -> Entry {
+                Entry { cost: -(heur + dist), dist: dist, vert: vert, parent: parent }
+            }
+        }
+
+        let mut q = BinaryHeap::new();
+        q.push(Entry::new(source, source, 0, dist(source, target)));
+
+        #[derive(Clone, Copy)]
+        struct Record {
+            parent: u16,
+            closed: bool,
+        }
+        let mut info = iter::repeat(Record { parent: 0, closed: false })
+                           .take(self.verts.len()).collect::<Vec<_>>();
+        info[source as usize].parent = source;
+
+        loop {
+            let e = match q.pop() {
+                Some(x) => x,
+                None => { return Vec::new(); }, // No path from source to target
+            };
+            if info[e.vert as usize].closed {
+                // Already saw a better path to this node.
+                continue;
+            }
+
+            // Found the best path to e.vert, and it goes through e.parent.
+            info[e.vert as usize].parent = e.parent;
+            info[e.vert as usize].closed = true;
+
+            if e.vert == target {
+                // Found the path.
+                break;
+            }
+
+            // Add neighbors to the queue.
+            for &n in self.neighbors(e.vert) {
+                if info[n as usize].closed {
+                    continue;
+                }
+
+                let n_dist = e.dist + dist(e.vert, n) + weight(n);
+                let n_heur = dist(n, target);
+                q.push(Entry::new(n, e.vert, n_dist, n_heur));
+            }
+        }
+
+        // Reconstruct the actual path from `parent` links.
+        let mut path = Vec::new();
+        path.push(target);
+        while *path.last().unwrap() != source {
+            let last = *path.last().unwrap();
+            path.push(info[last as usize].parent);
+        }
+        path.reverse();
+        path
+    }
 }
 
 struct HighVert {
     pos: V2,
+    entrances: SmallVec<V2>,
+    exits: SmallVec<V2>,
     //puzzle: Box<Puzzle>,
+}
+
+impl HighVert {
+    pub fn new(pos: V2) -> HighVert {
+        HighVert {
+            pos: pos,
+            entrances: SmallVec::new(),
+            exits: SmallVec::new(),
+        }
+    }
 }
 
 pub struct Temporary {
     high: Graph<HighVert>,
+    interstitial_edges: Vec<(V2, V2)>,
 
     base_verts: Vec<V2>,
     vert_level: Vec<u8>,
@@ -128,7 +219,7 @@ fn triangulated_graph(raw_verts: &[V2], bounds: Region<V2>) -> Graph<V2> {
             continue;
         }
 
-        g.add_edge(v1, v2);
+        g.add_edge_undir(v1, v2);
     }
 
     g
@@ -149,7 +240,7 @@ impl Temporary {
                          .expect("ENTRANCE_POS should always be in samp.points()") as u16;
         let mut used = iter::repeat(false).take(tris.verts.len()).collect::<Vec<_>>();
         let mut g = Graph::new();
-        let g_origin = g.add_vert(HighVert { pos: ENTRANCE_POS });
+        let g_origin = g.add_vert(HighVert::new(ENTRANCE_POS));
         g.roots.push(g_origin);
 
         // Populate `g` with a tree, using edges from `tris` and rooted at `origin`.
@@ -180,7 +271,7 @@ impl Temporary {
                 None => continue,
             };
 
-            let new_g_idx = g.add_vert(HighVert { pos: *tris.vert(new_idx) });
+            let new_g_idx = g.add_vert(HighVert::new(*tris.vert(new_idx)));
             g.add_edge(p.g_idx, new_g_idx);
 
             p.tris_idx = new_idx;
@@ -195,6 +286,78 @@ impl Temporary {
         }
 
         self.high = g;
+    }
+
+    /// Generate paths through the interstitial space (between puzzle areas).  `self.high` must
+    /// already be populated with puzzle area info.
+    fn gen_interstitial_paths(&mut self, rng: &mut StdRng) {
+        // A new graph, containing closely spaced points in between `self.high.verts`.
+        let mut samp = DiskSampler::new(scalar(DUNGEON_SIZE), 8, 16);
+        for v in &self.high.verts {
+            samp.add_init_point(v.pos);
+        }
+        samp.generate(rng, 30);
+        let g = triangulated_graph(samp.points(), samp.bounds());
+
+        let mut used = iter::repeat(false).take(g.verts.len()).collect::<Vec<_>>();
+        for s in 0 .. self.high.verts.len() as u16 {
+            let g_src = g.verts.iter().position(|&p| p == self.high.vert(s).pos)
+                         .expect("all points in `self.high` should be in `g`") as u16;
+            // Little bit ugly, but it avoids an undesired borrow.
+            for t_idx in 0 .. self.high.neighbors(s).len() {
+                let t = self.high.neighbors(s)[t_idx];
+                let g_tgt = g.verts.iter().position(|&p| p == self.high.vert(t).pos)
+                             .expect("all points in `self.high` should be in `g`") as u16;
+
+                // The second closure adds a bit of random noise to the path, by causing A* to
+                // sometimes skip over the actual best vertex.
+                let path = g.a_star(g_src, g_tgt, |x| *x, |v, x| {
+                    if used[v as usize] {
+                        100000
+                    } else {
+                        // Add some random noise to the path
+                        rng.gen_range(0, 100)
+                    }
+                });
+                if path.len() == 0 {
+                    warn!("failed to find a path from {:?} ({}) to {:?} ({})",
+                          g.vert(g_src), g_src, g.vert(g_tgt), g_tgt);
+                    continue;
+                }
+
+                let mut state = 0;
+                let mut exit = None;
+                let mut entrance = None;
+                used[path[0] as usize] = true;
+                for i in 1 .. path.len() {
+                    used[path[i] as usize] = true;
+                    if state == 0 {
+                        // Check if this edge moves out of the source region.
+                        let delta = self.high.vert(s).pos - *g.vert(path[i]);
+                        if delta.mag2() >= 24 * 24 {
+                            exit = Some(*g.vert(path[i - 1]));
+                            state = 1;
+                        }
+                    }
+
+                    // Not `else if` because we still need to check this on the edge where state
+                    // transitions 0 -> 1
+                    if state == 1 {
+                        self.interstitial_edges.push((*g.vert(path[i - 1]), *g.vert(path[i])));
+
+                        // Check if this edge moves into the target region.
+                        let delta = self.high.vert(t).pos - *g.vert(path[i]);
+                        if delta.mag2() < 24 * 24 {
+                            entrance = Some(*g.vert(path[i]));
+                            break
+                        }
+                    }
+                }
+
+                self.high.vert_mut(s).exits.push(exit.unwrap());
+                self.high.vert_mut(t).entrances.push(entrance.unwrap());
+            }
+        }
     }
 
     fn emit_edge(&mut self, i: u16, j: u16) -> usize {
@@ -226,6 +389,7 @@ impl<'d> GlobalProperty for Plan<'d> {
     fn init(&mut self, _: &PlaneSummary) -> Temporary {
         Temporary {
             high: Graph::new(),
+            interstitial_edges: Vec::new(),
             base_verts: Vec::new(),
             vert_level: Vec::new(),
             conn_map: HashMap::new(),
@@ -236,6 +400,7 @@ impl<'d> GlobalProperty for Plan<'d> {
 
     fn generate(&mut self, tmp: &mut Temporary) {
         tmp.gen_high(&mut self.rng);
+        tmp.gen_interstitial_paths(&mut self.rng);
 
         /*
         // We want a DUNGEON_SIZE x DUNGEON_SIZE region, but to keep things uniform around the
@@ -271,18 +436,44 @@ impl<'d> GlobalProperty for Plan<'d> {
         self.gen_paths(tmp);
         */
 
+        /*
+        let mut vert_samp = DiskSampler::new(scalar(DUNGEON_SIZE), 8, 16);
+        for v in &tmp.high.verts {
+            vert_samp.add_init_point(v.pos);
+        }
+        vert_samp.generate(&mut self.rng, 30);
+        let g = triangulated_graph(vert_samp.points(), vert_samp.bounds());
+
         for (v1, neighbors) in tmp.high.edges.iter().enumerate() {
+            let src = g.verts.iter().position(|&p| p == tmp.high.verts[v1].pos).unwrap() as u16;
             for &v2 in neighbors {
-                let p1 = tmp.high.vert(v1 as u16).pos;
-                let p2 = tmp.high.vert(v2).pos;
-                tmp.edges.push((p1, p2));
+                let tgt = g.verts.iter().position(|&p| p == tmp.high.verts[v2 as usize].pos).unwrap() as u16;
+
+                let path = g.a_star(src, tgt, |x| *x, |x| self.rng.gen_range(0, 100));
+                info!("{} ({:?}) -> {} ({:?}): {} steps",
+                    src, *g.vert(src), tgt, *g.vert(tgt), path.len());
+                if path.len() > 0 {
+                    for (&a, &b) in path.iter().zip(path[1..].iter()) {
+                        let p1 = *g.vert(a);
+                        let p2 = *g.vert(b);
+
+                        tmp.edges.push((p1, p2));
+                    }
+                } else {
+                    let p1 = tmp.high.vert(v1 as u16).pos;
+                    let p2 = tmp.high.vert(v2).pos;
+
+                    //tmp.edges.push((p1, p2));
+                }
             }
         }
+        */
     }
 
     fn save(&mut self, tmp: Temporary, summ: &mut PlaneSummary) {
-        summ.edges = tmp.edges;
+        summ.edges = tmp.interstitial_edges;
         summ.vaults = tmp.vaults;
+        summ.verts = tmp.high.verts.iter().map(|v| v.pos).collect();
     }
 }
 

@@ -48,7 +48,7 @@ impl DiskSampler {
         }
     }
 
-    fn bounds(&self) -> Region<V2> {
+    pub fn bounds(&self) -> Region<V2> {
         Region::new(scalar(0), self.size)
     }
 

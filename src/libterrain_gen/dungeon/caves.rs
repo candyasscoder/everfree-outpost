@@ -45,10 +45,15 @@ impl<'a> LocalProperty for Caves<'a> {
 
     fn init(&mut self, summ: &ChunkSummary) -> CellularGrid {
         let mut grid = CellularGrid::new(scalar(CHUNK_SIZE * 3 + 1));
+        let base = self.cpos * scalar(CHUNK_SIZE) - scalar(CHUNK_SIZE);
 
         for pos in grid.bounds().points() {
             let is_wall = self.rng.gen_range(0, 10) < 7;
-            //let is_wall = true;
+            let is_wall =
+                !self.plane_summ.verts.iter().any(|&center| {
+                    let dist = (pos + base - center).mag2();
+                    23 * 23 <= dist && dist < 24 * 24
+                });
             grid.set(pos, is_wall);
         }
 
@@ -73,7 +78,7 @@ impl<'a> LocalProperty for Caves<'a> {
             let abs_delta = (b - a).abs();
             let len = abs_delta.x + abs_delta.y;
             blob.expand_with_callback(&mut self.rng, len as usize * 6, |pos| {
-                grid.set(pos, false);
+                //grid.set(pos, false);
             });
         }
 
@@ -104,7 +109,7 @@ impl<'a> LocalProperty for Caves<'a> {
     }
 
     fn generate(&mut self, grid: &mut CellularGrid) {
-        for _ in 0 .. 5 {
+        for _ in 0 .. 0 {
             grid.step(|here, active, total| 2 * (here as u8 + active) > total);
         }
     }

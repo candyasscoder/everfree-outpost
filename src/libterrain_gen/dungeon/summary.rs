@@ -77,6 +77,8 @@ pub struct PlaneSummary {
     /// Vaults to be placed in the generated terrain.
     // TODO: wish we could use fewer allocations here...
     pub vaults: Vec<Box<Vault>>,
+
+    pub verts: Vec<V2>,
 }
 
 impl Summary for PlaneSummary {
@@ -84,6 +86,7 @@ impl Summary for PlaneSummary {
         Box::new(PlaneSummary {
             edges: Vec::new(),
             vaults: Vec::new(),
+            verts: Vec::new(),
         })
     }
 
