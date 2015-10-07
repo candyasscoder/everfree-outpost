@@ -1,5 +1,6 @@
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::iter;
+use std::mem;
 use rand::Rng;
 
 use libserver_types::*;
@@ -9,6 +10,7 @@ use libserver_util::SmallVec;
 use StdRng;
 use algo::disk_sampler::DiskSampler;
 use algo::triangulate;
+use algo::union_find::UnionFind;
 use prop::GlobalProperty;
 
 use super::{DUNGEON_SIZE, ENTRANCE_POS};
@@ -196,6 +198,8 @@ pub struct Temporary {
 }
 
 const HIGH_SPACING: i32 = 48;
+const HALF_HIGH_SPACING: i32 = HIGH_SPACING / 2;
+const INTERSTITIAL_SPACING: i32 = 8;
 
 fn triangulated_graph(raw_verts: &[V2], bounds: Region<V2>) -> Graph<V2> {
     let raw_edges = triangulate::triangulate(raw_verts);
@@ -292,7 +296,9 @@ impl Temporary {
     /// already be populated with puzzle area info.
     fn gen_interstitial_paths(&mut self, rng: &mut StdRng) {
         // A new graph, containing closely spaced points in between `self.high.verts`.
-        let mut samp = DiskSampler::new(scalar(DUNGEON_SIZE), 8, 16);
+        let mut samp = DiskSampler::new(scalar(DUNGEON_SIZE),
+                                        INTERSTITIAL_SPACING,
+                                        2 * INTERSTITIAL_SPACING);
         for v in &self.high.verts {
             samp.add_init_point(v.pos);
         }
@@ -309,8 +315,6 @@ impl Temporary {
                 let g_tgt = g.verts.iter().position(|&p| p == self.high.vert(t).pos)
                              .expect("all points in `self.high` should be in `g`") as u16;
 
-                // The second closure adds a bit of random noise to the path, by causing A* to
-                // sometimes skip over the actual best vertex.
                 let path = g.a_star(g_src, g_tgt, |x| *x, |v, x| {
                     if used[v as usize] {
                         100000
@@ -334,7 +338,7 @@ impl Temporary {
                     if state == 0 {
                         // Check if this edge moves out of the source region.
                         let delta = self.high.vert(s).pos - *g.vert(path[i]);
-                        if delta.mag2() >= 24 * 24 {
+                        if delta.mag2() >= HALF_HIGH_SPACING * HALF_HIGH_SPACING {
                             exit = Some(*g.vert(path[i - 1]));
                             state = 1;
                         }
@@ -343,39 +347,65 @@ impl Temporary {
                     // Not `else if` because we still need to check this on the edge where state
                     // transitions 0 -> 1
                     if state == 1 {
-                        self.interstitial_edges.push((*g.vert(path[i - 1]), *g.vert(path[i])));
+                        self.edges.push((*g.vert(path[i - 1]), *g.vert(path[i])));
 
                         // Check if this edge moves into the target region.
                         let delta = self.high.vert(t).pos - *g.vert(path[i]);
-                        if delta.mag2() < 24 * 24 {
+                        if delta.mag2() < HALF_HIGH_SPACING * HALF_HIGH_SPACING {
                             entrance = Some(*g.vert(path[i]));
                             break
                         }
                     }
                 }
 
-                self.high.vert_mut(s).exits.push(exit.unwrap());
-                self.high.vert_mut(t).entrances.push(entrance.unwrap());
+                let exit_rel = exit.unwrap() - self.high.vert(s).pos;
+                let entrance_rel = entrance.unwrap() - self.high.vert(t).pos;
+                self.high.vert_mut(s).exits.push(exit_rel);
+                self.high.vert_mut(t).entrances.push(entrance_rel);
             }
         }
     }
 
-    fn emit_edge(&mut self, i: u16, j: u16) -> usize {
-        self.edges.push((self.base_verts[i as usize], self.base_verts[j as usize]));
-        self.edges.len() - 1
-    }
+    fn gen_maze(&mut self, rng: &mut StdRng, center: V2, entrances: &[V2], exits: &[V2]) {
+        let mut samp = DiskSampler::new(scalar(HIGH_SPACING),
+                                        INTERSTITIAL_SPACING,
+                                        2 * INTERSTITIAL_SPACING);
+        for &pos in entrances {
+            samp.add_init_point(pos + scalar(HALF_HIGH_SPACING));
+        }
+        for &pos in exits {
+            samp.add_init_point(pos + scalar(HALF_HIGH_SPACING));
+        }
+        samp.generate(rng, 30);
+        let g = triangulated_graph(samp.points(), samp.bounds());
 
-    fn choose_neighbor<F>(&self, rng: &mut StdRng, v0: u16, f: F) -> Option<u16>
-            where F: Fn(&Temporary, u16) -> bool {
-        let get_iter = || self.conn_map[&v0].iter().map(|&v| v)
-                              .filter(|&v| f(self, v));
-        let count = get_iter().count();
-        if count == 0 {
-            return None;
+        let mut edges = Vec::new();
+        let max_mag2 = HALF_HIGH_SPACING * HALF_HIGH_SPACING;
+        for (v1, neighbors) in g.edges.iter().enumerate() {
+            let v1 = v1 as u16;
+            if (*g.vert(v1) - scalar(HALF_HIGH_SPACING)).mag2() > max_mag2 {
+                continue;
+            }
+            for &v2 in neighbors {
+                if (*g.vert(v2) - scalar(HALF_HIGH_SPACING)).mag2() > max_mag2 {
+                    continue;
+                }
+                edges.push((v1, v2));
+            }
         }
 
-        let idx = rng.gen_range(0, count);
-        Some(get_iter().nth(idx).unwrap())
+        let mut uf = UnionFind::new(g.verts.len());
+        while edges.len() > 0 {
+            let idx = rng.gen_range(0, edges.len());
+            let (v1, v2) = edges.swap_remove(idx);
+            if !uf.union(v1, v2) {
+                continue;
+            }
+
+            let pos1 = *g.vert(v1) - scalar(HALF_HIGH_SPACING) + center;
+            let pos2 = *g.vert(v2) - scalar(HALF_HIGH_SPACING) + center;
+            self.edges.push((pos1, pos2));
+        }
     }
 }
 
@@ -402,269 +432,16 @@ impl<'d> GlobalProperty for Plan<'d> {
         tmp.gen_high(&mut self.rng);
         tmp.gen_interstitial_paths(&mut self.rng);
 
-        /*
-        // We want a DUNGEON_SIZE x DUNGEON_SIZE region, but to keep things uniform around the
-        // edges, we fill a larger region with vertices and edges, then truncate to the desired
-        // size.
-        let mut vert_samp = DiskSampler::new(scalar(DUNGEON_SIZE + 2 * PADDING), 20, 40);
-        vert_samp.add_init_point(ENTRANCE_POS + scalar(PADDING));
-        vert_samp.generate(&mut self.rng, 30);
-
-        let base = scalar(PADDING);
-        tmp.base_verts = vert_samp.points().iter()
-                                  .map(|&p| p - base)
-                                  .collect::<Vec<_>>();
-        drop(vert_samp);
-        tmp.vert_level = iter::repeat(0).take(tmp.base_verts.len()).collect();
-        tmp.conn_map = HashMap::with_capacity(tmp.base_verts.len());
-
-        // Use unfiltered verts for `triangulate` to avoid long, skinny triangles near the edges of
-        // the map.
-        let mut edges = triangulate::triangulate(&tmp.base_verts);
-        let bounds = Region::new(scalar(0), scalar(DUNGEON_SIZE));
-        for &(i, j) in &edges {
-            if !bounds.contains(tmp.base_verts[i as usize]) ||
-               !bounds.contains(tmp.base_verts[j as usize]) {
-                continue;
-            }
-            tmp.conn_map.entry(i).or_insert_with(|| Vec::new()).push(j);
-            tmp.conn_map.entry(j).or_insert_with(|| Vec::new()).push(i);
+        let g = mem::replace(&mut tmp.high, Graph::new());
+        for v in &g.verts {
+            tmp.gen_maze(&mut self.rng, v.pos, &v.entrances, &v.exits);
         }
-        drop(edges);
-
-        tmp.vaults.push(Box::new(Entrance::new(ENTRANCE_POS)));
-        self.gen_paths(tmp);
-        */
-
-        /*
-        let mut vert_samp = DiskSampler::new(scalar(DUNGEON_SIZE), 8, 16);
-        for v in &tmp.high.verts {
-            vert_samp.add_init_point(v.pos);
-        }
-        vert_samp.generate(&mut self.rng, 30);
-        let g = triangulated_graph(vert_samp.points(), vert_samp.bounds());
-
-        for (v1, neighbors) in tmp.high.edges.iter().enumerate() {
-            let src = g.verts.iter().position(|&p| p == tmp.high.verts[v1].pos).unwrap() as u16;
-            for &v2 in neighbors {
-                let tgt = g.verts.iter().position(|&p| p == tmp.high.verts[v2 as usize].pos).unwrap() as u16;
-
-                let path = g.a_star(src, tgt, |x| *x, |x| self.rng.gen_range(0, 100));
-                info!("{} ({:?}) -> {} ({:?}): {} steps",
-                    src, *g.vert(src), tgt, *g.vert(tgt), path.len());
-                if path.len() > 0 {
-                    for (&a, &b) in path.iter().zip(path[1..].iter()) {
-                        let p1 = *g.vert(a);
-                        let p2 = *g.vert(b);
-
-                        tmp.edges.push((p1, p2));
-                    }
-                } else {
-                    let p1 = tmp.high.vert(v1 as u16).pos;
-                    let p2 = tmp.high.vert(v2).pos;
-
-                    //tmp.edges.push((p1, p2));
-                }
-            }
-        }
-        */
+        tmp.high = g;
     }
 
     fn save(&mut self, tmp: Temporary, summ: &mut PlaneSummary) {
-        summ.edges = tmp.interstitial_edges;
+        summ.edges = tmp.edges;
         summ.vaults = tmp.vaults;
         summ.verts = tmp.high.verts.iter().map(|v| v.pos).collect();
-    }
-}
-
-#[derive(Clone)]
-struct Path {
-    cur_vert: u16,
-    last_pos: V2,
-    level: u8,
-    last_edge: usize,
-}
-
-impl Path {
-    fn new(cur_vert: u16, last_pos: V2) -> Path {
-        Path {
-            cur_vert: cur_vert,
-            last_pos: last_pos,
-            level: 1,
-            last_edge: -1_isize as usize,
-        }
-    }
-
-    fn gen_tunnel(&mut self, ctx: &mut Plan, tmp: &mut Temporary) -> bool {
-        let opt_vert = tmp.choose_neighbor(&mut ctx.rng,
-                                           self.cur_vert,
-                                           |tmp, v| tmp.vert_level[v as usize] == 0);
-        let vert = match opt_vert {
-            Some(v) => v,
-            None => return false,
-        };
-
-        self.last_pos = tmp.base_verts[self.cur_vert as usize];
-        self.last_edge = tmp.emit_edge(self.cur_vert, vert);
-        tmp.vert_level[vert as usize] = self.level;
-        self.cur_vert = vert;
-        true
-    }
-
-    fn gen_door(&mut self, ctx: &mut Plan, tmp: &mut Temporary) -> bool {
-        let center = tmp.base_verts[self.cur_vert as usize];
-
-        fn assign_corner(dir: V2) -> Option<i32> {
-            if dir.y >= 3 {
-                // Connect directly to the entrance/exit point.
-                Some(0)
-            } else if dir.x.abs() >= 5 {
-                // Connect to the corner. then to the entrance/exit point.
-                Some(dir.x.signum())
-            } else {
-                // Would need to connect through (at least) two corners.  Too complicated; just
-                // give up.
-                None
-            }
-        }
-
-        let entrance = self.last_pos;
-        let entrance_dir = entrance - center;
-        let entrance_corner = match assign_corner(entrance_dir) {
-            Some(c) => c,
-            None => return false,
-        };
-
-        let opt_exit_vert = tmp.choose_neighbor(&mut ctx.rng, self.cur_vert, |tmp, v| {
-            if tmp.vert_level[v as usize] != 0 {
-                return false;
-            }
-
-            let exit = tmp.base_verts[v as usize];
-            let exit_dir = exit - center;
-            let exit_corner = match assign_corner(exit_dir * V2::new(1, -1)) {
-                Some(c) => c,
-                None => return false,
-            };
-            if exit_corner == entrance_corner &&
-               exit_dir.y > entrance_dir.y {
-                // The entrance and exit lines would cross over one another.
-                return false;
-            }
-            if exit_dir.dot(entrance_dir) > 0 {
-                // Entrance and exit directions are within 90 degrees of each other.
-                return false;
-            }
-
-            true
-        });
-        let exit_vert = match opt_exit_vert {
-            Some(v) => v,
-            None => return false,
-        };
-        let exit = tmp.base_verts[exit_vert as usize];
-        let exit_dir = exit - center;
-        // If the corner assignment is not possible, the vertex should have been filtered out.
-        let exit_corner = assign_corner(exit_dir * V2::new(1, -1)).unwrap();
-
-        let entrance_target_pos = center + V2::new(0, 3);
-        let exit_target_pos = center + V2::new(0, -3);
-
-        if entrance_corner == 0 {
-            tmp.edges[self.last_edge].1 = entrance_target_pos;
-        } else {
-            let entrance_corner_pos = center + V2::new(5 * entrance_corner, 4);
-            tmp.edges[self.last_edge].1 = entrance_corner_pos;
-            tmp.edges.push((entrance_corner_pos, entrance_target_pos));
-        }
-
-        if exit_corner == 0 {
-            tmp.edges.push((exit_target_pos, exit))
-        } else {
-            let exit_corner_pos = center + V2::new(5 * exit_corner, -4);
-            tmp.edges.push((exit_target_pos, exit_corner_pos));
-            tmp.edges.push((exit_corner_pos, exit));
-        }
-
-        self.last_pos = center;
-        self.last_edge = tmp.edges.len() - 1;
-        self.level += 1;
-        tmp.vert_level[exit_vert as usize] = self.level;
-        self.cur_vert = exit_vert;
-
-        tmp.vaults.push(Box::new(Door::new(center, (entrance_corner as i8, exit_corner as i8))));
-
-        true
-    }
-}
-
-impl<'d> Plan<'d> {
-    fn gen_paths(&mut self, tmp: &mut Temporary) {
-        let origin = tmp.base_verts.iter().position(|&p| p == ENTRANCE_POS)
-                        .expect("ENTRANCE_POS should always be in base_verts") as u16;
-
-        let mut paths = Vec::new();
-        self.rng.shuffle(tmp.conn_map.get_mut(&origin).unwrap());
-        for &v in &tmp.conn_map[&origin][0..3] {
-            paths.push(Path::new(v, ENTRANCE_POS));
-        }
-
-        tmp.vert_level[origin as usize] = 1;
-        for p in &mut paths {
-            tmp.vert_level[p.cur_vert as usize] = 1;
-            p.last_edge = tmp.emit_edge(origin, p.cur_vert);
-        }
-
-        while paths.len() > 0 {
-            let j = self.rng.gen_range(0, paths.len());
-
-            // 1) Sometimes try to generate a door.
-            let choice = self.rng.gen_range(0, 100);
-            let pos = tmp.base_verts[paths[j].cur_vert as usize];
-            if choice < 40 {
-                if paths[j].gen_door(self, tmp) {
-                    continue;
-                }
-            } else if choice < 60 {
-                let level = paths[j].level;
-                // 0.5% chance of hat at level 5, +0.5% for every level thereafter.
-                let chance = if level < 5 { 0 } else { level - 5 };
-                let (count, item) =
-                    if self.rng.gen_range(0, 200) < chance {
-                        (1, ChestItem::Hat)
-                    } else {
-                        // Generate 1-3 keys (avg: 2)
-                        (self.rng.gen_range(1, 4), ChestItem::Key)
-                    };
-                let kind = TreasureKind::Chest(count, item);
-                tmp.vaults.push(Box::new(Treasure::new(pos, kind)));
-                // Then also make a path
-            } else if choice < 63 {
-                tmp.vaults.push(Box::new(Treasure::new(pos, TreasureKind::Fountain)));
-            } else if choice < 66 {
-                tmp.vaults.push(Box::new(Treasure::new(pos, TreasureKind::Trophy)));
-            } else if choice < 70 {
-                tmp.vaults.push(Box::new(Library::new(pos,
-                                                      self.rng.gen_range(3, 8),
-                                                      self.rng.gen())));
-            }
-
-            // 2) Generate a tunnel and maybe some forks.
-            while self.rng.gen_range(0, 10) < 3 {
-                // Generate a fork
-                let mut new_path = paths[j].clone();
-                if new_path.gen_tunnel(self, tmp) {
-                    paths.push(new_path);
-                }
-            }
-
-            if paths[j].gen_tunnel(self, tmp) {
-                // Successfully generated a tunnel.
-                continue;
-            }
-
-            // Nothing was successfully generated.
-            paths.swap_remove(j);
-        }
     }
 }

@@ -45,13 +45,15 @@ impl UnionFind {
         rep
     }
 
-    pub fn union(&mut self, idx0: u16, idx1: u16) {
+    /// Join the groups containing `idx0` and `idx1`.  Afterward, `find(idx0) == find(idx1)`.
+    /// Returns `true` if the groups were initially distinct.
+    pub fn union(&mut self, idx0: u16, idx1: u16) -> bool {
         let rep0 = self.find(idx0);
         let rep1 = self.find(idx1);
 
         if rep0 == rep1 {
             // Same representatives -> they're already in the same group
-            return;
+            return false;
         }
 
         let rank0 = self.entries[rep0 as usize].rank.get();
@@ -66,5 +68,7 @@ impl UnionFind {
             self.entries[rep1 as usize].parent.set(rep0);
             self.entries[rep0 as usize].rank.set(rank0 + 1);
         }
+
+        true
     }
 }
