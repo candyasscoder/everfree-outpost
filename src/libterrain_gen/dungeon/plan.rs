@@ -5,7 +5,7 @@ use rand::Rng;
 
 use libserver_types::*;
 use libserver_config::Data;
-use libserver_util::SmallVec;
+use libserver_util::{SmallVec, SmallSet};
 
 use StdRng;
 use algo::disk_sampler::DiskSampler;
@@ -130,8 +130,7 @@ impl<T> Graph<T> {
             parent: u16,
             closed: bool,
         }
-        let mut info = iter::repeat(Record { parent: 0, closed: false })
-                           .take(self.verts.len()).collect::<Vec<_>>();
+        let mut info = mk_array(Record { parent: 0, closed: false }, self.verts.len());
         info[source as usize].parent = source;
 
         loop {
@@ -177,6 +176,10 @@ impl<T> Graph<T> {
     }
 }
 
+fn mk_array<T: Copy>(init: T, len: usize) -> Box<[T]> {
+    iter::repeat(init).take(len).collect::<Vec<_>>().into_boxed_slice()
+}
+
 fn triangulated_graph(raw_verts: &[V2], bounds: Region<V2>) -> Graph<V2> {
     let raw_edges = triangulate::triangulate(raw_verts);
 
@@ -207,7 +210,7 @@ fn triangulated_graph(raw_verts: &[V2], bounds: Region<V2>) -> Graph<V2> {
 
 fn simple_blob(g: &Graph<BaseVert>, rng: &mut StdRng, start: u16, size: usize) -> Vec<u16> {
     let mut chosen = Vec::new();
-    let mut level = iter::repeat(0).take(g.verts.len()).collect::<Vec<_>>();
+    let mut level = mk_array(0, g.verts.len());
     // Keep lists of vertices connected by 1 edge, by 2 edges, and by 3+ edges.
     let mut pending = [HashSet::new(), HashSet::new(), HashSet::new()];
     let mut total_pending = 0;
@@ -241,6 +244,10 @@ fn simple_blob(g: &Graph<BaseVert>, rng: &mut StdRng, start: u16, size: usize) -
         level[v as usize] = CHOSEN;
 
         for &n in g.neighbors(v) {
+            if g.vert(n).area != 0 {
+                continue;
+            }
+
             let old_level = level[n as usize];
             if old_level == CHOSEN || old_level >= MAX_EDGES as u8 {
                 continue;
@@ -306,9 +313,14 @@ impl Temporary {
         self.base = triangulated_graph(samp.points(), bounds).map(BaseVert::new);
     }
 
-    fn mark_area(&mut self, verts: &[u16]) -> u32 {
+    fn alloc_area(&mut self) -> u32 {
         let area = self.next_area;
         self.next_area += 1;
+        area
+    }
+
+    fn mark_area(&mut self, verts: &[u16]) -> u32 {
+        let area = self.alloc_area();
 
         for &v in verts {
             self.base.vert_mut(v).area = area;
@@ -341,7 +353,8 @@ impl Temporary {
                                                   |v| self.base.vert(v).label == 0).unwrap();
             self.base.vert_mut(start).label = 1;
             let dir = self.base.vert(start).pos - self.base.vert(origin).pos;
-            self.gen_tunnel(rng, start, 30, dir);
+            let end = self.gen_tunnel(rng, start, 3, dir);
+            self.gen_door(rng, end);
         }
     }
 
@@ -363,10 +376,98 @@ impl Temporary {
             let p1 = self.base.vert(cur).pos;
             let p2 = self.base.vert(next).pos;
             self.edges.push((p1, p2));
-            self.base.vert_mut(next).area = 1;
+            self.base.vert_mut(next).area = AREA_TUNNEL;
             cur = next;
         }
         cur
+    }
+
+    fn gen_door(&mut self, rng: &mut StdRng, start: u16) -> u16 {
+        let area = self.alloc_area();
+
+        let mut seen = mk_array(false, self.base.verts.len());
+        let mut level_verts = vec![start];
+        seen[start as usize] = true;
+
+        let mut candidates = Vec::new();
+        for _ in 0 .. 2 {
+            let mut next_level_verts = Vec::new();
+            info!("{} verts in current level", level_verts.len());
+            for &v in &level_verts {
+                let v_pos = self.base.vert(v).pos;
+                for &n in self.base.neighbors(v) {
+                    if self.base.vert(n).area != 0 {
+                        continue;
+                    }
+
+                    // Check if this is a reasonable edge for a door.
+                    let n_pos = self.base.vert(n).pos;
+                    let dir = n_pos - v_pos;
+                    if dir.dot(V2::new(1, -1)) > 0 && dir.dot(V2::new(-1, -1)) > 0 {
+                        candidates.push((v, n));
+                    }
+
+                    if seen[n as usize] {
+                        continue;
+                    }
+                    seen[n as usize] = true;
+                    next_level_verts.push(n);
+                }
+            }
+            level_verts = next_level_verts;
+        }
+
+        for (v1, v2) in candidates {
+            // Check the vertices to the sides of the door.
+            let mut side_verts = SmallVec::new();
+            for &n1 in self.base.neighbors(v1) {
+                for &n2 in self.base.neighbors(v2) {
+                    if n1 == n2 {
+                        side_verts.push(n1);
+                    }
+                }
+            }
+            if side_verts.iter().any(|&v| self.base.vert(v).area >= AREA_FIRST_PUZZLE) {
+                // The door area needs ownership of the triangles on both sides of the
+                // entrance-exit edge.
+                continue;
+            }
+            // Note that the search above only produced candidates where the entrance and exit can
+            // both be claimed.  (Specifically, the exit is unclaimed, and the entrance is
+            // unclaimed or claimed only by AREA_TUNNEL.)
+
+            // Make sure there's a path to the entrance that doesn't cut through the door.
+            let path = self.base.a_star(start, v1, |v| v.pos, |v,_| {
+                if v == v1 || v == v2 { 10000 } else { 0 }
+            });
+            if path.len() > 3 {
+                continue;
+            }
+
+            // Add edges for the extra path.
+            let mut last = start;
+            for &v in &path[1..] {
+                self.edges.push((self.base.vert(last).pos,
+                                 self.base.vert(v).pos));
+                self.base.vert_mut(v).area = AREA_TUNNEL;
+                last = v;
+            }
+
+            self.edges.push((self.base.vert(v1).pos,
+                             self.base.vert(v2).pos));
+
+            // Take ownership of the necessary vertices.
+            self.base.vert_mut(v1).area = area;
+            self.base.vert_mut(v2).area = area;
+            for &v in side_verts.iter() {
+                self.base.vert_mut(v).area = area;
+            }
+
+            return v2;
+        }
+
+        // Fell through without finding a place to put the door.
+        start
     }
 }
 

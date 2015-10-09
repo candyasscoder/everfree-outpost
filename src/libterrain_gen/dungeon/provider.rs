@@ -304,6 +304,6 @@ fn vaults_in_bounds<'a>(vaults: &'a [Box<Vault>],
         }
         chunk_vaults.push(&**v);
     }
-    info!("{} vaults in region {:?}", chunk_vaults.len(), bounds);
+    //info!("{} vaults in region {:?}", chunk_vaults.len(), bounds);
     chunk_vaults
 }
