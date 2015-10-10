@@ -175,12 +175,21 @@ impl<T> Graph<T> {
         path
     }
 
-    fn for_each_triangle<F>(&self, mut f: F)
+    fn for_each_triangle<F>(&self, f: F)
             where F: FnMut(u16, u16, u16) {
+        self.for_each_triangle_filtered(|_| true, f)
+    }
+
+    fn for_each_triangle_filtered<F, Filter>(&self, mut filter: Filter, mut f: F)
+            where F: FnMut(u16, u16, u16),
+                  Filter: FnMut(u16) -> bool {
         // To avoid duplication, consider only triangles whose vertices are sorted by vertex index.
         for a in 0 .. self.verts.len() as u16 {
+            if !filter(a) {
+                continue;
+            }
             for &b in self.neighbors(a) {
-                if b < a {
+                if b < a || !filter(b) {
                     continue;
                 }
 
@@ -212,7 +221,9 @@ impl<T> Graph<T> {
                     } else if c2 < c1 {
                         b_ns.next();
                     } else {    // c1 == c2
-                        f(a, b, c1);
+                        if filter(c1) {
+                            f(a, b, c1);
+                        }
                         a_ns.next();
                         b_ns.next();
                     }
@@ -405,6 +416,16 @@ impl Temporary {
             }
         }
 
+        {
+            let base = &self.base;
+            let tris = &mut self.tris;
+            base.for_each_triangle_filtered(|v| base.vert(v).area == area, |a, b, c| {
+                tris.push(Triangle::new(base.vert(a).pos,
+                                        base.vert(b).pos,
+                                        base.vert(c).pos));
+            });
+        }
+
         for _ in 0 .. 3 {
             let start = self.base.choose_neighbor(rng, origin,
                                                   |v| self.base.vert(v).label == 0).unwrap();
@@ -543,7 +564,8 @@ impl Temporary {
 
         // Generate triangles and neg_edges
         let ab = b_pos - a_pos;
-        let left = V2::new(-ab.y, ab.x);
+        // NB: in game coordinates, the Y-axis points down, not up.
+        let right = V2::new(-ab.y, ab.x);
 
         for &c in side_verts {
             let c_conn = self.tunnels.neighbors(c).len() > 0;
@@ -551,26 +573,18 @@ impl Temporary {
             let ca_conn = self.tunnels.has_edge(c, a);
 
             let c_pos = self.base.vert(c).pos;
-            let flip = (c_pos - a_pos).dot(left) < 0;
 
-            // NB: `flip` means the opposite of what you'd expect here, because we do CW/CCW checks
-            // in normal math coordinates (Y-axis points up), but actual game coordinates are
-            // mirrored (Y-axis points down).  (Also, the `left` vector actually points to the
-            // right, in game coordinates.)
-            let ab_mid = center + V2::new(if flip { -2 } else { 2 }, 0);
+            let on_right = (c_pos - a_pos).dot(right) > 0;
+            let ab_mid = center + V2::new(if on_right { 2 } else { -2 }, 0);
             let bc_mid = (b_pos + c_pos).div_floor(scalar(2));
             let ca_mid = (c_pos + a_pos).div_floor(scalar(2));
 
-            let mk_tri = |a, b, c| {
-                if flip { Triangle::new(a, c, b) } else { Triangle::new(a, b, c) }
-            };
-
             // Place triangles as there is a tunnel from entrance to exit.
-            self.tris.push(mk_tri(a_pos, ab_mid, ca_mid));
-            self.tris.push(mk_tri(b_pos, bc_mid, ab_mid));
-            self.tris.push(mk_tri(ab_mid, bc_mid, ca_mid));
+            self.tris.push(Triangle::new(a_pos, ab_mid, ca_mid));
+            self.tris.push(Triangle::new(b_pos, bc_mid, ab_mid));
+            self.tris.push(Triangle::new(ab_mid, bc_mid, ca_mid));
             if c_conn {
-                self.tris.push(mk_tri(c_pos, ca_mid, bc_mid));
+                self.tris.push(Triangle::new(c_pos, ca_mid, bc_mid));
             }
 
             // But generate negative edges as if there is no such tunnel.  This prevents the
@@ -631,14 +645,6 @@ fn process_triangle<Tri, NegEdge>(base: &Graph<BaseVert>,
                                   mut do_neg_edge: NegEdge)
         where Tri: FnMut(V2, V2, V2),
               NegEdge: FnMut(V2, V2) {
-    // Sort the vertices into counterclockwise order.
-    let (a, b, c) = if {
-        let ab = base.vert(b).pos - base.vert(a).pos;
-        let ac = base.vert(c).pos - base.vert(a).pos;
-        let left = V2::new(-ab.y, ab.x);
-        ac.dot(left) > 0
-    } { (a, b, c) } else { (a, c, b) };
-
     // Check which vertices and edges are involved in tunnels.
     let a_conn = tunnels.neighbors(a).len() > 0;
     let b_conn = tunnels.neighbors(b).len() > 0;

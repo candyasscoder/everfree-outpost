@@ -43,6 +43,16 @@ impl Triangle {
         let max_x = cmp::max(cmp::max(a.x, b.x), c.x);
         let max_y = cmp::max(cmp::max(a.y, b.y), c.y);
 
+        let ab = b - a;
+        let ac = c - a;
+        let left = V2::new(-ab.y, ab.x);
+        let (a, b, c) =
+            if ac.dot(left) < 0 {
+                (a, c, b)
+            } else {
+                (a, b, c)
+            };
+
         Triangle {
             bounds: Region::new(V2::new(min_x, min_y), V2::new(max_x, max_y)),
 
