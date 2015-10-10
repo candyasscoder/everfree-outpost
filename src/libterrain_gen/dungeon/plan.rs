@@ -425,6 +425,7 @@ impl Temporary {
                                         base.vert(c).pos));
             });
         }
+        self.vaults.push(Box::new(vault::Entrance::new(ENTRANCE_POS)));
 
         for _ in 0 .. 3 {
             let start = self.base.choose_neighbor(rng, origin,
