@@ -115,36 +115,32 @@ impl VaultRead for FloorMarking {
 
 pub struct Door {
     center: V2,
-    corners: (i8, i8),
 }
 
 impl Door {
-    pub fn new(center: V2, corners: (i8, i8)) -> Door {
+    pub fn new(center: V2) -> Door {
         Door {
             center: center,
-            corners: corners,
         }
     }
 }
 
 impl Vault for Door {
-    fn pos(&self) -> V2 { self.center - V2::new(3, 3) }
-    fn size(&self) -> V2 { V2::new(7, 7) }
+    fn pos(&self) -> V2 { self.center - V2::new(2, 2) }
+    fn size(&self) -> V2 { V2::new(5, 5) }
 
     fn connection_points(&self) -> &[V2] { &[] }
 
     fn gen_cave_grid(&self,
                      grid: &mut CellularGrid,
                      grid_bounds: Region<V2>) {
-        static GRID: [[u8; 8]; 8] = [
-            [0, 0, 0, 1, 1, 0, 0, 0],
-            [3, 0, 0, 1, 1, 0, 0, 4],
-            [3, 3, 1, 1, 1, 1, 4, 4],
-            [2, 2, 1, 1, 1, 1, 2, 2],
-            [2, 2, 1, 1, 1, 1, 2, 2],
-            [5, 5, 1, 1, 1, 1, 6, 6],
-            [5, 0, 0, 1, 1, 0, 0, 6],
-            [0, 0, 0, 1, 1, 0, 0, 0],
+        static GRID: [[u8; 6]; 6] = [
+            [0, 0, 1, 1, 0, 0],
+            [0, 1, 1, 1, 1, 0],
+            [2, 1, 1, 1, 1, 2],
+            [2, 1, 1, 1, 1, 2],
+            [0, 1, 1, 1, 1, 0],
+            [0, 0, 1, 1, 0, 0],
         ];
         let vault_bounds = Region::new(self.pos(), self.pos() + self.size() + scalar(1));
         for pos in vault_bounds.intersect(grid_bounds).points() {
@@ -154,10 +150,6 @@ impl Vault for Door {
                 match val {
                     1 => Some(false),
                     2 => Some(true),
-                    3 if self.corners.1 != -1 => Some(true),
-                    4 if self.corners.1 !=  1 => Some(true),
-                    5 if self.corners.0 != -1 => Some(true),
-                    6 if self.corners.0 !=  1 => Some(true),
                     _ => None,
                 };
             if let Some(val) = setting {
@@ -210,7 +202,6 @@ impl Vault for Door {
     fn write_to(&self, f: &mut File) -> io::Result<()> {
         try!(f.write_bytes(2_u8));
         try!(f.write_bytes(self.center));
-        try!(f.write_bytes(self.corners));
         Ok(())
     }
 }
@@ -221,7 +212,6 @@ impl VaultRead for Door {
         let corners = try!(f.read_bytes());
         Ok(Box::new(Door {
             center: center,
-            corners: corners,
         }))
     }
 }
@@ -290,6 +280,7 @@ impl VaultRead for Entrance {
 pub enum ChestItem {
     Hat,
     Key,
+    Book,
 }
 
 impl ChestItem {
@@ -297,6 +288,7 @@ impl ChestItem {
         match self {
             ChestItem::Hat => "hat",
             ChestItem::Key => "key",
+            ChestItem::Book => "book",
         }
     }
 }

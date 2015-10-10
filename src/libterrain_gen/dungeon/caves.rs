@@ -45,11 +45,10 @@ impl<'a> LocalProperty for Caves<'a> {
 
     fn init(&mut self, summ: &ChunkSummary) -> CellularGrid {
         let mut grid = CellularGrid::new(scalar(CHUNK_SIZE * 3 + 1));
+        let base = self.cpos * scalar(CHUNK_SIZE) - scalar(CHUNK_SIZE);
 
         for pos in grid.bounds().points() {
-            let is_wall = self.rng.gen_range(0, 10) < 7;
-            //let is_wall = true;
-            grid.set(pos, is_wall);
+            grid.set(pos, true);
         }
 
         let base = self.cpos * scalar(CHUNK_SIZE) - scalar(CHUNK_SIZE);
@@ -73,7 +72,31 @@ impl<'a> LocalProperty for Caves<'a> {
             let abs_delta = (b - a).abs();
             let len = abs_delta.x + abs_delta.y;
             blob.expand_with_callback(&mut self.rng, len as usize * 6, |pos| {
-                grid.set(pos, false);
+                //grid.set(pos, false);
+            });
+        }
+
+        for tri in &self.plane_summ.tris {
+            if !bounds.overlaps(tri.bounds) {
+                continue;
+            }
+            for pos in tri.bounds.points() {
+                if tri.contains(pos) && bounds.contains(pos) {
+                    if self.rng.gen_range(0, 10) < 5 {
+                        grid.set(pos - base, false);
+                    }
+                }
+            }
+        }
+
+        for &(a, b) in &self.plane_summ.neg_edges {
+            if !bounds.contains(a) && !bounds.contains(b) {
+                continue;
+            }
+            algo::line_points(a, b, |pos, big| {
+                if big && bounds.contains(pos) {
+                    grid.set_fixed(pos - base, true);
+                }
             });
         }
 

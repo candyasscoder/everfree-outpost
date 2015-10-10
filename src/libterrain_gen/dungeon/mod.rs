@@ -2,6 +2,7 @@ use libserver_types::V2;
 
 pub use self::provider::Provider;
 
+mod types;
 mod summary;
 mod provider;
 
