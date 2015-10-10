@@ -32,6 +32,7 @@ def init():
     mk_item('crystal', 'Crystal', extract(structures('crystal-ward.png'), (1, 0)))
 
     mk_item('hat', 'Hat', tiles('equip_hat_icon.png'))
+    mk_item('party_hat', 'Party Hat', tiles('party-hat-icon.png'))
 
 
     sign = mk_solid_structure('sign', structures('sign.png'), (1, 1, 1))
