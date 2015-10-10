@@ -22,6 +22,7 @@ use super::vault::Door;
 use super::vault::Entrance;
 use super::vault::{Treasure, TreasureKind, ChestItem};
 use super::vault::Library;
+use super::types::Triangle;
 
 
 pub struct Plan<'d> {
@@ -99,6 +100,10 @@ impl<T> Graph<T> {
         }
     }
 
+    fn has_edge(&self, v1: u16, v2: u16) -> bool {
+        self.edges[v1 as usize].contains(&v2)
+    }
+
     fn a_star<VertPos, VertWeight>(&self,
                                    source: u16,
                                    target: u16,
@@ -173,6 +178,52 @@ impl<T> Graph<T> {
         }
         path.reverse();
         path
+    }
+
+    fn for_each_triangle<F>(&self, mut f: F)
+            where F: FnMut(u16, u16, u16) {
+        // To avoid duplication, consider only triangles whose vertices are sorted by vertex index.
+        for a in 0 .. self.verts.len() as u16 {
+            for &b in self.neighbors(a) {
+                if b < a {
+                    continue;
+                }
+
+                // Find neighbors that `n` and `v` have in common.
+                let mut a_ns = self.neighbors(a).iter().map(|&x| x).peekable();
+                let mut b_ns = self.neighbors(b).iter().map(|&x| x).peekable();
+
+                // Advance past ineligible vertices (index < n).  Note this whole scheme assumes
+                // the neighbor lists are sorted.
+                while let Some(&c1) = a_ns.peek() {
+                    if c1 < b {
+                        a_ns.next();
+                    } else {
+                        break;
+                    }
+                }
+                while let Some(&c2) = b_ns.peek() {
+                    if c2 < b {
+                        b_ns.next();
+                    } else {
+                        break;
+                    }
+                }
+
+                // Now walk through the two lists like a mergesort, looking for identical elements.
+                while let (Some(&c1), Some(&c2)) = (a_ns.peek(), b_ns.peek()) {
+                    if c1 < c2 {
+                        a_ns.next();
+                    } else if c2 < c1 {
+                        b_ns.next();
+                    } else {    // c1 == c2
+                        f(a, b, c1);
+                        a_ns.next();
+                        b_ns.next();
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -286,9 +337,11 @@ impl BaseVert {
 
 pub struct Temporary {
     base: Graph<BaseVert>,
+    tunnels: Graph<()>,
     next_area: u32,
 
     edges: Vec<(V2, V2)>,
+    tris: Vec<Triangle>,
 }
 
 const AREA_NONE: u32 = 0;
@@ -311,6 +364,14 @@ impl Temporary {
 
         let bounds = Region::new(scalar(0), scalar(DUNGEON_SIZE)) + scalar(BASE_PADDING);
         self.base = triangulated_graph(samp.points(), bounds).map(BaseVert::new);
+        for ns in &mut self.base.edges {
+            ns.sort();
+        }
+
+        self.tunnels = Graph::new();
+        for _ in 0 .. self.base.verts.len() {
+            self.tunnels.add_vert(());
+        }
     }
 
     fn alloc_area(&mut self) -> u32 {
@@ -342,8 +403,7 @@ impl Temporary {
         for &v1 in &*verts {
             for &v2 in self.base.neighbors(v1) {
                 if self.base.vert(v2).area == area && v1 < v2 {
-                    self.edges.push((self.base.vert(v1).pos,
-                                     self.base.vert(v2).pos));
+                    self.tunnels.add_edge_undir(v1, v2);
                 }
             }
         }
@@ -373,9 +433,7 @@ impl Temporary {
                 Some(x) => x,
                 None => break,
             };
-            let p1 = self.base.vert(cur).pos;
-            let p2 = self.base.vert(next).pos;
-            self.edges.push((p1, p2));
+            self.tunnels.add_edge_undir(cur, next);
             self.base.vert_mut(next).area = AREA_TUNNEL;
             cur = next;
         }
@@ -447,14 +505,12 @@ impl Temporary {
             // Add edges for the extra path.
             let mut last = start;
             for &v in &path[1..] {
-                self.edges.push((self.base.vert(last).pos,
-                                 self.base.vert(v).pos));
+                self.tunnels.add_edge_undir(last, v);
                 self.base.vert_mut(v).area = AREA_TUNNEL;
                 last = v;
             }
 
-            self.edges.push((self.base.vert(v1).pos,
-                             self.base.vert(v2).pos));
+            self.tunnels.add_edge_undir(v1, v2);
 
             // Take ownership of the necessary vertices.
             self.base.vert_mut(v1).area = area;
@@ -469,6 +525,70 @@ impl Temporary {
         // Fell through without finding a place to put the door.
         start
     }
+
+    fn make_tris(&mut self) {
+        let Temporary { ref base, ref tunnels, ref mut tris, .. } = *self;
+        base.for_each_triangle(|a, b, c| {
+            let a_area = base.vert(a).area;
+            let b_area = base.vert(b).area;
+            let c_area = base.vert(c).area;
+            if a_area >= AREA_FIRST_PUZZLE && b_area == a_area && c_area == a_area {
+                // Don't do anything for triangles claimed by an area.  The area can fill those in
+                // itself.
+                return;
+            }
+
+            let (a, b, c) = if {
+                let ab = base.vert(b).pos - base.vert(a).pos;
+                let ac = base.vert(c).pos - base.vert(a).pos;
+                let left = V2::new(-ab.y, ab.x);
+                ac.dot(left) > 0
+            } { (a, b, c) } else { (a, c, b) };
+
+            let a_conn = tunnels.neighbors(a).len() > 0;
+            let b_conn = tunnels.neighbors(b).len() > 0;
+            let c_conn = tunnels.neighbors(c).len() > 0;
+
+            let ab_conn = tunnels.has_edge(a, b);
+            let bc_conn = tunnels.has_edge(b, c);
+            let ca_conn = tunnels.has_edge(c, a);
+
+            let a_pos = base.vert(a).pos;
+            let b_pos = base.vert(b).pos;
+            let c_pos = base.vert(c).pos;
+
+            let ab_mid = (a_pos + b_pos).div_floor(scalar(2));
+            let bc_mid = (b_pos + c_pos).div_floor(scalar(2));
+            let ca_mid = (c_pos + a_pos).div_floor(scalar(2));
+
+            if a_conn {
+                tris.push(Triangle::new(a_pos, ab_mid, ca_mid));
+            }
+            if b_conn {
+                tris.push(Triangle::new(b_pos, bc_mid, ab_mid));
+            }
+            if c_conn {
+                tris.push(Triangle::new(c_pos, ca_mid, bc_mid));
+            }
+            if ab_conn || bc_conn || ca_conn {
+                tris.push(Triangle::new(ab_mid, bc_mid, ca_mid));
+            }
+        });
+        info!("generated {} triangles", tris.len());
+    }
+
+    fn make_edges(&mut self) {
+        for v in 0 .. self.tunnels.verts.len() as u16 {
+            for &n in self.tunnels.neighbors(v) {
+                // self.tunnels is undirected, so avoid adding duplicates to self.edges.
+                if v < n {
+                    self.edges.push((self.base.vert(v).pos,
+                                     self.base.vert(n).pos));
+                }
+            }
+        }
+        info!("generated {} edges", self.edges.len());
+    }
 }
 
 const PADDING: i32 = 32;
@@ -481,19 +601,25 @@ impl<'d> GlobalProperty for Plan<'d> {
     fn init(&mut self, _: &PlaneSummary) -> Temporary {
         Temporary {
             base: Graph::new(),
+            tunnels: Graph::new(),
             next_area: AREA_FIRST_PUZZLE,
 
             edges: Vec::new(),
+            tris: Vec::new(),
         }
     }
 
     fn generate(&mut self, tmp: &mut Temporary) {
         tmp.gen_base(&mut self.rng);
         tmp.gen_entrance(&mut self.rng);
+
+        tmp.make_edges();
+        tmp.make_tris();
     }
 
     fn save(&mut self, tmp: Temporary, summ: &mut PlaneSummary) {
         summ.edges = tmp.edges;
+        summ.tris = tmp.tris;
         //summ.vaults = tmp.vaults;
         //summ.verts = tmp.high.verts.iter().map(|v| v.pos).collect();
     }

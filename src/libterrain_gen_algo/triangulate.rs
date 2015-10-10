@@ -45,7 +45,7 @@ impl Triangle {
 }
 
 /// Given the three vertices of a triangle, sort them into counterclockwise order.
-fn sort_ccw(a: V2, b: V2, c: V2) -> (V2, V2, V2) {
+pub fn sort_ccw(a: V2, b: V2, c: V2) -> (V2, V2, V2) {
     let ab = b - a;
     let ac = c - a;
 

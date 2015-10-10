@@ -11,6 +11,7 @@ use libserver_util::bytes::*;
 
 use cache::Summary;
 use super::vault::{Vault, read_vault};
+use super::types::Triangle;
 
 
 // TODO: copied from forest::summary; move to somewhere common
@@ -74,6 +75,8 @@ pub struct PlaneSummary {
     // TODO: Box<[(V2, V2)]>?
     pub edges: Vec<(V2, V2)>,
 
+    pub tris: Vec<Triangle>,
+
     /// Vaults to be placed in the generated terrain.
     // TODO: wish we could use fewer allocations here...
     pub vaults: Vec<Box<Vault>>,
@@ -85,6 +88,7 @@ impl Summary for PlaneSummary {
     fn alloc() -> Box<PlaneSummary> {
         Box::new(PlaneSummary {
             edges: Vec::new(),
+            tris: Vec::new(),
             vaults: Vec::new(),
             verts: Vec::new(),
         })
