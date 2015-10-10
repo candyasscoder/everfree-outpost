@@ -722,6 +722,9 @@ impl Temporary {
             if r < 2 * hat_weight {
                 vault::TreasureKind::Chest(1, vault::ChestItem::Hat)
             } else if r < 50 {
+                let count = rng.gen_range(6, 13);
+                vault::TreasureKind::Chest(count, vault::ChestItem::Book)
+            } else if r < 75 {
                 vault::TreasureKind::Fountain
             } else {
                 vault::TreasureKind::Trophy

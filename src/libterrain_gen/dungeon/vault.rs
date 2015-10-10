@@ -280,6 +280,7 @@ impl VaultRead for Entrance {
 pub enum ChestItem {
     Hat,
     Key,
+    Book,
 }
 
 impl ChestItem {
@@ -287,6 +288,7 @@ impl ChestItem {
         match self {
             ChestItem::Hat => "hat",
             ChestItem::Key => "key",
+            ChestItem::Book => "book",
         }
     }
 }
