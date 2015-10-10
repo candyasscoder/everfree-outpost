@@ -16,12 +16,7 @@ use prop::GlobalProperty;
 
 use super::{DUNGEON_SIZE, ENTRANCE_POS};
 use super::summary::PlaneSummary;
-use super::vault::Vault;
-use super::vault::FloorMarking;
-use super::vault::Door;
-use super::vault::Entrance;
-use super::vault::{Treasure, TreasureKind, ChestItem};
-use super::vault::Library;
+use super::vault::{self, Vault};
 use super::types::Triangle;
 
 
@@ -343,6 +338,7 @@ pub struct Temporary {
     edges: Vec<(V2, V2)>,
     neg_edges: Vec<(V2, V2)>,
     tris: Vec<Triangle>,
+    vaults: Vec<Box<Vault>>,
 }
 
 const AREA_NONE: u32 = 0;
@@ -532,6 +528,63 @@ impl Temporary {
         for &v in side_verts.iter() {
             self.base.vert_mut(v).area = area;
         }
+
+        // Place vault and edges
+        let a = entrance;
+        let b = exit;
+        let a_pos = self.base.vert(a).pos;
+        let b_pos = self.base.vert(b).pos;
+
+        let center = (a_pos + b_pos).div_floor(scalar(2));
+        self.edges.push((a_pos, center + V2::new(0, 2)));
+        self.edges.push((b_pos, center - V2::new(0, 2)));
+
+        self.vaults.push(Box::new(vault::Door::new(center)));
+
+        // Generate triangles and neg_edges
+        let ab = b_pos - a_pos;
+        let left = V2::new(-ab.y, ab.x);
+
+        for &c in side_verts {
+            let c_conn = self.tunnels.neighbors(c).len() > 0;
+            let bc_conn = self.tunnels.has_edge(b, c);
+            let ca_conn = self.tunnels.has_edge(c, a);
+
+            let c_pos = self.base.vert(c).pos;
+            let flip = (c_pos - a_pos).dot(left) < 0;
+
+            // NB: `flip` means the opposite of what you'd expect here, because we do CW/CCW checks
+            // in normal math coordinates (Y-axis points up), but actual game coordinates are
+            // mirrored (Y-axis points down).  (Also, the `left` vector actually points to the
+            // right, in game coordinates.)
+            let ab_mid = center + V2::new(if flip { -2 } else { 2 }, 0);
+            let bc_mid = (b_pos + c_pos).div_floor(scalar(2));
+            let ca_mid = (c_pos + a_pos).div_floor(scalar(2));
+
+            let mk_tri = |a, b, c| {
+                if flip { Triangle::new(a, c, b) } else { Triangle::new(a, b, c) }
+            };
+
+            // Place triangles as there is a tunnel from entrance to exit.
+            self.tris.push(mk_tri(a_pos, ab_mid, ca_mid));
+            self.tris.push(mk_tri(b_pos, bc_mid, ab_mid));
+            self.tris.push(mk_tri(ab_mid, bc_mid, ca_mid));
+            if c_conn {
+                self.tris.push(mk_tri(c_pos, ca_mid, bc_mid));
+            }
+
+            // But generate negative edges as if there is no such tunnel.  This prevents the
+            // entrance and exit tunnels from being accidentally connected.
+            if !ca_conn {
+                self.neg_edges.push((ab_mid, ca_mid));
+            }
+            if !bc_conn {
+                self.neg_edges.push((bc_mid, ab_mid));
+            }
+            if !bc_conn && !ca_conn {
+                self.neg_edges.push((ca_mid, bc_mid));
+            }
+        }
     }
 
     fn make_tris(&mut self) {
@@ -550,51 +603,9 @@ impl Temporary {
                 return;
             }
 
-            let (a, b, c) = if {
-                let ab = base.vert(b).pos - base.vert(a).pos;
-                let ac = base.vert(c).pos - base.vert(a).pos;
-                let left = V2::new(-ab.y, ab.x);
-                ac.dot(left) > 0
-            } { (a, b, c) } else { (a, c, b) };
-
-            let a_conn = tunnels.neighbors(a).len() > 0;
-            let b_conn = tunnels.neighbors(b).len() > 0;
-            let c_conn = tunnels.neighbors(c).len() > 0;
-
-            let ab_conn = tunnels.has_edge(a, b);
-            let bc_conn = tunnels.has_edge(b, c);
-            let ca_conn = tunnels.has_edge(c, a);
-
-            let a_pos = base.vert(a).pos;
-            let b_pos = base.vert(b).pos;
-            let c_pos = base.vert(c).pos;
-
-            let ab_mid = (a_pos + b_pos).div_floor(scalar(2));
-            let bc_mid = (b_pos + c_pos).div_floor(scalar(2));
-            let ca_mid = (c_pos + a_pos).div_floor(scalar(2));
-
-            if a_conn {
-                tris.push(Triangle::new(a_pos, ab_mid, ca_mid));
-            }
-            if b_conn {
-                tris.push(Triangle::new(b_pos, bc_mid, ab_mid));
-            }
-            if c_conn {
-                tris.push(Triangle::new(c_pos, ca_mid, bc_mid));
-            }
-            if ab_conn || bc_conn || ca_conn {
-                tris.push(Triangle::new(ab_mid, bc_mid, ca_mid));
-            }
-
-            if (a_conn || bc_conn) && !ab_conn && !ca_conn {
-                neg_edges.push((ab_mid, ca_mid));
-            }
-            if (b_conn || ca_conn) && !bc_conn && !ab_conn {
-                neg_edges.push((bc_mid, ab_mid));
-            }
-            if (c_conn || ab_conn) && !ca_conn && !bc_conn {
-                neg_edges.push((ca_mid, bc_mid));
-            }
+            process_triangle(base, tunnels, a, b, c,
+                             |a, b, c| tris.push(Triangle::new(a, b, c)),
+                             |a, b| neg_edges.push((a, b)));
         });
         info!("generated {} triangles", tris.len());
     }
@@ -613,6 +624,66 @@ impl Temporary {
     }
 }
 
+fn process_triangle<Tri, NegEdge>(base: &Graph<BaseVert>,
+                                  tunnels: &Graph<()>,
+                                  a: u16, b: u16, c: u16,
+                                  mut do_tri: Tri,
+                                  mut do_neg_edge: NegEdge)
+        where Tri: FnMut(V2, V2, V2),
+              NegEdge: FnMut(V2, V2) {
+    // Sort the vertices into counterclockwise order.
+    let (a, b, c) = if {
+        let ab = base.vert(b).pos - base.vert(a).pos;
+        let ac = base.vert(c).pos - base.vert(a).pos;
+        let left = V2::new(-ab.y, ab.x);
+        ac.dot(left) > 0
+    } { (a, b, c) } else { (a, c, b) };
+
+    // Check which vertices and edges are involved in tunnels.
+    let a_conn = tunnels.neighbors(a).len() > 0;
+    let b_conn = tunnels.neighbors(b).len() > 0;
+    let c_conn = tunnels.neighbors(c).len() > 0;
+
+    let ab_conn = tunnels.has_edge(a, b);
+    let bc_conn = tunnels.has_edge(b, c);
+    let ca_conn = tunnels.has_edge(c, a);
+
+    // Collect positions for vertices and midpoints.
+    let a_pos = base.vert(a).pos;
+    let b_pos = base.vert(b).pos;
+    let c_pos = base.vert(c).pos;
+
+    let ab_mid = (a_pos + b_pos).div_floor(scalar(2));
+    let bc_mid = (b_pos + c_pos).div_floor(scalar(2));
+    let ca_mid = (c_pos + a_pos).div_floor(scalar(2));
+
+    // Emit triangles
+    if a_conn {
+        do_tri(a_pos, ab_mid, ca_mid);
+    }
+    if b_conn {
+        do_tri(b_pos, bc_mid, ab_mid);
+    }
+    if c_conn {
+        do_tri(c_pos, ca_mid, bc_mid);
+    }
+    if ab_conn || bc_conn || ca_conn {
+        do_tri(ab_mid, bc_mid, ca_mid);
+    }
+
+    // Emit negative edges.
+    if (a_conn || bc_conn) && !ab_conn && !ca_conn {
+        do_neg_edge(ab_mid, ca_mid);
+    }
+    if (b_conn || ca_conn) && !bc_conn && !ab_conn {
+        do_neg_edge(bc_mid, ab_mid);
+    }
+    if (c_conn || ab_conn) && !ca_conn && !bc_conn {
+        do_neg_edge(ca_mid, bc_mid);
+    }
+
+}
+
 const PADDING: i32 = 32;
 
 impl<'d> GlobalProperty for Plan<'d> {
@@ -629,6 +700,7 @@ impl<'d> GlobalProperty for Plan<'d> {
             edges: Vec::new(),
             neg_edges: Vec::new(),
             tris: Vec::new(),
+            vaults: Vec::new(),
         }
     }
 
@@ -644,7 +716,6 @@ impl<'d> GlobalProperty for Plan<'d> {
         summ.edges = tmp.edges;
         summ.neg_edges = tmp.neg_edges;
         summ.tris = tmp.tris;
-        //summ.vaults = tmp.vaults;
-        //summ.verts = tmp.high.verts.iter().map(|v| v.pos).collect();
+        summ.vaults = tmp.vaults;
     }
 }
