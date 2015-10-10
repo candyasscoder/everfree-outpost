@@ -248,8 +248,8 @@ impl<'d> Provider<'d> {
         for layer in 0 .. CHUNK_SIZE as u8 / 2 {
             let layer_z = layer as i32 * 2;
             for &pos in &self.cache.get(pid, cpos).treasure_offsets[layer as usize] {
-                if self.rng.gen_range(0, 100) < 1 {
-                    if self.rng.gen_range(0, 20) < 1 {
+                if self.rng.gen_range(0, 100) < 8 {
+                    if self.rng.gen_range(0, 100) < 50 {
                         info!("dungeon entrance at {:?}", cpos * scalar(CHUNK_SIZE) + pos);
                         let gs = GenStructure::new(pos.extend(layer_z), entrance_id);
                         gc.structures.push(gs);

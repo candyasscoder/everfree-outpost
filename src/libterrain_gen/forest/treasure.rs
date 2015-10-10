@@ -40,7 +40,7 @@ impl<'a> LocalProperty for Treasure<'a> {
         // All treasure so far is 1 tile in size.
         // Note that we currently can't set min_spacing to 1, because 1 / sqrt(2) == 0 (in other
         // words, the grid resolution is not high enough to handle it).
-        DiskSampler::new(scalar(CHUNK_SIZE * 3), 2, 6)
+        DiskSampler::new(scalar(CHUNK_SIZE * 3), 3, 6)
     }
 
     fn load(&mut self, samp: &mut DiskSampler, dir: V2, summ: &ChunkSummary) {
