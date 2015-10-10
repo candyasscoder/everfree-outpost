@@ -89,6 +89,17 @@ impl<'a> LocalProperty for Caves<'a> {
             }
         }
 
+        for &(a, b) in &self.plane_summ.neg_edges {
+            if !bounds.contains(a) && !bounds.contains(b) {
+                continue;
+            }
+            algo::line_points(a, b, |pos, big| {
+                if big && bounds.contains(pos) {
+                    grid.set_fixed(pos - base, true);
+                }
+            });
+        }
+
         if bounds.contains(ENTRANCE_POS) {
             for offset in Region::new(scalar(-1), scalar(5)).points() {
                 let p = ENTRANCE_POS + offset - base;

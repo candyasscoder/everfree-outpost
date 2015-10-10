@@ -341,6 +341,7 @@ pub struct Temporary {
     next_area: u32,
 
     edges: Vec<(V2, V2)>,
+    neg_edges: Vec<(V2, V2)>,
     tris: Vec<Triangle>,
 }
 
@@ -441,8 +442,6 @@ impl Temporary {
     }
 
     fn gen_door(&mut self, rng: &mut StdRng, start: u16) -> u16 {
-        let area = self.alloc_area();
-
         let mut seen = mk_array(false, self.base.verts.len());
         let mut level_verts = vec![start];
         seen[start as usize] = true;
@@ -502,23 +501,7 @@ impl Temporary {
                 continue;
             }
 
-            // Add edges for the extra path.
-            let mut last = start;
-            for &v in &path[1..] {
-                self.tunnels.add_edge_undir(last, v);
-                self.base.vert_mut(v).area = AREA_TUNNEL;
-                last = v;
-            }
-
-            self.tunnels.add_edge_undir(v1, v2);
-
-            // Take ownership of the necessary vertices.
-            self.base.vert_mut(v1).area = area;
-            self.base.vert_mut(v2).area = area;
-            for &v in side_verts.iter() {
-                self.base.vert_mut(v).area = area;
-            }
-
+            self.place_door(rng, path, start, v1, v2, &side_verts);
             return v2;
         }
 
@@ -526,8 +509,37 @@ impl Temporary {
         start
     }
 
+    fn place_door(&mut self,
+                  rng: &mut StdRng,
+                  path: Vec<u16>,
+                  start: u16,
+                  entrance: u16,
+                  exit: u16,
+                  side_verts: &[u16]) {
+        let area = self.alloc_area();
+
+        // Add edges for the extra path.
+        let mut last = start;
+        for &v in &path[1..] {
+            self.tunnels.add_edge_undir(last, v);
+            self.base.vert_mut(v).area = AREA_TUNNEL;
+            last = v;
+        }
+
+        // Take ownership of the necessary vertices.
+        self.base.vert_mut(entrance).area = area;
+        self.base.vert_mut(exit).area = area;
+        for &v in side_verts.iter() {
+            self.base.vert_mut(v).area = area;
+        }
+    }
+
     fn make_tris(&mut self) {
-        let Temporary { ref base, ref tunnels, ref mut tris, .. } = *self;
+        let Temporary { ref base,
+                        ref tunnels,
+                        ref mut tris,
+                        ref mut neg_edges,
+                        .. } = *self;
         base.for_each_triangle(|a, b, c| {
             let a_area = base.vert(a).area;
             let b_area = base.vert(b).area;
@@ -573,6 +585,16 @@ impl Temporary {
             if ab_conn || bc_conn || ca_conn {
                 tris.push(Triangle::new(ab_mid, bc_mid, ca_mid));
             }
+
+            if (a_conn || bc_conn) && !ab_conn && !ca_conn {
+                neg_edges.push((ab_mid, ca_mid));
+            }
+            if (b_conn || ca_conn) && !bc_conn && !ab_conn {
+                neg_edges.push((bc_mid, ab_mid));
+            }
+            if (c_conn || ab_conn) && !ca_conn && !bc_conn {
+                neg_edges.push((ca_mid, bc_mid));
+            }
         });
         info!("generated {} triangles", tris.len());
     }
@@ -605,6 +627,7 @@ impl<'d> GlobalProperty for Plan<'d> {
             next_area: AREA_FIRST_PUZZLE,
 
             edges: Vec::new(),
+            neg_edges: Vec::new(),
             tris: Vec::new(),
         }
     }
@@ -619,6 +642,7 @@ impl<'d> GlobalProperty for Plan<'d> {
 
     fn save(&mut self, tmp: Temporary, summ: &mut PlaneSummary) {
         summ.edges = tmp.edges;
+        summ.neg_edges = tmp.neg_edges;
         summ.tris = tmp.tris;
         //summ.vaults = tmp.vaults;
         //summ.verts = tmp.high.verts.iter().map(|v| v.pos).collect();

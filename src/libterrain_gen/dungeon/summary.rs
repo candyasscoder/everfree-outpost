@@ -75,6 +75,8 @@ pub struct PlaneSummary {
     // TODO: Box<[(V2, V2)]>?
     pub edges: Vec<(V2, V2)>,
 
+    pub neg_edges: Vec<(V2, V2)>,
+
     pub tris: Vec<Triangle>,
 
     /// Vaults to be placed in the generated terrain.
@@ -88,6 +90,7 @@ impl Summary for PlaneSummary {
     fn alloc() -> Box<PlaneSummary> {
         Box::new(PlaneSummary {
             edges: Vec::new(),
+            neg_edges: Vec::new(),
             tris: Vec::new(),
             vaults: Vec::new(),
             verts: Vec::new(),
@@ -96,6 +99,8 @@ impl Summary for PlaneSummary {
 
     fn write_to(&self, mut f: File) -> io::Result<()> {
         try!(unsafe { write_vec(&mut f, &self.edges) });
+        try!(unsafe { write_vec(&mut f, &self.neg_edges) });
+        try!(unsafe { write_vec(&mut f, &self.tris) });
 
         try!(f.write_bytes(self.vaults.len().to_u32().unwrap()));
         for v in &self.vaults {
@@ -109,6 +114,8 @@ impl Summary for PlaneSummary {
         let mut summary = PlaneSummary::alloc();
 
         summary.edges = try!(unsafe { read_vec(&mut f) });
+        summary.neg_edges = try!(unsafe { read_vec(&mut f) });
+        summary.tris = try!(unsafe { read_vec(&mut f) });
 
         let vaults_count = try!(f.read_bytes::<u32>()) as usize;
         summary.vaults = Vec::with_capacity(vaults_count);
