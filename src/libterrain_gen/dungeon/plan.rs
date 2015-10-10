@@ -9,7 +9,7 @@ use libserver_util::{SmallVec, SmallSet};
 
 use StdRng;
 use algo::disk_sampler::DiskSampler;
-use algo::reservoir_sample_weighted;
+use algo::{reservoir_sample, reservoir_sample_weighted};
 use algo::triangulate;
 use algo::union_find::UnionFind;
 use prop::GlobalProperty;
@@ -339,6 +339,10 @@ impl BaseVert {
             label: 0,
         }
     }
+
+    fn is_puzzle(&self) -> bool {
+        self.area >= AREA_FIRST_PUZZLE
+    }
 }
 
 pub struct Temporary {
@@ -399,14 +403,103 @@ impl Temporary {
         area
     }
 
-    fn gen_entrance(&mut self, rng: &mut StdRng) {
+    fn gen(&mut self, rng: &mut StdRng) {
+        struct Path {
+            cur: u16,
+            level: u8,
+        }
+
+        let mut queue = Vec::new();
+
         let origin = self.base.verts.iter().position(|v| v.pos == ENTRANCE_POS)
                          .expect("ENTRANCE_POS should always be in self.base.verts") as u16;
+        for &v in &self.gen_entrance(rng, origin) {
+            queue.push(Path { cur: v, level: 0 });
+        }
+
+        while queue.len() > 0 {
+            let idx = rng.gen_range(0, queue.len());
+            let p = queue.swap_remove(idx);
+
+            // Extend the path in some direction(s).
+            // 70% chance of 1
+            // 25% chance of 2
+            //  5% chance of 3
+            let r = rng.gen_range(0, 100);
+            let count = 1 + (r < 30) as u8 + (r < 5) as u8;
+            for _ in 0 .. count {
+                // Dig a tunnel in some direction.
+                let next = match self.base.choose_neighbor(rng, p.cur,
+                                                           |v| self.base.vert(v).area == 0) {
+                    Some(x) => x,
+                    None => break,
+                };
+                let dir = self.base.vert(next).pos - self.base.vert(p.cur).pos;
+
+                let len = rng.gen_range(3, 6);
+                let tunnel_end = self.gen_tunnel(rng, p.cur, len, dir, p.level as u32);
+                // Even if the tunnel can't go anywhere, we can try to place some loot.
+
+                // Place something at the end of the tunnel.
+                if let Some(next) = self.place_something(rng, tunnel_end, p.level) {
+                    queue.push(Path { cur: next, level: p.level + 1 });
+                }
+
+                // Try to place some extra treasure as well.
+                let opt_v = {
+                    let iter = (0 .. self.base.verts.len() as u16)
+                                   .filter(|&v| self.base.vert(v).area == AREA_TUNNEL);
+                    reservoir_sample(rng, iter)
+                };
+                if let Some(v) = opt_v {
+                    if let Some(n) = self.base.choose_neighbor(rng, p.cur,
+                                                               |v| self.base.vert(v).area == 0) {
+                        let level = self.base.vert(v).label as u8;
+                        let dir = self.base.vert(n).pos - self.base.vert(v).pos;
+                        let tunnel_end = self.gen_tunnel(rng, v, 2, dir, level as u32);
+                        self.gen_loot(rng, tunnel_end, level);
+                    }
+                }
+            }
+        }
+
+    }
+
+    fn place_something(&mut self, rng: &mut StdRng, v: u16, level: u8) -> Option<u16> {
+        // Try to place a door (maybe).
+        if level == 0 || rng.gen_range(0, 100) < 70 {
+            let end = self.gen_door(rng, v);
+            if end != v {
+                // Successfully placed a door.  The path should keep going.
+                return Some(end);
+            }
+        }
+
+        // Try to place a library, maybe.
+        if rng.gen_range(0, 100) < 3 * level {
+            if self.gen_library(rng, v) {
+                // Successfully placed a library.  The path should end.
+                return None;
+            }
+        }
+
+        // Try to place some small treasure.
+        if self.gen_loot(rng, v, level) {
+            return None;
+        }
+
+        // Couldn't place anything at all.
+        None
+    }
+
+    fn gen_entrance(&mut self, rng: &mut StdRng, origin: u16) -> [u16; 3] {
         let mut verts = Vec::with_capacity(self.base.neighbors(origin).len() + 1);
         verts.push(origin);
-        verts.extend(self.base.neighbors(origin).iter().map(|&x| x));
+        verts.extend(self.base.neighbors(origin).iter().map(|&x| x)
+                         .filter(|&v| !self.base.vert(v).is_puzzle()));
         let verts = verts.into_boxed_slice();
 
+        // Place tunnel edges
         let area = self.mark_area(&verts);
         for &v1 in &*verts {
             for &v2 in self.base.neighbors(v1) {
@@ -416,6 +509,7 @@ impl Temporary {
             }
         }
 
+        // Place triangles
         {
             let base = &self.base;
             let tris = &mut self.tris;
@@ -425,16 +519,20 @@ impl Temporary {
                                         base.vert(c).pos));
             });
         }
+
+        // Place vault
         self.vaults.push(Box::new(vault::Entrance::new(ENTRANCE_POS)));
 
-        for _ in 0 .. 3 {
-            let start = self.base.choose_neighbor(rng, origin,
-                                                  |v| self.base.vert(v).label == 0).unwrap();
-            self.base.vert_mut(start).label = 1;
-            let dir = self.base.vert(start).pos - self.base.vert(origin).pos;
-            let end = self.gen_tunnel(rng, start, 3, dir);
-            self.gen_door(rng, end);
-        }
+        // Choose outgoing vertexes
+        let mut choose = || {
+            let v = self.base.choose_neighbor(rng, origin, |v| {
+                let v = self.base.vert(v);
+                v.area == area && v.label == 0
+            }).unwrap();
+            self.base.vert_mut(v).label = 1;
+            v
+        };
+        [choose(), choose(), choose()]
     }
 
     fn step_tunnel(&mut self, rng: &mut StdRng, v: u16, dir: V2) -> Option<u16> {
@@ -445,7 +543,7 @@ impl Temporary {
                     .map(|&n| (n, dir.dot(self.base.vert(n).pos - v_pos))))
     }
 
-    fn gen_tunnel(&mut self, rng: &mut StdRng, v: u16, len: usize, dir: V2) -> u16 {
+    fn gen_tunnel(&mut self, rng: &mut StdRng, v: u16, len: usize, dir: V2, label: u32) -> u16 {
         let mut cur = v;
         for _ in 0 .. len {
             let next = match self.step_tunnel(rng, cur, dir) {
@@ -454,6 +552,7 @@ impl Temporary {
             };
             self.tunnels.add_edge_undir(cur, next);
             self.base.vert_mut(next).area = AREA_TUNNEL;
+            self.base.vert_mut(next).label = label;
             cur = next;
         }
         cur
@@ -602,6 +701,35 @@ impl Temporary {
         }
     }
 
+    fn gen_library(&mut self, rng: &mut StdRng, v: u16) -> bool {
+        false
+    }
+
+    fn gen_loot(&mut self, rng: &mut StdRng, v: u16, level: u8) -> bool {
+        let pos = self.base.vert(v).pos;
+        if rng.gen_range(0, 100) < 50 {
+            // Chest with keys
+            let count = rng.gen_range(1, 3) + rng.gen_range(1, 3);
+            let kind = vault::TreasureKind::Chest(count, vault::ChestItem::Key);
+            self.vaults.push(Box::new(vault::Treasure::new(pos, kind)));
+            return true;
+        }
+
+        let hat_weight = if level < 3 { 0 } else { level - 3 + 1 };
+
+        let r = rng.gen_range(0, 100);
+        let kind =
+            if r < 2 * hat_weight {
+                vault::TreasureKind::Chest(1, vault::ChestItem::Hat)
+            } else if r < 50 {
+                vault::TreasureKind::Fountain
+            } else {
+                vault::TreasureKind::Trophy
+            };
+        self.vaults.push(Box::new(vault::Treasure::new(pos, kind)));
+        true
+    }
+
     fn make_tris(&mut self) {
         let Temporary { ref base,
                         ref tunnels,
@@ -713,7 +841,7 @@ impl<'d> GlobalProperty for Plan<'d> {
 
     fn generate(&mut self, tmp: &mut Temporary) {
         tmp.gen_base(&mut self.rng);
-        tmp.gen_entrance(&mut self.rng);
+        tmp.gen(&mut self.rng);
 
         tmp.make_edges();
         tmp.make_tris();
