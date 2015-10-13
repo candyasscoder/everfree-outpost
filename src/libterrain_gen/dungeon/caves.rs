@@ -83,6 +83,7 @@ impl<'a> LocalProperty for Caves<'a> {
             for pos in tri.bounds.points() {
                 if tri.contains(pos) && bounds.contains(pos) {
                     if self.rng.gen_range(0, 10) < 5 {
+                    //if (pos.x + pos.y) % 2 == 0 {
                         grid.set(pos - base, false);
                     }
                 }

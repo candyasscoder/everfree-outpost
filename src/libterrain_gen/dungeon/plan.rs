@@ -1,6 +1,7 @@
 use std::collections::{BinaryHeap, HashMap, HashSet};
-use std::iter;
+use std::iter::{self, Peekable};
 use std::mem;
+use std::slice;
 use rand::Rng;
 
 use libserver_types::*;
@@ -231,6 +232,102 @@ impl<T> Graph<T> {
             }
         }
     }
+
+    fn breadth_first(&self, start: u16) -> BreadthFirst<T> {
+        BreadthFirst::new(self, start)
+    }
+
+    fn edge_triangles(&self, a: u16, b: u16) -> EdgeTriangles<T> {
+        EdgeTriangles::new(self, a, b)
+    }
+}
+
+struct BreadthFirst<'a, T: 'a> {
+    g: &'a Graph<T>,
+    seen: Box<[bool]>,
+    cur_depth: u8,
+    cur_verts: Vec<u16>,
+    next_verts: Vec<u16>,
+}
+
+impl<'a, T> BreadthFirst<'a, T> {
+    fn new(g: &'a Graph<T>, start: u16) -> BreadthFirst<'a, T> {
+        let mut seen = mk_array(false, g.verts.len());
+        seen[start as usize] = true;
+        BreadthFirst {
+            g: g,
+            seen: seen,
+            cur_depth: 0,
+            cur_verts: vec![start],
+            next_verts: vec![],
+        }
+    }
+}
+
+impl<'a, T> Iterator for BreadthFirst<'a, T> {
+    type Item = (u16, u8);
+
+    fn next(&mut self) -> Option<(u16, u8)> {
+        if self.cur_verts.len() == 0 {
+            if self.next_verts.len() == 0 {
+                // No verts left in either Vec.
+                return None;
+            } else {
+                // Done with this depth, go to the next one.
+                mem::swap(&mut self.cur_verts, &mut self.next_verts);
+                self.cur_depth += 1
+            }
+        }
+
+        let v = self.cur_verts.pop().unwrap();
+        for &n in self.g.neighbors(v) {
+            if !self.seen[n as usize] {
+                self.seen[n as usize] = true;
+                self.next_verts.push(n);
+            }
+        }
+
+        Some((v, self.cur_depth))
+    }
+}
+
+struct EdgeTriangles<'a, T: 'a> {
+    g: &'a Graph<T>,
+    a: u16,
+    b: u16,
+    cs1: Peekable<slice::Iter<'a, u16>>,
+    cs2: Peekable<slice::Iter<'a, u16>>,
+}
+
+impl<'a, T> EdgeTriangles<'a, T> {
+    fn new(g: &'a Graph<T>, a: u16, b: u16) -> EdgeTriangles<'a, T> {
+        EdgeTriangles {
+            g: g,
+            a: a,
+            b: b,
+            cs1: g.neighbors(a).iter().peekable(),
+            cs2: g.neighbors(b).iter().peekable(),
+        }
+    }
+}
+
+impl<'a, T> Iterator for EdgeTriangles<'a, T> {
+    type Item = u16;
+
+    fn next(&mut self) -> Option<u16> {
+        while let (Some(&&c1), Some(&&c2)) = (self.cs1.peek(), self.cs2.peek()) {
+            if c1 < c2 {
+                self.cs1.next();
+            } else if c2 < c1 {
+                self.cs2.next();
+            } else {    // c1 == c2
+                self.cs1.next();
+                self.cs2.next();
+                return Some(c1);
+            }
+        }
+        None
+    }
 }
 
 fn mk_array<T: Copy>(init: T, len: usize) -> Box<[T]> {
@@ -409,10 +506,18 @@ impl Temporary {
             level: u8,
         }
 
-        let mut queue = Vec::new();
+        //let mut queue = Vec::new();
 
         let origin = self.base.verts.iter().position(|v| v.pos == ENTRANCE_POS)
                          .expect("ENTRANCE_POS should always be in self.base.verts") as u16;
+
+
+        for &cur in &self.gen_entrance(rng, origin) {
+            let cur = self.gen_tunnel(rng, cur, 3, V2::new(1, 0), 0);
+            let cur = self.gen_gem_puzzle(rng, cur);
+        }
+
+        /*
         for &v in &self.gen_entrance(rng, origin) {
             queue.push(Path { cur: v, level: 0 });
         }
@@ -462,6 +567,7 @@ impl Temporary {
                 }
             }
         }
+        */
 
     }
 
@@ -540,7 +646,10 @@ impl Temporary {
         reservoir_sample_weighted(rng,
                 self.base.neighbors(v).iter()
                     .filter(|&&n| self.base.vert(n).area == 0)
-                    .map(|&n| (n, dir.dot(self.base.vert(n).pos - v_pos))))
+                    .map(|&n| {
+                        let d = dir.dot(self.base.vert(n).pos - v_pos);
+                        (n, if d < 0 { 200 } else { d + 200 })
+                    }))
     }
 
     fn gen_tunnel(&mut self, rng: &mut StdRng, v: u16, len: usize, dir: V2, label: u32) -> u16 {
@@ -732,6 +841,189 @@ impl Temporary {
         self.vaults.push(Box::new(vault::Treasure::new(pos, kind)));
         true
     }
+
+    fn gen_gem_puzzle(&mut self, rng: &mut StdRng, start: u16) -> u16 {
+        let mut info = None;
+
+        // Big loop to find a place to put everything.
+        'top: for (v, depth) in self.base.breadth_first(start) {
+            if depth > 3 {
+                break;
+            }
+
+            if self.base.vert(v).area != 0 {
+                continue;
+            }
+            let v_pos = self.base.vert(v).pos;
+            for &n in self.base.neighbors(v) {
+                if self.base.vert(n).area != 0 {
+                    continue;
+                }
+                let n_pos = self.base.vert(n).pos;
+
+                // Check that the edge v--n is roughly horizontal.
+                let delta = (n_pos - v_pos).abs();
+                if delta.x < 8 || delta.x < delta.y * 5 / 2 {
+                    continue;
+                }
+
+                // Check that the triangles above and below are open.
+                let opt_above = self.base.edge_triangles(v, n)
+                                    .filter(|&c| self.base.vert(c).area == 0)
+                                    .min_by(|&c| self.base.vert(c).pos.y);
+                let opt_below = self.base.edge_triangles(v, n)
+                                    .filter(|&c| self.base.vert(c).area == 0)
+                                    .max_by(|&c| self.base.vert(c).pos.y);
+                let (above, below) = match (opt_above, opt_below) {
+                    (Some(x), Some(y)) => (x, y),
+                    _ => continue,
+                };
+
+                // Check that the lower-left and lower-right triangles are also free.
+                let opt_corner_v = self.base.edge_triangles(below, v)
+                                       .filter(|&c| {
+                                           c != n && (c == start || self.base.vert(c).area == 0)
+                                       }).nth(0);
+                let opt_corner_n = self.base.edge_triangles(below, n)
+                                       .filter(|&c| {
+                                           c != v && (c == start || self.base.vert(c).area == 0)
+                                       }).nth(0);
+                if opt_corner_v.is_none() || opt_corner_n.is_none() {
+                    continue;
+                }
+
+                // Find a path to the bottom of the diamond.
+                let path = self.base.a_star(start, below, |v| v.pos, |w,_| {
+                    if w == v || w == n || w == above || w == below { 10000 } else { 0 }
+                });
+                if path.len() > 3 {
+                    continue;
+                }
+
+                info = Some((v, n, above, below,
+                             opt_corner_v.unwrap(), opt_corner_n.unwrap(),
+                             path));
+
+                break 'top;
+            }
+        }
+
+        // Unpack info about the chosen area.
+        let (left, right, above, below, left_corner, right_corner, path) = match info {
+            Some(x) => x,
+            None => return start,
+        };
+
+        // Mark vertices.  We do this first so we can capture `base` in a helper closure.
+        for &v in &path {
+            self.base.vert_mut(v).area = AREA_TUNNEL;
+        }
+        let area = self.mark_area(&[left, right, above, below, left_corner, right_corner]);
+
+        let base = &self.base;
+        let pos = |v| base.vert(v).pos;
+
+        let (left, right, left_corner, right_corner) =
+            if pos(left).x > pos(right).x { (right, left, right_corner, left_corner) }
+            else { (left, right, left_corner, right_corner) };
+
+        // Add the triangles
+        self.tris.push(Triangle::new(pos(left), pos(right), pos(above)));
+        self.tris.push(Triangle::new(pos(left), pos(right), pos(below)));
+        self.tris.push(Triangle::new(pos(left), pos(left_corner), pos(below)));
+        self.tris.push(Triangle::new(pos(right), pos(right_corner), pos(below)));
+
+        // Add the special edges around the triangles.
+        let mid_pos = (pos(left) + pos(right)).div_floor(scalar(2));
+        self.edges.push((mid_pos, pos(above)));
+        self.edges.push((mid_pos, pos(below)));
+        self.neg_edges.push((pos(left), mid_pos - V2::new(2, 0)));
+        self.neg_edges.push((pos(right), mid_pos + V2::new(2, 0)));
+        self.neg_edges.push((pos(left), (pos(left) + pos(left_corner)).div_floor(scalar(2))));
+        self.neg_edges.push((pos(right), (pos(right) + pos(right_corner)).div_floor(scalar(2))));
+
+        // Handle the path from `start` to `below`.
+        let mut cur = start;
+        for &next in &path[1..] {
+            self.tunnels.add_edge_undir(cur, next);
+            cur = next;
+        }
+
+        // Add the actual door and puzzle.
+        self.vaults.push(Box::new(vault::Door::new(mid_pos)));
+
+        let gem_center = mid_pos + V2::new(0, 3);
+        self.vaults.push(Box::new(vault::GemPuzzle::new(gem_center, V2::new(3, 1))));
+
+        above
+    }
+
+    /*
+    fn gen_gem_puzzle(&mut self, rng: &mut StdRng, v: u16) -> u16 {
+        let verts = simple_blob(&self.base, rng, v, 8);
+
+        // Place tunnel edges
+        let area = self.mark_area(&verts);
+        for &v1 in &*verts {
+            for &v2 in self.base.neighbors(v1) {
+                if self.base.vert(v2).area == area && v1 < v2 {
+                    self.tunnels.add_edge_undir(v1, v2);
+                }
+            }
+        }
+
+        // Place triangles
+        {
+            let base = &self.base;
+            let tris = &mut self.tris;
+            base.for_each_triangle_filtered(|v| base.vert(v).area == area, |a, b, c| {
+                tris.push(Triangle::new(base.vert(a).pos,
+                                        base.vert(b).pos,
+                                        base.vert(c).pos));
+            });
+        }
+
+        // Choose exit vertex
+        let opt_exit = {
+            let base = &self.base;
+            let iter = verts.iter().map(|&x| x).filter(|&v| {
+                let v_pos = base.vert(v).pos;
+                let mut above = false;
+                let mut space_below = false;
+                let mut below_left = false;
+                let mut below_right = false;
+                for &n in base.neighbors(v) {
+                    let d = base.vert(n).pos - v_pos;
+                    if base.vert(n).area == area {
+                        if d.y >= 10 {
+                            space_below = true;
+                        }
+                        if d.y >= 6 && d.x > 1 {
+                            below_right = true;
+                        }
+                        if d.y >= 6 && d.x < -1 {
+                            below_right = true;
+                        }
+                    }
+                    if d.y < 0 && base.vert(n).area == 0 {
+                        above = true;
+                    }
+                }
+                above && space_below && below_left && below_right
+            });
+            reservoir_sample(rng, iter)
+        };
+        let exit = match opt_exit {
+            Some(x) => x,
+            None => return v,
+        };
+
+        let pos = self.base.vert(exit).pos;
+        self.vaults.push(Box::new(vault::Treasure::new(pos, vault::TreasureKind::Trophy)));
+
+        v
+    }
+    */
 
     fn make_tris(&mut self) {
         let Temporary { ref base,

@@ -138,7 +138,7 @@ impl Vault for Door {
             [0, 0, 1, 1, 0, 0],
             [0, 1, 1, 1, 1, 0],
             [2, 1, 1, 1, 1, 2],
-            [2, 1, 1, 1, 1, 2],
+            [1, 1, 1, 1, 1, 1],
             [0, 1, 1, 1, 1, 0],
             [0, 0, 1, 1, 0, 0],
         ];
@@ -169,7 +169,7 @@ impl Vault for Door {
         let tile_bounds = bounds.extend(0, CHUNK_SIZE);
 
         if bounds.contains(left) {
-            let key = 1*3 + 2*3*3;
+            let key = 1*3 + 2*3*3 + 2*3*3*3;
             terrain[tile_bounds.index(left.extend(layer_z))] =
                 data.block_data.get_id(&format!("cave/{}/z0/dirt", key));
             terrain[tile_bounds.index(left.extend(layer_z + 1))] =
@@ -177,7 +177,7 @@ impl Vault for Door {
         }
 
         if bounds.contains(right) {
-            let key = 1 + 2*3*3*3;
+            let key = 1 + 2*3*3 + 2*3*3*3;
             terrain[tile_bounds.index(right.extend(layer_z))] =
                 data.block_data.get_id(&format!("cave/{}/z0/dirt", key));
             terrain[tile_bounds.index(right.extend(layer_z + 1))] =
@@ -458,6 +458,70 @@ impl VaultRead for Library {
 }
 
 
+pub struct GemPuzzle {
+    center: V2,
+    size: V2,
+}
+
+impl GemPuzzle {
+    pub fn new(center: V2, size: V2) -> GemPuzzle {
+        GemPuzzle {
+            center: center,
+            size: size,
+        }
+    }
+}
+
+impl Vault for GemPuzzle {
+    fn pos(&self) -> V2 { self.center - self.size / scalar(2) - scalar(1) }
+    fn size(&self) -> V2 { self.size + scalar(2) }
+
+    fn connection_points(&self) -> &[V2] {
+        static POINTS: [V2; 1] = [V2 { x: 0, y: 0 }];
+        &POINTS
+    }
+
+    fn gen_cave_grid(&self,
+                     grid: &mut CellularGrid,
+                     bounds: Region<V2>) {
+        for pos in self.bounds().intersect(bounds).points() {
+            grid.set_fixed(pos - bounds.min, false);
+        }
+    }
+
+    fn gen_structures(&self,
+                      _: &Data,
+                      structures: &mut Vec<GenStructure>,
+                      bounds: Region<V2>,
+                      layer: u8) {
+        let layer_z = layer as i32 * 2;
+        for pos in self.bounds().expand(scalar(-1)).intersect(bounds).points() {
+            structures.push(GenStructure::new((pos - bounds.min).extend(layer_z),
+                                              0));
+        }
+    }
+
+    fn write_to(&self, f: &mut File) -> io::Result<()> {
+        try!(f.write_bytes(6_u8));
+        try!(f.write_bytes(self.center));
+        try!(f.write_bytes(self.size));
+        Ok(())
+    }
+}
+
+impl VaultRead for GemPuzzle {
+    fn read_from(f: &mut File) -> io::Result<Box<GemPuzzle>> {
+        let center = try!(f.read_bytes());
+        let size = try!(f.read_bytes());
+        Ok(Box::new(GemPuzzle {
+            center: center,
+            size: size,
+        }))
+    }
+}
+
+
+
 pub fn read_vault(f: &mut File) -> io::Result<Box<Vault>> {
     match try!(f.read_bytes::<u8>()) {
         1 => Ok(try!(FloorMarking::read_from(f))),
@@ -465,6 +529,7 @@ pub fn read_vault(f: &mut File) -> io::Result<Box<Vault>> {
         3 => Ok(try!(Entrance::read_from(f))),
         4 => Ok(try!(Treasure::read_from(f))),
         5 => Ok(try!(Library::read_from(f))),
+        6 => Ok(try!(GemPuzzle::read_from(f))),
         _ => panic!("bad vault tag in summary"),
     }
 }
