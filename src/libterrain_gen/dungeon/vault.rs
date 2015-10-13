@@ -474,7 +474,7 @@ impl GemPuzzle {
 
 impl Vault for GemPuzzle {
     fn pos(&self) -> V2 { self.center - self.size / scalar(2) - scalar(1) }
-    fn size(&self) -> V2 { self.size + scalar(2) }
+    fn size(&self) -> V2 { self.size + V2::new(2, 3) }
 
     fn connection_points(&self) -> &[V2] {
         static POINTS: [V2; 1] = [V2 { x: 0, y: 0 }];
@@ -484,7 +484,8 @@ impl Vault for GemPuzzle {
     fn gen_cave_grid(&self,
                      grid: &mut CellularGrid,
                      bounds: Region<V2>) {
-        for pos in self.bounds().intersect(bounds).points() {
+        let vault_bounds = Region::new(self.pos(), self.pos() + self.size() + scalar(1));
+        for pos in vault_bounds.intersect(bounds).points() {
             grid.set_fixed(pos - bounds.min, false);
         }
     }
@@ -495,7 +496,9 @@ impl Vault for GemPuzzle {
                       bounds: Region<V2>,
                       layer: u8) {
         let layer_z = layer as i32 * 2;
-        for pos in self.bounds().expand(scalar(-1)).intersect(bounds).points() {
+        let inner_base = self.center - self.size / scalar(2);
+        let inner_bounds = Region::new(inner_base, inner_base + self.size);
+        for pos in inner_bounds.intersect(bounds).points() {
             structures.push(GenStructure::new((pos - bounds.min).extend(layer_z),
                                               0));
         }

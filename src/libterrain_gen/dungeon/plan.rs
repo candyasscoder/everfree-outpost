@@ -506,18 +506,11 @@ impl Temporary {
             level: u8,
         }
 
-        //let mut queue = Vec::new();
+        let mut queue = Vec::new();
 
         let origin = self.base.verts.iter().position(|v| v.pos == ENTRANCE_POS)
                          .expect("ENTRANCE_POS should always be in self.base.verts") as u16;
 
-
-        for &cur in &self.gen_entrance(rng, origin) {
-            let cur = self.gen_tunnel(rng, cur, 3, V2::new(1, 0), 0);
-            let cur = self.gen_gem_puzzle(rng, cur);
-        }
-
-        /*
         for &v in &self.gen_entrance(rng, origin) {
             queue.push(Path { cur: v, level: 0 });
         }
@@ -543,14 +536,40 @@ impl Temporary {
 
                 let len = rng.gen_range(3, 6);
                 let tunnel_end = self.gen_tunnel(rng, p.cur, len, dir, p.level as u32);
-                // Even if the tunnel can't go anywhere, we can try to place some loot.
+                info!("dug tunnel {} -> {}", p.cur, tunnel_end);
 
-                // Place something at the end of the tunnel.
-                if let Some(next) = self.place_something(rng, tunnel_end, p.level) {
-                    queue.push(Path { cur: next, level: p.level + 1 });
+                // The tunnel hit a dead end.  Put some loot there so the player won't be
+                // disappointed.  The tunnel may also be cut short randomly.
+                if tunnel_end == p.cur || (p.level > 0 && rng.gen_range(0, 100) < 20) {
+                    info!("gen terminal loot at {}", p.cur);
+                    self.gen_loot(rng, p.cur, p.level);
+                    break;
                 }
 
+                // Place something at the end of the tunnel.
+                (|| {
+                    if rng.gen_range(0, 100) < 40 {
+                        if let Some((above, below)) = self.gen_gem_puzzle(rng, p.cur) {
+                            queue.push(Path { cur: above, level: p.level + 2 });
+                            // Also try to gen some tunnels that could lead to gems.
+                            queue.push(Path { cur: below, level: p.level });
+                            queue.push(Path { cur: below, level: p.level });
+                            return;
+                        }
+                    } else {
+                        if let Some(next) = self.gen_door(rng, p.cur) {
+                            queue.push(Path { cur: next, level: p.level + 1 });
+                            return;
+                        }
+                    }
+
+                    // Couldn't place anything interesting.
+                    info!("gen backup loot at {}", tunnel_end);
+                    self.gen_loot(rng, tunnel_end, p.level);
+                })();
+
                 // Try to place some extra treasure as well.
+                continue;
                 let opt_v = {
                     let iter = (0 .. self.base.verts.len() as u16)
                                    .filter(|&v| self.base.vert(v).area == AREA_TUNNEL);
@@ -562,40 +581,12 @@ impl Temporary {
                         let level = self.base.vert(v).label as u8;
                         let dir = self.base.vert(n).pos - self.base.vert(v).pos;
                         let tunnel_end = self.gen_tunnel(rng, v, 2, dir, level as u32);
+                        info!("gen extra loot from {} -> {} -> {}", v, n, tunnel_end);
                         self.gen_loot(rng, tunnel_end, level);
                     }
                 }
             }
         }
-        */
-
-    }
-
-    fn place_something(&mut self, rng: &mut StdRng, v: u16, level: u8) -> Option<u16> {
-        // Try to place a door (maybe).
-        if level == 0 || rng.gen_range(0, 100) < 70 {
-            let end = self.gen_door(rng, v);
-            if end != v {
-                // Successfully placed a door.  The path should keep going.
-                return Some(end);
-            }
-        }
-
-        // Try to place a library, maybe.
-        if rng.gen_range(0, 100) < 3 * level {
-            if self.gen_library(rng, v) {
-                // Successfully placed a library.  The path should end.
-                return None;
-            }
-        }
-
-        // Try to place some small treasure.
-        if self.gen_loot(rng, v, level) {
-            return None;
-        }
-
-        // Couldn't place anything at all.
-        None
     }
 
     fn gen_entrance(&mut self, rng: &mut StdRng, origin: u16) -> [u16; 3] {
@@ -667,7 +658,7 @@ impl Temporary {
         cur
     }
 
-    fn gen_door(&mut self, rng: &mut StdRng, start: u16) -> u16 {
+    fn gen_door(&mut self, rng: &mut StdRng, start: u16) -> Option<u16> {
         let mut seen = mk_array(false, self.base.verts.len());
         let mut level_verts = vec![start];
         seen[start as usize] = true;
@@ -728,11 +719,11 @@ impl Temporary {
             }
 
             self.place_door(rng, path, start, v1, v2, &side_verts);
-            return v2;
+            return Some(v2);
         }
 
         // Fell through without finding a place to put the door.
-        start
+        None
     }
 
     fn place_door(&mut self,
@@ -815,6 +806,8 @@ impl Temporary {
     }
 
     fn gen_loot(&mut self, rng: &mut StdRng, v: u16, level: u8) -> bool {
+        info!("placing loot at {} ({:?}), level {}",
+              v, self.base.vert(v).pos, level);
         let pos = self.base.vert(v).pos;
         if rng.gen_range(0, 100) < 50 {
             // Chest with keys
@@ -842,7 +835,7 @@ impl Temporary {
         true
     }
 
-    fn gen_gem_puzzle(&mut self, rng: &mut StdRng, start: u16) -> u16 {
+    fn gen_gem_puzzle(&mut self, rng: &mut StdRng, start: u16) -> Option<(u16, u16)> {
         let mut info = None;
 
         // Big loop to find a place to put everything.
@@ -911,7 +904,7 @@ impl Temporary {
         // Unpack info about the chosen area.
         let (left, right, above, below, left_corner, right_corner, path) = match info {
             Some(x) => x,
-            None => return start,
+            None => return None,
         };
 
         // Mark vertices.  We do this first so we can capture `base` in a helper closure.
@@ -920,27 +913,26 @@ impl Temporary {
         }
         let area = self.mark_area(&[left, right, above, below, left_corner, right_corner]);
 
-        let base = &self.base;
-        let pos = |v| base.vert(v).pos;
+        macro_rules! pos { ($e:expr) => (self.base.vert($e).pos) };
 
         let (left, right, left_corner, right_corner) =
-            if pos(left).x > pos(right).x { (right, left, right_corner, left_corner) }
+            if pos!(left).x > pos!(right).x { (right, left, right_corner, left_corner) }
             else { (left, right, left_corner, right_corner) };
 
         // Add the triangles
-        self.tris.push(Triangle::new(pos(left), pos(right), pos(above)));
-        self.tris.push(Triangle::new(pos(left), pos(right), pos(below)));
-        self.tris.push(Triangle::new(pos(left), pos(left_corner), pos(below)));
-        self.tris.push(Triangle::new(pos(right), pos(right_corner), pos(below)));
+        self.tris.push(Triangle::new(pos!(left), pos!(right), pos!(above)));
+        self.tris.push(Triangle::new(pos!(left), pos!(right), pos!(below)));
+        self.tris.push(Triangle::new(pos!(left), pos!(left_corner), pos!(below)));
+        self.tris.push(Triangle::new(pos!(right), pos!(right_corner), pos!(below)));
 
         // Add the special edges around the triangles.
-        let mid_pos = (pos(left) + pos(right)).div_floor(scalar(2));
-        self.edges.push((mid_pos, pos(above)));
-        self.edges.push((mid_pos, pos(below)));
-        self.neg_edges.push((pos(left), mid_pos - V2::new(2, 0)));
-        self.neg_edges.push((pos(right), mid_pos + V2::new(2, 0)));
-        self.neg_edges.push((pos(left), (pos(left) + pos(left_corner)).div_floor(scalar(2))));
-        self.neg_edges.push((pos(right), (pos(right) + pos(right_corner)).div_floor(scalar(2))));
+        let mid_pos = (pos!(left) + pos!(right)).div_floor(scalar(2));
+        self.edges.push((mid_pos, pos!(above)));
+        self.edges.push((mid_pos, pos!(below)));
+        self.neg_edges.push((pos!(left), mid_pos - V2::new(2, 0)));
+        self.neg_edges.push((pos!(right), mid_pos + V2::new(2, 0)));
+        self.neg_edges.push((pos!(left), (pos!(left) + pos!(left_corner)).div_floor(scalar(2))));
+        self.neg_edges.push((pos!(right), (pos!(right) + pos!(right_corner)).div_floor(scalar(2))));
 
         // Handle the path from `start` to `below`.
         let mut cur = start;
@@ -955,7 +947,7 @@ impl Temporary {
         let gem_center = mid_pos + V2::new(0, 3);
         self.vaults.push(Box::new(vault::GemPuzzle::new(gem_center, V2::new(3, 1))));
 
-        above
+        Some((above, below))
     }
 
     /*

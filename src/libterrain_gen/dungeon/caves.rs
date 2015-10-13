@@ -52,29 +52,7 @@ impl<'a> LocalProperty for Caves<'a> {
         }
 
         let base = self.cpos * scalar(CHUNK_SIZE) - scalar(CHUNK_SIZE);
-        let mut blob = BlobGrid::new(scalar(CHUNK_SIZE * 3 + 1));
-
         let bounds = grid.bounds() + base;
-        for &(a, b) in &self.plane_summ.edges {
-            if !bounds.contains(a) && !bounds.contains(b) {
-                continue;
-            }
-            blob.clear();
-            algo::line_points(a, b, |pos, _| {
-                let pos = pos - base;
-                for offset in Region::new(scalar(0), scalar(1)).points_inclusive() {
-                    if grid.bounds().contains(pos + offset) {
-                        blob.add_point(pos + offset);
-                        grid.set_fixed(pos + offset, false);
-                    }
-                }
-            });
-            let abs_delta = (b - a).abs();
-            let len = abs_delta.x + abs_delta.y;
-            blob.expand_with_callback(&mut self.rng, len as usize * 6, |pos| {
-                //grid.set(pos, false);
-            });
-        }
 
         for tri in &self.plane_summ.tris {
             if !bounds.overlaps(tri.bounds) {
@@ -97,6 +75,20 @@ impl<'a> LocalProperty for Caves<'a> {
             algo::line_points(a, b, |pos, big| {
                 if big && bounds.contains(pos) {
                     grid.set_fixed(pos - base, true);
+                }
+            });
+        }
+
+        // Let positive edges override negative ones.
+        for &(a, b) in &self.plane_summ.edges {
+            if !bounds.contains(a) && !bounds.contains(b) {
+                continue;
+            }
+            algo::line_points(a, b, |pos, big| {
+                for pos in Region::new(pos, pos + scalar(2)).points() {
+                    if bounds.contains(pos) {
+                        grid.set_fixed(pos - base, false);
+                    }
                 }
             });
         }
