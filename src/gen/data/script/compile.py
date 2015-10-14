@@ -2,6 +2,7 @@ import ast
 import textwrap
 
 from .field import FIELD_MAP
+from .parse import Section, PythonBlock
 from .parse import Backticked, Value
 
 def mk_emit():
@@ -65,6 +66,9 @@ class ExprBuilder(object):
         return ExprBuilder(ast.Call(func=self.expr, args=args_ast, keywords=kwargs_ast))
 
 class Compiler(object):
+    def __init__(self, filename):
+        self.filename = filename
+
     def var(self, name, ctx=None):
         ctx = ctx or ast.Load()
         return ExprBuilder(ast.Name(name, ctx))
@@ -101,8 +105,11 @@ class Compiler(object):
         # load = image2.loader()
         emit(self.assign(self.var('load'), self.var('image2').attr('loader').call()))
 
-        for sect in script:
-            stmts.extend(self.gen_section(sect))
+        for part in script:
+            if isinstance(part, Section):
+                stmts.extend(self.gen_section(part))
+            elif isinstance(part, PythonBlock):
+                stmts.extend(self.gen_python_block(part))
 
         return stmts
 
@@ -132,6 +139,11 @@ class Compiler(object):
 
         return stmts
 
+    def gen_python_block(self, block):
+        padding = '\n' * block.line
+        block_ast = ast.parse(padding + block.code, self.filename, 'exec')
+        return block_ast.body
+
     def gen_field_value(self, val, info):
         if isinstance(val, Backticked):
             # ast.parse(mode='eval') produces a top-level ast.Expression object
@@ -147,9 +159,9 @@ class Compiler(object):
         ast.fix_missing_locations(m)
         return m
 
-    def compile_module(self, script, filename='<string>'):
+    def compile_module(self, script):
         m = self.gen_module(script)
-        return compile(m, filename, 'exec')
+        return compile(m, self.filename, 'exec')
 
 def fix_fields(x, fields):
     for f in fields:

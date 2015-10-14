@@ -88,13 +88,13 @@ class ScriptLoader(importlib.abc.Loader):
 
         try:
             import outpost_data.core.script
-            compiler = outpost_data.core.script.Compiler()
+            compiler = outpost_data.core.script.Compiler(self.origin)
 
             with open(self.origin) as f:
                 script = outpost_data.core.script.parse_script(f.read(), self.origin)
             if script == None:
                 raise ValueError('error parsing script %r' % self.origin)
-            code = compiler.compile_module(script, self.origin)
+            code = compiler.compile_module(script)
             exec(code, mod.__dict__)
         except Exception as e:
             import traceback

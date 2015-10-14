@@ -13,50 +13,98 @@ TOKEN = re.compile(r'''
         (?:         `(?P<backticked> [^`]*)` ) |
         (?P<ignore> (?: \s+ | \#.* ) )''', re.VERBOSE)
 
+PYTHON_DELIM = '%%%'
+
 Token = namedtuple('Token', ('kind', 'text', 'line', 'col'))
 
 class ParseError(Exception):
     pass
 
-def lex(s, filename):
-    lines = s.splitlines()
+class Lexer(object):
+    def __init__(self, s, filename):
+        self.filename = filename
+        self.lines = s.splitlines()
+        self.i = 0
+        self.j = 0
+        self.tokens = []
 
-    tokens = []
-    def emit(kind, text, line, col):
-        tokens.append(Token(kind, text, line, col))
+    def emit(self, kind, text):
+        self.tokens.append(Token(kind, text, self.i + 1, self.j))
 
-    for i, line in enumerate(lines):
-        j = 0
-        while j < len(line):
-            m = TOKEN.match(line, j)
-            if m is None:
-                text = line[j : j + 10]
-                util.err('%s:%d:%d: invalid token starting "%s..."' %
-                        (filename, i + 1, j, text))
+    def err(self, msg):
+        util.err('%s:%d:%d: %s' % (self.filename, self.i + 1, self.j, msg))
+
+    def next_line(self):
+        self.i += 1
+        self.j = 0
+
+    def lex_normal(self):
+        while self.i < len(self.lines):
+            line = self.lines[self.i]
+            if line == PYTHON_DELIM:
+                self.emit('py_begin', line)
+                self.next_line()
+                return 'python'
+
+            while self.j < len(line):
+                m = TOKEN.match(line, self.j)
+                if m is None:
+                    text = line[self.j : self.j + 10]
+                    self.err('invalid token starting "%s..."' % text)
+                    return None
+
+                word, punct, quoted, backticked, ignore = m.groups()
+                if word is not None:
+                    self.emit('word', word)
+                elif punct is not None:
+                    self.emit('punct', punct)
+                elif quoted is not None:
+                    self.emit('quoted', quoted)
+                elif backticked is not None:
+                    self.emit('backticked', backticked)
+                elif ignore is not None:
+                    pass
+                else:
+                    assert False, 'match succeeded but captured no groups?'
+
+                self.j = m.end()
+
+            self.emit('eol', '')
+            self.next_line()
+        return 'done'
+
+    def lex_python(self):
+        start = self.i - 1
+        while self.i < len(self.lines):
+            line = self.lines[self.i]
+            if line == PYTHON_DELIM:
+                self.emit('py_end', line)
+                self.next_line()
+                return 'normal'
+
+            self.emit('py_line', line)
+            self.next_line()
+
+        self.err('unclosed Python code block starting at line %d' % start)
+        return None
+
+    def lex(self):
+        state = 'normal'
+        while True:
+            if state == 'normal':
+                state = self.lex_normal()
+            elif state == 'python':
+                state = self.lex_python()
+            elif state == 'done':
+                self.emit('eof', '')
+                return self.tokens
+            elif state is None:
                 return None
 
-            word, punct, quoted, backticked, ignore = m.groups()
-            if word is not None:
-                emit('word', word, i + 1, j)
-            elif punct is not None:
-                emit('punct', punct, i + 1, j)
-            elif quoted is not None:
-                emit('quoted', quoted, i + 1, j)
-            elif backticked is not None:
-                emit('backticked', backticked, i + 1, j)
-            elif ignore is not None:
-                pass
-            else:
-                assert False, 'match succeeded but captured no groups?'
+def lex(s, filename):
+    return Lexer(s, filename).lex()
 
-            j = m.end()
-
-        emit('eol', '', i + 1, j)
-
-    emit('eof', '', i + 2, 0)
-
-    return tokens
-
+PythonBlock = namedtuple('InlinePython', ('code', 'line', 'col'))
 Section = namedtuple('Section', ('ty', 'name', 'fields', 'line', 'col'))
 Field = namedtuple('Field', ('name', 'value', 'line', 'col'))
 Backticked = namedtuple('Backticked', ('src', 'line', 'col'))
@@ -118,6 +166,11 @@ class Parser(object):
         if t.kind != 'eol':
             self.error(expected or 'end of line', t)
 
+    def take_py_end(self, expected=None):
+        t = self.take()
+        if t.kind != 'py_end':
+            self.error(expected or 'end of Python block', t)
+
     def error(self, expected, token=None):
         token = token or self.peek()
         text = token.text
@@ -128,7 +181,7 @@ class Parser(object):
         raise ParseError()
 
     def parse(self):
-        sections = []
+        parts = []
         while True:
             t = self.peek()
             if t.kind == 'eol':
@@ -136,10 +189,12 @@ class Parser(object):
             elif t.kind == 'eof':
                 break
             elif t.kind == 'punct' and t.text == '[':
-                sections.append(self.parse_section())
+                parts.append(self.parse_section())
+            elif t.kind == 'py_begin':
+                parts.append(self.parse_python_block())
             else:
                 self.error('beginning of section', t)
-        return sections
+        return parts
 
     def parse_section(self):
         t_sect = self.peek()
@@ -187,5 +242,15 @@ class Parser(object):
                 self.skip_to_eol()
 
         return Section(ty, name, parts, t_sect.line, t_sect.col)
-        
+
+    def parse_python_block(self):
+        begin = self.take()
+        code = []
+        while self.peek().kind == 'py_line':
+            t = self.take()
+            code.append(t.text)
+        end = self.take_py_end()
+
+        return PythonBlock('\n'.join(code), begin.line, begin.col)
+
     parse_filename = lambda self: self.take_quoted('quoted filename')
