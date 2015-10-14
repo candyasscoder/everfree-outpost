@@ -243,3 +243,14 @@ cave-door.png: &cave-door
     license: CC-BY-SA 3.0 / GPL 3.0
     derived-from: ../tiles/lpc-base-tiles/mountain.png
 cave-doorway-keyhole.png: *cave-door
+
+gem-puzzle-parts.png:
+    title: Gem Puzzle Parts
+    author: Stuart Pernsteiner, Lanea Zimmerman (AKA Sharm), David E. Gervais
+    license: CC-BY-SA 3.0
+    attribution: >
+        Stone block is the base from the LPC cup.  Gems are based on the
+        crystals and coins from the roguelike tiles by David E. Gervais.
+    derived-from:
+        ../tiles/lpc-base-tiles/cup.png,
+        ../tiles/gervais_roguelike/dg_misc32.gif

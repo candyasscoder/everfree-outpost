@@ -36,8 +36,8 @@ class Image(object):
         new_img = f(new_img) or new_img
         return Image(img=new_img, unit=unit)
 
-    def set_unit(self, unit):
-        self.unit = t2(unit)
+    def with_unit(self, unit):
+        return Image(img=self._img, unit=unit)
 
     def extract(self, pos, size=1, unit=None):
         x, y = pos
@@ -90,12 +90,28 @@ class Image(object):
         return Image(img=new_img, unit=unit)
 
     def stack(self, imgs):
-        assert all(i.size == self.size and i.unit == self.unit), \
+        assert all(i.size == self.size and i.unit == self.unit for i in imgs), \
                 'stacked images must match in size and unit'
         new_img = self._img.copy()
         for i in imgs:
-            new_img.paste(i.raw())
+            new_img.paste(i.raw(), (0, 0), i.raw())
         return Image(img=new_img, unit=self.unit)
+
+    def pad(self, size, offset=None, unit=1):
+        sx, sy = t2(size)
+        ux, uy = t2(unit)
+
+        px_x = sx * ux
+        px_y = sy * uy
+
+        if offset is None:
+            ox = px_x // 2 - self.size[0] // 2
+            oy = px_x // 2 - self.size[1] // 2
+            offset = (ox, oy)
+
+        new_img = PIL.Image.new('RGBA', (px_x, px_y))
+        new_img.paste(self.raw(), offset)
+        return Image(img=new_img, unit=unit)
 
 
 def stack(imgs):
