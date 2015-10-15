@@ -27,7 +27,12 @@ class ItemBuilder(BuilderBase):
     PROTO_CLASS = ItemPrototype
 
     display_name = dict_modifier('display_name')
-    icon = dict_modifier('icon')
+
+    @dict_setter
+    def icon(self, icon):
+        if icon.px_size != (TILE_SIZE, TILE_SIZE):
+            icon = icon.scale((1, 1), unit=TILE_SIZE)
+        self.icon = icon
 
     def from_structure(self, s, name=None, extract_offset=None, **kwargs):
         if isinstance(s, StructurePrototype):

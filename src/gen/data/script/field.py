@@ -110,11 +110,13 @@ def _build_field_map():
             layer = IntField,
             )
     fm['item'] = dict(
+            multi_names = MultiNameField,
             from_structure = FromObjectField,
             icon = ImageField,
             display_name = StringField,
             )
     fm['recipe'] = dict(
+            multi_names = MultiNameField,
             from_item = FromObjectField,
             display_name = StringField,
             station = NameField,

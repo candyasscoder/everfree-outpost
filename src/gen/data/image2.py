@@ -27,6 +27,8 @@ class Image(object):
             self.size = size
             self._img = img or PIL.Image.new('RGBA', px_size)
 
+        self.px_size = self._img.size
+
     def raw(self):
         return self._img
 
@@ -105,8 +107,8 @@ class Image(object):
         px_y = sy * uy
 
         if offset is None:
-            ox = px_x // 2 - self.size[0] // 2
-            oy = px_x // 2 - self.size[1] // 2
+            ox = px_x // 2 - self.px_size[0] // 2
+            oy = px_y // 2 - self.px_size[1] // 2
             offset = (ox, oy)
 
         new_img = PIL.Image.new('RGBA', (px_x, px_y))

@@ -1,3 +1,5 @@
+import functools
+
 from PIL import Image
 
 from outpost_data.core.consts import *
@@ -101,6 +103,12 @@ def setter(f):
 def dict_modifier(f):
     s = setter(f)
     return lambda self, arg: self._dict_modify(s, arg)
+
+def dict_setter(f):
+    @functools.wraps(f)
+    def g(self, arg):
+        return self._dict_modify(f, arg)
+    return g
 
 def modifier(f):
     s = setter(f)
