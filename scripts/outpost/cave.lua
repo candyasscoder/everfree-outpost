@@ -3,6 +3,7 @@ local timer = require('outpost.ext.timer')
 local tools = require('outpost.lib.tools')
 local util = require('core.util')
 local ward = require('outpost.lib.ward')
+local door = require('outpost.lib.door')
 
 local function handler(c, s, inv)
     if not ward.check(c, s:pos()) then
@@ -46,16 +47,14 @@ function use_key(inv)
     return false
 end
 
+
+door.register_anims('dungeon/door/key')
+
 action.use['dungeon/door/key/closed'] = function(c, s)
     if not use_key(c:pawn():inventory('main')) then
         c:send_message('You need a key to open this door.')
         return
     end
 
-    s:replace('dungeon/door/key/opening')
-    s:set_timer(500)
-end
-
-timer.handler['dungeon/door/key/opening'] = function(s)
-    s:replace('dungeon/door/key/open')
+    door.open(s)
 end
