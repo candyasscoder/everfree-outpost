@@ -549,7 +549,7 @@ impl Temporary {
                 // Place something at the end of the tunnel.
                 (|| {
                     if rng.gen_range(0, 100) < 40 {
-                        if let Some((above, below)) = self.gen_gem_puzzle(rng, p.cur) {
+                        if let Some((above, below)) = self.gen_gem_puzzle(rng, p.cur, p.level) {
                             queue.push(Path { cur: above, level: p.level + 2 });
                             // Also try to gen some tunnels that could lead to gems.
                             queue.push(Path { cur: below, level: p.level });
@@ -835,7 +835,7 @@ impl Temporary {
         true
     }
 
-    fn gen_gem_puzzle(&mut self, rng: &mut StdRng, start: u16) -> Option<(u16, u16)> {
+    fn gen_gem_puzzle(&mut self, rng: &mut StdRng, start: u16, level: u8) -> Option<(u16, u16)> {
         let mut info = None;
 
         // Big loop to find a place to put everything.
@@ -945,7 +945,23 @@ impl Temporary {
         self.vaults.push(Box::new(vault::Door::new(mid_pos)));
 
         let gem_center = mid_pos + V2::new(0, 3);
-        self.vaults.push(Box::new(vault::GemPuzzle::new(gem_center, V2::new(3, 1))));
+        let mut colors = mk_array(vault::GemSlot::Empty, 3);
+        static PRIMARIES: [vault::GemSlot; 3] = [
+            vault::GemSlot::Red,
+            vault::GemSlot::Yellow,
+            vault::GemSlot::Blue,
+        ];
+        if level == 0 && rng.gen_range(0, 3) < 2 {
+            let i = rng.gen_range(0, 3);
+            let j = rng.gen_range(1, 3);
+            colors[0] = PRIMARIES[i];
+            colors[2] = PRIMARIES[(i + j) % 3];
+        } else {
+            let slot = if rng.gen_range(0, 2) == 0 { 0 } else { 2 };
+            let i = rng.gen_range(0, 3);
+            colors[slot] = PRIMARIES[i];
+        }
+        self.vaults.push(Box::new(vault::GemPuzzle::new(gem_center, area, colors)));
 
         Some((above, below))
     }

@@ -7,27 +7,12 @@ use libphysics::CHUNK_SIZE;
 use libserver_types::*;
 use libserver_util::{BitSlice, Convert, ReadExact};
 use libserver_util::{transmute_slice, transmute_slice_mut};
+use libserver_util::{write_vec, read_vec};
 use libserver_util::bytes::*;
 
 use cache::Summary;
 use super::vault::{Vault, read_vault};
 use super::types::Triangle;
-
-
-// TODO: copied from forest::summary; move to somewhere common
-unsafe fn write_vec<T>(f: &mut File, v: &Vec<T>) -> io::Result<()> {
-    try!(f.write_bytes(v.len().to_u32().unwrap()));
-    try!(f.write_all(transmute_slice(v)));
-    Ok(())
-}
-
-unsafe fn read_vec<T>(f: &mut File) -> io::Result<Vec<T>> {
-    let len = try!(f.read_bytes::<u32>()) as usize;
-    let mut v = Vec::with_capacity(len);
-    v.set_len(len);
-    try!(f.read_exact(transmute_slice_mut(&mut v)));
-    Ok(v)
-}
 
 
 pub struct ChunkSummary {

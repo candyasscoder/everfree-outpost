@@ -7,6 +7,7 @@ use libserver_config::Data;
 use libphysics::CHUNK_SIZE;
 use libserver_util::{Convert, ReadExact};
 use libserver_util::{transmute_slice, transmute_slice_mut};
+use libserver_util::{write_array, read_array};
 use libserver_util::bytes::*;
 
 use GenStructure;
@@ -458,23 +459,70 @@ impl VaultRead for Library {
 }
 
 
-pub struct GemPuzzle {
-    center: V2,
-    size: V2,
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum GemSlot {
+    Red,
+    Orange,
+    Yellow,
+    Green,
+    Blue,
+    Purple,
+    Empty,
 }
 
-impl GemPuzzle {
-    pub fn new(center: V2, size: V2) -> GemPuzzle {
-        GemPuzzle {
-            center: center,
-            size: size,
+impl GemSlot {
+    fn template_name(&self) -> &'static str {
+        use self::GemSlot::*;
+        match *self {
+            Red =>      "dungeon/gem_slot/fixed/red",
+            Orange =>   "dungeon/gem_slot/fixed/orange",
+            Yellow =>   "dungeon/gem_slot/fixed/yellow",
+            Green =>    "dungeon/gem_slot/fixed/green",
+            Blue =>     "dungeon/gem_slot/fixed/blue",
+            Purple =>   "dungeon/gem_slot/fixed/purple",
+            Empty =>    "dungeon/gem_slot/normal/empty",
+        }
+    }
+
+    fn name(&self) -> &'static str {
+        use self::GemSlot::*;
+        match *self {
+            Red =>      "red",
+            Orange =>   "orange",
+            Yellow =>   "yellow",
+            Green =>    "green",
+            Blue =>     "blue",
+            Purple =>   "purple",
+            Empty =>    "empty",
         }
     }
 }
 
+pub struct GemPuzzle {
+    center: V2,
+    colors: Box<[GemSlot]>,
+    area: u32,
+}
+
+impl GemPuzzle {
+    pub fn new(center: V2,
+               area: u32,
+               colors: Box<[GemSlot]>) -> GemPuzzle {
+        GemPuzzle {
+            center: center,
+            colors: colors,
+            area: area,
+        }
+    }
+
+    fn inner_size(&self) -> V2 {
+        V2::new(self.colors.len() as i32, 1)
+    }
+}
+
 impl Vault for GemPuzzle {
-    fn pos(&self) -> V2 { self.center - self.size / scalar(2) - scalar(1) }
-    fn size(&self) -> V2 { self.size + V2::new(2, 3) }
+    fn pos(&self) -> V2 { self.center - self.inner_size() / scalar(2) - scalar(1) }
+    fn size(&self) -> V2 { self.inner_size() + V2::new(2, 3) }
 
     fn connection_points(&self) -> &[V2] {
         static POINTS: [V2; 1] = [V2 { x: 0, y: 0 }];
@@ -491,23 +539,28 @@ impl Vault for GemPuzzle {
     }
 
     fn gen_structures(&self,
-                      _: &Data,
+                      data: &Data,
                       structures: &mut Vec<GenStructure>,
                       bounds: Region<V2>,
                       layer: u8) {
         let layer_z = layer as i32 * 2;
-        let inner_base = self.center - self.size / scalar(2);
-        let inner_bounds = Region::new(inner_base, inner_base + self.size);
-        for pos in inner_bounds.intersect(bounds).points() {
-            structures.push(GenStructure::new((pos - bounds.min).extend(layer_z),
-                                              0));
+        let inner_base = self.center - self.inner_size() / scalar(2);
+        for (i, &c) in self.colors.iter().enumerate() {
+            let template_id = data.structure_templates.get_id(c.template_name());
+            let pos = (inner_base + V2::new(i as i32, 0) - bounds.min).extend(layer_z);
+            let mut gs = GenStructure::new(pos, template_id);
+            gs.extra.insert("gem_puzzle_slot".to_owned(),
+                            format!("{}_{},{},{}", layer, self.area, i, c.name()));
+            structures.push(gs);
         }
     }
 
     fn write_to(&self, f: &mut File) -> io::Result<()> {
         try!(f.write_bytes(6_u8));
         try!(f.write_bytes(self.center));
-        try!(f.write_bytes(self.size));
+        try!(f.write_bytes(self.area));
+        try!(unsafe { write_array(f, &self.colors) });
+
         Ok(())
     }
 }
@@ -515,10 +568,12 @@ impl Vault for GemPuzzle {
 impl VaultRead for GemPuzzle {
     fn read_from(f: &mut File) -> io::Result<Box<GemPuzzle>> {
         let center = try!(f.read_bytes());
-        let size = try!(f.read_bytes());
+        let area = try!(f.read_bytes());
+        let colors = try!(unsafe { read_array(f) });
         Ok(Box::new(GemPuzzle {
             center: center,
-            size: size,
+            colors: colors,
+            area: area,
         }))
     }
 }

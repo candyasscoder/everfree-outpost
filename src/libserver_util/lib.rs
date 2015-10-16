@@ -91,3 +91,30 @@ pub fn filter_in_place<T, F: FnMut(&T) -> bool>(vec: &mut Vec<T>, mut f: F) {
         }
     }
 }
+
+
+pub unsafe fn write_vec<W: io::Write, T>(w: &mut W, v: &Vec<T>) -> io::Result<()> {
+    write_array(w, v)
+}
+
+pub unsafe fn read_vec<R: io::Read, T>(r: &mut R) -> io::Result<Vec<T>> {
+    use self::bytes::ReadBytes;
+    let len = try!(r.read_bytes::<u32>()) as usize;
+    let mut v = Vec::with_capacity(len);
+    v.set_len(len);
+    try!(r.read_exact(transmute_slice_mut(&mut v)));
+    Ok(v)
+}
+
+pub unsafe fn write_array<W: io::Write, T>(w: &mut W, v: &[T]) -> io::Result<()> {
+    use self::bytes::WriteBytes;
+    try!(w.write_bytes(v.len().to_u32().unwrap()));
+    try!(w.write_all(transmute_slice(v)));
+    Ok(())
+}
+
+pub unsafe fn read_array<R: io::Read, T>(r: &mut R) -> io::Result<Box<[T]>> {
+    read_vec(r).map(|v| v.into_boxed_slice())
+}
+
+
