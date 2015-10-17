@@ -36,6 +36,4 @@ action.use.cornucopia = function(client, structure)
     -- Once this script finishes, the player will see the normal "+5 Tomato"
     -- (or whatever vegetable) popup on the corner of their screen.
     client:pawn():inventory('main'):update(options[index], 5)
-
-    client:pawn():inventory('main'):update('party_hat', 1)
 end
