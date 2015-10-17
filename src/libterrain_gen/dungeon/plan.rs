@@ -106,7 +106,7 @@ impl<T> Graph<T> {
                                    vert_pos: VertPos,
                                    mut vert_weight: VertWeight) -> Vec<u16>
             where VertPos: Fn(&T) -> V2,
-                  VertWeight: FnMut(u16, &T) -> i32 {
+                  VertWeight: FnMut(u16, &T) -> Option<i32> {
         let dist = |s, t| (vert_pos(self.vert(s)) - vert_pos(self.vert(t))).abs().max();
         let mut weight = |v| vert_weight(v, self.vert(v));
 
@@ -159,9 +159,13 @@ impl<T> Graph<T> {
                     continue;
                 }
 
-                let n_dist = e.dist + dist(e.vert, n) + weight(n);
-                let n_heur = dist(n, target);
-                q.push(Entry::new(n, e.vert, n_dist, n_heur));
+                // `weight(n)` may produce `None` to indicate that the vertex should be considered
+                // impassable.
+                if let Some(w) = weight(n) {
+                    let n_dist = e.dist + dist(e.vert, n) + w;
+                    let n_heur = dist(n, target);
+                    q.push(Entry::new(n, e.vert, n_dist, n_heur));
+                }
             }
         }
 
@@ -334,6 +338,14 @@ fn mk_array<T: Copy>(init: T, len: usize) -> Box<[T]> {
     iter::repeat(init).take(len).collect::<Vec<_>>().into_boxed_slice()
 }
 
+fn mk_array_with<T, F: FnMut() -> T>(len: usize, mut f: F) -> Box<[T]> {
+    let mut v = Vec::with_capacity(len);
+    for _ in 0 .. len {
+        v.push(f());
+    }
+    v.into_boxed_slice()
+}
+
 fn triangulated_graph(raw_verts: &[V2], bounds: Region<V2>) -> Graph<V2> {
     let raw_edges = triangulate::triangulate(raw_verts);
 
@@ -446,6 +458,8 @@ pub struct Temporary {
     base: Graph<BaseVert>,
     tunnels: Graph<()>,
     next_area: u32,
+    treasure_spots: Vec<(u16, u8)>,
+    required_items: Vec<(vault::ChestItem, u8)>,
 
     edges: Vec<(V2, V2)>,
     neg_edges: Vec<(V2, V2)>,
@@ -534,22 +548,23 @@ impl Temporary {
                 };
                 let dir = self.base.vert(next).pos - self.base.vert(p.cur).pos;
 
-                let len = rng.gen_range(3, 6);
+                let len = rng.gen_range(2, 5);
                 let tunnel_end = self.gen_tunnel(rng, p.cur, len, dir, p.level as u32);
                 info!("dug tunnel {} -> {}", p.cur, tunnel_end);
 
                 // The tunnel hit a dead end.  Put some loot there so the player won't be
                 // disappointed.  The tunnel may also be cut short randomly.
                 if tunnel_end == p.cur || (p.level > 0 && rng.gen_range(0, 100) < 20) {
-                    info!("gen terminal loot at {}", p.cur);
-                    self.gen_loot(rng, p.cur, p.level);
+                    info!("terminal loot at {} (lv.{})", tunnel_end, p.level);
+                    self.treasure_spots.push((tunnel_end, p.level));
                     break;
                 }
 
                 // Place something at the end of the tunnel.
                 (|| {
                     if rng.gen_range(0, 100) < 40 {
-                        if let Some((above, below)) = self.gen_gem_puzzle(rng, p.cur, p.level) {
+                        if let Some((above, below)) =
+                                self.gen_gem_puzzle(rng, tunnel_end, p.level) {
                             queue.push(Path { cur: above, level: p.level + 2 });
                             // Also try to gen some tunnels that could lead to gems.
                             queue.push(Path { cur: below, level: p.level });
@@ -557,32 +572,34 @@ impl Temporary {
                             return;
                         }
                     } else {
-                        if let Some(next) = self.gen_door(rng, p.cur) {
+                        if let Some(next) = self.gen_door(rng, tunnel_end, p.level) {
                             queue.push(Path { cur: next, level: p.level + 1 });
                             return;
                         }
                     }
 
                     // Couldn't place anything interesting.
-                    info!("gen backup loot at {}", tunnel_end);
-                    self.gen_loot(rng, tunnel_end, p.level);
+                    info!("fallback loot at {} (lv.{})", tunnel_end, p.level);
+                    self.treasure_spots.push((tunnel_end, p.level));
                 })();
 
-                // Try to place some extra treasure as well.
-                continue;
-                let opt_v = {
-                    let iter = (0 .. self.base.verts.len() as u16)
-                                   .filter(|&v| self.base.vert(v).area == AREA_TUNNEL);
-                    reservoir_sample(rng, iter)
-                };
-                if let Some(v) = opt_v {
-                    if let Some(n) = self.base.choose_neighbor(rng, p.cur,
-                                                               |v| self.base.vert(v).area == 0) {
-                        let level = self.base.vert(v).label as u8;
-                        let dir = self.base.vert(n).pos - self.base.vert(v).pos;
-                        let tunnel_end = self.gen_tunnel(rng, v, 2, dir, level as u32);
-                        info!("gen extra loot from {} -> {} -> {}", v, n, tunnel_end);
-                        self.gen_loot(rng, tunnel_end, level);
+                if rng.gen_range(0, 100) < 50 {
+                    // Try to place some extra treasure as well.
+                    let opt_v = {
+                        let iter = (0 .. self.base.verts.len() as u16)
+                                       .filter(|&v| self.base.vert(v).area == AREA_TUNNEL);
+                        reservoir_sample(rng, iter)
+                    };
+                    if let Some(v) = opt_v {
+                        let opt_n = self.base.choose_neighbor(rng, p.cur,
+                                                              |v| self.base.vert(v).area == 0);
+                        if let Some(n) = opt_n {
+                            let level = self.base.vert(v).label as u8;
+                            let dir = self.base.vert(n).pos - self.base.vert(v).pos;
+                            let tunnel_end = self.gen_tunnel(rng, v, 1, dir, level as u32);
+                            info!("extra loot at {} (lv.{})", tunnel_end, level);
+                            self.treasure_spots.push((tunnel_end, level));
+                        }
                     }
                 }
             }
@@ -658,7 +675,7 @@ impl Temporary {
         cur
     }
 
-    fn gen_door(&mut self, rng: &mut StdRng, start: u16) -> Option<u16> {
+    fn gen_door(&mut self, rng: &mut StdRng, start: u16, level: u8) -> Option<u16> {
         let mut seen = mk_array(false, self.base.verts.len());
         let mut level_verts = vec![start];
         seen[start as usize] = true;
@@ -710,15 +727,17 @@ impl Temporary {
             // both be claimed.  (Specifically, the exit is unclaimed, and the entrance is
             // unclaimed or claimed only by AREA_TUNNEL.)
 
-            // Make sure there's a path to the entrance that doesn't cut through the door.
+            // Make sure there's a path to the entrance that doesn't cut through the door.  (`v2` is
+            // the top vertex of the door edge).
             let path = self.base.a_star(start, v1, |v| v.pos, |v,_| {
-                if v == v1 || v == v2 { 10000 } else { 0 }
+                if v == v2 { None } else { Some(0) }
             });
             if path.len() > 3 {
                 continue;
             }
 
             self.place_door(rng, path, start, v1, v2, &side_verts);
+            self.required_items.push((vault::ChestItem::Key, level));
             return Some(v2);
         }
 
@@ -805,36 +824,6 @@ impl Temporary {
         false
     }
 
-    fn gen_loot(&mut self, rng: &mut StdRng, v: u16, level: u8) -> bool {
-        info!("placing loot at {} ({:?}), level {}",
-              v, self.base.vert(v).pos, level);
-        let pos = self.base.vert(v).pos;
-        if rng.gen_range(0, 100) < 50 {
-            // Chest with keys
-            let count = rng.gen_range(1, 3) + rng.gen_range(1, 3);
-            let kind = vault::TreasureKind::Chest(count, vault::ChestItem::Key);
-            self.vaults.push(Box::new(vault::Treasure::new(pos, kind)));
-            return true;
-        }
-
-        let hat_weight = if level < 3 { 0 } else { level - 3 + 1 };
-
-        let r = rng.gen_range(0, 100);
-        let kind =
-            if r < 2 * hat_weight {
-                vault::TreasureKind::Chest(1, vault::ChestItem::Hat)
-            } else if r < 50 {
-                let count = rng.gen_range(6, 13);
-                vault::TreasureKind::Chest(count, vault::ChestItem::Book)
-            } else if r < 75 {
-                vault::TreasureKind::Fountain
-            } else {
-                vault::TreasureKind::Trophy
-            };
-        self.vaults.push(Box::new(vault::Treasure::new(pos, kind)));
-        true
-    }
-
     fn gen_gem_puzzle(&mut self, rng: &mut StdRng, start: u16, level: u8) -> Option<(u16, u16)> {
         let mut info = None;
 
@@ -887,9 +876,9 @@ impl Temporary {
 
                 // Find a path to the bottom of the diamond.
                 let path = self.base.a_star(start, below, |v| v.pos, |w,_| {
-                    if w == v || w == n || w == above || w == below { 10000 } else { 0 }
+                    if w == v || w == n || w == above { None } else { Some(0) }
                 });
-                if path.len() > 3 {
+                if path.len() == 0 || path.len() > 3 {
                     continue;
                 }
 
@@ -945,93 +934,34 @@ impl Temporary {
         self.vaults.push(Box::new(vault::Door::new(mid_pos, vault::DoorKind::GemPuzzle, area)));
 
         let gem_center = mid_pos + V2::new(0, 3);
-        let mut colors = mk_array(vault::GemSlot::Empty, 3);
-        static PRIMARIES: [vault::GemSlot; 3] = [
-            vault::GemSlot::Red,
-            vault::GemSlot::Yellow,
-            vault::GemSlot::Blue,
+        let mut colors = mk_array(None, 3);
+        static PRIMARIES: [vault::GemColor; 3] = [
+            vault::GemColor::Red,
+            vault::GemColor::Yellow,
+            vault::GemColor::Blue,
         ];
         if level == 0 && rng.gen_range(0, 3) < 2 {
             let i = rng.gen_range(0, 3);
             let j = rng.gen_range(1, 3);
-            colors[0] = PRIMARIES[i];
-            colors[2] = PRIMARIES[(i + j) % 3];
+            let c1 = PRIMARIES[i];
+            let c2 = PRIMARIES[(i + j) % 3];
+            colors[0] = Some(c1);
+            colors[2] = Some(c2);
+            self.required_items.push((vault::ChestItem::Gem(c1.blend(c2)), level));
         } else {
             let slot = if rng.gen_range(0, 2) == 0 { 0 } else { 2 };
             let i = rng.gen_range(0, 3);
-            colors[slot] = PRIMARIES[i];
+            let c = PRIMARIES[i];
+            colors[slot] = Some(c);
+
+            let dir = if rng.gen_range(0, 2) == 0 { 1 } else { -1 };
+            self.required_items.push((vault::ChestItem::Gem(c.cycle(dir)), level));
+            self.required_items.push((vault::ChestItem::Gem(c.cycle(dir * 2)), level));
         }
         self.vaults.push(Box::new(vault::GemPuzzle::new(gem_center, area, colors)));
 
         Some((above, below))
     }
-
-    /*
-    fn gen_gem_puzzle(&mut self, rng: &mut StdRng, v: u16) -> u16 {
-        let verts = simple_blob(&self.base, rng, v, 8);
-
-        // Place tunnel edges
-        let area = self.mark_area(&verts);
-        for &v1 in &*verts {
-            for &v2 in self.base.neighbors(v1) {
-                if self.base.vert(v2).area == area && v1 < v2 {
-                    self.tunnels.add_edge_undir(v1, v2);
-                }
-            }
-        }
-
-        // Place triangles
-        {
-            let base = &self.base;
-            let tris = &mut self.tris;
-            base.for_each_triangle_filtered(|v| base.vert(v).area == area, |a, b, c| {
-                tris.push(Triangle::new(base.vert(a).pos,
-                                        base.vert(b).pos,
-                                        base.vert(c).pos));
-            });
-        }
-
-        // Choose exit vertex
-        let opt_exit = {
-            let base = &self.base;
-            let iter = verts.iter().map(|&x| x).filter(|&v| {
-                let v_pos = base.vert(v).pos;
-                let mut above = false;
-                let mut space_below = false;
-                let mut below_left = false;
-                let mut below_right = false;
-                for &n in base.neighbors(v) {
-                    let d = base.vert(n).pos - v_pos;
-                    if base.vert(n).area == area {
-                        if d.y >= 10 {
-                            space_below = true;
-                        }
-                        if d.y >= 6 && d.x > 1 {
-                            below_right = true;
-                        }
-                        if d.y >= 6 && d.x < -1 {
-                            below_right = true;
-                        }
-                    }
-                    if d.y < 0 && base.vert(n).area == 0 {
-                        above = true;
-                    }
-                }
-                above && space_below && below_left && below_right
-            });
-            reservoir_sample(rng, iter)
-        };
-        let exit = match opt_exit {
-            Some(x) => x,
-            None => return v,
-        };
-
-        let pos = self.base.vert(exit).pos;
-        self.vaults.push(Box::new(vault::Treasure::new(pos, vault::TreasureKind::Trophy)));
-
-        v
-    }
-    */
 
     fn make_tris(&mut self) {
         let Temporary { ref base,
@@ -1068,6 +998,124 @@ impl Temporary {
         }
         info!("generated {} edges", self.edges.len());
     }
+
+    fn assign_treasure(&mut self, rng: &mut StdRng) {
+        let spots = mem::replace(&mut self.treasure_spots, Vec::new());
+        info!("assigning treasure to spots: {:?}", spots);
+        let num_spots = spots.len();
+
+        // Assign required items to chests.
+        let mut contents = mk_array_with(num_spots, SmallVec::new);
+        for &(item, level) in &self.required_items {
+            let opt_idx = {
+                let iter = spots.iter().enumerate().map(|(i, s)| {
+                    if s.1 > level {
+                        (i, 0)
+                    } else {
+                        if contents[i].len() > 0 {
+                            (i, 1)
+                        } else {
+                            (i, 2)
+                        }
+                    }
+                });
+                reservoir_sample_weighted(rng, iter)
+            };
+
+            let idx =
+                if let Some(i) = opt_idx {
+                    i
+                } else {
+                    warn!("nowhere to place {:?} at level <= {}", item, level);
+                    rng.gen_range(0, num_spots)
+                };
+            contents[idx].push((item, 1));
+        }
+
+        // Assign loot to remaining spots.  The max-level spot gets special loot.
+        let max_level = spots.iter().map(|s| s.1).max().unwrap();
+        let max_idx = reservoir_sample(rng, (0 .. num_spots).filter(
+                |&i| spots[i].1 == max_level)).unwrap();
+
+        for (i, s) in spots.iter().enumerate() {
+            if i == max_idx {
+                info!("big loot at {:?}", self.base.vert(s.0).pos);
+                self.gen_big_loot(rng, s.0);
+            } else if contents[i].len() > 0 {
+                info!("special loot at {:?}: {:?}",
+                      self.base.vert(s.0).pos,
+                      &*contents[i]);
+                let v = s.0;
+                let pos = self.base.vert(v).pos;
+                self.vaults.push(Box::new(vault::Chest::new(pos, contents[i].to_owned())));
+            } else {
+                info!("small loot at {:?}", self.base.vert(s.0).pos);
+                self.gen_loot(rng, s.0);
+            }
+        }
+    }
+
+    fn gen_loot(&mut self, rng: &mut StdRng, v: u16) {
+        let pos = self.base.vert(v).pos;
+        let n = rng.gen_range(0, 100);
+        if n < 30 {
+            let count = rng.gen_range(6, 13);
+            let contents = vec![(vault::ChestItem::Book, count)];
+            self.vaults.push(Box::new(vault::Chest::new(pos, contents)));
+        } else {
+            self.vaults.push(Box::new(vault::Structure::new(pos, vault::StructureKind::Fountain)));
+        }
+    }
+
+    fn gen_big_loot(&mut self, rng: &mut StdRng, v: u16) {
+        let pos = self.base.vert(v).pos;
+        let n = rng.gen_range(0, 100);
+        if n < 16 {
+            let contents = vec![(vault::ChestItem::Hat, 1)];
+            self.vaults.push(Box::new(vault::Chest::new(pos, contents)));
+        } else if n < 50 {
+            let count = rng.gen_range(25, 40);
+            let contents = vec![(vault::ChestItem::Book, count)];
+            self.vaults.push(Box::new(vault::Chest::new(pos, contents)));
+        } else {
+            self.vaults.push(Box::new(vault::Structure::new(pos, vault::StructureKind::Trophy)));
+        }
+    }
+
+    /*
+    fn gen_loot(&mut self, rng: &mut StdRng, v: u16, level: u8) -> bool {
+        /*
+        info!("placing loot at {} ({:?}), level {}",
+              v, self.base.vert(v).pos, level);
+        let pos = self.base.vert(v).pos;
+        if rng.gen_range(0, 100) < 50 {
+            // Chest with keys
+            let count = rng.gen_range(1, 3) + rng.gen_range(1, 3);
+            let kind = vault::TreasureKind::Chest(count, vault::ChestItem::Key);
+            self.vaults.push(Box::new(vault::Treasure::new(pos, kind)));
+            return true;
+        }
+
+        let hat_weight = if level < 3 { 0 } else { level - 3 + 1 };
+
+        let r = rng.gen_range(0, 100);
+        let kind =
+            if r < 2 * hat_weight {
+                vault::TreasureKind::Chest(1, vault::ChestItem::Hat)
+            } else if r < 50 {
+                let count = rng.gen_range(6, 13);
+                vault::TreasureKind::Chest(count, vault::ChestItem::Book)
+            } else if r < 75 {
+                vault::TreasureKind::Fountain
+            } else {
+                vault::TreasureKind::Trophy
+            };
+        self.vaults.push(Box::new(vault::Treasure::new(pos, kind)));
+        */
+        true
+    }
+    */
+
 }
 
 fn process_triangle<Tri, NegEdge>(base: &Graph<BaseVert>,
@@ -1134,6 +1182,8 @@ impl<'d> GlobalProperty for Plan<'d> {
             base: Graph::new(),
             tunnels: Graph::new(),
             next_area: AREA_FIRST_PUZZLE,
+            treasure_spots: Vec::new(),
+            required_items: Vec::new(),
 
             edges: Vec::new(),
             neg_edges: Vec::new(),
@@ -1148,6 +1198,7 @@ impl<'d> GlobalProperty for Plan<'d> {
 
         tmp.make_edges();
         tmp.make_tris();
+        tmp.assign_treasure(&mut self.rng);
     }
 
     fn save(&mut self, tmp: Temporary, summ: &mut PlaneSummary) {

@@ -8,6 +8,7 @@ use libphysics::CHUNK_SIZE;
 use libserver_util::{Convert, ReadExact};
 use libserver_util::{transmute_slice, transmute_slice_mut};
 use libserver_util::{write_array, read_array};
+use libserver_util::{write_vec, read_vec};
 use libserver_util::bytes::*;
 
 use GenStructure;
@@ -48,21 +49,38 @@ pub trait VaultRead: Vault {
 }
 
 
-pub struct FloorMarking {
-    pos: V2,
-    template_id: TemplateId,
+#[derive(Clone, Copy, Debug)]
+pub enum StructureKind {
+    Trophy,
+    Fountain,
 }
+unsafe impl Bytes for StructureKind {}
 
-impl FloorMarking {
-    pub fn new(pos: V2, template_id: TemplateId) -> FloorMarking {
-        FloorMarking {
-            pos: pos,
-            template_id: template_id,
+impl StructureKind {
+    fn name(&self) -> &'static str {
+        use self::StructureKind::*;
+        match *self {
+            Trophy => "trophy",
+            Fountain => "fountain",
         }
     }
 }
 
-impl Vault for FloorMarking {
+pub struct Structure {
+    pos: V2,
+    kind: StructureKind,
+}
+
+impl Structure {
+    pub fn new(pos: V2, kind: StructureKind) -> Structure {
+        Structure {
+            pos: pos,
+            kind: kind,
+        }
+    }
+}
+
+impl Vault for Structure {
     fn pos(&self) -> V2 { self.pos }
     fn size(&self) -> V2 { V2::new(1, 1) }
 
@@ -82,33 +100,33 @@ impl Vault for FloorMarking {
     }
 
     fn gen_structures(&self,
-                      _: &Data,
+                      data: &Data,
                       structures: &mut Vec<GenStructure>,
                       bounds: Region<V2>,
                       layer: u8) {
         let layer_z = layer as i32 * 2;
         if bounds.contains(self.pos) {
+            let template_id = data.structure_templates.get_id(self.kind.name());
             structures.push(GenStructure::new((self.pos - bounds.min).extend(layer_z),
-                                              self.template_id));
+                                              template_id));
         }
     }
 
     fn write_to(&self, f: &mut File) -> io::Result<()> {
         try!(f.write_bytes(1_u8));
         try!(f.write_bytes(self.pos));
-        try!(f.write_bytes(self.template_id));
+        try!(f.write_bytes(self.kind));
         Ok(())
     }
 }
 
-impl VaultRead for FloorMarking {
-    fn read_from(f: &mut File) -> io::Result<Box<FloorMarking>> {
+impl VaultRead for Structure {
+    fn read_from(f: &mut File) -> io::Result<Box<Structure>> {
         let pos = try!(f.read_bytes());
-        // FIXME: this will break badly if the data files change
-        let template_id = try!(f.read_bytes());
-        Ok(Box::new(FloorMarking {
+        let kind = try!(f.read_bytes());
+        Ok(Box::new(Structure {
             pos: pos,
-            template_id: template_id,
+            kind: kind,
         }))
     }
 }
@@ -313,12 +331,14 @@ impl VaultRead for Entrance {
 }
 
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum ChestItem {
     Hat,
     Key,
     Book,
+    Gem(GemColor),
 }
+unsafe impl Bytes for ChestItem {}
 
 impl ChestItem {
     fn data_name(self) -> &'static str {
@@ -326,34 +346,26 @@ impl ChestItem {
             ChestItem::Hat => "hat",
             ChestItem::Key => "key",
             ChestItem::Book => "book",
+            ChestItem::Gem(c) => c.item_name(),
         }
     }
 }
 
-#[derive(Clone, Copy)]
-pub enum TreasureKind {
-    Chest(u8, ChestItem),
-    Trophy,
-    Fountain,
-}
-
-unsafe impl Bytes for TreasureKind {}
-
-pub struct Treasure {
+pub struct Chest {
     center: V2,
-    kind: TreasureKind,
+    contents: Vec<(ChestItem, u8)>,
 }
 
-impl Treasure {
-    pub fn new(center: V2, kind: TreasureKind) -> Treasure {
-        Treasure {
+impl Chest {
+    pub fn new(center: V2, contents: Vec<(ChestItem, u8)>) -> Chest {
+        Chest {
             center: center,
-            kind: kind,
+            contents: contents,
         }
     }
 }
 
-impl Vault for Treasure {
+impl Vault for Chest {
     fn pos(&self) -> V2 { self.center - V2::new(1, 1) }
     fn size(&self) -> V2 { V2::new(3, 3) }
 
@@ -376,41 +388,33 @@ impl Vault for Treasure {
         let layer_z = layer as i32 * 2;
         if bounds.contains(self.center) {
             let pos = (self.center - bounds.min).extend(layer_z);
-            match self.kind {
-                TreasureKind::Chest(count, item) => {
-                    let template_id = data.structure_templates.get_id("chest");
-                    let mut gs = GenStructure::new(pos, template_id);
-                    gs.extra.insert("loot".to_owned(),
-                                    format!("{}:{}", item.data_name(), count));
-                    structures.push(gs);
-                },
-                TreasureKind::Trophy => {
-                    let template_id = data.structure_templates.get_id("trophy");
-                    structures.push(GenStructure::new(pos, template_id));
-                },
-                TreasureKind::Fountain => {
-                    let template_id = data.structure_templates.get_id("fountain");
-                    structures.push(GenStructure::new(pos, template_id));
-                },
+            let template_id = data.structure_templates.get_id("chest");
+            let mut gs = GenStructure::new(pos, template_id);
+
+            let mut loot_str = String::new();
+            for &(item, count) in &self.contents {
+                loot_str.push_str(&format!("{}:{},", item.data_name(), count));
             }
+            gs.extra.insert("loot".to_owned(), loot_str);
+            structures.push(gs);
         }
     }
 
     fn write_to(&self, f: &mut File) -> io::Result<()> {
         try!(f.write_bytes(4_u8));
         try!(f.write_bytes(self.center));
-        try!(f.write_bytes(self.kind));
+        try!(unsafe { write_vec(f, &self.contents) });
         Ok(())
     }
 }
 
-impl VaultRead for Treasure {
-    fn read_from(f: &mut File) -> io::Result<Box<Treasure>> {
+impl VaultRead for Chest {
+    fn read_from(f: &mut File) -> io::Result<Box<Chest>> {
         let center = try!(f.read_bytes());
-        let kind = try!(f.read_bytes());
-        Ok(Box::new(Treasure {
+        let contents = try!(unsafe { read_vec(f) });
+        Ok(Box::new(Chest {
             center: center,
-            kind: kind,
+            contents: contents,
         }))
     }
 }
@@ -495,20 +499,19 @@ impl VaultRead for Library {
 }
 
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum GemSlot {
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum GemColor {
     Red,
     Orange,
     Yellow,
     Green,
     Blue,
     Purple,
-    Empty,
 }
 
-impl GemSlot {
+impl GemColor {
     fn template_name(&self) -> &'static str {
-        use self::GemSlot::*;
+        use self::GemColor::*;
         match *self {
             Red =>      "dungeon/gem_slot/fixed/red",
             Orange =>   "dungeon/gem_slot/fixed/orange",
@@ -516,12 +519,23 @@ impl GemSlot {
             Green =>    "dungeon/gem_slot/fixed/green",
             Blue =>     "dungeon/gem_slot/fixed/blue",
             Purple =>   "dungeon/gem_slot/fixed/purple",
-            Empty =>    "dungeon/gem_slot/normal/empty",
+        }
+    }
+
+    fn item_name(&self) -> &'static str {
+        use self::GemColor::*;
+        match *self {
+            Red =>      "gem/red",
+            Orange =>   "gem/orange",
+            Yellow =>   "gem/yellow",
+            Green =>    "gem/green",
+            Blue =>     "gem/blue",
+            Purple =>   "gem/purple",
         }
     }
 
     fn name(&self) -> &'static str {
-        use self::GemSlot::*;
+        use self::GemColor::*;
         match *self {
             Red =>      "red",
             Orange =>   "orange",
@@ -529,21 +543,69 @@ impl GemSlot {
             Green =>    "green",
             Blue =>     "blue",
             Purple =>   "purple",
-            Empty =>    "empty",
+        }
+    }
+
+    pub fn index(self) -> u8 {
+        use self::GemColor::*;
+        match self {
+            Red =>      0,
+            Orange =>   1,
+            Yellow =>   2,
+            Green =>    3,
+            Blue =>     4,
+            Purple =>   5,
+        }
+    }
+
+    pub fn from_index(index: u8) -> GemColor {
+        use self::GemColor::*;
+        match index {
+            0 => Red,
+            1 => Orange,
+            2 => Yellow,
+            3 => Green,
+            4 => Blue,
+            5 => Purple,
+            _ => panic!("invalid GemColor index: {}", index),
+        }
+    }
+
+    pub fn blend(self, other: GemColor) -> GemColor {
+        use self::GemColor::*;
+        match (self, other) {
+            (Red, Yellow) | (Yellow, Red) => Orange,
+            (Yellow, Blue) | (Blue, Yellow) => Green,
+            (Red, Blue) | (Blue, Red) => Purple,
+            _ => panic!("can't mix secondary colors: {:?}, {:?}", self, other),
+        }
+    }
+
+    pub fn cycle(self, n: i8) -> GemColor {
+        let i = self.index() as i16 + n as i16;
+        if i >= 0 {
+            GemColor::from_index((i % 6) as u8)
+        } else {
+            let m = -i % 6;
+            if m == 0 {
+                GemColor::from_index(0)
+            } else {
+                GemColor::from_index((6 - m) as u8)
+            }
         }
     }
 }
 
 pub struct GemPuzzle {
     center: V2,
-    colors: Box<[GemSlot]>,
+    colors: Box<[Option<GemColor>]>,
     area: u32,
 }
 
 impl GemPuzzle {
     pub fn new(center: V2,
                area: u32,
-               colors: Box<[GemSlot]>) -> GemPuzzle {
+               colors: Box<[Option<GemColor>]>) -> GemPuzzle {
         GemPuzzle {
             center: center,
             colors: colors,
@@ -582,14 +644,20 @@ impl Vault for GemPuzzle {
         let layer_z = layer as i32 * 2;
         let inner_base = self.center - self.inner_size() / scalar(2);
         for (i, &c) in self.colors.iter().enumerate() {
-            let template_id = data.structure_templates.get_id(c.template_name());
+            let (name, template_name) =
+                if let Some(c) = c {
+                    (c.name(), c.template_name())
+                } else {
+                    ("empty", "dungeon/gem_slot/normal/empty")
+                };
+            let template_id = data.structure_templates.get_id(template_name);
             let pos = inner_base + V2::new(i as i32, 0);
             if !bounds.contains(pos) {
                 continue;
             }
             let mut gs = GenStructure::new((pos - bounds.min).extend(layer_z), template_id);
             gs.extra.insert("gem_puzzle_slot".to_owned(),
-                            format!("{}_{},{},{}", layer, self.area, i, c.name()));
+                            format!("{}_{},{},{}", layer, self.area, i, name));
             structures.push(gs);
         }
     }
@@ -621,10 +689,10 @@ impl VaultRead for GemPuzzle {
 
 pub fn read_vault(f: &mut File) -> io::Result<Box<Vault>> {
     match try!(f.read_bytes::<u8>()) {
-        1 => Ok(try!(FloorMarking::read_from(f))),
+        1 => Ok(try!(Structure::read_from(f))),
         2 => Ok(try!(Door::read_from(f))),
         3 => Ok(try!(Entrance::read_from(f))),
-        4 => Ok(try!(Treasure::read_from(f))),
+        4 => Ok(try!(Chest::read_from(f))),
         5 => Ok(try!(Library::read_from(f))),
         6 => Ok(try!(GemPuzzle::read_from(f))),
         _ => panic!("bad vault tag in summary"),
