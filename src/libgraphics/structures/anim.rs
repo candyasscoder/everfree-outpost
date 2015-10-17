@@ -19,7 +19,7 @@ pub struct Vertex {
     // 8
     struct_pos: (u8, u8, u8),
     layer: u8,
-    display_offset: (u16, u16),
+    display_offset: (i16, i16),
 
     // 16
     anim_oneshot_start: u16,
@@ -94,9 +94,11 @@ impl<'a> GeomGen<'a> {
             let i0 = t.model_offset as usize;
             let i1 = i0 + t.model_length as usize;
             // Use the offset corresponding to the 0,0,0 corner.
-            let display_offset = (t.anim_offset.0 - t.anim_pos.0,
-                                  t.anim_offset.1 - t.anim_pos.1 + t.display_size.1 -
-                                      t.size.1 as u16 * TILE_SIZE as u16);
+            let display_offset = (
+                t.anim_offset.0 as i16 - t.anim_pos.0 as i16,
+                t.anim_offset.1 as i16 - t.anim_pos.1 as i16 + t.display_size.1 as i16 -
+                        t.size.1 as i16 * TILE_SIZE as i16
+            );
             for v in &self.model_verts[i0 .. i1] {
                 buf[*idx] = Vertex {
                     vert_offset: (v.x, v.y, v.z),

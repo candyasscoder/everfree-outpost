@@ -122,7 +122,7 @@ function makeShaders(shaders, gl, assets, make_texture) {
                 .field( 7, gl.UNSIGNED_BYTE,  1, 'animRate')
                 .field( 8, gl.UNSIGNED_BYTE,  3, 'blockPos')
                 .field(11, gl.UNSIGNED_BYTE,  1, 'layer')
-                .field(12, gl.UNSIGNED_SHORT, 2, 'displayOffset')
+                .field(12, gl.SHORT,          2, 'displayOffset')
                 .field(16, gl.UNSIGNED_SHORT, 1, 'animOneshotStart')
                 .field(18, gl.UNSIGNED_SHORT, 1, 'animStep')
                 .field(20, gl.UNSIGNED_SHORT, 2, 'animBoxMin')
