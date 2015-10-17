@@ -19,6 +19,7 @@ tools.handler.pick['cave_junk/2'] = handler
 
 
 tools.handler.pick._ = function(c, s, inv)
+    if not check_forest(c) then return end
     local pos = util.hit_tile(c:pawn())
     if not ward.check(c, pos) then
         return
