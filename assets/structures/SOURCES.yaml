@@ -243,6 +243,7 @@ cave-door.png: &cave-door
     license: CC-BY-SA 3.0 / GPL 3.0
     derived-from: ../tiles/lpc-base-tiles/mountain.png
 cave-doorway-keyhole.png: *cave-door
+cave-doorway-plain.png: *cave-door
 
 gem-puzzle-parts.png:
     title: Gem Puzzle Parts

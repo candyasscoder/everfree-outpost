@@ -760,7 +760,7 @@ impl Temporary {
         self.edges.push((a_pos, center + V2::new(0, 2)));
         self.edges.push((b_pos, center - V2::new(0, 2)));
 
-        self.vaults.push(Box::new(vault::Door::new(center)));
+        self.vaults.push(Box::new(vault::Door::new(center, vault::DoorKind::Key, area)));
 
         // Generate triangles and neg_edges
         let ab = b_pos - a_pos;
@@ -942,7 +942,7 @@ impl Temporary {
         }
 
         // Add the actual door and puzzle.
-        self.vaults.push(Box::new(vault::Door::new(mid_pos)));
+        self.vaults.push(Box::new(vault::Door::new(mid_pos, vault::DoorKind::GemPuzzle, area)));
 
         let gem_center = mid_pos + V2::new(0, 3);
         let mut colors = mk_array(vault::GemSlot::Empty, 3);

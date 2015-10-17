@@ -114,14 +114,37 @@ impl VaultRead for FloorMarking {
 }
 
 
+#[derive(Clone, Copy)]
+pub enum DoorKind {
+    Key,
+    GemPuzzle,
+}
+unsafe impl Bytes for DoorKind {}
+
+impl DoorKind {
+    fn template_name(&self) -> &'static str {
+        use self::DoorKind::*;
+        match *self {
+            Key => "dungeon/door/key/closed",
+            GemPuzzle => "dungeon/door/puzzle/closed",
+        }
+    }
+}
+
 pub struct Door {
     center: V2,
+    kind: DoorKind,
+    area: u32,
 }
 
 impl Door {
-    pub fn new(center: V2) -> Door {
+    pub fn new(center: V2,
+               kind: DoorKind,
+               area: u32) -> Door {
         Door {
             center: center,
+            kind: kind,
+            area: area,
         }
     }
 }
@@ -194,15 +217,25 @@ impl Vault for Door {
         let layer_z = layer as i32 * 2;
         let door_pos = self.center - V2::new(1, 0);
         if bounds.contains(door_pos) {
-            let template_id = data.structure_templates.get_id("dungeon/door/key/closed");
-            structures.push(GenStructure::new((door_pos - bounds.min).extend(layer_z),
-                                              template_id));
+            let template_id = data.structure_templates.get_id(self.kind.template_name());
+            let pos = (door_pos - bounds.min).extend(layer_z);
+            let mut gs = GenStructure::new(pos, template_id);
+            match self.kind {
+                DoorKind::GemPuzzle => {
+                    gs.extra.insert("gem_puzzle_door".to_owned(),
+                                    format!("{}_{}", layer, self.area));
+                },
+                _ => {},
+            }
+            structures.push(gs);
         }
     }
 
     fn write_to(&self, f: &mut File) -> io::Result<()> {
         try!(f.write_bytes(2_u8));
         try!(f.write_bytes(self.center));
+        try!(f.write_bytes(self.area));
+        try!(f.write_bytes(self.kind));
         Ok(())
     }
 }
@@ -210,9 +243,12 @@ impl Vault for Door {
 impl VaultRead for Door {
     fn read_from(f: &mut File) -> io::Result<Box<Door>> {
         let center = try!(f.read_bytes());
-        let corners = try!(f.read_bytes());
+        let area = try!(f.read_bytes());
+        let kind = try!(f.read_bytes());
         Ok(Box::new(Door {
             center: center,
+            area: area,
+            kind: kind,
         }))
     }
 }
@@ -547,8 +583,11 @@ impl Vault for GemPuzzle {
         let inner_base = self.center - self.inner_size() / scalar(2);
         for (i, &c) in self.colors.iter().enumerate() {
             let template_id = data.structure_templates.get_id(c.template_name());
-            let pos = (inner_base + V2::new(i as i32, 0) - bounds.min).extend(layer_z);
-            let mut gs = GenStructure::new(pos, template_id);
+            let pos = inner_base + V2::new(i as i32, 0);
+            if !bounds.contains(pos) {
+                continue;
+            }
+            let mut gs = GenStructure::new((pos - bounds.min).extend(layer_z), template_id);
             gs.extra.insert("gem_puzzle_slot".to_owned(),
                             format!("{}_{},{},{}", layer, self.area, i, c.name()));
             structures.push(gs);

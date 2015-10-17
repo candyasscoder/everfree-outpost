@@ -48,6 +48,7 @@ local function register_anims(base, delay)
     end
 
     timer.handler[base .. '/closing'] = function(s)
+        print('closed')
         s:replace(base .. '/closed')
     end
 
@@ -61,6 +62,7 @@ end
 local function open(s)
     local base = BASE_MAP[s:template()]
     local delay = DELAY_MAP[base]
+    print(s:template(), base, delay)
     s:replace(base .. '/opening')
     s:set_timer(delay)
 end
@@ -68,6 +70,7 @@ end
 local function close(s)
     local base = BASE_MAP[s:template()]
     local delay = DELAY_MAP[base]
+    print('start closing')
     s:replace(base .. '/closing')
     s:set_timer(delay)
 end

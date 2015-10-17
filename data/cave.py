@@ -387,3 +387,8 @@ def init():
             structures('cave-doorway-keyhole.png'),
             structures('cave-door.png'),
             framerate=16)
+
+    mk_cave_interior_door('dungeon/door/puzzle',
+            structures('cave-doorway-plain.png'),
+            structures('cave-door.png'),
+            framerate=16)

@@ -48,7 +48,8 @@ function use_key(inv)
 end
 
 
-door.register_anims('dungeon/door/key')
+door.register_anims('dungeon/door/key', 500)
+door.register_anims('dungeon/door/puzzle', 500)
 
 action.use['dungeon/door/key/closed'] = function(c, s)
     if not use_key(c:pawn():inventory('main')) then
