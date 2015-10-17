@@ -268,7 +268,7 @@ impl<'d> Provider<'d> {
                             } else {
                                 ("stone", self.rng.gen_range(80, 120))
                             };
-                        gs.extra.insert("loot".to_owned(), format!("{}:{}", loot.0, loot.1));
+                        gs.extra.insert("loot".to_owned(), format!("{}:{},", loot.0, loot.1));
                         gc.structures.push(gs);
                     }
                 } else {
