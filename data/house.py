@@ -5,6 +5,7 @@ from ..core.util import extract, stack
 
 from .lib.items import *
 from .lib.structures import *
+from .lib import models
 
 
 def do_house_parts(basename, image, door_image):
@@ -47,11 +48,11 @@ def do_house_parts(basename, image, door_image):
         for j, part_name in enumerate(row):
             name = basename + '/' + part_name
             if part_name == 'edge/vert':
-                model_name = 'wall/edge/vert'
+                model = models.WALL[part_name]
             else:
-                model_name = 'wall/' + part_name.rpartition('/')[0]
+                model = models.WALL[part_name.rpartition('/')[0]]
             b.merge(mk_solid_structure(
-                name, image, (1, 1, 2), base=(j, i * 3), model=model_name))
+                name, image, (1, 1, 2), base=(j, i * 3), model=model))
 
     open_door_shape_arr = [
             'solid', 'floor', 'solid',
@@ -71,12 +72,12 @@ def do_house_parts(basename, image, door_image):
     x = 10 * TILE_SIZE
     y = 0
     doorway_img = image.crop((x, y, x + w, y + h))
-    b.merge(mk_door_anim(basename + '/door/in', doorway_img, 'wall/door', door_image))
+    b.merge(mk_door_anim(basename + '/door/in', doorway_img, models.WALL['door'], door_image))
 
     x = 13 * TILE_SIZE
     y = 0
     doorway_img = image.crop((x, y, x + w, y + h))
-    b.merge(mk_door_anim(basename + '/door/out', doorway_img, 'wall/door', door_image))
+    b.merge(mk_door_anim(basename + '/door/out', doorway_img, models.WALL['door'], door_image))
 
     return b
 

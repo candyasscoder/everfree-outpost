@@ -22,6 +22,12 @@ def solid(x, y, z):
     return Shape(x, y, z, arr)
 
 
+class Model(object):
+    def __init__(self, verts):
+        self.verts = verts
+        self.length = len(verts)
+
+
 class StaticAnimDef(object):
     """An animation for a static element (structure or block).  This class is
     distinct from AnimationDef (sprite animations) because the requirements are
@@ -93,7 +99,7 @@ class StructureDef(object):
         else:
             self.image = image
             self.anim = None
-        self.model_name = model
+        self.model = model
         self.size = shape.size
         self.shape = shape.shape_array
         self.layer = layer
@@ -221,6 +227,20 @@ def build_anim_sheets(structures):
 
     return images
 
+def collect_models(structures):
+    idx_map = {}
+    all_verts = []
+
+    for s in structures:
+        m_key = tuple(s.model.verts)
+        if m_key not in idx_map:
+            idx_map[m_key] = len(all_verts)
+            all_verts.extend(s.model.verts)
+        s.model_offset = idx_map[m_key]
+        s.model_length = len(s.model.verts)
+
+    return all_verts
+
 
 # JSON output
 
@@ -261,6 +281,9 @@ def build_client_json(structures):
         return dct
 
     return list(convert(s) for s in structures)
+
+def build_model_json(all_verts):
+    return list(x for v in all_verts for x in v)
 
 def build_server_json(structures):
     def convert(s):

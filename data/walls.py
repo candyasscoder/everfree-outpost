@@ -5,6 +5,7 @@ from ..core.util import extract, stack, chop_image
 
 from .lib.items import *
 from .lib.structures import *
+from .lib import models
 
 
 def do_wall_parts(basename, image, door_image=None):
@@ -30,7 +31,7 @@ def do_wall_parts(basename, image, door_image=None):
         if part_name.startswith('_'):
             continue
         name = basename + '/' + part_name
-        model = 'wall/' + part_name
+        model = models.WALL[part_name]
         b.merge(mk_solid_structure(name, image, (1, 1, 2), base=(j, 0), model=model))
 
     if door_image is not None:
@@ -40,7 +41,7 @@ def do_wall_parts(basename, image, door_image=None):
         y = 0
         doorway_img = image.crop((x, y, x + w, y + h))
 
-        b.merge(mk_door_anim(basename + '/door', doorway_img, 'wall/door', door_image))
+        b.merge(mk_door_anim(basename + '/door', doorway_img, models.WALL['door'], door_image))
 
     return b
 
@@ -51,7 +52,7 @@ def init():
     wall = do_wall_parts('wood_wall', image,
             door_image=structures('door-rough.png'))
     mk_solid_structure('wood_wall/window/v0', image, (1, 1, 2), base=(15, 0),
-            model='wall/edge/horiz')
+            model=models.WALL['edge/horiz'])
 
     mk_structure_item(wall['wood_wall/edge/horiz'], 'wood_wall', 'Wooden Wall', (0, 0)) \
         .recipe('anvil', {'wood': 5})
@@ -66,9 +67,9 @@ def init():
             structures('stone-wall.png'),
             door_image=structures('door.png'))
     mk_solid_structure('stone_wall/window/v0', image, (1, 1, 2), base=(15, 0),
-            model='wall/edge/horiz')
+            model=models.WALL['edge/horiz'])
     mk_solid_structure('stone_wall/window/v1', image, (1, 1, 2), base=(16, 0),
-            model='wall/edge/horiz')
+            model=models.WALL['edge/horiz'])
 
     mk_structure_item(wall['stone_wall/edge/horiz'], 'stone_wall', 'Stone Wall', (0, 0)) \
         .recipe('anvil', {'stone': 5})
@@ -81,9 +82,9 @@ def init():
     wall = do_wall_parts('ruined_wall', image,
             door_image=structures('door.png'))
     mk_solid_structure('ruined_wall/window/v0', image, (1, 1, 2), base=(15, 0),
-            model='wall/edge/horiz')
+            model=models.WALL['edge/horiz'])
     mk_solid_structure('ruined_wall/window/v1', image, (1, 1, 2), base=(16, 0),
-            model='wall/edge/horiz')
+            model=models.WALL['edge/horiz'])
 
     mk_structure_item(wall['ruined_wall/edge/horiz'], 'ruined_wall', 'Ruined Wall', (0, 0)) \
         .recipe('anvil', {'stone': 5})
@@ -98,10 +99,10 @@ def init():
             door_image=structures('door.png'))
     for i in range(2):
         mk_solid_structure('cottage_wall/window/v%d' % i, image, (1, 1, 2), base=(15 + i, 0),
-                model='wall/edge/horiz')
+                model=models.WALL['edge/horiz'])
     for i in range(3):
         mk_solid_structure('cottage_wall/variant/v%d' % i, image, (1, 1, 2), base=(17 + i, 0),
-                model='wall/edge/horiz')
+                model=models.WALL['edge/horiz'])
 
     mk_structure_item(wall['cottage_wall/edge/horiz'], 'cottage_wall', 'Cottage Wall', (0, 0)) \
         .recipe('anvil', {'wood': 5})

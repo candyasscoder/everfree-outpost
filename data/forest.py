@@ -30,14 +30,14 @@ def do_tree(image, plane_image):
     b.create(
         'tree',
         image.crop(tree_bounds),
-        'tree',
+        models.TREE,
         tree_shape,
         1)
 
     b.create(
         'stump',
         image.crop(stump_bounds),
-        'stump',
+        models.STUMP,
         stump_shape,
         1)
 
