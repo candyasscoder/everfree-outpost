@@ -46,7 +46,7 @@ class ItemBuilder(BuilderBase):
 
         for s in s:
             if extract_offset is None:
-                icon = s.get_image().modify(make_structure_icon, unit=TILE_SIZE)
+                icon = s.get_image().modify(make_structure_icon, unit=TILE_SIZE, size=1)
             else:
                 icon = s.get_image().extract(extract_offset, TILE_SIZE, unit=1)
                 icon.set_unit(TILE_SIZE)

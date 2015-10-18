@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 import sys
+import time
 
 def build_parser():
     args = argparse.ArgumentParser()
@@ -17,6 +18,21 @@ def build_parser():
             help='directory to contain the generated files')
 
     return args
+
+
+class TimeIt(object):
+    def __init__(self, msg):
+        self.msg = msg
+        self.start = None
+
+    def __enter__(self):
+        sys.stdout.write(self.msg)
+        sys.stdout.flush()
+        self.start = time.time()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        dur = time.time() - self.start
+        sys.stdout.write('  (%d ms)\n' % (dur * 1000))
 
 
 # A bunch of weird import machinery used to support mods.
@@ -152,8 +168,8 @@ def init_all(mod):
     """Call the `init()` function of a module, or do so recursively for all
     submodules within a package (by consulting `__all__`)."""
     if hasattr(mod, 'init'):
-        print('  %s' % mod.__name__.partition('.')[2])
-        getattr(mod, 'init')()
+        with TimeIt('  %s' % mod.__name__.partition('.')[2]):
+            getattr(mod, 'init')()
     elif hasattr(mod, '__all__'):
         for name in sorted(getattr(mod, '__all__')):
             submod = importlib.import_module(mod.__name__ + '.' + name)
@@ -205,9 +221,18 @@ def main(args):
     if util.SAW_ERROR:
         sys.exit(1)
 
-    
+
+    # Image cache handling
+    from outpost_data.core import image_cache
+    with TimeIt('Loading cache...'):
+        try:
+            with open(os.path.join(ns.output_dir, 'image_cache.pickle'), 'rb') as f:
+                image_cache.load_cache(f)
+        except Exception:
+            pass
+
     # Run `init()` for every mod.
-    print('Loading mods:')
+    print('Processing mods:')
     for mod in mods:
         init_all(mod)
 
@@ -216,6 +241,10 @@ def main(args):
     from outpost_data.core.gen import generate
     generate(ns.output_dir)
 
+    with TimeIt('Saving cache...'):
+        with open(os.path.join(ns.output_dir, 'image_cache.pickle'), 'wb') as f:
+            image_cache.dump_cache(f)
+    
 
 if __name__ == '__main__':
     main(sys.argv[1:])

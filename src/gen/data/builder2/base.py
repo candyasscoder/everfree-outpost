@@ -12,7 +12,7 @@ def raw_image(img):
     if img is None:
         return DEFAULT_IMAGE
     else:
-        return img.raw()
+        return img.raw().raw()
 
 class PrototypeBase(object):
     def __init__(self):

@@ -1,4 +1,6 @@
-import PIL
+from outpost_data.core.image_cache import CachedImage
+
+import PIL  # for filter type constants
 
 from . import files
 from . import util
@@ -25,17 +27,25 @@ class Image(object):
         else:
             px_size = tuple(u * s for u,s in zip(self.unit, size))
             self.size = size
-            self._img = img or PIL.Image.new('RGBA', px_size)
+            self._img = img or CachedImage.blank(px_size)
 
         self.px_size = self._img.size
 
     def raw(self):
         return self._img
 
-    def modify(self, f, unit=None):
+    def modify(self, f, size=None, unit=None):
         unit = t2(unit) if unit else self.unit
-        new_img = self._img.copy()
-        new_img = f(new_img) or new_img
+
+        if size is None:
+            px_size = self.raw().size
+        else:
+            size = t2(size)
+            px_x = size[0] * unit[0]
+            px_y = size[1] * unit[1]
+            px_size = (px_x, px_y)
+
+        new_img = self.raw().modify(f, size=px_size)
         return Image(img=new_img, unit=unit)
 
     def with_unit(self, unit):
@@ -94,9 +104,7 @@ class Image(object):
     def stack(self, imgs):
         assert all(i.size == self.size and i.unit == self.unit for i in imgs), \
                 'stacked images must match in size and unit'
-        new_img = self._img.copy()
-        for i in imgs:
-            new_img.paste(i.raw(), (0, 0), i.raw())
+        new_img = self.raw().stack(i.raw() for i in imgs)
         return Image(img=new_img, unit=self.unit)
 
     def pad(self, size, offset=None, unit=1):
@@ -110,34 +118,15 @@ class Image(object):
             ox = px_x // 2 - self.px_size[0] // 2
             oy = px_y // 2 - self.px_size[1] // 2
             offset = (ox, oy)
+        else:
+            offset = t2(offset)
 
-        new_img = PIL.Image.new('RGBA', (px_x, px_y))
-        new_img.paste(self.raw(), offset)
+        new_img = self.raw().pad((px_x, px_y), offset)
         return Image(img=new_img, unit=unit)
 
 
 def stack(imgs):
     imgs[0].stack(imgs[1:])
-
-def stack_offset(layers, unit=1):
-    ux, uy = t2(unit)
-
-    # Get the size needed to contain all layers
-    w, h = 0, 0
-    for (ox, oy), img in layers:
-        img_w, img_h = img.raw().size
-        w = max(w, ox * ux + img_w)
-        h = max(h, oy * uy + img_h)
-
-    # Round up to a multiple of `unit`
-    w = (w + ux - 1) // ux * ux
-    h = (h + uy - 1) // uy * uy
-
-    # Construct new image
-    new_img = PIL.Image.new('RGBA', (w, h))
-    for (ox, oy), img in layers:
-        new_img.paste(img.raw(), (ox * ux, oy * uy))
-    return Image(img=new_img, unit=(ux, uy))
 
 
 # Cache of images indexed by their real file path.
@@ -145,7 +134,7 @@ LOAD_CACHE = {}
 
 def _load_image(full_path, unit):
     if full_path not in LOAD_CACHE:
-        LOAD_CACHE[full_path] = Image(img=PIL.Image.open(full_path), unit=unit or 1)
+        LOAD_CACHE[full_path] = Image(img=CachedImage.open(full_path), unit=unit or 1)
     return LOAD_CACHE[full_path]
 
 def load(path, mod=None, unit=None):
