@@ -83,7 +83,7 @@ def emit_blocks(output_dir, blocks):
             block.build_client_json(blocks))
 
 def emit_items(output_dir, items):
-    sheet = util.build_sheet(items)
+    sheet = item.build_sheet(items)
     sheet.save(os.path.join(output_dir, 'items.png'))
 
     write_json(output_dir, 'items_server.json',

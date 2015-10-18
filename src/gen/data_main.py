@@ -230,6 +230,7 @@ def main(args):
                 image_cache.load_cache(f)
         except Exception:
             pass
+        sys.stdout.write(' %d images' % len(image_cache.IMAGE_CACHE))
 
     # Run `init()` for every mod.
     print('Processing mods:')
@@ -244,6 +245,7 @@ def main(args):
     with TimeIt('Saving cache...'):
         with open(os.path.join(ns.output_dir, 'image_cache.pickle'), 'wb') as f:
             image_cache.dump_cache(f)
+            sys.stdout.write(' %d images' % len(image_cache.NEW_IMAGE_CACHE))
     
 
 if __name__ == '__main__':
