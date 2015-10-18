@@ -1,14 +1,19 @@
+import itertools
+
 from PIL import Image
 
-from .consts import *
-from .util import err
+from outpost_data.core import util
+from outpost_data.core.consts import *
+from outpost_data.core.util import err
+
+from outpost_data.core.loader import TimeIt
 
 
 class BlockDef(object):
     def __init__(self, name, shape, tiles):
         self.name = name
         self.shape = shape
-        self.tile_names = tiles
+        self.tiles = tiles
 
         self.light_color = None
         self.light_radius = None
@@ -21,19 +26,26 @@ class BlockDef(object):
         self.light_radius = radius
 
 
-def resolve_tile_ids(blocks, tile_id_map):
+def build_sheet(blocks):
+    """Build a sprite sheet containing all the tile images for the provided
+    blocks.  This also updates each block's `tile_ids` field with its index in
+    the generated sheet."""
+
+    # Assign an index to each tile image.  Force a blank tile at index 0.
+    blank_tile = Image.new('RGBA', (TILE_SIZE, TILE_SIZE))
+    block_gen = (i for b in blocks for i in b.tiles.values() if i is not None)
+    img_list, idx_map = util.dedupe_images(itertools.chain((blank_tile,), block_gen))
+
+    # Compute `tile_ids`.
     for b in blocks:
-        b.tile_ids = {}
-        for side, name in b.tile_names.items():
-            if name is None:
-                continue
+        b.tile_ids = dict((k, idx_map[id(v)]) for k,v in b.tiles.items() if v is not None)
 
-            tile_id = tile_id_map.get(name)
-            if tile_id is None:
-                err('block %r, side %r: no such tile: %r' % (b.name, side, name))
-                continue
+    # Construct the sheet image.
+    num_pages, offsets = util.pack_boxes_uniform(SHEET_SIZE, len(img_list))
+    assert num_pages == 1, 'too many tile images to fit on one sheet'
+    sheet, = util.build_sheets(img_list, offsets, 1, SHEET_SIZE, TILE_SIZE)
 
-            b.tile_ids[side] = tile_id
+    return sheet
 
 
 def build_client_json(blocks):

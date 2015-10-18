@@ -4,12 +4,12 @@ import os
 
 
 from . import builder, builder2, files, loader, util
-from . import structure, tile, block, item, recipe, animation, attachment, model, extra
+from . import structure, block, item, recipe, animation, attachment, model, extra
+from outpost_data.core.loader import TimeIt
 
 
 IdMaps = namedtuple('IdMaps', (
     'structures',
-    'tiles',
     'blocks',
     'items',
     'recipes',
@@ -30,7 +30,6 @@ def copy_builder2_to_builder(b):
 def postprocess(b):
     id_maps = IdMaps(
         util.assign_ids(b.structures),
-        util.assign_ids(b.tiles, {'empty'}),
         util.assign_ids(b.blocks, {'empty', 'placeholder'}),
         util.assign_ids(b.items, {'none'}),
         util.assign_ids(b.recipes),
@@ -41,7 +40,6 @@ def postprocess(b):
     )
 
     structure.resolve_model_offsets(b.structures, id_maps.models)
-    block.resolve_tile_ids(b.blocks, id_maps.tiles)
     recipe.resolve_item_ids(b.recipes, id_maps.items)
     recipe.resolve_structure_ids(b.recipes, id_maps.structures)
     extra.resolve_all(b.extras, b, id_maps)
@@ -74,11 +72,10 @@ def emit_structures(output_dir, structures):
 
     write_json(output_dir, 'structures_list.json', sorted(sheet_names))
 
-def emit_tiles(output_dir, tiles):
-    sheet = util.build_sheet(tiles)
+def emit_blocks(output_dir, blocks):
+    sheet = block.build_sheet(blocks)
     sheet.save(os.path.join(output_dir, 'tiles.png'))
 
-def emit_blocks(output_dir, blocks):
     write_json(output_dir, 'blocks_server.json',
             block.build_server_json(blocks))
 
@@ -139,24 +136,28 @@ def emit_extras(output_dir, extras):
     write_json(output_dir, 'extras_client.json',
             extra.build_client_json(extras))
 
+def time(msg, f, *args):
+    with TimeIt('  %s' % msg):
+        f(*args)
+
 def generate(output_dir):
     b = builder.INSTANCE
     copy_builder2_to_builder(b)
     postprocess(b)
 
-    emit_structures(output_dir, b.structures)
-    emit_tiles(output_dir, b.tiles)
-    emit_blocks(output_dir, b.blocks)
-    emit_items(output_dir, b.items)
-    emit_recipes(output_dir, b.recipes)
-    emit_animations(output_dir, b.animations)
-    emit_sprites(output_dir, b.sprites)
-    emit_attach_slots(output_dir, b.attach_slots)
-    emit_models(output_dir, b.models)
-    emit_extras(output_dir, b.extras)
+    print('Generating:')
+    time('structures', emit_structures, output_dir, b.structures)
+    time('blocks', emit_blocks, output_dir, b.blocks)
+    time('items', emit_items, output_dir, b.items)
+    time('recipes', emit_recipes, output_dir, b.recipes)
+    time('animations', emit_animations, output_dir, b.animations)
+    time('sprites', emit_sprites, output_dir, b.sprites)
+    time('attach_slots', emit_attach_slots, output_dir, b.attach_slots)
+    time('models', emit_models, output_dir, b.models)
+    time('extras', emit_extras, output_dir, b.extras)
 
-    print('%d structures, %d tiles, %d blocks, %d items, %d recipes' %
-            (len(b.structures), len(b.tiles), len(b.blocks), len(b.items), len(b.recipes)))
+    print('%d structures, %d blocks, %d items, %d recipes' %
+            (len(b.structures), len(b.blocks), len(b.items), len(b.recipes)))
     print('%d animations, %d sprites, %d attach_slots, %d models, %d extras' %
             (len(b.animations), len(b.sprites), len(b.attach_slots), len(b.models), len(b.extras)))
 

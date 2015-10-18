@@ -8,9 +8,6 @@ def init():
     # to add to this list, you must also update the sets of "reserved names"
     # passed to `util.assign_ids` in gen/data/gen.py:postprocess.
 
-    # Empty tile (id = 0)
-    mk_tile('empty', Image.new('RGBA', (TILE_SIZE, TILE_SIZE)))
-
     # Empty block (id = 0)
     mk_block('empty', 'empty', {})
     # `placeholder` (id = 1) is used to fill chunks that are waiting for real
