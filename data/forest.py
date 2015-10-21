@@ -50,7 +50,7 @@ def init():
     daneeklu = loader('tiles/daneeklu_farming_tilesets')
     lpc = loader('tiles/lpc-base-tiles')
 
-    mk_floor_blocks(tiles('lpc-base-tiles/grass.png'), 'grass', shape='floor')
+    #mk_floor_blocks(tiles('lpc-base-tiles/grass.png'), 'grass', shape='floor')
     mk_floor_blocks(tiles('lpc-base-tiles/watergrass.png'), 'water_grass')
     mk_floor_cross(tiles('lpc-watergrass-cross.png'), 'water_grass')
 

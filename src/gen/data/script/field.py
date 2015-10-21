@@ -102,6 +102,14 @@ class FromObjectField(InitFieldBase):
 
 def _build_field_map():
     fm = {}
+    fm['block'] = dict(
+            multi_names = MultiNameField,
+            shape = NameField,
+            top = ImageField,
+            bottom = ImageField,
+            front = ImageField,
+            back = ImageField,
+            )
     fm['structure'] = dict(
             multi_names = MultiNameField,
             image = ImageField,
