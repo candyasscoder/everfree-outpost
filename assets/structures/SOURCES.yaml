@@ -1,257 +1,121 @@
 
+-lpc-base: &lpc-base
+    derived-from: lpc-base-tiles
+
+-nilsson-lpc: &nilsson-lpc
+    derived-from: nilsson-lpc-entry
+
+-gervais-roguelike: &gervais-roguelike
+    derived-from: gervais-roguelike-tiles
+
+-daneeklu-farming: &daneeklu-farming
+    derived-from: daneeklu-farming-tilesets
+
+
+barrel.png: *lpc-base
+cave-junk.png: *lpc-base
+chest.png: *lpc-base
+furniture.png: *lpc-base
+furniture.xcf: *lpc-base
+furniture-planemap.png: *lpc-base
+rock.png: *lpc-base
+stair.png: *lpc-base
+stair-planemap.png: *lpc-base
+trophy.png: *lpc-base
+wood-floor.png: *lpc-base
+
+road.png: *nilsson-lpc
+
+crystal-formation.png: *gervais-roguelike
+crystal-formation-red.png: *gervais-roguelike
+crystal-formation-green.png: *gervais-roguelike
+
+anvil.png: *daneeklu-farming
+crops.png: *daneeklu-farming
+fence.png: *daneeklu-farming
+
+sign.png:
+    derived-from: lpc-signpost
+
+fountain.png:
+    derived-from: lpc-water-fountain
+
+door.png:
+    derived-from: lpc-doors-animated
+
+
 crystal-ward.png:
-    title: Crystal Ward
-    author: David E. Gervais, Daniel Eddeland, Stuart Pernsteiner
-    license: CC-BY-SA 3.0
-    attribution: >
-        Fence post from Daniel Eddeland's LPC farming tileset, combined with an
-        edited crystal from David E. Gervais's roguelike tilesets.
-    derived-from:
-        ../tiles/daneeklu_farming_tilesets/fence.png,
-        ../tiles/gervais_roguelike/dg_misc32.gif
-
-wood-floor.png:
-    title: LPC Wood Floor
-    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
-    license: CC-BY-SA 3.0 / GPL 3.0
-    attribution:
-        Lanea Zimmerman's wood floor tile, rearranged to match the standard
-        terrain layout.
-    derived-from: ../tiles/lpc-base-tiles/inside.png
-
-road.png:
-    title: LPC Road
-    author: Casper Nilsson, Stuart Pernsteiner
-    license: CC-BY-SA 3.0 / GPL 3.0
-    attribution:
-        Casper Nilsson's harbor tiles, edited and rearranged to match the
-        standard terrain layout.
-    derived-from: ../tiles/nilsson_lpc_entry/Harbor/harbor.png
-
-furniture.png: &furniture
-    title: LPC Furniture
-    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
-    license: CC-BY-SA 3.0 / GPL 3.0
-    attribution:
-        Lanea Zimmerman's LPC house furniture, rearranged to line up with the
-        modified house walls.
-    derived-from:
-        ../tiles/lpc-base-tiles/cabinets.png,
-        ../tiles/lpc-base-tiles/victoria.png
-furniture.xcf: *furniture
-furniture-planemap.png: *furniture
+    author: Stuart Pernsteiner
+    derived-from: daneeklu-farming-tilesets, gervais-roguelike-tiles
 
 house.png: &house
-    title: LPC House Walls
-    author: Lanea Zimmerman (AKA Sharm), Stuart Pernsteiner
-    license: CC-BY-SA 3.0 / GPL 3.0
-    attribution:
-        Lanea Zimmerman's house interior and exterior tiles, edited together to
-        form a solid 64px-tall wall.
-    derived-from: 
-        ../tiles/lpc-base-tiles/inside.png,
-        ../tiles/lpc-base-tiles/house.png
+    author: Stuart Pernsteiner
+    derived-from: lpc-base-tiles
 house.xcf: *house
 house-planemap.png: *house
 
-crystal-formation.png:
-    title: Blue Crystal Formation
-    author: David E. Gervais
-    license: CC-BY-SA 3.0
-    derived-from: ../tiles/gervais_roguelike/dg_misc32.gif
-
-crystal-formation-red.png:
-    title: Red Crystal Formation
-    author: David E. Gervais
-    license: CC-BY-SA 3.0
-    derived-from: crystal-formation.png
-
-crystal-formation-green.png:
-    title: Green Crystal Formation
-    author: David E. Gervais
-    license: CC-BY-SA 3.0
-    derived-from: crystal-formation.png
-
-anvil.png:
-    title: LPC Anvil
-    author: Daniel Eddeland (daneeklu)
-    license: CC-BY-SA 3.0 / GPL 3.0
-    derived-from: ../tiles/daneeklu_farming_tilesets/farming_fishing.png
-
-fence.png:
-    title: LPC Fence
-    author: Daniel Eddeland (daneeklu)
-    license: CC-BY-SA 3.0 / GPL 3.0
-    derived-from: ../tiles/daneeklu_farming_tilesets/fence.png
-
-chest.png:
-    title: LPC Chest
-    author: Lanea Zimmerman (AKA Sharm)
-    license: CC-BY-SA 3.0 / GPL 3.0
-    derived-from: ../tiles/lpc-base-tiles/chests.png
-
 tree.png: &tree
-    title: Large Trees
-    author: Anonymous, Lanea Zimmerman (AKA Sharm), Casper Nilsson, Stuart Pernsteiner
-    license: CC-BY-SA 3.0 / GPL 3.0
-    attribution:
-        According to the readme from the .zip file at
-        http://opengameart.org/content/lpc-cnilsson,
-        C.Nilsson's art is CC-BY-SA 3.0 / GPL 3+ dual licensed (not GPL3+ only,
-        as the LPC Tile Atlas license section suggests).
-    derived-from: ../tiles/terrain_atlas.png
+    author: Anonymous, Stuart Pernsteiner
+    derived-from: lpc-base-tiles
 tree.xcf: *tree
 tree-planemap.png: *tree
-
-rock.png:
-    title: LPC Rock
-    author:
-        Lanea Zimmerman (AKA Sharm),
-        Stephen Challener (AKA Redshrike),
-        Charles Sanchez (AKA CharlesGabriel),
-        Manuel Riecke (AKA MrBeast),
-        Daniel Armstrong (AKA HughSpectrum),
-        Casper Nilsson,
-        Daniel Eddeland,
-        Johann CHARLOT,
-        Skyler Robert Colladay 
-    license: CC-BY-SA 3.0 / GPL 3.0
-    derived-from: ../tiles/terrain_atlas.png
 
 statue.png:
     title: Pony Statue
     author: Fernando Ariel dos Santos Alves
     license: CC-BY 4.0
 
-trophy.png:
-    title: LPC Trophy
-    author: Lanea Zimmerman (AKA Sharm)
-    license: CC-BY 3.0
-    derived-from: ../tiles/lpc-base-tiles/cup.png
-
-fountain.png:
-    title: "[LPC] Water Fountain"
-    author: Lanea Zimmerman (AKA Sharm), William.Thompsonj, Curt
-    license: CC-BY 3.0
-    url: http://opengameart.org/content/lpc-water-fountain
-
-WaterAndFire_2.png:
-    title: "[LPC] Animated water and fire"
-    author: Lanea Zimmerman (AKA Sharm), Curt
-    license: CC-BY 3.0
-    url: http://opengameart.org/content/lpc-animated-water-and-fire
-    attribution: the torch is from Crawl-CC0
-
 torch.*:
-    title: Standing Torch
-    author: Lanea Zimmerman (AKA Sharm), Curt, Daniel Eddeland (daneeklu), Stuart Pernsteiner
-    license: CC-BY-SA 3.0
+    author: Stuart Pernsteiner
     attribution:
         Daniel Eddeland's fence post, plus the top of the torch from Curt's animated water and fire.
-    derived-from: WaterAndFire_2.png, ../tiles/daneeklu_farming_tilesets/fence.png
+    derived-from: lpc-water-and-fire, daneeklu-farming-tilesets
 
 wood_wall.png: &wood-wall
-    title: Wooden Wall
-    author: Nemisys, Nonnykins
-    license: CC-BY-SA 3.0 / GPL 3.0
+    author: Nonnykins
     attribution: Wood texture based on Nemisys's LPC Signpost
-    derived-from: sign.png
+    derived-from: lpc-signpost
 wood_wall-planemap.png: *wood-wall
-
-stair.png: &stair
-    title: LPC Stairs
-    author: Lanea Zimmerman (AKA Sharm)
-    license: CC-BY-SA 3.0 / GPL 3.0
-    derived-from: ../tiles/lpc-base-tiles/stairs.png
-stair-planemap.png: *stair
 
 stone-wall.png: &stone-wall
     title: Stone Brick Wall
     author: Nonnykins, Stuart Pernsteiner
-    license: CC-BY-SA 3.0 / GPL 3.0
 stone-wall.xcf: *stone-wall
 stone-wall-planemap.png: *stone-wall
 
 ruined-wall.png:
     title: Ruined Stone Brick Wall
     author: Nonnykins
-    license: CC-BY-SA 3.0 / GPL 3.0
 
 cottage-wall.png: &cottage-wall
     title: Cottage Wall
     author: Nonnykins
-    license: CC-BY-SA 3.0 / GPL 3.0
 cottage-wall-planemap.png: *cottage-wall
 
 door-rough.png:
     title: Rough Wooden Door
-    author: Nonnykins, Nemisys
-    license: CC-BY-SA 3.0 / GPL 3.0
+    author: Nonnykins
     attribution: Wood texture based on Nemisys's LPC Signpost
-    derived-from: sign.png
+    derived-from: lpc-signpost
 
 pillar.png: &pillar
     title: Pillars
-    author: Nonnykins, Nemisys
-    license: CC-BY-SA 3.0 / GPL 3.0
+    author: Nonnykins
     attribution: Wood texture based on Nemisys's LPC Signpost
-    derived-from: sign.png
+    derived-from: lpc-signpost
 pillar-planemap.png: *pillar
-
-sign.png:
-    title: LPC Signpost
-    author: Nemisys
-    license: CC-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
-    url: http://opengameart.org/content/lpc-sign-post
-
-door.png:
-    title: LPC Door
-    author: Lanea Zimmerman (AKA Sharm)
-    license: CC-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
-    derived-from: lpc-doors-animated-1.png
-
-crops.png:
-    title: "[LPC] Farming tilesets, magic animations and UI elements"
-    author: Daniel Eddeland (daneeklu)
-    license: CC-BY-SA 3.0 / GPL 3.0
-    derived-from: ../tiles/daneeklu_farming_tilesets/plants.png
-
-cave-junk.png:
-    title: LPC Rocks and Stalagmites
-    author: Lanea Zimmerman (AKA Sharm)
-    license: CC-BY-SA 3.0 / GPL 3.0
-    derived-from:
-        ../tiles/lpc-base-tiles/mountains.png
-
-barrel.png:
-    title: LPC Barrel
-    author: Lanea Zimmerman (AKA Sharm)
-    license: CC-BY-SA 3.0 / GPL 3.0
-    derived-from: ../tiles/lpc-base-tiles/barrel.png
-
-lpc-doors-animated-1.png:
-    title: LPC Animated Doors
-    author: Lanea Zimmerman (AKA Sharm)
-    license: CC-BY 3.0 / CC-BY-SO 3.0 / GPL 3.0
-    url: http://opengameart.org/content/lpc-animated-doors
-    attribution: >
-        Original wood and dungeon doors by Lanea Zimmerman (AKA Sharm).
 
 cave-door.png: &cave-door
     title: Cave Door Animation
-    author: Lanea Zimmerman (AKA Sharm), Anonymous
-    license: CC-BY-SA 3.0 / GPL 3.0
-    derived-from: ../tiles/lpc-base-tiles/mountain.png
+    author: Anonymous
+    derived-from: lpc-base-tiles
 cave-doorway-keyhole.png: *cave-door
 cave-doorway-plain.png: *cave-door
 
 gem-puzzle-parts.png:
     title: Gem Puzzle Parts
-    author: Stuart Pernsteiner, Lanea Zimmerman (AKA Sharm), David E. Gervais
-    license: CC-BY-SA 3.0
+    author: Stuart Pernsteiner
     attribution: >
         Stone block is the base from the LPC cup.  Gems are based on the
         crystals and coins from the roguelike tiles by David E. Gervais.
-    derived-from:
-        ../tiles/lpc-base-tiles/cup.png,
-        ../tiles/gervais_roguelike/dg_misc32.gif
+    derived-from: lpc-base-tiles, gervais-roguelike-tiles

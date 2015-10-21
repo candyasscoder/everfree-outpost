@@ -1,32 +1,11 @@
 NeoSans.png:
-    title: New original Grafx2 font collection
-    author: usr_share
-    license: CC0
-    url: http://opengameart.org/content/new-original-grafx2-font-collection
+    derived-from: grafx2-fonts
 
 day_night_cycle_gradient.png:
-    title: LPC C.Nilsson
-    author: Casper Nilsson
-    license: CC-BY-SA 3.0 / GPL 3.0
-    url: http://opengameart.org/content/lpc-cnilsson
-    attribution: >
-        LICENSE
-        ---------------------------------
-        The art is dual licensed under the following licenses.
-        *CC-BY-SA 3.0
-        *GNU GPL 3.0 or later
-         
-        http://creativecommons.org/licenses/by-sa/3.0/
-        http://www.gnu.org/licenses/gpl-3.0.html
-
-        Please attribute creator as Casper Nilsson.
-        Please include a link to opengameart.org as well (preferably to the submission for this art package) if you use the art.
+    derived-from: nilsson-lpc-entry
 
 day_night_pixels.*:
-    title: Day/Night Cycle
-    author: Caspen Nilsson, Stuart Pernsteiner
-    license: CC-BY-SA 3.0 / GPL 3.0
-    url: http://opengameart.org/content/lpc-cnilsson
+    author: Stuart Pernsteiner
     attribution: >
         Casper Nilsson's day/night cycle gradient, adjusted to make it more
         suitable for multiplying rather than alpha blending, and to make the

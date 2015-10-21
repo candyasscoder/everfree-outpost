@@ -1,12 +1,7 @@
-base/mare/*.png: &mlponline
-    title: MLPonline Sprite Sheets
-    author: urimas
-    license: Custom
-    url: http://urimas.deviantart.com/art/MLPonline-Sprite-Sheets-341840400
-    attribution: >
-        "There are no restrictions on how these are used as long as i'm
-        credited. and linked back here"
+-mlponline: &mlponline
+    derived-from: mlponline-sprite-sheets
 
+base/mare/*.png: *mlponline
 base/stallion/*.png: *mlponline
 parts/mare/*.png: *mlponline
 parts/stallion/*.png: *mlponline
