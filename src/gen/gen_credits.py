@@ -183,7 +183,7 @@ def main(src_dir, dest_file, inputs):
             path = os.path.normpath(path)
             _, ext = os.path.splitext(path)
 
-            if ext in ('.py', '.od', '.vert', '.frag'):
+            if ext in ('.py', '.od', '.loot', '.vert', '.frag'):
                 # Ignore code files.
                 continue
 

@@ -1,5 +1,6 @@
 from collections import namedtuple
 
+from outpost_data.core import util
 
 
 class ObjectRef(object):
@@ -35,7 +36,7 @@ class ChooseBase(object):
     __slots__ = ('variants',)
     def __init__(self, variants=()):
         self.variants = []
-        self.add_variants(v)
+        self.add_variants(variants)
 
     def clone(self):
         type(self)([v.clone() for v in self.variants])
@@ -65,7 +66,7 @@ class MultiBase(object):
     __slots__ = ('parts',)
     def __init__(self, parts=()):
         self.parts = []
-        self.add_parts(p)
+        self.add_parts(parts)
 
     def clone(self):
         type(self)([p.clone() for p in self.parts])
@@ -85,11 +86,11 @@ class MultiBase(object):
             self.add_part(p)
 
     def resolve_object_ids(self, id_map, name):
-        for v in self.variants:
-            if isinstance(v.ref, ObjectRef):
-                v.ref.id = id_map.get(v.ref.name)
-                if v.ref.id is None:
-                    util.err('loot table %r: no such %s: %r' % (name, self.OBJ_KIND, v.ref.name))
+        for p in self.parts:
+            if isinstance(p.ref, ObjectRef):
+                p.ref.id = id_map.get(p.ref.name)
+                if p.ref.id is None:
+                    util.err('loot table %r: no such %s: %r' % (name, self.OBJ_KIND, p.ref.name))
 
 
 class ChooseItem(ChooseBase):
@@ -125,10 +126,10 @@ def resolve_object_ids(tables, id_maps):
 def build_map(tables, kind):
     table_map = {}
     for t in (t for t in tables if t.object_kind() == kind and not t.ext):
-        if t.name in base_map:
+        if t.name in table_map:
             util.err('multiple definitions of table %r' % t.name)
             continue
-        base_map[t.name] = [t.table]
+        table_map[t.name] = [t.table]
 
     for t in (t for t in tables if t.object_kind() == kind and t.ext):
         if t.name not in table_map:
@@ -173,7 +174,7 @@ class Compiler(object):
             self.id_map[k] = len(self.compiled)
             self.compiled.append(None)
 
-    def resolve_object_ref(self, ref):
+    def resolve_object_ref(self, src_name, ref):
         key = (ref.id, ref.min_count, ref.max_count)
         if key not in self.object_id_map:
             self.object_id_map[key] = len(self.compiled)
@@ -184,21 +185,35 @@ class Compiler(object):
                 dct['min_count'] = ref.min_count
                 dct['max_count'] = ref.max_count
             self.compiled.append(dct)
-        return self.id_map[key]
+        return self.object_id_map[key]
 
-    def resolve_table_ref(self, ref):
+    def resolve_table_ref(self, src_name, ref):
+        if ref.name not in self.id_map:
+            util.err('table %r refers to nonexistent table %r' %
+                    (src_name, ref.name))
+            return None
         return self.id_map[ref.name]
 
-    def resolve_ref(self, ref):
+    def resolve_ref(self, src_name, ref):
         if isinstance(ref, ObjectRef):
-            return self.resolve_object_ref(ref)
+            return self.resolve_object_ref(src_name, ref)
+        elif isinstance(ref, TableRef):
+            return self.resolve_table_ref(src_name, ref)
+        else:
+            assert False, 'unexpected ref type: %r' % type(ref)
 
     def merge_weights(self, tables):
         weight_map = {}
         ref_map = {}
         for t in tables:
             for v in t.variants:
-                key = (v.ref.name, v.ref.min_count, v.ref.max_count)
+                if isinstance(v.ref, TableRef):
+                    key = (TableRef, v.ref.name)
+                elif isinstance(v.ref, ObjectRef):
+                    key = (ObjectRef, v.ref.name, v.ref.min_count, v.ref.max_count)
+                else:
+                    assert False, 'unexpected ref type: %r' % type(v.ref)
+
                 if key not in ref_map:
                     ref_map[key] = v.ref
                     weight_map[key] = 0
@@ -226,7 +241,7 @@ class Compiler(object):
         variants = self.merge_weights(tables)
         variant_dcts = []
         for v in variants:
-            table_id = self.resolve_ref(v.ref)
+            table_id = self.resolve_ref(name, v.ref)
             variant_dcts.append({'id': table_id, 'weight': v.weight})
         return {
                 'type': 'choose',
@@ -238,8 +253,8 @@ class Compiler(object):
         part_dcts = []
         for t in tables:
             for p in t.parts:
-                table_id = self.resolve_ref(p.ref)
-                variant_dcts.append({'id': table_id, 'chance': p.weight})
+                table_id = self.resolve_ref(name, p.ref)
+                part_dcts.append({'id': table_id, 'chance': p.chance})
         return {
                 'type': 'multi',
                 'name': name,
@@ -286,7 +301,7 @@ class Compiler(object):
     def compile(self):
         for name, tables in self.table_map.items():
             self.compile_table(name, tables)
-        self.cycle_check()
+        #self.cycle_check()
         return self.compiled
 
 

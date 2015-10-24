@@ -26,13 +26,14 @@ class TimeIt(object):
         self.start = None
 
     def __enter__(self):
-        sys.stdout.write(self.msg)
-        sys.stdout.flush()
+        #sys.stdout.write(self.msg)
+        #sys.stdout.flush()
         self.start = time.time()
 
     def __exit__(self, exc_type, exc_value, traceback):
         dur = time.time() - self.start
-        sys.stdout.write('  (%d ms)\n' % (dur * 1000))
+        #sys.stdout.write('  (%d ms)\n' % (dur * 1000))
+        print('%s  (%d ms)' % (self.msg, dur * 1000))
 
 
 # A bunch of weird import machinery used to support mods.
@@ -63,6 +64,9 @@ def load_from_path(name, path):
         if path.endswith('.od'):
             loader = DefScriptLoader(name, path)
             loader.load_module(name)
+        elif path.endswith('.loot'):
+            loader = LootScriptLoader(name, path)
+            loader.load_module(name)
         else:
             loader = importlib.machinery.SourceFileLoader(name, path)
             loader.load_module()
@@ -77,8 +81,8 @@ class FakePackage(object):
         self.__package__ = name
         self.__path__ = [path]
         if all is None:
-            all = tuple(f[:-3] for f in os.listdir(path)
-                    if f.endswith('.py') or f.endswith('.od'))
+            all = tuple(os.path.splitext(f)[0] for f in os.listdir(path)
+                    if f.endswith('.py') or f.endswith('.od') or f.endswith('.loot'))
         self.__all__ = all
 
 def load_fake_package(name, path, **kwargs):
@@ -88,10 +92,11 @@ def load_fake_package(name, path, **kwargs):
         attach_to_package(name)
     return sys.modules[name]
 
-class DefScriptLoader(importlib.abc.Loader):
-    def __init__(self, fullname, origin):
+class ScriptLoader(importlib.abc.Loader):
+    def __init__(self, fullname, origin, script_module):
         self.fullname = fullname
         self.origin = origin
+        self.script_module = script_module
 
     @importlib.util.module_for_loader
     def load_module(self, mod):
@@ -103,20 +108,26 @@ class DefScriptLoader(importlib.abc.Loader):
         mod.__loader__ = self
 
         try:
-            import outpost_data.core.script.defs
-
             with open(self.origin) as f:
-                script = outpost_data.core.script.defs.parse_script(f.read(), self.origin)
+                script = self.script_module.parse_script(f.read(), self.origin)
             if script == None:
                 raise ValueError('error parsing script %r' % self.origin)
 
-            compiler = outpost_data.core.script.defs.Compiler(self.origin)
+            compiler = self.script_module.Compiler(self.origin)
             code = compiler.compile_module(script)
             exec(code, mod.__dict__)
         except Exception as e:
             import traceback
             traceback.print_exc()
             raise
+
+def DefScriptLoader(fullname, origin):
+    import outpost_data.core.script.defs as S
+    return ScriptLoader(fullname, origin, S)
+
+def LootScriptLoader(fullname, origin):
+    import outpost_data.core.script.loot as S
+    return ScriptLoader(fullname, origin, S)
 
 class DefScriptFinder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
     def find_module(fullname, path):
@@ -129,6 +140,19 @@ class DefScriptFinder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
             file_path = os.path.join(d, filename)
             if os.path.exists(file_path):
                 return DefScriptLoader(fullname, file_path)
+        return None
+
+class LootScriptFinder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+    def find_module(fullname, path):
+        if path is None:
+            return None
+
+        package, _, basename = fullname.rpartition('.')
+        filename = basename + '.loot'
+        for d in path:
+            file_path = os.path.join(d, filename)
+            if os.path.exists(file_path):
+                return LootScriptLoader(fullname, file_path)
         return None
 
 
@@ -148,6 +172,8 @@ def load_mod(name, path):
         return load_from_path(module_name, path + '.py')
     elif os.path.isfile(path + '.od'):
         return load_from_path(module_name, path + '.od')
+    elif os.path.isfile(path + '.loot'):
+        return load_from_path(module_name, path + '.loot')
     elif os.path.isdir(path):
         # NB: Depends on the nonexistence of foo.py, but we can't express that
         # easily.
@@ -190,8 +216,9 @@ def main(args):
     sys.modules['outpost_data.core.loader'] = sys.modules[__name__]
     attach_to_package('outpost_data.core.loader')
 
-    # Register `DefScriptFinder` for loading .od modules.
+    # Register `DefScriptFinder` and `LootScriptFinder` for loading .od and .loot modules.
     sys.meta_path.append(DefScriptFinder)
+    sys.meta_path.append(LootScriptFinder)
 
 
     from outpost_data.core import files

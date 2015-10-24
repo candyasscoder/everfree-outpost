@@ -14,7 +14,7 @@ class LootTablePrototype(PrototypeBase):
 
     def clone(self):
         obj = super(LootTablePrototype, self).clone()
-        obj.table = self.table.clone()
+        obj.table = self.table.clone() if self.table is not None else None
         return obj
 
     def instantiate(self):

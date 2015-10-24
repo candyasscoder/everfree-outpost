@@ -2,6 +2,7 @@ from PIL import Image
 
 from ..core.builder import *
 from ..core.consts import *
+from ..core.loot_table import *
 
 def init():
     # Various code relies on these objects having well-known IDs.  If you need

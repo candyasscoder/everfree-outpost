@@ -3,7 +3,6 @@ import re
 
 from outpost_data.core import util
 
-from outpost_data.core.script.defs.field import FIELD_MAP
 from outpost_data.core.script.lex import Lexer
 
 
@@ -13,20 +12,18 @@ class ParseError(Exception):
 
 TOKEN = re.compile(r'''
         (?P<word>   [a-zA-Z_0-9/]+ ) |
-        (?P<punct>  [()[\]:,] ) |
-        (?:         "(?P<quoted> [^"]*)" ) |
-        (?:         `(?P<backticked> [^`]*)` ) |
+        (?P<punct>  [()[\]*\-%] ) |
         (?:         \s+ | \#.* )''', re.VERBOSE)
 
 def lex(s, filename):
     return Lexer(TOKEN, s, filename).lex()
 
 
-PythonBlock = namedtuple('InlinePython', ('code', 'line', 'col'))
-Section = namedtuple('Section', ('ty', 'name', 'fields', 'line', 'col'))
-Field = namedtuple('Field', ('name', 'value', 'line', 'col'))
-Backticked = namedtuple('Backticked', ('src', 'line', 'col'))
-Value = namedtuple('Value', ('value', 'line', 'col'))
+Section = namedtuple('Section', ('mode', 'obj_kind', 'ext', 'name', 'entries', 'line', 'col'))
+Entry = namedtuple('Entry',
+        ('ty', 'name', 'min_count', 'max_count', 'weight', 'chance', 'line', 'col'))
+
+INT_RE = re.compile('[0-9]+')
 
 class Parser(object):
     def __init__(self, tokens, filename):
@@ -50,6 +47,7 @@ class Parser(object):
         if self.tokens[self.pos].kind == 'eol':
             self.pos += 1
 
+
     def take_word(self, expected=None):
         t = self.take()
         if t.kind != 'word':
@@ -67,27 +65,15 @@ class Parser(object):
         # Something went wrong.
         self.error(expected or 'integer', t)
 
-
     def take_punct(self, text, expected=None):
         t = self.take()
         if t.kind != 'punct' or t.text != text:
             self.error(expected or '"%s"' % text, t)
 
-    def take_quoted(self, expected=None):
-        t = self.take()
-        if t.kind != 'quoted':
-            self.error(expected or 'quoted string', t)
-        return t.text
-
     def take_eol(self, expected=None):
         t = self.take()
         if t.kind != 'eol':
             self.error(expected or 'end of line', t)
-
-    def take_py_end(self, expected=None):
-        t = self.take()
-        if t.kind != 'py_end':
-            self.error(expected or 'end of Python block', t)
 
     def error(self, expected, token=None):
         token = token or self.peek()
@@ -109,7 +95,11 @@ class Parser(object):
             elif t.kind == 'punct' and t.text == '[':
                 parts.append(self.parse_section())
             elif t.kind == 'py_begin':
-                parts.append(self.parse_python_block())
+                util.err('%s:%d:%d: python blocks are not supported in loot tables' %
+                        (self.filename, t.line, t.col))
+                while self.peek().kind != 'py_end':
+                    self.take()
+                self.take()
             else:
                 self.error('beginning of section', t)
         return parts
@@ -122,15 +112,16 @@ class Parser(object):
         self.take_punct(']')
         self.take_eol()
 
-        if ty in FIELD_MAP:
-            field_map = FIELD_MAP[ty]
-        else:
+        ext = ty.endswith('_ext')
+        if ext:
+            ty = ty[:len('_ext')]
+
+        mode, _, obj_kind = ty.partition('_')
+        if mode not in ('choose', 'multi') or obj_kind not in ('structure', 'item'):
             util.err('%s:%d:%d: unknown section type %r' %
                     (self.filename, t_sect.line, t_sect.col, ty))
-            field_map = {}
-            ty = None
 
-        parts = []
+        entries = []
         while True:
             t_field = self.peek()
             if t_field.kind == 'eol':
@@ -140,38 +131,53 @@ class Parser(object):
                 break
 
             try:
-                key = self.take_word()
-                self.take_punct(':')
+                weight, chance = None, None
+                if self.peek().text == '(':
+                    weight, chance = self.parse_weight_or_chance()
 
-                if key not in field_map:
-                    if ty is not None:
-                        util.err('%s:%d:%d: unknown field %r for section type %r' %
-                                (self.filename, t_field.line, t_field.col, key, ty))
-                    raise ParseError()
+                min_count, max_count = 1, 1
+                if INT_RE.match(self.peek().text):
+                    min_count, max_count = self.parse_counts()
 
-                if self.peek().kind == 'backticked':
-                    t_val = self.take()
-                    val = Backticked(t_val.text, t_val.line, t_val.col)
-                else:
-                    t_val = self.peek()
-                    val = Value(field_map[key].parse(self), t_val.line, t_val.col)
+                table_ref = self.peek().text == '*'
+                if table_ref:
+                    self.take_punct('*')
 
+                    if min_count != 1 or max_count != 1:
+                        util.error('%s:%d:%d: cannot specify count for table reference' %
+                                (self.filename, t_field.line, t_field.col))
+
+                ref_name = self.take_word()
                 self.take_eol()
 
-                parts.append(Field(key, val, t_field.line, t_field.col))
-            except ParseError as e:
+                entries.append(Entry('table' if table_ref else 'object',
+                    ref_name, min_count, max_count, weight, chance,
+                    t_field.line, t_field.col))
+            except ParseError:
                 self.skip_to_eol()
 
-        return Section(ty, name, parts, t_sect.line, t_sect.col)
+        return Section(mode, obj_kind, ext, name, entries, t_sect.line, t_sect.col)
 
-    def parse_python_block(self):
-        begin = self.take()
-        code = []
-        while self.peek().kind == 'py_line':
-            t = self.take()
-            code.append(t.text)
-        end = self.take_py_end()
+    def parse_weight_or_chance(self):
+        weight, chance = None, None
 
-        return PythonBlock('\n'.join(code), begin.line, begin.col)
+        self.take_punct('(')
+        amount = self.take_int()
+        if self.peek().text == '%':
+            self.take_punct('%')
+            chance = amount
+        else:
+            weight = amount
+        self.take_punct(')')
 
-    parse_filename = lambda self: self.take_quoted('quoted filename')
+        return weight, chance
+
+    def parse_counts(self):
+        min_count = self.take_int()
+        max_count = min_count
+
+        if self.peek().text == '-':
+            self.take_punct('-')
+            max_count = self.take_int()
+
+        return min_count, max_count
