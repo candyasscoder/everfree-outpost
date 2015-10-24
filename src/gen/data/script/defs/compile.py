@@ -1,9 +1,9 @@
 import ast
 import textwrap
 
-from .field import FIELD_MAP
-from .parse import Section, PythonBlock
-from .parse import Backticked, Value
+from outpost_data.core.script.defs.field import FIELD_MAP
+from outpost_data.core.script.defs.parse import Section, PythonBlock
+from outpost_data.core.script.defs.parse import Backticked, Value
 
 def mk_emit():
     stmts = []
@@ -96,7 +96,7 @@ class Compiler(object):
                 self.import_from('outpost_data.core', ('image2',)),
                 self.import_from('outpost_data.core.consts', ('*',)),
                 self.import_from('outpost_data.core.builder2', ('INSTANCES',)),
-                self.import_from('outpost_data.core.script.context', ('*',)),
+                self.import_from('outpost_data.core.script.defs.context', ('*',)),
                 ]
 
     def gen_init_body(self, script):

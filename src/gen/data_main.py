@@ -61,7 +61,7 @@ def load_from_path(name, path):
     """Import a module (`name`) from a source file (`path`)."""
     if name not in sys.modules:
         if path.endswith('.od'):
-            loader = ScriptLoader(name, path)
+            loader = DefScriptLoader(name, path)
             loader.load_module(name)
         else:
             loader = importlib.machinery.SourceFileLoader(name, path)
@@ -88,7 +88,7 @@ def load_fake_package(name, path, **kwargs):
         attach_to_package(name)
     return sys.modules[name]
 
-class ScriptLoader(importlib.abc.Loader):
+class DefScriptLoader(importlib.abc.Loader):
     def __init__(self, fullname, origin):
         self.fullname = fullname
         self.origin = origin
@@ -103,13 +103,14 @@ class ScriptLoader(importlib.abc.Loader):
         mod.__loader__ = self
 
         try:
-            import outpost_data.core.script
-            compiler = outpost_data.core.script.Compiler(self.origin)
+            import outpost_data.core.script.defs
 
             with open(self.origin) as f:
-                script = outpost_data.core.script.parse_script(f.read(), self.origin)
+                script = outpost_data.core.script.defs.parse_script(f.read(), self.origin)
             if script == None:
                 raise ValueError('error parsing script %r' % self.origin)
+
+            compiler = outpost_data.core.script.defs.Compiler(self.origin)
             code = compiler.compile_module(script)
             exec(code, mod.__dict__)
         except Exception as e:
@@ -117,7 +118,7 @@ class ScriptLoader(importlib.abc.Loader):
             traceback.print_exc()
             raise
 
-class ScriptFinder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+class DefScriptFinder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
     def find_module(fullname, path):
         if path is None:
             return None
@@ -127,7 +128,7 @@ class ScriptFinder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         for d in path:
             file_path = os.path.join(d, filename)
             if os.path.exists(file_path):
-                return ScriptLoader(fullname, file_path)
+                return DefScriptLoader(fullname, file_path)
         return None
 
 
@@ -189,8 +190,8 @@ def main(args):
     sys.modules['outpost_data.core.loader'] = sys.modules[__name__]
     attach_to_package('outpost_data.core.loader')
 
-    # Register `ScriptFinder` for loading .od modules.
-    sys.meta_path.append(ScriptFinder)
+    # Register `DefScriptFinder` for loading .od modules.
+    sys.meta_path.append(DefScriptFinder)
 
 
     from outpost_data.core import files

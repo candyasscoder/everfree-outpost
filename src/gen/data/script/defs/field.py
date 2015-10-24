@@ -1,7 +1,8 @@
 import ast
 
-from ..structure import empty as empty_shape, floor as floor_shape, solid as solid_shape
-from ..consts import *
+from outpost_data.core.structure import \
+        empty as empty_shape, floor as floor_shape, solid as solid_shape
+from outpost_data.core.consts import *
 
 
 class InterpError(Exception):

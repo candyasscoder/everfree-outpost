@@ -1,9 +1,9 @@
 from collections import namedtuple
 import re
 
-from .. import util
+from outpost_data.core import util
 
-from .field import FIELD_MAP
+from outpost_data.core.script.defs.field import FIELD_MAP
 from outpost_data.core.script.lex import Lexer
 
 
