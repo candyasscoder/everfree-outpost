@@ -4,7 +4,8 @@
 #include <iostream>
 
 using namespace std;
-using namespace std::placeholders;
+// Avoid conflict between std and boost placeholders.
+namespace ph = std::placeholders;
 using namespace boost::asio;
 using websocketpp::connection_hdl;
 
@@ -18,9 +19,9 @@ websocket::websocket(server& owner, boost::asio::io_service& ios, uint16_t port)
     ws_server.init_asio(&ios);
     ws_server.set_reuse_addr(true);
 
-    ws_server.set_open_handler(bind(&websocket::handle_open, this, ::_1));
-    ws_server.set_message_handler(bind(&websocket::handle_message, this, ::_1, ::_2));
-    ws_server.set_close_handler(bind(&websocket::handle_close, this, ::_1));
+    ws_server.set_open_handler(bind(&websocket::handle_open, this, ph::_1));
+    ws_server.set_message_handler(bind(&websocket::handle_message, this, ph::_1, ph::_2));
+    ws_server.set_close_handler(bind(&websocket::handle_close, this, ph::_1));
 
     ws_server.listen(port);
     ws_server.start_accept();
