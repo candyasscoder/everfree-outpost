@@ -114,7 +114,7 @@ class Parser(object):
 
         ext = ty.endswith('_ext')
         if ext:
-            ty = ty[:len('_ext')]
+            ty = ty[:-len('_ext')]
 
         mode, _, obj_kind = ty.partition('_')
         if mode not in ('choose', 'multi') or obj_kind not in ('structure', 'item'):

@@ -28,7 +28,9 @@ class LootTableBuilder(BuilderBase):
 
     def _add(self, name, val):
         # NB: duplicated from BuilderBase
-        self._dct[name] = val
+        # Use unique names internally, to allow for `_ext` tables named the
+        # same as the originals.
+        self._dct['%s_%s' % (name, id(val))] = val
         if self._parent is not None:
             self._parent._add(self._prefix + name, val)
 
