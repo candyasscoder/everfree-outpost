@@ -125,6 +125,7 @@ class BuilderBase(object):
         self._full_prefix = (parent._full_prefix if parent is not None else '') + self._prefix
 
     def _add(self, name, val):
+        # NB: duplicated in LootTableBuilder
         assert name not in self._dct, \
                 'duplicate %s with name %r' % (self.PROTO_CLASS.KIND, name)
         self._dct[name] = val

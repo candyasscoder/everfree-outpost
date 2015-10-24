@@ -1,4 +1,4 @@
-from . import structure, block, item, recipe, animation, attachment, extra
+from . import structure, block, item, recipe, animation, attachment, loot_table, extra
 
 
 class Objects(object):
@@ -140,6 +140,7 @@ class Builder(object):
         self.animations = []
         self.sprites = []
         self.attach_slots = []
+        self.loot_tables = []
         self.extras = []
 
 
