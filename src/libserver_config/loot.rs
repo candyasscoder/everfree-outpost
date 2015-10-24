@@ -22,12 +22,14 @@ impl ItemTable {
                 output.push((item_id, amount));
             },
             Choose(ref variants, weight_sum) => {
-                let mut x = rng.gen_range(0, weight_sum);
-                for &(table_idx, weight) in variants {
-                    x -= weight as i32;
-                    if x < 0 {
-                        tables[table_idx as usize].eval(tables, rng, output);
-                        break;
+                if weight_sum > 0 {
+                    let mut x = rng.gen_range(0, weight_sum);
+                    for &(table_idx, weight) in variants {
+                        x -= weight as i32;
+                        if x < 0 {
+                            tables[table_idx as usize].eval(tables, rng, output);
+                            break;
+                        }
                     }
                 }
             },
@@ -60,12 +62,14 @@ impl StructureTable {
                 *output = Some(structure_id);
             },
             Choose(ref variants, weight_sum) => {
-                let mut x = rng.gen_range(0, weight_sum);
-                for &(table_idx, weight) in variants {
-                    x -= weight as i32;
-                    if x < 0 {
-                        tables[table_idx as usize].eval(tables, rng, output);
-                        break;
+                if weight_sum > 0 {
+                    let mut x = rng.gen_range(0, weight_sum);
+                    for &(table_idx, weight) in variants {
+                        x -= weight as i32;
+                        if x < 0 {
+                            tables[table_idx as usize].eval(tables, rng, output);
+                            break;
+                        }
                     }
                 }
             },

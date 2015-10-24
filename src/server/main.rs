@@ -99,11 +99,13 @@ fn main() {
     let recipe_json = read_json(storage.open_recipe_data());
     let template_json = read_json(storage.open_template_data());
     let animation_json = read_json(storage.open_animation_data());
+    let loot_table_json = read_json(storage.open_loot_table_data());
     let data = data::Data::from_json(block_json,
                                      item_json,
                                      recipe_json,
                                      template_json,
-                                     animation_json).unwrap();
+                                     animation_json,
+                                     loot_table_json).unwrap();
 
     let (req_send, req_recv) = channel();
     let (resp_send, resp_recv) = channel();

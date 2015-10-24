@@ -19,6 +19,7 @@ pub struct Data {
     pub recipes: RecipeData,
     pub structure_templates: StructureTemplates,
     pub animations: AnimationData,
+    pub loot_tables: LootTables,
 }
 
 impl Data {
@@ -26,18 +27,21 @@ impl Data {
                      item_json: Json,
                      recipe_json: Json,
                      structure_template_json: Json,
-                     animation_json: Json) -> Result<Data, ParseError> {
+                     animation_json: Json,
+                     loot_table_json: Json) -> Result<Data, ParseError> {
         let block_data = try!(BlockData::from_json(block_json));
         let item_data = try!(ItemData::from_json(item_json));
         let recipes = try!(RecipeData::from_json(recipe_json));
         let structure_templates = try!(StructureTemplates::from_json(structure_template_json));
         let animations = try!(AnimationData::from_json(animation_json));
+        let loot_tables = try!(LootTables::from_json(loot_table_json));
         Ok(Data {
             block_data: block_data,
             item_data: item_data,
             recipes: recipes,
             structure_templates: structure_templates,
             animations: animations,
+            loot_tables: loot_tables,
         })
     }
 }
