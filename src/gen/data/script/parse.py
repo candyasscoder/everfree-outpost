@@ -4,6 +4,11 @@ import re
 from .. import util
 
 from .field import FIELD_MAP
+from outpost_data.core.script.lex import Lexer
+
+
+class ParseError(Exception):
+    pass
 
 
 TOKEN = re.compile(r'''
@@ -11,98 +16,11 @@ TOKEN = re.compile(r'''
         (?P<punct>  [()[\]:,] ) |
         (?:         "(?P<quoted> [^"]*)" ) |
         (?:         `(?P<backticked> [^`]*)` ) |
-        (?P<ignore> (?: \s+ | \#.* ) )''', re.VERBOSE)
-
-PYTHON_DELIM = '%%%'
-
-Token = namedtuple('Token', ('kind', 'text', 'line', 'col'))
-
-class ParseError(Exception):
-    pass
-
-class Lexer(object):
-    def __init__(self, s, filename):
-        self.filename = filename
-        self.lines = s.splitlines()
-        self.i = 0
-        self.j = 0
-        self.tokens = []
-
-    def emit(self, kind, text):
-        self.tokens.append(Token(kind, text, self.i + 1, self.j))
-
-    def err(self, msg):
-        util.err('%s:%d:%d: %s' % (self.filename, self.i + 1, self.j, msg))
-
-    def next_line(self):
-        self.i += 1
-        self.j = 0
-
-    def lex_normal(self):
-        while self.i < len(self.lines):
-            line = self.lines[self.i]
-            if line == PYTHON_DELIM:
-                self.emit('py_begin', line)
-                self.next_line()
-                return 'python'
-
-            while self.j < len(line):
-                m = TOKEN.match(line, self.j)
-                if m is None:
-                    text = line[self.j : self.j + 10]
-                    self.err('invalid token starting "%s..."' % text)
-                    return None
-
-                word, punct, quoted, backticked, ignore = m.groups()
-                if word is not None:
-                    self.emit('word', word)
-                elif punct is not None:
-                    self.emit('punct', punct)
-                elif quoted is not None:
-                    self.emit('quoted', quoted)
-                elif backticked is not None:
-                    self.emit('backticked', backticked)
-                elif ignore is not None:
-                    pass
-                else:
-                    assert False, 'match succeeded but captured no groups?'
-
-                self.j = m.end()
-
-            self.emit('eol', '')
-            self.next_line()
-        return 'done'
-
-    def lex_python(self):
-        start = self.i - 1
-        while self.i < len(self.lines):
-            line = self.lines[self.i]
-            if line == PYTHON_DELIM:
-                self.emit('py_end', line)
-                self.next_line()
-                return 'normal'
-
-            self.emit('py_line', line)
-            self.next_line()
-
-        self.err('unclosed Python code block starting at line %d' % start)
-        return None
-
-    def lex(self):
-        state = 'normal'
-        while True:
-            if state == 'normal':
-                state = self.lex_normal()
-            elif state == 'python':
-                state = self.lex_python()
-            elif state == 'done':
-                self.emit('eof', '')
-                return self.tokens
-            elif state is None:
-                return None
+        (?:         \s+ | \#.* )''', re.VERBOSE)
 
 def lex(s, filename):
-    return Lexer(s, filename).lex()
+    return Lexer(TOKEN, s, filename).lex()
+
 
 PythonBlock = namedtuple('InlinePython', ('code', 'line', 'col'))
 Section = namedtuple('Section', ('ty', 'name', 'fields', 'line', 'col'))
