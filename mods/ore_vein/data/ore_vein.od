@@ -1,0 +1,25 @@
+[structure ore_vein/copper]
+image: "structures/ore-vein.png"
+model: `models.front(1, 1, 1)`
+shape: solid(1, 1, 1)
+layer: 1
+
+[item ore/copper]
+icon: "icons/ore-copper.png"
+display_name: "Copper Ore"
+
+[item bar/copper]
+icon: "icons/bar-copper.png"
+display_name: "Copper Bar"
+
+[recipe bar/copper]
+from_item: bar/copper
+station: anvil
+input: 1 ore/copper
+
+[recipe pick/copper]
+display_name: "Copper Pickaxe"
+station: anvil
+input: 10 wood
+input: 3 bar/copper
+output: 20 pick

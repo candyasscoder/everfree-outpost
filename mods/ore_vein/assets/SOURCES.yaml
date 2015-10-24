@@ -1,0 +1,15 @@
+icons/ore-copper.png:
+    derived-from: williamson-roguelike-items, lpc-base-tiles
+    attribution:
+        Icon taken from Williamson's tiles, with stone parts recolored to match
+        LPC rocks.
+
+icons/bar-copper.png:
+    derived-from: williamson-roguelike-items
+
+structures/ore-vein.png:
+    author: Stuart Pernsteiner
+    derived-from: williamson-roguelike-items, lpc-base-tiles
+    attribution:
+        LPC rock, with bits of ore added.  Ore color/design is based on ore
+        icons from Williamson's roguelike items.
