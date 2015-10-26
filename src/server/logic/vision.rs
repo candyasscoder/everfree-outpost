@@ -109,7 +109,8 @@ impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
     fn on_inventory_appear(&mut self, cid: ClientId, iid: InventoryId) {
         let i = self.world().inventory(iid);
 
-        let updates = i.contents().iter().map(|(&item, &count)| (item, 0, count)).collect();
+        //let updates = i.contents().iter().map(|(&item, &count)| (item, 0, count)).collect();
+        let updates = Vec::new(); // XXX
         self.messages().send_client(cid, ClientResponse::InventoryUpdate(iid, updates));
     }
 

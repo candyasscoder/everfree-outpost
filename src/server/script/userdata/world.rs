@@ -103,8 +103,10 @@ impl Userdata for World {
                 Ok(Structure { id: s.id() })
             }}
 
-            fn create_inventory(!full wf: WorldFragment, _w: World) -> StrResult<Inventory> {
-                wf.create_inventory()
+            fn create_inventory(!full wf: WorldFragment,
+                                _w: World,
+                                size: u8) -> StrResult<Inventory> {
+                wf.create_inventory(size)
                   .map(|i| Inventory { id: i.id() })
             }
 
@@ -405,17 +407,25 @@ impl Userdata for Inventory {
                 wf.destroy_inventory(i.id)
             }
 
-            fn count(!partial w: &world::World, i: Inventory, name: &str) -> StrResult<u8> {
+            fn count(!partial w: &world::World, i: Inventory, name: &str) -> StrResult<u16> {
                 let i = unwrap!(w.get_inventory(i.id));
                 i.count_by_name(name)
             }
 
-            fn update(!full wf: WorldFragment,
-                      i: Inventory,
-                      name: String,
-                      adjust: i16) -> StrResult<u8> {
+            fn bulk_add(!full wf: WorldFragment,
+                        i: Inventory,
+                        name: String,
+                        adjust: u16) -> StrResult<u16> {
                 let mut i = unwrap!(wf.get_inventory_mut(i.id));
-                i.update_by_name(&name, adjust)
+                i.bulk_add_by_name(&name, adjust)
+            }
+
+            fn bulk_remove(!full wf: WorldFragment,
+                           i: Inventory,
+                           name: String,
+                           adjust: u16) -> StrResult<u16> {
+                let mut i = unwrap!(wf.get_inventory_mut(i.id));
+                i.bulk_remove_by_name(&name, adjust)
             }
 
             fn attach_to_world(!full wf: WorldFragment,

@@ -7,10 +7,12 @@ use std::result;
 
 use libphysics::CHUNK_SIZE;
 use types::*;
+use util;
+use util::Convert;
 
 use data::Data;
-use util::Convert;
 use world;
+use world::Item;
 use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::{TerrainChunkFlags, StructureFlags};
 use world::object::*;
@@ -234,20 +236,36 @@ impl<R: io::Read> ObjectReader<R> {
             let i = &mut w.inventories[iid];
 
             let contents_count = try!(self.r.read_count());
-            for _ in 0..contents_count {
-                let (old_item_id, count, name_len): (u16, u8, u8) = try!(self.r.read());
-                let item_id = match self.item_map.entry(old_item_id) {
-                    Occupied(e) => *e.get(),
-                    Vacant(e) => {
-                        let name = try!(self.r.read_str_bytes(unwrap!(name_len.to_usize())));
-                        let new_id = unwrap!(w.data.item_data.find_id(&*name));
-                        e.insert(new_id);
-                        new_id
+            let mut contents = util::make_array(Item::Empty, contents_count);
+            let mut idx = 0;
+            while idx < contents_count {
+                let (tag, x, old_item_id): (u8, u8, u16) = try!(self.r.read());
+                match tag {
+                    0 => {
+                        contents[idx] = Item::Empty;
+                        idx += 1;
                     },
-                };
-
-                i.contents.insert(item_id, count);
+                    1 => {
+                        let new_item_id = *unwrap!(self.item_map.get(&old_item_id));
+                        contents[idx] = Item::Bulk(x, new_item_id);
+                        idx += 1;
+                    },
+                    2 => {
+                        let new_item_id = *unwrap!(self.item_map.get(&old_item_id));
+                        contents[idx] = Item::Special(x, new_item_id);
+                        idx += 1;
+                    },
+                    255 => {
+                        // Name map entry
+                        let name = try!(self.r.read_str_bytes(unwrap!(x.to_usize())));
+                        let new_item_id = unwrap!(w.data.item_data.find_id(&*name));
+                        self.item_map.insert(old_item_id, new_item_id);
+                    },
+                    _ => fail!("unrecognized entry tag in inventory"),
+                }
             }
+            i.contents = contents;
+
             Ok(())
         }));
 

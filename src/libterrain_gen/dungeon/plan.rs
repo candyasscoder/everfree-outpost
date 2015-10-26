@@ -7,6 +7,7 @@ use rand::Rng;
 use libserver_types::*;
 use libserver_config::Data;
 use libserver_util::{SmallVec, SmallSet};
+use libserver_util::{make_array, make_array_with};
 
 use StdRng;
 use algo::disk_sampler::DiskSampler;
@@ -131,7 +132,7 @@ impl<T> Graph<T> {
             parent: u16,
             closed: bool,
         }
-        let mut info = mk_array(Record { parent: 0, closed: false }, self.verts.len());
+        let mut info = make_array(Record { parent: 0, closed: false }, self.verts.len());
         info[source as usize].parent = source;
 
         loop {
@@ -256,7 +257,7 @@ struct BreadthFirst<'a, T: 'a> {
 
 impl<'a, T> BreadthFirst<'a, T> {
     fn new(g: &'a Graph<T>, start: u16) -> BreadthFirst<'a, T> {
-        let mut seen = mk_array(false, g.verts.len());
+        let mut seen = make_array(false, g.verts.len());
         seen[start as usize] = true;
         BreadthFirst {
             g: g,
@@ -334,18 +335,6 @@ impl<'a, T> Iterator for EdgeTriangles<'a, T> {
     }
 }
 
-fn mk_array<T: Copy>(init: T, len: usize) -> Box<[T]> {
-    iter::repeat(init).take(len).collect::<Vec<_>>().into_boxed_slice()
-}
-
-fn mk_array_with<T, F: FnMut() -> T>(len: usize, mut f: F) -> Box<[T]> {
-    let mut v = Vec::with_capacity(len);
-    for _ in 0 .. len {
-        v.push(f());
-    }
-    v.into_boxed_slice()
-}
-
 fn triangulated_graph(raw_verts: &[V2], bounds: Region<V2>) -> Graph<V2> {
     let raw_edges = triangulate::triangulate(raw_verts);
 
@@ -376,7 +365,7 @@ fn triangulated_graph(raw_verts: &[V2], bounds: Region<V2>) -> Graph<V2> {
 
 fn simple_blob(g: &Graph<BaseVert>, rng: &mut StdRng, start: u16, size: usize) -> Vec<u16> {
     let mut chosen = Vec::new();
-    let mut level = mk_array(0, g.verts.len());
+    let mut level = make_array(0, g.verts.len());
     // Keep lists of vertices connected by 1 edge, by 2 edges, and by 3+ edges.
     let mut pending = [HashSet::new(), HashSet::new(), HashSet::new()];
     let mut total_pending = 0;
@@ -676,7 +665,7 @@ impl Temporary {
     }
 
     fn gen_door(&mut self, rng: &mut StdRng, start: u16, level: u8) -> Option<u16> {
-        let mut seen = mk_array(false, self.base.verts.len());
+        let mut seen = make_array(false, self.base.verts.len());
         let mut level_verts = vec![start];
         seen[start as usize] = true;
 
@@ -934,7 +923,7 @@ impl Temporary {
         self.vaults.push(Box::new(vault::Door::new(mid_pos, vault::DoorKind::GemPuzzle, area)));
 
         let gem_center = mid_pos + V2::new(0, 3);
-        let mut colors = mk_array(None, 3);
+        let mut colors = make_array(None, 3);
         static PRIMARIES: [vault::GemColor; 3] = [
             vault::GemColor::Red,
             vault::GemColor::Yellow,
@@ -1005,7 +994,7 @@ impl Temporary {
         let num_spots = spots.len();
 
         // Assign required items to chests.
-        let mut contents = mk_array_with(num_spots, SmallVec::new);
+        let mut contents = make_array_with(num_spots, SmallVec::new);
         for &(item, level) in &self.required_items {
             let opt_idx = {
                 let iter = spots.iter().enumerate().map(|(i, s)| {
