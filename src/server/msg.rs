@@ -74,7 +74,6 @@ mod op {
         KickReason = 0x8006,
         UnloadChunk = 0x8007,
         OpenDialog = 0x8008,
-        InventoryUpdate = 0x8009,
         OpenCrafting = 0x800a,
         ChatUpdate = 0x800b,
         EntityAppear = 0x800c,
@@ -90,9 +89,12 @@ mod op {
         GetUseAbilityArgs = 0x8016,
         SyncStatus = 0x8017,
         StructureReplace = 0x8018,
+        InventoryUpdate = 0x8019,
+        InventoryContents = 0x801a,
 
         // Deprecated responses
         PlayerMotion = 0x8002,
+        old_InventoryUpdate = 0x8009,
 
         // Control messages
         AddClient = 0xff00,
@@ -252,14 +254,12 @@ impl Request {
 #[allow(dead_code)]
 pub enum Response {
     TerrainChunk(u16, Vec<u16>),
-    PlayerMotion(u16, Motion),
     Pong(u16, LocalTime),
     EntityUpdate(EntityId, Motion, u16),
     Init(InitData),
     KickReason(String),
     UnloadChunk(u16),
     OpenDialog(u32, Vec<u32>),
-    InventoryUpdate(InventoryId, Vec<(ItemId, u8, u8)>),
     OpenCrafting(TemplateId, StructureId, InventoryId),
     ChatUpdate(String),
     EntityAppear(EntityId, u32, String),
@@ -275,6 +275,8 @@ pub enum Response {
     GetUseAbilityArgs(ItemId, u32, ExtraArg),
     SyncStatus(u8),
     StructureReplace(StructureId, TemplateId),
+    InventoryUpdate(InventoryId, u8, (u8, u8, ItemId)),
+    InventoryContents(InventoryId, Vec<(u8, u8, ItemId)>),
 
     ClientRemoved(WireId),
     ReplResult(u16, String),
@@ -285,8 +287,6 @@ impl Response {
         try!(match *self {
             TerrainChunk(idx, ref data) =>
                 ww.write_msg(id, (op::TerrainChunk, idx, data)),
-            PlayerMotion(entity, ref motion) =>
-                ww.write_msg(id, (op::PlayerMotion, entity, motion)),
             Pong(data, time) =>
                 ww.write_msg(id, (op::Pong, data, time)),
             EntityUpdate(entity_id, ref motion, anim) =>
@@ -299,8 +299,6 @@ impl Response {
                 ww.write_msg(id, (op::UnloadChunk, idx)),
             OpenDialog(dialog_id, ref params) =>
                 ww.write_msg(id, (op::OpenDialog, dialog_id, params)),
-            InventoryUpdate(inventory_id, ref changes) =>
-                ww.write_msg(id, (op::InventoryUpdate, inventory_id, changes)),
             OpenCrafting(station_type, station_id, inventory_id) =>
                 ww.write_msg(id, (op::OpenCrafting, station_type, station_id, inventory_id)),
             ChatUpdate(ref msg) =>
@@ -331,6 +329,10 @@ impl Response {
                 ww.write_msg(id, (op::SyncStatus, kind)),
             StructureReplace(sid, template_id) =>
                 ww.write_msg(id, (op::StructureReplace, sid, template_id)),
+            InventoryUpdate(inventory_id, slot_idx, slot_data) =>
+                ww.write_msg(id, (op::InventoryUpdate, inventory_id, slot_idx, slot_data)),
+            InventoryContents(inventory_id, ref all_slot_data) =>
+                ww.write_msg(id, (op::InventoryUpdate, inventory_id, all_slot_data)),
 
             ClientRemoved(wire_id) =>
                 ww.write_msg(id, (op::ClientRemoved, wire_id)),

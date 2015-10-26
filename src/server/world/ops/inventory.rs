@@ -143,9 +143,8 @@ pub fn bulk_add<'d, F>(f: &mut F,
         acc
     };
 
-    for &slot in updated_slots.iter() {
-        // XXX
-        //f.with_hooks(|h| h.on_inventory_update(iid, item_id, old_value, new_value));
+    for &slot_idx in updated_slots.iter() {
+        f.with_hooks(|h| h.on_inventory_update(iid, slot_idx));
     }
 
     Ok(transferred)
@@ -182,9 +181,8 @@ pub fn bulk_remove<'d, F>(f: &mut F,
         acc
     };
 
-    for &slot in updated_slots.iter() {
-        // XXX
-        //f.with_hooks(|h| h.on_inventory_update(iid, item_id, old_value, new_value));
+    for &slot_idx in updated_slots.iter() {
+        f.with_hooks(|h| h.on_inventory_update(iid, slot_idx));
     }
 
     Ok(transferred)

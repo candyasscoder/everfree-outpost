@@ -108,19 +108,18 @@ impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
 
     fn on_inventory_appear(&mut self, cid: ClientId, iid: InventoryId) {
         let i = self.world().inventory(iid);
-
-        //let updates = i.contents().iter().map(|(&item, &count)| (item, 0, count)).collect();
-        let updates = Vec::new(); // XXX
-        self.messages().send_client(cid, ClientResponse::InventoryUpdate(iid, updates));
+        let contents = i.contents().iter().map(|&x| x).collect();
+        self.messages().send_client(
+            cid, ClientResponse::InventoryContents(iid, contents));
     }
 
     fn on_inventory_update(&mut self,
                            cid: ClientId,
                            iid: InventoryId,
-                           item_id: ItemId,
-                           old_count: u8,
-                           new_count: u8) {
-        let update = vec![(item_id, old_count, new_count)];
-        self.messages().send_client(cid, ClientResponse::InventoryUpdate(iid, update));
+                           slot_idx: u8) {
+        let i = self.world().inventory(iid);
+        let item = i.contents()[slot_idx as usize];
+        self.messages().send_client(
+            cid, ClientResponse::InventoryUpdate(iid, slot_idx, item));
     }
 }

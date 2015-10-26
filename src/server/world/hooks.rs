@@ -22,9 +22,7 @@ pub trait Hooks {
     fn on_inventory_destroy(&mut self, iid: InventoryId) {}
     fn on_inventory_update(&mut self,
                            iid: InventoryId,
-                           item_id: ItemId,
-                           old_count: u8,
-                           new_count: u8) {}
+                           slot_idx: u8) {}
 
     fn on_plane_create(&mut self, pid: PlaneId) {}
     fn on_plane_destroy(&mut self, pid: PlaneId) {}
