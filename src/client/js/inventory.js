@@ -27,8 +27,9 @@ exports.InventoryTracker = InventoryTracker;
 
 InventoryTracker.prototype.reset = function() {
     // Try to break some cycles.
-    for (var i = 0; i < this.clients_invs.length; ++i) {
-        this.client_invs[i]._handlers = null;
+    var keys = Object.getOwnPropertyNames(this.client_invs);
+    for (var i = 0; i < keys.length; ++i) {
+        this.client_invs[keys[i]]._handlers = null;
     }
 
     this.server_invs = {};
@@ -84,9 +85,10 @@ InventoryTracker.prototype._countItems = function(inventory_id, item_id) {
 
     var count = 0;
     for (var i = 0; i < inv.length; ++i) {
-        if (inv.tag == TAG_BULK) {
-            count += inv.count;
-        } else if (inv.tag == TAG_SPECIAL) {
+        var item = inv[i];
+        if (item.tag == TAG_BULK) {
+            count += item.count;
+        } else if (item.tag == TAG_SPECIAL) {
             // `count` field actually stores the script ID.
             count += 1;
         }
@@ -181,9 +183,9 @@ InventoryTracker.prototype._handleUpdate = function(inventory_id, slot_idx, item
         return;
     }
     for (var i = 0; i < clients.length; ++i) {
-        for (var j = 0; j < clients[i]._handlers.length; ++i) {
+        for (var j = 0; j < clients[i]._handlers.length; ++j) {
             var f = clients[i]._handlers[j];
-            f(k, old_item, item);
+            f(slot_idx, old_item, item);
         }
     }
 };

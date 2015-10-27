@@ -39,10 +39,10 @@ InventoryUpdateList.prototype.attach = function(inv) {
     inv.onUpdate(function(idx, old_item, new_item) {
         // TODO: not correct for TAG_SPECIAL
         if (old_item.item_id == new_item.item_id) {
-            this._fire(new_item.item_id, new_item.count - old_item.count);
+            this_._fire(new_item.item_id, new_item.count - old_item.count);
         } else {
-            this._fire(old_item.item_id, -old_item.count);
-            this._fire(new_item.item_id, -new_item.count);
+            this_._fire(old_item.item_id, -old_item.count);
+            this_._fire(new_item.item_id, new_item.count);
         }
     });
 };

@@ -121,7 +121,7 @@ function ItemList(inv) {
         var id = item_ids[i];
         this.updateItems(-1,
                 {tag: -1, count: 0, item_id: id},
-                {tag: -1, count: inv.count, item_id: id});
+                {tag: -1, count: inv.count(id), item_id: id});
     }
 
     var this_ = this;
