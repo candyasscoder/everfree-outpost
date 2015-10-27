@@ -14,7 +14,7 @@ function InventoryTracker(conn) {
 
     var this_ = this;
     this.conn.onInventoryAppear = function(inventory_id, slots) {
-        this._handleAppear(inventory_id, slots);
+        this_._handleAppear(inventory_id, slots);
     };
     this.conn.onInventoryUpdate = function(inventory_id, slot_idx, item) {
         this_._handleUpdate(inventory_id, slot_idx, item);
@@ -24,6 +24,16 @@ function InventoryTracker(conn) {
     };
 }
 exports.InventoryTracker = InventoryTracker;
+
+InventoryTracker.prototype.reset = function() {
+    // Try to break some cycles.
+    for (var i = 0; i < this.clients_invs.length; ++i) {
+        this.client_invs[i]._handlers = null;
+    }
+
+    this.server_invs = {};
+    this.client_invs = {};
+};
 
 InventoryTracker.prototype.get = function(inventory_id) {
     var new_inv = new InventoryView(this, inventory_id);
@@ -74,9 +84,9 @@ InventoryTracker.prototype._countItems = function(inventory_id, item_id) {
 
     var count = 0;
     for (var i = 0; i < inv.length; ++i) {
-        if (inv.tag == ITEM_BULK) {
+        if (inv.tag == TAG_BULK) {
             count += inv.count;
-        } else if (inv.tag == ITEM_SPECIAL) {
+        } else if (inv.tag == TAG_SPECIAL) {
             // `count` field actually stores the script ID.
             count += 1;
         }
@@ -93,14 +103,15 @@ InventoryTracker.prototype._getItemIds = function(inventory_id) {
     var arr = [];
     var seen = {};
     for (var i = 0; i < inv.length; ++i) {
-        if (inv.tag == ITEM_EMPTY) {
+        var item = inv[i];
+        if (item.tag == TAG_EMPTY) {
             continue;
         }
-        if (seen[inv.item_id]) {
+        if (seen[item.item_id]) {
             continue;
         }
-        seen[inv.item_id] = true;
-        arr.push(inv.item_id);
+        seen[item.item_id] = true;
+        arr.push(item.item_id);
     }
     return arr;
 };
@@ -118,7 +129,7 @@ InventoryTracker.prototype._handleAppear = function(inventory_id, slots) {
     }
     var empty = {tag: TAG_EMPTY, count: 0, item_id: 0};
     for (var i = 0; i < clients.length; ++i) {
-        for (var j = 0; j < clients[i]._handlers.length; ++i) {
+        for (var j = 0; j < clients[i]._handlers.length; ++j) {
             var f = clients[i]._handlers[j];
             for (var k = 0; k < slots.length; ++k) {
                 if (slots[k].tag != TAG_EMPTY) {
@@ -185,12 +196,16 @@ function InventoryView(owner, id) {
     this._handlers = [];
 }
 
+InventoryView.prototype.getId = function() {
+    return this._id;
+};
+
 InventoryView.prototype.release = function() {
     this._owner._release(this._id, this);
 };
 
 InventoryView.prototype.clone = function() {
-    this._owner.get(this._id);
+    return this._owner.get(this._id);
 };
 
 InventoryView.prototype.unsubscribe = function() {

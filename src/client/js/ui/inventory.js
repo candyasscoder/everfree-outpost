@@ -116,10 +116,13 @@ function ItemList(inv) {
     };
     */
 
-    var init = inv.itemIds().map(function(id) {
-        return { id: id, old_count: 0, new_count: inv.count(id) };
-    });
-    this.updateItems(init);
+    var item_ids = inv.itemIds();
+    for (var i = 0; i < item_ids.length; ++i) {
+        var id = item_ids[i];
+        this.updateItems(-1,
+                {tag: -1, count: 0, item_id: id},
+                {tag: -1, count: inv.count, item_id: id});
+    }
 
     var this_ = this;
     inv.onUpdate(function(idx, old_item, new_item) {
@@ -131,6 +134,7 @@ ItemList.prototype.constructor = ItemList;
 exports.ItemList = ItemList;
 
 ItemList.prototype.updateItems = function(idx, old_item, new_item) {
+    console.log(idx, old_item, new_item);
     var updates;
     // TODO: not correct for TAG_SPECIAL
     if (old_item.item_id != new_item.item_id) {
