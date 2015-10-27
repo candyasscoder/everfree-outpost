@@ -239,7 +239,7 @@ impl<R: io::Read> ObjectReader<R> {
             let mut contents = util::make_array(Item::Empty, contents_count);
             let mut idx = 0;
             while idx < contents_count {
-                let (tag, x, old_item_id): (u8, u8, u16) = try!(self.r.read());
+                let (tag, x, old_item_id): (u8, u8, ItemId) = try!(self.r.read());
                 match tag {
                     0 => {
                         contents[idx] = Item::Empty;

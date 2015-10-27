@@ -166,7 +166,7 @@ impl<W: io::Write, H: WriteHooks> ObjectWriter<W, H> {
         }
         // Actual inventory contents
         for slot in i.contents.iter() {
-            let val = 
+            let val: (u8, u8, ItemId) =
                 match *slot {
                     Item::Empty => (0, 0, 0),
                     Item::Bulk(count, item_id) => (1, count, item_id),
