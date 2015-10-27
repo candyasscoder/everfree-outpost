@@ -127,7 +127,17 @@ pub fn bulk_add<'d, F>(f: &mut F,
         // Amount transferred so far
         let mut acc = 0;
         for (idx, slot) in i.contents.iter_mut().enumerate() {
+            if acc == adjust {
+                break;
+            }
+
             match *slot {
+                Item::Empty => {
+                    let delta = cmp::min(u8::MAX as u16, adjust - acc) as u8;
+                    *slot = Item::Bulk(delta, item_id);
+                    updated_slots.push(idx as u8);
+                    acc += delta as u16;
+                },
                 Item::Bulk(count, slot_item_id) if slot_item_id == item_id => {
                     if count < u8::MAX {
                         let delta = cmp::min((u8::MAX - count) as u16, adjust - acc) as u8;
@@ -164,6 +174,10 @@ pub fn bulk_remove<'d, F>(f: &mut F,
         // Amount transferred so far
         let mut acc = 0;
         for (idx, slot) in i.contents.iter_mut().enumerate() {
+            if acc == adjust {
+                break;
+            }
+
             match *slot {
                 Item::Bulk(count, slot_item_id) if slot_item_id == item_id => {
                     let delta = cmp::min(count as u16, adjust - acc) as u8;
