@@ -607,7 +607,7 @@ function setupKeyHandler() {
 
                     ui.oncancel = function() {
                         dialog.hide();
-                        inv.unsubscribe();
+                        inv.release();
                     };
                     break;
 
@@ -626,7 +626,7 @@ function setupKeyHandler() {
 
                     ui.oncancel = function() {
                         dialog.hide();
-                        inv.unsubscribe();
+                        inv.release();
                     };
                     break;
 
@@ -783,10 +783,10 @@ function handleUnloadChunk(idx) {
 function handleOpenDialog(idx, args) {
     if (idx == 0) {
         // Cancel server-side subscription.
-        inv_tracker.subscribe(args[0]).unsubscribe();
+        inv_tracker.unsubscribe(args[0]);
     } else if (idx == 1) {
-        var inv1 = inv_tracker.subscribe(args[0]);
-        var inv2 = inv_tracker.subscribe(args[1]);
+        var inv1 = inv_tracker.get(args[0]);
+        var inv2 = inv_tracker.get(args[1]);
 
         var ui = new ContainerUI(inv1, inv2);
         dialog.show(ui);
@@ -803,7 +803,7 @@ function handleOpenDialog(idx, args) {
 }
 
 function handleOpenCrafting(station_type, station_id, inventory_id) {
-    var inv = inv_tracker.subscribe(inventory_id);
+    var inv = inv_tracker.get(inventory_id);
 
     var ui = new CraftingUI(station_type, station_id, inv);
     dialog.show(ui);
@@ -885,7 +885,7 @@ function handleMainInventory(iid) {
     if (item_inv != null) {
         item_inv.unsubscribe();
     }
-    item_inv = inv_tracker.subscribe(iid);
+    item_inv = inv_tracker.get(iid);
     hotbar.attachItems(item_inv.clone());
     if (Config.show_inventory_updates.get()) {
         inv_update_list.attach(item_inv.clone());
@@ -896,7 +896,7 @@ function handleAbilityInventory(iid) {
     if (ability_inv != null) {
         ability_inv.unsubscribe();
     }
-    ability_inv = inv_tracker.subscribe(iid);
+    ability_inv = inv_tracker.get(iid);
     hotbar.attachAbilities(ability_inv.clone());
 }
 

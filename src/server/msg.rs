@@ -90,7 +90,8 @@ mod op {
         SyncStatus = 0x8017,
         StructureReplace = 0x8018,
         InventoryUpdate = 0x8019,
-        InventoryContents = 0x801a,
+        InventoryAppear = 0x801a,
+        InventoryGone = 0x801b,
 
         // Deprecated responses
         PlayerMotion = 0x8002,
@@ -276,7 +277,8 @@ pub enum Response {
     SyncStatus(u8),
     StructureReplace(StructureId, TemplateId),
     InventoryUpdate(InventoryId, u8, (u8, u8, ItemId)),
-    InventoryContents(InventoryId, Vec<(u8, u8, ItemId)>),
+    InventoryAppear(InventoryId, Vec<(u8, u8, ItemId)>),
+    InventoryGone(InventoryId),
 
     ClientRemoved(WireId),
     ReplResult(u16, String),
@@ -331,8 +333,10 @@ impl Response {
                 ww.write_msg(id, (op::StructureReplace, sid, template_id)),
             InventoryUpdate(inventory_id, slot_idx, slot_data) =>
                 ww.write_msg(id, (op::InventoryUpdate, inventory_id, slot_idx, slot_data)),
-            InventoryContents(inventory_id, ref all_slot_data) =>
-                ww.write_msg(id, (op::InventoryUpdate, inventory_id, all_slot_data)),
+            InventoryAppear(inventory_id, ref all_slot_data) =>
+                ww.write_msg(id, (op::InventoryAppear, inventory_id, all_slot_data)),
+            InventoryGone(inventory_id) =>
+                ww.write_msg(id, (op::InventoryGone, inventory_id)),
 
             ClientRemoved(wire_id) =>
                 ww.write_msg(id, (op::ClientRemoved, wire_id)),

@@ -122,15 +122,28 @@ function ItemList(inv) {
     this.updateItems(init);
 
     var this_ = this;
-    inv.onUpdate(function(updates) {
-        this_.updateItems(updates);
+    inv.onUpdate(function(idx, old_item, new_item) {
+        this_.updateItems(idx, old_item, new_item);
     });
 }
 ItemList.prototype = Object.create(widget.DynamicList.prototype);
 ItemList.prototype.constructor = ItemList;
 exports.ItemList = ItemList;
 
-ItemList.prototype.updateItems = function(updates) {
+ItemList.prototype.updateItems = function(idx, old_item, new_item) {
+    var updates;
+    // TODO: not correct for TAG_SPECIAL
+    if (old_item.item_id != new_item.item_id) {
+        updates = [
+            {id: old_item.item_id, old_count: old_item.count, new_count: 0},
+            {id: new_item.item_id, old_count: 0, new_count: new_item.count},
+        ];
+    } else {
+        updates = [
+            {id: new_item.item_id, old_count: old_item.count, new_count: new_item.count},
+        ];
+    }
+
     this.update(updates, function(up, row) {
         if (up.new_count == 0) {
             return null;

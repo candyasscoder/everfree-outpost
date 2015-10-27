@@ -188,6 +188,9 @@ Hotbar.prototype.getItem = function() {
 };
 
 Hotbar.prototype.attachAbilities = function(inv) {
+    if (this.ability_inv != null) {
+        this.ability_inv.release();
+    }
     this.ability_inv = inv;
     // Not actually used for anything.
     // TODO: gray out abilities when they become unusable.
@@ -204,10 +207,14 @@ Hotbar.prototype._updateItems = function() {
 };
 
 Hotbar.prototype.attachItems = function(inv) {
+    if (this.item_inv != null) {
+        this.item_inv.release();
+    }
     this.item_inv = inv;
 
     var this_ = this;
-    inv.onUpdate(function(updates) {
+    inv.onUpdate(function(idx, old_item, new_item) {
+        // TODO: might be slow (O(N^2)) at startup time
         this_._updateItems();
     });
 };

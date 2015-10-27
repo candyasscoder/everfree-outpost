@@ -124,7 +124,7 @@ function RecipeList(station_type, inv) {
 
     this._markCraftable();
     var this_ = this;
-    inv.onUpdate(function(updates) {
+    inv.onUpdate(function(idx, old_item, new_item) {
         this_._markCraftable();
     });
 }

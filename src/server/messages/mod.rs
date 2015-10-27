@@ -97,8 +97,9 @@ pub enum ClientResponse {
     StructureGone(StructureId),
     StructureReplace(StructureId, TemplateId),
 
-    InventoryContents(InventoryId, Vec<world::Item>),
+    InventoryAppear(InventoryId, Vec<world::Item>),
     InventoryUpdate(InventoryId, u8, world::Item),
+    InventoryGone(InventoryId),
 
     PlaneFlags(u32),
     SyncStatus(SyncKind),
@@ -425,9 +426,13 @@ impl Messages {
             },
 
 
-            ClientResponse::InventoryContents(iid, ref all_items) => {
+            ClientResponse::InventoryAppear(iid, ref all_items) => {
                 let all_slot_data = all_items.iter().map(|&x| encode_item(x)).collect();
-                self.send_raw(wire_id, Response::InventoryContents(iid, all_slot_data));
+                self.send_raw(wire_id, Response::InventoryAppear(iid, all_slot_data));
+            },
+
+            ClientResponse::InventoryGone(iid) => {
+                self.send_raw(wire_id, Response::InventoryGone(iid));
             },
 
             ClientResponse::InventoryUpdate(iid, slot_idx, item) => {

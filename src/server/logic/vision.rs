@@ -110,7 +110,12 @@ impl<'a, 'd> vision::Hooks for VisionHooks<'a, 'd> {
         let i = self.world().inventory(iid);
         let contents = i.contents().iter().map(|&x| x).collect();
         self.messages().send_client(
-            cid, ClientResponse::InventoryContents(iid, contents));
+            cid, ClientResponse::InventoryAppear(iid, contents));
+    }
+
+    fn on_inventory_disappear(&mut self, cid: ClientId, iid: InventoryId) {
+        self.messages().send_client(
+            cid, ClientResponse::InventoryGone(iid));
     }
 
     fn on_inventory_update(&mut self,
