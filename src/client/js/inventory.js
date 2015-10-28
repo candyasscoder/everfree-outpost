@@ -86,6 +86,9 @@ InventoryTracker.prototype._countItems = function(inventory_id, item_id) {
     var count = 0;
     for (var i = 0; i < inv.length; ++i) {
         var item = inv[i];
+        if (item.item_id != item_id) {
+            continue;
+        }
         if (item.tag == TAG_BULK) {
             count += item.count;
         } else if (item.tag == TAG_SPECIAL) {

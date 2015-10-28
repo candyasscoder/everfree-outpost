@@ -134,7 +134,6 @@ ItemList.prototype.constructor = ItemList;
 exports.ItemList = ItemList;
 
 ItemList.prototype.updateItems = function(idx, old_item, new_item) {
-    console.log(idx, old_item, new_item);
     var updates;
     // TODO: not correct for TAG_SPECIAL
     if (old_item.item_id != new_item.item_id) {
