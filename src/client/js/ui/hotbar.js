@@ -138,7 +138,8 @@ Hotbar.prototype.selectSlot = function(idx) {
 };
 
 Hotbar.prototype._setActiveAbility = function(idx) {
-    if (idx < 0 || idx >= this.item_ids.length || this.is_item[idx]) {
+    // Valid indices are -1 .. len-1.  -1 indicates "no selection".
+    if (idx < -1 || idx >= this.item_ids.length || this.is_item[idx]) {
         return;
     }
 
@@ -155,7 +156,8 @@ Hotbar.prototype._setActiveAbility = function(idx) {
 };
 
 Hotbar.prototype._setActiveItem = function(idx) {
-    if (idx < 0 || idx >= this.item_ids.length || !this.is_item[idx]) {
+    // Valid indices are -1 .. len-1.  -1 indicates "no selection".
+    if (idx < -1 || idx >= this.item_ids.length || !this.is_item[idx]) {
         return;
     }
 
