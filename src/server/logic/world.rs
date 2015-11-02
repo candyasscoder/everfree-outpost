@@ -202,11 +202,8 @@ impl<'a, 'd> world::Hooks for $WorldHooks<'a, 'd> {
 
     fn on_inventory_update(&mut self,
                            iid: InventoryId,
-                           item_id: ItemId,
-                           old_count: u8,
-                           new_count: u8) {
-        vision::Fragment::update_inventory(&mut self.$as_vision_fragment(),
-                                           iid, item_id, old_count, new_count);
+                           slot_idx: u8) {
+        vision::Fragment::update_inventory(&mut self.$as_vision_fragment(), iid, slot_idx);
     }
 }
 

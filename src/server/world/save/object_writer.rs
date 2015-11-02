@@ -10,6 +10,7 @@ use data::Data;
 use util::Convert;
 use util::IntrusiveStableId;
 use world::{World, Client, Entity, Inventory, Plane, TerrainChunk, Structure};
+use world::Item;
 use world::object::*;
 
 use super::Result;
@@ -144,20 +145,34 @@ impl<W: io::Write, H: WriteHooks> ObjectWriter<W, H> {
         let data = i.world().data();
 
         // Body
+        // Count goes first so it can be distinguished from item names and slots.
         try!(self.w.write_count(i.contents.len()));
-        for (&item_id, &count) in i.contents.iter() {
+        // New item names.  Note that the number of these is not known in advance.
+        for slot in i.contents.iter() {
+            let item_id =
+                match *slot {
+                    Item::Empty => continue,
+                    Item::Bulk(_, item_id) => item_id,
+                    Item::Special(_, item_id) => item_id,
+                };
+
             if !self.seen_items.contains(&item_id) {
                 self.seen_items.insert(item_id);
                 let name = data.item_data.name(item_id);
-                try!(self.w.write((item_id,
-                                   count,
-                                   unwrap!(name.len().to_u8()))));
+                // Same format as inventory contents, but with special tag 255
+                try!(self.w.write((255_u8, unwrap!(name.len().to_u8()), item_id)));
                 try!(self.w.write_str_bytes(name));
-            } else {
-                try!(self.w.write((item_id,
-                                   count,
-                                   0_u8)));
             }
+        }
+        // Actual inventory contents
+        for slot in i.contents.iter() {
+            let val: (u8, u8, ItemId) =
+                match *slot {
+                    Item::Empty => (0, 0, 0),
+                    Item::Bulk(count, item_id) => (1, count, item_id),
+                    Item::Special(script_id, item_id) => (2, script_id, item_id),
+                };
+            try!(self.w.write(val));
         }
 
         try!(self.hooks.post_write_inventory(&mut self.w, i));

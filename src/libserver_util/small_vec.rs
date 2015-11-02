@@ -199,7 +199,7 @@ impl<T> SmallVecInterp<T> {
 
     #[inline]
     unsafe fn to_vec(&mut self) -> Vec<T> {
-        let vec = mem::transmute((self.ptr, self.len, self.cap));
+        let vec = Vec::from_raw_parts(self.ptr, self.len, self.cap);
         self.len = 0;
         self.ptr = ptr::null_mut();
         self.cap = 0;
@@ -208,10 +208,10 @@ impl<T> SmallVecInterp<T> {
 
     #[inline]
     unsafe fn from_vec(&mut self, v: Vec<T>) {
-        let (ptr, len, cap) = mem::transmute(v);
-        self.ptr = ptr;
-        self.len = len;
-        self.cap = cap;
+        self.ptr = v.as_ptr() as *mut T;
+        self.len = v.len();
+        self.cap = v.capacity();
+        mem::forget(v);
     }
 }
 

@@ -138,7 +138,8 @@ Hotbar.prototype.selectSlot = function(idx) {
 };
 
 Hotbar.prototype._setActiveAbility = function(idx) {
-    if (idx < 0 || idx >= this.item_ids.length || this.is_item[idx]) {
+    // Valid indices are -1 .. len-1.  -1 indicates "no selection".
+    if (idx < -1 || idx >= this.item_ids.length || this.is_item[idx]) {
         return;
     }
 
@@ -155,7 +156,8 @@ Hotbar.prototype._setActiveAbility = function(idx) {
 };
 
 Hotbar.prototype._setActiveItem = function(idx) {
-    if (idx < 0 || idx >= this.item_ids.length || !this.is_item[idx]) {
+    // Valid indices are -1 .. len-1.  -1 indicates "no selection".
+    if (idx < -1 || idx >= this.item_ids.length || !this.is_item[idx]) {
         return;
     }
 
@@ -188,6 +190,9 @@ Hotbar.prototype.getItem = function() {
 };
 
 Hotbar.prototype.attachAbilities = function(inv) {
+    if (this.ability_inv != null) {
+        this.ability_inv.release();
+    }
     this.ability_inv = inv;
     // Not actually used for anything.
     // TODO: gray out abilities when they become unusable.
@@ -204,10 +209,14 @@ Hotbar.prototype._updateItems = function() {
 };
 
 Hotbar.prototype.attachItems = function(inv) {
+    if (this.item_inv != null) {
+        this.item_inv.release();
+    }
     this.item_inv = inv;
 
     var this_ = this;
-    inv.onUpdate(function(updates) {
+    inv.onUpdate(function(idx, old_item, new_item) {
+        // TODO: might be slow (O(N^2)) at startup time
         this_._updateItems();
     });
 };

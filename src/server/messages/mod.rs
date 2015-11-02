@@ -11,7 +11,7 @@ use libphysics::TILE_SIZE;
 use auth::Secret;
 use input::InputBits;
 use msg::{Request, Response, InitData, ExtraArg};
-use world::Motion;
+use world::{self, Motion};
 
 use self::clients::Clients;
 
@@ -97,10 +97,10 @@ pub enum ClientResponse {
     StructureGone(StructureId),
     StructureReplace(StructureId, TemplateId),
 
-    //InventoryAppear(InventoryId, Vec<(ItemId, u8)>),
-    InventoryUpdate(InventoryId, Vec<(ItemId, u8, u8)>),
-    //InventoryGone(InventoryId),
-    
+    InventoryAppear(InventoryId, Vec<world::Item>),
+    InventoryUpdate(InventoryId, u8, world::Item),
+    InventoryGone(InventoryId),
+
     PlaneFlags(u32),
     SyncStatus(SyncKind),
 
@@ -426,8 +426,19 @@ impl Messages {
             },
 
 
-            ClientResponse::InventoryUpdate(iid, update) =>
-                self.send_raw(wire_id, Response::InventoryUpdate(iid, update)),
+            ClientResponse::InventoryAppear(iid, ref all_items) => {
+                let all_slot_data = all_items.iter().map(|&x| encode_item(x)).collect();
+                self.send_raw(wire_id, Response::InventoryAppear(iid, all_slot_data));
+            },
+
+            ClientResponse::InventoryGone(iid) => {
+                self.send_raw(wire_id, Response::InventoryGone(iid));
+            },
+
+            ClientResponse::InventoryUpdate(iid, slot_idx, item) => {
+                let slot_data = encode_item(item);
+                self.send_raw(wire_id, Response::InventoryUpdate(iid, slot_idx, slot_data));
+            },
 
 
             ClientResponse::PlaneFlags(flags) =>
@@ -484,5 +495,17 @@ impl Messages {
         for (&cid, _) in self.clients.iter() {
             self.send_client(cid, resp.clone());
         }
+    }
+}
+
+fn encode_item(i: world::Item) -> (u8, u8, ItemId) {
+    const TAG_EMPTY: u8 = 0;
+    const TAG_BULK: u8 = 1;
+    const TAG_SPECIAL: u8 = 2;
+
+    match i {
+        world::Item::Empty => (TAG_EMPTY, 0, 0),
+        world::Item::Bulk(count, item_id) => (TAG_BULK, count, item_id),
+        world::Item::Special(script_data, item_id) => (TAG_SPECIAL, script_data, item_id),
     }
 }

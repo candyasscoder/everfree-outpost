@@ -8,6 +8,7 @@ extern crate time;
 extern crate server_types as libserver_types;
 
 use std::io;
+use std::iter;
 use std::mem;
 use std::raw;
 
@@ -117,4 +118,16 @@ pub unsafe fn read_array<R: io::Read, T>(r: &mut R) -> io::Result<Box<[T]>> {
     read_vec(r).map(|v| v.into_boxed_slice())
 }
 
+
+pub fn make_array<T: Copy>(init: T, len: usize) -> Box<[T]> {
+    iter::repeat(init).take(len).collect::<Vec<_>>().into_boxed_slice()
+}
+
+pub fn make_array_with<T, F: FnMut() -> T>(len: usize, mut f: F) -> Box<[T]> {
+    let mut v = Vec::with_capacity(len);
+    for _ in 0 .. len {
+        v.push(f());
+    }
+    v.into_boxed_slice()
+}
 

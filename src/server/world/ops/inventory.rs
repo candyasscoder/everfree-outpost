@@ -1,24 +1,29 @@
+use std::cmp;
 use std::collections::HashMap;
 use std::mem::replace;
+use std::u8;
 
 use types::*;
+use util;
+use util::SmallVec;
 
-use world::{Inventory, InventoryAttachment};
+use world::{Inventory, InventoryAttachment, Item};
 use world::{Fragment, Hooks};
 use world::ops::OpResult;
 
 
-pub fn create<'d, F>(f: &mut F) -> OpResult<InventoryId>
+// Inventory size (number of slots) is capped at 255
+pub fn create<'d, F>(f: &mut F, size: u8) -> OpResult<InventoryId>
         where F: Fragment<'d> {
-    let iid = create_unchecked(f);
+    let iid = create_unchecked(f, size);
     f.with_hooks(|h| h.on_inventory_create(iid));
     Ok(iid)
 }
 
-pub fn create_unchecked<'d, F>(f: &mut F) -> InventoryId
+pub fn create_unchecked<'d, F>(f: &mut F, size: u8) -> InventoryId
         where F: Fragment<'d> {
     let iid = f.world_mut().inventories.insert(Inventory {
-        contents: HashMap::new(),
+        contents: util::make_array(Item::Empty, size as usize),
 
         stable_id: NO_STABLE_ID,
         attachment: InventoryAttachment::World,
@@ -105,49 +110,94 @@ pub fn attach<'d, F>(f: &mut F,
     Ok(old_attach)
 }
 
-/// Fails only if `iid` is not valid.
-pub fn update<'d, F>(f: &mut F,
-                     iid: InventoryId,
-                     item_id: ItemId,
-                     adjust: i16) -> OpResult<u8>
+/// Try to add a number of bulk items.  Returns the actual number of items added.  Fails only if
+/// `iid` is not valid.
+///
+/// Bulk-related function (add, remove, count) all use u16 because the max number of bulk items is
+/// 255 (slots) * 255 (stack size).
+pub fn bulk_add<'d, F>(f: &mut F,
+                       iid: InventoryId,
+                       item_id: ItemId,
+                       adjust: u16) -> OpResult<u16>
         where F: Fragment<'d> {
-    use std::collections::hash_map::Entry::*;
-
-    let (old_value, new_value) = {
+    let mut updated_slots = SmallVec::new();
+    let transferred = {
         let i = unwrap!(f.world_mut().inventories.get_mut(iid));
 
-        match i.contents.entry(item_id) {
-            Vacant(e) => {
-                let new_value = update_item_count(0, adjust);
-                e.insert(new_value);
-                (0, new_value)
-            },
-            Occupied(mut e) => {
-                let old_value = *e.get();
-                let new_value = update_item_count(old_value, adjust);
-                if new_value == 0 {
-                    e.remove();
-                } else {
-                    e.insert(new_value);
-                }
-                (old_value, new_value)
-            },
+        // Amount transferred so far
+        let mut acc = 0;
+        for (idx, slot) in i.contents.iter_mut().enumerate() {
+            if acc == adjust {
+                break;
+            }
+
+            match *slot {
+                Item::Empty => {
+                    let delta = cmp::min(u8::MAX as u16, adjust - acc) as u8;
+                    *slot = Item::Bulk(delta, item_id);
+                    updated_slots.push(idx as u8);
+                    acc += delta as u16;
+                },
+                Item::Bulk(count, slot_item_id) if slot_item_id == item_id => {
+                    if count < u8::MAX {
+                        let delta = cmp::min((u8::MAX - count) as u16, adjust - acc) as u8;
+                        // Sum never exceeds u8::MAX.
+                        *slot = Item::Bulk(count + delta, item_id);
+                        updated_slots.push(idx as u8);
+                        acc += delta as u16;
+                    }
+                },
+                _ => continue,
+            }
         }
+        acc
     };
 
-    f.with_hooks(|h| h.on_inventory_update(iid, item_id, old_value, new_value));
+    for &slot_idx in updated_slots.iter() {
+        f.with_hooks(|h| h.on_inventory_update(iid, slot_idx));
+    }
 
-    Ok(new_value)
+    Ok(transferred)
 }
 
-fn update_item_count(old: u8, adjust: i16) -> u8 {
-    use std::u8;
-    let sum = old as i16 + adjust;
-    if sum < u8::MIN as i16 {
-        u8::MIN
-    } else if sum > u8::MAX as i16 {
-        u8::MAX
-    } else {
-        sum as u8
+/// Try to remove a number of bulk items.  Returns the actual number of items removed.  Fails only
+/// if `iid` is not valid.
+pub fn bulk_remove<'d, F>(f: &mut F,
+                       iid: InventoryId,
+                       item_id: ItemId,
+                       adjust: u16) -> OpResult<u16>
+        where F: Fragment<'d> {
+    let mut updated_slots = SmallVec::new();
+    let transferred = {
+        let i = unwrap!(f.world_mut().inventories.get_mut(iid));
+
+        // Amount transferred so far
+        let mut acc = 0;
+        for (idx, slot) in i.contents.iter_mut().enumerate() {
+            if acc == adjust {
+                break;
+            }
+
+            match *slot {
+                Item::Bulk(count, slot_item_id) if slot_item_id == item_id => {
+                    let delta = cmp::min(count as u16, adjust - acc) as u8;
+                    if delta == count {
+                        *slot = Item::Empty;
+                    } else {
+                        *slot = Item::Bulk(count - delta, item_id);
+                    }
+                    updated_slots.push(idx as u8);
+                    acc += delta as u16;
+                },
+                _ => continue,
+            }
+        }
+        acc
+    };
+
+    for &slot_idx in updated_slots.iter() {
+        f.with_hooks(|h| h.on_inventory_update(iid, slot_idx));
     }
+
+    Ok(transferred)
 }

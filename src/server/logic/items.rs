@@ -80,23 +80,18 @@ pub fn move_items(mut eng: EngineRef,
                   from_iid: InventoryId,
                   to_iid: InventoryId,
                   item_id: ItemId,
-                  count: u16) -> StrResult<()> {
-    let real_count = {
-        let world = eng.world();
-        let i1 = unwrap!(world.get_inventory(from_iid));
-        let i2 = unwrap!(world.get_inventory(to_iid));
-        let count1 = i1.count(item_id);
-        let count2 = i2.count(item_id);
-        cmp::min(cmp::min(count1 as u16, (u8::MAX - count2) as u16), count) as i16
-    };
-    if real_count > 0 {
-        // OK: inventory IDs have already been checked.
-        world::Fragment::inventory_mut(&mut eng.as_world_fragment(), from_iid)
-             .update(item_id, -real_count);
-        world::Fragment::inventory_mut(&mut eng.as_world_fragment(), to_iid)
-             .update(item_id, real_count);
-    }
-    Ok(())
+                  count: u16) -> StrResult<u16> {
+    let avail = unwrap!(eng.world().get_inventory(from_iid)).count(item_id);
+    let space = unwrap!(eng.world().get_inventory(to_iid)).count_space(item_id);
+    let actual = cmp::min(cmp::min(avail, space), count);
+
+    // OK: inventory IDs have already been checked.
+    world::Fragment::inventory_mut(&mut eng.as_world_fragment(), from_iid)
+         .bulk_remove(item_id, actual);
+    world::Fragment::inventory_mut(&mut eng.as_world_fragment(), from_iid)
+         .bulk_add(item_id, actual);
+
+    Ok(actual)
 }
 
 pub fn craft_recipe(mut eng: EngineRef,
@@ -111,26 +106,26 @@ pub fn craft_recipe(mut eng: EngineRef,
     let mut i = unwrap!(world::Fragment::get_inventory_mut(&mut wf, iid));
 
     let real_count = {
-        let mut count = count as u8;
+        let mut count = count;
 
         for (&item_id, &num_required) in recipe.inputs.iter() {
-            count = cmp::min(count, i.count(item_id) / num_required);
+            count = cmp::min(count, i.count(item_id) / num_required as u16);
         }
 
         for (&item_id, &num_produced) in recipe.outputs.iter() {
-            count = cmp::min(count, (u8::MAX - i.count(item_id)) / num_produced);
+            count = cmp::min(count, i.count_space(item_id) / num_produced as u16);
         }
 
-        count as i16
+        count
     };
 
     if real_count > 0 {
         for (&item_id, &num_required) in recipe.inputs.iter() {
-            i.update(item_id, -real_count * num_required as i16);
+            i.bulk_remove(item_id, real_count * num_required as u16);
         }
 
         for (&item_id, &num_produced) in recipe.outputs.iter() {
-            i.update(item_id, real_count * num_produced as i16);
+            i.bulk_add(item_id, real_count * num_produced as u16);
         }
     }
     Ok(())

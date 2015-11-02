@@ -13,36 +13,36 @@ function InventoryUpdateList() {
 }
 exports.InventoryUpdateList = InventoryUpdateList;
 
+InventoryUpdateList.prototype._fire = function(item_id, delta) {
+    var def = ItemDef.by_id[item_id];
+
+    var delta_str;
+    if (delta == 0) {
+        return;
+    } else if (delta < 0) {
+        delta_str = '\u2212' + (-delta);
+    } else {
+        delta_str = '+' + delta;
+    }
+
+    var row = new ItemRow(item_id, delta_str, def.ui_name, def.tile_x, def.tile_y);
+    this.toast.add(row);
+};
+
 InventoryUpdateList.prototype.attach = function(inv) {
+    if (this.inv != null) {
+        this.inv.release();
+    }
     this.inv = inv;
 
-    // Skip the first update, which just gives the initial contents of the
-    // inventory.
-    this.skip = true;
-
     var this_ = this;
-    inv.onUpdate(function(updates) {
-        if (this_.skip) {
-            this_.skip = false;
-            return;
-        }
-
-        for (var i = 0; i < updates.length; ++i) {
-            var update = updates[i];
-            var def = ItemDef.by_id[update.id];
-            var delta = update.new_count - update.old_count;
-
-            var delta_str;
-            if (delta == 0) {
-                continue;
-            } else if (delta < 0) {
-                delta_str = '\u2212' + (-delta);
-            } else {
-                delta_str = '+' + delta;
-            }
-
-            var row = new ItemRow(update.id, delta_str, def.ui_name, def.tile_x, def.tile_y);
-            this_.toast.add(row);
+    inv.onUpdate(function(idx, old_item, new_item) {
+        // TODO: not correct for TAG_SPECIAL
+        if (old_item.item_id == new_item.item_id) {
+            this_._fire(new_item.item_id, new_item.count - old_item.count);
+        } else {
+            this_._fire(old_item.item_id, -old_item.count);
+            this_._fire(new_item.item_id, new_item.count);
         }
     });
 };

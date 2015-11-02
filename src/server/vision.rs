@@ -120,9 +120,7 @@ pub trait Hooks {
     fn on_inventory_update(&mut self,
                            cid: ClientId,
                            iid: InventoryId,
-                           item_id: ItemId,
-                           old_count: u8,
-                           new_count: u8) {}
+                           slot_idx: u8) {}
 }
 
 pub struct NoHooks;
@@ -524,14 +522,12 @@ impl Vision {
 
     pub fn update_inventory<H>(&mut self,
                                iid: InventoryId,
-                               item_id: ItemId,
-                               old_count: u8,
-                               new_count: u8,
+                               slot_idx: u8,
                                h: &mut H)
             where H: Hooks {
         let cids = unwrap_or!(self.inventory_viewers.get(&iid));
         for &cid in cids.iter() {
-            h.on_inventory_update(cid, iid, item_id, old_count, new_count);
+            h.on_inventory_update(cid, iid, slot_idx);
         }
     }
 }
@@ -620,8 +616,6 @@ gen_Fragment! {
     fn subscribe_inventory(cid: ClientId, iid: InventoryId);
     fn unsubscribe_inventory(cid: ClientId, iid: InventoryId);
     fn update_inventory(iid: InventoryId,
-                        item_id: ItemId,
-                        old_count: u8,
-                        new_count: u8);
+                        slot_idx: u8);
 }
 
