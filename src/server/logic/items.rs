@@ -88,7 +88,7 @@ pub fn move_items(mut eng: EngineRef,
     // OK: inventory IDs have already been checked.
     world::Fragment::inventory_mut(&mut eng.as_world_fragment(), from_iid)
          .bulk_remove(item_id, actual);
-    world::Fragment::inventory_mut(&mut eng.as_world_fragment(), from_iid)
+    world::Fragment::inventory_mut(&mut eng.as_world_fragment(), to_iid)
          .bulk_add(item_id, actual);
 
     Ok(actual)
