@@ -76,7 +76,7 @@ build_win32_worker() {
 
 mk_mod() {
     mkdir -p ${name_mod}
-    for f in `git ls-files assets data gen mk mods scripts util`; do
+    for f in `git ls-files assets data doc mk mods scripts util src/gen`; do
         mkdir -p ${name_mod}/$(dirname $f)
         cp $f ${name_mod}/$f
     done
