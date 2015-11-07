@@ -138,25 +138,28 @@ ItemList.prototype.updateItems = function(idx, old_item, new_item) {
     // TODO: not correct for TAG_SPECIAL
     if (old_item.item_id != new_item.item_id) {
         updates = [
-            {id: old_item.item_id, old_count: old_item.count, new_count: 0},
-            {id: new_item.item_id, old_count: 0, new_count: new_item.count},
+            {id: old_item.item_id, delta: -old_item.count},
+            {id: new_item.item_id, delta: new_item.count},
         ];
     } else {
         updates = [
-            {id: new_item.item_id, old_count: old_item.count, new_count: new_item.count},
+            {id: new_item.item_id, delta: new_item.count - old_item.count},
         ];
     }
 
     this.update(updates, function(up, row) {
-        if (up.new_count == 0) {
+        var old_count = row == null ? 0 : row.qty;
+        var new_count = old_count + up.delta;
+
+        if (new_count == 0) {
             return null;
-        } else if (up.old_count == 0) {
+        } else if (old_count == 0) {
             var id = up.id;
-            var qty = up.new_count;
+            var qty = new_count;
             var def = ItemDef.by_id[id];
             return new ItemRow(id, qty, def.ui_name, def.tile_x, def.tile_y);
         } else {
-            row.setQuantity(up.new_count);
+            row.setQuantity(new_count);
             return row;
         }
     });
