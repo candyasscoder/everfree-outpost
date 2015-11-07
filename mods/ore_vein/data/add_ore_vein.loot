@@ -1,2 +1,11 @@
+# In general, files with the `.loot` extension add or extend loot tables, which
+# are used in some parts of terrain generation.  See `doc/loot-tables.md` for
+# more info.
+
+# This file in particular extends the `cave/floor/small` table, which is
+# originally defined in `data/main.loot`.  The table is used in generating cave
+# interiors, and normally just produces small rocks, stalagmites, etc.
 [choose_structure_ext cave/floor/small]
+# This line adds a new variation to the table: it can now generate
+# `ore_vein/copper` structures, as well as all the previous choices.
 (1) ore_vein/copper

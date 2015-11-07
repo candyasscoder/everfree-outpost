@@ -1,11 +1,45 @@
+# This file gives authorship and attribution info for each image in the mod's
+# assets directory.  This is important for keeping track of the many sources of
+# freely-available artwork that are used in Everfree Outpost, so that everyone
+# can be credited appropriately on the Credits page.  (Giving credit to the
+# original artist is a legal requirement for most of the artwork Everfree
+# Outpost uses.)
+
+# Each section describes a single file.  The file path is relative to the
+# current SOURCES.yaml file - since this SOURCES.yaml is in the `assets`
+# directory, this block refers to the `ore-copper.png` in the `icons`
+# subdirectory of that `assets` directory.
 icons/ore-copper.png:
+    # I did not draw `ore-copper.png` from scratch - I based it on two existing
+    # pieces of artwork I found on opengameart.org.  This `derived-from` line
+    # lists the third-party artwork I used, so that the authors of those pieces
+    # will get the appropriate credit.
+    #
+    # More info on each third-party source is given in the various
+    # `THIRDPARTY.yaml` files in the Everfree Outpost source code.  In this
+    # case, the two pieces of third-party artwork are "Roguelike/RPG Items" by
+    # Joe Williamson (listed in `assets/tiles/THIRDPARTY.yaml`) and "Liberated
+    # Pixel Cup (LPC) Base Assets (sprites & map tiles)" by Lanea Zimmerman and
+    # others (listed in `assets/THIRDPARTY.yaml`).
     derived-from: williamson-roguelike-items, lpc-base-tiles
+
+    # The `attribution` section gives additional info about how the third-party
+    # artwork was used to create ore-copper.png.
     attribution:
         Icon taken from Williamson's tiles, with stone parts recolored to match
         LPC rocks.
 
+    # For art that you have edited significantly or drawn from scratch, you
+    # should add an `author` line with your name.  This will get you listed on
+    # the credits page as an Everfree Outpost contributor.
+    #
+    # Since the only edit I made on ore-copper.png was a 30-second recoloring
+    # job, I didn't bother to list myself here.
+
 icons/bar-copper.png:
     derived-from: williamson-roguelike-items
+    # bar-copper.png was taken directly from Williamson's roguelike items with
+    # no modifications, so there is no need for an `attribution` section.
 
 structures/ore-vein.png:
     author: Stuart Pernsteiner
