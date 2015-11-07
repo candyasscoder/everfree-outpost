@@ -87,11 +87,8 @@ end
 
 function outpost_ffi.types.Inventory.table.update(i, item, amount)
     if amount > 0 then
-        print('bulk_add', i, item, amount)
         i:bulk_add(item, amount)
-        print(i:count(item))
     else
-        print('bulk_remove', i, item, amount)
         i:bulk_remove(item, -amount)
     end
 end
