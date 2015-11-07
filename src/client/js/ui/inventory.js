@@ -48,7 +48,7 @@ InventoryUI.prototype.enableSelect = function(last_item_id, onselect) {
 
 /** @constructor */
 function ContainerUI(inv1, inv2) {
-    this.lists = [new ItemList(inv1), new ItemList(inv2)];
+    this.lists = [new ItemGrid(inv1, 6), new ItemGrid(inv2, 6)];
 
     var dom = fromTemplate('container', {
         'item_list1': this.lists[0].dom,
@@ -80,9 +80,10 @@ ContainerUI.prototype._transfer = function(evt, fromIndex) {
         return;
     }
 
+    // TODO: transfer by slot index, not by item_id
     var item_id = sel.id;
-    var from_inv_id = this.lists[fromIndex].inventory_id;
-    var to_inv_id = this.lists[+!fromIndex].inventory_id;
+    var from_inv_id = this.lists[fromIndex].inv.getId();
+    var to_inv_id = this.lists[+!fromIndex].inv.getId();
     var mag = evt.raw.shiftKey ? 10 : 1;
 
     this.ontransfer(from_inv_id, to_inv_id, item_id, mag);
@@ -122,7 +123,7 @@ function ItemGrid(inv, cols) {
 
     var this_ = this;
     inv.onUpdate(function(idx, old_item, new_item) {
-        this_.slots[i].update(new_item);
+        this_.slots[idx].update(new_item);
     });
 }
 ItemGrid.prototype = Object.create(widget.Element.prototype);

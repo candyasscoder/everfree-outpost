@@ -16,8 +16,8 @@ pub fn open_inventory(mut eng: EngineRef, cid: ClientId, iid: InventoryId) -> St
     unwrap!(eng.world().get_client(cid));
     unwrap!(eng.world().get_inventory(iid));
 
-    eng.messages_mut().send_client(cid, ClientResponse::OpenDialog(Dialog::Inventory(iid)));
     vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid);
+    eng.messages_mut().send_client(cid, ClientResponse::OpenDialog(Dialog::Inventory(iid)));
 
     Ok(())
 }
@@ -31,9 +31,9 @@ pub fn open_container(mut eng: EngineRef,
     unwrap!(eng.world().get_inventory(iid1));
     unwrap!(eng.world().get_inventory(iid1));
 
-    eng.messages_mut().send_client(cid, ClientResponse::OpenDialog(Dialog::Container(iid1, iid2)));
     vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid1);
     vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid2);
+    eng.messages_mut().send_client(cid, ClientResponse::OpenDialog(Dialog::Container(iid1, iid2)));
 
     Ok(())
 }
@@ -51,9 +51,9 @@ pub fn open_crafting(mut eng: EngineRef,
         s.template_id()
     };
 
+    vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid);
     let dialog = Dialog::Crafting(template_id, sid, iid);
     eng.messages_mut().send_client(cid, ClientResponse::OpenDialog(dialog));
-    vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid);
 
     Ok(())
 }
@@ -67,10 +67,10 @@ pub fn set_main_inventories(mut eng: EngineRef,
     unwrap!(eng.world().get_inventory(item_iid));
     unwrap!(eng.world().get_inventory(ability_iid));
 
-    eng.messages_mut().send_client(cid, ClientResponse::MainInventory(item_iid));
-    eng.messages_mut().send_client(cid, ClientResponse::AbilityInventory(ability_iid));
     vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, item_iid);
     vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, ability_iid);
+    eng.messages_mut().send_client(cid, ClientResponse::MainInventory(item_iid));
+    eng.messages_mut().send_client(cid, ClientResponse::AbilityInventory(ability_iid));
 
     Ok(())
 }

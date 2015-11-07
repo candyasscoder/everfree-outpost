@@ -86,6 +86,7 @@ InventoryTracker.prototype.unsubscribe = function(inventory_id) {
 };
 
 InventoryTracker.prototype._getSize = function(inventory_id) {
+    console.log(inventory_id);
     return this.server_invs[inventory_id].length;
 };
 

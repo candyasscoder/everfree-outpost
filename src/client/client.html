@@ -875,6 +875,10 @@ input[type=text],
                     border-width: 2px;
                     margin: 0;
                 }
+
+                .item-grid:not(.active) .item-slot.active {
+                    border-image-source: url('img/slot-rounded-semiactive.png');
+                }
             </style>
             <div id="item-slot" class="item-slot">
                 <div class="item-icon" data-part="icon"></div>
@@ -900,18 +904,13 @@ input[type=text],
                 </div>
             </div>
 
-            <div id="container" data-dialog-title="Container" class="dialog-expand g-col">
+            <div id="container" data-dialog-title="Container" class="g-col">
                 <div class="g-row stretch">
                     <div class="hole" data-key="item_list1"></div>
                     <div class="vertical-rule"></div>
                     <div class="hole" data-key="item_list2"></div>
                 </div>
-                <div>
-                    <kbd>&larr;</kbd>
-                    <kbd>&darr;</kbd>
-                    <kbd>&uarr;</kbd>
-                    <kbd>&rarr;</kbd>
-                    &ndash; Navigate;
+                <div style="text-align: center">
                     <kbd>A</kbd>
                     &ndash; Move Item
                 </div>

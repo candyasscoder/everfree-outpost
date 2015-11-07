@@ -1,7 +1,7 @@
 var Config = require('config').Config;
 var ItemDef = require('data/items').ItemDef;
 var RecipeDef = require('data/recipes').RecipeDef;
-var ItemList = require('ui/inventory').ItemList;
+var ItemGrid = require('ui/inventory').ItemGrid;
 var ItemRow = require('ui/inventory').ItemRow;
 var InventoryTracker = require('inventory').InventoryTracker;
 var util = require('util/misc');
@@ -11,7 +11,7 @@ var widget = require('ui/widget');
 /** @constructor */
 function CraftingUI(station_type, station_id, inv) {
     this.recipe_list = new RecipeList(station_type, inv);
-    this.item_list = new ItemList(inv);
+    this.item_list = new ItemGrid(inv, 6);
     this.station_id = station_id;
     this.inv = inv;
 
