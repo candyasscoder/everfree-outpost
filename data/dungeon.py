@@ -52,6 +52,7 @@ def mk_cave_inside(img, basename, dirt):
 
 def init():
     tiles = loader('tiles')
+    icons = loader('icons')
 
     dirt2 = chop_terrain(tiles('lpc-base-tiles/dirt2.png'))
     cave_floor = dirt2['center/v0']
@@ -65,6 +66,6 @@ def init():
 
     mk_floor_blocks(tiles('lpc-base-tiles/holemid.png'), 'cave_pit', base_img=cave_floor)
 
-    mk_item('key', 'Key', tiles('key32.png'))
-    mk_item('key/master', 'Skeleton Key', tiles('key32.png')) \
+    mk_item('key', 'Key', icons('key32.png'))
+    mk_item('key/master', 'Skeleton Key', icons('key32.png')) \
             .recipe('anvil', {'key': 100})

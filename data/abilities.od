@@ -1,7 +1,7 @@
 [item ability/remove_hat]
 display_name: "Remove Hat"
-icon: "tiles/equip_hat_icon_remove.png"
+icon: "icons/equip_hat_icon_remove.png"
 
 [item ability/light]
 display_name: "Light"
-icon: "tiles/candle32.png"
+icon: "icons/candle32.png"

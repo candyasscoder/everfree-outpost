@@ -8,7 +8,7 @@ from .lib.terrain import *
 from outpost_data.outpost.lib import models
 
 
-def do_tree(image, plane_image):
+def do_tree(image):
     tree_shape_arr = [
             'floor', 'solid', 'solid', 'floor',
             'floor', 'solid', 'solid', 'floor',
@@ -46,6 +46,7 @@ def do_tree(image, plane_image):
 
 def init():
     tiles = loader('tiles')
+    icons = loader('icons')
     structures = loader('structures')
     daneeklu = loader('tiles/daneeklu_farming_tilesets')
     lpc = loader('tiles/lpc-base-tiles')
@@ -54,11 +55,12 @@ def init():
     mk_floor_blocks(tiles('lpc-base-tiles/watergrass.png'), 'water_grass')
     mk_floor_cross(tiles('lpc-watergrass-cross.png'), 'water_grass')
 
-    do_tree(structures('tree.png'), structures('tree-planemap.png'))
+    do_tree(structures('tree.png'))
     mk_solid_structure('rock', structures('rock.png'), (2, 1, 1))
 
 
-    mk_item('wood', 'Wood', extract(daneeklu('farming_fishing.png'), (5, 1)))
+    mk_item('wood', 'Wood', icons('wood.png'))
+    # TODO: stones.png, but needs new image api because unit=16
     mk_item('stone', 'Stone', extract(lpc('rock.png'), (0, 0)))
 
 

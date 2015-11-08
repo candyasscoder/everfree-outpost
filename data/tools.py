@@ -7,8 +7,7 @@ from .lib.items import *
 
 
 def init():
-    tiles = loader('tiles')
-    gervais = loader('tiles/gervais_roguelike')
+    gervais = loader('icons/gervais_roguelike')
 
     mk_item('pick', 'Pickaxe', gervais('AngbandTk_pick.png')) \
             .recipe('anvil', {'wood': 10, 'stone': 10}, count=5)

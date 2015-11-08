@@ -22,6 +22,7 @@ def do_statue(basename, image):
 
 def init():
     tiles = loader('tiles')
+    icons = loader('icons')
     structures = loader('structures')
 
     image = structures('furniture.png')
@@ -55,7 +56,7 @@ def init():
             model=cabinet_model, layer=2)
     mk_solid_structure('bookshelf/2', image, (1, 1, 2), (7, 0),
             model=cabinet_model, layer=2)
-    mk_item('book', 'Book', tiles('gervais_roguelike/AngbandTk_book.png'))
+    mk_item('book', 'Book', icons('gervais_roguelike/AngbandTk_book.png'))
 
 
     s.merge(mk_solid_structure('trophy', structures('trophy.png'), (1, 1, 1)))

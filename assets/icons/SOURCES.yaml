@@ -1,0 +1,30 @@
+wood.png:
+    derived-from: williamson-roguelike-items, daneeklu-farming-tilesets
+    attribution:
+        Recolored Williamson's wood icon using colors from Daneeklu's.
+
+stones.png:
+    derived-from: williamson-roguelike-items, lpc-base-tiles
+    attribution:
+        Recolored Williamson's rock and ore tiles to match LPC rocks.
+
+equip_hat_icon.png: &witch-hat
+    attribution: Based on the witch hat sprite sheet
+equip_hat_icon_remove.png: *witch-hat
+
+party-hat-icon.*:
+    title: Party Hat
+    author: Stuart Pernsteiner
+
+key32.png:
+    derived-from: williamson-roguelike-items
+
+candle32.png:
+    title: Candle Icon
+    author: Stuart Pernsteiner
+
+crops.png:
+    derived-from: daneeklu-farming-tilesets
+
+gervais_roguelike/*.png: &gervais-roguelike
+    derived-from: gervais-roguelike-tiles

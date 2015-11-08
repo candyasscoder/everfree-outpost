@@ -1,16 +1,5 @@
-
 lpc-base-tiles/*.png: &lpc-base
     derived-from: lpc-base-tiles
-
--nilsson-lpc: &nilsson-lpc
-    derived-from: nilsson-lpc-entry
-
-gervais_roguelike/*.png: &gervais-roguelike
-    derived-from: gervais-roguelike-tiles
-
-daneeklu_farming_tilesets/*.png: &daneeklu-farming
-    derived-from: daneeklu-farming-tilesets
-
 
 lpc-dirt2-cross.png: *lpc-base
 lpc-cave-walls2.png: *lpc-base
@@ -18,23 +7,6 @@ lpc-watergrass-cross.png: *lpc-base
 lpc-cave-top-cross.png: *lpc-base
 lpc-cave-top.png: *lpc-base
 lpc-cave-inside.png: *lpc-base
-
-
-# Based on the witch hat sprite sheet
-equip_hat_icon.png: &witch-hat
-    attribution: Based on the witch hat sprite sheet
-equip_hat_icon_remove.png: *witch-hat
-
-party-hat-icon.*:
-    title: Party Hat
-    author: Stuart Pernsteiner
-
-key32.png:
-    derived-from: williamson-roguelike-items
-
-candle32.png:
-    title: Candle Icon
-    author: Stuart Pernsteiner
 
 farmland-interior-parts.png:
     title: LPC Farmland - Interior Tiles
