@@ -1,14 +1,14 @@
 from ..core.builder import *
 from ..core.images import loader
-from ..core import depthmap
 from ..core.structure import Shape
 from ..core.util import extract, stack
 
 from .lib.items import *
 from .lib.structures import *
+from .lib import models
 
 
-def do_house_parts(basename, image, plane_image, door_image):
+def do_house_parts(basename, image, door_image):
     house_parts = (
             (
                 'corner/nw/in',
@@ -47,8 +47,12 @@ def do_house_parts(basename, image, plane_image, door_image):
     for i, row in enumerate(house_parts):
         for j, part_name in enumerate(row):
             name = basename + '/' + part_name
+            if part_name == 'edge/vert':
+                model = models.WALL[part_name]
+            else:
+                model = models.WALL[part_name.rpartition('/')[0]]
             b.merge(mk_solid_structure(
-                name, image, (1, 1, 2), base=(j, i * 3), plane_image=plane_image))
+                name, image, (1, 1, 2), base=(j, i * 3), model=model))
 
     open_door_shape_arr = [
             'solid', 'floor', 'solid',
@@ -68,23 +72,19 @@ def do_house_parts(basename, image, plane_image, door_image):
     x = 10 * TILE_SIZE
     y = 0
     doorway_img = image.crop((x, y, x + w, y + h))
-    doorway_depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
-    b.merge(mk_door_anim(basename + '/door/in', doorway_img, doorway_depth, door_image))
+    b.merge(mk_door_anim(basename + '/door/in', doorway_img, models.WALL['door'], door_image))
 
     x = 13 * TILE_SIZE
     y = 0
     doorway_img = image.crop((x, y, x + w, y + h))
-    doorway_depth = depthmap.from_planemap(plane_image.crop((x, y, x + w, y + h)))
-    b.merge(mk_door_anim(basename + '/door/out', doorway_img, doorway_depth, door_image))
+    b.merge(mk_door_anim(basename + '/door/out', doorway_img, models.WALL['door'], door_image))
 
     return b
 
 def init():
     structures = loader('structures')
 
-    house = do_house_parts('house_wall',
-            structures('house.png'), structures('house-planemap.png'),
-            structures('door.png'))
+    house = do_house_parts('house_wall', structures('house.png'), structures('door.png'))
 
     i = item_builder()
     i.merge(mk_structure_item(house['house_wall/edge/horiz/in'],

@@ -116,31 +116,50 @@ function ItemList(inv) {
     };
     */
 
-    var init = inv.itemIds().map(function(id) {
-        return { id: id, old_count: 0, new_count: inv.count(id) };
-    });
-    this.updateItems(init);
+    var item_ids = inv.itemIds();
+    for (var i = 0; i < item_ids.length; ++i) {
+        var id = item_ids[i];
+        this.updateItems(-1,
+                {tag: -1, count: 0, item_id: id},
+                {tag: -1, count: inv.count(id), item_id: id});
+    }
 
     var this_ = this;
-    inv.onUpdate(function(updates) {
-        this_.updateItems(updates);
+    inv.onUpdate(function(idx, old_item, new_item) {
+        this_.updateItems(idx, old_item, new_item);
     });
 }
 ItemList.prototype = Object.create(widget.DynamicList.prototype);
 ItemList.prototype.constructor = ItemList;
 exports.ItemList = ItemList;
 
-ItemList.prototype.updateItems = function(updates) {
+ItemList.prototype.updateItems = function(idx, old_item, new_item) {
+    var updates;
+    // TODO: not correct for TAG_SPECIAL
+    if (old_item.item_id != new_item.item_id) {
+        updates = [
+            {id: old_item.item_id, delta: -old_item.count},
+            {id: new_item.item_id, delta: new_item.count},
+        ];
+    } else {
+        updates = [
+            {id: new_item.item_id, delta: new_item.count - old_item.count},
+        ];
+    }
+
     this.update(updates, function(up, row) {
-        if (up.new_count == 0) {
+        var old_count = row == null ? 0 : row.qty;
+        var new_count = old_count + up.delta;
+
+        if (new_count == 0) {
             return null;
-        } else if (up.old_count == 0) {
+        } else if (old_count == 0) {
             var id = up.id;
-            var qty = up.new_count;
+            var qty = new_count;
             var def = ItemDef.by_id[id];
             return new ItemRow(id, qty, def.ui_name, def.tile_x, def.tile_y);
         } else {
-            row.setQuantity(up.new_count);
+            row.setQuantity(new_count);
             return row;
         }
     });

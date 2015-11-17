@@ -1,13 +1,17 @@
 from PIL import Image, ImageChops
 
 from .consts import *
-from .util import pack_boxes
+from .util import pack_boxes, err
 
 
 class Shape(object):
     def __init__(self, x, y, z, arr):
         self.size = (x, y, z)
         self.shape_array = arr
+
+def empty(x, y, z):
+    arr = ['empty'] * (x * y * z)
+    return Shape(x, y, z, arr)
 
 def floor(x, y, z):
     arr = ['floor'] * (x * y) + ['empty'] * (x * y * (z - 1))
@@ -16,6 +20,12 @@ def floor(x, y, z):
 def solid(x, y, z):
     arr = ['solid'] * (x * y * z)
     return Shape(x, y, z, arr)
+
+
+class Model(object):
+    def __init__(self, verts):
+        self.verts = verts
+        self.length = len(verts)
 
 
 class StaticAnimDef(object):
@@ -78,25 +88,10 @@ class StaticAnimDef(object):
 
         self.anim_sheet = sheet
 
-    def extract_depthmap(self, parent_depthmap):
-        # Cut out the single-frame depthmap from the overall structure depthmap.
-        ax, ay = self.anim_offset
-        aw, ah = self.anim_size
-        box = (ax, ay, ax + aw, ay + ah)
-        frame_depth = parent_depthmap.crop(box)
-
-        # Combine several copies to build the depthmap for the whole anim sheet.
-        depthmap = Image.new('L', self.anim_sheet.size)
-        w, h = self.size
-        for i in range(self.length):
-            depthmap.paste(frame_depth, (i * w, 0))
-
-        return depthmap
-
 
 
 class StructureDef(object):
-    def __init__(self, name, image, depthmap, shape, layer):
+    def __init__(self, name, image, model, shape, layer):
         self.name = name
         if isinstance(image, StaticAnimDef):
             self.anim = image
@@ -104,14 +99,13 @@ class StructureDef(object):
         else:
             self.image = image
             self.anim = None
-        self.depthmap = depthmap
+        self.model = model
         self.size = shape.size
         self.shape = shape.shape_array
         self.layer = layer
 
         # Both StaticAnimDef and PIL.Image.Image have a `size` field with the
         # same layout.
-        assert image.size == depthmap.size
         assert image.size[0] % TILE_SIZE == 0
         assert image.size[1] % TILE_SIZE == 0
 
@@ -122,6 +116,8 @@ class StructureDef(object):
         self.id = None
         self.sheet_idx = None
         self.offset = None
+        self.model_offset = None
+        self.model_length = None
 
     def get_display_px(self):
         """Get the size of the structure on the screen."""
@@ -171,19 +167,26 @@ class StructureDef(object):
                 (int(has_light) << 2))
 
 
+def resolve_model_offsets(structures, model_offset_map):
+    for s in structures:
+        offset_length = model_offset_map.get(s.model_name)
+        if offset_length is None:
+            err('structure %r: no such model: %r' % (s.name, s.model_name))
+            continue
+        s.model_offset, s.model_length = offset_length
+
 # Sprite sheets
 
 def build_sheets(structures):
-    '''Build sprite sheet(s) containing all the images and depthmaps for the
-    provided structures.  This also updates each structure's `sheet_idx` and
-    `offset` field with its position in the generated sheet(s).
+    '''Build sprite sheet(s) containing all the images for the provided
+    structures.  This also updates each structure's `sheet_idx` and `offset`
+    field with its position in the generated sheet(s).
     '''
     boxes = [s.get_sheet_size() for s in structures]
     num_sheets, offsets = pack_boxes(SHEET_SIZE, boxes)
 
 
     images = [Image.new('RGBA', (SHEET_PX, SHEET_PX))]
-    depthmaps = [Image.new('RGBA', (SHEET_PX, SHEET_PX))]
 
     for s, (j, offset) in zip(structures, offsets):
         x, y = offset
@@ -195,24 +198,20 @@ def build_sheets(structures):
             y += 32 - px_h % TILE_SIZE
 
         images[j].paste(s.image, (x, y))
-        depthmaps[j].paste(s.depthmap, (x, y))
 
         s.sheet_idx = j
         s.offset = offset
 
-    return zip(images, depthmaps)
+    return images
 
 def build_anim_sheets(structures):
-    '''Build sprite sheet(s) containing the animated parts of each structure.
-    Also generate the depthmaps corresponding to those parts.
-    '''
+    '''Build sprite sheet(s) containing the animated parts of each structure.'''
     anim_structures = [s for s in structures if s.anim is not None]
     boxes = [s.get_anim_sheet_size() for s in anim_structures]
     num_sheets, offsets = pack_boxes(SHEET_SIZE, boxes)
 
 
     images = [Image.new('RGBA', (SHEET_PX, SHEET_PX))]
-    depthmaps = [Image.new('RGBA', (SHEET_PX, SHEET_PX))]
 
     for s, (j, offset) in zip(anim_structures, offsets):
         x, y = offset
@@ -220,14 +219,27 @@ def build_anim_sheets(structures):
         y *= TILE_SIZE
 
         images[j].paste(s.anim.anim_sheet, (x, y))
-        depthmaps[j].paste(s.anim.extract_depthmap(s.depthmap), (x, y))
 
         s.anim.sheet_idx = j
         # Give the offset in pixels, since the anim size is also in pixels.
         ox, oy = offset
         s.anim.offset = (ox * TILE_SIZE, oy * TILE_SIZE)
 
-    return zip(images, depthmaps)
+    return images
+
+def collect_models(structures):
+    idx_map = {}
+    all_verts = []
+
+    for s in structures:
+        m_key = tuple(s.model.verts)
+        if m_key not in idx_map:
+            idx_map[m_key] = len(all_verts)
+            all_verts.extend(s.model.verts)
+        s.model_offset = idx_map[m_key]
+        s.model_length = len(s.model.verts)
+
+    return all_verts
 
 
 # JSON output
@@ -240,6 +252,8 @@ def build_client_json(structures):
                 'sheet': s.sheet_idx,
                 'offset': [x * TILE_SIZE for x in s.offset],
                 'display_size': s.get_display_px(),
+                'model_offset': s.model_offset,
+                'model_length': s.model_length,
                 'layer': s.layer,
                 }
 
@@ -267,6 +281,9 @@ def build_client_json(structures):
         return dct
 
     return list(convert(s) for s in structures)
+
+def build_model_json(all_verts):
+    return list(x for v in all_verts for x in v)
 
 def build_server_json(structures):
     def convert(s):

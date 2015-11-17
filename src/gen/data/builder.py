@@ -1,4 +1,4 @@
-from . import structure, tile, block, item, recipe, animation, attachment, extra
+from . import structure, block, item, recipe, animation, attachment, loot_table, extra
 
 
 class Objects(object):
@@ -31,25 +31,9 @@ class Objects(object):
         return next(iter(self.x.values()))
 
 
-class Tiles(Objects):
-    def create(self, name, image):
-        t = tile.TileDef(name, image)
-        self._add(t)
-        self.owner.tiles.append(t)
-        return self
-
 class Blocks(Objects):
     def create(self, name, shape, tiles):
-        tile_names = {}
-        for k,v in tiles.items():
-            if v is None:
-                continue
-            elif isinstance(v, str):
-                tile_names[k] = v
-            else:
-                tile_names[k] = self.owner.gen_tile('%s/%s' % (name, k), v)
-
-        b = block.BlockDef(name, shape, tile_names)
+        b = block.BlockDef(name, shape, tiles)
         self._add(b)
         self.owner.blocks.append(b)
         return self
@@ -59,8 +43,8 @@ class Blocks(Objects):
         return self
 
 class Structures(Objects):
-    def create(self, name, image, depthmap, shape, layer):
-        s = structure.StructureDef(name, image, depthmap, shape, layer)
+    def create(self, name, image, model, shape, layer):
+        s = structure.StructureDef(name, image, model, shape, layer)
         self._add(s)
         self.owner.structures.append(s)
         return self
@@ -149,7 +133,6 @@ class Extras(Objects):
 class Builder(object):
     def __init__(self):
         self.structures = []
-        self.tiles = []
         self.blocks = []
         self.items = []
         self.recipes = []
@@ -157,30 +140,8 @@ class Builder(object):
         self.animations = []
         self.sprites = []
         self.attach_slots = []
+        self.loot_tables = []
         self.extras = []
-
-        self.gen_tile_cache = {}
-
-    def gen_tile(self, base_name, img):
-        data = tuple(img.getdata())
-        h = hash(data)
-
-        for cache_img, name in self.gen_tile_cache.get(h, ()):
-            if tuple(cache_img.getdata()) == data:
-                return name
-
-        # Image is not in the cache.
-        name = '_auto/%s' % base_name
-        self.mk_tile(name, img)
-        self.gen_tile_cache.setdefault(h, []).append((img, name))
-        return name
-
-
-    def tile_builder(self):
-        return Tiles(self)
-
-    def mk_tile(self, *args, **kwargs):
-        return self.tile_builder().create(*args, **kwargs)
 
 
     def block_builder(self):
@@ -240,7 +201,6 @@ class Builder(object):
 
 
 INSTANCE = Builder()
-mk_tile = INSTANCE.mk_tile
 mk_block = INSTANCE.mk_block
 mk_structure = INSTANCE.mk_structure
 mk_item = INSTANCE.mk_item
@@ -250,7 +210,6 @@ mk_sprite = INSTANCE.mk_sprite
 mk_attach_slot = INSTANCE.mk_attach_slot
 mk_extra = INSTANCE.mk_extra
 
-tile_builder = INSTANCE.tile_builder
 block_builder = INSTANCE.block_builder
 structure_builder = INSTANCE.structure_builder
 item_builder = INSTANCE.item_builder

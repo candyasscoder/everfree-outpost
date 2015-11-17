@@ -115,6 +115,9 @@ impl<'d> Provider<'d> {
             ($($t:tt)*) => (structure_templates.get_id(&format!($($t)*)))
         };
 
+        let loot_tables = &self.data.loot_tables;
+        let item_data = &self.data.item_data;
+
         // Grass layer
         let grass_ids = [
             block_id!("grass/center/v0"),
@@ -213,8 +216,6 @@ impl<'d> Provider<'d> {
 
 
         // Trees/rocks
-        let tree_id = template_id!("tree");
-        let rock_id = template_id!("rock");
         for &pos in &self.cache.get(pid, cpos).tree_offsets {
             // Make sure the area near spawn is clear of structures.
             let abs_pos = pos + cpos * scalar(CHUNK_SIZE);
@@ -226,54 +227,36 @@ impl<'d> Provider<'d> {
             let layer = if height < 100 { 0 } else { (height - 100) / 2 + 1 };
             let z = layer as i32 * 2;
 
-            let id = if layer == 0 {
-                if self.rng.gen_range(0, 3) < 2 { tree_id } else { rock_id }
+            let opt_id = if layer == 0 {
+                loot_tables.eval_structure_table(&mut self.rng, "forest/floor")
             } else {
-                if self.rng.gen_range(0, 3) < 1 { continue; } else { rock_id }
+                loot_tables.eval_structure_table(&mut self.rng, "forest/hill")
             };
 
-            // TODO: filter trees/rocks during generation
-            let gs = GenStructure::new(pos.extend(z), id);
-            gc.structures.push(gs);
+            if let Some(id) = opt_id {
+                // TODO: filter trees/rocks during generation
+                let gs = GenStructure::new(pos.extend(z), id);
+                gc.structures.push(gs);
+            }
         }
 
         // Treasure
-        let cave_junk_ids = [
-            template_id!("cave_junk/0"),
-            template_id!("cave_junk/1"),
-            template_id!("cave_junk/2"),
-        ];
         let chest_id = template_id!("chest");
-        let entrance_id = template_id!("dungeon_entrance");
         for layer in 0 .. CHUNK_SIZE as u8 / 2 {
             let layer_z = layer as i32 * 2;
             for &pos in &self.cache.get(pid, cpos).treasure_offsets[layer as usize] {
-                if self.rng.gen_range(0, 100) < 1 {
-                    if self.rng.gen_range(0, 20) < 1 {
-                        info!("dungeon entrance at {:?}", cpos * scalar(CHUNK_SIZE) + pos);
-                        let gs = GenStructure::new(pos.extend(layer_z), entrance_id);
-                        gc.structures.push(gs);
-                    } else {
-                        let mut gs = GenStructure::new(pos.extend(layer_z), chest_id);
-                        let loot_idx = self.rng.gen_range(0, 100);
-                        let loot =
-                            if loot_idx < 1 {
-                                ("hat", 1)
-                            } else if loot_idx < 2 {
-                                ("book", self.rng.gen_range(10, 20))
-                            } else if loot_idx < 50 {
-                                ("crystal", self.rng.gen_range(15, 20))
-                            } else if loot_idx < 75 {
-                                ("wood", self.rng.gen_range(80, 120))
-                            } else {
-                                ("stone", self.rng.gen_range(80, 120))
-                            };
-                        gs.extra.insert("loot".to_owned(), format!("{}:{}", loot.0, loot.1));
-                        gc.structures.push(gs);
+                let opt_id = loot_tables.eval_structure_table(&mut self.rng, "cave/floor");
+                if let Some(id) = opt_id {
+                    let mut gs = GenStructure::new(pos.extend(layer_z), id);
+                    if id == chest_id {
+                        let contents = loot_tables.eval_item_table(&mut self.rng, "cave/chest");
+                        let mut s = String::new();
+                        for (item_id, count) in contents {
+                            s.push_str(&format!("{}:{},", item_data.name(item_id), count));
+                        }
+                        info!("generated chest, loot = {}", s);
+                        gs.extra.insert("loot".to_owned(), s);
                     }
-                } else {
-                    let id = *self.rng.choose(&cave_junk_ids).unwrap();
-                    let gs = GenStructure::new(pos.extend(layer_z), id);
                     gc.structures.push(gs);
                 }
             }

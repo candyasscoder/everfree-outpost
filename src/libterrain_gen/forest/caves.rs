@@ -36,6 +36,7 @@ impl<'a> Caves<'a> {
 impl<'a> LocalProperty for Caves<'a> {
     type Summary = ChunkSummary;
     type Temporary = CellularGrid;
+    type Result = CellularGrid;
 
     fn init(&mut self, summ: &ChunkSummary) -> CellularGrid {
         let mut grid = CellularGrid::new(scalar(CHUNK_SIZE * 3 + 1));
@@ -97,7 +98,7 @@ impl<'a> LocalProperty for Caves<'a> {
         }
     }
 
-    fn save(&mut self, grid: &CellularGrid, summ: &mut ChunkSummary) {
+    fn save(&mut self, grid: CellularGrid, summ: &mut ChunkSummary) -> CellularGrid {
         let base: V2 = scalar(CHUNK_SIZE);
         let bounds = Region::new(base, base + scalar(CHUNK_SIZE + 1));
         let layer = summ.cave_wall_layer_mut(self.layer);
@@ -105,5 +106,7 @@ impl<'a> LocalProperty for Caves<'a> {
         for pos in bounds.points() {
             layer.set(bounds.index(pos), grid.get(pos));
         }
+
+        grid
     }
 }

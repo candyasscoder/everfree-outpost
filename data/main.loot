@@ -1,0 +1,49 @@
+[multi_item cave/chest]
+*cave/chest/small
+(2%) *cave/chest/large
+
+[choose_item cave/chest/small]
+(1) 80-120 stone
+(1) 80-120 wood
+(2) 15-20 crystal
+
+[choose_item cave/chest/large]
+(1) hat
+(2) 10-20 book
+
+
+[choose_structure cave/floor]
+(15) *cave/floor/small
+(1) *cave/floor/large
+
+[choose_structure cave/floor/small]
+(1) cave_junk/0
+(1) cave_junk/1
+(1) cave_junk/2
+
+[choose_structure cave/floor/large]
+(1) chest
+(1) dungeon_entrance
+
+
+[choose_structure forest/floor]
+(2) tree
+(1) rock
+
+[choose_structure forest/hill]
+(2) rock
+(1) *no_structure
+
+
+[choose_item dungeon/chest/small]
+(3) 8-12 book
+(7) fountain
+
+[choose_item dungeon/chest/large]
+(1) hat
+(2) 25-40 book
+(3) trophy
+
+
+[choose_structure no_structure]
+# empty

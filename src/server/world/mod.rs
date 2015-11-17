@@ -102,8 +102,23 @@ pub struct Entity {
 }
 impl_IntrusiveStableId!(Entity, stable_id);
 
+#[derive(Clone, Copy, Debug)]
+pub enum Item {
+    /// No item in this slot.
+    Empty,
+    /// Bulk item (stackable).  The `u8` is the item count in the stack, which should never be
+    /// zero.  These items can be moved around, split, combined, etc. with no script intervention.
+    Bulk(u8, ItemId),
+    /// Special item (non-stackable).  This item has script data attached.  The `u8` is an
+    /// identifier assigned by the script.  Moving this item to a different inventory requires
+    /// script intervention.  (Moving within a container does not, because the table slot does not
+    /// change.)
+    Special(u8, ItemId),
+}
+
 pub struct Inventory {
-    contents: HashMap<ItemId, u8>,
+    // Inventory size (number of slots) is capped at 255
+    contents: Box<[Item]>,
 
     stable_id: StableId,
     attachment: InventoryAttachment,

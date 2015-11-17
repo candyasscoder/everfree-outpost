@@ -2,11 +2,9 @@ use core::prelude::*;
 use core::ptr;
 
 use physics::v3::{V3, V2, scalar, Region};
-use physics::CHUNK_SIZE;
+use physics::{CHUNK_SIZE, TILE_SIZE};
 
-use IntrusiveCorner;
-use {emit_quad, remaining_quads};
-use types::StructureTemplate;
+use types::{StructureTemplate, ModelVertex};
 
 use super::Buffer;
 
@@ -14,26 +12,21 @@ use super::Buffer;
 #[derive(Clone, Copy)]
 pub struct Vertex {
     // 0
-    corner: (u8, u8),
-    pos: (u8, u8, u8),
-    layer: u8,
+    vert_offset: (u16, u16, u16),
     _pad1: u16,
 
     // 8
-    display_size: (u16, u16),
+    struct_pos: (u8, u8, u8),
+    layer: u8,
     display_offset: (u16, u16),
 
     // 16
 }
 
-impl IntrusiveCorner for Vertex {
-    fn corner(&self) -> &(u8, u8) { &self.corner }
-    fn corner_mut(&mut self) -> &mut (u8, u8) { &mut self.corner }
-}
-
 pub struct GeomGen<'a> {
     buffer: &'a Buffer<'a>,
     templates: &'a [StructureTemplate],
+    model_verts: &'a [ModelVertex],
 
     bounds: Region<V2>,
     cur: usize,
@@ -43,9 +36,11 @@ pub struct GeomGen<'a> {
 impl<'a> GeomGen<'a> {
     pub unsafe fn init(&mut self,
                        buffer: &'a Buffer<'a>,
-                       templates: &'a [StructureTemplate]) {
+                       templates: &'a [StructureTemplate],
+                       model_verts: &'a [ModelVertex]) {
         ptr::write(&mut self.buffer, buffer);
         ptr::write(&mut self.templates, templates);
+        ptr::write(&mut self.model_verts, model_verts);
 
         ptr::write(&mut self.bounds, Region::new(scalar(0), scalar(0)));
         self.cur = 0;
@@ -61,8 +56,9 @@ impl<'a> GeomGen<'a> {
     pub fn generate(&mut self,
                     buf: &mut [Vertex],
                     idx: &mut usize) -> bool {
-        while remaining_quads(buf, *idx) >= 1 {
+        while *idx < buf.len() {
             if self.cur >= self.buffer.len {
+                // No more structures
                 return false;
             }
 
@@ -75,22 +71,31 @@ impl<'a> GeomGen<'a> {
                                 s.pos.1 as i32,
                                 s.pos.2 as i32);
             if t.sheet != self.sheet || !self.bounds.contains(s_pos.reduce()) {
+                // Wrong sheet, or not visible
                 continue;
             }
 
+            if *idx + t.model_length as usize >= buf.len() {
+                // Not enough space for this structure's vertices
+                break;
+            }
 
-            emit_quad(buf, idx, Vertex {
-                corner: (0, 0),
-                // Give the position of the front corner of the structure, since the quad should
-                // cover the front plane.
-                pos: (s.pos.0,
-                      s.pos.1 + t.size.1,
-                      s.pos.2),
-                layer: t.layer,
-                _pad1: 0,
-                display_size: t.display_size,
-                display_offset: t.display_offset,
-            });
+            let i0 = t.model_offset as usize;
+            let i1 = i0 + t.model_length as usize;
+            // Use the offset corresponding to the 0,0,0 corner.
+            let display_offset = (t.display_offset.0,
+                                  t.display_offset.1 + t.display_size.1 -
+                                      t.size.1 as u16 * TILE_SIZE as u16);
+            for v in &self.model_verts[i0 .. i1] {
+                buf[*idx] = Vertex {
+                    vert_offset: (v.x, v.y, v.z),
+                    _pad1: 0,
+                    struct_pos: s.pos,
+                    layer: t.layer,
+                    display_offset: display_offset,
+                };
+                *idx += 1;
+            }
         }
 
         true

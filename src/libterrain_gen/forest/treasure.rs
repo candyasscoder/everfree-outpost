@@ -34,12 +34,13 @@ impl<'a> Treasure<'a> {
 impl<'a> LocalProperty for Treasure<'a> {
     type Summary = ChunkSummary;
     type Temporary = DiskSampler;
+    type Result = ();
 
     fn init(&mut self, _: &ChunkSummary) -> DiskSampler {
         // All treasure so far is 1 tile in size.
         // Note that we currently can't set min_spacing to 1, because 1 / sqrt(2) == 0 (in other
         // words, the grid resolution is not high enough to handle it).
-        DiskSampler::new(scalar(CHUNK_SIZE * 3), 2, 6)
+        DiskSampler::new(scalar(CHUNK_SIZE * 3), 3, 6)
     }
 
     fn load(&mut self, samp: &mut DiskSampler, dir: V2, summ: &ChunkSummary) {
@@ -53,7 +54,7 @@ impl<'a> LocalProperty for Treasure<'a> {
         samp.generate(&mut self.rng, 30);
     }
 
-    fn save(&mut self, samp: &DiskSampler, summ: &mut ChunkSummary) {
+    fn save(&mut self, samp: DiskSampler, summ: &mut ChunkSummary) {
         let bounds = Region::new(scalar(CHUNK_SIZE),
                                  scalar(CHUNK_SIZE * 2));
 

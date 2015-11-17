@@ -14,6 +14,7 @@ attribute float side;
 attribute vec2 tileCoord;
 
 varying vec2 texCoord;
+varying float baseZ;
 
 void main(void) {
     float posX = blockPos.x + corner.x;
@@ -42,7 +43,11 @@ void main(void) {
     }
 
     vec2 pixelPos = vec2(posX, posY - posZ) * TILE_SIZE;
-    float depth = posZ * TILE_SIZE + 1.0;
+
+    // Tiebreaker: adjust based on posZ so that the bottom of an upper block
+    // appears above the top of a lower one.
+    float adjZ = posZ / 16.0;
+    float depth = posZ * TILE_SIZE + adjZ;
 
     vec2 normPos = (pixelPos - cameraPos) / cameraSize;
     float normDepth = depth / (CHUNK_SIZE * TILE_SIZE);
@@ -51,4 +56,5 @@ void main(void) {
     gl_Position = vec4(glPos, 1.0);
 
     texCoord = (tileCoord + corner) / ATLAS_SIZE;
+    baseZ = blockPos.z;
 }

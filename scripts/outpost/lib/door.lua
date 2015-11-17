@@ -37,6 +37,49 @@ function make_door(item, base, tool)
     tools.handler[tool][t_closing] = take
 end
 
+
+-- TODO: integrate `register_anims` and `make_door` variants
+local BASE_MAP = {}
+local DELAY_MAP = {}
+
+local function register_anims(base, delay)
+    timer.handler[base .. '/opening'] = function(s)
+        s:replace(base .. '/open')
+    end
+
+    timer.handler[base .. '/closing'] = function(s)
+        print('closed')
+        s:replace(base .. '/closed')
+    end
+
+    BASE_MAP[base .. '/open'] = base
+    BASE_MAP[base .. '/opening'] = base
+    BASE_MAP[base .. '/closed'] = base
+    BASE_MAP[base .. '/closing'] = base
+    DELAY_MAP[base] = delay
+end
+
+local function open(s)
+    local base = BASE_MAP[s:template()]
+    local delay = DELAY_MAP[base]
+    print(s:template(), base, delay)
+    s:replace(base .. '/opening')
+    s:set_timer(delay)
+end
+
+local function close(s)
+    local base = BASE_MAP[s:template()]
+    local delay = DELAY_MAP[base]
+    print('start closing')
+    s:replace(base .. '/closing')
+    s:set_timer(delay)
+end
+
+
 return {
     make_door = make_door,
+
+    register_anims = register_anims,
+    open = open,
+    close = close,
 }

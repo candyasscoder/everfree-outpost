@@ -41,6 +41,8 @@ function makeShaders(shaders, gl, assets, make_texture) {
     shaders.terrain = ctx.start('terrain2.vert', 'terrain2.frag', 2)
         .uniformVec2('cameraPos')
         .uniformVec2('cameraSize')
+        .uniformFloat('sliceRadius')
+        .uniformFloat('sliceZ')
         .attributes(new Attributes(SIZEOF.TerrainVertex)
                 .field(0, gl.UNSIGNED_BYTE, 2, 'corner')
                 .field(2, gl.UNSIGNED_BYTE, 3, 'blockPos')
@@ -82,38 +84,50 @@ function makeShaders(shaders, gl, assets, make_texture) {
     // Structure
     //
 
-    var struct_uniforms = new Uniforms()
+    var structure_uniforms = new Uniforms()
+        .vec2('cameraPos')
+        .vec2('cameraSize')
+        .float_('sliceRadius')
+        .float_('sliceZ');
+
+    var structure_attributes = new Attributes(SIZEOF.StructureBaseVertex)
+        .field( 0, gl.UNSIGNED_SHORT, 3, 'vertOffset')
+        .field( 8, gl.UNSIGNED_BYTE,  3, 'blockPos')
+        .field(11, gl.UNSIGNED_BYTE,  1, 'layer')
+        .field(12, gl.UNSIGNED_SHORT, 2, 'displayOffset');
+
+    var structure_textures = new Textures()
+        .texture('sheetTex', ctx.makeAssetTexture('structures0'));
 
     shaders.structure = ctx.start('structure2.vert', 'structure2.frag', 2)
-        .uniformVec2('cameraPos')
-        .uniformVec2('cameraSize')
-        .attributes(new Attributes(SIZEOF.StructureBaseVertex)
-                .field( 0, gl.UNSIGNED_BYTE,  2, 'corner')
-                .field( 2, gl.UNSIGNED_BYTE,  3, 'blockPos')
-                .field( 5, gl.UNSIGNED_BYTE,  1, 'layer')
-                .field( 8, gl.UNSIGNED_SHORT, 2, 'displaySize')
-                .field(12, gl.UNSIGNED_SHORT, 2, 'displayOffset'))
-        .texture('sheetTex', ctx.makeAssetTexture('structures0'))
-        .texture('depthTex', ctx.makeAssetTexture('structdepth0'))
+        .uniforms(structure_uniforms)
+        .attributes(structure_attributes)
+        .textures(structure_textures)
+        .finish();
+
+    shaders.structure_shadow = ctx.start('structure2.vert', 'structure2.frag', 1)
+        .define('OUTPOST_SHADOW', '1')
+        .uniforms(structure_uniforms)
+        .attributes(structure_attributes)
+        .textures(structure_textures)
         .finish();
 
     shaders.structure_anim = ctx.start('structure2.vert', 'structure2.frag', 2)
         .define('OUTPOST_ANIM', '1')
-        .uniformVec2('cameraPos')
-        .uniformVec2('cameraSize')
+        .uniforms(structure_uniforms)
         .uniformFloat('now')
         .attributes(new Attributes(SIZEOF.StructureAnimVertex)
-                .field( 0, gl.UNSIGNED_BYTE,  2, 'corner')
-                .field( 2, gl.UNSIGNED_BYTE,  3, 'blockPos')
-                .field( 5, gl.UNSIGNED_BYTE,  1, 'layer')
-                .field( 8, gl.UNSIGNED_SHORT, 2, 'displaySize')
-                .field(12, gl.UNSIGNED_SHORT, 2, 'displayOffset')
-                .field(16, gl.UNSIGNED_SHORT, 2, 'animPos')
-                .field(20, gl.BYTE,           1, 'animLength')
-                .field(21, gl.UNSIGNED_BYTE,  1, 'animRate')
-                .field(22, gl.UNSIGNED_SHORT, 1, 'animOneshotStart'))
+                .field( 0, gl.UNSIGNED_SHORT, 3, 'vertOffset')
+                .field( 6, gl.BYTE,           1, 'animLength')
+                .field( 7, gl.UNSIGNED_BYTE,  1, 'animRate')
+                .field( 8, gl.UNSIGNED_BYTE,  3, 'blockPos')
+                .field(11, gl.UNSIGNED_BYTE,  1, 'layer')
+                .field(12, gl.SHORT,          2, 'displayOffset')
+                .field(16, gl.UNSIGNED_SHORT, 1, 'animOneshotStart')
+                .field(18, gl.UNSIGNED_SHORT, 1, 'animStep')
+                .field(20, gl.UNSIGNED_SHORT, 2, 'animBoxMin')
+                .field(24, gl.UNSIGNED_SHORT, 2, 'animBoxSize'))
         .texture('sheetTex', ctx.makeAssetTexture('staticanim0'))
-        .texture('depthTex', ctx.makeAssetTexture('staticanimdepth0'))
         .finish();
 
 
@@ -138,6 +152,8 @@ function makeShaders(shaders, gl, assets, make_texture) {
         .attributes(blit_attributes)
         .textures(blit_textures)
         .texture('lightTex')
+        .texture('shadowTex')
+        .texture('shadowDepthTex')
         .finish();
 }
 exports.makeShaders = makeShaders;

@@ -1,3 +1,12 @@
+//! Lifecycle management of terrain chunks.  This system tracks reference counts for all loaded
+//! chunks.  External callers can request or release a particular chunk using the `load` and
+//! `unload` methods.  (These methods don't actually load or unload except when the reference count
+//! becomes non-/zero.)  The system itself only tracks reference counts - it relies on hooks
+//! (called a `Provider`) to do the actual loading and unloading.
+//!
+//! In the overall architecture, some pieces of `logic` will load and unload chunks based on player
+//! viewports, so that a certain amount of terrain surrounding each player is always loaded.  The
+//! `Provider` invokes either savefile handling or terrain generation to load/unload.
 use std::collections::HashMap;
 use std::collections::hash_map::Entry::*;
 use std::error::Error;

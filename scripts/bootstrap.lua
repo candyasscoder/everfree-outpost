@@ -1,9 +1,9 @@
 -- Override print to output to stderr.  stdout is used for communication with
 -- the server wrapper.
 function print(...)
-    s = ''
+    local s = ''
     for i = 1, select('#', ...) do
-        x = select(i, ...)
+        local x = select(i, ...)
         s = s .. tostring(x) .. '\t'
     end
     io.stderr:write(s .. '\n')
@@ -71,7 +71,7 @@ end
 
 -- 'tree' behavior
 function action.use.tree(c, s)
-    local count = c:pawn():inventory('main'):update('wood', 2)
+    c:pawn():inventory('main'):update('wood', 2)
 end
 
 function tools.handler.axe.tree(c, s, inv)
@@ -95,7 +95,7 @@ end
 
 -- 'rock' behavior
 function action.use.rock(c, s)
-    local count = c:pawn():inventory('main'):update('stone', 2)
+    c:pawn():inventory('main'):update('stone', 2)
 end
 
 function tools.handler.pick.rock(c, s, inv)

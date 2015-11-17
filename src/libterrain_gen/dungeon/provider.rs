@@ -16,6 +16,7 @@ use super::summary::PlaneSummary;
 
 use super::ENTRANCE_POS;
 use super::plan::Plan;
+use super::vault::Vault;
 use super::caves::Caves;
 
 
@@ -39,7 +40,7 @@ impl<'d> Provider<'d> {
     fn load_plane_summary(&mut self,
                           pid: Stable<PlaneId>) {
         if let Err(_) = self.plane_cache.load(pid, scalar(0)) {
-            Plan::new(self.rng.gen())
+            Plan::new(self.rng.gen(), self.data)
                 .generate_into(&mut self.plane_cache, pid, scalar(0));
         }
     }
@@ -50,7 +51,11 @@ impl<'d> Provider<'d> {
         self.load_plane_summary(pid);
         let plane_summ = self.plane_cache.get(pid, scalar(0));
 
-        Caves::new(self.rng.gen(), cpos, plane_summ)
+        let base = cpos * scalar(CHUNK_SIZE) - scalar(CHUNK_SIZE);
+        let bounds = Region::new(scalar(0), scalar(3 * CHUNK_SIZE)) + base;
+        let local_vaults = vaults_in_bounds(&plane_summ.vaults, bounds);
+
+        Caves::new(self.rng.gen(), cpos, plane_summ, &local_vaults)
             .generate_into(&mut self.cache, pid, cpos);
     }
 
@@ -70,11 +75,13 @@ impl<'d> Provider<'d> {
                 summ: self.cache.get(pid, cpos),
                 plane_summ: self.plane_cache.get(pid, scalar(0)),
                 cpos: cpos,
+                data: &self.data,
                 block_data: &self.data.block_data,
                 structure_templates: &self.data.structure_templates,
                 // Don't use layer 7.  Anything 2 blocks tall on that layer will have its top plane
                 // fail to render.  TODO: fix rendering so this doesn't happen
                 layer: 6,
+                vaults: Vec::new(),
             };
             ctx.gen();
         }
@@ -119,9 +126,11 @@ struct Context<'a> {
     summ: &'a ChunkSummary,
     plane_summ: &'a PlaneSummary,
     cpos: V2,
+    data: &'a Data,
     block_data: &'a BlockData,
     structure_templates: &'a StructureTemplates,
     layer: u8,
+    vaults: Vec<&'a Vault>,
 }
 
 impl<'a> Context<'a> {
@@ -147,9 +156,11 @@ impl<'a> Context<'a> {
 
 
     fn gen(&mut self) {
+        self.vaults = vaults_in_bounds(&self.plane_summ.vaults, self.global_bounds());
         self.gen_terrain();
-        self.gen_exit();
-        self.gen_rooms();
+        //self.gen_exit();
+        //self.gen_rooms();
+        self.gen_vaults();
     }
 
     fn gen_terrain(&mut self) {
@@ -164,18 +175,26 @@ impl<'a> Context<'a> {
             self.gc.set_block(pos.extend(layer_z + 1),
                               block_id!(self, "cave/{}/z1", cave_key));
         }
+
+        let bounds = self.global_bounds();
+        for v in &self.vaults {
+            v.gen_terrain(self.data, &mut *self.gc.blocks, bounds, self.layer);
+        }
     }
 
     fn gen_exit(&mut self) {
+        /*
         let exit_pos = ENTRANCE_POS + V2::new(0, -1);
         if self.global_bounds().contains(exit_pos) {
             let gs = GenStructure::new((exit_pos - self.base()).extend(self.layer_z()),
                                        template_id!(self, "dungeon_exit"));
             self.gc.structures.push(gs);
         }
+        */
     }
 
     fn gen_rooms(&mut self) {
+        /*
         for &pos in &self.plane_summ.vertices {
             if !self.global_bounds().contains(pos) || pos == ENTRANCE_POS {
                 continue;
@@ -190,6 +209,7 @@ impl<'a> Context<'a> {
                 _ => {},
             }
         }
+        */
     }
 
     fn gen_library(&mut self, room_center: V2) {
@@ -266,36 +286,24 @@ impl<'a> Context<'a> {
         }
         true
     }
-}
 
-/*
-
-fn gen_library<R: Rng>(rng: &mut R,
-                       gc: &mut GenChunk,
-                       summ: &ChunkSummary,
-                       room_center: V2) {
-    // Library
-    let w = rng.gen_range(3, 10);
-    let h = rng.gen_range(2, 6);
-    let room_base = room_center - V2::new(w / 2, h);
-
-    for y in 0 .. h {
-        for x in 0 .. w {
-            let pos = room_base + V2::new(x, y * 2);
-            if rng.gen_range(0, 10) < 3 {
-                continue;
-            }
-
-            let shelf_type = rng.gen_range(0, 10);
-            let book_count =
-                if shelf_type < 1 { 2 }
-                else if shelf_type < 3 { 1 }
-                else { 0 };
+    fn gen_vaults(&mut self) {
+        let bounds = self.global_bounds();
+        for v in &self.vaults {
+            v.gen_structures(self.data, &mut self.gc.structures, bounds, self.layer);
         }
     }
-
-    for off in Region::new(scalar(0), V2::new(w, h)) {
-        let off = V2::new(off.x, 2 * off.y);
-    }
 }
-*/
+
+fn vaults_in_bounds<'a>(vaults: &'a [Box<Vault>],
+                        bounds: Region<V2>) -> Vec<&'a Vault> {
+    let mut chunk_vaults = Vec::new();
+    for v in vaults {
+        if !v.bounds().overlaps_inclusive(bounds) {
+            continue;
+        }
+        chunk_vaults.push(&**v);
+    }
+    //info!("{} vaults in region {:?}", chunk_vaults.len(), bounds);
+    chunk_vaults
+}

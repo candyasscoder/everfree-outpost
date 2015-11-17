@@ -1,4 +1,4 @@
-var Asm = require('asmlibs').Asm;
+var AsmGraphics = require('asmlibs').AsmGraphics;
 var SIZEOF = require('asmlibs').SIZEOF;
 var getRendererHeapSize = require('asmlibs').getRendererHeapSize;
 var getGraphicsHeapSize = require('asmlibs').getGraphicsHeapSize;
@@ -24,6 +24,10 @@ var attribute = require('graphics/glutil').attribute;
 //var Named3D = require('graphics/draw/named').Named3D;
 //var PonyOutline3D = require('graphics/draw/ponyoutline').PonyOutline3D;
 var PonyAppearanceClass = require('graphics/appearance/pony').PonyAppearanceClass;
+
+var TimeSeries = require('util/timeseries').TimeSeries;
+var fstr1 = require('util/misc').fstr1;
+
 
 var CHUNK_PX = CHUNK_SIZE * TILE_SIZE;
 
@@ -54,6 +58,9 @@ function Renderer(gl) {
     this._asm = null;
 
     this.texture_cache = new WeakMap();
+
+    this.prep_time = new TimeSeries(5000);
+    this.render_time = new TimeSeries(5000);
 
     var r = this;
 
@@ -104,8 +111,9 @@ exports.Renderer = Renderer;
 
 // Renderer initialization
 
-Renderer.prototype.initData = function(blocks, templates) {
-    this._asm = new AsmGraphics(blocks.length, templates.length,
+Renderer.prototype.initData = function(blocks, templates, model_verts) {
+    this._asm = new AsmGraphics(
+            blocks.length, templates.length, model_verts.length / 3,
             512 * 1024, 512 * 1024);
 
     this._asm.terrainGeomInit();
@@ -116,6 +124,7 @@ Renderer.prototype.initData = function(blocks, templates) {
 
     this.loadBlockData(blocks);
     this.loadTemplateData(templates);
+    this.loadModels(model_verts);
 };
 
 Renderer.prototype.initGl = function(assets) {
@@ -144,10 +153,8 @@ Renderer.prototype._initFramebuffers = function(sw, sh) {
     this.fb_post = new Framebuffer(this.gl, sw, sh, 1, false);
 
     // Temporary framebuffer for storing shadows and other translucent parts
-    // during structure rendering.  This doesn't depend on the screen size,
-    // which is why it's not in _initFramebuffers with the rest.
-    // TODO
-    //this.fb_shadow = new Framebuffer(this.gl, CHUNK_PX, CHUNK_PX, 1);
+    // during structure rendering.
+    this.fb_shadow = new Framebuffer(this.gl, sw, sh, 1);
 
     this.last_sw = sw;
     this.last_sh = sh;
@@ -247,21 +254,29 @@ Renderer.prototype.loadTemplateData = function(templates) {
         out8(   3, template.sheet);
         out16(  4, template.display_size, 2);
         out16(  8, template.display_offset, 2);
-        out8(  12, template.layer);
-        out8(  13, template.flags);
+        out16( 12, template.model_offset);
+        out16( 14, template.model_length);
+        out8(  16, template.layer);
+        out8(  17, template.flags);
 
-        out8(  14, template.anim_sheet);
+        out8(  18, template.anim_sheet);
         var oneshot_length = template.anim_length * (template.anim_oneshot ? -1 : 1);
-        out8(  15, oneshot_length);
-        out8(  16, template.anim_rate);
-        out16( 18, template.anim_offset, 2);
-        out16( 22, template.anim_pos, 2);
-        out16( 26, template.anim_size, 2);
+        out8(  19, oneshot_length);
+        out8(  20, template.anim_rate);
+        out16( 22, template.anim_offset, 2);
+        out16( 26, template.anim_pos, 2);
+        out16( 30, template.anim_size, 2);
 
-        out8(  30, template.light_pos, 3);
-        out8(  33, template.light_color, 3);
-        out16( 36, template.light_radius);
+        out8(  34, template.light_pos, 3);
+        out8(  37, template.light_color, 3);
+        out16( 40, template.light_radius);
     }
+};
+
+Renderer.prototype.loadModels = function(verts) {
+    console.assert(SIZEOF.ModelVertex == 6);
+    var view = this._asm.modelVertexView();
+    view.set(verts);
 };
 
 Renderer.prototype.addStructure = function(now, id, x, y, z, template) {
@@ -312,13 +327,25 @@ Renderer.prototype.render = function(s, draw_extra) {
 
     var pos = s.camera_pos;
     var size = s.camera_size;
+    var slice_radius = [s.slice_frac * Math.max(size[0], size[1]) / 2.0];
+    var slice_z = [s.slice_z];
 
     this.terrain.setUniformValue('cameraPos', pos);
     this.terrain.setUniformValue('cameraSize', size);
+    this.terrain.setUniformValue('sliceRadius', slice_radius);
+    this.terrain.setUniformValue('sliceZ', slice_z);
     this.structure.setUniformValue('cameraPos', pos);
     this.structure.setUniformValue('cameraSize', size);
+    this.structure.setUniformValue('sliceRadius', slice_radius);
+    this.structure.setUniformValue('sliceZ', slice_z);
+    this.structure_shadow.setUniformValue('cameraPos', pos);
+    this.structure_shadow.setUniformValue('cameraSize', size);
+    this.structure_shadow.setUniformValue('sliceRadius', slice_radius);
+    this.structure_shadow.setUniformValue('sliceZ', slice_z);
     this.structure_anim.setUniformValue('cameraPos', pos);
     this.structure_anim.setUniformValue('cameraSize', size);
+    this.structure_anim.setUniformValue('sliceRadius', slice_radius);
+    this.structure_anim.setUniformValue('sliceZ', slice_z);
     this.light_static.setUniformValue('cameraPos', pos);
     this.light_static.setUniformValue('cameraSize', size);
     this.light_dynamic.setUniformValue('cameraPos', pos);
@@ -337,25 +364,17 @@ Renderer.prototype.render = function(s, draw_extra) {
         this._initFramebuffers(size[0], size[1]);
     }
 
+    var this_ = this;
 
-    // Populate the terrain caches.
+
+    // Populate the geometry buffers.
+
+    var start_prep = Date.now();
+
     var cx0 = ((pos[0]|0) / CHUNK_PX)|0;
     var cx1 = (((pos[0]|0) + (size[0]|0) + CHUNK_PX) / CHUNK_PX)|0;
     var cy0 = ((pos[1]|0) / CHUNK_PX)|0;
     var cy1 = (((pos[1]|0) + (size[1]|0) + CHUNK_PX) / CHUNK_PX)|0;
-
-    var chunk_idxs = new Array((cx1 - cx0) * (cy1 - cy0));
-
-    var i = 0;
-    for (var cy = cy0; cy < cy1; ++cy) {
-        for (var cx = cx0; cx < cx1; ++cx) {
-            var idx = ((cy & (LOCAL_SIZE - 1)) * LOCAL_SIZE) + (cx & (LOCAL_SIZE - 1));
-            chunk_idxs[i] = idx;
-            ++i;
-        }
-    }
-
-    var this_ = this;
 
     // Terrain from the chunk below can cover the current one.
     this.terrain_buf.prepare(cx0, cy0, cx1, cy1 + 1);
@@ -366,6 +385,10 @@ Renderer.prototype.render = function(s, draw_extra) {
     // Light from any adjacent chunk can extend into the current one.
     this.light_buf.prepare(cx0 - 1, cy0 - 1, cx1 + 1, cy1 + 1);
 
+    var end_prep = Date.now();
+
+
+    var start_render = end_prep;
 
     // Render everything into the world framebuffer.
 
@@ -398,6 +421,14 @@ Renderer.prototype.render = function(s, draw_extra) {
                 sprite.appearance.draw3D(fb_idx, this_, sprite, s.slice_frac);
             }
         }
+    });
+
+    this.fb_shadow.use(function(fb_idx) {
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        var buf = this_.structure_buf.getBuffer();
+        var len = this_.structure_buf.getSize();
+        this_.structure_shadow.draw(fb_idx, 0, len / SIZEOF.StructureBaseVertex, {}, {'*': buf}, {});
     });
 
     gl.disable(gl.DEPTH_TEST);
@@ -454,6 +485,8 @@ Renderer.prototype.render = function(s, draw_extra) {
             'image1Tex': this_.fb_world.textures[1],
             'lightTex': this_.fb_light.textures[0],
             'depthTex': this_.fb_world.depth_texture,
+            'shadowTex': this_.fb_shadow.textures[0],
+            'shadowDepthTex': this_.fb_shadow.depth_texture,
         });
 
         draw_extra(idx, this_);
@@ -467,8 +500,25 @@ Renderer.prototype.render = function(s, draw_extra) {
     this.blit_full.draw(0, 0, 6, {}, {}, {
         'imageTex': this.fb_post.textures[0],
     });
+
+
+    var end_render = Date.now();
+    this.prep_time.record(end_prep, end_prep - start_prep);
+    this.render_time.record(end_render, end_render - start_render);
 };
 
 Renderer.prototype.renderSpecial = function(fb_idx, sprite) {
     sprite.appearance.draw3D(fb_idx, this, sprite, 0);
+};
+
+
+Renderer.prototype.getDebugHTML = function() {
+    var prep_sum = this.prep_time.sum;
+    var prep_ms = this.prep_time.sum / this.prep_time.count;
+    var render_ms = this.render_time.sum / this.render_time.count;
+    return (
+        'Prep: ' + fstr1(prep_ms) + ' ms<br>' +
+        'Prep (sum): ' + prep_sum + ' ms<br>' +
+        'Render: ' + fstr1(render_ms) + ' ms'
+        );
 };

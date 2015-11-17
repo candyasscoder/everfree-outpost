@@ -1,0 +1,67 @@
+# This file defines some new objects that the mod adds to the game data.  The
+# main object types are structures, items, and recipes.  Each section defines
+# one new object.  See `doc/data-defs.md` in the Everfree Outpost source code
+# for the full details, or `data/test2.od` for other examples.
+
+# This section defines a new structure that can be placed in the world.  The
+# internal name of the structure is `ore_vein/copper`.
+[structure ore_vein/copper]
+# The appearance of the structure is determined by its image and also partly by
+# its model.  The image for this structure is `structures/ore-vein.png` in the
+# `assets` directory (all image paths are relative to `assets/`).
+image: "structures/ore-vein.png"
+# The 3D model for this structure should cover only the front side of a
+# 1x1x1-block region.  Since each block is 32x32x32 pixels, the front side of a
+# block is 32x32, which exactly matches the size of the `ore-vein.png` image.
+model: `models.front(1, 1, 1)`
+# The shape of the structure for collision-detection purposes is a solid cube,
+# 1x1x1 block in size.  The size here should correspond to the size of the
+# model.
+shape: solid(1, 1, 1)
+# This structure will reside on layer 1.  This controls what types of
+# structures it can overlap with.  Layer 1 is the most common layer for solid
+# structures.
+layer: 1
+
+# This section defines a new item.  Its internal name is `ore/copper`.
+[item ore/copper]
+# The `icon` field sets the icon used to display the item in the player's
+# inventory.  This path is relative to the `assets/` directory, just like the
+# structure `image` field.  Item icons should be 16x16 pixels (some old items
+# use 32x32, but this needs to be changed.)
+icon: "icons/ore-copper.png"
+# The `display_name` is the name that players will actually see in the
+# inventory, crafting menus, etc.  
+display_name: "Copper Ore"
+
+[item bar/copper]
+icon: "icons/bar-copper.png"
+display_name: "Copper Bar"
+
+# This section defines a recipe.  If the player is at an appropriate crafting
+# station, they can use the recipe to turn the inputs into the outputs.
+[recipe pick/copper]
+# Just like for items, the `display_name` is the name players will see in the
+# crafting menu.  (Players never see internal names like `pick/copper`.)
+display_name: "Copper Pickaxe"
+# The `station` is the (internal) name of the structure the player must use to
+# craft this recipe.  In this case, the player can only use this recipe at an
+# anvil.
+station: anvil
+# This recipe turns 10 wood and 3 copper bars into 20 pickaxes.  All three
+# lines use the internal names to refer to the input/output items.
+input: 10 wood
+input: 3 bar/copper
+output: 20 pick
+# Note that it's possible to make a recipe that produces two or more different
+# types of items, by adding more than one `output` line.
+
+[recipe bar/copper]
+# The `from_item` field is shorthand to let you define a recipe that is based
+# on a specific item.  This automatically sets the `display_name` to the
+# `display_name` of the item, and sets one copy of the item itself as the
+# recipe's `output`.
+from_item: bar/copper
+station: anvil
+input: 1 ore/copper
+

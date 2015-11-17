@@ -56,6 +56,16 @@ Deque.prototype.forEach = function(f) {
 };
 
 
+exports.fstr1 = function(x) {
+    var y = Math.round(x * 10) / 10;
+    if (y % 1 == 0) {
+        return y + '.0';
+    } else {
+        return y + '';
+    }
+};
+
+
 exports.rle16Decode = function(input, output) {
     var j = 0;
     for (var i = 0; i < input.length; ++i) {

@@ -8,6 +8,7 @@ extern crate time;
 extern crate server_types as libserver_types;
 
 use std::io;
+use std::iter;
 use std::mem;
 use std::raw;
 
@@ -91,3 +92,42 @@ pub fn filter_in_place<T, F: FnMut(&T) -> bool>(vec: &mut Vec<T>, mut f: F) {
         }
     }
 }
+
+
+pub unsafe fn write_vec<W: io::Write, T>(w: &mut W, v: &Vec<T>) -> io::Result<()> {
+    write_array(w, v)
+}
+
+pub unsafe fn read_vec<R: io::Read, T>(r: &mut R) -> io::Result<Vec<T>> {
+    use self::bytes::ReadBytes;
+    let len = try!(r.read_bytes::<u32>()) as usize;
+    let mut v = Vec::with_capacity(len);
+    v.set_len(len);
+    try!(r.read_exact(transmute_slice_mut(&mut v)));
+    Ok(v)
+}
+
+pub unsafe fn write_array<W: io::Write, T>(w: &mut W, v: &[T]) -> io::Result<()> {
+    use self::bytes::WriteBytes;
+    try!(w.write_bytes(v.len().to_u32().unwrap()));
+    try!(w.write_all(transmute_slice(v)));
+    Ok(())
+}
+
+pub unsafe fn read_array<R: io::Read, T>(r: &mut R) -> io::Result<Box<[T]>> {
+    read_vec(r).map(|v| v.into_boxed_slice())
+}
+
+
+pub fn make_array<T: Copy>(init: T, len: usize) -> Box<[T]> {
+    iter::repeat(init).take(len).collect::<Vec<_>>().into_boxed_slice()
+}
+
+pub fn make_array_with<T, F: FnMut() -> T>(len: usize, mut f: F) -> Box<[T]> {
+    let mut v = Vec::with_capacity(len);
+    for _ in 0 .. len {
+        v.push(f());
+    }
+    v.into_boxed_slice()
+}
+

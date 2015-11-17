@@ -9,10 +9,21 @@ precision mediump float;
 #endif
 
 uniform sampler2D atlasTex;
+uniform vec2 cameraSize;
+uniform float sliceRadius;
+uniform float sliceZ;
 
 varying vec2 texCoord;
+varying float baseZ;
 
 void main(void) {
+    if (sliceRadius > 0.0 && baseZ >= sliceZ) {
+        vec2 pixelPos = gl_FragCoord.xy - cameraSize * 0.5;
+        if (dot(pixelPos, pixelPos) < sliceRadius * sliceRadius) {
+            discard;
+        }
+    }
+
     vec4 color = texture2D(atlasTex, texCoord);
     if (color.a == 0.0) {
         discard;

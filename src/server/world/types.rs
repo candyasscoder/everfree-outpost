@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::u8;
 
 use types::*;
 
@@ -6,6 +7,7 @@ use input::InputBits;
 
 pub use super::World;
 pub use super::{Client, Entity, Inventory, Plane, TerrainChunk, Structure};
+pub use super::Item;
 
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -101,11 +103,41 @@ impl super::Entity {
 }
 
 impl super::Inventory {
-    pub fn count(&self, item_id: ItemId) -> u8 {
-        self.contents.get(&item_id).map_or(0, |&x| x)
+    /// Count the number of items with the given ID.  The count may be as high as 255 * 255.
+    pub fn count(&self, item_id: ItemId) -> u16 {
+        let mut total = 0;
+        for slot in &*self.contents {
+            match *slot {
+                Item::Bulk(count, slot_item_id) if slot_item_id == item_id => {
+                    total += count as u16;
+                },
+                Item::Special(_, slot_item_id) if slot_item_id == item_id => {
+                    total += 1;
+                },
+                _ => {},
+            }
+        }
+        total
     }
 
-    pub fn contents(&self) -> &HashMap<ItemId, u8> {
+    /// Count the amount of space remaining for storing items with the given ID.
+    pub fn count_space(&self, item_id: ItemId) -> u16 {
+        let mut total = 0;
+        for slot in &*self.contents {
+            match *slot {
+                Item::Bulk(count, slot_item_id) if slot_item_id == item_id => {
+                    total += (u8::MAX - count) as u16;
+                },
+                Item::Empty => {
+                    total += u8::MAX as u16;
+                }
+                _ => {},
+            }
+        }
+        total
+    }
+
+    pub fn contents(&self) -> &[Item] {
         &self.contents
     }
 

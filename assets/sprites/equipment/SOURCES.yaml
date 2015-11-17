@@ -6,4 +6,7 @@ witch-hat-?.*:
 explorer-hat.*:
     title: Explorer Hat
     author: Nonnykins
-    license: CC-BY-SA 3.0 / GPL 3.0
+
+party-hat*.*:
+    title: Party Hat
+    author: Stuart Pernsteiner

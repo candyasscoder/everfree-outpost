@@ -134,6 +134,9 @@ class Page(object):
         return None
 
 def pack_boxes(page_size, boxes):
+    """Pack a list of boxes (`(w, h)` pairs) into pages of size `page_size`
+    (`(page_w, page_h)`).  Returns the number of generated pages and a list
+    containing `(page_idx, (x, y))` for each input box."""
     def key(b):
         i, (w, h) = b
         return (w * h, h, w)
@@ -162,6 +165,36 @@ def pack_boxes(page_size, boxes):
     assert not any(r is None for r in result)
     return len(pages), result
 
+def pack_boxes_uniform(page_size, n):
+    """Like `pack_boxes`, but for `n` boxes each of size `(1, 1)`."""
+    w, h = page_size
+    num_per_page = w * h
+
+    def go():
+        for i in range(n):
+            page = i // num_per_page
+
+            idx = i % num_per_page
+            x = idx % w
+            y = idx // w
+
+            yield page, (x, y)
+
+    return (n + num_per_page - 1) // num_per_page, go()
+
+def build_sheets(imgs, offsets, num_pages, page_size, scale):
+    """Given a list of images and the output of `pack_boxes`, paste the images
+    together into `num_pages` sheets.  The `scale` argument (`(sx, sy)`) gives
+    the pixel size of a (1, 1) `pack_boxes` box."""
+    sx, sy = scale if isinstance(scale, tuple) else (scale, scale)
+    pw, ph = page_size
+
+    sheets = [Image.new('RGBA', (pw * sx, ph * sy)) for _ in range(num_pages)] 
+
+    for img, (page, (x, y)) in zip(imgs, offsets):
+        sheets[page].paste(img, (x * sx, y * sy))
+
+    return sheets
 
 def build_sheet(objs):
     """Build a sprite sheet for fixed-size objects.  Each object should have
@@ -188,6 +221,57 @@ def build_sheet(objs):
     return sheet
 
 
+def dedupe_images(imgs):
+    """Deduplicate a set of images.  Returns a list of images and a dict
+    `mapping id(i)` to the index of (an image identical to) `i` in the list."""
+    idx_map = {}
+    result = []
+
+    # Maps hash(i) to an association list of (i, val) pairs.
+    hash_map = {}
+    def find_or_insert(i, val):
+        """Return the value in `hash_map` for image `i`, or insert `val` as the
+        value and return `None`."""
+        h = 0
+        for x in i.getdata():
+            h = (h * 37 + hash(x)) & 0xffffffff
+
+        if h in hash_map:
+            # Check every image in the selected bucket.
+            for (i2, val2) in hash_map[h]:
+                if i.size == i2.size and i.mode == i2.mode and \
+                        all(a == b for a,b in zip(i.getdata(), i2.getdata())):
+                    return val2
+
+            # Not in the bucket, so add it.
+            hash_map[h].append((i, val))
+            return None
+        else:
+            # Create a new bucket for this image.
+            hash_map[h] = [(i, val)]
+            return None
+
+    for i in imgs:
+        if id(i) not in idx_map:
+            next_idx = len(result)
+            old_idx = find_or_insert(i, next_idx)
+            if old_idx is None:
+                # Wasn't found in the hash map.  Add to `result`.
+                idx_map[id(i)] = next_idx
+                result.append(i)
+            else:
+                idx_map[id(i)] = old_idx
+
+    return result, idx_map
+
+
+def extract_mod_name(module_name):
+    if module_name.startswith('outpost_data.'):
+        parts = module_name.split('.')
+        if parts[1] != 'core':
+            return parts[1]
+    return None
+
 def get_caller_mod_name():
     stack = inspect.stack()
     try:
@@ -195,11 +279,9 @@ def get_caller_mod_name():
             module = inspect.getmodule(frame[0])
             if module is None:
                 continue
-            if module.__name__.startswith('outpost_data.'):
-                parts = module.__name__.split('.')
-                if parts[1] == 'core':
-                    continue
-                return parts[1]
+            mod_name = extract_mod_name(module.__name__)
+            if mod_name is not None:
+                return mod_name
         raise ValueError("couldn't detect calling module name")
     finally:
         del stack

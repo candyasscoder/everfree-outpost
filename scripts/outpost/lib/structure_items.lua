@@ -8,7 +8,7 @@ local function place_structure(world, inv, plane, pos, item_name, template_name)
         return
     end
 
-    s, err = world:create_structure(plane, pos, template_name)
+    local s, err = world:create_structure(plane, pos, template_name)
 
     if s ~= nil then
         s:attach_to_chunk()

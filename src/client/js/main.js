@@ -162,15 +162,11 @@ function init() {
 
     canvas = new AnimCanvas(frame, 'webgl', [
             'WEBGL_depth_texture',
-            'EXT_frag_depth',
             'WEBGL_draw_buffers',
     ]);
 
     if (!glutil.hasExtension(canvas.ctx, 'WEBGL_depth_texture')) {
         throw 'missing extension: WEBGL_depth_texture';
-    }
-    if (!glutil.hasExtension(canvas.ctx, 'EXT_frag_depth')) {
-        throw 'missing extension: EXT_frag_depth';
     }
     if (!glutil.hasExtension(canvas.ctx, 'WEBGL_draw_buffers')) {
         console.warn('missing optional extension: WEBGL_draw_buffers - ' +
@@ -294,7 +290,7 @@ function loadAssets(next) {
 
             ExtraDefs.init(assets['extra_defs']);
 
-            renderer.initData(BlockDef.by_id, TemplateDef.by_id);
+            renderer.initData(BlockDef.by_id, TemplateDef.by_id, assets['model_defs']);
 
             var css = '.item-icon {' +
                 'background-image: url("' + assets['items'] + '");' +
@@ -340,6 +336,7 @@ function openConn(info, next) {
     conn.onGetUseItemArgs = handleGetUseItemArgs;
     conn.onGetUseAbilityArgs = handleGetUseAbilityArgs;
     conn.onSyncStatus = handleSyncStatus;
+    conn.onStructureReplace = handleStructureReplace;
 }
 
 function maybeRegister(info, next) {
@@ -623,7 +620,7 @@ function setupKeyHandler() {
 
                     ui.oncancel = function() {
                         dialog.hide();
-                        inv.unsubscribe();
+                        inv.release();
                     };
                     break;
 
@@ -642,7 +639,7 @@ function setupKeyHandler() {
 
                     ui.oncancel = function() {
                         dialog.hide();
-                        inv.unsubscribe();
+                        inv.release();
                     };
                     break;
 
@@ -799,10 +796,10 @@ function handleUnloadChunk(idx) {
 function handleOpenDialog(idx, args) {
     if (idx == 0) {
         // Cancel server-side subscription.
-        inv_tracker.subscribe(args[0]).unsubscribe();
+        inv_tracker.unsubscribe(args[0]);
     } else if (idx == 1) {
-        var inv1 = inv_tracker.subscribe(args[0]);
-        var inv2 = inv_tracker.subscribe(args[1]);
+        var inv1 = inv_tracker.get(args[0]);
+        var inv2 = inv_tracker.get(args[1]);
 
         var ui = new ContainerUI(inv1, inv2);
         dialog.show(ui);
@@ -819,7 +816,7 @@ function handleOpenDialog(idx, args) {
 }
 
 function handleOpenCrafting(station_type, station_id, inventory_id) {
-    var inv = inv_tracker.subscribe(inventory_id);
+    var inv = inv_tracker.get(inventory_id);
 
     var ui = new CraftingUI(station_type, station_id, inv);
     dialog.show(ui);
@@ -877,6 +874,7 @@ function handleStructureAppear(id, template_id, x, y, z) {
 }
 
 function handleStructureGone(id, time) {
+    // TODO: pay attention to the time
     if (structures[id] != null) {
         physics.removeStructure(structures[id]);
 
@@ -887,11 +885,20 @@ function handleStructureGone(id, time) {
     delete structures[id];
 }
 
+function handleStructureReplace(id, template_id) {
+    if (structures[id] != null) {
+        var now = timing.visibleNow();
+        var pos = structures[id].pos.mulScalar(TILE_SIZE);
+        handleStructureGone(id, now);
+        handleStructureAppear(id, template_id, pos.x, pos.y, pos.z);
+    }
+}
+
 function handleMainInventory(iid) {
     if (item_inv != null) {
         item_inv.unsubscribe();
     }
-    item_inv = inv_tracker.subscribe(iid);
+    item_inv = inv_tracker.get(iid);
     hotbar.attachItems(item_inv.clone());
     if (Config.show_inventory_updates.get()) {
         inv_update_list.attach(item_inv.clone());
@@ -902,7 +909,7 @@ function handleAbilityInventory(iid) {
     if (ability_inv != null) {
         ability_inv.unsubscribe();
     }
-    ability_inv = inv_tracker.subscribe(iid);
+    ability_inv = inv_tracker.get(iid);
     hotbar.attachAbilities(ability_inv.clone());
 }
 
@@ -1193,4 +1200,5 @@ function frame(ac, client_now) {
     debug.frameEnd();
     debug.updateJobs(runner);
     debug.updateTiming(timing);
+    debug.updateGraphics(renderer);
 }

@@ -1,6 +1,5 @@
 from ..core.builder import *
 from ..core.images import loader
-from ..core import depthmap
 from ..core.structure import Shape
 from ..core.util import chop_image_named, chop_terrain, stack
 
@@ -53,6 +52,7 @@ def mk_cave_inside(img, basename, dirt):
 
 def init():
     tiles = loader('tiles')
+    icons = loader('icons')
 
     dirt2 = chop_terrain(tiles('lpc-base-tiles/dirt2.png'))
     cave_floor = dirt2['center/v0']
@@ -65,3 +65,7 @@ def init():
             .light((255, 100, 0), 50)
 
     mk_floor_blocks(tiles('lpc-base-tiles/holemid.png'), 'cave_pit', base_img=cave_floor)
+
+    mk_item('key', 'Key', icons('key.png'))
+    mk_item('key/master', 'Skeleton Key', icons('key.png')) \
+            .recipe('anvil', {'key': 100})

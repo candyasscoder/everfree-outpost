@@ -1,0 +1,64 @@
+[structure road]
+multi_names: `TERRAIN_PARTS2.keys()`
+image: `load("structures/road.png").chop(TERRAIN_PARTS2, unit=TILE_SIZE)`
+model: `models.bottom(1, 1)`
+shape: floor(1, 1, 1)
+layer: 0
+
+[item road]
+from_structure: road/center/v0
+display_name: "Road"
+
+[recipe road]
+from_item: road
+station: anvil
+input: 5 stone
+
+
+[structure anvil]
+image: "structures/anvil.png"
+model: `models.front(1, 1, 1)`
+shape: solid(1, 1, 1)
+layer: 1
+
+[item anvil]
+from_structure: anvil
+display_name: "Anvil"
+
+[recipe anvil]
+from_item: anvil
+station: anvil
+input: 10 wood
+input: 10 stone
+
+
+[structure chest]
+image: "structures/chest.png"
+model: `models.front(1, 1, 1)`
+shape: solid(1, 1, 1)
+layer: 1
+
+[item chest]
+from_structure: chest
+display_name: "Chest"
+
+[recipe chest]
+from_item: chest
+station: anvil
+input: 20 wood
+
+
+[structure barrel]
+image: "structures/barrel.png"
+model: `models.solid(1, 1, 1)`
+shape: solid(1, 1, 1)
+layer: 1
+
+[item barrel]
+from_structure: barrel
+display_name: "Barrel"
+
+[recipe barrel]
+from_item: barrel
+station: anvil
+input: 20 wood

@@ -133,7 +133,7 @@ macro_rules! process_objects {
                 id InventoryId;
                 map inventories;
                 module inventory;
-                lifecycle ()
+                lifecycle (size: u8)
                     create_inventory [id -> id],
                     destroy_inventory,
                 lookups [id -> id]

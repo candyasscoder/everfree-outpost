@@ -1,3 +1,16 @@
+//! Terrain generation.  This system is actually an interface to `libterrain_gen`, which contains
+//! the real terrain generation logic.
+//!
+//! Terrain generation can be slow (>30ms), so it always happens in the background on a worker
+//! thread.  When a caller requests that a chunk be generated, this system sends a request to the
+//! worker thread and returns immediately with a blank `TerrainChunk`.  When the worker thread
+//! finishes generating that chunk, the system replaces the blank `TerrainChunk` with the final
+//! version.
+//!
+//! In the overall architecture, the `TerrainGen` system is used to implement part of the
+//! `chunks::Provider`, which is responsible for loading or generating new chunks.  It also
+//! interfaces with the main `Enigne` loop so that "terrain gen finished" messages can be handled
+//! immediately.
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::thread::{self, JoinGuard};
 

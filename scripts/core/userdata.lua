@@ -84,3 +84,11 @@ end
 function outpost_ffi.types.Client.table.send_message(c, msg)
     c:send_message_raw('***\t' .. msg)
 end
+
+function outpost_ffi.types.Inventory.table.update(i, item, amount)
+    if amount > 0 then
+        i:bulk_add(item, amount)
+    else
+        i:bulk_remove(item, -amount)
+    end
+end

@@ -1,11 +1,11 @@
 from ..core.builder import *
-from ..core import depthmap
 from ..core.images import loader
 from ..core.structure import Shape
 from ..core.util import chop_image, chop_image_named, chop_terrain, stack, extract
 
-from .lib.structures import mk_solid_small
+from .lib.structures import *
 from .lib.terrain import *
+from outpost_data.outpost.lib import models
 
 
 def mk_cave_walls(img_grass, img_dirt, img_cave_walls, basename):
@@ -348,6 +348,15 @@ def mk_natural_ramp(ramp_img, cave2_img, floor_imgs, basename):
 
     return blks
 
+def mk_cave_interior_door(basename, doorway_img, door_img, **kwargs):
+    model = models.solid(3, 1, 2)
+    # TODO: shouldn't need to do this
+    door_img2 = Image.new('RGBA', (door_img.size[0], door_img.size[1] * 3 // 2 + 2 * TILE_SIZE))
+    for i in range(door_img.size[1] // (2 * TILE_SIZE)):
+        part = extract(door_img, (0, i * 2), size=(3, 2))
+        door_img2.paste(part, (0, (i * 3 + 1) * TILE_SIZE))
+    return mk_door_anim(basename, doorway_img, model, door_img2, **kwargs)
+
 
 def init():
     tiles = loader('tiles')
@@ -372,3 +381,14 @@ def init():
 
     floor_imgs = {'grass': grass, 'dirt': dirt}
     mk_natural_ramp(tiles('outdoor-ramps.png'), cave2, floor_imgs, 'natural_ramp')
+
+
+    mk_cave_interior_door('dungeon/door/key',
+            structures('cave-doorway-keyhole.png'),
+            structures('cave-door.png'),
+            framerate=16)
+
+    mk_cave_interior_door('dungeon/door/puzzle',
+            structures('cave-doorway-plain.png'),
+            structures('cave-door.png'),
+            framerate=16)

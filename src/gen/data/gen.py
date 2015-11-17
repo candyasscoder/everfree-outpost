@@ -3,13 +3,13 @@ import json
 import os
 
 
-from . import builder, images, loader, util
-from . import structure, tile, block, item, recipe, animation, attachment, extra
+from . import builder, builder2, files, loader, util
+from . import structure, block, item, recipe, animation, attachment, loot_table, extra
+from outpost_data.core.loader import TimeIt
 
 
 IdMaps = namedtuple('IdMaps', (
     'structures',
-    'tiles',
     'blocks',
     'items',
     'recipes',
@@ -18,10 +18,19 @@ IdMaps = namedtuple('IdMaps', (
     'attachments_by_slot',
 ))
 
+def copy_builder2_to_builder(b):
+    def dump(k, lst):
+        for proto in builder2.INSTANCES[k]._dct.values():
+            lst.append(proto.instantiate())
+    dump('block', b.blocks)
+    dump('structure', b.structures)
+    dump('item', b.items)
+    dump('recipe', b.recipes)
+    dump('loot_table', b.loot_tables)
+
 def postprocess(b):
     id_maps = IdMaps(
         util.assign_ids(b.structures),
-        util.assign_ids(b.tiles, {'empty'}),
         util.assign_ids(b.blocks, {'empty', 'placeholder'}),
         util.assign_ids(b.items, {'none'}),
         util.assign_ids(b.recipes),
@@ -30,9 +39,9 @@ def postprocess(b):
         dict((s.name, util.assign_ids(s.variants, {'none'})) for s in b.attach_slots),
     )
 
-    block.resolve_tile_ids(b.blocks, id_maps.tiles)
     recipe.resolve_item_ids(b.recipes, id_maps.items)
     recipe.resolve_structure_ids(b.recipes, id_maps.structures)
+    loot_table.resolve_object_ids(b.loot_tables, id_maps)
     extra.resolve_all(b.extras, b, id_maps)
 
 def write_json(output_dir, basename, j):
@@ -40,36 +49,40 @@ def write_json(output_dir, basename, j):
         json.dump(j, f)
 
 def emit_structures(output_dir, structures):
+    # Handle sheet images
     for f in os.listdir(output_dir):
         if (f.startswith('structures') or f.startswith('structdepth')) and f.endswith('.png'):
             os.remove(os.path.join(output_dir, f))
 
     sheet_names = set()
     sheets = structure.build_sheets(structures)
-    for i, (image, depthmap) in enumerate(sheets):
-        sheet_names.update(('structures%d' % i, 'structdepth%d' % i))
+    for i, image in enumerate(sheets):
+        sheet_names.update(('structures%d' % i,))
         image.save(os.path.join(output_dir, 'structures%d.png' % i))
-        depthmap.save(os.path.join(output_dir, 'structdepth%d.png' % i))
 
     anim_sheets = structure.build_anim_sheets(structures)
-    for i, (image, depthmap) in enumerate(anim_sheets):
-        sheet_names.update(('staticanim%d' % i, 'staticanimdepth%d' % i))
+    for i, image in enumerate(anim_sheets):
+        sheet_names.update(('staticanim%d' % i,))
         image.save(os.path.join(output_dir, 'staticanim%d.png' % i))
-        depthmap.save(os.path.join(output_dir, 'staticanimdepth%d.png' % i))
 
+    write_json(output_dir, 'structures_list.json', sorted(sheet_names))
+
+    # Handle models
+    models = structure.collect_models(structures)
+    write_json(output_dir, 'models_client.json',
+            structure.build_model_json(models))
+
+    # Emit actual structure json
     write_json(output_dir, 'structures_server.json',
             structure.build_server_json(structures))
 
     write_json(output_dir, 'structures_client.json',
             structure.build_client_json(structures))
 
-    write_json(output_dir, 'structures_list.json', sorted(sheet_names))
-
-def emit_tiles(output_dir, tiles):
-    sheet = util.build_sheet(tiles)
+def emit_blocks(output_dir, blocks):
+    sheet = block.build_sheet(blocks)
     sheet.save(os.path.join(output_dir, 'tiles.png'))
 
-def emit_blocks(output_dir, blocks):
     write_json(output_dir, 'blocks_server.json',
             block.build_server_json(blocks))
 
@@ -77,7 +90,7 @@ def emit_blocks(output_dir, blocks):
             block.build_client_json(blocks))
 
 def emit_items(output_dir, items):
-    sheet = util.build_sheet(items)
+    sheet = item.build_sheet(items)
     sheet.save(os.path.join(output_dir, 'items.png'))
 
     write_json(output_dir, 'items_server.json',
@@ -122,34 +135,50 @@ def emit_attach_slots(output_dir, attach_slots):
     write_json(output_dir, 'attach_slots_client.json',
             attachment.build_client_json(attach_slots))
 
+def emit_loot_tables(output_dir, loot_tables):
+    write_json(output_dir, 'loot_tables_server.json',
+            loot_table.build_server_json(loot_tables))
+
 def emit_extras(output_dir, extras):
     write_json(output_dir, 'extras_client.json',
             extra.build_client_json(extras))
 
+def time(msg, f, *args):
+    with TimeIt('  %s' % msg):
+        f(*args)
+
 def generate(output_dir):
     b = builder.INSTANCE
+    copy_builder2_to_builder(b)
     postprocess(b)
 
-    emit_structures(output_dir, b.structures)
-    emit_tiles(output_dir, b.tiles)
-    emit_blocks(output_dir, b.blocks)
-    emit_items(output_dir, b.items)
-    emit_recipes(output_dir, b.recipes)
-    emit_animations(output_dir, b.animations)
-    emit_sprites(output_dir, b.sprites)
-    emit_attach_slots(output_dir, b.attach_slots)
-    emit_extras(output_dir, b.extras)
+    print('Generating:')
+    time('structures', emit_structures, output_dir, b.structures)
+    time('blocks', emit_blocks, output_dir, b.blocks)
+    time('items', emit_items, output_dir, b.items)
+    time('recipes', emit_recipes, output_dir, b.recipes)
+    time('animations', emit_animations, output_dir, b.animations)
+    time('sprites', emit_sprites, output_dir, b.sprites)
+    time('attach_slots', emit_attach_slots, output_dir, b.attach_slots)
+    time('loot_tables', emit_loot_tables, output_dir, b.loot_tables)
+    time('extras', emit_extras, output_dir, b.extras)
+
+    print('%d structures, %d blocks, %d items, %d recipes' %
+            (len(b.structures), len(b.blocks), len(b.items), len(b.recipes)))
+    print('%d animations, %d sprites, %d attach_slots, %d loot tables, %d extras' %
+            (len(b.animations), len(b.sprites), len(b.attach_slots),
+                len(b.loot_tables), len(b.extras)))
 
     with open(os.path.join(output_dir, 'stamp'), 'w') as f:
         pass
 
     with open(os.path.join(output_dir, 'used_assets.txt'), 'w') as f:
-        f.write(''.join(p + '\n' for p in images.get_dependencies()))
+        f.write(''.join(p + '\n' for p in files.get_dependencies()))
 
     # Compute dependencies
     with open(os.path.join(output_dir, 'data.d'), 'w') as f:
         f.write('%s: \\\n' % os.path.join(output_dir, 'stamp'))
-        for p in images.get_dependencies() + loader.get_dependencies():
+        for p in files.get_dependencies() + loader.get_dependencies():
             f.write('    %s \\\n' % p)
 
     assert not util.SAW_ERROR

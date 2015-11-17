@@ -2,11 +2,9 @@ use core::prelude::*;
 use core::ptr;
 
 use physics::v3::{V3, V2, scalar, Region};
-use physics::CHUNK_SIZE;
+use physics::{CHUNK_SIZE, TILE_SIZE};
 
-use IntrusiveCorner;
-use {emit_quad, remaining_quads};
-use types::{StructureTemplate, HAS_ANIM};
+use types::{StructureTemplate, HAS_ANIM, ModelVertex};
 
 use super::Buffer;
 
@@ -14,31 +12,31 @@ use super::Buffer;
 #[derive(Clone, Copy)]
 pub struct Vertex {
     // 0
-    corner: (u8, u8),
-    pos: (u8, u8, u8),
-    layer: u8,
-    _pad1: u16,
-
-    // 8
-    anim_size: (u16, u16),
-    anim_offset: (u16, u16),
-    anim_pos: (u16, u16),
+    vert_offset: (u16, u16, u16),
     anim_length: i8,
     anim_rate: u8,
+
+    // 8
+    struct_pos: (u8, u8, u8),
+    layer: u8,
+    display_offset: (i16, i16),
+
+    // 16
     anim_oneshot_start: u16,
+    anim_step: u16,
+    anim_box_min: (u16, u16),
+    anim_box_size: (u16, u16),
 
-    // 24
-}
-
-impl IntrusiveCorner for Vertex {
-    fn corner(&self) -> &(u8, u8) { &self.corner }
-    fn corner_mut(&mut self) -> &mut (u8, u8) { &mut self.corner }
+    // 28
+    _pad1: u32
+    // 32
 }
 
 
 pub struct GeomGen<'a> {
     buffer: &'a Buffer<'a>,
     templates: &'a [StructureTemplate],
+    model_verts: &'a [ModelVertex],
 
     bounds: Region<V2>,
     cur: usize,
@@ -48,9 +46,11 @@ pub struct GeomGen<'a> {
 impl<'a> GeomGen<'a> {
     pub unsafe fn init(&mut self,
                        buffer: &'a Buffer<'a>,
-                       templates: &'a [StructureTemplate]) {
+                       templates: &'a [StructureTemplate],
+                       model_verts: &'a [ModelVertex]) {
         ptr::write(&mut self.buffer, buffer);
         ptr::write(&mut self.templates, templates);
+        ptr::write(&mut self.model_verts, model_verts);
 
         ptr::write(&mut self.bounds, Region::new(scalar(0), scalar(0)));
         self.cur = 0;
@@ -66,8 +66,9 @@ impl<'a> GeomGen<'a> {
     pub fn generate(&mut self,
                     buf: &mut [Vertex],
                     idx: &mut usize) -> bool {
-        while remaining_quads(buf, *idx) >= 1 {
+        while *idx < buf.len() {
             if self.cur >= self.buffer.len {
+                // No more structures.
                 return false;
             }
 
@@ -79,32 +80,41 @@ impl<'a> GeomGen<'a> {
             let s_pos = V3::new(s.pos.0 as i32,
                                 s.pos.1 as i32,
                                 s.pos.2 as i32);
-            if t.sheet != self.sheet || !t.flags.contains(HAS_ANIM) ||
+            if t.anim_sheet != self.sheet || !t.flags.contains(HAS_ANIM) ||
                !self.bounds.contains(s_pos.reduce()) {
+                // Wrong sheet, no anim, or not visible.
                 continue;
             }
 
+            if *idx + t.model_length as usize >= buf.len() {
+                // Not enough space for this structure's vertices
+                break;
+            }
 
-            emit_quad(buf, idx, Vertex {
-                corner: (0, 0),
-                // Give the position of the top front corner of the structure, since the quad should
-                // cover the front plane.
-                pos: (s.pos.0,
-                      s.pos.1 + t.size.1,
-                      s.pos.2),
-                layer: t.layer,
-                _pad1: 0,
-
-                anim_offset: t.anim_offset,
-                // Give the anim_pos relative to the bottom corner.  This makes life easier for the
-                // shader.
-                anim_pos: (t.anim_pos.0,
-                           t.display_size.1 - (t.anim_pos.1 + t.anim_size.1 as u16)),
-                anim_size: t.anim_size,
-                anim_length: t.anim_length,
-                anim_rate: t.anim_rate,
-                anim_oneshot_start: s.oneshot_start,
-            });
+            let i0 = t.model_offset as usize;
+            let i1 = i0 + t.model_length as usize;
+            // Use the offset corresponding to the 0,0,0 corner.
+            let display_offset = (
+                t.anim_offset.0 as i16 - t.anim_pos.0 as i16,
+                t.anim_offset.1 as i16 - t.anim_pos.1 as i16 + t.display_size.1 as i16 -
+                        t.size.1 as i16 * TILE_SIZE as i16
+            );
+            for v in &self.model_verts[i0 .. i1] {
+                buf[*idx] = Vertex {
+                    vert_offset: (v.x, v.y, v.z),
+                    struct_pos: s.pos,
+                    layer: t.layer,
+                    display_offset: display_offset,
+                    anim_length: t.anim_length,
+                    anim_rate: t.anim_rate,
+                    anim_oneshot_start: s.oneshot_start,
+                    anim_step: t.anim_size.0,
+                    anim_box_min: t.anim_offset,
+                    anim_box_size: t.anim_size,
+                    _pad1: 0,
+                };
+                *idx += 1;
+            }
         }
 
         true

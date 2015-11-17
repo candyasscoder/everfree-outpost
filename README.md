@@ -13,7 +13,7 @@ Dependencies:
  - rust-lang/rustc-serialize 376f43a
  - rust-lang/time 79628fa
  - BurntSushi/rust-memchr 0.1.3
- - BurntSuschi/aho-corasick 0.3.0
+ - BurntSushi/aho-corasick 0.3.0
  - jgallagher/rusqlite e896738
  - contain-rs/linked-hash-map 4f944c6
  - contain-rs/lru-cache dc58d49

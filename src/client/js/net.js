@@ -21,14 +21,14 @@ var OP_USE_ITEM_WITH_ARGS =     0x0011;
 var OP_USE_ABILITY_WITH_ARGS =  0x0012;
 
 var OP_TERRAIN_CHUNK =          0x8001;
-var OP_PLAYER_MOTION =          0x8002;
+// DEPRECATED                   0x8002;
 var OP_PONG =                   0x8003;
 var OP_ENTITY_UPDATE =          0x8004;
 var OP_INIT =                   0x8005;
 var OP_KICK_REASON =            0x8006;
 var OP_UNLOAD_CHUNK =           0x8007;
 var OP_OPEN_DIALOG =            0x8008;
-var OP_INVENTORY_UPDATE =       0x8009;
+// DEPRECATED                   0x8009;
 var OP_OPEN_CRAFTING =          0x800a;
 var OP_CHAT_UPDATE =            0x800b;
 var OP_ENTITY_APPEAR =          0x800c;
@@ -43,6 +43,10 @@ var OP_GET_INTERACT_ARGS =      0x8014;
 var OP_GET_USE_ITEM_ARGS =      0x8015;
 var OP_GET_USE_ABILITY_ARGS =   0x8016;
 var OP_SYNC_STATUS =            0x8017;
+var OP_STRUCTURE_REPLACE =      0x8018;
+var OP_INVENTORY_UPDATE =       0x8019;
+var OP_INVENTORY_APPEAR =       0x801a;
+var OP_INVENTORY_GONE =         0x801b;
 
 exports.SYNC_LOADING = 0;
 exports.SYNC_OK = 1;
@@ -65,13 +69,11 @@ function Connection(url) {
     this.onOpen = null;
     this.onClose = null;
     this.onTerrainChunk = null;
-    this.onPlayerMotion = null;
     this.onPong = null;
     this.onEntityUpdate = null;
     this.onInit = null;
     this.onUnloadChunk = null;
     this.onOpenDialog = null;
-    this.onInventoryUpdate = null;
     this.onChatUpdate = null;
     this.onEntityAppear = null;
     this.onEntityGone = null;
@@ -85,6 +87,10 @@ function Connection(url) {
     this.onGetUseItemArgs = null;
     this.onGetUseAbilityArgs = null;
     this.onSyncStatus = null;
+    this.onStructureReplace = null;
+    this.onInventoryUpdate = null;
+    this.onInventoryAppear = null;
+    this.onInventoryGone = null;
 }
 exports.Connection = Connection;
 
@@ -171,27 +177,6 @@ Connection.prototype._handleMessage = function(evt) {
             }
             break;
 
-        case OP_PLAYER_MOTION:
-            if (this.onPlayerMotion != null) {
-                var id =            get16();
-                var start_x =       get16();
-                var start_y =       get16();
-                var start_z =       get16();
-                var start_time =    get16();
-                var end_x =         get16();
-                var end_y =         get16();
-                var end_z =         get16();
-                var end_time =      get16();
-                var motion = {
-                    start_pos:  new Vec(start_x, start_y, start_z),
-                    start_time: start_time,
-                    end_pos:    new Vec(end_x, end_y, end_z),
-                    end_time:   end_time,
-                };
-                this.onPlayerMotion(id, motion);
-            }
-            break;
-
         case OP_PONG:
             if (this.onPong != null) {
                 var msg = get16();
@@ -253,25 +238,6 @@ Connection.prototype._handleMessage = function(evt) {
                     args.push(get32());
                 }
                 this.onOpenDialog(idx, args);
-            };
-            break;
-
-        case OP_INVENTORY_UPDATE:
-            if (this.onInventoryUpdate != null) {
-                var inventory_id = get32();
-                var len = get16();
-                var updates = [];
-                for (var i = 0; i < len; ++i) {
-                    var item_id = get16();
-                    var old_count = get8();
-                    var new_count = get8();
-                    updates.push({
-                        id: item_id,
-                        old_count: old_count,
-                        new_count: new_count,
-                    });
-                }
-                this.onInventoryUpdate(inventory_id, updates);
             };
             break;
 
@@ -386,6 +352,55 @@ Connection.prototype._handleMessage = function(evt) {
                 var synced = get8();
                 this.onSyncStatus(synced);
             }
+            break;
+
+        case OP_STRUCTURE_REPLACE:
+            if (this.onStructureReplace != null) {
+                var structure_id = get32();
+                var template_id = get32();
+                this.onStructureReplace(structure_id, template_id);
+            }
+            break;
+
+        case OP_INVENTORY_UPDATE:
+            if (this.onInventoryUpdate != null) {
+                var inventory_id = get32();
+                var slot_idx = get8();
+                var tag = get8();
+                var count = get8();
+                var item_id = get16();
+                this.onInventoryUpdate(inventory_id, slot_idx, {
+                    tag: tag,
+                    count: count,
+                    item_id: item_id,
+                });
+            };
+            break;
+
+        case OP_INVENTORY_APPEAR:
+            if (this.onInventoryAppear != null) {
+                var inventory_id = get32();
+                var len = get16();
+                var slots = [];
+                for (var i = 0; i < len; ++i) {
+                    var tag = get8();
+                    var count = get8();
+                    var item_id = get16();
+                    slots.push({
+                        tag: tag,
+                        count: count,
+                        item_id: item_id,
+                    });
+                }
+                this.onInventoryAppear(inventory_id, slots);
+            };
+            break;
+
+        case OP_INVENTORY_GONE:
+            if (this.onInventoryGone != null) {
+                var inventory_id = get32();
+                this.onInventoryGone(inventory_id);
+            };
             break;
 
         default:

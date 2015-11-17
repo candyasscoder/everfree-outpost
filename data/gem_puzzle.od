@@ -1,0 +1,34 @@
+%%%
+COLORS = ('red', 'orange', 'yellow', 'green', 'blue', 'purple', 'empty')
+
+img = load("structures/gem-puzzle-parts.png", unit=TILE_SIZE)
+slots = img.chop_list(['fixed', 'normal'])
+gems = img.extract((2, 0)).extract((0, 0), size=(7, 1), unit=(4, 6)).chop_list(COLORS)
+
+def slot_with_gem(slot, gem):
+    gem = gem.pad(1, unit=TILE_SIZE, offset=(14, 11))
+    return slot.stack((gem,))
+
+def gem_icon(gem):
+    return gem.pad(1, unit=ICON_SIZE)
+%%%
+
+[structure dungeon/gem_slot/normal]
+multi_names: `COLORS`
+image: `{color: slot_with_gem(slots['normal'], gems[color]) for color in COLORS}`
+model: `models.front(1, 1, 1)`
+shape: solid(1, 1, 1)
+layer: 1
+
+[structure dungeon/gem_slot/fixed]
+multi_names: `COLORS`
+image: `{color: slot_with_gem(slots['fixed'], gems[color]) for color in COLORS}`
+model: `models.front(1, 1, 1)`
+shape: solid(1, 1, 1)
+layer: 1
+
+[item gem]
+multi_names: `COLORS`
+icon: `{color: gem_icon(gems[color]) for color in COLORS}`
+display_name: `{color: color[0].upper() + color[1:] + ' Gem' for color in COLORS}`
+

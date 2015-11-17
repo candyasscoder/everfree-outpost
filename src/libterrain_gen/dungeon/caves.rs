@@ -14,22 +14,26 @@ use prop::LocalProperty;
 use super::{DUNGEON_SIZE, ENTRANCE_POS};
 use super::summary::ChunkSummary;
 use super::summary::PlaneSummary;
+use super::vault::Vault;
 
 
 pub struct Caves<'a> {
     rng: StdRng,
     cpos: V2,
     plane_summ: &'a PlaneSummary,
+    vaults: &'a [&'a Vault],
 }
 
 impl<'a> Caves<'a> {
     pub fn new(rng: StdRng,
                cpos: V2,
-               plane_summ: &'a PlaneSummary) -> Caves<'a> {
+               plane_summ: &'a PlaneSummary,
+               vaults: &'a [&'a Vault]) -> Caves<'a> {
         Caves {
             rng: rng,
             cpos: cpos,
             plane_summ: plane_summ,
+            vaults: vaults,
         }
     }
 }
@@ -37,40 +41,55 @@ impl<'a> Caves<'a> {
 impl<'a> LocalProperty for Caves<'a> {
     type Summary = ChunkSummary;
     type Temporary = CellularGrid;
+    type Result = ();
 
     fn init(&mut self, summ: &ChunkSummary) -> CellularGrid {
         let mut grid = CellularGrid::new(scalar(CHUNK_SIZE * 3 + 1));
+        let base = self.cpos * scalar(CHUNK_SIZE) - scalar(CHUNK_SIZE);
 
         for pos in grid.bounds().points() {
-            let is_wall = self.rng.gen_range(0, 10) < 7;
-            grid.set(pos, is_wall);
+            grid.set(pos, true);
         }
 
         let base = self.cpos * scalar(CHUNK_SIZE) - scalar(CHUNK_SIZE);
-        let mut blob = BlobGrid::new(scalar(CHUNK_SIZE * 3 + 1));
-
-        let dungeon_bounds = Region::new(scalar(0), scalar(DUNGEON_SIZE));
         let bounds = grid.bounds() + base;
-        for &(i, j) in &self.plane_summ.edges {
-            let a = self.plane_summ.vertices[i as usize];
-            let b = self.plane_summ.vertices[j as usize];
-            if !dungeon_bounds.contains(a) || !dungeon_bounds.contains(b) {
+
+        for tri in &self.plane_summ.tris {
+            if !bounds.overlaps(tri.bounds) {
                 continue;
             }
+            for pos in tri.bounds.points() {
+                if tri.contains(pos) && bounds.contains(pos) {
+                    if self.rng.gen_range(0, 10) < 5 {
+                    //if (pos.x + pos.y) % 2 == 0 {
+                        grid.set(pos - base, false);
+                    }
+                }
+            }
+        }
+
+        for &(a, b) in &self.plane_summ.neg_edges {
             if !bounds.contains(a) && !bounds.contains(b) {
                 continue;
             }
-            blob.clear();
-            algo::line_points(a, b, |pos| {
-                let pos = pos - base;
-                blob.add_point(pos);
-                if grid.bounds().contains(pos) {
-                    grid.set_fixed(pos, false);
+            algo::line_points(a, b, |pos, big| {
+                if big && bounds.contains(pos) {
+                    grid.set_fixed(pos - base, true);
                 }
             });
-            let len = (b - a).abs().max();
-            blob.expand_with_callback(&mut self.rng, len as usize * 5, |pos| {
-                grid.set(pos, false);
+        }
+
+        // Let positive edges override negative ones.
+        for &(a, b) in &self.plane_summ.edges {
+            if !bounds.contains(a) && !bounds.contains(b) {
+                continue;
+            }
+            algo::line_points(a, b, |pos, big| {
+                for pos in Region::new(pos, pos + scalar(2)).points() {
+                    if bounds.contains(pos) {
+                        grid.set_fixed(pos - base, false);
+                    }
+                }
             });
         }
 
@@ -81,6 +100,10 @@ impl<'a> LocalProperty for Caves<'a> {
                     grid.set_fixed(p, false);
                 }
             }
+        }
+
+        for v in self.vaults {
+            v.gen_cave_grid(&mut grid, bounds);
         }
 
         grid
@@ -102,7 +125,7 @@ impl<'a> LocalProperty for Caves<'a> {
         }
     }
 
-    fn save(&mut self, grid: &CellularGrid, summ: &mut ChunkSummary) {
+    fn save(&mut self, grid: CellularGrid, summ: &mut ChunkSummary) {
         let base: V2 = scalar(CHUNK_SIZE);
         let bounds = Region::new(base, base + scalar(CHUNK_SIZE + 1));
         let cave_walls = summ.cave_walls_mut();

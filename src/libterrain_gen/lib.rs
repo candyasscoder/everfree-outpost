@@ -1,5 +1,8 @@
 #![crate_name = "terrain_gen"]
 #![allow(dead_code)]
+#![feature(
+    iter_cmp,
+)]
 
 #[macro_use] extern crate bitflags;
 extern crate linked_hash_map;

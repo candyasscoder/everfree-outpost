@@ -1,161 +1,231 @@
 var chain = require('util/misc').chain;
 
 
+var TAG_EMPTY = 0;
+var TAG_BULK = 1;
+var TAG_SPECIAL = 2;
+
+
 /** @constructor */
 function InventoryTracker(conn) {
-    this.inventories = {};
+    this.server_invs = {};
+    this.client_invs = {};
     this.conn = conn;
 
     var this_ = this;
-    this.conn.onInventoryUpdate = function(inventory_id, updates) {
-        this_._handleUpdate(inventory_id, updates);
+    this.conn.onInventoryAppear = function(inventory_id, slots) {
+        this_._handleAppear(inventory_id, slots);
+    };
+    this.conn.onInventoryUpdate = function(inventory_id, slot_idx, item) {
+        this_._handleUpdate(inventory_id, slot_idx, item);
+    };
+    this.conn.onInventoryGone = function(inventory_id) {
+        this_._handleGone(inventory_id);
     };
 }
 exports.InventoryTracker = InventoryTracker;
 
 InventoryTracker.prototype.reset = function() {
     // Try to break some cycles.
-    var ids = Object.getOwnPropertyNames(this.inventories);
-    for (var i = 0; i < ids.length; ++i) {
-        this.inventories[ids[i]]._handlers = null;
+    var keys = Object.getOwnPropertyNames(this.client_invs);
+    for (var i = 0; i < keys.length; ++i) {
+        this.client_invs[keys[i]]._handlers = null;
     }
 
-    // Actually reset.
-    this.inventories = {};
+    this.server_invs = {};
+    this.client_invs = {};
 };
 
-InventoryTracker.prototype._handleUpdate = function(inventory_id, updates) {
-    var inv = this.inventories[inventory_id];
-    if (inv != null) {
-        inv._update(updates);
-    } else {
-        console.assert(false, 'received unexpected update for inventory', inventory_id);
+InventoryTracker.prototype.get = function(inventory_id) {
+    var new_inv = new InventoryView(this, inventory_id);
+    if (this.client_invs[inventory_id] == null) {
+        this.client_invs[inventory_id] = [];
     }
+    this.client_invs[inventory_id].push(new_inv);
+    return new_inv;
 };
 
-InventoryTracker.prototype.subscribe = function(inventory_id) {
-    if (this.inventories[inventory_id] != null) {
-        ++this.inventories[inventory_id]._ref_count;
-    } else {
-        this.inventories[inventory_id] = new InventoryData(this, inventory_id);
-    }
-    return new Inventory(this, inventory_id);
-};
-
-InventoryTracker.prototype._unsubscribe = function(inventory_id) {
-    var inv = this.inventories[inventory_id];
-    if (inv == null) {
-        console.warn('tried to cancel nonexistent subscription for inventory', inventory_id);
-    }
-    // UnsubscribeInventory only decrements the server-side subscription
-    // refcount.  It doesn't actually end the subscription until the count hits
-    // zero.
-    this.conn.sendUnsubscribeInventory(inventory_id);
-
-    --inv._ref_count;
-    if (inv._ref_count == 0) {
-        delete this.inventories[inventory_id];
-    }
-};
-
-
-/** @constructor */
-function InventoryData(owner, id) {
-    this._owner = owner;
-    this._id = id;
-    this._contents = {};
-    this._handlers = [];
-    this._ref_count = 1;
-}
-
-InventoryData.prototype._update = function(updates) {
-    for (var i = 0; i < updates.length; ++i) {
-        var update = updates[i];
-        if (update.new_count == 0) {
-            if (update.old_count > 0) {
-                delete this._contents[update.id];
-            }
-        } else {
-            this._contents[update.id] = update.new_count;
-        }
+InventoryTracker.prototype._release = function(inventory_id, obj) {
+    var arr = this.client_invs[inventory_id];
+    if (arr == null) {
+        console.warn('inventory: double release() (empty list)');
+        return;
     }
 
-    for (var i = 0; i < this._handlers.length; ++i) {
-        this._handlers[i](updates);
-    }
-};
-
-InventoryData.prototype._addHandler = function(handler) {
-    this._handlers.push(handler);
-};
-
-InventoryData.prototype._removeHandler = function(handler) {
-    var idx = -1;
-    for (var i = 0; i < this._handlers.length; ++i) {
-        if (this._handlers[i] === handler) {
-            idx = i;
+    var found_it = false;
+    for (var i = 0; i < arr.length; ++i) {
+        if (arr[i] === obj) {
+            arr[i] = arr[arr.length - 1];
+            arr.pop();
+            found_it = true;
             break;
         }
     }
 
-    if (idx == -1) {
-        console.warn('tried to remove unregistered handler', handler);
+    if (!found_it) {
+        console.warn('inventory: double release() (not found in list)');
         return;
     }
 
-    this._handlers[idx] = this._handlers[this._handlers.length - 1];
-    this._handlers.pop();
+    if (arr.length == 0) {
+        delete this.client_invs[inventory_id];
+    }
+};
+
+InventoryTracker.prototype.unsubscribe = function(inventory_id) {
+    this.conn.sendUnsubscribeInventory(inventory_id);
+    // Don't do anything else until we get the InventoryGone message.
+};
+
+InventoryTracker.prototype._countItems = function(inventory_id, item_id) {
+    var inv = this.server_invs[inventory_id];
+    if (inv == null) {
+        return 0;
+    }
+
+    var count = 0;
+    for (var i = 0; i < inv.length; ++i) {
+        var item = inv[i];
+        if (item.item_id != item_id) {
+            continue;
+        }
+        if (item.tag == TAG_BULK) {
+            count += item.count;
+        } else if (item.tag == TAG_SPECIAL) {
+            // `count` field actually stores the script ID.
+            count += 1;
+        }
+    }
+    return count;
+};
+
+InventoryTracker.prototype._getItemIds = function(inventory_id) {
+    var inv = this.server_invs[inventory_id];
+    if (inv == null) {
+        return [];
+    }
+
+    var arr = [];
+    var seen = {};
+    for (var i = 0; i < inv.length; ++i) {
+        var item = inv[i];
+        if (item.tag == TAG_EMPTY) {
+            continue;
+        }
+        if (seen[item.item_id]) {
+            continue;
+        }
+        seen[item.item_id] = true;
+        arr.push(item.item_id);
+    }
+    return arr;
+};
+
+InventoryTracker.prototype._handleAppear = function(inventory_id, slots) {
+    if (this.server_invs[inventory_id] != null) {
+        console.warn('server bug: got two InventoryAppear in a row', inventory_id);
+        this._handleGone(inventory_id);
+    }
+    this.server_invs[inventory_id] = slots;
+
+    var clients = this.client_invs[inventory_id];
+    if (clients == null) {
+        return;
+    }
+    var empty = {tag: TAG_EMPTY, count: 0, item_id: 0};
+    for (var i = 0; i < clients.length; ++i) {
+        for (var j = 0; j < clients[i]._handlers.length; ++j) {
+            var f = clients[i]._handlers[j];
+            for (var k = 0; k < slots.length; ++k) {
+                if (slots[k].tag != TAG_EMPTY) {
+                    f(k, empty, slots[k]);
+                }
+            }
+        }
+    }
+};
+
+InventoryTracker.prototype._handleGone = function(inventory_id) {
+    var inv = this.server_invs[inventory_id];
+    if (inv == null) {
+        console.warn('server bug: InventoryGone without InventoryAppear', inventory_id);
+        inv = [];
+    }
+    delete this.server_invs[inventory_id];
+
+    // Tell clients that all slots have become empty.
+    var clients = this.client_invs[inventory_id];
+    if (clients == null) {
+        return;
+    }
+    var empty = {tag: TAG_EMPTY, count: 0, item_id: 0};
+    for (var i = 0; i < clients.length; ++i) {
+        for (var j = 0; j < clients[i]._handlers.length; ++i) {
+            var f = clients[i]._handlers[j];
+            for (var k = 0; k < inv.length; ++k) {
+                if (inv[k].tag != TAG_EMPTY) {
+                    f(k, inv[k], empty);
+                }
+            }
+        }
+    }
+};
+
+InventoryTracker.prototype._handleUpdate = function(inventory_id, slot_idx, item) {
+    var inv = this.server_invs[inventory_id];
+    if (inv == null) {
+        console.warn('server bug: InventoryUpdate without InventoryAppear', inventory_id);
+        inv = {};
+    }
+    var old_item = inv[slot_idx];
+    inv[slot_idx] = item;
+
+    // Tell clients that all slots have become empty.
+    var clients = this.client_invs[inventory_id];
+    if (clients == null) {
+        return;
+    }
+    for (var i = 0; i < clients.length; ++i) {
+        for (var j = 0; j < clients[i]._handlers.length; ++j) {
+            var f = clients[i]._handlers[j];
+            f(slot_idx, old_item, item);
+        }
+    }
 };
 
 
 /** @constructor */
-function Inventory(owner, id, hold_ref) {
+function InventoryView(owner, id) {
     this._owner = owner;
     this._id = id;
     this._handlers = [];
-    this._holds_ref = hold_ref != null ? hold_ref : true;
 }
 
-Inventory.prototype._data = function() {
-    return this._owner.inventories[this._id];
-};
-
-Inventory.prototype.getId = function() {
+InventoryView.prototype.getId = function() {
     return this._id;
 };
 
-Inventory.prototype.getRefCount = function() {
-    return this._data()._ref_count;
+InventoryView.prototype.release = function() {
+    this._owner._release(this._id, this);
 };
 
-Inventory.prototype.count = function(item_id) {
-    return this._data()._contents[item_id] || 0;
+InventoryView.prototype.clone = function() {
+    return this._owner.get(this._id);
 };
 
-Inventory.prototype.itemIds = function() {
-    var ids = Object.getOwnPropertyNames(this._data()._contents);
-    // Convert all to numbers.
-    for (var i = 0; i < ids.length; ++i) {
-        ids[i] = +ids[i];
-    }
-    return ids;
+InventoryView.prototype.unsubscribe = function() {
+    this._owner.unsubscribe(this._id);
+    this.release();
 };
 
-Inventory.prototype.onUpdate = function(handler) {
+InventoryView.prototype.count = function(item_id) {
+    return this._owner._countItems(this._id, item_id);
+};
+
+InventoryView.prototype.itemIds = function() {
+    return this._owner._getItemIds(this._id);
+};
+
+InventoryView.prototype.onUpdate = function(handler) {
     this._handlers.push(handler);
-    this._data()._addHandler(handler);
-};
-
-Inventory.prototype.unsubscribe = function() {
-    for (var i = 0; i < this._handlers.length; ++i) {
-        this._data()._removeHandler(this._handlers[i]);
-    }
-    this._handlers = [];
-    if (this._holds_ref) {
-        this._owner._unsubscribe(this._id);
-    }
-};
-
-Inventory.prototype.clone = function() {
-    return new Inventory(this._owner, this._id, false);
 };

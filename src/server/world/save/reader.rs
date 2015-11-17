@@ -176,7 +176,7 @@ impl ReadId for InventoryId {
     }
 
     fn fabricate<'d, F: Fragment<'d>>(f: &mut F) -> InventoryId {
-        ops::inventory::create_unchecked(f)
+        ops::inventory::create_unchecked(f, 0)
     }
 }
 

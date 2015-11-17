@@ -1,6 +1,5 @@
 from ..core.builder import *
 from ..core.images import loader
-from ..core import depthmap
 from ..core.structure import Shape
 from ..core.util import extract
 
@@ -10,22 +9,8 @@ from .lib.structures import *
 
 def init():
     tiles = loader('tiles')
+    icons = loader('icons')
     structures = loader('structures')
-
-    road = mk_terrain_structures('road', structures('road.png'))
-    mk_structure_item(road['road/center/v0'], 'road', 'Road') \
-            .recipe('anvil', {'stone': 5}, count=2)
-
-    anvil = mk_solid_small('anvil', structures('anvil.png'))
-    mk_structure_item(anvil, 'anvil', 'Anvil') \
-            .recipe('anvil', {'wood': 10, 'stone': 10})
-
-    chest = mk_solid_small('chest', structures('chest.png'))
-    mk_structure_item(chest, 'chest', 'Chest') \
-            .recipe('anvil', {'wood': 20})
-    barrel = mk_solid_structure('barrel', structures('barrel.png'), (1, 1, 1))
-    mk_structure_item(barrel, 'barrel', 'Barrel') \
-            .recipe('anvil', {'wood': 20})
 
     teleporter = mk_solid_small('teleporter', structures('crystal-formation.png')) \
             .light((16, 16, 16), (48, 48, 96), 50)
@@ -47,7 +32,8 @@ def init():
 
     mk_item('crystal', 'Crystal', extract(structures('crystal-ward.png'), (1, 0)))
 
-    mk_item('hat', 'Hat', tiles('equip_hat_icon.png'))
+    mk_item('hat', 'Hat', icons('equip_hat_icon.png'))
+    mk_item('party_hat', 'Party Hat', icons('party-hat-icon.png'))
 
 
     sign = mk_solid_structure('sign', structures('sign.png'), (1, 1, 1))
@@ -56,12 +42,9 @@ def init():
 
 
     image = structures('pillar.png')
-    planemap = structures('pillar-planemap.png')
-    pillar = mk_solid_structure('pillar/wood', image, (1, 1, 2), base=(0, 0),
-                plane_image=planemap)
+    pillar = mk_solid_structure('pillar/wood', image, (1, 1, 2), base=(0, 0))
     mk_structure_item(pillar, 'wood_pillar', 'Wooden Pillar') \
             .recipe('anvil', {'wood': 5})
-    pillar = mk_solid_structure('pillar/stone', image, (1, 1, 2), base=(1, 0),
-                plane_image=planemap)
+    pillar = mk_solid_structure('pillar/stone', image, (1, 1, 2), base=(1, 0))
     mk_structure_item(pillar, 'stone_pillar', 'Stone Pillar') \
             .recipe('anvil', {'stone': 5})
