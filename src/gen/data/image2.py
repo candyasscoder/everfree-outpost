@@ -148,10 +148,10 @@ def load(path, mod=None, unit=None):
 def loader(path=None, mod=None, unit=None):
     mod = mod or util.get_caller_mod_name()
     if path is None:
-        def f(name, unit=1):
+        def f(name, unit=unit):
             return load(name, mod, unit)
         return f
     else:
-        def f(name, unit=1):
+        def f(name, unit=unit):
             return load(os.path.join(path, name), mod, unit)
         return f
