@@ -1,3 +1,4 @@
+import os
 from outpost_data.core.image_cache import CachedImage
 
 import PIL  # for filter type constants
@@ -126,7 +127,7 @@ class Image(object):
 
 
 def stack(imgs):
-    imgs[0].stack(imgs[1:])
+    return imgs[0].stack(imgs[1:])
 
 
 # Cache of images indexed by their real file path.

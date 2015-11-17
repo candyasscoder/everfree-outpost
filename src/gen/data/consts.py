@@ -1,4 +1,5 @@
 TILE_SIZE = 32
+ICON_SIZE = 16
 SHEET_SIZE = (32, 32)
 SHEET_PX = 32 * 32  # 1024
 
@@ -24,7 +25,16 @@ TERRAIN_PARTS = (
         ('center/v1',       'center/v2',        'center/v3'),
         )
 
+TERRAIN_CROSS_PARTS = (
+        ('cross/nw',),
+        ('cross/ne',),
+        )
+
 TERRAIN_PARTS2 = dict((n, (x, y))
         for y, row in enumerate(TERRAIN_PARTS)
+        for x, n in enumerate(row))
+
+TERRAIN_CROSS_PARTS2 = dict((n, (x, y))
+        for y, row in enumerate(TERRAIN_CROSS_PARTS)
         for x, n in enumerate(row))
 

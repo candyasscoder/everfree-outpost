@@ -10,7 +10,7 @@ def slot_with_gem(slot, gem):
     return slot.stack((gem,))
 
 def gem_icon(gem):
-    return gem.pad(1, unit=TILE_SIZE // 2)
+    return gem.pad(1, unit=ICON_SIZE)
 %%%
 
 [structure dungeon/gem_slot/normal]

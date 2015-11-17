@@ -62,9 +62,3 @@ display_name: "Barrel"
 from_item: barrel
 station: anvil
 input: 20 wood
-
-
-[block grass]
-multi_names: `TERRAIN_PARTS2.keys()`
-shape: floor
-bottom: `load("tiles/lpc-base-tiles/grass.png").chop(TERRAIN_PARTS2, unit=TILE_SIZE)`

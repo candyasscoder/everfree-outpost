@@ -1,0 +1,45 @@
+%%%
+from outpost_data.core import structure
+
+_TREE_SHAPE_ARR = [
+        'floor', 'solid', 'solid', 'floor',
+        'floor', 'solid', 'solid', 'floor',
+
+        'empty', 'solid', 'solid', 'empty',
+        'empty', 'solid', 'solid', 'empty',
+
+        'empty', 'solid', 'solid', 'empty',
+        'empty', 'solid', 'solid', 'empty',
+        ]
+TREE_SHAPE = structure.Shape(4, 2, 3, _TREE_SHAPE_ARR)
+STUMP_SHAPE = structure.Shape(4, 2, 1, _TREE_SHAPE_ARR[:8])
+
+TREE_IMG = load('structures/tree.png', unit=TILE_SIZE)
+STONE_IMG = load('icons/stones.png', unit=ICON_SIZE)
+%%%
+
+[structure tree]
+image: `TREE_IMG.extract((0, 0), (4, 5))`
+model: `models.TREE`
+shape: `TREE_SHAPE`
+layer: 1
+
+[structure stump]
+image: `TREE_IMG.extract((0, 5), (4, 3))`
+model: `models.STUMP`
+shape: `STUMP_SHAPE`
+layer: 1
+
+[structure rock]
+image: "structures/rock.png"
+model: `models.solid(2, 1, 1)`
+shape: solid(2, 1, 1)
+layer: 1
+
+[item wood]
+icon: "icons/wood.png"
+display_name: "Wood"
+
+[item stone]
+icon: `STONE_IMG.extract((0, 0))`
+display_name: "Stone"

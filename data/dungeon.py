@@ -66,6 +66,6 @@ def init():
 
     mk_floor_blocks(tiles('lpc-base-tiles/holemid.png'), 'cave_pit', base_img=cave_floor)
 
-    mk_item('key', 'Key', icons('key32.png'))
-    mk_item('key/master', 'Skeleton Key', icons('key32.png')) \
+    mk_item('key', 'Key', icons('key.png'))
+    mk_item('key/master', 'Skeleton Key', icons('key.png')) \
             .recipe('anvil', {'key': 100})

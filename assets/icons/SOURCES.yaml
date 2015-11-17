@@ -16,10 +16,10 @@ party-hat-icon.*:
     title: Party Hat
     author: Stuart Pernsteiner
 
-key32.png:
+key.png:
     derived-from: williamson-roguelike-items
 
-candle32.png:
+candle.png:
     title: Candle Icon
     author: Stuart Pernsteiner
 

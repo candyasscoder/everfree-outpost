@@ -1,37 +1,39 @@
-from ..core.builder import *
-from ..core.images import loader
-from ..core.structure import Shape
-from ..core.util import extract
+from outpost_data.core.consts import *
+from outpost_data.core.builder2 import *
+from outpost_data.core.image2 import load
+from outpost_data.core import structure
+from outpost_data.outpost.lib import models
 
-from .lib.items import *
-from .lib.structures import *
+FENCE_PART_TABLE = (
+        ('end/w',           'edge/horiz',       'end/e'),
+        ('end/s',           'edge/vert',        'end/n'),
+        ('corner/nw',       'tee/s',            'corner/ne'),
+        ('tee/e',           'cross',            'tee/w'),
+        ('corner/sw',       'tee/n',            'corner/se'),
+        ('end/fancy/e',     'gate',             'end/fancy/w'),
+        )
+FENCE_PARTS = {v: (x, y) for y, vs in enumerate(FENCE_PART_TABLE) for x, v in enumerate(vs)}
 
-
-def do_fence_parts(basename, image):
-    fence_parts = (
-            ('end/w',           'edge/horiz',       'end/e'),
-            ('end/s',           'edge/vert',        'end/n'),
-            ('corner/nw',       'tee/s',            'corner/ne'),
-            ('tee/e',           'cross',            'tee/w'),
-            ('corner/sw',       'tee/n',            'corner/se'),
-            ('end/fancy/e',     'gate',             'end/fancy/w'),
-            )
-
-    b = structure_builder()
-    for i, row in enumerate(fence_parts):
-        for j, part_name in enumerate(row):
-            name = basename + '/' + part_name
-            b.merge(mk_solid_small(name, image, base=(j, i)))
-
-    return b
+FENCE_ITEMS = (
+        ('fence', 'Fence', 'edge/horiz'),
+        ('fence_tee', 'Fence Tee', 'tee/e'),
+        ('fence_post', 'Fence Post', 'end/fancy/e'),
+        )
 
 def init():
-    structures = loader('structures')
+    sheet = load('structures/fence.png', unit=TILE_SIZE)
+    parts = sheet.chop(FENCE_PARTS)
 
-    fence = do_fence_parts('fence', structures('fence.png'))
+    s = STRUCTURE.prefixed('fence') \
+            .model(models.front(1, 1, 1)) \
+            .shape(structure.solid(1, 1, 1)) \
+            .layer(1)
+    for k in FENCE_PARTS.keys():
+        s.new(k).image(parts[k])
 
-    i = item_builder()
-    i.merge(mk_structure_item(fence['fence/edge/horiz'], 'fence', 'Fence'))
-    i.merge(mk_structure_item(fence['fence/tee/e'], 'fence_tee', 'Fence Tee'))
-    i.merge(mk_structure_item(fence['fence/end/fancy/e'], 'fence_post', 'Fence Post'))
-    i.recipe('anvil', {'wood': 5})
+    r = RECIPE.prefixed('fence') \
+            .station('anvil') \
+            .input('wood', 5)
+    for (name, display_name, struct_name) in FENCE_ITEMS:
+        i = ITEM.from_structure(s[struct_name], name=name).display_name(display_name)
+        r.from_item(i)

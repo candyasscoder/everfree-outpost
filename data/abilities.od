@@ -4,4 +4,4 @@ icon: "icons/equip_hat_icon_remove.png"
 
 [item ability/light]
 display_name: "Light"
-icon: "icons/candle32.png"
+icon: "icons/candle.png"

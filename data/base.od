@@ -1,0 +1,19 @@
+# Various code relies on these objects having well-known IDs.  If you need
+# to add to this list, you must also update the sets of "reserved names"
+# passed to `util.assign_ids` in gen/data/gen.py:postprocess.
+
+# Empty block (id = 0)
+[block empty]
+shape: empty
+
+# `placeholder` (id = 1) is used to fill chunks that are waiting for real
+# block data to be generated.  It's solid to prevent players from moving or
+# placing structures in such chunks.  (In particular, it stops unusually
+# quick pegasi from bypassing not-yet-generated puzzles in dungeons.)
+[block placeholder]
+shape: solid
+
+# "No item" (id = 0)
+[item none]
+display_name: "Nothing"
+icon: `image2.Image(size=(1, 1), unit=TILE_SIZE)`
