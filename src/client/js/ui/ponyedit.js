@@ -183,8 +183,8 @@ PonyEditor.prototype.submit = function() {
 PonyEditor.prototype._fixWidth = function() {
     // Explicitly set the message width, so that long messages don't stretch
     // the dialog.
-    var width = this.dom.getBoundingClientRect().width;
-    this.message.style.width = width + 'px';
+    var width = window.getComputedStyle(this.dom).width;
+    this.message.style.width = width;
 };
 
 PonyEditor.prototype.setMessage = function(msg) {

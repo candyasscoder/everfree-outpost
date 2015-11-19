@@ -4,6 +4,12 @@
         <meta charset="utf-8">
         <title>Everfree Outpost</title>
         <style type='text/css'>
+            /*
+            * { all: unset; }
+            div { display: block; }
+            script, style { display: none; }
+            */
+
             html {
                 width: 100%;
                 height: 100%;
@@ -63,42 +69,6 @@
             iframe {
                 width: 60%;
                 height: 60%;
-            }
-
-            button {
-                display: inline-block;
-                cursor: pointer;
-                padding: 0 0.125rem;
-                margin: 0.125rem;
-                border: outset 0.125rem lightgray;
-                background-color: lightgray;
-                font-size: inherit;
-            }
-
-            button:active {
-                border-style: inset;
-            }
-
-            .dialog > div > button.active,
-            .dialog > div > div.active > button.active {
-                background-color: lightblue;
-                border-color: lightblue;
-            }
-
-            input[type=text] {
-                display: inline-block;
-                padding: 0 0.125rem;
-                margin: 0.125rem;
-                border: inset 0.125rem lightgray;
-                background-color: lightgray;
-                font-size: inherit;
-                max-width: 20rem;
-            }
-
-            .dialog > div > input[type=text].active,
-            .dialog > div > div.active > input[type=text].active {
-                background-color: lightblue;
-                border-color: lightblue;
             }
 
             .vertical-rule {
@@ -166,7 +136,7 @@
     font-style: normal;
 }
 
-* {
+html {
     font-family: 'helv16px';
     font-size: 16px;
 }
@@ -187,11 +157,15 @@
 }
 
 
+button { all: unset; }
+
+button,
 .g-button-large {
     display: inline-block;
     min-width: 27px;
     height: 14px;
-    font-size: 14px;
+    font-size: 12px;
+    font-family: helv12px;
 
     border-image-source: url('img/buttons-large-normal.png');
     border-image-slice: 9 12 9 35;
@@ -203,12 +177,22 @@
     background-clip: padding-box;
     background-color: #d27d2c;
     color: #140c1c;
+
+    padding: 0 1px;
+    margin: 0 2px;
+    text-align: center;
 }
 
-.g-button-large:hover {
+button:hover,
+.dialog > div > button.active,
+.dialog > div > div.active > button.active,
+.g-button-large:hover,
+.dialog > div > .g-button-large.active,
+.dialog > div > div.active > .g-button-large.active {
     border-image-source: url('img/buttons-large-hover.png');
 }
 
+button:active,
 .g-button-large:active {
     border-image-source: url('img/buttons-large-active.png');
     border-image-slice: 9 35 9 12;
@@ -221,7 +205,8 @@
     display: inline-block;
     min-width: 30px;
     height: 14px;
-    font-size: 14px;
+    font-size: 12px;
+    font-family: helv12px;
 
     border-image-source: url('img/buttons-medium-normal.png');
     border-image-slice: 8 9 8 23;
@@ -285,6 +270,9 @@
 }
 
 
+input[type=text] { all: unset; }
+
+input[type=text],
 .g-input {
     min-width: 22px;
     min-height: 2px;
@@ -299,6 +287,14 @@
     background-clip: padding-box;
     background-color: #854c30;
     color: #deeed6;
+
+    max-width: 20rem;
+    padding: 0 2px;
+}
+
+.dialog > div > input[type=text].active,
+.dialog > div > div.active > input[type=text].active {
+    /* TODO */
 }
 
 
@@ -722,7 +718,8 @@
                     left: 0;
                     bottom: 0;
 
-                    font-size: 0.7rem;
+                    font-size: 12px;
+                    font-family: helv12px;
                 }
 
                 .chat {
@@ -1099,8 +1096,11 @@
                     cursor: pointer;
                 }
 
+                .pony-done.active {
+                    border-image-source: url('img/buttons-large-hover.png');
+                }
+
                 .pony-message.error {
-                    font-size: 0.75rem;
                     color: red;
                 }
             </style>
@@ -1172,8 +1172,8 @@
             <div id="sign-text" data-dialog-title="Sign Text">
                 <input type="text" size="100" data-part="input">
                 <div data-part="buttons">
-                    <button data-part="submit">Done</span>
-                    <button data-part="cancel">Cancel</span>
+                    <button data-part="submit">Done</button>
+                    <button data-part="cancel">Cancel</button>
                 </div>
             </div>
 
