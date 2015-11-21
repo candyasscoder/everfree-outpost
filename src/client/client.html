@@ -316,7 +316,7 @@ input[type=text],
 }
 
 .g-panel.g-with-spacer {
-    /*position: relative;*/
+    position: relative;
     margin-top: 2px;
 }
 
@@ -325,7 +325,7 @@ input[type=text],
        them empty, but Chrome treats '' as `none` and removes the ::before
        element from the page. */
     content: '​';
-    position: relative;
+    position: absolute;
     top: -7px;
     left: 7px;
     width: calc(100% - 14px);
@@ -601,6 +601,16 @@ input[type=text],
                 background-size: 32rem auto;
             }
 
+            .item-qty {
+                position: absolute;
+                bottom: -2px;
+                right: 1px;
+                font-size: 10px;
+                font-family: 'helv10px';
+                color: #deeed6;
+                text-shadow: 0px 1px #140c1c, 1px 0px #140c1c;
+            }
+
 
             /* Item lists */
             .item-list {
@@ -808,16 +818,6 @@ input[type=text],
                 .item-box.active-ability {
                     border-image-source: url('img/hotbar-box-blue.png');
                 }
-
-                .item-box > .item-qty {
-                    position: absolute;
-                    bottom: -2px;
-                    right: 1px;
-                    font-size: 10px;
-                    font-family: 'helv10px';
-                    color: #deeed6;
-                    text-shadow: 0px 1px #140c1c, 1px 0px #140c1c;
-                }
             </style>
             <div id="item-box" class="item-box">
                 <div class="item-icon" data-part="icon"></div>
@@ -838,7 +838,7 @@ input[type=text],
                     flex: 1;
                 }
 
-                .item > .item-qty {
+                .item > .item-qty2 {
                     flex: 0;
                     min-width: 3.0ch;
                     font-family: 'helv12px';
@@ -848,9 +848,37 @@ input[type=text],
                 }
             </style>
             <div id="item-row" class="item g-list-item g-arrow-row">
-                <div class="item-qty" data-part="qty"></div>
+                <div class="item-qty2" data-part="qty"></div>
                 <div class="item-icon" data-part="icon"></div>
                 <div class="item-name" data-part="name"></div>
+            </div>
+
+            <style>
+                .item-slot {
+                    width: 16px;
+                    height: 16px;
+                    flex-grow: 0;
+                    flex-shrink: 0;
+                    position: relative;
+
+                    border-image-source: url('img/slot-rounded.png');
+                    border-image-slice: 2 2 2 2;
+                    border-image-width: auto;
+                    border-width: 1px;
+                    border-style: solid;
+                    margin: 1px;
+                }
+
+                .item-slot.active {
+                    border-image-source: url('img/slot-rounded-active.png');
+                    border-image-slice: 3 3 3 3;
+                    border-width: 2px;
+                    margin: 0;
+                }
+            </style>
+            <div id="item-slot" class="item-slot">
+                <div class="item-icon" data-part="icon"></div>
+                <div class="item-qty" data-part="qty"></div>
             </div>
 
             <style>
@@ -863,7 +891,7 @@ input[type=text],
                 }
             </style>
             <div id="inventory" data-dialog-title="Inventory"
-                                class="inventory dialog-expand g-col">
+                                class="inventory g-col">
                 <div class="hole" data-key="item_list"></div>
                 <div>
                     <kbd>&uarr;</kbd>

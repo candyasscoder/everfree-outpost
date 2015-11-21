@@ -5,6 +5,14 @@ var TAG_EMPTY = 0;
 var TAG_BULK = 1;
 var TAG_SPECIAL = 2;
 
+exports.TAG = {
+    EMPTY: TAG_EMPTY,
+    BULK: TAG_BULK,
+    SPECIAL: TAG_SPECIAL,
+};
+
+
+
 
 /** @constructor */
 function InventoryTracker(conn) {
@@ -75,6 +83,19 @@ InventoryTracker.prototype._release = function(inventory_id, obj) {
 InventoryTracker.prototype.unsubscribe = function(inventory_id) {
     this.conn.sendUnsubscribeInventory(inventory_id);
     // Don't do anything else until we get the InventoryGone message.
+};
+
+InventoryTracker.prototype._getSize = function(inventory_id) {
+    return this.server_invs[inventory_id].length;
+};
+
+InventoryTracker.prototype._getSlot = function(inventory_id, idx) {
+    var slot = this.server_invs[inventory_id][idx];
+    return {
+        tag: slot.tag,
+        count: slot.count,
+        item_id: slot.item_id,
+    };
 };
 
 InventoryTracker.prototype._countItems = function(inventory_id, item_id) {
@@ -228,4 +249,12 @@ InventoryView.prototype.itemIds = function() {
 
 InventoryView.prototype.onUpdate = function(handler) {
     this._handlers.push(handler);
+};
+
+InventoryView.prototype.size = function() {
+    return this._owner._getSize(this._id);
+};
+
+InventoryView.prototype.getSlot = function(i) {
+    return this._owner._getSlot(this._id, i);
 };
