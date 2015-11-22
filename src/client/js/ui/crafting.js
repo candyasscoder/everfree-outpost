@@ -58,7 +58,7 @@ CraftingUI.prototype._craft = function(mag) {
     if (this.onaction != null) {
         var recipe_id = this.recipe_list.selectedRecipe();
         if (recipe_id != -1) {
-            var inventory_id = this.item_list.inventory_id;
+            var inventory_id = this.item_list.inv.getId();
             this.onaction(this.station_id, inventory_id, recipe_id, mag);
         }
     }
