@@ -490,21 +490,6 @@ MessageBuilder.prototype.reset = function() {
 var MESSAGE_BUILDER = new MessageBuilder(8192);
 
 
-Connection.prototype.sendGetTerrain = function() {
-    console.error('deprecated message: GetTerrain');
-    var msg = MESSAGE_BUILDER.reset();
-    msg.put16(OP_GET_TERRAIN);
-    this.socket.send(msg.done());
-};
-
-Connection.prototype.sendUpdateMotion = function(data) {
-    console.error('deprecated message: UpdateMotion');
-    var buf = new Uint16Array(1 + data.length);
-    buf[0] = OP_UPDATE_MOTION;
-    buf.subarray(1).set(data);
-    this.socket.send(buf);
-};
-
 Connection.prototype.sendPing = function(data) {
     var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_PING);
@@ -532,32 +517,10 @@ Connection.prototype.sendLogin = function(name, secret) {
     this.socket.send(msg.done());
 };
 
-Connection.prototype.sendAction = function(time, action, arg) {
-    console.error('deprecated message: Action');
-    var msg = MESSAGE_BUILDER.reset();
-    msg.put16(OP_ACTION);
-    msg.put16(time);
-    msg.put16(action);
-    msg.put32(arg);
-    this.socket.send(msg.done());
-};
-
 Connection.prototype.sendUnsubscribeInventory = function(inventory_id) {
     var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_UNSUBSCRIBE_INVENTORY);
     msg.put32(inventory_id);
-    this.socket.send(msg.done());
-};
-
-Connection.prototype.sendMoveItem = function(
-        from_inventory, from_slot, to_inventory, to_slot, amount) {
-    var msg = MESSAGE_BUILDER.reset();
-    msg.put16(OP_MOVE_ITEM);
-    msg.put32(from_inventory);
-    msg.put8(from_slot);
-    msg.put32(to_inventory);
-    msg.put8(to_slot);
-    msg.put8(amount);
     this.socket.send(msg.done());
 };
 
@@ -614,12 +577,6 @@ Connection.prototype.sendUseAbility = function(time, item_id) {
     this.socket.send(msg.done());
 };
 
-Connection.prototype.sendOpenInventory = function() {
-    var msg = MESSAGE_BUILDER.reset();
-    msg.put16(OP_OPEN_INVENTORY);
-    this.socket.send(msg.done());
-};
-
 Connection.prototype.sendInteractWithArgs = function(time, args) {
     var msg = MESSAGE_BUILDER.reset();
     msg.put16(OP_INTERACT_WITH_ARGS);
@@ -646,3 +603,14 @@ Connection.prototype.sendUseAbilityWithArgs = function(time, item_id, args) {
     this.socket.send(msg.done());
 };
 
+Connection.prototype.sendMoveItem = function(
+        from_inventory, from_slot, to_inventory, to_slot, amount) {
+    var msg = MESSAGE_BUILDER.reset();
+    msg.put16(OP_MOVE_ITEM);
+    msg.put32(from_inventory);
+    msg.put8(from_slot);
+    msg.put32(to_inventory);
+    msg.put8(to_slot);
+    msg.put8(amount);
+    this.socket.send(msg.done());
+};
