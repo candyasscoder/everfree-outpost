@@ -140,7 +140,11 @@ pub fn transfer_receive<'d, F>(f: &mut F,
     let mut slot_id = slot_id;
     let actual =
         match xfer {
-            Item::Empty => xfer,
+            Item::Empty => {
+                // Don't need to call any hooks, since nothing changed.  (Calling hooks would also
+                // require us to find a real slot_id, if slot_id == NO_SLOT.)
+                return Ok(xfer);
+            },
 
             Item::Bulk(count, item_id) if slot_id == NO_SLOT => {
                 info!("  receive: bulk_add {:?}", xfer);
