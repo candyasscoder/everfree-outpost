@@ -49,7 +49,6 @@ mod op {
         Input = 0x0004,
         Login = 0x0005,
         UnsubscribeInventory = 0x0007,
-        MoveItem = 0x0008,
         CraftRecipe = 0x0009,
         Chat = 0x000a,
         Register = 0x000b,
@@ -59,11 +58,13 @@ mod op {
         InteractWithArgs = 0x0010,
         UseItemWithArgs = 0x0011,
         UseAbilityWithArgs = 0x0012,
+        MoveItem = 0x0013,
 
         // Deprecated requests
         GetTerrain = 0x0001,
         UpdateMotion = 0x0002,
         Action = 0x0006,
+        old_MoveItem = 0x0008,
         OpenInventory = 0x000f,
 
         // Responses
@@ -115,24 +116,20 @@ mod op {
 #[derive(Debug)]
 pub enum Request {
     // Ordinary requests
-    GetTerrain,
-    UpdateMotion(Motion),
     Ping(u16),
     Input(LocalTime, u16),
     Login(String, [u32; 4]),
-    Action(LocalTime, u16, u32),
     UnsubscribeInventory(InventoryId),
-    MoveItem(InventoryId, InventoryId, ItemId, u16),
     CraftRecipe(StructureId, InventoryId, RecipeId, u16),
     Chat(String),
     Register(String, [u32; 4], u32),
     Interact(LocalTime),
     UseItem(LocalTime, ItemId),
     UseAbility(LocalTime, ItemId),
-    OpenInventory,
     InteractWithArgs(LocalTime, ExtraArg),
     UseItemWithArgs(LocalTime, ItemId, ExtraArg),
     UseAbilityWithArgs(LocalTime, ItemId, ExtraArg),
+    MoveItem(InventoryId, SlotId, InventoryId, SlotId, u8),
 
     // Control messages
     AddClient(WireId),
@@ -151,8 +148,6 @@ impl Request {
         let opcode = Opcode(try!(wr.read()));
 
         let req = match opcode {
-            op::GetTerrain => GetTerrain,
-            op::UpdateMotion => UpdateMotion(try!(wr.read())),
             op::Ping => Ping(try!(wr.read())),
             op::Input => {
                 let (a, b): (LocalTime, u16) = try!(wr.read());
@@ -163,17 +158,9 @@ impl Request {
                 let (b, a) = try!(wr.read());
                 Login(a, b)
             },
-            op::Action => {
-                let (a, b, c) = try!(wr.read());
-                Action(a, b, c)
-            },
             op::UnsubscribeInventory => {
                 let a = try!(wr.read());
                 UnsubscribeInventory(a)
-            },
-            op::MoveItem => {
-                let (a, b, c, d) = try!(wr.read());
-                MoveItem(a, b, c, d)
             },
             op::CraftRecipe => {
                 let (a, b, c, d) = try!(wr.read());
@@ -200,9 +187,6 @@ impl Request {
                 let (a, b) = try!(wr.read());
                 UseAbility(a, b)
             },
-            op::OpenInventory => {
-                OpenInventory
-            },
             op::InteractWithArgs => {
                 let (a, b) = try!(wr.read());
                 InteractWithArgs(a, b)
@@ -214,6 +198,10 @@ impl Request {
             op::UseAbilityWithArgs => {
                 let (a, b, c) = try!(wr.read());
                 UseAbilityWithArgs(a, b, c)
+            },
+            op::MoveItem => {
+                let (a, b, c, d, e) = try!(wr.read());
+                MoveItem(a, b, c, d, e)
             },
 
             op::AddClient => {

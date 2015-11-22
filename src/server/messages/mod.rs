@@ -50,7 +50,7 @@ pub enum WireEvent {
 pub enum ClientEvent {
     Input(Time, InputBits),
     UnsubscribeInventory(InventoryId),
-    MoveItem(InventoryId, InventoryId, ItemId, u16),
+    MoveItem(InventoryId, SlotId, InventoryId, SlotId, u8),
     CraftRecipe(StructureId, InventoryId, RecipeId, u16),
     Chat(String),
 
@@ -295,8 +295,8 @@ impl Messages {
             Request::UnsubscribeInventory(iid) =>
                 Ok(Some(ClientEvent::UnsubscribeInventory(iid))),
 
-            Request::MoveItem(from_iid, to_iid, item_id, count) =>
-                Ok(Some(ClientEvent::MoveItem(from_iid, to_iid, item_id, count))),
+            Request::MoveItem(from_iid, from_slot, to_iid, to_slot, count) =>
+                Ok(Some(ClientEvent::MoveItem(from_iid, from_slot, to_iid, to_slot, count))),
 
             Request::CraftRecipe(sid, iid, recipe_id, count) =>
                 Ok(Some(ClientEvent::CraftRecipe(sid, iid, recipe_id, count))),

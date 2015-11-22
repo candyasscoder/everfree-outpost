@@ -94,6 +94,39 @@ pub fn move_items(mut eng: EngineRef,
     Ok(actual)
 }
 
+pub fn move_items2(mut eng: EngineRef,
+                   from_iid: InventoryId,
+                   from_slot: u8,
+                   to_iid: InventoryId,
+                   to_slot: u8,
+                   count: u8) -> StrResult<u8> {
+    let mut wf = eng.as_world_fragment();
+
+    info!("move {} from {:?}.{} to {:?}.{}", count, from_iid, from_slot, to_iid, to_slot);
+    let proposed = {
+        let i = unwrap!(wf.world().get_inventory(from_iid));
+        try!(i.transfer_propose(from_slot, count))
+    };
+    info!("  proposal: {:?}", proposed);
+
+    let actual = {
+        let mut i = unwrap!(world::Fragment::get_inventory_mut(&mut wf, to_iid));
+        try!(i.transfer_receive(to_slot, proposed))
+    };
+    info!("  actual: {:?}", actual);
+
+    {
+        // OK: already checked to_iid
+        let mut i = world::Fragment::inventory_mut(&mut wf, from_iid);
+        // Should never fail, but it's good to check.
+        warn_on_err!(i.transfer_commit(from_slot, actual));
+    }
+    info!("  commited transfer");
+
+    Ok(actual.count())
+}
+
+
 pub fn craft_recipe(mut eng: EngineRef,
                     station_sid: StructureId,
                     iid: InventoryId,

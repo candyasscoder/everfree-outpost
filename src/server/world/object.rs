@@ -12,6 +12,7 @@ use world::{EntitiesById, StructuresById, InventoriesById};
 use world::{EntityAttachment, StructureAttachment, InventoryAttachment};
 use world::{TerrainChunkFlags, StructureFlags};
 use world::Motion;
+use world::Item;
 use world::fragment::Fragment;
 use world::hooks::Hooks;
 use world::ops::{self, OpResult};
@@ -320,12 +321,27 @@ pub trait EntityRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Entity, F> {
 impl<'a, 'd, F: Fragment<'d>> EntityRefMut<'d, F> for ObjectRefMut<'a, 'd, Entity, F> { }
 
 
-
 pub trait InventoryRef<'d>: ObjectRefBase<'d, Inventory> {
     fn count_by_name(&self, name: &str) -> OpResult<u16> {
         let item_id = unwrap!(self.world().data().item_data.find_id(name));
         Ok(self.obj().count(item_id))
     }
+
+    // Moving items is tricky, because it requires a sort of negotiation between two different
+    // inventories.  The pattern goes like this:
+    //
+    //  - `from_inv.transfer_propose(from_slot, count)` produces an `Item` indicating the maximum
+    //    that can be sent.  No change is made to `from_inv` yet.
+    //  - `to_inv.transfer_receive(to_slot, proposal)` places zero or more of the items from the
+    //    proposed transfer into `to_inv`, and returns an `Item` representing the final amount
+    //    transferred.
+    //  - `from_inv.transfer_commit(from_slot, final)` actually takes the relevant items out of
+    //    `from_inv`.
+    fn transfer_propose(&self, slot_id: SlotId, count: u8) -> OpResult<Item> {
+        let iid = self.id();
+        ops::inventory::transfer_propose(self.world(), iid, slot_id, count)
+    }
+
 }
 impl<'a, 'd> InventoryRef<'d> for ObjectRef<'a, 'd, Inventory> { }
 impl<'a, 'd, F: Fragment<'d>> InventoryRef<'d> for ObjectRefMut<'a, 'd, Inventory, F> { }
@@ -334,6 +350,15 @@ pub trait InventoryRefMut<'d, F: Fragment<'d>>: ObjectRefMutBase<'d, Inventory, 
     fn stable_id(&mut self) -> Stable<InventoryId> {
         let iid = self.id();
         self.world_mut().inventories.pin(iid)
+    }
+    fn transfer_receive(&mut self, slot_id: SlotId, xfer: Item) -> OpResult<Item> {
+        let iid = self.id();
+        ops::inventory::transfer_receive(self.fragment_mut(), iid, slot_id, xfer)
+    }
+
+    fn transfer_commit(&mut self, slot_id: SlotId, xfer: Item) -> OpResult<()> {
+        let iid = self.id();
+        ops::inventory::transfer_commit(self.fragment_mut(), iid, slot_id, xfer)
     }
 
     fn bulk_add(&mut self, item_id: ItemId, adjust: u16) -> u16 {

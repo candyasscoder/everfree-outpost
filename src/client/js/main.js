@@ -805,8 +805,8 @@ function handleOpenDialog(idx, args) {
 
         var ui = new ContainerUI(inv1, inv2);
         dialog.show(ui);
-        ui.ontransfer = function(from_inventory, to_inventory, item_id, amount) {
-            conn.sendMoveItem(from_inventory, to_inventory, item_id, amount);
+        ui.ontransfer = function(from_inventory, from_slot, to_inventory, to_slot, amount) {
+            conn.sendMoveItem(from_inventory, from_slot, to_inventory, to_slot, amount);
         };
 
         ui.oncancel = function() {

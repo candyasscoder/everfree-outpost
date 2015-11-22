@@ -80,13 +80,13 @@ ContainerUI.prototype._transfer = function(evt, fromIndex) {
         return;
     }
 
-    // TODO: transfer by slot index, not by item_id
-    var item_id = sel.id;
     var from_inv_id = this.lists[fromIndex].inv.getId();
+    var from_slot = sel.idx;
     var to_inv_id = this.lists[+!fromIndex].inv.getId();
+    var to_slot = 255;
     var mag = evt.raw.shiftKey ? 10 : 1;
 
-    this.ontransfer(from_inv_id, to_inv_id, item_id, mag);
+    this.ontransfer(from_inv_id, from_slot, to_inv_id, to_slot, mag);
 };
 
 
