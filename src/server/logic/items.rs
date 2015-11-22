@@ -16,8 +16,8 @@ pub fn open_inventory(mut eng: EngineRef, cid: ClientId, iid: InventoryId) -> St
     unwrap!(eng.world().get_client(cid));
     unwrap!(eng.world().get_inventory(iid));
 
-    eng.messages_mut().send_client(cid, ClientResponse::OpenDialog(Dialog::Inventory(iid)));
     vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid);
+    eng.messages_mut().send_client(cid, ClientResponse::OpenDialog(Dialog::Inventory(iid)));
 
     Ok(())
 }
@@ -31,9 +31,9 @@ pub fn open_container(mut eng: EngineRef,
     unwrap!(eng.world().get_inventory(iid1));
     unwrap!(eng.world().get_inventory(iid1));
 
-    eng.messages_mut().send_client(cid, ClientResponse::OpenDialog(Dialog::Container(iid1, iid2)));
     vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid1);
     vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid2);
+    eng.messages_mut().send_client(cid, ClientResponse::OpenDialog(Dialog::Container(iid1, iid2)));
 
     Ok(())
 }
@@ -51,9 +51,9 @@ pub fn open_crafting(mut eng: EngineRef,
         s.template_id()
     };
 
+    vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid);
     let dialog = Dialog::Crafting(template_id, sid, iid);
     eng.messages_mut().send_client(cid, ClientResponse::OpenDialog(dialog));
-    vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, iid);
 
     Ok(())
 }
@@ -67,10 +67,10 @@ pub fn set_main_inventories(mut eng: EngineRef,
     unwrap!(eng.world().get_inventory(item_iid));
     unwrap!(eng.world().get_inventory(ability_iid));
 
-    eng.messages_mut().send_client(cid, ClientResponse::MainInventory(item_iid));
-    eng.messages_mut().send_client(cid, ClientResponse::AbilityInventory(ability_iid));
     vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, item_iid);
     vision::Fragment::subscribe_inventory(&mut eng.as_vision_fragment(), cid, ability_iid);
+    eng.messages_mut().send_client(cid, ClientResponse::MainInventory(item_iid));
+    eng.messages_mut().send_client(cid, ClientResponse::AbilityInventory(ability_iid));
 
     Ok(())
 }
@@ -93,6 +93,39 @@ pub fn move_items(mut eng: EngineRef,
 
     Ok(actual)
 }
+
+pub fn move_items2(mut eng: EngineRef,
+                   from_iid: InventoryId,
+                   from_slot: u8,
+                   to_iid: InventoryId,
+                   to_slot: u8,
+                   count: u8) -> StrResult<u8> {
+    let mut wf = eng.as_world_fragment();
+
+    info!("move {} from {:?}.{} to {:?}.{}", count, from_iid, from_slot, to_iid, to_slot);
+    let proposed = {
+        let i = unwrap!(wf.world().get_inventory(from_iid));
+        try!(i.transfer_propose(from_slot, count))
+    };
+    info!("  proposal: {:?}", proposed);
+
+    let actual = {
+        let mut i = unwrap!(world::Fragment::get_inventory_mut(&mut wf, to_iid));
+        try!(i.transfer_receive(to_slot, proposed))
+    };
+    info!("  actual: {:?}", actual);
+
+    {
+        // OK: already checked to_iid
+        let mut i = world::Fragment::inventory_mut(&mut wf, from_iid);
+        // Should never fail, but it's good to check.
+        warn_on_err!(i.transfer_commit(from_slot, actual));
+    }
+    info!("  commited transfer");
+
+    Ok(actual.count())
+}
+
 
 pub fn craft_recipe(mut eng: EngineRef,
                     station_sid: StructureId,

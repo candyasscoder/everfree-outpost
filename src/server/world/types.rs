@@ -102,6 +102,26 @@ impl super::Entity {
     }
 }
 
+impl super::Item {
+    pub fn count(&self) -> u8 {
+        use super::Item::*;
+        match *self {
+            Empty => 0,
+            Bulk(count, _) => count,
+            Special(_, _) => 1,
+        }
+    }
+
+    pub fn item(&self) -> ItemId {
+        use super::Item::*;
+        match *self {
+            Empty => NO_ITEM,
+            Bulk(_, item_id) => item_id,
+            Special(_, item_id) => item_id,
+        }
+    }
+}
+
 impl super::Inventory {
     /// Count the number of items with the given ID.  The count may be as high as 255 * 255.
     pub fn count(&self, item_id: ItemId) -> u16 {

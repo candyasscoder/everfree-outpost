@@ -24,6 +24,9 @@ www/animtest.js: $b_js/animtest.js
 www/configedit.html: $root/src/client/configedit.html
 www/configedit.js: $b_js/configedit.js
 
+www/img/: $root/assets/ui/png
+www/font/: $root/assets/fonts/ttf
+
 util/map.tmpl.html: $root/util/map.tmpl.html
 util/outpost_savegame$_so: $b_native/outpost_savegame$_so
 util/render_map.py: $root/util/render_map.py

@@ -239,9 +239,13 @@ impl<'d> Engine<'d> {
                 logic::input::unsubscribe_inventory(self.as_ref(), cid, iid);
             },
 
-            MoveItem(from_iid, to_iid, item_id, count) => {
-                warn_on_err!(logic::items::move_items(self.as_ref(),
-                                                      from_iid, to_iid, item_id, count));
+            MoveItem(from_iid, from_slot, to_iid, to_slot, count) => {
+                warn_on_err!(logic::items::move_items2(self.as_ref(),
+                                                       from_iid,
+                                                       from_slot,
+                                                       to_iid,
+                                                       to_slot,
+                                                       count));
             },
 
             CraftRecipe(station_sid, iid, recipe_id, count) => {

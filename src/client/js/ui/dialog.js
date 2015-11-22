@@ -8,6 +8,7 @@ function Dialog(keyboard) {
     var parts = util.templateParts('dialog-container');
     this.container = parts['top'];
     this.inner = parts['inner'];
+    this.title = parts['title'];
 
     this.keyboard = keyboard;
     this._content = null;
@@ -39,7 +40,14 @@ Dialog.prototype.show = function(content) {
 
     this._content = content;
     this.inner.appendChild(content.dom);
+    this.title.textContent = content.dom.dataset['dialogTitle'] || 'Dialog';
     this.container.classList.remove('hidden');
+
+    if (content.dom.classList.contains('dialog-expand')) {
+        this.container.classList.add('dialog-expanded');
+    } else {
+        this.container.classList.remove('dialog-expanded');
+    }
 
     var this_ = this;
     this.keyboard.pushHandler(function(down, evt) {

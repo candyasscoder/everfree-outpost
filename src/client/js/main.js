@@ -16,6 +16,7 @@ var Cursor = require('graphics/cursor').Cursor;
 var glutil = require('graphics/glutil');
 var Scene = require('graphics/scene').Scene;
 var DayNight = require('graphics/daynight').DayNight;
+var handleResize = require('resize').handleResize;
 
 var Entity = require('entity').Entity;
 var Motion = require('entity').Motion;
@@ -43,6 +44,7 @@ var ErrorList = require('ui/errorlist').ErrorList;
 var InventoryUpdateList = require('ui/invupdate').InventoryUpdateList;
 var Hotbar = require('ui/hotbar').Hotbar;
 var DIALOG_TYPES = require('ui/dialogs').DIALOG_TYPES;
+var DNDState = require('ui/dnd').DNDState;
 
 var BlockDef = require('data/chunk').BlockDef;
 var ItemDef = require('data/items').ItemDef;
@@ -109,10 +111,12 @@ for (var i = 0; i < anim_dirs.length; ++i) {
 
 
 var canvas;
+var ui_div;
 var debug;
 var dialog;
 var banner;
 var keyboard;
+var dnd;
 var chat;
 var error_list;
 var inv_update_list;
@@ -171,9 +175,11 @@ function init() {
                 'rendering in fallback mode');
     }
 
+    ui_div = util.element('div', ['ui-container']);
     debug = new DebugMonitor();
     banner = new Banner();
     keyboard = new Keyboard();
+    dnd = new DNDState(keyboard);
     dialog = new Dialog(keyboard);
     chat = new ChatWindow();
     inv_update_list = new InventoryUpdateList();
@@ -390,18 +396,25 @@ function buildUI() {
     keyboard.attach(document);
     setupKeyHandler();
 
-    document.body.appendChild(canvas.canvas);
-    document.body.appendChild($('key-list'));
-    document.body.appendChild(hotbar.dom);
-    document.body.appendChild(chat.container);
-    document.body.appendChild(inv_update_list.container);
-    document.body.appendChild(banner.container);
-    document.body.appendChild(dialog.container);
-    document.body.appendChild(debug.container);
+    function doResize() {
+        handleResize(canvas, ui_div, window.innerWidth, window.innerHeight);
+    }
+    window.addEventListener('resize', doResize);
+    doResize();
+
+    var key_list = $('key-list');
+
+    ui_div.appendChild(key_list);
+    ui_div.appendChild(hotbar.dom);
+    ui_div.appendChild(chat.container);
+    ui_div.appendChild(inv_update_list.container);
+    ui_div.appendChild(banner.container);
+    ui_div.appendChild(dialog.container);
+    ui_div.appendChild(debug.container);
 
     if (Config.show_key_display.get()) {
         var key_display = new KeyDisplay();
-        document.body.appendChild(key_display.container);
+        ui_div.appendChild(key_display.container);
         keyboard.monitor = function(down, evt) {
             if (down) {
                 key_display.onKeyDown(evt);
@@ -412,7 +425,7 @@ function buildUI() {
     }
 
     if (!Config.show_controls.get()) {
-        $('key-list').classList.add('hidden');
+        key_list.classList.add('hidden');
     }
 
     if (!Config.debug_show_panel.get()) {
@@ -420,6 +433,9 @@ function buildUI() {
     }
 
     banner.show('Loading...', 0, keyboard, function() { return false; });
+
+    document.body.appendChild(canvas.canvas);
+    document.body.appendChild(ui_div);
 }
 
 function initMenus() {
@@ -597,8 +613,11 @@ function setupKeyHandler() {
                         break;
                     }
                     var inv = item_inv.clone();
-                    var ui = new InventoryUI(inv);
+                    var ui = new InventoryUI(dnd, inv);
                     dialog.show(ui);
+                    ui.ontransfer = function(from_inv, from_slot, to_inv, to_slot, amount) {
+                        conn.sendMoveItem(from_inv, from_slot, to_inv, to_slot, amount);
+                    };
 
                     ui.enableSelect(hotbar.getItem(), function(idx, new_id) {
                         hotbar.setSlot(idx, new_id, true);
@@ -616,8 +635,11 @@ function setupKeyHandler() {
                         break;
                     }
                     var inv = ability_inv.clone();
-                    var ui = new InventoryUI(inv, 'Abilities');
+                    var ui = new InventoryUI(dnd, inv, 'Abilities');
                     dialog.show(ui);
+                    ui.ontransfer = function(from_inv, from_slot, to_inv, to_slot, amount) {
+                        conn.sendMoveItem(from_inv, from_slot, to_inv, to_slot, amount);
+                    };
 
                     ui.enableSelect(hotbar.getAbility(), function(idx, new_id) {
                         hotbar.setSlot(idx, new_id,  false);
@@ -788,10 +810,10 @@ function handleOpenDialog(idx, args) {
         var inv1 = inv_tracker.get(args[0]);
         var inv2 = inv_tracker.get(args[1]);
 
-        var ui = new ContainerUI(inv1, inv2);
+        var ui = new ContainerUI(dnd, inv1, inv2);
         dialog.show(ui);
-        ui.ontransfer = function(from_inventory, to_inventory, item_id, amount) {
-            conn.sendMoveItem(from_inventory, to_inventory, item_id, amount);
+        ui.ontransfer = function(from_inventory, from_slot, to_inventory, to_slot, amount) {
+            conn.sendMoveItem(from_inventory, from_slot, to_inventory, to_slot, amount);
         };
 
         ui.oncancel = function() {

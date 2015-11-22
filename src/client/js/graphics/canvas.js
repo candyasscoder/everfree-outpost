@@ -36,14 +36,9 @@ function AnimCanvas(frame_callback, ctx_type, webgl_extensions) {
         throw 'unknown context type: ' + ctx_type;
     }
 
-    this._handleResize();
     this.animating = false;
 
     var this_ = this;
-
-    window.addEventListener('resize', function() {
-        this_._handleResize();
-    });
 
     function frameWrapper() {
         frame_callback(this_, Date.now());
@@ -65,64 +60,14 @@ AnimCanvas.prototype.stop = function() {
     this.animating = false;
 };
 
-function calcScale(px) {
-    var target = 1024;
-    if (px < target) {
-        return -Math.round(target / px);
-    } else {
-        return Math.round(px / target);
-    }
-}
+AnimCanvas.prototype.resize = function(phys_w, phys_h, virt_w, virt_h) {
+    this.canvas.width = phys_w;
+    this.canvas.height = phys_h;
+    this.canvas.style.width = phys_w + 'px';
+    this.canvas.style.height = phys_h + 'px';
 
-AnimCanvas.prototype._handleResize = function() {
-    var width = window.innerWidth;
-    var height = window.innerHeight;
-
-    // Calculate the best canvas scale and font size for the current window.
-    this.scale = calcScale(Math.max(width, height));
-
-    var scale;
-    var invScale;
-    if (this.scale < 0) {
-        invScale = -this.scale;
-        scale = 1.0 / invScale;
-    } else {
-        scale = this.scale;
-        invScale = 1.0 / scale;
-    }
-
-    var fontSize = 16 * scale;
-
-    // Override scale/invScale/fontSize based on user configs.
-    if (Config.scale_world.get() != 0) {
-        scale = Config.scale_world.get();
-        invScale = 1.0 / scale;
-    }
-
-    if (Config.scale_ui.get() != 0) {
-        fontSize = 16 * Config.scale_ui.get();
-    }
-
-
-    var virtWidth = Math.ceil(width * invScale);
-    var virtHeight = Math.ceil(height * invScale);
-
-    // Make sure phys* is an exact multiple of virt*, even when the actual
-    // window size is not.  (Example: 2x scale, non-even window width)
-    var physWidth = Math.round(virtWidth * scale);
-    var physHeight = Math.round(virtHeight * scale);
-
-    this.canvas.width = physWidth;
-    this.canvas.height = physHeight;
-    this.canvas.style.width = physWidth + 'px';
-    this.canvas.style.height = physHeight + 'px';
-
-    // TODO: this is really not an appropriate place to put this code
-    document.firstElementChild.style.fontSize = fontSize + 'px';
-    document.body.dataset.scale = scale;
-
-    this.virtualWidth = virtWidth;
-    this.virtualHeight = virtHeight;
+    this.virtualWidth = virt_w;
+    this.virtualHeight = virt_h;
 };
 
 

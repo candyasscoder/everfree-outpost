@@ -8,7 +8,7 @@ use util;
 use util::SmallVec;
 
 use world::{Inventory, InventoryAttachment, Item};
-use world::{Fragment, Hooks};
+use world::{Fragment, Hooks, World};
 use world::ops::OpResult;
 
 
@@ -109,6 +109,165 @@ pub fn attach<'d, F>(f: &mut F,
 
     Ok(old_attach)
 }
+
+// This read-only method is here because it goes together with `transfer_receive` and
+// `transfer_commit`.
+pub fn transfer_propose(w: &World,
+                        iid: InventoryId,
+                        slot_id: SlotId,
+                        count: u8) -> OpResult<Item> {
+    let i = unwrap!(w.inventories.get(iid));
+
+    if slot_id == NO_SLOT {
+        fail!("can't transfer items out of NO_SLOT");
+    }
+    let slot = unwrap!(i.contents.get(slot_id as usize));
+
+    match *slot {
+        Item::Empty => Ok(*slot),
+        Item::Bulk(slot_count, item_id) =>
+            Ok(Item::Bulk(cmp::min(count, slot_count), item_id)),
+        Item::Special(_, _) => Ok(*slot),
+    }
+}
+
+pub fn transfer_receive<'d, F>(f: &mut F,
+                               iid: InventoryId,
+                               slot_id: SlotId,
+                               xfer: Item) -> OpResult<Item>
+        where F: Fragment<'d> {
+    // Might need to adjust slot_id before calling hooks, if it was initially NO_SLOT.
+    let mut slot_id = slot_id;
+    let actual =
+        match xfer {
+            Item::Empty => xfer,
+
+            Item::Bulk(count, item_id) if slot_id == NO_SLOT => {
+                info!("  receive: bulk_add {:?}", xfer);
+                let actual = try!(bulk_add(f, iid, item_id, count as u16)) as u8;
+                // bulk_add handles calling the hooks, so we can bail out immediately.
+                return Ok(Item::Bulk(actual, item_id));
+            },
+
+            Item::Bulk(count, item_id) => {
+                let i = unwrap!(f.world_mut().inventories.get_mut(iid));
+                let slot = *unwrap!(i.contents.get(slot_id as usize));
+                match slot {
+                    Item::Empty => {
+                        info!("  receive: fill empty with {:?}", xfer);
+                        i.contents[slot_id as usize] = xfer;
+                        xfer
+                    },
+                    Item::Bulk(slot_count, slot_item_id) => {
+                        if slot_item_id != item_id {
+                            // Can't stack differing items.
+                            return Ok(Item::Empty);
+                        }
+
+                        let avail = u8::MAX - slot_count;
+                        let actual = cmp::min(count, avail);
+                        i.contents[slot_id as usize] = Item::Bulk(slot_count + actual, item_id);
+                        Item::Bulk(actual, item_id)
+                    },
+                    Item::Special(_, _) => {
+                        // Bulk and Special items don't mix.
+                        Item::Empty
+                    },
+                }
+            },
+
+            Item::Special(extra, item_id) => {
+                let i = unwrap!(f.world_mut().inventories.get_mut(iid));
+
+                if slot_id == NO_SLOT {
+                    let mut found_empty = None;
+                    for (idx, slot) in i.contents.iter().enumerate() {
+                        match *slot {
+                            Item::Empty => {
+                                found_empty = Some(idx as u8);
+                                break;
+                            },
+                            _ => {},
+                        }
+                    }
+                    slot_id = unwrap!(found_empty);
+                }
+
+                let slot = unwrap!(i.contents.get_mut(slot_id as usize));
+                match *slot {
+                    Item::Empty => {
+                        *slot = xfer;
+                        xfer
+                    },
+                    _ => {
+                        Item::Empty
+                    },
+                }
+            },
+        };
+
+    f.with_hooks(|h| h.on_inventory_update(iid, slot_id));
+    Ok(actual)
+}
+
+pub fn transfer_commit<'d, F>(f: &mut F,
+                              iid: InventoryId,
+                              slot_id: SlotId,
+                              xfer: Item) -> OpResult<()>
+        where F: Fragment<'d> {
+    {
+        let i = unwrap!(f.world_mut().inventories.get_mut(iid));
+        let slot = unwrap!(i.contents.get_mut(slot_id as usize));
+        info!("  commit: remove {:?} from {:?}", xfer, *slot);
+
+        match xfer {
+            Item::Empty => {},
+
+            Item::Bulk(count, item_id) => {
+                match *slot {
+                    Item::Bulk(slot_count, slot_item_id) => {
+                        if item_id != slot_item_id {
+                            fail!("bad transfer_commit: item IDs don't match");
+                        }
+                        if slot_count < count {
+                            fail!("bad transfer_commit: item IDs don't match");
+                        }
+
+                        if slot_count == count {
+                            *slot = Item::Empty;
+                        } else {
+                            *slot = Item::Bulk(slot_count - count, item_id);
+                        }
+                    },
+                    _ => {
+                        fail!("bad transfer_commit: mismatched slot type (expected Bulk)");
+                    },
+                }
+            },
+
+            Item::Special(extra, item_id) => {
+                match *slot {
+                    Item::Special(slot_extra, slot_item_id) => {
+                        if item_id != slot_item_id {
+                            fail!("bad transfer_commit: item IDs don't match");
+                        }
+                        if extra != slot_extra {
+                            fail!("bad transfer_commit: item extras don't match");
+                        }
+                        *slot = Item::Empty;
+                    },
+                    _ => {
+                        fail!("bad transfer_commit: mismatched slot type (expected Special)");
+                    },
+                }
+            },
+        }
+    }
+
+    f.with_hooks(|h| h.on_inventory_update(iid, slot_id));
+    Ok(())
+}
+
 
 /// Try to add a number of bulk items.  Returns the actual number of items added.  Fails only if
 /// `iid` is not valid.

@@ -81,7 +81,7 @@ function PonyEditor(name, draw) {
     // Canvas setup
 
     var canvas = parts['canvas'];
-    var scale = document.body.dataset.scale * 2;
+    var scale = 2;
     canvas.width = 96 * scale;
     canvas.height = 96 * scale;
 
@@ -183,8 +183,8 @@ PonyEditor.prototype.submit = function() {
 PonyEditor.prototype._fixWidth = function() {
     // Explicitly set the message width, so that long messages don't stretch
     // the dialog.
-    var width = this.dom.getBoundingClientRect().width;
-    this.message.style.width = width + 'px';
+    var width = window.getComputedStyle(this.dom).width;
+    this.message.style.width = width;
 };
 
 PonyEditor.prototype.setMessage = function(msg) {

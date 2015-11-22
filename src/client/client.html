@@ -1,8 +1,15 @@
 <!doctype html>
 <html style="font-size: 16px">
     <head>
+        <meta charset="utf-8">
         <title>Everfree Outpost</title>
         <style type='text/css'>
+            /*
+            * { all: unset; }
+            div { display: block; }
+            script, style { display: none; }
+            */
+
             html {
                 width: 100%;
                 height: 100%;
@@ -16,17 +23,24 @@
                 overflow: hidden;
             }
 
-            body > canvas {
+            * {
                 image-rendering: optimizeSpeed;
                 image-rendering: -moz-crisp-edges;
                 image-rendering: -webkit-optimize-contrast;
                 image-rendering: -o-crisp-edges;
                 image-rendering: pixelated;
                 -ms-interpolation-mode: nearest-neighbor;
+            }
 
+            body > canvas {
                 position: fixed;
                 top: 0;
                 left: 0;
+            }
+
+            .ui-container {
+                position: relative;
+                transform-origin: top left;
             }
 
             .title {
@@ -35,16 +49,17 @@
             }
 
             kbd {
-                font-size: 0.65em;
+                font-family: 'helv12px';
+                font-size: 12px;
                 text-align: center;
                 vertical-align: middle;
                 display: inline-block;
                 border-style: outset;
-                border-width: .2em;
+                border-width: 2px;
                 border-color: gray;
                 /* padding: .1em; */
-                min-width: 1.3em;
-                min-height: 1.3em;
+                min-width: 16px;
+                min-height: 16px;
             }
 
             .hidden {
@@ -52,44 +67,8 @@
             }
 
             iframe {
-                width: 60vw;
-                height: 60vh;
-            }
-
-            button {
-                display: inline-block;
-                cursor: pointer;
-                padding: 0 0.125rem;
-                margin: 0.125rem;
-                border: outset 0.125rem lightgray;
-                background-color: lightgray;
-                font-size: inherit;
-            }
-
-            button:active {
-                border-style: inset;
-            }
-
-            .dialog > div > button.active,
-            .dialog > div > div.active > button.active {
-                background-color: lightblue;
-                border-color: lightblue;
-            }
-
-            input[type=text] {
-                display: inline-block;
-                padding: 0 0.125rem;
-                margin: 0.125rem;
-                border: inset 0.125rem lightgray;
-                background-color: lightgray;
-                font-size: inherit;
-                max-width: 20rem;
-            }
-
-            .dialog > div > input[type=text].active,
-            .dialog > div > div.active > input[type=text].active {
-                background-color: lightblue;
-                border-color: lightblue;
+                width: 60%;
+                height: 60%;
             }
 
             .vertical-rule {
@@ -104,10 +83,6 @@
                 background-color: black;
             }
 
-            .dialog-body {
-                height: 60vh;
-            }
-
             .dialog-body, .container-horiz {
                 display: flex;
                 align-items: stretch;
@@ -119,12 +94,399 @@
                 align-items: stretch;
                 flex-direction: column;
             }
+
+            .stretch {
+                flex-grow: 1;
+            }
+
+
+
+@font-face {
+    font-family: 'helv10px';
+    src: url('font/helvR08_75dpi.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'helv12px';
+    src: url('font/helvR10_75dpi.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'helv16px';
+    src: url('font/helvR14_75dpi.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'helv21px';
+    src: url('font/helvR18_75dpi.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'helv21px';
+    src: url('font/helvB18_75dpi.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+}
+
+html {
+    font-family: 'helv16px';
+    font-size: 16px;
+}
+
+
+
+.g-row, .g-col {
+    display: flex;
+    align-items: stretch;
+}
+
+.g-row {
+    flex-direction: row;
+}
+
+.g-col {
+    flex-direction: column;
+}
+
+
+button { all: unset; }
+
+button,
+.g-button-large {
+    display: inline-block;
+    min-width: 27px;
+    height: 14px;
+    font-size: 12px;
+    font-family: helv12px;
+
+    border-image-source: url('img/buttons-large-normal.png');
+    border-image-slice: 9 12 9 35;
+    border-image-width: auto;
+    border-image-repeat: repeat;
+    border-width: 2px 10px;
+    border-style: solid;
+
+    background-clip: padding-box;
+    background-color: #d27d2c;
+    color: #140c1c;
+
+    padding: 0 1px;
+    margin: 0 2px;
+    text-align: center;
+}
+
+button:hover,
+.dialog > div > button.active,
+.dialog > div > div.active > button.active,
+.g-button-large:hover,
+.dialog > div > .g-button-large.active,
+.dialog > div > div.active > .g-button-large.active {
+    border-image-source: url('img/buttons-large-hover.png');
+}
+
+button:active,
+.g-button-large:active {
+    border-image-source: url('img/buttons-large-active.png');
+    border-image-slice: 9 35 9 12;
+
+    background-color: #854c30;
+}
+
+
+.g-button-medium {
+    display: inline-block;
+    min-width: 30px;
+    height: 14px;
+    font-size: 12px;
+    font-family: helv12px;
+
+    border-image-source: url('img/buttons-medium-normal.png');
+    border-image-slice: 8 9 8 23;
+    border-image-width: auto;
+    border-image-repeat: repeat;
+    border-width: 1px;
+    border-style: solid;
+
+    background-clip: padding-box;
+    background-color: #d27d2c;
+    color: #140c1c;
+}
+
+.g-button-medium:hover {
+    border-image-source: url('img/buttons-medium-hover-border.png');
+
+    background-image: url('img/buttons-medium-hover-bg.png');
+    background-repeat: no-repeat;
+    background-position: right 2px bottom 2px;
+}
+
+.g-button-medium:active {
+    border-image-source: url('img/buttons-medium-active.png');
+    border-image-slice: 8 23 8 9;
+
+    background-color: #854c30;
+}
+
+
+.g-button-small {
+    display: inline-block;
+    min-width: 19px;
+    height: 8px;
+    font-size: 8px;
+
+    border-image-source: url('img/buttons-small-normal.png');
+    border-image-slice: 5 3 5 18;
+    border-image-width: auto;
+    border-image-repeat: repeat;
+    border-width: 1px;
+    border-style: solid;
+
+    background-clip: padding-box;
+    background-color: #d27d2c;
+    color: #140c1c;
+}
+
+.g-button-small:hover {
+    border-image-source: url('img/buttons-small-hover-border.png');
+
+    background-image: url('img/buttons-small-hover-bg.png');
+    background-repeat: no-repeat;
+    background-position: right 2px bottom 2px;
+}
+
+.g-button-small:active {
+    border-image-source: url('img/buttons-small-active.png');
+    border-image-slice: 5 18 5 3;
+
+    background-color: #854c30;
+}
+
+
+input[type=text] { all: unset; }
+
+input[type=text],
+.g-input {
+    min-width: 22px;
+    min-height: 2px;
+
+    border-image-source: url('img/input-border.png');
+    border-image-slice: 4 21 4 4;
+    border-image-width: auto;
+    border-image-repeat: repeat;
+    border-width: 3px;
+    border-style: solid;
+
+    background-clip: padding-box;
+    background-color: #854c30;
+    color: #deeed6;
+
+    max-width: 20rem;
+    padding: 0 2px;
+}
+
+.dialog > div > input[type=text].active,
+.dialog > div > div.active > input[type=text].active {
+    /* TODO */
+}
+
+
+.g-panel {
+    min-height: 2px;
+    min-width: 2px;
+
+    /* TODO: fix this filename */
+    border-image-source: url('img/panel-outer-border-border.png');
+    border-image-slice: 6 6 6 6;
+    border-image-width: auto;
+    border-image-repeat: repeat;
+    border-width: 5px;
+    border-style: solid;
+
+    background-clip: padding-box;
+    background-color: #4e4a4e;
+    color: #deeed6;
+}
+
+.g-panel.g-with-spacer {
+    position: relative;
+    margin-top: 2px;
+}
+
+.g-panel.g-with-spacer::before {
+    /* NB: The quotes contain U+200B ZERO WIDTH SPACE.  I'd prefer to leave
+       them empty, but Chrome treats '' as `none` and removes the ::before
+       element from the page. */
+    content: '​';
+    position: absolute;
+    top: -7px;
+    left: 7px;
+    width: calc(100% - 14px);
+    height: 2px;
+    /* z-index: -1; */
+}
+
+.g-panel.g-with-spacer::before, .g-panel-spacer {
+    border: none;
+    background-image: url('img/panel-spacer-spacer.png');
+    background-repeat: space no-repeat;
+    background-size: 20px 5px;
+    background-position: bottom center;
+}
+
+
+.g-panel-title {
+    min-width: 19px;
+    height: 22px;
+
+    border-image-source: url('img/title-border.png');
+    border-image-slice: 16 15 16 15;
+    border-image-width: auto;
+    border-image-repeat: repeat;
+    border-width: 5px;
+    border-style: solid;
+
+    background-clip: padding-box;
+    background-color: #4e4a4e;
+    color: #deeed6;
+    font-family: 'helv21px';
+    font-size: 21px;
+    font-weight: bold;
+}
+
+
+
+.g-scrollpane {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+
+    border-image-source: url('img/scroll-pane-outer.png');
+    border-image-slice: 3 3 3 3;
+    border-image-width: auto;
+    border-image-repeat: repeat;
+    border-width: 3px;
+    border-style: solid;
+
+    background-color: #854c30;
+    background-clip: padding-box;
+}
+
+.g-scrollpane-content {
+    overflow-y: hidden;
+    flex-grow: 1;
+    flex-shrink: 0;
+
+    background-image: url('img/scroll-pane-bg.png');
+}
+
+.g-scrollpane-bar {
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+
+
+.g-scrollbar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+}
+
+.g-scrollbar-button {
+    flex-grow: 0;
+    flex-shrink: 0;
+
+    width: 12px;
+    height: 12px;
+    background-image: url('img/scroll-bar-button.png');
+}
+
+.g-scrollbar-bar {
+    flex-grow: 1;
+    flex-shrink: 0;
+
+    width: 0px;
+    min-height: 2px;
+    position: relative;
+
+    border-image-source: url('img/scroll-bar-middle.png');
+    border-image-slice: 3 3 1 3;
+    border-image-width: auto;
+    border-image-repeat: repeat;
+    border-image-outset: 1px 0px;
+    border-width: 0px 3px;
+    border-style: solid;
+}
+
+.g-scrollbar-handle {
+    position: absolute;
+}
+
+
+.g-list {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.g-list-item {
+    flex-grow: 0;
+    flex-shrink: 0;
+    min-width: 11px;
+    min-height: 3px;
+
+    border-image-source: url('img/list-item.png');
+    border-image-slice: 1 9 2 2;
+    border-image-width: auto;
+    border-image-repeat: repeat;
+    /* In Chrome, 'border-width: 0px' disables the border completely. */
+    border-width: 1px;
+    border-style: solid;
+
+    background-color: #854c30;
+    background-clip: padding-box;
+}
+
+/*
+.g-list-item:last-child {
+    border-image-source: url('img/list-item-last.png');
+}
+*/
+
+
+.g-arrow-row::before {
+    /* NB: The quotes contain U+200B ZERO WIDTH SPACE.  I'd prefer to leave
+       them empty, but Chrome treats '' as `none` and removes the ::before
+       element from the page. */
+    content: '​';
+    width: 6px;
+    height: 100%;
+    margin-left: 2px;
+    margin-right: 2px;
+
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.g-arrow-row.active::before {
+    background-image: url('img/arrow-yellow.png');
+}
+
+
         </style>
     </head>
     <body>
         <style>
             #banner-bg {
-                position: fixed;
+                position: absolute;
                 top: 0;
                 left: 0;
                 width: 100%;
@@ -170,7 +532,7 @@
             /* Debug panel */
             .debug-monitor {
                 font-size: 16px;
-                position: fixed;
+                position: absolute;
                 bottom: 0;
                 right: 0;
                 background-color: rgba(255, 255, 255, 0.5);
@@ -202,10 +564,10 @@
 
             /* Error list */
             .error-list {
-                position: fixed;
+                position: absolute;
                 top: 0;
                 left: 0;
-                width: 100vw;
+                width: 100%;
                 z-index: 100;
 
                 background-color: rgba(0, 0, 0, 0.5);
@@ -215,7 +577,7 @@
 
             /* Inventory update list */
             .inv-update-list {
-                position: fixed;
+                position: absolute;
                 bottom: 0;
                 right: 0;
                 padding-right: 0.25rem;
@@ -239,12 +601,18 @@
                 background-size: 32rem auto;
             }
 
-
-            /* Item lists */
-            .item-list.active > .item.active {
-                background-color: lightblue;
+            .item-qty {
+                position: absolute;
+                bottom: -2px;
+                right: 1px;
+                font-size: 10px;
+                font-family: 'helv10px';
+                color: #deeed6;
+                text-shadow: 0px 1px #140c1c, 1px 0px #140c1c;
             }
 
+
+            /* Item lists */
             .item-list {
                 width: 10rem;
                 overflow-x: hidden;
@@ -265,26 +633,46 @@
                     justify-content: center;
                 }
 
+                /* dialog-expand has special handling.  If the dialog content
+                   has .dialog-expand, then dialog.js will add .dialog-expanded
+                   to the dialog container. */
+                .dialog-expanded > .dialog-wrapper {
+                    height: 80%;
+                }
+
+                .dialog-expanded > * > .dialog {
+                    /* Force child height to equal dialog height, but allow the
+                       child to determine its own width.
+
+                       We should be able to just give the child 'width: 100%',
+                       but that doesn't work on Chrome for some reason.  */
+                    display: flex;
+                    flex-direction: row;
+                    align-items: stretch;
+                }
+
                 .dialog {
-                    background-color: white;
-                    border: solid 0.125rem black;
-                    border-radius: 0.5rem;
-                    padding: 1rem;
+                    padding: 0.25rem;
+                    flex-grow: 1;
+                }
+
+                .dialog-title {
+                    padding: 0 0.25rem;
+                    text-align: center;
                 }
             </style>
             <div id="dialog-container" class="dialog-container hidden">
-                <div class="dialog" data-part="inner"></div>
+                <div class="dialog-wrapper g-col">
+                    <div class="dialog-title g-panel-title" data-part="title">Dialog Title</div>
+                    <div class="dialog g-panel g-with-spacer" data-part="inner"></div>
+                </div>
             </div>
 
             <style>
                 #key-list {
-                    position: fixed;
+                    position: absolute;
                     right: 0;
                     top: 0;
-                }
-
-                #key-list kbd {
-                    font-size: 0.8em;
                 }
 
                 #key-list td {
@@ -336,11 +724,12 @@
                     flex-flow: column;
                     align-items: stretch;
 
-                    position: fixed;
+                    position: absolute;
                     left: 0;
                     bottom: 0;
 
-                    font-size: 0.7rem;
+                    font-size: 12px;
+                    font-family: helv12px;
                 }
 
                 .chat {
@@ -384,55 +773,50 @@
             </div>
 
             <style>
-                .item-box > .item-qty {
-                    font-size: 0.6rem;
-                    min-width: 2.0em;
-                    padding-left: 0.125rem;
-                    text-align: right;
-                    flex: 0 0 auto;
-                }
-
-                .item-box > .item-icon {
-                    flex: 0 0 auto;
-                }
-
-                .item-box {
-                    display: flex;
-                    align-items: center;
-                    justify-content: flex-start;
-                }
-
-
                 .hotbar {
                     position: absolute;
-                    top: 0.25rem;
-                    left: 0.25rem;
+                    top: 4px;
+                    left: 4px;
+                    width: 24px;
+                    padding-bottom: 1px;
 
-                    margin: 0.25rem;
-                    padding: 0.125rem 0.125rem;
-                    border-radius: 0.5rem;
-                    background-color: rgba(255, 255, 255, 0.5);
-                    border: solid 0.125rem black;
+                    border-image-source: url('img/hotbar-vertical-caps.png');
+                    border-image-slice: 7 0 7 0;
+                    border-image-width: 7px 5px 7px 5px;
+                    border-width: 7px 0px;
+                    border-style: solid;
+
+                    background-clip: padding-box;
+                    background-image: url('img/hotbar-vertical-bar.png');
+                    background-repeat: repeat-y;
+                    background-position: center;
 
                     display: inline-flex;
                     flex-direction: column;
                 }
 
-                .hotbar > .item-box {
-                    flex: 0 0 auto;
+                .item-box {
+                    width: 16px;
+                    height: 16px;
+                    margin-top: 1px;
+                    flex-grow: 0;
+                    flex-shrink: 0;
+                    position: relative;
+
+                    border-image-source: url('img/hotbar-box-yellow.png');
+                    border-image-slice: 5 5 5 5;
+                    border-image-width: auto;
+                    border-width: 4px;
+                    border-style: solid;
+
+                    background-clip: padding-box;
+                    background-color: #4e4a4e;
                 }
-                .hotbar > .item-box > .item-icon {
-                    background-color: darkgray;
-                    margin: 0.125rem;
-                    border-radius: 0.125rem;
+                .item-box.active-item {
+                    border-image-source: url('img/hotbar-box-green.png');
                 }
-                .hotbar > .item-box.active-item > .item-icon {
-                    margin: 0;
-                    border: 0.125rem solid limegreen;
-                }
-                .hotbar > .item-box.active-ability > .item-icon {
-                    margin: 0;
-                    border: 0.125rem solid deepskyblue;
+                .item-box.active-ability {
+                    border-image-source: url('img/hotbar-box-blue.png');
                 }
             </style>
             <div id="item-box" class="item-box">
@@ -448,55 +832,89 @@
                     align-items: center;
                 }
 
-                .item.active {
-                    background-color: lightgray;
-                }
-
                 .item-name {
                     padding-left: 0.25rem;
                     font-size: 1rem;
                     flex: 1;
                 }
 
-                .item > .item-qty {
+                .item > .item-qty2 {
                     flex: 0;
-                    min-width: 1.8rem;
-                    font-size: 0.75rem;
+                    min-width: 3.0ch;
+                    font-family: 'helv12px';
+                    font-size: 12px;
                     padding-right: 0.125rem;
                     text-align: right;
                 }
             </style>
-            <div id="item-row" class="item">
-                <div class="item-qty" data-part="qty"></div>
+            <div id="item-row" class="item g-list-item g-arrow-row">
+                <div class="item-qty2" data-part="qty"></div>
                 <div class="item-icon" data-part="icon"></div>
                 <div class="item-name" data-part="name"></div>
             </div>
 
-            <div id="inventory">
-                <div class="title">Inventory</div>
-                <div class="dialog-body">
-                    <div class="hole" data-key="item_list"></div>
-                </div>
-                <div class="dialog-keys">
+            <style>
+                .item-slot {
+                    width: 16px;
+                    height: 16px;
+                    flex-grow: 0;
+                    flex-shrink: 0;
+                    position: relative;
+
+                    border-image-source: url('img/slot-rounded.png');
+                    border-image-slice: 2 2 2 2;
+                    border-image-width: auto;
+                    border-width: 1px;
+                    border-style: solid;
+                    margin: 1px;
+                }
+
+                .item-slot.active {
+                    border-image-source: url('img/slot-rounded-active.png');
+                    border-image-slice: 3 3 3 3;
+                    border-width: 2px;
+                    margin: 0;
+                }
+
+                .item-grid:not(.active) .item-slot.active {
+                    border-image-source: url('img/slot-rounded-semiactive.png');
+                }
+
+                .item-slot.drag-source > * {
+                    visibility: hidden;
+                }
+            </style>
+            <div id="item-slot" class="item-slot">
+                <div class="item-icon" data-part="icon"></div>
+                <div class="item-qty" data-part="qty"></div>
+            </div>
+
+            <style>
+                .inventory > .item-list {
+                    flex-grow: 1;
+                }
+
+                .item-list:not(.active) > .item.g-arrow-row.active::before {
+                    background-image: url('img/arrow-gray.png');
+                }
+            </style>
+            <div id="inventory" data-dialog-title="Inventory"
+                                class="inventory g-col">
+                <div class="hole" data-key="item_list"></div>
+                <div>
                     <kbd>&uarr;</kbd>
                     <kbd>&darr;</kbd>
                     &ndash; Navigate
                 </div>
             </div>
 
-            <div id="container">
-                <div class="title">Container</div>
-                <div class="dialog-body">
+            <div id="container" data-dialog-title="Container" class="g-col">
+                <div class="g-row stretch">
                     <div class="hole" data-key="item_list1"></div>
                     <div class="vertical-rule"></div>
                     <div class="hole" data-key="item_list2"></div>
                 </div>
-                <div class="dialog-keys">
-                    <kbd>&larr;</kbd>
-                    <kbd>&darr;</kbd>
-                    <kbd>&uarr;</kbd>
-                    <kbd>&rarr;</kbd>
-                    &ndash; Navigate;
+                <div style="text-align: center">
                     <kbd>A</kbd>
                     &ndash; Move Item
                 </div>
@@ -505,29 +923,77 @@
             <style>
                 .recipe {
                     padding: 0 0.25rem;
+                    margin-left: 6px;
+                    display: flex;
+                    align-items: stretch;
                 }
 
                 .recipe.active {
-                    background-color: lightgray;
+                    /* background-color: lightgray; */
                 }
 
                 .recipe.disabled {
                     color: darkgray;
                 }
+
+                .recipe-list:not(.active) > .recipe.g-arrow-row.active::before {
+                    background-image: url('img/arrow-gray.png');
+                }
+
+                .recipe-name {
+                    flex: 1 0 auto;
+                }
+
+                .g-arrow-marker {
+                    flex: 0 0 auto;
+
+                    width: 6px;
+                    margin-left: 2px;
+                    margin-right: 2px;
+
+                    background-position: center;
+                    background-repeat: no-repeat;
+                }
+
+                .active > .g-arrow-marker {
+                    background-image: url('img/arrow-yellow.png');
+                }
+
+                .recipe-list:not(.active) .active > .g-arrow-marker {
+                    background-image: url('img/arrow-gray.png');
+                }
+
             </style>
             <div id="recipe" class="recipe">
+                <div class="g-arrow-marker"></div>
                 <div class="recipe-name" data-part="name"></div>
             </div>
 
             <style>
                 .recipe-list {
+                    font-size: 12px;
+                    font-family: helv12px;
                     width: 10rem;
                     overflow-x: hidden;
                     overflow-y: scroll;
                 }
 
                 .recipe-list.active > .recipe.active {
-                    background-color: lightblue;
+                    /* background-color: lightblue; */
+                }
+
+                .recipe-list-container {
+                    position: relative;
+                }
+
+                .recipe-list-spacer {
+                    width: 10rem;
+                    height: 0;
+                }
+
+                .recipe-list {
+                    position: absolute;
+                    height: 100%;
                 }
 
                 .crafting .item-list {
@@ -535,9 +1001,13 @@
                 }
 
                 .recipe-item-list {
-                    flex: 0 0 auto;
-                    width: 10rem;
-                    overflow-x: hidden;
+                    height: calc(3 * 20px);
+                    display: flex;
+                    flex-direction: column;
+                    flex-wrap: wrap;
+                    justify-content: center;
+                    flex: 1 0 auto;
+                    margin: 0 2px;
                 }
 
                 .recipe-item-list > .item.disabled {
@@ -554,17 +1024,19 @@
                 }
 
             </style>
-            <div id="crafting" class="crafting">
-                <div class="title">Crafting</div>
-                <div class="dialog-body" data-part="container">
+            <div id="crafting" class="crafting g-row" data-dialog-title="Crafting">
+                <div class="recipe-list-container">
+                    <div class="recipe-list-spacer"></div>
                     <div class="hole" data-key="recipe_list"></div>
-                    <div class="vertical-rule"></div>
-                    <div class="container-vert">
-                        <div class="hole" data-key="item_list"></div>
-                        <div class="horizontal-rule"></div>
-                        <div class="hole" data-key="input_list"></div>
+                </div>
+                <div class="vertical-rule"></div>
+                <div class="g-col">
+                    <div class="hole" data-key="item_list"></div>
+                    <div class="horizontal-rule"></div>
+                    <div class="g-row" style="align-items: center">
+                        <div class="hole" data-key="inputs"></div>
                         <div class="hole" data-key="arrow"></div>
-                        <div class="hole" data-key="output_list"></div>
+                        <div class="hole" data-key="outputs"></div>
                     </div>
                 </div>
             </div>
@@ -579,8 +1051,7 @@
                     text-align: center;
                 }
             </style>
-            <div id="unsupported-browser">
-                <div class="title">Browser Warning</div>
+            <div id="unsupported-browser" data-dialog-title="Warning">
                 <p>This game has only been tested with Firefox and Chrome.</p>
                 <p>It may not work properly in other browsers.</p>
                 <div class="unsupported-option">
@@ -591,8 +1062,7 @@
                     <a href="#" class="unsupported-try">Try to play anyway</a>
                 </div>
             </div>
-            <div id="unsupported-mobile">
-                <div class="title">Mobile Device Warning</div>
+            <div id="unsupported-mobile" data-dialog-title="Warning">
                 <p>This game has not been tested on mobile devices.</p>
                 <p>A keyboard is required to play this game.</p>
                 <div class="unsupported-option">Switch to a desktop computer</div>
@@ -602,21 +1072,20 @@
                 </div>
             </div>
 
-            <div id="disconnected">
-                <div class="title">Disconnected from Server</div>
+            <div id="disconnected" data-dialog-title="Disconnected">
                 <p>You have been disconnected from the server.</p>
                 <p class="hole" data-key="reason"></p>
                 <p>Refresh the page to reconnect.</p>
             </div>
 
-            <div id="server-offline">
+            <div id="server-offline" data-dialog-title="Server Offline">
                 <div class="title">Server Offline</div>
                 <div class="hole" data-key="msg"></div>
             </div>
 
             <style>
                 #key-display {
-                    position: fixed;
+                    position: absolute;
                     width: 100%;
                     left: 0;
                     bottom: 10%;
@@ -642,8 +1111,7 @@
                     color: blue;
                 }
             </style>
-            <div id="config-editor">
-                <h1>Config Editor</h1>
+            <div id="config-editor" data-dialog-title="Config Editor">
                 <select class="config-select" size="10"></select>
                 <textarea class="config-input" rows="10"></textarea>
                 <div>
@@ -716,12 +1184,15 @@
                     cursor: pointer;
                 }
 
+                .pony-done.active {
+                    border-image-source: url('img/buttons-large-hover.png');
+                }
+
                 .pony-message.error {
-                    font-size: 0.75rem;
                     color: red;
                 }
             </style>
-            <div id="pony-editor">
+            <div id="pony-editor" data-dialog-title="Create Character">
                 <div class="pony-row" data-part="name-row">
                     <div class="pony-label">Name: </div>
                     <input type="text" class="pony-name" size="16" data-part="name-field">
@@ -742,8 +1213,7 @@
                     width: 100%;
                 }
             </style>
-            <div id="music-test">
-                <h1>Music Test</h1>
+            <div id="music-test" data-dialog-title="Music Test">
                 <select class="music-select" size="10"></select><br>
                 <input type="file" class="music-file"><br>
                 <audio loop="true" class="music-player"></audio>
@@ -752,7 +1222,7 @@
             <style>
                 .keybinding-list {
                     width: 15rem;
-                    height: 50vh;
+                    height: 50%;
                     overflow-x: hidden;
                     overflow-y: scroll;
                 }
@@ -787,12 +1257,11 @@
                 <div class="hole" data-key="list"></div>
             </div>
 
-            <div id="sign-text">
-                <div class="title">Sign Text</div>
+            <div id="sign-text" data-dialog-title="Sign Text">
                 <input type="text" size="100" data-part="input">
                 <div data-part="buttons">
-                    <button data-part="submit">Done</span>
-                    <button data-part="cancel">Cancel</span>
+                    <button data-part="submit">Done</button>
+                    <button data-part="cancel">Cancel</button>
                 </div>
             </div>
 
@@ -811,8 +1280,7 @@
                     width: 5rem;
                 }
             </style>
-            <div id="teleport-setup" class="teleport-setup">
-                <div class="title">Teleporter Setup</div>
+            <div id="teleport-setup" class="teleport-setup" data-dialog-title="Teleporter Setup">
                 <div class="labeled-row" data-part="name-row">
                     <div class="label">Name:</div>
                     <input type="text" size="20" data-part="name">
@@ -842,8 +1310,8 @@
                     margin: auto;
                 }
             </style>
-            <div id="teleport-dest" class="teleport-dest">
-                <div class="title">Choose Destination</div>
+            <div id="teleport-dest" class="teleport-dest" data-dialog-title="Teleporter">
+                Choose a destination:<br>
                 <div class="hole" data-key="list"></div>
             </div>
 

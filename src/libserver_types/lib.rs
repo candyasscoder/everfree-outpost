@@ -2,7 +2,7 @@
 extern crate physics as libphysics;
 
 use std::marker::PhantomData;
-use std::{i64, u16};
+use std::{i64, u8, u16};
 use libphysics::CHUNK_BITS;
 
 pub use libphysics::v3::{V2, V3, Vn, scalar, Region, Region2};
@@ -57,10 +57,13 @@ pub type ItemId = u16;
 pub type RecipeId = u16;
 pub type TileId = u16;
 pub type TemplateId = u32;
+pub type SlotId = u8;
 
 // Well-known typedef ID values.
 pub const EMPTY_BLOCK: BlockId = 0;
 pub const PLACEHOLDER_BLOCK: BlockId = 1;
+pub const NO_SLOT: SlotId = u8::MAX;
+pub const NO_ITEM: ItemId = 0;
 
 
 // Newtype IDs.  These are used to identify game objects (parts of the World).

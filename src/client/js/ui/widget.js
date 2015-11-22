@@ -80,6 +80,7 @@ function requestFocus(widget) {
         p = w.parent;
     }
 }
+exports.requestFocus = requestFocus;
 
 
 /** @constructor */
