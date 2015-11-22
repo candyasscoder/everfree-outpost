@@ -44,6 +44,7 @@ var ErrorList = require('ui/errorlist').ErrorList;
 var InventoryUpdateList = require('ui/invupdate').InventoryUpdateList;
 var Hotbar = require('ui/hotbar').Hotbar;
 var DIALOG_TYPES = require('ui/dialogs').DIALOG_TYPES;
+var DNDState = require('ui/dnd').DNDState;
 
 var BlockDef = require('data/chunk').BlockDef;
 var ItemDef = require('data/items').ItemDef;
@@ -177,6 +178,7 @@ function init() {
     debug = new DebugMonitor();
     banner = new Banner();
     keyboard = new Keyboard();
+    window.DND = new DNDState(keyboard);
     dialog = new Dialog(keyboard);
     chat = new ChatWindow();
     inv_update_list = new InventoryUpdateList();

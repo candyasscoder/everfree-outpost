@@ -106,7 +106,7 @@ function ItemGrid(inv, cols) {
     }
 
     for (var i = 0; i < size; ++i) {
-        var s = new ItemSlot();
+        var s = new ItemSlot(i);
         s.update(inv.getSlot(i));
         this.slots[i] = s;
 
@@ -204,7 +204,7 @@ ItemGrid.prototype.selectItem = function(item_id) {
 
 
 /** @constructor */
-function ItemSlot(info) {
+function ItemSlot(idx, info) {
     var parts = util.templateParts('item-slot');
     parts['qty'].textContent = '';
     parts['icon'].style.backgroundPosition = '-0rem -0rem';
@@ -214,6 +214,7 @@ function ItemSlot(info) {
     this.qty_part = parts['qty'];
     this.icon_part = parts['icon'];
 
+    this.idx = idx;
     this.tag = TAG.EMPTY;
     this.id = 0;
     this.qty = 0;
@@ -221,6 +222,8 @@ function ItemSlot(info) {
     if (info != null) {
         this.update(info);
     }
+
+    window.DND.registerSource(this);
 }
 ItemSlot.prototype = Object.create(widget.Element.prototype);
 ItemSlot.prototype.constructor = ItemSlot;
@@ -243,6 +246,15 @@ ItemSlot.prototype.update = function(info) {
     var def = ItemDef.by_id[this.id];
     this.qty_part.textContent = new_qty_str;
     this.icon_part.style.backgroundPosition = '-' + def.tile_x + 'rem -' + def.tile_y + 'rem';
+};
+
+ItemSlot.prototype.ondragstart = function(evt) {
+    console.log('ondragstart', evt);
+    return {
+        'inv': this.inv,
+        'slot': this.idx,
+        'icon': this.dom.cloneNode(true),
+    };
 };
 
 
