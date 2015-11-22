@@ -204,12 +204,10 @@ ItemGrid.prototype.selectItem = function(item_id) {
 
 
 /** @constructor */
-function ItemSlot() {
+function ItemSlot(info) {
     var parts = util.templateParts('item-slot');
     parts['qty'].textContent = '';
     parts['icon'].style.backgroundPosition = '-0rem -0rem';
-    //parts['qty'].textContent = '' + qty;
-    //parts['icon'].style.backgroundPosition = '-' + icon_x + 'rem -' + icon_y + 'rem';
 
     widget.Element.call(this, parts['top']);
 
@@ -219,6 +217,10 @@ function ItemSlot() {
     this.tag = TAG.EMPTY;
     this.id = 0;
     this.qty = 0;
+
+    if (info != null) {
+        this.update(info);
+    }
 }
 ItemSlot.prototype = Object.create(widget.Element.prototype);
 ItemSlot.prototype.constructor = ItemSlot;

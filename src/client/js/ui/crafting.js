@@ -2,10 +2,11 @@ var Config = require('config').Config;
 var ItemDef = require('data/items').ItemDef;
 var RecipeDef = require('data/recipes').RecipeDef;
 var ItemGrid = require('ui/inventory').ItemGrid;
-var ItemRow = require('ui/inventory').ItemRow;
+var ItemSlot = require('ui/inventory').ItemSlot;
 var InventoryTracker = require('inventory').InventoryTracker;
 var util = require('util/misc');
 var widget = require('ui/widget');
+var TAG = require('inventory').TAG;
 
 
 /** @constructor */
@@ -15,16 +16,16 @@ function CraftingUI(station_type, station_id, inv) {
     this.station_id = station_id;
     this.inv = inv;
 
-    this.input_div = util.element('div', ['recipe-item-list']);
-    this.output_div = util.element('div', ['recipe-item-list']);
+    this.input_div = util.element('div', ['recipe-item-list', 'style=align-items: flex-end']);
+    this.output_div = util.element('div', ['recipe-item-list', 'style=align-items: flex-start']);
     this.arrow_div = util.element('div', ['recipe-item-arrow']);
-    this.arrow_div.innerHTML = '&dArr;';
+    this.arrow_div.innerHTML = '&rArr;';
 
     var parts = util.templateParts('crafting', {
         'item_list': this.item_list.dom,
         'recipe_list': this.recipe_list.dom,
-        'input_list': this.input_div,
-        'output_list': this.output_div,
+        'inputs': this.input_div,
+        'outputs': this.output_div,
         'arrow': this.arrow_div,
     });
 
@@ -77,8 +78,11 @@ CraftingUI.prototype._updateRecipeDisplay = function() {
     for (var i = 0; i < recipe.inputs.length; ++i) {
         var item_id = recipe.inputs[i][0];
         var count = recipe.inputs[i][1];
-        var item = ItemDef.by_id[item_id];
-        var row = new ItemRow(item_id, count, item.ui_name, item.tile_x, item.tile_y);
+        var row = new ItemSlot({
+            tag: TAG.BULK,
+            item_id: item_id,
+            count: count,
+        });
         if (this.inv.count(item_id) < count) {
             row.dom.classList.add('disabled');
             craftable = false;
@@ -90,7 +94,11 @@ CraftingUI.prototype._updateRecipeDisplay = function() {
         var item_id = recipe.outputs[i][0];
         var count = recipe.outputs[i][1];
         var item = ItemDef.by_id[item_id];
-        var row = new ItemRow(item_id, count, item.ui_name, item.tile_x, item.tile_y);
+        var row = new ItemSlot({
+            tag: TAG.BULK,
+            item_id: item_id,
+            count: count,
+        });
         if (!craftable) {
             row.dom.classList.add('disabled');
         }

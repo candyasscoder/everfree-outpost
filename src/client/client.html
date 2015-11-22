@@ -919,29 +919,77 @@ input[type=text],
             <style>
                 .recipe {
                     padding: 0 0.25rem;
+                    margin-left: 6px;
+                    display: flex;
+                    align-items: stretch;
                 }
 
                 .recipe.active {
-                    background-color: lightgray;
+                    /* background-color: lightgray; */
                 }
 
                 .recipe.disabled {
                     color: darkgray;
                 }
+
+                .recipe-list:not(.active) > .recipe.g-arrow-row.active::before {
+                    background-image: url('img/arrow-gray.png');
+                }
+
+                .recipe-name {
+                    flex: 1 0 auto;
+                }
+
+                .g-arrow-marker {
+                    flex: 0 0 auto;
+
+                    width: 6px;
+                    margin-left: 2px;
+                    margin-right: 2px;
+
+                    background-position: center;
+                    background-repeat: no-repeat;
+                }
+
+                .active > .g-arrow-marker {
+                    background-image: url('img/arrow-yellow.png');
+                }
+
+                .recipe-list:not(.active) .active > .g-arrow-marker {
+                    background-image: url('img/arrow-gray.png');
+                }
+
             </style>
             <div id="recipe" class="recipe">
+                <div class="g-arrow-marker"></div>
                 <div class="recipe-name" data-part="name"></div>
             </div>
 
             <style>
                 .recipe-list {
+                    font-size: 12px;
+                    font-family: helv12px;
                     width: 10rem;
                     overflow-x: hidden;
                     overflow-y: scroll;
                 }
 
                 .recipe-list.active > .recipe.active {
-                    background-color: lightblue;
+                    /* background-color: lightblue; */
+                }
+
+                .recipe-list-container {
+                    position: relative;
+                }
+
+                .recipe-list-spacer {
+                    width: 10rem;
+                    height: 0;
+                }
+
+                .recipe-list {
+                    position: absolute;
+                    height: 100%;
                 }
 
                 .crafting .item-list {
@@ -949,9 +997,13 @@ input[type=text],
                 }
 
                 .recipe-item-list {
-                    flex: 0 0 auto;
-                    width: 10rem;
-                    overflow-x: hidden;
+                    height: calc(3 * 20px);
+                    display: flex;
+                    flex-direction: column;
+                    flex-wrap: wrap;
+                    justify-content: center;
+                    flex: 1 0 auto;
+                    margin: 0 2px;
                 }
 
                 .recipe-item-list > .item.disabled {
@@ -968,15 +1020,20 @@ input[type=text],
                 }
 
             </style>
-            <div id="crafting" class="crafting dialog-expand g-row" data-dialog-title="Crafting">
-                <div class="hole" data-key="recipe_list"></div>
+            <div id="crafting" class="crafting g-row" data-dialog-title="Crafting">
+                <div class="recipe-list-container">
+                    <div class="recipe-list-spacer"></div>
+                    <div class="hole" data-key="recipe_list"></div>
+                </div>
                 <div class="vertical-rule"></div>
                 <div class="g-col">
                     <div class="hole" data-key="item_list"></div>
                     <div class="horizontal-rule"></div>
-                    <div class="hole" data-key="input_list"></div>
-                    <div class="hole" data-key="arrow"></div>
-                    <div class="hole" data-key="output_list"></div>
+                    <div class="g-row" style="align-items: center">
+                        <div class="hole" data-key="inputs"></div>
+                        <div class="hole" data-key="arrow"></div>
+                        <div class="hole" data-key="outputs"></div>
+                    </div>
                 </div>
             </div>
 
