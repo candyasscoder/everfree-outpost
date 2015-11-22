@@ -134,9 +134,16 @@ function ItemGrid(inv, cols) {
         row_doms[i] = util.element('div', ['g-row'], this.dom);
     }
 
+    var this_ = this;
     for (var i = 0; i < size; ++i) {
         var s = new ItemSlot(this, i);
         s.update(inv.getSlot(i));
+        (function(s) {
+            s.dom.addEventListener('mouseenter', function(evt) {
+                widget.requestFocus(this_);
+                this_._setIndex(s.idx);
+            });
+        })(s);
         this.slots[i] = s;
 
         var row_dom = row_doms[(i / this.cols)|0];
@@ -150,7 +157,6 @@ function ItemGrid(inv, cols) {
     this.y = 0;
     this.slots[0].dom.classList.add('active');
 
-    var this_ = this;
     inv.onUpdate(function(idx, old_item, new_item) {
         this_.slots[idx].update(new_item);
     });
