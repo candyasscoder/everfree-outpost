@@ -879,6 +879,10 @@ input[type=text],
                 .item-grid:not(.active) .item-slot.active {
                     border-image-source: url('img/slot-rounded-semiactive.png');
                 }
+
+                .item-slot.drag-source > * {
+                    visibility: hidden;
+                }
             </style>
             <div id="item-slot" class="item-slot">
                 <div class="item-icon" data-part="icon"></div>

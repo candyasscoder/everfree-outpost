@@ -78,7 +78,7 @@ CraftingUI.prototype._updateRecipeDisplay = function() {
     for (var i = 0; i < recipe.inputs.length; ++i) {
         var item_id = recipe.inputs[i][0];
         var count = recipe.inputs[i][1];
-        var row = new ItemSlot(i, {
+        var row = new ItemSlot(this, i, {
             tag: TAG.BULK,
             item_id: item_id,
             count: count,
@@ -94,7 +94,7 @@ CraftingUI.prototype._updateRecipeDisplay = function() {
         var item_id = recipe.outputs[i][0];
         var count = recipe.outputs[i][1];
         var item = ItemDef.by_id[item_id];
-        var row = new ItemSlot(i, {
+        var row = new ItemSlot(this, i, {
             tag: TAG.BULK,
             item_id: item_id,
             count: count,

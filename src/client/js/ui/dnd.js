@@ -35,13 +35,13 @@ DNDState.prototype.registerSource = function(source) {
     });
 };
 
-DNDState.prototype.registerDest = function(dest) {
+DNDState.prototype.registerTarget = function(target) {
     var this_ = this;
-    dest.dom.addEventListener('click', function(evt) {
-        if (this_.data != null && (dest.candrop == null || dest.candrop(this_.data))) {
+    target.dom.addEventListener('click', function(evt) {
+        if (this_.data != null && (target.candrop == null || target.candrop(this_.data))) {
             evt.preventDefault();
             evt.stopPropagation();
-            this_._finishDrag(dest);
+            this_._finishDrag(target);
         }
     });
 };
@@ -83,9 +83,9 @@ DNDState.prototype._endDrag = function() {
     this.icon = null;
 };
 
-DNDState.prototype._finishDrag = function(dest) {
+DNDState.prototype._finishDrag = function(target) {
     if (this.source.ondragfinish != null) {
-        this.source.ondragfinish(dest, this.data);
+        this.source.ondragfinish(target, this.data);
     }
     this._endDrag();
 };

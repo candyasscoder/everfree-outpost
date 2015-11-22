@@ -47,7 +47,7 @@ InventoryUI.prototype.enableSelect = function(last_item_id, onselect) {
 
 
 /** @constructor */
-function ContainerUI(inv1, inv2) {
+function ContainerUI(dnd, inv1, inv2) {
     this.lists = [new ItemGrid(inv1, 6), new ItemGrid(inv2, 6)];
 
     var dom = fromTemplate('container', {
@@ -61,6 +61,20 @@ function ContainerUI(inv1, inv2) {
     var this_ = this;
     widget.hookKey(this.lists[0], 'select', function(evt) { this_._transfer(evt, 0) });
     widget.hookKey(this.lists[1], 'select', function(evt) { this_._transfer(evt, 1) });
+
+    var dnd_cb = function(from_inv, from_slot, to_inv, to_slot, count) {
+        if (to_inv.constructor !== ItemGrid) {
+            return;
+        }
+        if (this_.ontransfer != null) {
+            this_.ontransfer(from_inv.inv.getId(), from_slot, to_inv.inv.getId(), to_slot, count);
+        }
+    };
+    this.lists[0].registerDragSource(dnd, dnd_cb);
+    this.lists[0].registerDragTarget(dnd);
+    this.lists[1].registerDragSource(dnd, dnd_cb);
+    this.lists[1].registerDragTarget(dnd);
+
     this.ontransfer = null;
 }
 ContainerUI.prototype = Object.create(widget.Form.prototype);
@@ -106,7 +120,7 @@ function ItemGrid(inv, cols) {
     }
 
     for (var i = 0; i < size; ++i) {
-        var s = new ItemSlot(i);
+        var s = new ItemSlot(this, i);
         s.update(inv.getSlot(i));
         this.slots[i] = s;
 
@@ -125,6 +139,8 @@ function ItemGrid(inv, cols) {
     inv.onUpdate(function(idx, old_item, new_item) {
         this_.slots[idx].update(new_item);
     });
+
+    this.ondragfinish = null;
 }
 ItemGrid.prototype = Object.create(widget.Element.prototype);
 ItemGrid.prototype.constructor = ItemGrid;
@@ -202,9 +218,26 @@ ItemGrid.prototype.selectItem = function(item_id) {
     }
 };
 
+ItemGrid.prototype.registerDragSource = function(dnd, callback) {
+    for (var i = 0; i < this.slots.length; ++i) {
+        dnd.registerSource(this.slots[i]);
+    }
+    this.ondragfinish = function(source_slot, target_slot, data) {
+        callback(source_slot.owner, source_slot.idx,
+                 target_slot.owner, target_slot.idx,
+                 data.count);
+    };
+};
+
+ItemGrid.prototype.registerDragTarget = function(dnd) {
+    for (var i = 0; i < this.slots.length; ++i) {
+        dnd.registerTarget(this.slots[i]);
+    }
+};
+
 
 /** @constructor */
-function ItemSlot(idx, info) {
+function ItemSlot(owner, idx, info) {
     var parts = util.templateParts('item-slot');
     parts['qty'].textContent = '';
     parts['icon'].style.backgroundPosition = '-0rem -0rem';
@@ -214,16 +247,18 @@ function ItemSlot(idx, info) {
     this.qty_part = parts['qty'];
     this.icon_part = parts['icon'];
 
+    this.owner = owner;
     this.idx = idx;
+
     this.tag = TAG.EMPTY;
     this.id = 0;
     this.qty = 0;
 
+    this.dragging = false;
+
     if (info != null) {
         this.update(info);
     }
-
-    window.DND.registerSource(this);
 }
 ItemSlot.prototype = Object.create(widget.Element.prototype);
 ItemSlot.prototype.constructor = ItemSlot;
@@ -246,15 +281,37 @@ ItemSlot.prototype.update = function(info) {
     var def = ItemDef.by_id[this.id];
     this.qty_part.textContent = new_qty_str;
     this.icon_part.style.backgroundPosition = '-' + def.tile_x + 'rem -' + def.tile_y + 'rem';
+
+    if (this.dom.classList.contains('drag-source') && !this.dragging) {
+        this.dom.classList.remove('drag-source');
+    }
 };
 
 ItemSlot.prototype.ondragstart = function(evt) {
-    console.log('ondragstart', evt);
+    if (this.tag == TAG.EMPTY) {
+        return null;
+    }
+
+    var icon = this.dom.cloneNode(true);
+    this.dom.classList.add('drag-source');
+    this.dragging = true;
     return {
-        'inv': this.inv,
-        'slot': this.idx,
-        'icon': this.dom.cloneNode(true),
+        count: this.qty,
+        icon: icon,
     };
+};
+
+ItemSlot.prototype.ondragfinish = function(target, data) {
+    console.log('finished!', this.owner.ondragfinish);
+    this.dragging = false;
+    if (this.owner.ondragfinish != null) {
+        this.owner.ondragfinish(this, target, data);
+    }
+};
+
+ItemSlot.prototype.ondragcancel = function(data) {
+    this.dragging = false;
+    this.dom.classList.remove('drag-source');
 };
 
 

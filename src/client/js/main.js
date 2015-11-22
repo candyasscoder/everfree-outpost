@@ -116,6 +116,7 @@ var debug;
 var dialog;
 var banner;
 var keyboard;
+var dnd;
 var chat;
 var error_list;
 var inv_update_list;
@@ -178,7 +179,7 @@ function init() {
     debug = new DebugMonitor();
     banner = new Banner();
     keyboard = new Keyboard();
-    window.DND = new DNDState(keyboard);
+    dnd = new DNDState(keyboard);
     dialog = new Dialog(keyboard);
     chat = new ChatWindow();
     inv_update_list = new InventoryUpdateList();
@@ -803,7 +804,7 @@ function handleOpenDialog(idx, args) {
         var inv1 = inv_tracker.get(args[0]);
         var inv2 = inv_tracker.get(args[1]);
 
-        var ui = new ContainerUI(inv1, inv2);
+        var ui = new ContainerUI(dnd, inv1, inv2);
         dialog.show(ui);
         ui.ontransfer = function(from_inventory, from_slot, to_inventory, to_slot, amount) {
             conn.sendMoveItem(from_inventory, from_slot, to_inventory, to_slot, amount);
