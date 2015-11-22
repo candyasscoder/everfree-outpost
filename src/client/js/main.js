@@ -613,8 +613,11 @@ function setupKeyHandler() {
                         break;
                     }
                     var inv = item_inv.clone();
-                    var ui = new InventoryUI(inv);
+                    var ui = new InventoryUI(dnd, inv);
                     dialog.show(ui);
+                    ui.ontransfer = function(from_inv, from_slot, to_inv, to_slot, amount) {
+                        conn.sendMoveItem(from_inv, from_slot, to_inv, to_slot, amount);
+                    };
 
                     ui.enableSelect(hotbar.getItem(), function(idx, new_id) {
                         hotbar.setSlot(idx, new_id, true);
@@ -632,8 +635,11 @@ function setupKeyHandler() {
                         break;
                     }
                     var inv = ability_inv.clone();
-                    var ui = new InventoryUI(inv, 'Abilities');
+                    var ui = new InventoryUI(dnd, inv, 'Abilities');
                     dialog.show(ui);
+                    ui.ontransfer = function(from_inv, from_slot, to_inv, to_slot, amount) {
+                        conn.sendMoveItem(from_inv, from_slot, to_inv, to_slot, amount);
+                    };
 
                     ui.enableSelect(hotbar.getAbility(), function(idx, new_id) {
                         hotbar.setSlot(idx, new_id,  false);

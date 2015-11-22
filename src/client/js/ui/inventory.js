@@ -8,7 +8,7 @@ var TAG = require('inventory').TAG;
 
 
 /** @constructor */
-function InventoryUI(inv, title) {
+function InventoryUI(dnd, inv, title) {
     this.list = new ItemGrid(inv, 6);
     this.list.dom.classList.add('active');
 
@@ -19,6 +19,21 @@ function InventoryUI(inv, title) {
 
     widget.Form.call(this, this.list, dom);
     this.onselect = null;
+
+    var this_ = this;
+    var dnd_cb = function(from_inv, from_slot, to_inv, to_slot, count) {
+        if (to_inv !== from_inv) {
+            return;
+        }
+        if (this_.ontransfer != null) {
+            var id = from_inv.inv.getId();
+            this_.ontransfer(id, from_slot, id, to_slot, count);
+        }
+    };
+    this.ontransfer = null;
+
+    this.list.registerDragSource(dnd, dnd_cb);
+    this.list.registerDragTarget(dnd);
 }
 InventoryUI.prototype = Object.create(widget.Form.prototype);
 InventoryUI.prototype.constructor = InventoryUI;
@@ -302,7 +317,6 @@ ItemSlot.prototype.ondragstart = function(evt) {
 };
 
 ItemSlot.prototype.ondragfinish = function(target, data) {
-    console.log('finished!', this.owner.ondragfinish);
     this.dragging = false;
     if (this.owner.ondragfinish != null) {
         this.owner.ondragfinish(this, target, data);
