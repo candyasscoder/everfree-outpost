@@ -16,7 +16,7 @@ use core::raw;
 use core::slice;
 use physics::v3::{V3, V2, scalar, Region};
 use physics::{Shape, ShapeSource};
-use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_SIZE, TILE_BITS};
+use physics::{CHUNK_SIZE, CHUNK_BITS, CHUNK_MASK, TILE_BITS};
 
 use graphics::lights;
 use graphics::structures;
@@ -282,11 +282,14 @@ pub unsafe extern fn structure_base_geom_init(geom: &mut structures::base::GeomG
                                               buffer: &'static structures::Buffer<'static>,
                                               templates_ptr: *const gfx_types::StructureTemplate,
                                               templates_byte_len: usize,
-                                              model_verts_ptr: *const gfx_types::ModelVertex,
-                                              model_verts_byte_len: usize) {
+                                              parts_ptr: *const gfx_types::TemplatePart,
+                                              parts_byte_len: usize,
+                                              verts_ptr: *const gfx_types::TemplateVertex,
+                                              verts_byte_len: usize) {
     let templates = make_slice(templates_ptr, templates_byte_len);
-    let model_verts = make_slice(model_verts_ptr, model_verts_byte_len);
-    geom.init(buffer, templates, model_verts);
+    let parts = make_slice(parts_ptr, parts_byte_len);
+    let verts = make_slice(verts_ptr, verts_byte_len);
+    geom.init(buffer, templates, parts, verts);
 }
 
 #[export_name = "structure_base_geom_reset"]
@@ -321,11 +324,14 @@ pub unsafe extern fn structure_anim_geom_init(geom: &mut structures::anim::GeomG
                                               buffer: &'static structures::Buffer<'static>,
                                               templates_ptr: *const gfx_types::StructureTemplate,
                                               templates_byte_len: usize,
-                                              model_verts_ptr: *const gfx_types::ModelVertex,
-                                              model_verts_byte_len: usize) {
+                                              parts_ptr: *const gfx_types::TemplatePart,
+                                              parts_byte_len: usize,
+                                              verts_ptr: *const gfx_types::TemplateVertex,
+                                              verts_byte_len: usize) {
     let templates = make_slice(templates_ptr, templates_byte_len);
-    let model_verts = make_slice(model_verts_ptr, model_verts_byte_len);
-    geom.init(buffer, templates, model_verts);
+    let parts = make_slice(parts_ptr, parts_byte_len);
+    let verts = make_slice(verts_ptr, verts_byte_len);
+    geom.init(buffer, templates, parts, verts);
 }
 
 #[export_name = "structure_anim_geom_reset"]
@@ -407,7 +413,8 @@ pub struct Sizes {
     terrain_geom_gen: usize,
 
     structures_template: usize,
-    model_vertex: usize,
+    template_part: usize,
+    template_vertex: usize,
     structures_buffer: usize,
     structures_base_vertex: usize,
     structures_base_geom_gen: usize,
@@ -435,7 +442,8 @@ pub extern fn get_sizes(sizes: &mut Sizes, num_sizes: &mut usize) {
     sizes.terrain_geom_gen = size_of::<terrain::GeomGen>();
 
     sizes.structures_template = size_of::<gfx_types::StructureTemplate>();
-    sizes.model_vertex = size_of::<gfx_types::ModelVertex>();
+    sizes.template_part = size_of::<gfx_types::TemplatePart>();
+    sizes.template_vertex = size_of::<gfx_types::TemplateVertex>();
     sizes.structures_buffer = size_of::<structures::Buffer>();
     sizes.structures_base_vertex = size_of::<structures::base::Vertex>();
     sizes.structures_base_geom_gen = size_of::<structures::base::GeomGen>();

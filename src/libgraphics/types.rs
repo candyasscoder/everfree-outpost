@@ -52,31 +52,37 @@ pub struct StructureTemplate {
     // 0
     pub size: (u8, u8, u8),
     pub sheet: u8,
-    pub display_size: (u16, u16),
-    pub display_offset: (u16, u16),
-    pub model_offset: u16,
-    pub model_length: u16,
+    pub part_idx: u16,
+    pub part_count: u8,
+    pub vert_count: u8,
     pub layer: u8,
     pub flags: TemplateFlags,
 
-    // 18
-    pub anim_sheet: u8,
-    pub anim_length: i8,
-    pub anim_rate: u8,
-    pub _pad1: u8,
-    pub anim_offset: (u16, u16),    // offset of first frame within sheet
-    pub anim_pos: (u16, u16),       // offset of output relative to static part
-    pub anim_size: (u16, u16),
-
-    // 34
+    // 10
     pub light_pos: (u8, u8, u8),
     pub light_color: (u8, u8, u8),
     pub light_radius: u16,
 
-    // 42
+    // 18
 }
 
-pub struct ModelVertex {
+pub struct TemplatePart {
+    // 0
+    pub vert_idx: u16,
+    pub vert_count: u16,
+    pub offset: (u16, u16),
+    pub sheet: u8,
+    pub flags: TemplateFlags,
+
+    // 10
+    pub anim_length: i8,
+    pub anim_rate: u8,
+    pub anim_step: u16,     // x-size of each frame
+
+    // 14
+}
+
+pub struct TemplateVertex {
     pub x: u16,
     pub y: u16,
     pub z: u16,

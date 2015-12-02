@@ -1,3 +1,5 @@
+import functools
+import hashlib
 import pickle
 import os
 import sys
@@ -11,6 +13,13 @@ NEW_IMAGE_CACHE = {}
 # first run.  That is, the first run adds all the intermediate images to the
 # cache, but the second run, seeing that only the final products are used,
 # drops the intermediate images.  I think this is suboptimal, but I'm not sure...
+
+COMPUTE_CACHE = {}
+NEW_COMPUTE_CACHE = {}
+
+@functools.lru_cache(128)
+def _cached_mtime(path):
+    return os.path.getmtime(path)
 
 class CachedImage(object):
     """An immutable wrapper around PIL.Image that allows for caching of
@@ -44,6 +53,25 @@ class CachedImage(object):
         NEW_IMAGE_CACHE[self._desc] = img
         return img
 
+    def compute(self, f):
+        code_file = sys.modules[f.__module__].__file__
+        code_time = _cached_mtime(code_file)
+        k = (self._desc, f.__module__, f.__qualname__, code_file, code_time)
+
+        if k in COMPUTE_CACHE:
+            result = COMPUTE_CACHE[k]
+        else:
+            result = f(self.raw())
+            COMPUTE_CACHE[k] = result
+
+        if k not in NEW_COMPUTE_CACHE:
+            NEW_COMPUTE_CACHE[k] = result
+
+        return result
+
+    def desc(self):
+        return self._desc
+
     @staticmethod
     def blank(size):
         return BlankImage(size)
@@ -76,6 +104,15 @@ class BlankImage(CachedImage):
     def _realize(self):
         return PIL.Image.new('RGBA', self.size)
 
+class ConstImage(CachedImage):
+    def __init__(self, img):
+        h = hashlib.sha1(bytes(x for p in img.getdata() for x in p)).hexdigest()
+        super(ConstImage, self).__init__(img.size, (img.size, h), ())
+        self._raw = img
+
+    def _realize(self):
+        assert False, 'ConstImage already sets self._raw, should be no need to call _realize()'
+
 class FileImage(CachedImage):
     def __init__(self, filename):
         mtime = os.path.getmtime(filename)
@@ -89,7 +126,7 @@ class FileImage(CachedImage):
 class ModifiedImage(CachedImage):
     def __init__(self, img, f, size, desc):
         code_file = sys.modules[f.__module__].__file__
-        code_time = os.path.getmtime(code_file)
+        code_time = _cached_mtime(code_file)
 
         super(ModifiedImage, self).__init__(size, (desc, size, code_time), (img,))
         self.orig = img
@@ -152,14 +189,17 @@ class PaddedImage(CachedImage):
 
 
 def load_cache(f):
-    global IMAGE_CACHE
-    IMAGE_CACHE.update(pickle.load(f))
+    global IMAGE_CACHE, COMPUTE_CACHE
+    i, c = pickle.load(f)
+    IMAGE_CACHE.update(i)
+    COMPUTE_CACHE.update(c)
 
 def dump_cache(f):
-    global NEW_IMAGE_CACHE
+    global NEW_IMAGE_CACHE, NEW_COMPUTE_CACHE
     for k, v in NEW_IMAGE_CACHE.items():
         if type(v) is not PIL.Image.Image:
             new_v = v.copy()
             new_v.load()
             NEW_IMAGE_CACHE[k] = new_v
-    pickle.dump(NEW_IMAGE_CACHE, f, -1)
+    blob = (NEW_IMAGE_CACHE, NEW_COMPUTE_CACHE)
+    pickle.dump(blob, f, -1)

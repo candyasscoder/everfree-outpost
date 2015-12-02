@@ -10,21 +10,11 @@ function TemplateDef_(id, info, assets) {
     this.size = new Vec(size[0], size[1], size[2]);
 
     this.shape = info['shape'];
+    this.part_idx = info['part_idx'];
+    this.part_count = info['part_count'];
+    this.vert_count = info['vert_count'];
     this.layer = info['layer'];
-    this.sheet = info['sheet'];
-    this.display_size = info['display_size'];
-    this.display_offset = info['offset'];
-    this.model_offset = info['model_offset'];
-    this.model_length = info['model_length'];
     this.flags = info['flags'] || 0;
-
-    this.anim_size = info['anim_size'] || [0, 0];
-    this.anim_offset = info['anim_offset'] || [0, 0];
-    this.anim_pos = info['anim_pos'] || [0, 0];
-    this.anim_length = info['anim_length'] || 0;
-    this.anim_rate = info['anim_rate'] || 0;
-    this.anim_oneshot = info['anim_oneshot'] || false;
-    this.anim_sheet = info['anim_sheet'] || 0;
 
     this.light_pos = info['light_pos'] || [0, 0, 0];
     this.light_color = info['light_color'] || [0, 0, 0];
@@ -47,4 +37,33 @@ TemplateDef.register = function(id, info, assets) {
         TemplateDef.by_id.push(null);
     }
     TemplateDef.by_id[template.id] = template;
+};
+
+
+/** @constructor */
+function TemplatePart_(info) {
+    this.sheet = info['sheet'];
+    this.offset = info['offset'];
+    this.vert_idx = info['vert_idx'];
+    this.vert_count = info['vert_count'];
+    this.flags = info['flags'] || 0;
+
+    this.anim_length = info['anim_length'] || 0;
+    this.anim_rate = info['anim_rate'] || 0;
+    this.anim_oneshot = info['anim_oneshot'] || false;
+    this.anim_size = info['anim_size'] || [0, 0];
+}
+
+var TemplatePart = {};
+exports.TemplatePart = TemplatePart
+
+TemplatePart.by_index = [];
+
+TemplatePart.register = function(info) {
+    if (info == null) {
+        return;
+    }
+
+    var part = new TemplatePart_(info);
+    TemplatePart.by_index.push(part);
 };

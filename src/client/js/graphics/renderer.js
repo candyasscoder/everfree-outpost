@@ -111,9 +111,9 @@ exports.Renderer = Renderer;
 
 // Renderer initialization
 
-Renderer.prototype.initData = function(blocks, templates, model_verts) {
+Renderer.prototype.initData = function(blocks, templates, parts, verts) {
     this._asm = new AsmGraphics(
-            blocks.length, templates.length, model_verts.length / 3,
+            blocks.length, templates.length, parts.length, verts.length / 3,
             512 * 1024, 512 * 1024);
 
     this._asm.terrainGeomInit();
@@ -124,7 +124,8 @@ Renderer.prototype.initData = function(blocks, templates, model_verts) {
 
     this.loadBlockData(blocks);
     this.loadTemplateData(templates);
-    this.loadModels(model_verts);
+    this.loadTemplateParts(parts);
+    this.loadTemplateVerts(verts);
 };
 
 Renderer.prototype.initGl = function(assets) {
@@ -252,30 +253,44 @@ Renderer.prototype.loadTemplateData = function(templates) {
         out8(   1, template.size.y);
         out8(   2, template.size.z);
         out8(   3, template.sheet);
-        out16(  4, template.display_size, 2);
-        out16(  8, template.display_offset, 2);
-        out16( 12, template.model_offset);
-        out16( 14, template.model_length);
-        out8(  16, template.layer);
-        out8(  17, template.flags);
+        out16(  4, template.part_idx);
+        out8(   6, template.part_count);
+        out8(   7, template.vert_count);
+        out8(   8, template.layer);
+        out8(   9, template.flags);
 
-        out8(  18, template.anim_sheet);
-        var oneshot_length = template.anim_length * (template.anim_oneshot ? -1 : 1);
-        out8(  19, oneshot_length);
-        out8(  20, template.anim_rate);
-        out16( 22, template.anim_offset, 2);
-        out16( 26, template.anim_pos, 2);
-        out16( 30, template.anim_size, 2);
-
-        out8(  34, template.light_pos, 3);
-        out8(  37, template.light_color, 3);
-        out16( 40, template.light_radius);
+        out8(  10, template.light_pos, 3);
+        out8(  13, template.light_color, 3);
+        out16( 16, template.light_radius);
     }
 };
 
-Renderer.prototype.loadModels = function(verts) {
-    console.assert(SIZEOF.ModelVertex == 6);
-    var view = this._asm.modelVertexView();
+Renderer.prototype.loadTemplateParts = function(parts) {
+    var view8 = this._asm.templatePartView8();
+    var view16 = this._asm.templatePartView16();
+
+    for (var i = 0; i < parts.length; ++i) {
+        var part = parts[i];
+        var out8 = mk_out(view8, i, SIZEOF.TemplatePart);
+        var out16 = mk_out(view16, i, SIZEOF.TemplatePart);
+
+        out16(  0, part.vert_idx);
+        out16(  2, part.vert_count);
+        out16(  4, part.offset[0]);
+        out16(  6, part.offset[1]);
+        out8(   8, part.sheet);
+        out8(   9, part.flags);
+
+        var oneshot_length = part.anim_length * (part.anim_oneshot ? -1 : 1);
+        out8(  10, oneshot_length);
+        out8(  11, part.anim_rate);
+        out16( 12, part.anim_size[0]);
+    }
+};
+
+Renderer.prototype.loadTemplateVerts = function(verts) {
+    console.assert(SIZEOF.TemplateVertex == 6);
+    var view = this._asm.templateVertexView();
     view.set(verts);
 };
 
@@ -409,9 +424,11 @@ Renderer.prototype.render = function(s, draw_extra) {
         var len = this_.structure_buf.getSize();
         this_.structure.draw(fb_idx, 0, len / SIZEOF.StructureBaseVertex, {}, {'*': buf}, {});
 
+        /*
         var buf = this_.structure_anim_buf.getBuffer();
         var len = this_.structure_anim_buf.getSize();
         this_.structure_anim.draw(fb_idx, 0, len / SIZEOF.StructureAnimVertex, {}, {'*': buf}, {});
+        */
 
         for (var i = 0; i < s.sprites.length; ++i) {
             var sprite = s.sprites[i];
@@ -439,7 +456,8 @@ Renderer.prototype.render = function(s, draw_extra) {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
     // clearColor sets the ambient light color+intensity
-    var amb = s.ambient_color;
+    //var amb = s.ambient_color;
+    var amb = [255, 255, 255];
     var amb_intensity = 0.2126 * amb[0] + 0.7152 * amb[1] + 0.0722 * amb[2];
     gl.clearColor(amb[0] / 255, amb[1] / 255, amb[2] / 255, amb_intensity / 255);
 

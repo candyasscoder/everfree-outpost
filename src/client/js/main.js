@@ -50,6 +50,7 @@ var BlockDef = require('data/chunk').BlockDef;
 var ItemDef = require('data/items').ItemDef;
 var RecipeDef = require('data/recipes').RecipeDef;
 var TemplateDef = require('data/templates').TemplateDef;
+var TemplatePart = require('data/templates').TemplatePart;
 var AnimationDef = require('data/animations').AnimationDef;
 var AttachSlotDef = require('data/attachments').AttachSlotDef;
 var ExtraDefs = require('data/extras').ExtraDefs;
@@ -281,6 +282,11 @@ function loadAssets(next) {
                 TemplateDef.register(i, templates[i], assets);
             }
 
+            var template_parts = assets['template_part_defs'];
+            for (var i = 0; i < template_parts.length; ++i) {
+                TemplatePart.register(template_parts[i]);
+            }
+
             var animations = assets['animation_defs'];
             for (var i = 0; i < animations.length; ++i) {
                 AnimationDef.register(i, animations[i]);
@@ -293,7 +299,8 @@ function loadAssets(next) {
 
             ExtraDefs.init(assets['extra_defs']);
 
-            renderer.initData(BlockDef.by_id, TemplateDef.by_id, assets['model_defs']);
+            renderer.initData(BlockDef.by_id, TemplateDef.by_id,
+                    TemplatePart.by_index, assets['template_vert_defs']);
 
             var css = '.item-icon {' +
                 'background-image: url("' + assets['items'] + '");' +

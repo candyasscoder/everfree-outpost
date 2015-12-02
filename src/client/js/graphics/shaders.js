@@ -127,7 +127,7 @@ function makeShaders(shaders, gl, assets, make_texture) {
                 .field(18, gl.UNSIGNED_SHORT, 1, 'animStep')
                 .field(20, gl.UNSIGNED_SHORT, 2, 'animBoxMin')
                 .field(24, gl.UNSIGNED_SHORT, 2, 'animBoxSize'))
-        .texture('sheetTex', ctx.makeAssetTexture('staticanim0'))
+        //.texture('sheetTex', ctx.makeAssetTexture('staticanim0'))
         .finish();
 
 

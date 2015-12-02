@@ -54,8 +54,8 @@ void main(void) {
     glPos.y = -glPos.y;
     gl_Position = vec4(glPos, 1.0);
 
-    //vec2 texPx = displayOffset + displaySize * corner;
     vec2 texPx = displayOffset + vec2(vertOffset.x, vertOffset.y - vertOffset.z);
+    //vec2 texPx = displayOffset - vec2(128) + 8.0 * vec2(vertOffset.x, vertOffset.y - vertOffset.z);
 #ifdef OUTPOST_ANIM
     float frame;
     if (animLength >= 0.0) {

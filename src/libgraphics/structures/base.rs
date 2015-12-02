@@ -4,7 +4,7 @@ use core::ptr;
 use physics::v3::{V3, V2, scalar, Region};
 use physics::{CHUNK_SIZE, TILE_SIZE};
 
-use types::{StructureTemplate, ModelVertex};
+use types::{StructureTemplate, HAS_ANIM, TemplatePart, TemplateVertex};
 
 use super::Buffer;
 
@@ -26,7 +26,8 @@ pub struct Vertex {
 pub struct GeomGen<'a> {
     buffer: &'a Buffer<'a>,
     templates: &'a [StructureTemplate],
-    model_verts: &'a [ModelVertex],
+    parts: &'a [TemplatePart],
+    verts: &'a [TemplateVertex],
 
     bounds: Region<V2>,
     cur: usize,
@@ -37,10 +38,12 @@ impl<'a> GeomGen<'a> {
     pub unsafe fn init(&mut self,
                        buffer: &'a Buffer<'a>,
                        templates: &'a [StructureTemplate],
-                       model_verts: &'a [ModelVertex]) {
+                       parts: &'a [TemplatePart],
+                       verts: &'a [TemplateVertex]) {
         ptr::write(&mut self.buffer, buffer);
         ptr::write(&mut self.templates, templates);
-        ptr::write(&mut self.model_verts, model_verts);
+        ptr::write(&mut self.parts, parts);
+        ptr::write(&mut self.verts, verts);
 
         ptr::write(&mut self.bounds, Region::new(scalar(0), scalar(0)));
         self.cur = 0;
@@ -75,26 +78,32 @@ impl<'a> GeomGen<'a> {
                 continue;
             }
 
-            if *idx + t.model_length as usize >= buf.len() {
-                // Not enough space for this structure's vertices
+            if *idx + t.vert_count as usize >= buf.len() {
+                // Not enough space for all this structure's vertices.
+                // Note the structure may not render all its vertices right now (some may be for
+                // animated parts), but it's always better to be safe.
                 break;
             }
 
-            let i0 = t.model_offset as usize;
-            let i1 = i0 + t.model_length as usize;
-            // Use the offset corresponding to the 0,0,0 corner.
-            let display_offset = (t.display_offset.0,
-                                  t.display_offset.1 + t.display_size.1 -
-                                      t.size.1 as u16 * TILE_SIZE as u16);
-            for v in &self.model_verts[i0 .. i1] {
-                buf[*idx] = Vertex {
-                    vert_offset: (v.x, v.y, v.z),
-                    _pad1: 0,
-                    struct_pos: s.pos,
-                    layer: t.layer,
-                    display_offset: display_offset,
-                };
-                *idx += 1;
+            let i0 = t.part_idx as usize;
+            let i1 = i0 + t.part_count as usize;
+            for p in &self.parts[i0 .. i1] {
+                if p.flags.contains(HAS_ANIM) {
+                    continue;
+                }
+
+                let j0 = p.vert_idx as usize;
+                let j1 = j0 + p.vert_count as usize;
+                for v in &self.verts[j0 .. j1] {
+                    buf[*idx] = Vertex {
+                        vert_offset: (v.x, v.y, v.z),
+                        _pad1: 0,
+                        struct_pos: s.pos,
+                        layer: t.layer,
+                        display_offset: p.offset,
+                    };
+                    *idx += 1;
+                }
             }
         }
 

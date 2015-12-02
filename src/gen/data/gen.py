@@ -31,12 +31,12 @@ def copy_builder2_to_builder(b):
 def postprocess(b):
     id_maps = IdMaps(
         util.assign_ids(b.structures),
-        util.assign_ids(b.blocks, {'empty', 'placeholder'}),
-        util.assign_ids(b.items, {'none'}),
+        util.assign_ids(b.blocks, ['empty', 'placeholder']),
+        util.assign_ids(b.items, ['none']),
         util.assign_ids(b.recipes),
         util.assign_ids(b.animations),
         util.assign_ids(b.attach_slots),
-        dict((s.name, util.assign_ids(s.variants, {'none'})) for s in b.attach_slots),
+        dict((s.name, util.assign_ids(s.variants, ['none'])) for s in b.attach_slots),
     )
 
     recipe.resolve_item_ids(b.recipes, id_maps.items)
@@ -49,9 +49,13 @@ def write_json(output_dir, basename, j):
         json.dump(j, f)
 
 def emit_structures(output_dir, structures):
+    # Final processing to assign array slots to parts and vertices
+    parts = structure.collect_parts(structures)
+    verts = structure.collect_verts(parts)
+
     # Handle sheet images
     for f in os.listdir(output_dir):
-        if (f.startswith('structures') or f.startswith('structdepth')) and f.endswith('.png'):
+        if f.startswith('structures') and f.endswith('.png'):
             os.remove(os.path.join(output_dir, f))
 
     sheet_names = set()
@@ -60,17 +64,14 @@ def emit_structures(output_dir, structures):
         sheet_names.update(('structures%d' % i,))
         image.save(os.path.join(output_dir, 'structures%d.png' % i))
 
-    anim_sheets = structure.build_anim_sheets(structures)
-    for i, image in enumerate(anim_sheets):
-        sheet_names.update(('staticanim%d' % i,))
-        image.save(os.path.join(output_dir, 'staticanim%d.png' % i))
-
     write_json(output_dir, 'structures_list.json', sorted(sheet_names))
 
-    # Handle models
-    models = structure.collect_models(structures)
-    write_json(output_dir, 'models_client.json',
-            structure.build_model_json(models))
+    # Handle parts and vertices
+    write_json(output_dir, 'structure_parts_client.json',
+            structure.build_parts_json(parts))
+
+    write_json(output_dir, 'structure_verts_client.json',
+            structure.build_verts_json(verts))
 
     # Emit actual structure json
     write_json(output_dir, 'structures_server.json',

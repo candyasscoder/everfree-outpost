@@ -4,7 +4,7 @@ use core::ptr;
 use physics::v3::{V3, V2, scalar, Region};
 use physics::{CHUNK_SIZE, TILE_SIZE};
 
-use types::{StructureTemplate, HAS_ANIM, ModelVertex};
+use types::{StructureTemplate, HAS_ANIM, TemplatePart, TemplateVertex};
 
 use super::Buffer;
 
@@ -24,19 +24,16 @@ pub struct Vertex {
     // 16
     anim_oneshot_start: u16,
     anim_step: u16,
-    anim_box_min: (u16, u16),
-    anim_box_size: (u16, u16),
 
-    // 28
-    _pad1: u32
-    // 32
+    // 20
 }
 
 
 pub struct GeomGen<'a> {
     buffer: &'a Buffer<'a>,
     templates: &'a [StructureTemplate],
-    model_verts: &'a [ModelVertex],
+    parts: &'a [TemplatePart],
+    verts: &'a [TemplateVertex],
 
     bounds: Region<V2>,
     cur: usize,
@@ -47,10 +44,12 @@ impl<'a> GeomGen<'a> {
     pub unsafe fn init(&mut self,
                        buffer: &'a Buffer<'a>,
                        templates: &'a [StructureTemplate],
-                       model_verts: &'a [ModelVertex]) {
+                       parts: &'a [TemplatePart],
+                       verts: &'a [TemplateVertex]) {
         ptr::write(&mut self.buffer, buffer);
         ptr::write(&mut self.templates, templates);
-        ptr::write(&mut self.model_verts, model_verts);
+        ptr::write(&mut self.parts, parts);
+        ptr::write(&mut self.verts, verts);
 
         ptr::write(&mut self.bounds, Region::new(scalar(0), scalar(0)));
         self.cur = 0;
@@ -66,6 +65,7 @@ impl<'a> GeomGen<'a> {
     pub fn generate(&mut self,
                     buf: &mut [Vertex],
                     idx: &mut usize) -> bool {
+        /*
         while *idx < buf.len() {
             if self.cur >= self.buffer.len {
                 // No more structures.
@@ -118,5 +118,7 @@ impl<'a> GeomGen<'a> {
         }
 
         true
+        */
+        false
     }
 }
