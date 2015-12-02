@@ -51,7 +51,7 @@ bitflags! {
 pub struct StructureTemplate {
     // 0
     pub size: (u8, u8, u8),
-    pub sheet: u8,
+    pub _pad1: u8,
     pub part_idx: u16,
     pub part_count: u8,
     pub vert_count: u8,
@@ -70,7 +70,7 @@ pub struct TemplatePart {
     // 0
     pub vert_idx: u16,
     pub vert_count: u16,
-    pub offset: (u16, u16),
+    pub offset: (i16, i16),
     pub sheet: u8,
     pub flags: TemplateFlags,
 

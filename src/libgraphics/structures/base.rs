@@ -18,7 +18,7 @@ pub struct Vertex {
     // 8
     struct_pos: (u8, u8, u8),
     layer: u8,
-    display_offset: (u16, u16),
+    display_offset: (i16, i16),
 
     // 16
 }
@@ -73,8 +73,8 @@ impl<'a> GeomGen<'a> {
             let s_pos = V3::new(s.pos.0 as i32,
                                 s.pos.1 as i32,
                                 s.pos.2 as i32);
-            if t.sheet != self.sheet || !self.bounds.contains(s_pos.reduce()) {
-                // Wrong sheet, or not visible
+            if !self.bounds.contains(s_pos.reduce()) {
+                // Not visible
                 continue;
             }
 
@@ -88,7 +88,7 @@ impl<'a> GeomGen<'a> {
             let i0 = t.part_idx as usize;
             let i1 = i0 + t.part_count as usize;
             for p in &self.parts[i0 .. i1] {
-                if p.flags.contains(HAS_ANIM) {
+                if p.sheet != self.sheet || p.flags.contains(HAS_ANIM) {
                     continue;
                 }
 

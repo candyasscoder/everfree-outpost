@@ -65,10 +65,9 @@ impl<'a> GeomGen<'a> {
     pub fn generate(&mut self,
                     buf: &mut [Vertex],
                     idx: &mut usize) -> bool {
-        /*
         while *idx < buf.len() {
             if self.cur >= self.buffer.len {
-                // No more structures.
+                // No more structures
                 return false;
             }
 
@@ -80,45 +79,43 @@ impl<'a> GeomGen<'a> {
             let s_pos = V3::new(s.pos.0 as i32,
                                 s.pos.1 as i32,
                                 s.pos.2 as i32);
-            if t.anim_sheet != self.sheet || !t.flags.contains(HAS_ANIM) ||
-               !self.bounds.contains(s_pos.reduce()) {
-                // Wrong sheet, no anim, or not visible.
+            if !self.bounds.contains(s_pos.reduce()) || !t.flags.contains(HAS_ANIM) {
+                // Not visible, or no animated parts
                 continue;
             }
 
-            if *idx + t.model_length as usize >= buf.len() {
-                // Not enough space for this structure's vertices
+            if *idx + t.vert_count as usize >= buf.len() {
+                // Not enough space for all this structure's vertices.
+                // Note the structure may not render all its vertices right now (some may be for
+                // animated parts), but it's always better to be safe.
                 break;
             }
 
-            let i0 = t.model_offset as usize;
-            let i1 = i0 + t.model_length as usize;
-            // Use the offset corresponding to the 0,0,0 corner.
-            let display_offset = (
-                t.anim_offset.0 as i16 - t.anim_pos.0 as i16,
-                t.anim_offset.1 as i16 - t.anim_pos.1 as i16 + t.display_size.1 as i16 -
-                        t.size.1 as i16 * TILE_SIZE as i16
-            );
-            for v in &self.model_verts[i0 .. i1] {
-                buf[*idx] = Vertex {
-                    vert_offset: (v.x, v.y, v.z),
-                    struct_pos: s.pos,
-                    layer: t.layer,
-                    display_offset: display_offset,
-                    anim_length: t.anim_length,
-                    anim_rate: t.anim_rate,
-                    anim_oneshot_start: s.oneshot_start,
-                    anim_step: t.anim_size.0,
-                    anim_box_min: t.anim_offset,
-                    anim_box_size: t.anim_size,
-                    _pad1: 0,
-                };
-                *idx += 1;
+            let i0 = t.part_idx as usize;
+            let i1 = i0 + t.part_count as usize;
+            for p in &self.parts[i0 .. i1] {
+                if p.sheet != self.sheet || !p.flags.contains(HAS_ANIM) {
+                    continue;
+                }
+
+                let j0 = p.vert_idx as usize;
+                let j1 = j0 + p.vert_count as usize;
+                for v in &self.verts[j0 .. j1] {
+                    buf[*idx] = Vertex {
+                        vert_offset: (v.x, v.y, v.z),
+                        anim_length: p.anim_length,
+                        anim_rate: p.anim_rate,
+                        struct_pos: s.pos,
+                        layer: t.layer,
+                        display_offset: p.offset,
+                        anim_oneshot_start: s.oneshot_start,
+                        anim_step: p.anim_step,
+                    };
+                    *idx += 1;
+                }
             }
         }
 
         true
-        */
-        false
     }
 }

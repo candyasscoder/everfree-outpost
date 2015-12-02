@@ -252,7 +252,6 @@ Renderer.prototype.loadTemplateData = function(templates) {
         out8(   0, template.size.x);
         out8(   1, template.size.y);
         out8(   2, template.size.z);
-        out8(   3, template.sheet);
         out16(  4, template.part_idx);
         out8(   6, template.part_count);
         out8(   7, template.vert_count);
@@ -424,11 +423,9 @@ Renderer.prototype.render = function(s, draw_extra) {
         var len = this_.structure_buf.getSize();
         this_.structure.draw(fb_idx, 0, len / SIZEOF.StructureBaseVertex, {}, {'*': buf}, {});
 
-        /*
         var buf = this_.structure_anim_buf.getBuffer();
         var len = this_.structure_anim_buf.getSize();
         this_.structure_anim.draw(fb_idx, 0, len / SIZEOF.StructureAnimVertex, {}, {'*': buf}, {});
-        */
 
         for (var i = 0; i < s.sprites.length; ++i) {
             var sprite = s.sprites[i];

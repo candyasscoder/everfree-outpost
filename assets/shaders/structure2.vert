@@ -20,16 +20,10 @@ attribute float animLength;
 attribute float animRate;
 attribute float animOneshotStart;
 attribute float animStep;
-attribute vec2 animBoxMin;
-attribute vec2 animBoxSize;
 #endif
 
 varying vec2 texCoord;
 varying float baseZ;
-#ifdef OUTPOST_ANIM
-varying vec2 renderMin;
-varying vec2 renderMax;
-#endif
 
 void main(void) {
     vec3 pos = blockPos * TILE_SIZE + vertOffset;
@@ -68,12 +62,7 @@ void main(void) {
         float delta = mod(now_ms - animOneshotStart + HALF_MOD, ANIM_MODULUS_MS) - HALF_MOD;
         frame = clamp(floor(delta / 1000.0 * animRate), 0.0, -animLength - 1.0);
     }
-
-    vec2 frameStep = vec2(frame * animBoxSize.x, 0);
-    texPx.x += frameStep.x;
-
-    renderMin = (animBoxMin + frameStep) / (ATLAS_SIZE * TILE_SIZE);
-    renderMax = (animBoxMin + animBoxSize + frameStep) / (ATLAS_SIZE * TILE_SIZE);
+    texPx.x += frame * animStep;
 #endif
     texCoord = texPx / (ATLAS_SIZE * TILE_SIZE);
     baseZ = blockPos.z;
