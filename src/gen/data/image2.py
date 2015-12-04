@@ -128,6 +128,14 @@ class Image(object):
     def hash(self):
         return self.raw().compute(util.hash_image)
 
+    def get_bounds(self):
+        return self.raw().get_bounds()
+
+    def autocrop(self):
+        x0, y0, x1, y1 = self.get_bounds()
+        img = self.extract((x0, y0), size=(x1 - x0, y1 - y0), unit=1)
+        return (img, (x0, y0))
+
 class Anim(object):
     def __init__(self, frames, rate, oneshot=False):
         self._frames = frames
@@ -186,6 +194,21 @@ class Anim(object):
 
     def pad(self, *args, **kwargs):
         return self._map_frames('pad', args, kwargs)
+
+    def autocrop(self):
+        x0, y0, x1, y1 = self._frames[0].get_bounds()
+        for f in self._frames[1:]:
+            x0_, y0_, x1_, y1_ = f.get_bounds()
+            x0 = min(x0, x0_)
+            y0 = min(y0, y0_)
+            x1 = max(x1, x1_)
+            y1 = max(y1, y1_)
+
+        offset = (x0, y0)
+        size = (x1 - x0, y1 - y0)
+        img = Anim([f.extract(offset, size=size, unit=1) for f in self._frames],
+                self.rate, self.oneshot)
+        return (img, offset)
 
 def stack(imgs):
     return imgs[0].stack(imgs[1:])

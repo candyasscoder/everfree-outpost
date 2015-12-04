@@ -97,6 +97,9 @@ class CachedImage(object):
     def pad(self, size, offset):
         return PaddedImage(self, size, offset)
 
+    def get_bounds(self):
+        return self.compute(lambda i: i.getbbox())
+
 class BlankImage(CachedImage):
     def __init__(self, size):
         super(BlankImage, self).__init__(size, size, ())

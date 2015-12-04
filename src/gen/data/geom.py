@@ -338,6 +338,15 @@ class Mesh(object):
                     continue
                 yield v
 
+    def get_bounds(self):
+        vs = [v.pos for v in self.iter_verts()]
+        return ((min(x for x,y,z in vs),
+                 min(y for x,y,z in vs),
+                 min(z for x,y,z in vs)),
+                (max(x for x,y,z in vs),
+                 max(y for x,y,z in vs),
+                 max(z for x,y,z in vs)))
+
     def get_bounds_2d(self, proj):
         vs = [proj(v.pos) for v in self.iter_verts()]
         return ((min(x for x,y in vs),

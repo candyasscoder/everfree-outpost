@@ -1,3 +1,5 @@
+from collections import namedtuple
+
 from PIL import Image, ImageChops, ImageDraw
 
 from outpost_data.core import geom, image2, image_cache, util
@@ -45,37 +47,36 @@ class Model(object):
             m.add_tri(*self.verts[i : i + 3])
         return m
 
+Model2 = namedtuple('Model2', ('mesh', 'bounds'))
 
 class StructurePart(object):
-    def __init__(self, mesh, img, bounds=None):
+    def __init__(self, model2, img):
+        mesh = model2.mesh
         self.mesh = mesh
 
+        # Compute bounding box of the (projection of the) mesh
         v2_min, v2_max = mesh.get_bounds_2d(util.project)
         v2_size = (v2_max[0] - v2_min[0], v2_max[1] - v2_min[1])
 
-        if bounds is None:
-            assert img.px_size == v2_size, \
-                    'image has wrong size for part: %s != %s' % (img.px_size, v2_size)
+        # The user provided the bounding box of the region covered by the
+        # image.  (Usually this is just (0,0,0) .. (struct_size).)  Using that,
+        # extract the image for the part actually covered by the mesh.
+        b_min, b_max = model2.bounds
+        b2_min = (b_min[0], b_min[1] - b_max[2])
+        b2_max = (b_max[0], b_max[1] - b_min[2])
+        b2_size = (b2_max[0] - b2_min[0], b2_max[1] - b2_min[1])
+
+        # Special hack
+        if img.px_size == (TILE_SIZE, TILE_SIZE) and \
+                b2_size == (TILE_SIZE, 2 * TILE_SIZE):
+            pass
         else:
-            # The user provided the bounding box of the region covered by the
-            # image.  (Usually this is just (0,0,0) .. (struct_size).)  Using
-            # that, extract the image for this part.
-            b_min, b_max = bounds
-            b2_min = (b_min[0], b_min[1] - b_max[2])
-            b2_max = (b_max[0], b_max[1] - b_min[2])
-            b2_size = (b2_max[0] - b2_min[0], b2_max[1] - b2_min[1])
+            assert img.px_size == b2_size, \
+                    'image has wrong size for bounds: %s != %s' % (img.px_size, b2_size)
 
-            # Special hack
-            if img.px_size == (TILE_SIZE, TILE_SIZE) and \
-                    b2_size == (TILE_SIZE, 2 * TILE_SIZE):
-                pass
-            else:
-                assert img.px_size == b2_size, \
-                        'image has wrong size for bounds: %s != %s' % (img.px_size, b2_size)
-
-                # Extract the region (v2_min - b2_min, v2_max - b2_min)
-                r2_min = (v2_min[0] - b2_min[0], v2_min[1] - b2_min[1])
-                img = img.extract(r2_min, size=v2_size, unit=1)
+            # Extract the region (v2_min - b2_min, v2_max - b2_min)
+            r2_min = (v2_min[0] - b2_min[0], v2_min[1] - b2_min[1])
+            img = img.extract(r2_min, size=v2_size, unit=1)
 
         self.img = img
         self.base = v2_min
@@ -222,8 +223,8 @@ class StructureDef2(object):
                 (h + TILE_SIZE - 1) // TILE_SIZE)
     '''
 
-    def add_part(self, mesh, img, bounds=None):
-        self.parts.append(StructurePart(mesh, img, bounds=bounds))
+    def add_part(self, model2, img):
+        self.parts.append(StructurePart(model2, img))
 
     def get_image(self):
         img_size = (self.size[0], self.size[1] + self.size[2])
@@ -264,7 +265,8 @@ class StructureDef(StructureDef2):
 
         if isinstance(image, StaticAnimDef):
             base = image2.Image(img=image_cache.ConstImage(image.static_base))
-            self.add_part(mesh, base, bounds=((0, 0, 0), px_size))
+            base_model2 = Model2(mesh, ((0, 0, 0), px_size))
+            self.add_part(base_model2, base)
 
             frame_sheet = image2.Image(img=image_cache.ConstImage(image.anim_sheet),
                     unit=image.anim_size)
@@ -275,7 +277,8 @@ class StructureDef(StructureDef2):
             box_max = geom.add(box_min, image.anim_size)
             anim_mesh = mesh.copy()
             geom.clip_xv(anim_mesh, *(box_min + box_max))
-            self.add_part(anim_mesh, anim)
+            anim_model2 = Model2(anim_mesh, anim_mesh.get_bounds())
+            self.add_part(anim_model2, anim)
 
             img = Image.new('RGBA', (256, 256))
             d = ImageDraw.Draw(img)
@@ -284,7 +287,8 @@ class StructureDef(StructureDef2):
             img.save('test-%s.png' % (name.replace('/', '_')))
         else:
             image = image2.Image(img=image_cache.ConstImage(image))
-            self.add_part(mesh, image, bounds=((0, 0, 0), px_size))
+            model2 = Model2(mesh, ((0, 0, 0), px_size))
+            self.add_part(model2, image)
 
 # Sprite sheets
 
