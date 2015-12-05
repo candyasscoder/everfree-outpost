@@ -252,13 +252,14 @@ def main(args):
 
     # Image cache handling
     from outpost_data.core import image_cache
-    with TimeIt('Loading cache...'):
+    with TimeIt('Loaded cache'):
         try:
             with open(os.path.join(ns.output_dir, 'image_cache.pickle'), 'rb') as f:
                 image_cache.load_cache(f)
         except Exception:
             pass
-        sys.stdout.write(' %d images' % len(image_cache.IMAGE_CACHE))
+        print('  Cache: %d images, %d compute' %
+                (len(image_cache.IMAGE_CACHE), len(image_cache.COMPUTE_CACHE)))
 
     # Run `init()` for every mod.
     print('Processing mods:')
@@ -270,10 +271,11 @@ def main(args):
     from outpost_data.core.gen import generate
     generate(ns.output_dir)
 
-    with TimeIt('Saving cache...'):
+    with TimeIt('Saved cache'):
         with open(os.path.join(ns.output_dir, 'image_cache.pickle'), 'wb') as f:
             image_cache.dump_cache(f)
-            sys.stdout.write(' %d images' % len(image_cache.NEW_IMAGE_CACHE))
+        print('  Cache: %d images, %d compute' %
+                (len(image_cache.NEW_IMAGE_CACHE), len(image_cache.NEW_COMPUTE_CACHE)))
     
 
 if __name__ == '__main__':

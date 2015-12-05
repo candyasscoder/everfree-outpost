@@ -88,13 +88,18 @@ function makeShaders(shaders, gl, assets, make_texture) {
         .vec2('cameraPos')
         .vec2('cameraSize')
         .float_('sliceRadius')
-        .float_('sliceZ');
+        .float_('sliceZ')
+        .float_('now');
 
-    var structure_attributes = new Attributes(SIZEOF.StructureBaseVertex)
-        .field( 0, gl.UNSIGNED_SHORT, 3, 'vertOffset')
-        .field( 8, gl.UNSIGNED_BYTE,  3, 'blockPos')
-        .field(11, gl.UNSIGNED_BYTE,  1, 'layer')
-        .field(12, gl.UNSIGNED_SHORT, 2, 'displayOffset');
+    var structure_attributes = new Attributes(SIZEOF.StructureVertex)
+            .field( 0, gl.UNSIGNED_SHORT, 3, 'vertOffset')
+            .field( 6, gl.BYTE,           1, 'animLength')
+            .field( 7, gl.UNSIGNED_BYTE,  1, 'animRate')
+            .field( 8, gl.UNSIGNED_BYTE,  3, 'blockPos')
+            .field(11, gl.UNSIGNED_BYTE,  1, 'layer')
+            .field(12, gl.SHORT,          2, 'displayOffset')
+            .field(16, gl.UNSIGNED_SHORT, 1, 'animOneshotStart')
+            .field(18, gl.UNSIGNED_SHORT, 1, 'animStep');
 
     var structure_textures = new Textures()
         .texture('sheetTex', ctx.makeAssetTexture('structures0'));
@@ -110,24 +115,6 @@ function makeShaders(shaders, gl, assets, make_texture) {
         .uniforms(structure_uniforms)
         .attributes(structure_attributes)
         .textures(structure_textures)
-        .finish();
-
-    shaders.structure_anim = ctx.start('structure2.vert', 'structure2.frag', 2)
-        .define('OUTPOST_ANIM', '1')
-        .uniforms(structure_uniforms)
-        .uniformFloat('now')
-        .attributes(new Attributes(SIZEOF.StructureAnimVertex)
-                .field( 0, gl.UNSIGNED_SHORT, 3, 'vertOffset')
-                .field( 6, gl.BYTE,           1, 'animLength')
-                .field( 7, gl.UNSIGNED_BYTE,  1, 'animRate')
-                .field( 8, gl.UNSIGNED_BYTE,  3, 'blockPos')
-                .field(11, gl.UNSIGNED_BYTE,  1, 'layer')
-                .field(12, gl.SHORT,          2, 'displayOffset')
-                .field(16, gl.UNSIGNED_SHORT, 1, 'animOneshotStart')
-                .field(18, gl.UNSIGNED_SHORT, 1, 'animStep')
-                .field(20, gl.UNSIGNED_SHORT, 2, 'animBoxMin')
-                .field(24, gl.UNSIGNED_SHORT, 2, 'animBoxSize'))
-        .texture('sheetTex', ctx.makeAssetTexture('staticanim0'))
         .finish();
 
 

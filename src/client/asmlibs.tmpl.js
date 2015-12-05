@@ -157,13 +157,9 @@ var asmlibs_code_raw = function(global, env, buffer) {
         structure_buffer_remove: _structure_buffer_remove,
         structure_buffer_set_oneshot_start: _structure_buffer_set_oneshot_start,
 
-        structure_base_geom_init: _structure_base_geom_init,
-        structure_base_geom_reset: _structure_base_geom_reset,
-        structure_base_geom_generate: _structure_base_geom_generate,
-
-        structure_anim_geom_init: _structure_anim_geom_init,
-        structure_anim_geom_reset: _structure_anim_geom_reset,
-        structure_anim_geom_generate: _structure_anim_geom_generate,
+        structure_geom_init: _structure_geom_init,
+        structure_geom_reset: _structure_geom_reset,
+        structure_geom_generate: _structure_geom_generate,
 
         light_geom_init: _light_geom_init,
         light_geom_reset: _light_geom_reset,

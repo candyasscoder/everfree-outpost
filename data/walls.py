@@ -1,14 +1,21 @@
-from ..core.builder import *
-from ..core.images import loader
-from ..core.structure import Shape
-from ..core.util import extract, stack, chop_image
+from outpost_data.core.builder2 import STRUCTURE, ITEM, RECIPE
+from outpost_data.core.consts import *
+from outpost_data.core.image2 import loader
+from outpost_data.core.structure import Shape, solid
 
-from .lib.items import *
-from .lib.structures import *
-from .lib import models
+from outpost_data.outpost.lib import models
 
+OPEN_DOOR_SHAPE = Shape(3, 1, 2, [
+        'solid', 'floor', 'solid',
+        'solid', 'empty', 'solid',
+        ])
 
-def do_wall_parts(basename, image, door_image=None):
+CLOSED_DOOR_SHAPE = Shape(3, 1, 2, [
+        'solid', 'solid', 'solid',
+        'solid', 'solid', 'solid',
+        ])
+
+def do_wall_parts(basename, image, door_image=None, extra_parts=()):
     parts = (
             'corner/nw',
             'edge/horiz',
@@ -25,87 +32,77 @@ def do_wall_parts(basename, image, door_image=None):
             # Doors are handled separately.
         )
 
-    b = structure_builder()
+    s = STRUCTURE.prefixed(basename) \
+            .shape(solid(1, 1, 2)) \
+            .layer(1)
 
     for j, part_name in enumerate(parts):
         if part_name.startswith('_'):
             continue
-        name = basename + '/' + part_name
-        model = models.WALL[part_name]
-        b.merge(mk_solid_structure(name, image, (1, 1, 2), base=(j, 0), model=model))
+        s.new(part_name) \
+                .part(models.WALL2[part_name], image.extract((j, 0), size=(1, 3)))
+
+    for j, part_name in enumerate(extra_parts):
+        x = len(parts) + (3 if door_image is not None else 0) + j
+        s.new(part_name) \
+                .part(models.WALL2['edge/horiz'], image.extract((x, 0), size=(1, 3)))
 
     if door_image is not None:
-        w = 3 * TILE_SIZE
-        h = 3 * TILE_SIZE
-        x = len(parts) * TILE_SIZE
-        y = 0
-        doorway_img = image.crop((x, y, x + w, y + h))
+        doorway_img = image.extract((len(parts), 0), size=(3, 3))
+        door_anim = door_image.sheet_to_anim((3, 3), door_image.size[0] // 3 * 4, oneshot=True)
 
-        b.merge(mk_door_anim(basename + '/door', doorway_img, models.WALL['door'], door_image))
+        s.new('door/open').shape(CLOSED_DOOR_SHAPE) \
+                .part(models.WALL2['door'], door_anim.get_frame(-1)) \
+                .part(models.WALL2['door'], doorway_img)
+        s.new('door/closed').shape(OPEN_DOOR_SHAPE) \
+                .part(models.WALL2['door'], door_anim.get_frame(0)) \
+                .part(models.WALL2['door'], doorway_img)
 
-    return b
+        s.new('door/opening').shape(CLOSED_DOOR_SHAPE) \
+                .part(models.WALL2['door'], door_anim) \
+                .part(models.WALL2['door'], doorway_img)
+        s.new('door/closing').shape(CLOSED_DOOR_SHAPE) \
+                .part(models.WALL2['door'], door_anim.reversed()) \
+                .part(models.WALL2['door'], doorway_img)
+
+    return s
+
+def wall_items_recipes(wall, desc, material):
+    wall_name = '%s Wall' % desc
+    door_name = '%s Door' % desc
+
+    item = ITEM.from_structure(wall['edge/horiz']) \
+            .display_name(wall_name)
+    recipe = RECIPE.from_item(item) \
+            .input(material, 5) \
+            .station('anvil')
+
+    item = ITEM.from_structure(wall['door/closed']) \
+            .display_name(door_name)
+    recipe = RECIPE.from_item(item) \
+            .input(material, 15) \
+            .station('anvil')
 
 def init():
-    structures = loader('structures')
+    structures = loader('structures', unit=TILE_SIZE)
 
-    image = structures('wood_wall.png')
-    wall = do_wall_parts('wood_wall', image,
-            door_image=structures('door-rough.png'))
-    mk_solid_structure('wood_wall/window/v0', image, (1, 1, 2), base=(15, 0),
-            model=models.WALL['edge/horiz'])
+    wall = do_wall_parts('wood_wall', structures('wood_wall.png'),
+            door_image=structures('door-rough.png'),
+            extra_parts=('window/v0',))
+    wall_items_recipes(wall, 'Wooden', 'wood')
 
-    mk_structure_item(wall['wood_wall/edge/horiz'], 'wood_wall', 'Wooden Wall', (0, 0)) \
-        .recipe('anvil', {'wood': 5})
+    wall = do_wall_parts('stone_wall', structures('stone-wall.png'),
+            door_image=structures('door.png'),
+            extra_parts=('window/v0', 'window/v1'))
+    wall_items_recipes(wall, 'Stone', 'stone')
 
-    mk_structure_item(wall['wood_wall/door/closed'], 'wood_door', 'Wooden Door') \
-            .recipe('anvil', {'wood': 15})
+    wall = do_wall_parts('ruined_wall', structures('ruined-wall.png'),
+            door_image=structures('door.png'),
+            extra_parts=('window/v0', 'window/v1'))
+    wall_items_recipes(wall, 'Ruined', 'stone')
 
-
-
-    image = structures('stone-wall.png')
-    wall = do_wall_parts('stone_wall',
-            structures('stone-wall.png'),
-            door_image=structures('door.png'))
-    mk_solid_structure('stone_wall/window/v0', image, (1, 1, 2), base=(15, 0),
-            model=models.WALL['edge/horiz'])
-    mk_solid_structure('stone_wall/window/v1', image, (1, 1, 2), base=(16, 0),
-            model=models.WALL['edge/horiz'])
-
-    mk_structure_item(wall['stone_wall/edge/horiz'], 'stone_wall', 'Stone Wall', (0, 0)) \
-        .recipe('anvil', {'stone': 5})
-
-    mk_structure_item(wall['stone_wall/door/closed'], 'stone_door', 'Stone Door') \
-            .recipe('anvil', {'stone': 15})
-
-
-    image = structures('ruined-wall.png')
-    wall = do_wall_parts('ruined_wall', image,
-            door_image=structures('door.png'))
-    mk_solid_structure('ruined_wall/window/v0', image, (1, 1, 2), base=(15, 0),
-            model=models.WALL['edge/horiz'])
-    mk_solid_structure('ruined_wall/window/v1', image, (1, 1, 2), base=(16, 0),
-            model=models.WALL['edge/horiz'])
-
-    mk_structure_item(wall['ruined_wall/edge/horiz'], 'ruined_wall', 'Ruined Wall', (0, 0)) \
-        .recipe('anvil', {'stone': 5})
-
-    mk_structure_item(wall['ruined_wall/door/closed'], 'ruined_door', 'Ruined Door') \
-            .recipe('anvil', {'stone': 15})
-
-
-    image = structures('cottage-wall.png')
-    wall = do_wall_parts('cottage_wall',
-            structures('cottage-wall.png'),
-            door_image=structures('door.png'))
-    for i in range(2):
-        mk_solid_structure('cottage_wall/window/v%d' % i, image, (1, 1, 2), base=(15 + i, 0),
-                model=models.WALL['edge/horiz'])
-    for i in range(3):
-        mk_solid_structure('cottage_wall/variant/v%d' % i, image, (1, 1, 2), base=(17 + i, 0),
-                model=models.WALL['edge/horiz'])
-
-    mk_structure_item(wall['cottage_wall/edge/horiz'], 'cottage_wall', 'Cottage Wall', (0, 0)) \
-        .recipe('anvil', {'wood': 5})
-
-    mk_structure_item(wall['cottage_wall/door/closed'], 'cottage_door', 'Cottage Door') \
-            .recipe('anvil', {'wood': 15})
+    wall = do_wall_parts('cottage_wall', structures('cottage-wall.png'),
+            door_image=structures('door.png'),
+            extra_parts=['window/v%d' % i for i in range(2)] +
+                ['variant/v%d' % i for i in range(3)])
+    wall_items_recipes(wall, 'Cottage', 'wood')

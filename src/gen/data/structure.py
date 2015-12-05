@@ -1,7 +1,9 @@
-from PIL import Image, ImageChops
+from collections import namedtuple
 
-from .consts import *
-from .util import pack_boxes, err
+from PIL import Image, ImageChops, ImageDraw
+
+from outpost_data.core import geom, image2, image_cache, util
+from outpost_data.core.consts import *
 
 
 class Shape(object):
@@ -27,6 +29,101 @@ class Model(object):
         self.verts = verts
         self.length = len(verts)
 
+    def slice_xv(self, offset, size, base_z):
+        min_x, min_v = offset
+        min_v -= base_z * TILE_SIZE
+        size_x, size_v = size
+        max_x = min_x + size_x
+        max_v = min_v + size_v
+        verts = [p
+                for tri in geom.slice_tris_box_xv(self.verts, min_x, max_x, min_v, max_v)
+                for p in tri]
+
+        return Model(verts)
+
+    def to_mesh(self):
+        m = geom.Mesh()
+        for i in range(0, len(self.verts), 3):
+            m.add_tri(*self.verts[i : i + 3])
+        return m
+
+Model2 = namedtuple('Model2', ('mesh', 'bounds'))
+
+class StructurePart(object):
+    def __init__(self, model2, img):
+        mesh = model2.mesh.copy()
+
+        # Compute bounding box of the (projection of the) mesh
+        v2_min, v2_max = mesh.get_bounds_2d(util.project)
+        v2_size = (v2_max[0] - v2_min[0], v2_max[1] - v2_min[1])
+
+        # The user provided the bounding box of the region covered by the
+        # image.  (Usually this is just (0,0,0) .. (struct_size).)  Using that,
+        # extract the image for the part actually covered by the mesh.
+        b_min, b_max = model2.bounds
+        b2_min = (b_min[0], b_min[1] - b_max[2])
+        b2_max = (b_max[0], b_max[1] - b_min[2])
+        b2_size = (b2_max[0] - b2_min[0], b2_max[1] - b2_min[1])
+
+        # Crop image to the mesh's bounding box
+
+        # Special hack
+        if img.px_size == (TILE_SIZE, TILE_SIZE) and \
+                b2_size == (TILE_SIZE, 2 * TILE_SIZE):
+            pass
+        else:
+            assert img.px_size == b2_size, \
+                    'image has wrong size for bounds: %s != %s' % (img.px_size, b2_size)
+
+            # Extract the region (v2_min - b2_min, v2_max - b2_min)
+            r2_min = (v2_min[0] - b2_min[0], v2_min[1] - b2_min[1])
+            img = img.extract(r2_min, size=v2_size, unit=1)
+
+        # Crop mesh & image to image's bounding box.  We do this after the
+        # previous step because cropping the image may remove some non-blank
+        # content, letting us crop the image more aggressively here.
+        img, i2_min = img.autocrop()
+        v2_min = geom.add(v2_min, i2_min)
+        v2_max = geom.add(v2_min, img.px_size)
+        geom.clip_xv(mesh, *(v2_min + v2_max))
+
+        self.mesh = mesh
+        self.img = img
+        self.base = v2_min
+
+        # Set by `build_sheets`
+        self.sheet_idx = None
+        self.offset = None
+
+        # Set by `collect_verts'
+        self.vert_idx = None
+        self.vert_count = None
+
+    def get_sheet_image(self):
+        if isinstance(self.img, image2.Anim):
+            return self.img.flatten()
+        else:
+            return self.img
+
+    def get_flags(self):
+        anim = False
+        shadow = False
+
+        if isinstance(self.img, image2.Anim):
+            anim = True
+            # Animated parts can't have shadows.
+        elif isinstance(self.img, image2.Image):
+            img = self.img.raw().raw()
+            if img.mode == 'RGBA':
+                hist = img.histogram()
+                a_hist = hist[256 * 3 : 256 * 4]
+                # Is there any pixel whose alpha value is not 0 or 255?
+                shadow = any(count > 0 for count in a_hist[1:-1])
+            else:
+                shadow = False
+
+        return ((int(shadow) << 0) |
+                (int(anim) << 1))
 
 class StaticAnimDef(object):
     """An animation for a static element (structure or block).  This class is
@@ -90,35 +187,25 @@ class StaticAnimDef(object):
 
 
 
-class StructureDef(object):
-    def __init__(self, name, image, model, shape, layer):
+class StructureDef2(object):
+    def __init__(self, name, shape, layer):
         self.name = name
-        if isinstance(image, StaticAnimDef):
-            self.anim = image
-            self.image = self.anim.static_base
-        else:
-            self.image = image
-            self.anim = None
-        self.model = model
         self.size = shape.size
         self.shape = shape.shape_array
         self.layer = layer
-
-        # Both StaticAnimDef and PIL.Image.Image have a `size` field with the
-        # same layout.
-        assert image.size[0] % TILE_SIZE == 0
-        assert image.size[1] % TILE_SIZE == 0
+        self.parts = []
 
         self.light_pos = None
         self.light_color = None
         self.light_radius = None
 
+        # Filled in by `assign_ids`
         self.id = None
-        self.sheet_idx = None
-        self.offset = None
-        self.model_offset = None
-        self.model_length = None
 
+        # Filled in by `collect_parts`
+        self.part_idx = None
+
+    '''
     def get_display_px(self):
         """Get the size of the structure on the screen."""
         return self.image.size
@@ -144,6 +231,29 @@ class StructureDef(object):
         w, h = self.get_anim_sheet_px()
         return ((w + TILE_SIZE - 1) // TILE_SIZE,
                 (h + TILE_SIZE - 1) // TILE_SIZE)
+    '''
+
+    def add_part(self, model2, img):
+        self.parts.append(StructurePart(model2, img))
+
+    def get_image(self):
+        img_size = (self.size[0], self.size[1] + self.size[2])
+        px_size = tuple(x * TILE_SIZE for x in img_size)
+
+        # part.base is relative to the 0,0,0 corner, so part.base[1] may be as
+        # low as -self.size[2] * TILE_SIZE.
+        y_off = self.size[2] * TILE_SIZE
+
+        layers = []
+        for p in self.parts:
+            bx, by = p.base
+            layers.append(p.img.pad(px_size, offset=(bx, by + y_off)))
+
+        if len(layers) > 0:
+            result = image2.stack(layers)
+        else:
+            result = image2.Image(size=px_size)
+        return result.raw().raw()
 
     def set_light(self, pos, color, radius):
         self.light_pos = pos
@@ -151,93 +261,96 @@ class StructureDef(object):
         self.light_radius = radius
 
     def get_flags(self):
-        if self.image.mode == 'RGBA':
-            hist = self.image.histogram()
-            a_hist = hist[256 * 3 : 256 * 4]
-            # Is there any pixel whose alpha value is not 0 or 255?
-            has_shadow = any(count > 0 for count in a_hist[1:-1])
+        light = self.light_radius is not None
+        flags = (int(light) << 2)
+        for p in self.parts:
+            flags = flags | p.get_flags()
+        return flags
+
+class StructureDef(StructureDef2):
+    def __init__(self, name, image, model, shape, layer):
+        super(StructureDef, self).__init__(name, shape, layer)
+        px_size = tuple(x * TILE_SIZE for x in shape.size)
+        mesh = model.to_mesh()
+
+        if isinstance(image, StaticAnimDef):
+            base = image2.Image(img=image_cache.ConstImage(image.static_base))
+            base_model2 = Model2(mesh, ((0, 0, 0), px_size))
+            self.add_part(base_model2, base)
+
+            frame_sheet = image2.Image(img=image_cache.ConstImage(image.anim_sheet),
+                    unit=image.anim_size)
+            frames = [frame_sheet.extract((x, 0)) for x in range(image.length)]
+            anim = image2.Anim(frames, image.framerate, image.oneshot)
+            anim.flatten().raw().raw().save('test.png')
+            box_min = geom.sub(image.anim_offset, (0, shape.size[2] * TILE_SIZE))
+            box_max = geom.add(box_min, image.anim_size)
+            anim_mesh = mesh.copy()
+            geom.clip_xv(anim_mesh, *(box_min + box_max))
+            anim_model2 = Model2(anim_mesh, anim_mesh.get_bounds())
+            self.add_part(anim_model2, anim)
+
+            img = Image.new('RGBA', (256, 256))
+            d = ImageDraw.Draw(img)
+            mesh.draw_iso(d, (64, 128), fill='blue')
+            anim_mesh.draw_iso(d, (64, 128), fill='red')
+            img.save('test-%s.png' % (name.replace('/', '_')))
         else:
-            has_shadow = false
-
-        has_anim = self.anim is not None
-        has_light = self.light_radius is not None
-
-        return ((int(has_shadow) << 0) |
-                (int(has_anim) << 1) |
-                (int(has_light) << 2))
-
-
-def resolve_model_offsets(structures, model_offset_map):
-    for s in structures:
-        offset_length = model_offset_map.get(s.model_name)
-        if offset_length is None:
-            err('structure %r: no such model: %r' % (s.name, s.model_name))
-            continue
-        s.model_offset, s.model_length = offset_length
+            image = image2.Image(img=image_cache.ConstImage(image))
+            model2 = Model2(mesh, ((0, 0, 0), px_size))
+            self.add_part(model2, image)
 
 # Sprite sheets
 
 def build_sheets(structures):
     '''Build sprite sheet(s) containing all the images for the provided
-    structures.  This also updates each structure's `sheet_idx` and `offset`
-    field with its position in the generated sheet(s).
+    structures.  This also updates each part's `sheet_idx` and `offset` field
+    with its position in the generated sheet(s).
     '''
-    boxes = [s.get_sheet_size() for s in structures]
-    num_sheets, offsets = pack_boxes(SHEET_SIZE, boxes)
+    parts = [p for s in structures for p in s.parts]
+    all_imgs = [p.get_sheet_image() for p in parts]
+    imgs, idx_map = util.dedupe(all_imgs, [i.hash() for i in all_imgs])
+    boxes = [tuple((x + TILE_SIZE - 1) // TILE_SIZE for x in i.size) for i in imgs]
+    num_sheets, offsets = util.pack_boxes(SHEET_SIZE, boxes)
 
+    sheets = [Image.new('RGBA', (SHEET_PX, SHEET_PX)) for _ in range(num_sheets)]
 
-    images = [Image.new('RGBA', (SHEET_PX, SHEET_PX))]
-
-    for s, (j, offset) in zip(structures, offsets):
+    for img, (j, offset) in zip(imgs, offsets):
         x, y = offset
         x *= TILE_SIZE
         y *= TILE_SIZE
 
-        px_w, px_h = s.image.size
-        if px_h % TILE_SIZE != 0:
-            y += 32 - px_h % TILE_SIZE
+        sheets[j].paste(img.raw().raw(), (x, y))
 
-        images[j].paste(s.image, (x, y))
+    for part, img in zip(parts, all_imgs):
+        idx = idx_map[id(img)]
+        j, offset = offsets[idx]
 
-        s.sheet_idx = j
-        s.offset = offset
+        part.sheet_idx = j
+        part.offset = geom.mul(offset, TILE_SIZE)
 
-    return images
+    return sheets
 
-def build_anim_sheets(structures):
-    '''Build sprite sheet(s) containing the animated parts of each structure.'''
-    anim_structures = [s for s in structures if s.anim is not None]
-    boxes = [s.get_anim_sheet_size() for s in anim_structures]
-    num_sheets, offsets = pack_boxes(SHEET_SIZE, boxes)
+def collect_parts(structures):
+    all_parts = []
 
+    for s in structures:
+        s.part_idx = len(all_parts)
+        all_parts.extend(s.parts)
 
-    images = [Image.new('RGBA', (SHEET_PX, SHEET_PX))]
+    return all_parts
 
-    for s, (j, offset) in zip(anim_structures, offsets):
-        x, y = offset
-        x *= TILE_SIZE
-        y *= TILE_SIZE
-
-        images[j].paste(s.anim.anim_sheet, (x, y))
-
-        s.anim.sheet_idx = j
-        # Give the offset in pixels, since the anim size is also in pixels.
-        ox, oy = offset
-        s.anim.offset = (ox * TILE_SIZE, oy * TILE_SIZE)
-
-    return images
-
-def collect_models(structures):
+def collect_verts(parts):
     idx_map = {}
     all_verts = []
 
-    for s in structures:
-        m_key = tuple(s.model.verts)
-        if m_key not in idx_map:
-            idx_map[m_key] = len(all_verts)
-            all_verts.extend(s.model.verts)
-        s.model_offset = idx_map[m_key]
-        s.model_length = len(s.model.verts)
+    for p in parts:
+        k = tuple(v.pos for v in p.mesh.iter_tri_verts())
+        if k not in idx_map:
+            idx_map[k] = len(all_verts)
+            all_verts.extend(k)
+        p.vert_idx = idx_map[k]
+        p.vert_count = len(k)
 
     return all_verts
 
@@ -249,11 +362,9 @@ def build_client_json(structures):
         dct = {
                 'size': s.size,
                 'shape': [SHAPE_ID[x] for x in s.shape],
-                'sheet': s.sheet_idx,
-                'offset': [x * TILE_SIZE for x in s.offset],
-                'display_size': s.get_display_px(),
-                'model_offset': s.model_offset,
-                'model_length': s.model_length,
+                'part_idx': s.part_idx,
+                'part_count': len(s.parts),
+                'vert_count': sum(p.vert_count for p in s.parts),
                 'layer': s.layer,
                 }
 
@@ -261,16 +372,6 @@ def build_client_json(structures):
         if flags != 0:
             dct.update(
                 flags=flags)
-
-        if s.anim is not None:
-            dct.update(
-                anim_length=s.anim.length,
-                anim_rate=s.anim.framerate,
-                anim_oneshot=s.anim.oneshot,
-                anim_pos=s.anim.anim_offset,
-                anim_size=s.anim.anim_size,
-                anim_offset=s.anim.offset,
-                anim_sheet=s.anim.sheet_idx)
 
         if s.light_color is not None:
             dct.update(
@@ -282,8 +383,34 @@ def build_client_json(structures):
 
     return list(convert(s) for s in structures)
 
-def build_model_json(all_verts):
-    return list(x for v in all_verts for x in v)
+def build_parts_json(parts):
+    def convert(p):
+        dct = {
+                'sheet': p.sheet_idx,
+                # Give the offset of the pixel corresponding to (0,0,0)
+                'offset': geom.sub(p.offset, p.base),
+                'vert_idx': p.vert_idx,
+                'vert_count': p.vert_count,
+                }
+
+        flags = p.get_flags()
+        if flags != 0:
+            dct.update(
+                flags=flags)
+
+        if isinstance(p.img, image2.Anim):
+            dct.update(
+                anim_length=p.img.length,
+                anim_rate=p.img.rate,
+                anim_oneshot=p.img.oneshot,
+                anim_size=p.img.px_size)
+
+        return dct
+
+    return list(convert(p) for p in parts)
+
+def build_verts_json(verts):
+    return list(x for v in verts for x in v)
 
 def build_server_json(structures):
     def convert(s):

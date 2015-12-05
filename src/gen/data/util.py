@@ -1,4 +1,5 @@
 import functools
+import hashlib
 import importlib
 import inspect
 import os
@@ -32,13 +33,16 @@ def assign_ids(objs, reserved=None):
         special = []
         normal = objs
     else:
-        special = []
         normal = []
+        reserved_map = {k: None for k in reserved}
         for o in objs:
-            if o.name in reserved:
-                special.append(o)
+            if o.name in reserved_map:
+                assert reserved_map[o.name] is None, \
+                        'duplicate entries for reserved name %r' % o.name
+                reserved_map[o.name] = o
             else:
                 normal.append(o)
+        special = [reserved_map[k] for k in reserved if reserved_map[k] is not None]
 
     # Leave `special` in its original order.
     normal.sort(key=lambda o: o.name)
@@ -147,7 +151,7 @@ def pack_boxes(page_size, boxes):
     pages = [Page(page_size)]
     for i, box in boxes:
         w,h = box
-        for j, p in enumerate(reversed(pages)):
+        for j, p in reversed(list(enumerate(pages))):
             if p.avail_area < w * h:
                 continue
             pos = p.place(box)
@@ -264,6 +268,26 @@ def dedupe_images(imgs):
 
     return result, idx_map
 
+def dedupe(vals, keys):
+    """Deduplicate a list of objects using their pre-computed unique keys."""
+    key_idx = {}
+    val_idx = {}
+    result = []
+
+    for k,v in zip(keys, vals):
+        if k in key_idx:
+            val_idx[id(v)] = key_idx[k]
+        else:
+            next_idx = len(result)
+            result.append(v)
+            key_idx[k] = next_idx
+            val_idx[id(v)] = next_idx
+
+    return result, val_idx
+
+def hash_image(i):
+    b = bytes(x for p in i.getdata() for x in p)
+    return hashlib.sha1(b).hexdigest()
 
 def extract_mod_name(module_name):
     if module_name.startswith('outpost_data.'):
@@ -285,3 +309,7 @@ def get_caller_mod_name():
         raise ValueError("couldn't detect calling module name")
     finally:
         del stack
+
+def project(p):
+    x, y, z = p
+    return (x, y - z)

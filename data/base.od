@@ -1,5 +1,5 @@
 # Various code relies on these objects having well-known IDs.  If you need
-# to add to this list, you must also update the sets of "reserved names"
+# to add to this list, you must also update the lists of "reserved names"
 # passed to `util.assign_ids` in gen/data/gen.py:postprocess.
 
 # Empty block (id = 0)

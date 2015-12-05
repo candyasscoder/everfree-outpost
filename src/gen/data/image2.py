@@ -85,6 +85,12 @@ class Image(object):
             dct[name] = self.extract(pos, unit=unit)
         return dct
 
+    def sheet_to_anim(self, frame_size, rate, oneshot=False):
+        fx, fy = frame_size
+        frames = [self.extract((fx * i, 0), size=frame_size)
+                for i in range(self.size[0] // fx)]
+        return Anim(frames, rate, oneshot=oneshot)
+
     def scale(self, size, unit=None, smooth=False):
         unit = t2(unit) if unit else self.unit
         w, h = size
@@ -125,6 +131,93 @@ class Image(object):
         new_img = self.raw().pad((px_x, px_y), offset)
         return Image(img=new_img, unit=unit)
 
+    def hash(self):
+        return self.raw().compute(util.hash_image)
+
+    def get_bounds(self):
+        return self.raw().get_bounds()
+
+    def autocrop(self):
+        x0, y0, x1, y1 = self.get_bounds()
+        img = self.extract((x0, y0), size=(x1 - x0, y1 - y0), unit=1)
+        return (img, (x0, y0))
+
+class Anim(object):
+    def __init__(self, frames, rate, oneshot=False):
+        self._frames = frames
+        self.length = len(frames)
+        self.rate = rate
+        self.oneshot = oneshot
+
+        self.unit = self._frames[0].unit
+        self.size = self._frames[0].size
+        self.px_size = self._frames[0].px_size
+        assert all(f.unit == self.unit for f in self._frames), \
+                'frame units do not match'
+        assert all(f.size == self.size for f in self._frames), \
+                'frame sizes do not match'
+
+    def _with_frames(self, f):
+        return Anim(list(f), self.rate, self.oneshot)
+
+    def _map_frames(self, name, args, kwargs):
+        return self._with_frames([getattr(i, name)(*args, **kwargs) for i in self._frames])
+
+    def raw(self):
+        return self._frames[0].raw()
+
+    def flatten(self):
+        w,h = self.px_size
+        out_w = w * self.length
+        layers = []
+        for i, img in enumerate(self._frames):
+            layers.append(img.pad((out_w, h), offset=(i * w, 0)))
+        return stack(layers)
+
+    def modify(self, *args, **kwargs):
+        return self._map_frames('modify', args, kwargs)
+
+    def with_unit(self, *args, **kwargs):
+        return self._map_frames('with_unit', args, kwargs)
+
+    def extract(self, *args, **kwargs):
+        return self._map_frames('extract', args, kwargs)
+
+    def chop_list(self, *args, **kwargs):
+        return self._map_frames('chop_list', args, kwargs)
+
+    def chop_grid(self, *args, **kwargs):
+        return self._map_frames('chop_grid', args, kwargs)
+
+    def chop(self, *args, **kwargs):
+        return self._map_frames('chop', args, kwargs)
+
+    def scale(self, *args, **kwargs):
+        return self._map_frames('scale', args, kwargs)
+
+    def stack(self, *args, **kwargs):
+        return self._map_frames('stack', args, kwargs)
+
+    def pad(self, *args, **kwargs):
+        return self._map_frames('pad', args, kwargs)
+
+    def get_bounds(self):
+        x0, y0, x1, y1 = self._frames[0].get_bounds()
+        for f in self._frames[1:]:
+            x0_, y0_, x1_, y1_ = f.get_bounds()
+            x0 = min(x0, x0_)
+            y0 = min(y0, y0_)
+            x1 = max(x1, x1_)
+            y1 = max(y1, y1_)
+        return (x0, y0, x1, y1)
+
+    autocrop = Image.autocrop
+
+    def reversed(self):
+        return Anim(list(reversed(self._frames)), self.rate, self.oneshot)
+
+    def get_frame(self, idx):
+        return self._frames[idx]
 
 def stack(imgs):
     return imgs[0].stack(imgs[1:])

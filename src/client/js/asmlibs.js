@@ -92,7 +92,7 @@ var SIZEOF = (function() {
             static_data.buffer, static_data.byteOffset, static_data.byteLength);
     var asm = module(window, module_env(buffer), buffer);
 
-    var EXPECT_SIZES = 17;
+    var EXPECT_SIZES = 16;
     var alloc = ((1 + EXPECT_SIZES) * 4 + 7) & ~7;
     var base = asm['__adjust_stack'](alloc);
 
@@ -119,12 +119,11 @@ var SIZEOF = (function() {
     sizeof.TerrainGeomGen = next();
 
     sizeof.StructureTemplate = next();
-    sizeof.ModelVertex = next();
+    sizeof.TemplatePart = next();
+    sizeof.TemplateVertex = next();
     sizeof.StructureBuffer = next();
-    sizeof.StructureBaseVertex = next();
-    sizeof.StructureBaseGeomGen = next();
-    sizeof.StructureAnimVertex = next();
-    sizeof.StructureAnimGeomGen = next();
+    sizeof.StructureVertex = next();
+    sizeof.StructureGeomGen = next();
 
     sizeof.LightVertex = next();
     sizeof.LightGeomGen = next();
@@ -313,7 +312,7 @@ exports.getPhysicsHeapSize = function() {
 // Graphics
 
 /** @constructor */
-function AsmGraphics(num_blocks, num_templates, num_model_vertexes,
+function AsmGraphics(num_blocks, num_templates, num_parts, num_verts,
         structures_size, geom_size) {
     var heap_end = HEAP_START;
     function alloc(size) {
@@ -326,25 +325,27 @@ function AsmGraphics(num_blocks, num_templates, num_model_vertexes,
 
     this.num_blocks = num_blocks;
     this.num_templates = num_templates;
-    this.num_model_vertexes = num_model_vertexes;
+    this.num_parts = num_parts;
+    this.num_verts = num_verts;
 
     this.block_data_bytes = num_blocks * SIZEOF.BlockData;
     this.template_data_bytes = num_templates * SIZEOF.StructureTemplate;
-    this.model_vertex_bytes = num_model_vertexes * SIZEOF.ModelVertex;
+    this.template_part_bytes = num_parts * SIZEOF.TemplatePart;
+    this.template_vertex_bytes = num_verts * SIZEOF.TemplateVertex;
     this.geom_buffer_bytes = geom_size;
     // TODO: sizeof(Structure) * num_structures
     this.structure_storage_bytes = structures_size
 
     this.LOCAL_CHUNKS = alloc(SIZEOF.LocalChunks);
     this.TERRAIN_GEOM_GEN = alloc(SIZEOF.TerrainGeomGen);
-    this.STRUCTURE_BASE_GEOM_GEN = alloc(SIZEOF.StructureBaseGeomGen);
-    this.STRUCTURE_ANIM_GEOM_GEN = alloc(SIZEOF.StructureAnimGeomGen);
+    this.STRUCTURE_GEOM_GEN = alloc(SIZEOF.StructureGeomGen);
     this.LIGHT_GEOM_GEN = alloc(SIZEOF.LightGeomGen);
     this.STRUCTURE_BUFFER = alloc(SIZEOF.StructureBuffer);
 
     this.BLOCK_DATA = alloc(this.block_data_bytes);
     this.TEMPLATE_DATA = alloc(this.template_data_bytes);
-    this.MODEL_DATA = alloc(this.model_vertex_bytes);
+    this.TEMPLATE_PART_DATA = alloc(this.template_part_bytes);
+    this.TEMPLATE_VERTEX_DATA = alloc(this.template_vertex_bytes);
     this.GEOM_BUFFER = alloc(this.geom_buffer_bytes);
 
     this.STRUCTURE_STORAGE = alloc(this.structure_storage_bytes);
@@ -377,8 +378,16 @@ AsmGraphics.prototype.templateDataView16 = function() {
     return this._makeView(Uint16Array, this.TEMPLATE_DATA, this.template_data_bytes);
 };
 
-AsmGraphics.prototype.modelVertexView = function() {
-    return this._makeView(Uint16Array, this.MODEL_DATA, this.model_vertex_bytes);
+AsmGraphics.prototype.templatePartView8 = function() {
+    return this._makeView(Uint8Array, this.TEMPLATE_PART_DATA, this.template_part_bytes);
+};
+
+AsmGraphics.prototype.templatePartView16 = function() {
+    return this._makeView(Uint16Array, this.TEMPLATE_PART_DATA, this.template_part_bytes);
+};
+
+AsmGraphics.prototype.templateVertexView = function() {
+    return this._makeView(Uint16Array, this.TEMPLATE_VERTEX_DATA, this.template_vertex_bytes);
 };
 
 
@@ -442,27 +451,29 @@ AsmGraphics.prototype.structureBufferSetOneshotStart = function(idx, oneshot_sta
 };
 
 
-AsmGraphics.prototype.structureBaseGeomInit = function() {
-    this._raw['structure_base_geom_init'](
-            this.STRUCTURE_BASE_GEOM_GEN,
+AsmGraphics.prototype.structureGeomInit = function() {
+    this._raw['structure_geom_init'](
+            this.STRUCTURE_GEOM_GEN,
             this.STRUCTURE_BUFFER,
             this.TEMPLATE_DATA,
             this.template_data_bytes,
-            this.MODEL_DATA,
-            this.model_vertex_bytes);
+            this.TEMPLATE_PART_DATA,
+            this.template_part_bytes,
+            this.TEMPLATE_VERTEX_DATA,
+            this.template_vertex_bytes);
 };
 
-AsmGraphics.prototype.structureBaseGeomReset = function(cx0, cy0, cx1, cy1, sheet) {
-    this._raw['structure_base_geom_reset'](
-            this.STRUCTURE_BASE_GEOM_GEN,
+AsmGraphics.prototype.structureGeomReset = function(cx0, cy0, cx1, cy1, sheet) {
+    this._raw['structure_geom_reset'](
+            this.STRUCTURE_GEOM_GEN,
             cx0, cy0, cx1, cy1, sheet);
 };
 
-AsmGraphics.prototype.structureBaseGeomGenerate = function() {
+AsmGraphics.prototype.structureGeomGenerate = function() {
     var output = this._stackAlloc(Int32Array, 2);
 
-    this._raw['structure_base_geom_generate'](
-            this.STRUCTURE_BASE_GEOM_GEN,
+    this._raw['structure_geom_generate'](
+            this.STRUCTURE_GEOM_GEN,
             this.GEOM_BUFFER,
             this.geom_buffer_bytes,
             output.byteOffset);
@@ -474,45 +485,7 @@ AsmGraphics.prototype.structureBaseGeomGenerate = function() {
 
     return {
         geometry: this._makeView(Uint8Array, this.GEOM_BUFFER,
-                          vertex_count * SIZEOF.StructureBaseVertex),
-        more: more,
-    };
-};
-
-
-AsmGraphics.prototype.structureAnimGeomInit = function() {
-    this._raw['structure_anim_geom_init'](
-            this.STRUCTURE_ANIM_GEOM_GEN,
-            this.STRUCTURE_BUFFER,
-            this.TEMPLATE_DATA,
-            this.template_data_bytes,
-            this.MODEL_DATA,
-            this.model_vertex_bytes);
-};
-
-AsmGraphics.prototype.structureAnimGeomReset = function(cx0, cy0, cx1, cy1, sheet) {
-    this._raw['structure_anim_geom_reset'](
-            this.STRUCTURE_ANIM_GEOM_GEN,
-            cx0, cy0, cx1, cy1, sheet);
-};
-
-AsmGraphics.prototype.structureAnimGeomGenerate = function() {
-    var output = this._stackAlloc(Int32Array, 2);
-
-    this._raw['structure_anim_geom_generate'](
-            this.STRUCTURE_ANIM_GEOM_GEN,
-            this.GEOM_BUFFER,
-            this.geom_buffer_bytes,
-            output.byteOffset);
-
-    var vertex_count = output[0];
-    var more = (output[1] & 1) != 0;
-
-    this._stackFree(output);
-
-    return {
-        geometry: this._makeView(Uint8Array, this.GEOM_BUFFER,
-                          vertex_count * SIZEOF.StructureAnimVertex),
+                          vertex_count * SIZEOF.StructureVertex),
         more: more,
     };
 };

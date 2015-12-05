@@ -7,29 +7,19 @@ const float ANIM_MODULUS_MS = 55440.0;
 
 uniform vec2 cameraPos;
 uniform vec2 cameraSize;
-#ifdef OUTPOST_ANIM
 uniform float now;  // Seconds
-#endif
 
 attribute vec3 vertOffset;
 attribute vec3 blockPos;
 attribute float layer;
 attribute vec2 displayOffset;
-#ifdef OUTPOST_ANIM
 attribute float animLength;
 attribute float animRate;
 attribute float animOneshotStart;
 attribute float animStep;
-attribute vec2 animBoxMin;
-attribute vec2 animBoxSize;
-#endif
 
 varying vec2 texCoord;
 varying float baseZ;
-#ifdef OUTPOST_ANIM
-varying vec2 renderMin;
-varying vec2 renderMax;
-#endif
 
 void main(void) {
     vec3 pos = blockPos * TILE_SIZE + vertOffset;
@@ -54,27 +44,23 @@ void main(void) {
     glPos.y = -glPos.y;
     gl_Position = vec4(glPos, 1.0);
 
-    //vec2 texPx = displayOffset + displaySize * corner;
     vec2 texPx = displayOffset + vec2(vertOffset.x, vertOffset.y - vertOffset.z);
-#ifdef OUTPOST_ANIM
-    float frame;
-    if (animLength >= 0.0) {
-        frame = mod(floor(now * animRate), animLength);
-    } else {
-        // Compute the delta in milliseconds between `now` and
-        // `animOneshotStart`, in the range -MODULUS/2 .. MODULUS / 2.
-        const float HALF_MOD = ANIM_MODULUS_MS / 2.0;
-        float now_ms = mod(now * 1000.0, ANIM_MODULUS_MS);
-        float delta = mod(now_ms - animOneshotStart + HALF_MOD, ANIM_MODULUS_MS) - HALF_MOD;
-        frame = clamp(floor(delta / 1000.0 * animRate), 0.0, -animLength - 1.0);
+
+    if (animLength >= 2.0) {
+        float frame;
+        if (animLength >= 0.0) {
+            frame = mod(floor(now * animRate), animLength);
+        } else {
+            // Compute the delta in milliseconds between `now` and
+            // `animOneshotStart`, in the range -MODULUS/2 .. MODULUS / 2.
+            const float HALF_MOD = ANIM_MODULUS_MS / 2.0;
+            float now_ms = mod(now * 1000.0, ANIM_MODULUS_MS);
+            float delta = mod(now_ms - animOneshotStart + HALF_MOD, ANIM_MODULUS_MS) - HALF_MOD;
+            frame = clamp(floor(delta / 1000.0 * animRate), 0.0, -animLength - 1.0);
+        }
+        texPx.x += frame * animStep;
     }
 
-    vec2 frameStep = vec2(frame * animBoxSize.x, 0);
-    texPx.x += frameStep.x;
-
-    renderMin = (animBoxMin + frameStep) / (ATLAS_SIZE * TILE_SIZE);
-    renderMax = (animBoxMin + animBoxSize + frameStep) / (ATLAS_SIZE * TILE_SIZE);
-#endif
     texCoord = texPx / (ATLAS_SIZE * TILE_SIZE);
     baseZ = blockPos.z;
 }
