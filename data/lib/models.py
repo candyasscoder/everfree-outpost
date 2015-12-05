@@ -1,7 +1,7 @@
 import functools
 
 from outpost_data.core.consts import *
-from outpost_data.core.structure import Model
+from outpost_data.core.structure import Model, Model2
 
 
 def quad(a, b, c, d):
@@ -124,8 +124,19 @@ def _mk_wall_models():
 
     m['door'] = Model(
             quad_y(20,  0, 96,  0, 64) +
-            quad_z(64,  0, 96, 12, 20))
+            quad_z(64,  0, 96,  0, 20))
 
     return m
 
+def _mk_wall_models2(wall_models):
+    m = {}
+    for k,v in wall_models.items():
+        if k == 'door':
+            bounds = ((0, 0, 0), (3 * TILE_SIZE, 1 * TILE_SIZE, 2 * TILE_SIZE))
+        else:
+            bounds = ((0, 0, 0), (1 * TILE_SIZE, 1 * TILE_SIZE, 2 * TILE_SIZE))
+        m[k] = Model2(v.to_mesh(), bounds)
+    return m
+
 WALL = _mk_wall_models()
+WALL2 = _mk_wall_models2(WALL)

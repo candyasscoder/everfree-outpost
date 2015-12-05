@@ -1,4 +1,4 @@
-from outpost_data.core import image2
+from outpost_data.core import image2, geom, util
 from outpost_data.core.builder2.base import *
 from outpost_data.core.consts import *
 from outpost_data.core.structure import solid, StructureDef, StructureDef2, StaticAnimDef
@@ -55,8 +55,23 @@ class StructurePrototype(PrototypeBase):
             return self.image
         elif self.anim_frames is not None and len(self.anim_frames) > 0:
             return self.anim_frames[0]
+        elif self.shape is not None:
+            sx, sy, sz = self.shape.size
+            if len(self.parts) == 0:
+                return image2.Image(size=(sx, sy + sz), unit=TILE_SIZE)
+            size = geom.mul((sx, sy + sz), TILE_SIZE)
+            y_off = sz * TILE_SIZE
+
+            layers = []
+            for model, img in self.parts:
+                b_min, b_max = model.bounds
+                bx, by = util.project(b_min)
+                layers.append(img.pad(size, offset=(bx, by + y_off)))
+
+            return layers[0].stack(layers)
         else:
-            return image2.Image(img=DEFAULT_IMAGE)
+            return image2.Image(size=(1, 1), unit=TILE_SIZE)
+
 
 class StructureBuilder(BuilderBase):
     PROTO_CLASS = StructurePrototype
@@ -98,4 +113,4 @@ class StructureBuilder(BuilderBase):
                 x.parts = [part]
             else:
                 x.parts.append(part)
-        self._dict_modify(f, args)
+        return self._dict_modify(f, args)

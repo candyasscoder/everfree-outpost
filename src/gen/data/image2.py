@@ -85,6 +85,12 @@ class Image(object):
             dct[name] = self.extract(pos, unit=unit)
         return dct
 
+    def sheet_to_anim(self, frame_size, rate, oneshot=False):
+        fx, fy = frame_size
+        frames = [self.extract((fx * i, 0), size=frame_size)
+                for i in range(self.size[0] // fx)]
+        return Anim(frames, rate, oneshot=oneshot)
+
     def scale(self, size, unit=None, smooth=False):
         unit = t2(unit) if unit else self.unit
         w, h = size
@@ -209,6 +215,12 @@ class Anim(object):
         img = Anim([f.extract(offset, size=size, unit=1) for f in self._frames],
                 self.rate, self.oneshot)
         return (img, offset)
+
+    def reversed(self):
+        return Anim(list(reversed(self._frames)), self.rate, self.oneshot)
+
+    def get_frame(self, idx):
+        return self._frames[idx]
 
 def stack(imgs):
     return imgs[0].stack(imgs[1:])
