@@ -77,20 +77,10 @@ function Renderer(gl) {
     });
 
     this.structure_buf = new BufferCache(gl, function(cx, cy, feed) {
-        r._asm.structureBaseGeomReset(cx, cy, cx + 1, cy + 1);
+        r._asm.structureGeomReset(cx, cy, cx + 1, cy + 1);
         var more = true;
         while (more) {
-            var result = r._asm.structureBaseGeomGenerate();
-            feed(result.geometry);
-            more = result.more;
-        }
-    });
-
-    this.structure_anim_buf = new BufferCache(gl, function(cx, cy, feed) {
-        r._asm.structureAnimGeomReset(cx, cy, cx + 1, cy + 1);
-        var more = true;
-        while (more) {
-            var result = r._asm.structureAnimGeomGenerate();
+            var result = r._asm.structureGeomGenerate();
             feed(result.geometry);
             more = result.more;
         }
@@ -118,8 +108,7 @@ Renderer.prototype.initData = function(blocks, templates, parts, verts) {
 
     this._asm.terrainGeomInit();
     this._asm.structureBufferInit();
-    this._asm.structureBaseGeomInit();
-    this._asm.structureAnimGeomInit();
+    this._asm.structureGeomInit();
     this._asm.lightGeomInit();
 
     this.loadBlockData(blocks);
@@ -325,9 +314,6 @@ Renderer.prototype._invalidateStructure = function(x, y, z, template) {
 
     this.structure_buf.invalidate(cx, cy);
     // TODO: magic number
-    if (template.flags & 2) {   // HAS_ANIM
-        this.structure_anim_buf.invalidate(cx, cy);
-    }
     if (template.flags & 4) {   // HAS_LIGHT
         this.light_buf.invalidate(cx, cy);
     }
@@ -343,6 +329,7 @@ Renderer.prototype.render = function(s, draw_extra) {
     var size = s.camera_size;
     var slice_radius = [s.slice_frac * Math.max(size[0], size[1]) / 2.0];
     var slice_z = [s.slice_z];
+    var anim_now = [s.now / 1000 % ANIM_MODULUS];
 
     this.terrain.setUniformValue('cameraPos', pos);
     this.terrain.setUniformValue('cameraSize', size);
@@ -352,14 +339,12 @@ Renderer.prototype.render = function(s, draw_extra) {
     this.structure.setUniformValue('cameraSize', size);
     this.structure.setUniformValue('sliceRadius', slice_radius);
     this.structure.setUniformValue('sliceZ', slice_z);
+    this.structure.setUniformValue('now', anim_now);
     this.structure_shadow.setUniformValue('cameraPos', pos);
     this.structure_shadow.setUniformValue('cameraSize', size);
     this.structure_shadow.setUniformValue('sliceRadius', slice_radius);
     this.structure_shadow.setUniformValue('sliceZ', slice_z);
-    this.structure_anim.setUniformValue('cameraPos', pos);
-    this.structure_anim.setUniformValue('cameraSize', size);
-    this.structure_anim.setUniformValue('sliceRadius', slice_radius);
-    this.structure_anim.setUniformValue('sliceZ', slice_z);
+    this.structure_shadow.setUniformValue('now', anim_now);
     this.light_static.setUniformValue('cameraPos', pos);
     this.light_static.setUniformValue('cameraSize', size);
     this.light_dynamic.setUniformValue('cameraPos', pos);
@@ -370,8 +355,6 @@ Renderer.prototype.render = function(s, draw_extra) {
         var cls = this.classes[k];
         cls.setCamera(pos, size);
     }
-
-    this.structure_anim.setUniformValue('now', [s.now / 1000 % ANIM_MODULUS]);
 
 
     if (this.last_sw != size[0] || this.last_sh != size[1]) {
@@ -395,7 +378,6 @@ Renderer.prototype.render = function(s, draw_extra) {
     // Structures from the chunk below can cover the current one, and also
     // structures from chunks above and to the left can extend into it.
     this.structure_buf.prepare(cx0 - 1, cy0 - 1, cx1, cy1 + 1);
-    this.structure_anim_buf.prepare(cx0 - 1, cy0 - 1, cx1, cy1 + 1);
     // Light from any adjacent chunk can extend into the current one.
     this.light_buf.prepare(cx0 - 1, cy0 - 1, cx1 + 1, cy1 + 1);
 
@@ -421,11 +403,7 @@ Renderer.prototype.render = function(s, draw_extra) {
 
         var buf = this_.structure_buf.getBuffer();
         var len = this_.structure_buf.getSize();
-        this_.structure.draw(fb_idx, 0, len / SIZEOF.StructureBaseVertex, {}, {'*': buf}, {});
-
-        var buf = this_.structure_anim_buf.getBuffer();
-        var len = this_.structure_anim_buf.getSize();
-        this_.structure_anim.draw(fb_idx, 0, len / SIZEOF.StructureAnimVertex, {}, {'*': buf}, {});
+        this_.structure.draw(fb_idx, 0, len / SIZEOF.StructureVertex, {}, {'*': buf}, {});
 
         for (var i = 0; i < s.sprites.length; ++i) {
             var sprite = s.sprites[i];
@@ -442,7 +420,7 @@ Renderer.prototype.render = function(s, draw_extra) {
 
         var buf = this_.structure_buf.getBuffer();
         var len = this_.structure_buf.getSize();
-        this_.structure_shadow.draw(fb_idx, 0, len / SIZEOF.StructureBaseVertex, {}, {'*': buf}, {});
+        this_.structure_shadow.draw(fb_idx, 0, len / SIZEOF.StructureVertex, {}, {'*': buf}, {});
     });
 
     gl.disable(gl.DEPTH_TEST);

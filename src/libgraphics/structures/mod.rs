@@ -2,9 +2,10 @@ use core::prelude::*;
 use core::ops::{Deref, DerefMut};
 use core::ptr;
 
+pub use self::geom::{Vertex, GeomGen};
 
-pub mod base;
-pub mod anim;
+
+pub mod geom;
 
 
 #[derive(Clone, Copy)]

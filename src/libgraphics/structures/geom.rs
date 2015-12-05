@@ -13,7 +13,8 @@ use super::Buffer;
 pub struct Vertex {
     // 0
     vert_offset: (u16, u16, u16),
-    _pad1: u16,
+    anim_length: i8,
+    anim_rate: u8,
 
     // 8
     struct_pos: (u8, u8, u8),
@@ -21,7 +22,12 @@ pub struct Vertex {
     display_offset: (i16, i16),
 
     // 16
+    anim_oneshot_start: u16,
+    anim_step: u16,
+
+    // 20
 }
+
 
 pub struct GeomGen<'a> {
     buffer: &'a Buffer<'a>,
@@ -79,16 +85,15 @@ impl<'a> GeomGen<'a> {
             }
 
             if *idx + t.vert_count as usize >= buf.len() {
-                // Not enough space for all this structure's vertices.
-                // Note the structure may not render all its vertices right now (some may be for
-                // animated parts), but it's always better to be safe.
+                // Not enough space for all this structure's vertices.  Bailing out in this case
+                // means we don't have to deal with tracking partially-emitted structures.
                 break;
             }
 
             let i0 = t.part_idx as usize;
             let i1 = i0 + t.part_count as usize;
             for p in &self.parts[i0 .. i1] {
-                if p.sheet != self.sheet || p.flags.contains(HAS_ANIM) {
+                if p.sheet != self.sheet {
                     continue;
                 }
 
@@ -97,10 +102,13 @@ impl<'a> GeomGen<'a> {
                 for v in &self.verts[j0 .. j1] {
                     buf[*idx] = Vertex {
                         vert_offset: (v.x, v.y, v.z),
-                        _pad1: 0,
+                        anim_length: p.anim_length,
+                        anim_rate: p.anim_rate,
                         struct_pos: s.pos,
                         layer: t.layer,
                         display_offset: p.offset,
+                        anim_oneshot_start: s.oneshot_start,
+                        anim_step: p.anim_step,
                     };
                     *idx += 1;
                 }
