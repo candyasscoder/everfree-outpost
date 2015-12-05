@@ -71,13 +71,16 @@ def wall_items_recipes(wall, basename, desc, material):
     wall_name = '%s Wall' % desc
     door_name = '%s Door' % desc
 
-    item = ITEM.from_structure(wall['edge/horiz'], '%s_wall' % basename) \
+    item = ITEM.from_structure(wall['edge/horiz'],
+            name='%s_wall' % basename,
+            extract_offset=(0, 10)) \
             .display_name(wall_name)
     recipe = RECIPE.from_item(item) \
             .input(material, 5) \
             .station('anvil')
 
-    item = ITEM.from_structure(wall['door/closed'], '%s_door' % basename) \
+    item = ITEM.from_structure(wall['door/closed'],
+            name='%s_door' % basename) \
             .display_name(door_name)
     recipe = RECIPE.from_item(item) \
             .input(material, 15) \

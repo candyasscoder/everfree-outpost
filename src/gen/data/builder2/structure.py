@@ -60,13 +60,12 @@ class StructurePrototype(PrototypeBase):
             if len(self.parts) == 0:
                 return image2.Image(size=(sx, sy + sz), unit=TILE_SIZE)
             size = geom.mul((sx, sy + sz), TILE_SIZE)
-            y_off = sz * TILE_SIZE
 
             layers = []
             for model, img in self.parts:
                 b_min, b_max = model.bounds
                 bx, by = util.project(b_min)
-                layers.append(img.pad(size, offset=(bx, by + y_off)))
+                layers.append(img.pad(size, offset=(bx, by)))
 
             return layers[0].stack(layers)
         else:

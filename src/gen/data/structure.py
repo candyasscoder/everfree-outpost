@@ -282,19 +282,12 @@ class StructureDef(StructureDef2):
                     unit=image.anim_size)
             frames = [frame_sheet.extract((x, 0)) for x in range(image.length)]
             anim = image2.Anim(frames, image.framerate, image.oneshot)
-            anim.flatten().raw().raw().save('test.png')
             box_min = geom.sub(image.anim_offset, (0, shape.size[2] * TILE_SIZE))
             box_max = geom.add(box_min, image.anim_size)
             anim_mesh = mesh.copy()
             geom.clip_xv(anim_mesh, *(box_min + box_max))
             anim_model2 = Model2(anim_mesh, anim_mesh.get_bounds())
             self.add_part(anim_model2, anim)
-
-            img = Image.new('RGBA', (256, 256))
-            d = ImageDraw.Draw(img)
-            mesh.draw_iso(d, (64, 128), fill='blue')
-            anim_mesh.draw_iso(d, (64, 128), fill='red')
-            img.save('test-%s.png' % (name.replace('/', '_')))
         else:
             image = image2.Image(img=image_cache.ConstImage(image))
             model2 = Model2(mesh, ((0, 0, 0), px_size))

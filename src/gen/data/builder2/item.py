@@ -49,7 +49,7 @@ class ItemBuilder(BuilderBase):
                 icon = s.get_image().modify(make_structure_icon, unit=TILE_SIZE, size=1)
             else:
                 icon = s.get_image().extract(extract_offset, TILE_SIZE, unit=1)
-                icon.set_unit(TILE_SIZE)
+                icon = icon.with_unit(TILE_SIZE)
 
             child.new(name or s.name).icon(icon)
 
