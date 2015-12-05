@@ -98,7 +98,11 @@ class CachedImage(object):
         return PaddedImage(self, size, offset)
 
     def get_bounds(self):
-        return self.compute(lambda i: i.getbbox())
+        b = self.compute(lambda i: i.getbbox())
+        if b is None:
+            return (0, 0, 0, 0)
+        else:
+            return b
 
 class BlankImage(CachedImage):
     def __init__(self, size):
@@ -191,18 +195,35 @@ class PaddedImage(CachedImage):
         return img
 
 
+WORKAROUND_0X0 = 'workaround-0x0-bug'
+
 def load_cache(f):
     global IMAGE_CACHE, COMPUTE_CACHE
     i, c = pickle.load(f)
+
+    for k,v in i.items():
+        if v == WORKAROUND_0X0:
+            i[k] = PIL.Image.new('RGBA', (0, 0))
+
     IMAGE_CACHE.update(i)
     COMPUTE_CACHE.update(c)
 
 def dump_cache(f):
     global NEW_IMAGE_CACHE, NEW_COMPUTE_CACHE
     for k, v in NEW_IMAGE_CACHE.items():
-        if type(v) is not PIL.Image.Image:
+        new_v = v
+        if type(new_v) is not PIL.Image.Image:
+            # It may be an _ImageCrop or similar.
             new_v = v.copy()
             new_v.load()
+
+        if new_v.size == (0, 0):
+            # Pickling a 0x0 image seems to cause a crash ("tile cannot extend
+            # outside image").  Store this dummy value instead.
+            new_v = WORKAROUND_0X0
+
+        if new_v is not v:
             NEW_IMAGE_CACHE[k] = new_v
+
     blob = (NEW_IMAGE_CACHE, NEW_COMPUTE_CACHE)
     pickle.dump(blob, f, -1)

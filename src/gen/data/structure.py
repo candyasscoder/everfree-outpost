@@ -51,8 +51,7 @@ Model2 = namedtuple('Model2', ('mesh', 'bounds'))
 
 class StructurePart(object):
     def __init__(self, model2, img):
-        mesh = model2.mesh
-        self.mesh = mesh
+        mesh = model2.mesh.copy()
 
         # Compute bounding box of the (projection of the) mesh
         v2_min, v2_max = mesh.get_bounds_2d(util.project)
@@ -66,6 +65,8 @@ class StructurePart(object):
         b2_max = (b_max[0], b_max[1] - b_min[2])
         b2_size = (b2_max[0] - b2_min[0], b2_max[1] - b2_min[1])
 
+        # Crop image to the mesh's bounding box
+
         # Special hack
         if img.px_size == (TILE_SIZE, TILE_SIZE) and \
                 b2_size == (TILE_SIZE, 2 * TILE_SIZE):
@@ -78,6 +79,15 @@ class StructurePart(object):
             r2_min = (v2_min[0] - b2_min[0], v2_min[1] - b2_min[1])
             img = img.extract(r2_min, size=v2_size, unit=1)
 
+        # Crop mesh & image to image's bounding box.  We do this after the
+        # previous step because cropping the image may remove some non-blank
+        # content, letting us crop the image more aggressively here.
+        img, i2_min = img.autocrop()
+        v2_min = geom.add(v2_min, i2_min)
+        v2_max = geom.add(v2_min, img.px_size)
+        geom.clip_xv(mesh, *(v2_min + v2_max))
+
+        self.mesh = mesh
         self.img = img
         self.base = v2_min
 

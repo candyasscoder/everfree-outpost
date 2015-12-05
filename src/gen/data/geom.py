@@ -54,6 +54,21 @@ Vertex = namedtuple('Vertex', ('pos', 'edges', 'tris'))
 Edge = namedtuple('Edge', ('verts', 'tris'))
 Triangle = namedtuple('Triangle', ('verts', 'edges'))
 
+def _copy_vert(v):
+    if v is None:
+        return None
+    return Vertex(v.pos, v.edges.copy(), v.tris.copy())
+
+def _copy_edge(e):
+    if e is None:
+        return None
+    return Edge(e.verts, e.tris.copy())
+
+def _copy_tri(t):
+    if t is None:
+        return None
+    return Triangle(t.verts, t.edges)
+
 class Mesh(object):
     def __init__(self):
         self.verts = []
@@ -70,18 +85,15 @@ class Mesh(object):
     def copy(self):
         other = Mesh()
 
-        other.verts = [Vertex(v.pos, v.edges.copy(), v.tris.copy())
-                for v in self.verts]
+        other.verts = [_copy_vert(v) for v in self.verts]
         other.vert_idx = self.vert_idx.copy()
         other.free_verts = self.free_verts.copy()
 
-        other.edges = [Edge(e.verts, e.tris.copy())
-                for e in self.edges]
+        other.edges = [_copy_edge(e) for e in self.edges]
         other.edge_idx = self.edge_idx.copy()
         other.free_edges = self.free_edges.copy()
 
-        other.tris = [Triangle(t.verts, t.edges)
-                for t in self.tris]
+        other.tris = [_copy_tri(t) for t in self.tris]
         other.free_tris = self.free_tris.copy()
 
         return other

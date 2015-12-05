@@ -201,7 +201,7 @@ class Anim(object):
     def pad(self, *args, **kwargs):
         return self._map_frames('pad', args, kwargs)
 
-    def autocrop(self):
+    def get_bounds(self):
         x0, y0, x1, y1 = self._frames[0].get_bounds()
         for f in self._frames[1:]:
             x0_, y0_, x1_, y1_ = f.get_bounds()
@@ -209,12 +209,9 @@ class Anim(object):
             y0 = min(y0, y0_)
             x1 = max(x1, x1_)
             y1 = max(y1, y1_)
+        return (x0, y0, x1, y1)
 
-        offset = (x0, y0)
-        size = (x1 - x0, y1 - y0)
-        img = Anim([f.extract(offset, size=size, unit=1) for f in self._frames],
-                self.rate, self.oneshot)
-        return (img, offset)
+    autocrop = Image.autocrop
 
     def reversed(self):
         return Anim(list(reversed(self._frames)), self.rate, self.oneshot)
