@@ -48,11 +48,10 @@ crystal-ward.png:
     author: Stuart Pernsteiner
     derived-from: daneeklu-farming-tilesets, gervais-roguelike-tiles
 
-house.png: &house
+interior-wall.png: &interior-wall
     author: Stuart Pernsteiner
     derived-from: lpc-base-tiles
-house.xcf: *house
-house-planemap.png: *house
+brick-wall.png: *interior-wall
 
 tree.png: &tree
     author: Anonymous, Stuart Pernsteiner

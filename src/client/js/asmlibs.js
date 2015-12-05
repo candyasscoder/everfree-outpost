@@ -432,22 +432,16 @@ AsmGraphics.prototype.structureBufferInit = function() {
             this.structure_storage_bytes);
 };
 
-AsmGraphics.prototype.structureBufferInsert = function(id, x, y, z, template_id) {
+AsmGraphics.prototype.structureBufferInsert = function(id, x, y, z, template_id, oneshot_start) {
     return this._raw['structure_buffer_insert'](
             this.STRUCTURE_BUFFER,
-            id, x, y, z, template_id);
+            id, x, y, z, template_id, oneshot_start);
 };
 
 AsmGraphics.prototype.structureBufferRemove = function(idx) {
     return this._raw['structure_buffer_remove'](
             this.STRUCTURE_BUFFER,
             idx);
-};
-
-AsmGraphics.prototype.structureBufferSetOneshotStart = function(idx, oneshot_start) {
-    this._raw['structure_buffer_set_oneshot_start'](
-            this.STRUCTURE_BUFFER,
-            idx, oneshot_start);
 };
 
 

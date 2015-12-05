@@ -86,6 +86,14 @@ def wall_items_recipes(wall, desc, material):
 def init():
     structures = loader('structures', unit=TILE_SIZE)
 
+    wall = do_wall_parts('interior_wall', structures('interior-wall.png'),
+            door_image=structures('door.png'))
+    wall_items_recipes(wall, 'Interior', 'wood')
+
+    wall = do_wall_parts('brick_wall', structures('brick-wall.png'),
+            door_image=structures('door.png'))
+    wall_items_recipes(wall, 'Brick', 'stone')
+
     wall = do_wall_parts('wood_wall', structures('wood_wall.png'),
             door_image=structures('door-rough.png'),
             extra_parts=('window/v0',))

@@ -253,10 +253,12 @@ pub extern fn structure_buffer_insert(buf: &mut structures::Buffer,
                                       pos_x: u8,
                                       pos_y: u8,
                                       pos_z: u8,
-                                      template_id: u32) -> usize {
+                                      template_id: u32,
+                                      oneshot_start: u16) -> usize {
     if let Some(idx) = buf.insert(external_id,
                                   (pos_x, pos_y, pos_z),
                                   template_id) {
+        buf[idx].oneshot_start = oneshot_start;
         idx
     } else {
         (-1_isize) as usize
@@ -267,13 +269,6 @@ pub extern fn structure_buffer_insert(buf: &mut structures::Buffer,
 pub extern fn structure_buffer_remove(buf: &mut structures::Buffer,
                                       idx: usize) -> u32 {
     buf.remove(idx)
-}
-
-#[export_name = "structure_buffer_set_oneshot_start"]
-pub extern fn structure_buffer_set_oneshot_start(buf: &mut structures::Buffer,
-                                                 idx: usize,
-                                                 oneshot_start: u16) {
-    buf[idx].oneshot_start = oneshot_start;
 }
 
 

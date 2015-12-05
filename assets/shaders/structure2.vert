@@ -46,7 +46,7 @@ void main(void) {
 
     vec2 texPx = displayOffset + vec2(vertOffset.x, vertOffset.y - vertOffset.z);
 
-    if (animLength >= 2.0) {
+    if (animLength != 0.0) {
         float frame;
         if (animLength >= 0.0) {
             frame = mod(floor(now * animRate), animLength);

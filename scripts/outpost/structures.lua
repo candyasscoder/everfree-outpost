@@ -22,31 +22,25 @@ mallet_cycle('fence/', { 'tee/e', 'tee/s', 'tee/w', 'tee/n', 'cross' })
 mallet_cycle('fence/end/fancy/', { 'e', 'w' })
 
 
-autorotate.add_house_wall_item('house_wall/side', 'house_wall', 'edge')
-autorotate.add_house_wall_item('house_wall/corner', 'house_wall', 'corner')
-autorotate.add_house_wall_item('house_wall/tee', 'house_wall', 'tee')
-autorotate.add_house_wall_item('house_wall/cross', 'house_wall', 'cross')
-autorotate.add_house_wall_item('house_door', 'house_wall', 'door')
-door.make_door('house_door', 'house_wall/door/out', 'axe')
-door.make_door('house_door', 'house_wall/door/in', 'axe')
-
-mallet_cycle('house_wall/edge/', { 'horiz/in', 'horiz/out', 'vert' })
-mallet_cycle('house_wall/corner/', {
-    'nw/in', 'ne/in', 'se/out', 'sw/out',
-    'nw/out', 'ne/out', 'se/in', 'sw/in',
-})
-mallet_cycle('house_wall/tee/', {
-    'n/in', 'n/out',
-    'e/in', 'e/out',
-    's/in_in', 's/in_out', 's/out_out', 's/out_in',
-    'w/in', 'w/out',
-})
-mallet_cycle('house_wall/cross/', {
-    'in_in', 'in_out', 'out_out', 'out_in',
+autorotate.add_simple_wall_item('interior_wall', 'interior_wall', false)
+autorotate.add_simple_wall_item('interior_door', 'interior_wall', true)
+door.make_door('interior_door', 'interior_wall/door', 'axe')
+mallet_cycle('interior_wall/', {
+    'edge/horiz', 'edge/vert',
+    'corner/nw', 'corner/ne', 'corner/se', 'corner/sw', 
+    'tee/n', 'tee/e', 'tee/s', 'tee/w',
+    'cross',
 })
 
-mallet_cycle('house_wall/door/', { 'in/closed', 'out/closed' })
-
+autorotate.add_simple_wall_item('brick_wall', 'brick_wall', false)
+autorotate.add_simple_wall_item('brick_door', 'brick_wall', true)
+door.make_door('brick_door', 'brick_wall/door', 'pick')
+mallet_cycle('brick_wall/', {
+    'edge/horiz', 'edge/vert',
+    'corner/nw', 'corner/ne', 'corner/se', 'corner/sw', 
+    'tee/n', 'tee/e', 'tee/s', 'tee/w',
+    'cross',
+})
 
 autorotate.add_simple_wall_item('wood_wall', 'wood_wall', false)
 autorotate.add_simple_wall_item('wood_door', 'wood_wall', true)
@@ -79,7 +73,7 @@ mallet_cycle('ruined_wall/', {
 
 autorotate.add_simple_wall_item('cottage_wall', 'cottage_wall', false)
 autorotate.add_simple_wall_item('cottage_door', 'cottage_wall', true)
-door.make_door('cottage_door', 'cottage_wall/door', 'pick')
+door.make_door('cottage_door', 'cottage_wall/door', 'axe')
 mallet_cycle('cottage_wall/', {
     'edge/horiz',
     'variant/v0', 'variant/v1', 'variant/v2',

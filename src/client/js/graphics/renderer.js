@@ -287,12 +287,8 @@ Renderer.prototype.addStructure = function(now, id, x, y, z, template) {
     var ty = (y / TILE_SIZE) & (LOCAL_SIZE * CHUNK_SIZE - 1);
     var tz = (z / TILE_SIZE) & (LOCAL_SIZE * CHUNK_SIZE - 1);
 
-    var render_idx = this._asm.structureBufferInsert(id, tx, ty, tz, template.id);
-    if (template.anim_oneshot) {
-        // The template defines a one-shot animation.  Set the start time to
-        // now.
-        this._asm.structureBufferSetOneshotStart(render_idx, now % ONESHOT_MODULUS);
-    }
+    var render_idx = this._asm.structureBufferInsert(
+            id, tx, ty, tz, template.id, now % ONESHOT_MODULUS);
 
     this._invalidateStructure(tx, ty, tz, template);
     return render_idx;

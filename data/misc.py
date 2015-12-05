@@ -48,3 +48,7 @@ def init():
     pillar = mk_solid_structure('pillar/stone', image, (1, 1, 2), base=(1, 0))
     mk_structure_item(pillar, 'stone_pillar', 'Stone Pillar') \
             .recipe('anvil', {'stone': 5})
+
+    floor = mk_terrain_structures('wood_floor', structures('wood-floor.png'))
+    mk_structure_item(floor['wood_floor/center/v0'], 'house_floor', 'House Floor') \
+            .recipe('anvil', {'wood': 5})
