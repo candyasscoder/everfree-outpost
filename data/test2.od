@@ -62,3 +62,17 @@ display_name: "Barrel"
 from_item: barrel
 station: anvil
 input: 20 wood
+
+
+[item key]
+icon: "icons/key.png"
+display_name: "Key"
+
+[item key/master]
+icon: "icons/key.png"
+display_name: "Skeleton Key"
+
+[recipe key/master]
+from_item: key/master
+station: anvil
+input: 100 key

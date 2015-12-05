@@ -67,13 +67,13 @@ def do_wall_parts(basename, image, door_image=None, extra_parts=()):
 
     return s
 
-def wall_items_recipes(wall, basename, desc, material):
+def wall_items_recipes(wall, basename, desc, material, icon_offset=(0, 10)):
     wall_name = '%s Wall' % desc
     door_name = '%s Door' % desc
 
     item = ITEM.from_structure(wall['edge/horiz'],
             name='%s_wall' % basename,
-            extract_offset=(0, 10)) \
+            extract_offset=icon_offset) \
             .display_name(wall_name)
     recipe = RECIPE.from_item(item) \
             .input(material, 5) \
@@ -110,7 +110,7 @@ def init():
     wall = do_wall_parts('ruined_wall', structures('ruined-wall.png'),
             door_image=structures('door.png'),
             extra_parts=('window/v0', 'window/v1'))
-    wall_items_recipes(wall, 'ruined', 'Ruined', 'stone')
+    wall_items_recipes(wall, 'ruined', 'Ruined', 'stone', icon_offset=(0, 40))
 
     wall = do_wall_parts('cottage_wall', structures('cottage-wall.png'),
             door_image=structures('door.png'),
