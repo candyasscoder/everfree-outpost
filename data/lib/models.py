@@ -1,6 +1,7 @@
 import functools
 
 from outpost_data.core.consts import *
+from outpost_data.core.geom import Mesh
 from outpost_data.core.structure import Model, Model2
 
 
@@ -55,15 +56,12 @@ front = model_builder(verts_front)
 bottom = model_builder(verts_bottom)
 solid = model_builder(verts_solid)
 
+def mk_mesh(verts):
+    m = Mesh()
+    for i in range(0, len(verts), 3):
+        m.add_tri(*verts[i : i + 3])
+    return m
 
-TREE = Model(
-        quad_z(0, 0, 128, 0, 64) +
-        quad((32, 32,   0), (64, 64,   0),
-             (64, 64, 128), (32, 32, 128)) +
-        quad((64, 64,   0), (96, 32,   0),
-             (96, 32, 128), (64, 64, 128)) +
-        quad((32, 32, 128), (64, 64, 128),
-             (96, 32, 128), (64,  0, 128)))
 
 STUMP = Model(
         quad_z(0, 0, 128, 0, 64) +
@@ -138,5 +136,22 @@ def _mk_wall_models2(wall_models):
         m[k] = Model2(v.to_mesh(), bounds)
     return m
 
+def _mk_tree_models():
+    shadow_mesh = mk_mesh(quad_z(0,  0, 96,  32, 64))
+    trunk_mesh = mk_mesh(quad_y(64,  32, 64,  0, 96))
+    stump_mesh = mk_mesh(quad_y(64,  32, 64,  0, 32))
+    top_mesh = mk_mesh(quad_y(96,  0, 96,  64, 96) +
+                       quad_z(96,  0, 96,  32, 96))
+
+    base_bounds = ((0, 32, 0), (96, 64, 64))
+
+    m = {}
+    m['shadow'] = Model2(shadow_mesh, base_bounds)
+    m['trunk'] = Model2(trunk_mesh, base_bounds)
+    m['stump'] = Model2(stump_mesh, stump_mesh.get_bounds())
+    m['top'] = Model2(top_mesh, top_mesh.get_bounds())
+    return m
+
 WALL = _mk_wall_models()
 WALL2 = _mk_wall_models2(WALL)
+TREE = _mk_tree_models()

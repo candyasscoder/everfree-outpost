@@ -59,6 +59,11 @@ tree.png: &tree
 tree.xcf: *tree
 tree-planemap.png: *tree
 
+tree-trunk.png: *lpc-base
+tree-top-round.png: *lpc-base
+tree-shadow-round.png: *lpc-base
+tree-stump.png: *nilsson-lpc
+
 statue.png:
     title: Pony Statue
     author: Fernando Ariel dos Santos Alves
