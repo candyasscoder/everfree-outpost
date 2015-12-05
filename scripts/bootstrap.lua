@@ -70,11 +70,12 @@ end
 
 
 -- 'tree' behavior
-function action.use.tree(c, s)
+action.use['tree/v0'] = function(c, s)
     c:pawn():inventory('main'):update('wood', 2)
 end
+action.use['tree/v1'] = action.use['tree/v0']
 
-function tools.handler.axe.tree(c, s, inv)
+tools.handler.axe['tree/v0'] = function(c, s, inv)
     if not ward.check(c, s:pos()) then
         return
     end
@@ -82,6 +83,7 @@ function tools.handler.axe.tree(c, s, inv)
     s:replace('stump')
     inv:update('wood', 15)
 end
+tools.handler.axe['tree/v1'] = tools.handler.axe['tree/v0']
 
 function tools.handler.axe.stump(c, s, inv)
     if not ward.check(c, s:pos()) then
