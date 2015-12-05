@@ -67,17 +67,17 @@ def do_wall_parts(basename, image, door_image=None, extra_parts=()):
 
     return s
 
-def wall_items_recipes(wall, desc, material):
+def wall_items_recipes(wall, basename, desc, material):
     wall_name = '%s Wall' % desc
     door_name = '%s Door' % desc
 
-    item = ITEM.from_structure(wall['edge/horiz']) \
+    item = ITEM.from_structure(wall['edge/horiz'], '%s_wall' % basename) \
             .display_name(wall_name)
     recipe = RECIPE.from_item(item) \
             .input(material, 5) \
             .station('anvil')
 
-    item = ITEM.from_structure(wall['door/closed']) \
+    item = ITEM.from_structure(wall['door/closed'], '%s_door' % basename) \
             .display_name(door_name)
     recipe = RECIPE.from_item(item) \
             .input(material, 15) \
@@ -88,29 +88,29 @@ def init():
 
     wall = do_wall_parts('interior_wall', structures('interior-wall.png'),
             door_image=structures('door.png'))
-    wall_items_recipes(wall, 'Interior', 'wood')
+    wall_items_recipes(wall, 'interior', 'Interior', 'wood')
 
     wall = do_wall_parts('brick_wall', structures('brick-wall.png'),
             door_image=structures('door.png'))
-    wall_items_recipes(wall, 'Brick', 'stone')
+    wall_items_recipes(wall, 'brick', 'Brick', 'stone')
 
     wall = do_wall_parts('wood_wall', structures('wood_wall.png'),
             door_image=structures('door-rough.png'),
             extra_parts=('window/v0',))
-    wall_items_recipes(wall, 'Wooden', 'wood')
+    wall_items_recipes(wall, 'wood', 'Wooden', 'wood')
 
     wall = do_wall_parts('stone_wall', structures('stone-wall.png'),
             door_image=structures('door.png'),
             extra_parts=('window/v0', 'window/v1'))
-    wall_items_recipes(wall, 'Stone', 'stone')
+    wall_items_recipes(wall, 'stone', 'Stone', 'stone')
 
     wall = do_wall_parts('ruined_wall', structures('ruined-wall.png'),
             door_image=structures('door.png'),
             extra_parts=('window/v0', 'window/v1'))
-    wall_items_recipes(wall, 'Ruined', 'stone')
+    wall_items_recipes(wall, 'ruined', 'Ruined', 'stone')
 
     wall = do_wall_parts('cottage_wall', structures('cottage-wall.png'),
             door_image=structures('door.png'),
             extra_parts=['window/v%d' % i for i in range(2)] +
                 ['variant/v%d' % i for i in range(3)])
-    wall_items_recipes(wall, 'Cottage', 'wood')
+    wall_items_recipes(wall, 'cottage', 'Cottage', 'wood')
