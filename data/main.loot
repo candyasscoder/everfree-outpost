@@ -27,8 +27,12 @@
 
 
 [choose_structure forest/floor]
-(2) tree
+(2) *tree
 (1) rock
+
+[choose_structure tree]
+(1) tree/v0
+(1) tree/v1
 
 [choose_structure forest/hill]
 (2) rock

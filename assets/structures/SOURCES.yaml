@@ -62,6 +62,8 @@ tree-planemap.png: *tree
 tree-trunk.png: *lpc-base
 tree-top-round.png: *lpc-base
 tree-shadow-round.png: *lpc-base
+tree-top-cone.png: *lpc-base
+tree-shadow-cone.png: *lpc-base
 tree-stump.png: *nilsson-lpc
 
 statue.png:

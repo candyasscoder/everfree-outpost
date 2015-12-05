@@ -141,7 +141,7 @@ def _mk_tree_models():
     trunk_mesh = mk_mesh(quad_y(64,  32, 64,  0, 96))
     stump_mesh = mk_mesh(quad_y(64,  32, 64,  0, 32))
     top_mesh = mk_mesh(quad_y(96,  0, 96,  64, 96) +
-                       quad_z(96,  0, 96,  32, 96))
+                       quad_z(96,  0, 96,  0, 96))
 
     base_bounds = ((0, 32, 0), (96, 64, 64))
 
