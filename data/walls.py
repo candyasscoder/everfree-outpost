@@ -51,10 +51,10 @@ def do_wall_parts(basename, image, door_image=None, extra_parts=()):
         doorway_img = image.extract((len(parts), 0), size=(3, 3))
         door_anim = door_image.sheet_to_anim((3, 3), door_image.size[0] // 3 * 4, oneshot=True)
 
-        s.new('door/open').shape(CLOSED_DOOR_SHAPE) \
+        s.new('door/open').shape(OPEN_DOOR_SHAPE) \
                 .part(models.WALL2['door'], door_anim.get_frame(-1)) \
                 .part(models.WALL2['door'], doorway_img)
-        s.new('door/closed').shape(OPEN_DOOR_SHAPE) \
+        s.new('door/closed').shape(CLOSED_DOOR_SHAPE) \
                 .part(models.WALL2['door'], door_anim.get_frame(0)) \
                 .part(models.WALL2['door'], doorway_img)
 
