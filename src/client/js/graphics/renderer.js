@@ -287,8 +287,12 @@ Renderer.prototype.addStructure = function(now, id, x, y, z, template) {
     var ty = (y / TILE_SIZE) & (LOCAL_SIZE * CHUNK_SIZE - 1);
     var tz = (z / TILE_SIZE) & (LOCAL_SIZE * CHUNK_SIZE - 1);
 
+    var oneshot_start = now % ONESHOT_MODULUS;
+    if (oneshot_start < 0) {
+        oneshot_start += ONESHOT_MODULUS;
+    }
     var render_idx = this._asm.structureBufferInsert(
-            id, tx, ty, tz, template.id, now % ONESHOT_MODULUS);
+            id, tx, ty, tz, template.id, oneshot_start);
 
     this._invalidateStructure(tx, ty, tz, template);
     return render_idx;
@@ -325,7 +329,12 @@ Renderer.prototype.render = function(s, draw_extra) {
     var size = s.camera_size;
     var slice_radius = [s.slice_frac * Math.max(size[0], size[1]) / 2.0];
     var slice_z = [s.slice_z];
-    var anim_now = [s.now / 1000 % ANIM_MODULUS];
+
+    var anim_now_val = s.now / 1000 % ANIM_MODULUS;
+    if (anim_now_val < 0) {
+        anim_now_val += ANIM_MODULUS;
+    }
+    var anim_now = [anim_now_val];
 
     this.terrain.setUniformValue('cameraPos', pos);
     this.terrain.setUniformValue('cameraSize', size);
