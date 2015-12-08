@@ -27,19 +27,6 @@ Dependencies:
 
 The script `util/build_libs.sh` may be useful for compiling the Rust libraries.
 
-Required environment variables:
-
- - `EM_FASTCOMP`: path to emscripten-fastcomp build directory (containing `bin/`)
- - `EM_PLUGINS`: path to directory containing rust-emscripten-passes binaries
- - `RUST_SRC`: path to a rust-lang/rust checkout (for building an asm.js
-   version of libcore)
-
-Optional environment variables:
-
- - `RUST_EXTRA_LIBDIR`: extra directory to search for Rust libraries
- - `RUSTC`, `PYTHON3`, `CLOSURE_COMPILER`, `YUI_COMPRESSOR`: override paths for
-   various programs used during the build
-
 Additional dependencies for the deployment scripts:
 
  - ansible
