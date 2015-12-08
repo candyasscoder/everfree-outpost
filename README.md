@@ -21,6 +21,11 @@ Dependencies:
  - python3-pillow
  - python3-yaml
  - liblua5.1
+ - ninja
+ - closure-compiler
+ - yui-compressor
+
+The script `util/build_libs.sh` may be useful for compiling the Rust libraries.
 
 Required environment variables:
 
