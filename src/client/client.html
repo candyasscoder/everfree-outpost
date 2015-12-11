@@ -270,9 +270,9 @@ button:active,
 }
 
 
-input[type=text] { all: unset; }
+input[type=text], input[type=password] { all: unset; }
 
-input[type=text],
+input[type=text], input[type=password],
 .g-input {
     min-width: 22px;
     min-height: 2px;
@@ -1129,12 +1129,12 @@ input[type=text],
 
                 .pony-label {
                     /* Make it match the other option labels. */
-                    width: 4rem;
+                    width: 5rem;
                     padding: 0.125rem;
                     text-align: left;
                     flex-shrink: 0;
                 }
-                .pony-name {
+                .pony-name, .pony-password {
                     border: none;
                     font-size: 1rem;
                     background-color: transparent;
@@ -1196,6 +1196,10 @@ input[type=text],
                 <div class="pony-row" data-part="name-row">
                     <div class="pony-label">Name: </div>
                     <input type="text" class="pony-name" size="16" data-part="name-field">
+                </div>
+                <div class="pony-row" data-part="password-row">
+                    <div class="pony-label">Password: </div>
+                    <input type="password" class="pony-password" size="16" data-part="password-field" placeholder="(Optional)">
                 </div>
                 <div class="pony-editor-middle">
                     <div data-part="options"></div>

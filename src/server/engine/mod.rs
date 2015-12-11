@@ -333,9 +333,22 @@ impl<'d> Engine<'d> {
                 }
             },
             Ok(false) => {
-                info!("{:?}: registration as {} failed: name is in use",
-                      wire_id, name);
-                (1, String::from("That name is already in use."))
+                match self.auth.login(&*name, &secret) {
+                    Ok(true) => {
+                        //warn_on_err!(logic::client::login(self.as_ref(), wire_id, &*name));
+                        (0, String::new())
+                    },
+                    Ok(false) => {
+                        info!("{:?}: registration as {} failed: name is in use",
+                              wire_id, name);
+                        (1, String::from("That name is already in use."))
+                    },
+                    Err(e) => {
+                        info!("{:?}: registration/login as {} failed: auth error: {}",
+                              wire_id, name, e.description());
+                        (2, String::from("An internal error occurred."))
+                    },
+                }
             },
             Err(e) => {
                 info!("{:?}: registration as {} failed: database error: {}",

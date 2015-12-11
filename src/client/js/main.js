@@ -71,6 +71,7 @@ var rle16Decode = require('util/misc').rle16Decode;
 var buildArray = require('util/misc').buildArray;
 var checkBrowser = require('util/browser').checkBrowser;
 var util = require('util/misc');
+var murmurHash3 = require('util/murmurHash3').murmurHash3;
 
 
 var anim_dirs = [
@@ -364,13 +365,14 @@ function maybeRegister(info, next) {
 
     var last_name = null;
 
-    function send_register(name, app_info) {
+    function send_register(name, app_info, pw) {
         editor.onfinish = null;
         editor.setMessage("Registering...");
         last_name = name;
 
         var appearance = calcAppearance(app_info);
         saveAppearance(app_info);
+        secret = pw ? makeSecretFromPassword(pw) : secret;
         conn.onRegisterResult = handle_result;
         conn.sendRegister(name,
                           secret,
@@ -491,6 +493,11 @@ function makeSecret() {
         }
     }
     return secret_buf;
+}
+
+function makeSecretFromPassword(pw) {
+    var hash = murmurHash3.x86.hash128(pw);
+    return hash.match(/.{1,8}/g).map(function(x) { return parseInt(x, 16); });
 }
 
 function calcAppearance(a) {

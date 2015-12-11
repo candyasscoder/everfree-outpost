@@ -46,6 +46,9 @@ function PonyEditor(name, draw) {
     this.name = new widget.TextField(parts['name-field']);
     var nameRow = new widget.Container(parts['name-row'], this.name);
 
+    this.password = new widget.TextField(parts['password-field']);
+    var passwordRow = new widget.Container(parts['password-row'], this.password);
+
     function rowWidget(parts) {
         var items = new Array(parts.items.length);
         for (var i = 0; i < parts.items.length; ++i) {
@@ -70,7 +73,7 @@ function PonyEditor(name, draw) {
     done.onclick = function() { this_.submit(); };
 
     var list = new widget.SimpleList(parts['top'],
-            [nameRow, this.sex, this.tribe,
+            [nameRow, passwordRow, this.sex, this.tribe,
              this.mane, this.tail,
              this.red, this.green, this.blue,
              done]);
@@ -94,12 +97,21 @@ function PonyEditor(name, draw) {
 
     // Initial setup
 
+    var moveCursorToEndGenerator = function(domElem) {
+        return function() {
+            var len = domElem.value.length;
+            domElem.setSelectionRange(len, len);
+        }
+    }
+
     this.name.dom.value = name;
     var name_dom = this.name.dom;
-    this.name.onfocus = util.chain(this.name.onfocus, function() {
-        var len = name_dom.value.length;
-        name_dom.setSelectionRange(len, len);
-    });
+    this.name.onfocus = util.chain(this.name.onfocus,
+                                   moveCursorToEndGenerator(name_dom));
+
+    var password_dom = this.password.dom;
+    this.password.onfocus = util.chain(this.name.onfocus,
+                                       moveCursorToEndGenerator(password_dom))
 
     // Disable drawing during initialization.
     this.draw = function() { };
@@ -176,7 +188,8 @@ PonyEditor.prototype.submit = function() {
     console.log('submit');
     if (this.onsubmit != null) {
         var name = this.name.dom.value;
-        this.onsubmit(name, this._getAppearanceInfo());
+        var password = this.password.dom.value;
+        this.onsubmit(name, this._getAppearanceInfo(), password);
     }
 };
 
