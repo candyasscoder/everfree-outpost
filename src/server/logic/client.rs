@@ -12,6 +12,7 @@ use script;
 use world;
 use world::object::*;
 use world::save::{self, ObjectReader, ObjectWriter};
+use world::fragment::Fragment;
 use vision::{self, vision_region};
 
 
@@ -183,4 +184,38 @@ pub fn update_view(mut eng: EngineRef, cid: ClientId) {
         use world::fragment::Fragment;
         eng.as_world_fragment().with_hooks(|h| h.schedule_view_update(pawn_id));
     }
+}
+
+//only updates mane style, eye style, tail style, and colors
+pub fn update_look(mut eng: EngineRef, name: &str, appearance: u32) -> save::Result<()> {
+    let cid =
+        if let Some(file) = eng.storage().open_client_file(name) {
+            let mut sr = ObjectReader::new(file);
+            try!(sr.load_client(&mut eng.as_save_read_fragment(), name.to_owned()))
+        } else {
+            fail!("client file not found");
+        };
+    {
+
+        let mut wf = eng.as_world_fragment();
+        if let Some(mut c) = wf.get_client_mut(cid) {
+            if let Some(mut e) = c.pawn_mut() {
+                let old_appearance = e.appearance();
+                let new_appearance = (old_appearance&(0xFFFC03C0u32))|(appearance&(0x3FC3Fu32));
+                e.set_appearance(new_appearance);
+            }
+        }
+    }
+    {
+        let (h, eng) = eng.borrow().0.split_off();
+        let h = SaveWriteHooks(h);
+        let c = eng.world().client(cid);
+        let file = eng.storage().create_client_file(c.name());
+        let mut sw = ObjectWriter::new(file, h);
+        try!(sw.save_client(&c));
+    }
+
+    try!(world::Fragment::destroy_client(&mut eng.as_hidden_world_fragment(), cid));
+
+    Ok(())
 }

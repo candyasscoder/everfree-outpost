@@ -335,8 +335,14 @@ impl<'d> Engine<'d> {
             Ok(false) => {
                 match self.auth.login(&*name, &secret) {
                     Ok(true) => {
-                        //warn_on_err!(logic::client::login(self.as_ref(), wire_id, &*name));
-                        (0, String::new())
+                        match logic::client::update_look(self.as_ref(), &*name, appearance) {
+                            Ok(()) => (0, String::new()),
+                            Err(e) => {
+                                warn!("{:?}: error updating appearance as {}: {}",
+                                      wire_id, name, e.description());
+                                (2, String::from("An internal error occurred."))
+                            }
+                        }
                     },
                     Ok(false) => {
                         info!("{:?}: registration as {} failed: name is in use",
